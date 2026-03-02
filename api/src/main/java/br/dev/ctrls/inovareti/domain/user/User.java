@@ -1,6 +1,12 @@
 package br.dev.ctrls.inovareti.domain.user;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,6 +32,7 @@ import lombok.Setter;
  * Usuário do sistema Inovare TI.
  * Cada usuário pertence a um setor e possui um papel (role) que
  * determina suas permissões de acesso.
+ * Implementa {@link UserDetails} para integração com o Spring Security.
  */
 @Entity
 @Table(name = "users")
@@ -34,7 +41,7 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -79,4 +86,25 @@ public class User {
     /** Segredo TOTP para autenticação 2FA. Armazenado criptografado. */
     @Column(name = "totp_secret", length = 255)
     private String totpSecret;
+
+    // -------------------------------------------------------------------------
+    // UserDetails contract
+    // -------------------------------------------------------------------------
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
+    }
+
+    /** Retorna o hash BCrypt armazenado — usado pelo Spring Security. */
+    @Override
+    public String getPassword() {
+        return this.passwordHash;
+    }
+
+    /** O e-mail é o identificador único utilizado na autenticação. */
+    @Override
+    public String getUsername() {
+        return this.email;
+    }
 }

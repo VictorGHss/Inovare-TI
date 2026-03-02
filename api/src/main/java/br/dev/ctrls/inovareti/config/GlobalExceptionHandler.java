@@ -71,7 +71,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(422));
         problem.setTitle("Regra de negócio violada");
         problem.setDetail(ex.getMessage());
         return problem;

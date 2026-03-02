@@ -3,7 +3,7 @@
 > **Base URL:** `http://localhost:8080`  
 > **Formato:** JSON (`Content-Type: application/json`)  
 > **Erros:** Padrão RFC 7807 (Problem Details)  
-> **Autenticação:** Não implementada nesta fase.
+> **Autenticação:** JWT Bearer Token — envie `Authorization: Bearer <token>` em todas as rotas protegidas.
 
 ---
 
@@ -32,6 +32,59 @@ Erros de validação (400) incluem um campo extra `errors` com os campos inváli
   }
 }
 ```
+
+---
+
+## Autenticação
+
+Todas as rotas da API, **exceto** `POST /api/auth/login`, exigem autenticação via JWT.
+
+### Como enviar o token
+
+Após obter o token no endpoint de login, inclua-o no cabeçalho `Authorization` de todas as requisições:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+> O token expira em **8 horas**. Após a expiração realize um novo login.
+
+---
+
+## Módulo: Autenticação (`/api/auth`)
+
+### `POST /api/auth/login`
+
+Autentica um usuário e retorna um token JWT.
+
+**Request Body:**
+
+```json
+{
+  "email": "joao.silva@inovareti.dev",
+  "password": "senhaSegura123"
+}
+```
+
+| Campo      | Tipo   | Obrigatório | Restrições                 |
+|------------|--------|-------------|----------------------------|
+| `email`    | string | Sim         | Formato e-mail válido      |
+| `password` | string | Sim         | Texto puro (nunca gravado) |
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2FvLnNpbHZhQGlub3ZhcmV0aS5kZXYiLCJpc3MiOiJpbm92YXJlLXRpIiwiZXhwIjoxNzQwOTYyMDAwfQ.assinatura"
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação                                         |
+|--------|--------------------------------------------------|
+| `400`  | Campos ausentes ou e-mail inválido               |
+| `403`  | Credenciais incorretas (e-mail ou senha errados) |
 
 ---
 
@@ -543,6 +596,7 @@ Não requer body.
 
 | Versão | Data       | Descrição                                                              |
 |--------|------------|------------------------------------------------------------------------|
+| 0.5.0  | 2026-03-02 | Fase 5 — Segurança JWT: login, SecurityFilter, rotas bloqueadas         |
 | 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1           |
 | 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional           |
 | 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)  |

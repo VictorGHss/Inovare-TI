@@ -31,7 +31,11 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50">
       {/* Barra de navegação superior */}
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <span className="font-bold text-primary text-lg">Inovare TI</span>
+        <img
+          src="http://inovare.med.br/wp-content/uploads/2023/01/Logo.png"
+          alt="Inovare TI"
+          className="h-10 object-contain"
+        />
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-500 hidden sm:block">
             {user?.name ?? 'Usuário'}

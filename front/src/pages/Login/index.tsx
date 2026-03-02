@@ -5,6 +5,8 @@ import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoginField from './LoginField';
 
+const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
+
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -30,22 +32,21 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Cabeçalho */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Inovare TI
-          </h1>
-          <p className="text-gray-400 mt-2 text-sm">
-            Entre com suas credenciais para continuar
-          </p>
+        {/* Logo da clínica */}
+        <div className="flex justify-center mb-8">
+          <img
+            src={LOGO_URL}
+            alt="Inovare TI"
+            className="h-16 object-contain"
+          />
         </div>
 
         {/* Card de login */}
         <form
           onSubmit={handleSubmit}
-          className="bg-gray-900 rounded-2xl shadow-xl p-8 flex flex-col gap-5"
+          className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-5"
         >
           <LoginField
             id="email"
@@ -54,7 +55,7 @@ export default function Login() {
             placeholder="seu@email.com"
             value={email}
             onChange={setEmail}
-            icon={<Mail size={16} className="text-gray-400" />}
+            icon={<Mail size={16} className="text-slate-400" />}
           />
 
           <LoginField
@@ -64,18 +65,18 @@ export default function Login() {
             placeholder="••••••••"
             value={password}
             onChange={setPassword}
-            icon={<Lock size={16} className="text-gray-400" />}
+            icon={<Lock size={16} className="text-slate-400" />}
           />
 
           {/* Mensagem de erro */}
           {error && (
-            <p className="text-red-400 text-sm text-center -mt-1">{error}</p>
+            <p className="text-red-500 text-sm text-center -mt-1">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
+            className="mt-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
           >
             {loading ? (
               <Loader2 size={18} className="animate-spin" />

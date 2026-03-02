@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import NewTicket from './pages/NewTicket';
 
 // Rota protegida: redireciona para /login se não autenticado
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/tickets/new"
+        element={
+          <PrivateRoute>
+            <NewTicket />
           </PrivateRoute>
         }
       />

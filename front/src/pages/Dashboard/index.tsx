@@ -52,7 +52,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-slate-800">Meus Chamados</h1>
           <button
-            onClick={() => toast.info('Funcionalidade em breve!')}
+            onClick={() => navigate('/tickets/new')}
             className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <PlusCircle size={17} />

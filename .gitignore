@@ -1,0 +1,51 @@
+# ========================
+# Secrets e Configurações Locais
+# ========================
+.env
+
+# ========================
+# Java / Maven
+# ========================
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# ========================
+# IDE — IntelliJ IDEA
+# ========================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ========================
+# IDE — VS Code
+# ========================
+.vscode/
+
+# ========================
+# Sistema Operacional
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# Spring Boot
+# ========================
+application-local.properties
+application-local.yml

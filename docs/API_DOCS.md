@@ -356,6 +356,33 @@ Cria um novo item de inventário. O estoque inicial é sempre **zero**; use o en
 
 ---
 
+### `GET /api/items`
+
+Retorna todos os itens de inventário cadastrados. A categoria é carregada via JOIN FETCH para evitar N+1.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "aa1b2c3d-e4f5-6789-abcd-ef0123456789",
+    "itemCategoryId": "e5f6a7b8-c9d0-1234-efab-cd5678901234",
+    "itemCategoryName": "Toner",
+    "name": "Toner Brother HL-L2360DW",
+    "currentStock": 50,
+    "specifications": {
+      "marca": "Brother",
+      "modelo": "TN-2370",
+      "voltagem": "110V"
+    }
+  }
+]
+```
+
+> Retorna lista vazia `[]` caso não haja itens cadastrados.
+
+---
+
 ### `POST /api/items/{id}/batches`
 
 Registra um lote de entrada de estoque para o item especificado no path.
@@ -516,6 +543,7 @@ Não requer body.
 
 | Versão | Data       | Descrição                                                              |
 |--------|------------|------------------------------------------------------------------------|
+| 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1           |
 | 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional           |
 | 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)  |
 | 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)  |

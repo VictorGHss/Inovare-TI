@@ -1,9 +1,11 @@
 package br.dev.ctrls.inovareti.domain.inventory;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.inventory.dto.ItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.CreateItemUseCase;
+import br.dev.ctrls.inovareti.domain.inventory.usecase.ListAllItemsUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.RegisterStockBatchUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +32,17 @@ import lombok.RequiredArgsConstructor;
 public class ItemController {
 
     private final CreateItemUseCase createItemUseCase;
+    private final ListAllItemsUseCase listAllItemsUseCase;
     private final RegisterStockBatchUseCase registerStockBatchUseCase;
+
+    /**
+     * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
+     * Retorna 200 OK com a lista (vazia se não houver itens).
+     */
+    @GetMapping
+    public ResponseEntity<List<ItemResponseDTO>> listAll() {
+        return ResponseEntity.ok(listAllItemsUseCase.execute());
+    }
 
     /**
      * Cria um novo item de inventário com estoque inicial zero.

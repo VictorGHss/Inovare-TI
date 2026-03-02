@@ -24,7 +24,9 @@ export interface CreateTicketDto {
   description: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   categoryId: number;
+  ticketType: 'INCIDENT' | 'REQUEST';
   itemId?: number;
+  quantity?: number;
 }
 
 const api = axios.create({

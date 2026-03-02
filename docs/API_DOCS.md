@@ -408,10 +408,115 @@ Operação atômica: cria o lote **e** atualiza o `currentStock` do item na mesm
 
 ---
 
+## Módulo: Chamados / Helpdesk (`/api/tickets`)
+
+### `POST /api/tickets`
+
+Abre um novo chamado. O `status` inicial é `OPEN` e o `slaDeadline` é calculado automaticamente
+somando `baseSlaHours` da categoria ao momento da criação.
+
+**Request Body:**
+
+```json
+{
+  "title": "Impressora não responde na sala 202",
+  "description": "A impressora HP LaserJet trava ao imprimir PDF.",
+  "anydeskCode": "123 456 789",
+  "priority": "HIGH",
+  "requesterId": "f1e2d3c4-b5a6-7890-fedc-ba0987654321",
+  "assignedToId": null,
+  "categoryId": "c3d4e5f6-a7b8-9012-cdef-ab3456789012",
+  "requestedItemId": null,
+  "requestedQuantity": null
+}
+```
+
+| Campo               | Tipo   | Obrigatório | Restrições                                              |
+|---------------------|--------|-------------|---------------------------------------------------------|
+| `title`             | string | Sim         | Máximo 200 chars                                        |
+| `description`       | string | Não         | Texto livre                                             |
+| `anydeskCode`       | string | Não         | Máximo 50 chars                                         |
+| `priority`          | string | Sim         | `LOW`, `NORMAL`, `HIGH`, `URGENT`                       |
+| `requesterId`       | UUID   | Sim         | Deve referenciar um usuário existente                   |
+| `assignedToId`      | UUID   | Não         | Técnico responsável (pode ser atribuído depois)         |
+| `categoryId`        | UUID   | Sim         | Deve referenciar uma categoria existente                |
+| `requestedItemId`   | UUID   | Não         | Item de inventário solicitado                           |
+| `requestedQuantity` | int    | Não         | Obrigatório se `requestedItemId` for informado; > 0     |
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+  "title": "Impressora não responde na sala 202",
+  "description": "A impressora HP LaserJet trava ao imprimir PDF.",
+  "anydeskCode": "123 456 789",
+  "status": "OPEN",
+  "priority": "HIGH",
+  "requesterId": "f1e2d3c4-b5a6-7890-fedc-ba0987654321",
+  "requesterName": "João Silva",
+  "assignedToId": null,
+  "assignedToName": null,
+  "categoryId": "c3d4e5f6-a7b8-9012-cdef-ab3456789012",
+  "categoryName": "Suporte Hardware",
+  "requestedItemId": null,
+  "requestedItemName": null,
+  "requestedQuantity": null,
+  "slaDeadline": "2026-03-02T22:30:00",
+  "createdAt": "2026-03-02T14:30:00",
+  "closedAt": null
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação                                                         |
+|--------|------------------------------------------------------------------|
+| `400`  | Campos obrigatórios ausentes ou inválidos                        |
+| `404`  | `requesterId`, `assignedToId`, `categoryId` ou `requestedItemId` não existem |
+
+---
+
+### `PATCH /api/tickets/{id}/close`
+
+Fecha um chamado. Se o chamado possuir `requestedItemId` e `requestedQuantity`, debita o
+estoque do item de forma atômica (mesma transação).
+
+**Path Parameter:**
+
+| Parâmetro | Tipo | Descrição         |
+|-----------|------|-------------------|
+| `id`      | UUID | ID do chamado     |
+
+Não requer body.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+  "status": "CLOSED",
+  "closedAt": "2026-03-02T16:45:00",
+  "...": "demais campos do chamado"
+}
+```
+
+> Após este endpoint, o `currentStock` do item referenciado é decrementado em `requestedQuantity`.
+
+**Respostas de Erro:**
+
+| Código | Situação                                                       |
+|--------|----------------------------------------------------------------|
+| `404`  | Chamado não encontrado                                         |
+| `422`  | Estoque insuficiente para atender a quantidade solicitada      |
+
+---
+
 ## Changelog
 
 | Versão | Data       | Descrição                                                              |
 |--------|------------|------------------------------------------------------------------------|
+| 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional           |
 | 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)  |
 | 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)  |
 | 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item             |

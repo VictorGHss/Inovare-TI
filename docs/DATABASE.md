@@ -125,15 +125,56 @@ Registra cada entrada de estoque de um item (lote de compra). O campo `remaining
 
 ---
 
-## Diagrama de Relacionamentos (Atualizado — Fase 3)
+---
+
+## Novas Tabelas (Fase 4)
+
+### Domínio: Chamados (`domain/ticket`)
+
+#### Tabela `tickets`
+
+Registra cada chamado aberto no sistema. Pode referenciar um item de inventário (baixa de estoque ao fechar).
+
+| Coluna                | Tipo           | Restrições                          | Descrição                                                          |
+|-----------------------|----------------|-------------------------------------|--------------------------------------------------------------------|
+| `id`                  | `uuid`         | PK, NOT NULL                        | Identificador único do chamado                                     |
+| `title`               | `varchar(200)` | NOT NULL                            | Título do chamado                                                  |
+| `description`         | `text`         | NULLABLE                            | Descrição detalhada do problema ou solicitação                     |
+| `anydesk_code`        | `varchar(50)`  | NULLABLE                            | Código AnyDesk para acesso remoto ao computador do solicitante     |
+| `status`              | `varchar(20)`  | NOT NULL                            | Status: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`                |
+| `priority`            | `varchar(10)`  | NOT NULL                            | Prioridade: `LOW`, `NORMAL`, `HIGH`, `URGENT`                      |
+| `requester_id`        | `uuid`         | NOT NULL, FK → users                | Usuário que abriu o chamado                                        |
+| `assigned_to_id`      | `uuid`         | NULLABLE, FK → users                | Técnico responsável pelo atendimento                               |
+| `category_id`         | `uuid`         | NOT NULL, FK → ticket_categories    | Categoria do chamado                                               |
+| `requested_item_id`   | `uuid`         | NULLABLE, FK → items                | Item de inventário solicitado (opcional)                           |
+| `requested_quantity`  | `integer`      | NULLABLE                            | Quantidade do item solicitado; obrigatório se `requested_item_id` for preenchido |
+| `sla_deadline`        | `timestamp`    | NOT NULL                            | Prazo de atendimento calculado com base no `base_sla_hours` da categoria |
+| `created_at`          | `timestamp`    | NOT NULL                            | Data/hora de abertura do chamado                                   |
+| `closed_at`           | `timestamp`    | NULLABLE                            | Data/hora de encerramento do chamado                               |
+
+**Relacionamentos:**
+- `tickets.requester_id` → `users.id` (N:1)
+- `tickets.assigned_to_id` → `users.id` (N:1, nullable)
+- `tickets.category_id` → `ticket_categories.id` (N:1)
+- `tickets.requested_item_id` → `items.id` (N:1, nullable)
+
+**Regra de negócio — baixa de estoque:**
+Ao fechar um chamado que possua `requested_item_id` e `requested_quantity`, o campo
+`current_stock` do `Item` é decrementado em `requested_quantity` dentro da mesma transação.
+
+---
+
+## Diagrama de Relacionamentos (Atualizado — Fase 4)
 
 ```
-sectors          (1) ──< users            (N)
-item_categories  (1) ──< items            (N)
-items            (1) ──< stock_batches    (N)
+sectors            (1) ──< users             (N)
+item_categories    (1) ──< items             (N)
+items              (1) ──< stock_batches     (N)
+tick_categories    (1) ──< tickets           (N)
+users              (1) ──< tickets           (N)  [requester]
+users              (1) ──< tickets           (N)  [assigned_to, nullable]
+items              (1) ──< tickets           (N)  [requested_item, nullable]
 ```
-
-As tabelas `ticket_categories` são independentes nesta fase e serão relacionadas a `tickets` na Fase 4.
 
 ---
 

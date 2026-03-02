@@ -41,7 +41,22 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 4 — Autenticação JWT
+## ✅ Fase 4 — Motor de Chamados + Baixa de Estoque (Concluída)
+
+- [x] Enum `TicketStatus`: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`
+- [x] Enum `TicketPriority`: `LOW`, `NORMAL`, `HIGH`, `URGENT`
+- [x] Entidade `Ticket` com todos os relacionamentos (User, TicketCategory, Item)
+- [x] `TicketRepository` com `findAllWithRelations()` JOIN FETCH
+- [x] DTOs: `TicketRequestDTO`, `TicketResponseDTO`
+- [x] `CreateTicketUseCase` (slaDeadline calculado, status inicial OPEN)
+- [x] `CloseTicketUseCase` (baixa de estoque atômica via `@Transactional`)
+- [x] `TicketController`: `POST /api/tickets`, `PATCH /api/tickets/{id}/close`
+- [x] `GlobalExceptionHandler`: handler para `IllegalStateException` → HTTP 422
+- [x] `DATABASE.md` e `API_DOCS.md` atualizados
+
+---
+
+## 🔲 Fase 5 — Autenticação JWT
 
 - [ ] Criar endpoint `POST /api/auth/login` que retorna `accessToken` (JWT)
 - [ ] Criar `JwtService`: geração e validação de tokens
@@ -52,17 +67,15 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 5 — Módulo de Chamados (Helpdesk)
+## 🔲 Fase 6 — Módulo de Chamados: Funcionalidades Avançadas
 
-- [ ] Entidade `Ticket` (id, title, description, status, priority, category, openedBy, assignedTo, sla)
-- [ ] Enum `TicketStatus`: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`
-- [ ] Enum `TicketPriority`: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
-- [ ] Use Cases: `CreateTicketUseCase`, `AssignTicketUseCase`, `ResolveTicketUseCase`, `ListTicketsUseCase`
-- [ ] `TicketController` com filtros por status, prioridade e categoria
+- [ ] `AssignTicketUseCase`: atribuir técnico a um chamado
+- [ ] `ResolveTicketUseCase`: mover para status `RESOLVED`
+- [ ] Filtros no `TicketController` por status, prioridade, categoria e técnico
 
 ---
 
-## 🔲 Fase 6 — Integrações e Extras
+## 🔲 Fase 7 — Integrações e Extras
 
 - [ ] Autenticação 2FA via TOTP (`totpSecret` já modelado na entidade `User`)
 - [ ] Integração com Discord (notificações de chamados via webhook/bot)

@@ -1,7 +1,8 @@
 package br.dev.ctrls.inovareti.config;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
@@ -9,8 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Map;
-import java.util.stream.Collectors;
+import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 
 /**
  * Tratamento centralizado de exceções da API.
@@ -60,6 +61,18 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleNotFound(NotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
         problem.setTitle("Recurso não encontrado");
+        problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
+    /**
+     * Trata violações de regras de negócio (ex.: estoque insuficiente).
+     * Retorna HTTP 422 Unprocessable Entity.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail handleBusinessRule(IllegalStateException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        problem.setTitle("Regra de negócio violada");
         problem.setDetail(ex.getMessage());
         return problem;
     }

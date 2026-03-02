@@ -27,7 +27,21 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 3 — Autenticação JWT (Próxima)
+## ✅ Fase 3 — Inventário: Items e Lotes de Estoque (Concluída)
+
+- [x] Entidade `Item` (com `specifications` como `jsonb` via `@JdbcTypeCode(SqlTypes.JSON)`)
+- [x] Entidade `StockBatch` (lote de entrada de estoque)
+- [x] `ItemRepository` (com `findAllWithCategory()` JOIN FETCH)
+- [x] `StockBatchRepository`
+- [x] DTOs: `ItemRequestDTO`, `ItemResponseDTO`, `StockBatchRequestDTO`, `StockBatchResponseDTO`
+- [x] `CreateItemUseCase` (estoque inicial = 0)
+- [x] `RegisterStockBatchUseCase` (cria lote + atualiza `currentStock` atomicamente)
+- [x] `ItemController`: `POST /api/items`, `POST /api/items/{id}/batches`
+- [x] `DATABASE.md` e `API_DOCS.md` atualizados
+
+---
+
+## 🔲 Fase 4 — Autenticação JWT
 
 - [ ] Criar endpoint `POST /api/auth/login` que retorna `accessToken` (JWT)
 - [ ] Criar `JwtService`: geração e validação de tokens
@@ -38,22 +52,13 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 4 — Módulo de Chamados (Helpdesk)
+## 🔲 Fase 5 — Módulo de Chamados (Helpdesk)
 
 - [ ] Entidade `Ticket` (id, title, description, status, priority, category, openedBy, assignedTo, sla)
 - [ ] Enum `TicketStatus`: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`
 - [ ] Enum `TicketPriority`: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
 - [ ] Use Cases: `CreateTicketUseCase`, `AssignTicketUseCase`, `ResolveTicketUseCase`, `ListTicketsUseCase`
 - [ ] `TicketController` com filtros por status, prioridade e categoria
-
----
-
-## 🔲 Fase 5 — Módulo de Inventário
-
-- [ ] Entidade `Item` (id, serial, model, category, assignedTo, location, status, purchaseDate)
-- [ ] Enum `ItemStatus`: `AVAILABLE`, `IN_USE`, `MAINTENANCE`, `DECOMMISSIONED`
-- [ ] Use Cases: `CreateItemUseCase`, `AssignItemUseCase`, `ListItemsUseCase`
-- [ ] `ItemController`
 
 ---
 

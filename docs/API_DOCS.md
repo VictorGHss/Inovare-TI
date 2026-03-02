@@ -304,9 +304,114 @@ Retorna todos os usuários cadastrados. O setor é carregado via JOIN para evita
 
 ---
 
+## Módulo: Itens de Inventário (`/api/items`)
+
+### `POST /api/items`
+
+Cria um novo item de inventário. O estoque inicial é sempre **zero**; use o endpoint de lotes para registrar entradas de estoque.
+
+**Request Body:**
+
+```json
+{
+  "itemCategoryId": "e5f6a7b8-c9d0-1234-efab-cd5678901234",
+  "name": "Toner Brother HL-L2360DW",
+  "specifications": {
+    "marca": "Brother",
+    "modelo": "TN-2370",
+    "voltagem": "110V"
+  }
+}
+```
+
+| Campo            | Tipo   | Obrigatório | Restrições                                      |
+|------------------|--------|-------------|-------------------------------------------------|
+| `itemCategoryId` | UUID   | Sim         | Deve referenciar uma categoria existente        |
+| `name`           | string | Sim         | Máximo 150 chars                                |
+| `specifications` | object | Não         | JSON livre com atributos técnicos (chave-valor) |
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "aa1b2c3d-e4f5-6789-abcd-ef0123456789",
+  "itemCategoryId": "e5f6a7b8-c9d0-1234-efab-cd5678901234",
+  "itemCategoryName": "Toner",
+  "name": "Toner Brother HL-L2360DW",
+  "currentStock": 0,
+  "specifications": {
+    "marca": "Brother",
+    "modelo": "TN-2370",
+    "voltagem": "110V"
+  }
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação                                          |
+|--------|---------------------------------------------------|
+| `400`  | Campos obrigatórios ausentes ou inválidos         |
+| `404`  | O `itemCategoryId` informado não existe           |
+
+---
+
+### `POST /api/items/{id}/batches`
+
+Registra um lote de entrada de estoque para o item especificado no path.
+Operação atômica: cria o lote **e** atualiza o `currentStock` do item na mesma transação.
+
+**Path Parameter:**
+
+| Parâmetro | Tipo | Descrição         |
+|-----------|------|-------------------|
+| `id`      | UUID | ID do item        |
+
+**Request Body:**
+
+```json
+{
+  "quantity": 50,
+  "unitPrice": 89.90
+}
+```
+
+> O campo `itemId` é lido do path (`{id}`) e não precisa ser enviado no body.
+
+| Campo       | Tipo    | Obrigatório | Restrições          |
+|-------------|---------|-------------|---------------------|
+| `quantity`  | integer | Sim         | > 0                 |
+| `unitPrice` | number  | Sim         | > 0.00              |
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "bb2c3d4e-f5a6-7890-bcde-fa1234567890",
+  "itemId": "aa1b2c3d-e4f5-6789-abcd-ef0123456789",
+  "itemName": "Toner Brother HL-L2360DW",
+  "originalQuantity": 50,
+  "remainingQuantity": 50,
+  "unitPrice": 89.90,
+  "entryDate": "2026-03-02T14:30:00"
+}
+```
+
+> Após este endpoint, o `currentStock` do item será incrementado em `quantity` unidades.
+
+**Respostas de Erro:**
+
+| Código | Situação                                      |
+|--------|-----------------------------------------------|
+| `400`  | Campos obrigatórios ausentes ou `quantity` ≤ 0 |
+| `404`  | O `id` do item não existe                     |
+
+---
+
 ## Changelog
 
-| Versão | Data       | Descrição                                                            |
-|--------|------------|----------------------------------------------------------------------|
-| 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll) |
-| 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item           |
+| Versão | Data       | Descrição                                                              |
+|--------|------------|------------------------------------------------------------------------|
+| 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)  |
+| 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)  |
+| 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item             |

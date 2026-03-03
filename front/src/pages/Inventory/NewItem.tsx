@@ -1,9 +1,14 @@
 // Página de criação de novo item de inventário
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItemCategories, createItem, type ItemCategory } from '../../services/api';
+
+interface SpecEntry {
+  key: string;
+  value: string;
+}
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
@@ -13,7 +18,7 @@ export default function NewItem() {
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [specifications, setSpecifications] = useState('');
+  const [specs, setSpecs] = useState<SpecEntry[]>([{ key: '', value: '' }]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -33,23 +38,23 @@ export default function NewItem() {
       return;
     }
 
-    // Parse das especificações como JSON (se fornecidas)
-    let parsedSpecs: Record<string, unknown> | undefined;
-    if (specifications.trim()) {
-      try {
-        parsedSpecs = JSON.parse(specifications);
-      } catch {
-        toast.error('Especificações inválidas. Use formato JSON válido.');
-        return;
+    // Converte o array de specs em um objeto Record<string, string>
+    // Filtra entradas vazias e cria o objeto final
+    const parsedSpecs: Record<string, string> = {};
+    specs.forEach((spec) => {
+      if (spec.key.trim() && spec.value.trim()) {
+        parsedSpecs[spec.key.trim()] = spec.value.trim();
       }
-    }
+    });
+
+    const finalSpecs = Object.keys(parsedSpecs).length > 0 ? parsedSpecs : undefined;
 
     setSubmitting(true);
     try {
       await createItem({
         name: name.trim(),
         itemCategoryId: categoryId,
-        specifications: parsedSpecs,
+        specifications: finalSpecs,
       });
       toast.success('Item criado com sucesso!');
       navigate('/inventory');
@@ -58,6 +63,28 @@ export default function NewItem() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function addSpecRow() {
+    setSpecs([...specs, { key: '', value: '' }]);
+  }
+
+  function removeSpecRow(index: number) {
+    if (specs.length > 1) {
+      setSpecs(specs.filter((_, i) => i !== index));
+    }
+  }
+
+  function updateSpecKey(index: number, key: string) {
+    const updated = [...specs];
+    updated[index].key = key;
+    setSpecs(updated);
+  }
+
+  function updateSpecValue(index: number, value: string) {
+    const updated = [...specs];
+    updated[index].value = value;
+    setSpecs(updated);
   }
 
   return (
@@ -122,21 +149,46 @@ export default function NewItem() {
           </select>
         </div>
 
-        {/* Especificações (JSON opcional) */}
-        <div className="flex flex-col gap-1.5">
+        {/* Especificações - Construtor de chave-valor */}
+        <div className="flex flex-col gap-3">
           <label className="text-sm font-medium text-slate-700">
-            Especificações (JSON)
+            Especificações
           </label>
-          <textarea
-            className={`${inputCls} resize-none font-mono text-xs`}
-            rows={6}
-            placeholder='{"marca": "Logitech", "modelo": "MX Master 3", "cor": "Preto"}'
-            value={specifications}
-            onChange={(e) => setSpecifications(e.target.value)}
-          />
-          <p className="text-xs text-slate-400">
-            Formate as especificações como um objeto JSON válido. Deixe em branco se não houver.
-          </p>
+          {specs.map((spec, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <input
+                type="text"
+                className={inputCls}
+                placeholder="Chave (ex: marca)"
+                value={spec.key}
+                onChange={(e) => updateSpecKey(index, e.target.value)}
+              />
+              <input
+                type="text"
+                className={inputCls}
+                placeholder="Valor (ex: Logitech)"
+                value={spec.value}
+                onChange={(e) => updateSpecValue(index, e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => removeSpecRow(index)}
+                disabled={specs.length === 1}
+                className="p-2.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                aria-label="Remover especificação"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addSpecRow}
+            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium self-start transition-colors"
+          >
+            <Plus size={16} />
+            Adicionar Especificação
+          </button>
         </div>
 
         {/* Botões de ação */}

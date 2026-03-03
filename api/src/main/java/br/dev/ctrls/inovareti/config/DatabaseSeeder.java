@@ -5,12 +5,14 @@ import java.util.List;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
+import br.dev.ctrls.inovareti.domain.inventory.ItemCategoryRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Seeds default ticket categories on startup when the table is empty.
+ * Seeds default ticket categories and item categories on startup when tables are empty.
  * Runs once after the application context is fully loaded.
  */
 @Component
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class DatabaseSeeder implements CommandLineRunner {
 
     private final TicketCategoryRepository ticketCategoryRepository;
+    private final ItemCategoryRepository itemCategoryRepository;
 
     @Override
     public void run(String... args) {
@@ -42,6 +45,29 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .build()
             );
             ticketCategoryRepository.saveAll(defaultCategories);
+        }
+
+        // Insere categorias de itens padrão apenas se o repositório estiver vazio
+        if (itemCategoryRepository.count() == 0) {
+            List<ItemCategory> defaultItemCategories = List.of(
+                ItemCategory.builder()
+                    .name("Computadores e Desktops")
+                    .isConsumable(false)
+                    .build(),
+                ItemCategory.builder()
+                    .name("Periféricos (Mouse/Teclado)")
+                    .isConsumable(false)
+                    .build(),
+                ItemCategory.builder()
+                    .name("Suprimentos de Impressão")
+                    .isConsumable(true)
+                    .build(),
+                ItemCategory.builder()
+                    .name("Materiais de Escritório")
+                    .isConsumable(true)
+                    .build()
+            );
+            itemCategoryRepository.saveAll(defaultItemCategories);
         }
     }
 }

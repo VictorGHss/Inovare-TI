@@ -1,11 +1,15 @@
 // Página de abertura de novo chamado
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import TicketForm from './TicketForm';
 import TutorialAside from './TutorialAside';
+import type { TicketType } from './TicketTypeToggle';
 
 export default function NewTicket() {
   const navigate = useNavigate();
+  // Estado elevado para ser compartilhado entre formulário e aside
+  const [ticketType, setTicketType] = useState<TicketType>('INCIDENT');
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -29,10 +33,10 @@ export default function NewTicket() {
       {/* Grid 12 colunas: formulário + tutorial */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8">
-          <TicketForm />
+          <TicketForm ticketType={ticketType} onTypeChange={setTicketType} />
         </div>
         <div className="lg:col-span-4">
-          <TutorialAside />
+          <TutorialAside ticketType={ticketType} />
         </div>
       </div>
     </main>

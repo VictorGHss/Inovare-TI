@@ -8,25 +8,26 @@ import {
 } from '../../services/api';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';
+import FileAttachment from './FileAttachment';
+import RequestItemFields from './RequestItemFields';
+import PriorityCategoryFields from './PriorityCategoryFields';
+
+interface Props {
+  ticketType: TicketType;
+  onTypeChange: (v: TicketType) => void;
+}
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
 
-const priorities = [
-  { value: 'LOW', label: 'Baixa' },
-  { value: 'NORMAL', label: 'Normal' },
-  { value: 'HIGH', label: 'Alta' },
-  { value: 'URGENT', label: 'Urgente' },
-];
-
-export default function TicketForm() {
+export default function TicketForm({ ticketType, onTypeChange }: Props) {
   const navigate = useNavigate();
-  const [ticketType, setTicketType] = useState<TicketType>('INCIDENT');
   const [showKb, setShowKb] = useState(false);
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [files, setFiles] = useState<File[]>([]);
 
   const [form, setForm] = useState<CreateTicketDto>({
     title: '', description: '', priority: 'NORMAL',
@@ -54,16 +55,30 @@ export default function TicketForm() {
   }
 
   function handleTypeChange(v: TicketType) {
-    setTicketType(v);
-    setForm((f) => ({ ...f, ticketType: v, itemId: undefined }));
+    onTypeChange(v);
+    setForm((f) => ({ ...f, ticketType: v, title: '', itemId: undefined }));
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.title.trim() || !form.categoryId) return;
+    if (!form.categoryId) return;
+
+    // Para SOLICITAÇÃO, o título é gerado automaticamente
+    let finalTitle = form.title.trim();
+    if (ticketType === 'REQUEST') {
+      const selectedItem = items.find((i) => i.id === form.itemId);
+      const itemName = selectedItem?.name ?? 'Item não especificado';
+      finalTitle = `Solicitação: ${itemName}, ${quantity} unidade${quantity !== 1 ? 's' : ''}`;
+    }
+    if (!finalTitle) return;
+
     setSubmitting(true);
     try {
-      await createTicket({ ...form, quantity: ticketType === 'REQUEST' ? quantity : undefined });
+      await createTicket({
+        ...form,
+        title: finalTitle,
+        quantity: ticketType === 'REQUEST' ? quantity : undefined,
+      });
       toast.success('Chamado criado com sucesso!');
       navigate('/dashboard');
     } catch {
@@ -75,65 +90,42 @@ export default function TicketForm() {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-      {/* Seletor de tipo de chamado */}
       <TicketTypeToggle value={ticketType} onChange={handleTypeChange} />
 
-      {/* Título */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Título <span className="text-red-500">*</span></label>
-        <input className={inputCls} placeholder="Descreva brevemente" value={form.title}
-          onChange={(e) => set('title', e.target.value)} required />
-      </div>
-
-      {/* Sugestões da base de conhecimento (apenas para INCIDENT) */}
-      {showKb && <KbSuggestions />}
-
-      {/* Descrição */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Descrição</label>
-        <textarea className={`${inputCls} resize-none`} rows={4}
-          placeholder="Detalhe o problema, passos para reproduzir..."
-          value={form.description} onChange={(e) => set('description', e.target.value)} />
-      </div>
-
-      {/* Prioridade e Categoria */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {ticketType === 'INCIDENT' && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">Prioridade</label>
-          <select className={inputCls} value={form.priority}
-            onChange={(e) => set('priority', e.target.value as CreateTicketDto['priority'])}>
-            {priorities.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">Categoria <span className="text-red-500">*</span></label>
-          <select className={inputCls} value={form.categoryId}
-            onChange={(e) => set('categoryId', Number(e.target.value))} required>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Campos exclusivos para SOLICITAÇÃO */}
-      {ticketType === 'REQUEST' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Item Solicitado</label>
-            <select className={inputCls} value={form.itemId ?? ''}
-              onChange={(e) => set('itemId', e.target.value ? Number(e.target.value) : undefined)}>
-              <option value="">Selecione um item</option>
-              {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Quantidade</label>
-            <input type="number" min={1} className={inputCls} value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))} />
-          </div>
+          <label className="text-sm font-medium text-slate-700">Título <span className="text-red-500">*</span></label>
+          <input className={inputCls} placeholder="Descreva brevemente" value={form.title}
+            onChange={(e) => set('title', e.target.value)} required />
         </div>
       )}
 
-      {/* Ações */}
+      {showKb && <KbSuggestions />}
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-slate-700">Descrição</label>
+        <textarea className={`${inputCls} resize-none`} rows={4}
+          placeholder={ticketType === 'REQUEST' ? 'Justifique a necessidade do item...' : 'Detalhe o problema, passos para reproduzir...'}
+          value={form.description} onChange={(e) => set('description', e.target.value)} />
+      </div>
+
+      <FileAttachment files={files} setFiles={setFiles} />
+
+      <PriorityCategoryFields
+        priority={form.priority} categoryId={form.categoryId} categories={categories}
+        inputCls={inputCls}
+        onPriorityChange={(v) => set('priority', v)}
+        onCategoryChange={(id) => set('categoryId', id)}
+      />
+
+      {ticketType === 'REQUEST' && (
+        <RequestItemFields
+          items={items} itemId={form.itemId} quantity={quantity} inputCls={inputCls}
+          onItemChange={(id) => set('itemId', id)}
+          onQuantityChange={setQuantity}
+        />
+      )}
+
       <div className="flex items-center justify-end gap-3 pt-2">
         <button type="button" onClick={() => navigate('/dashboard')}
           className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-colors">

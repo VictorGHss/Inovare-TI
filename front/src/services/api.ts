@@ -80,6 +80,15 @@ export interface Sector {
   name: string;
 }
 
+export interface TicketAttachment {
+  id: string;
+  originalFilename: string;
+  storedFilename: string;
+  fileType: string;
+  ticketId: string;
+  uploadedAt: string;
+}
+
 export interface CreateUserDto {
   name: string;
   email: string;
@@ -204,6 +213,25 @@ export async function getSectors(): Promise<Sector[]> {
 // Cria um novo setor (requer ADMIN)
 export async function createSector(dto: CreateSectorDto): Promise<Sector> {
   const { data } = await api.post<Sector>('/api/sectors', dto);
+  return data;
+}
+
+// Faz upload de um anexo para um chamado específico
+export async function uploadTicketAttachment(ticketId: string, file: File): Promise<TicketAttachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const { data } = await api.post<TicketAttachment>(`/api/tickets/${ticketId}/attachments`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
+}
+
+// Lista todos os anexos de um chamado específico
+export async function getTicketAttachments(ticketId: string): Promise<TicketAttachment[]> {
+  const { data } = await api.get<TicketAttachment[]>(`/api/tickets/${ticketId}/attachments`);
   return data;
 }
 

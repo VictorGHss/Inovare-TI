@@ -3,7 +3,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  getTicketCategories, getItems, createTicket,
+  getTicketCategories, getItems, createTicket, uploadTicketAttachment,
   type TicketCategory, type Item, type CreateTicketDto,
 } from '../../services/api';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
@@ -94,7 +94,14 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
     setSubmitting(true);
     try {
-      await createTicket(payload);
+      const ticket = await createTicket(payload);
+      
+      // Upload dos anexos após criar o chamado
+      if (files.length > 0) {
+        const uploadPromises = files.map(file => uploadTicketAttachment(ticket.id, file));
+        await Promise.all(uploadPromises);
+      }
+      
       toast.success('Chamado criado com sucesso!');
       navigate('/dashboard');
     } catch {

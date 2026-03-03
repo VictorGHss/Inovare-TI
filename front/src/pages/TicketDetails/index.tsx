@@ -1,9 +1,9 @@
 // Página de detalhes de um chamado — exibe informações completas e permite fechar
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTicketById, closeTicket, type Ticket } from '../../services/api';
+import { getTicketById, closeTicket, getTicketAttachments, type Ticket, type TicketAttachment } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 
 // Formata data ISO para exibição em português — retorna '-' para valores nulos
@@ -42,14 +42,18 @@ export default function TicketDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    // Carrega os dados do chamado pelo UUID da URL
-    getTicketById(id)
-      .then(setTicket)
+    // Carrega os dados do chamado e seus anexos
+    Promise.all([getTicketById(id), getTicketAttachments(id)])
+      .then(([ticketData, attachmentsData]) => {
+        setTicket(ticketData);
+        setAttachments(attachmentsData);
+      })
       .catch(() => {
         toast.error('Chamado não encontrado.');
         navigate('/dashboard');
@@ -88,6 +92,12 @@ export default function TicketDetails() {
   if (!ticket) return null;
 
   const isClosed = ticket.status === 'CLOSED';
+  const apiUrl = import.meta.env.VITE_API_URL;
+
+  // Função para gerar URL do anexo
+  function getAttachmentUrl(storedFilename: string): string {
+    return `${apiUrl}/api/attachments/${storedFilename}`;
+  }
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -147,6 +157,70 @@ export default function TicketDetails() {
               <p className="text-sm text-slate-400 italic">Nenhuma descrição fornecida.</p>
             )}
           </div>
+
+          {/* Bloco de anexos */}
+          {attachments.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Paperclip size={16} className="text-slate-500" />
+                <h3 className="text-sm font-semibold text-slate-700">
+                  Anexos ({attachments.length})
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {attachments.map((attachment) => {
+                  const isImage = attachment.fileType.startsWith('image/');
+                  const attachmentUrl = getAttachmentUrl(attachment.storedFilename);
+                  
+                  if (isImage) {
+                    return (
+                      <a
+                        key={attachment.id}
+                        href={attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block rounded-lg border border-slate-200 overflow-hidden hover:border-primary hover:shadow-md transition-all"
+                      >
+                        <img
+                          src={attachmentUrl}
+                          alt={attachment.originalFilename}
+                          className="w-full h-32 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                          <p className="text-xs text-white truncate font-medium">
+                            {attachment.originalFilename}
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  }
+                  
+                  return (
+                    <a
+                      key={attachment.id}
+                      href={attachmentUrl}
+                      download={attachment.originalFilename}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-primary hover:bg-slate-50 transition-all group"
+                    >
+                      <div className="p-2 rounded-lg bg-slate-100 group-hover:bg-primary/10 transition-colors">
+                        <FileText size={20} className="text-slate-500 group-hover:text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">
+                          {attachment.originalFilename}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {attachment.fileType}
+                        </p>
+                      </div>
+                      <Download size={16} className="text-slate-400 group-hover:text-primary shrink-0" />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Botão de ação — visível apenas para chamados não fechados */}
           {!isClosed && (

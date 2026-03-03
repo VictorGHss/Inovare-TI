@@ -32,6 +32,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-default-secret-key-change-in-production}
     ports:
       - "8085:8085"
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy

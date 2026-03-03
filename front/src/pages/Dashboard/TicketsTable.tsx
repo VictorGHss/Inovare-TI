@@ -6,17 +6,22 @@ interface TicketsTableProps {
   tickets: Ticket[];
 }
 
-// Formata data ISO para exibição em português
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+// Converte data ISO para exibição segura em português — retorna '-' em caso de valor nulo
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '-';
+  try {
+    return new Date(iso).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return '-';
+  }
 }
 
 export default function TicketsTable({ tickets }: TicketsTableProps) {
-  if (tickets.length === 0) {
+  if (!Array.isArray(tickets) || tickets.length === 0) {
     return (
       <p className="text-center text-slate-400 py-12 text-sm">
         Nenhum chamado encontrado.
@@ -29,9 +34,9 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
       <table className="min-w-full text-sm">
         <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
           <tr>
-            <th className="px-4 py-3 text-left">#</th>
             <th className="px-4 py-3 text-left">Título</th>
             <th className="px-4 py-3 text-left">Categoria</th>
+            <th className="px-4 py-3 text-left">Prioridade</th>
             <th className="px-4 py-3 text-left">Status</th>
             <th className="px-4 py-3 text-left">Criado em</th>
           </tr>
@@ -39,11 +44,15 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
         <tbody className="divide-y divide-slate-100 bg-white">
           {tickets.map((ticket) => (
             <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
-              <td className="px-4 py-3 text-slate-400">{ticket.id}</td>
               <td className="px-4 py-3 font-medium text-slate-800">
-                {ticket.title}
+                {String(ticket.title ?? '-')}
               </td>
-              <td className="px-4 py-3 text-slate-500">{ticket.category}</td>
+              <td className="px-4 py-3 text-slate-500">
+                {String(ticket.categoryName ?? '-')}
+              </td>
+              <td className="px-4 py-3 text-slate-500 capitalize">
+                {String(ticket.priority ?? '-').toLowerCase()}
+              </td>
               <td className="px-4 py-3">
                 <StatusBadge status={ticket.status} />
               </td>

@@ -1,12 +1,26 @@
 // Instância do Axios configurada para a API do Inovare TI
 import axios from 'axios';
 
+// Espelha exatamente o TicketResponseDTO retornado pelo backend
 export interface Ticket {
-  id: number;
+  id: string;            // UUID do chamado
   title: string;
-  category: string;
+  description: string | null;
+  anydeskCode: string | null;
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  requesterId: string;
+  requesterName: string;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  categoryId: string;
+  categoryName: string;
+  requestedItemId: string | null;
+  requestedItemName: string | null;
+  requestedQuantity: number | null;
+  slaDeadline: string | null;
   createdAt: string;
+  closedAt: string | null;
 }
 
 export interface TicketCategory {

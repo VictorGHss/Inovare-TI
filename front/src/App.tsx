@@ -13,6 +13,9 @@ import NewItem from './pages/Inventory/NewItem';
 import ItemDetails from './pages/Inventory/ItemDetails';
 import Users from './pages/Users';
 import Sectors from './pages/Sectors';
+import KnowledgeBase from './pages/KnowledgeBase';
+import NewArticle from './pages/KnowledgeBase/NewArticle';
+import ArticleDetails from './pages/KnowledgeBase/ArticleDetails';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -38,6 +41,10 @@ function AppRoutes() {
         {/* Rotas de gestão de pessoas (requerem ADMIN) */}
         <Route path="/users" element={<Users />} />
         <Route path="/sectors" element={<Sectors />} />
+        {/* Rotas da Base de Conhecimento */}
+        <Route path="/knowledge-base" element={<KnowledgeBase />} />
+        <Route path="/knowledge-base/new" element={<NewArticle />} />
+        <Route path="/knowledge-base/:id" element={<ArticleDetails />} />
       </Route>
       {/* Redireciona a raiz para /login */}
       <Route path="*" element={<Navigate to="/login" replace />} />

@@ -123,6 +123,25 @@ export interface CreateTicketDto {
   requestedQuantity?: number;
 }
 
+export interface Article {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateArticleDto {
+  title: string;
+  content: string;
+}
+
+export interface GenericAttachmentResponse {
+  url: string;
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
@@ -288,6 +307,41 @@ export async function addTicketComment(ticketId: string, content: string): Promi
 // Lista todos os comentários de um chamado
 export async function getTicketComments(ticketId: string): Promise<TicketComment[]> {
   const { data } = await api.get<TicketComment[]>(`/api/tickets/${ticketId}/comments`);
+  return data;
+}
+
+// ==================== KNOWLEDGE BASE (Articles) ====================
+
+// Busca todos os artigos da base de conhecimento
+export async function getArticles(): Promise<Article[]> {
+  const { data } = await api.get<Article[]>('/api/articles');
+  return data;
+}
+
+// Busca um artigo específico pelo ID
+export async function getArticleById(id: string): Promise<Article> {
+  const { data } = await api.get<Article>(`/api/articles/${id}`);
+  return data;
+}
+
+// Cria um novo artigo (requer ADMIN ou TECHNICIAN)
+export async function createArticle(dto: CreateArticleDto): Promise<Article> {
+  const { data } = await api.post<Article>('/api/articles', dto);
+  return data;
+}
+
+// ==================== GENERIC FILE UPLOAD ====================
+
+// Faz upload genérico de um arquivo (imagem, documento, etc.)
+export async function uploadGenericFile(file: File): Promise<GenericAttachmentResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const { data } = await api.post<GenericAttachmentResponse>('/api/attachments/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 }
 

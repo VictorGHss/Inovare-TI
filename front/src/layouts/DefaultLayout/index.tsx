@@ -48,6 +48,16 @@ export default function DefaultLayout() {
             >
               Inventário
             </button>
+            <button
+              onClick={() => navigate('/knowledge-base')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname.startsWith('/knowledge-base')
+                  ? 'bg-primary text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Tutoriais
+            </button>
             {/* Links administrativos — visíveis apenas para ADMIN */}
             {user?.role === 'ADMIN' && (
               <>

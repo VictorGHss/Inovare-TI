@@ -27,11 +27,13 @@ import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Controller REST para gerenciamento de chamados (tickets).
  * Base path: /api/tickets
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/tickets")
 @RequiredArgsConstructor
@@ -105,6 +107,9 @@ public class TicketController {
                     .build();
             
             attachment = attachmentRepository.save(attachment);
+            
+            log.info("File attachment uploaded for ticket {}: {} (stored as: {})",
+                    id, file.getOriginalFilename(), storedFilename);
             
             TicketAttachmentResponseDTO response = new TicketAttachmentResponseDTO(
                     attachment.getId(),

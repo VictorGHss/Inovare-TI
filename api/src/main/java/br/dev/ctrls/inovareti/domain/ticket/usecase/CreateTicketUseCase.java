@@ -19,6 +19,7 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Use case: opens a new ticket.
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
  *   3. Compute slaDeadline by adding baseSlaHours to the current time.
  *   4. Set initial status as OPEN.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CreateTicketUseCase {
@@ -86,6 +88,11 @@ public class CreateTicketUseCase {
                 .createdAt(now)
                 .build();
 
-        return TicketResponseDTO.from(ticketRepository.save(ticket));
+        Ticket savedTicket = ticketRepository.save(ticket);
+        log.info("Ticket created with ID: {} by user: {} ({}), category: {}, priority: {}",
+                savedTicket.getId(), requester.getName(), requester.getEmail(),
+                category.getName(), savedTicket.getPriority());
+
+        return TicketResponseDTO.from(savedTicket);
     }
 }

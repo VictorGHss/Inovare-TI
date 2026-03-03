@@ -13,6 +13,7 @@ import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Caso de uso: fecha um chamado aberto.
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
  *   Se o chamado tiver {@code requestedItem} e {@code requestedQuantity},
  *   o {@code currentStock} do item é decrementado atomicamente na mesma transação.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CloseTicketUseCase {
@@ -55,11 +57,16 @@ public class CloseTicketUseCase {
 
             item.setCurrentStock(novoEstoque);
             itemRepository.save(item);
+            log.info("Stock debited for ticket {}: item '{}', quantity: {}, new stock: {}",
+                    ticketId, item.getName(), ticket.getRequestedQuantity(), novoEstoque);
         }
 
         ticket.setStatus(TicketStatus.CLOSED);
         ticket.setClosedAt(LocalDateTime.now());
 
-        return TicketResponseDTO.from(ticketRepository.save(ticket));
+        Ticket closedTicket = ticketRepository.save(ticket);
+        log.info("Ticket {} closed successfully by system", ticketId);
+
+        return TicketResponseDTO.from(closedTicket);
     }
 }

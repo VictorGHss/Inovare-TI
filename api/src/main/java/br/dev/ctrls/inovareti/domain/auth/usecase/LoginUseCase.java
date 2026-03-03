@@ -10,11 +10,13 @@ import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Use case responsible for authenticating a user and returning a JWT token.
  * Delegates credential verification to the Spring Security {@link AuthenticationManager}.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LoginUseCase {
@@ -35,6 +37,9 @@ public class LoginUseCase {
         var authentication = authenticationManager.authenticate(credentials);
         User user = (User) authentication.getPrincipal();
         String token = tokenService.generateToken(user);
+
+        log.info("User {} ({}) successfully authenticated with role: {}",
+                user.getEmail(), user.getName(), user.getRole());
 
         return new AuthResponseDTO(token, UserResponseDTO.from(user));
     }

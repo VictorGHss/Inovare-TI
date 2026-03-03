@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Tratamento centralizado de exceções da API.
  * Padroniza as respostas de erro no formato RFC 7807 (Problem Details).
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -74,6 +76,20 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(422));
         problem.setTitle("Regra de negócio violada");
         problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
+    /**
+     * Trata exceções genéricas não capturadas pelos handlers específicos.
+     * Retorna HTTP 500 Internal Server Error.
+     * IMPORTANTE: Registra o stack trace completo no log para debug.
+     */
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleGenericException(Exception ex) {
+        log.error("Unexpected system error: ", ex);
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problem.setTitle("Erro interno do servidor");
+        problem.setDetail("Ocorreu um erro inesperado. Por favor, contate o suporte.");
         return problem;
     }
 }

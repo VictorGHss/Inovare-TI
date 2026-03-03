@@ -14,10 +14,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getTickets()
-      .then(setTickets)
-      .catch(() => toast.error('Erro ao carregar chamados. Tente novamente.'))
-      .finally(() => setLoading(false));
+    // Busca chamados e previne crash de renderização em caso de erro de API
+    const fetchTickets = async () => {
+      try {
+        const data = await getTickets();
+        setTickets(data);
+      } catch {
+        toast.error('Erro ao carregar chamados. Tente novamente.');
+        setTickets([]); // garante array válido para evitar crash no render
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTickets();
   }, []);
 
   return (

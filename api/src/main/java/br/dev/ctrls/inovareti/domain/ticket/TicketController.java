@@ -1,9 +1,11 @@
 package br.dev.ctrls.inovareti.domain.ticket;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CloseTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +32,16 @@ public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
     private final CloseTicketUseCase closeTicketUseCase;
+    private final ListAllTicketsUseCase listAllTicketsUseCase;
+
+    /**
+     * Lista todos os chamados com suas relações carregadas.
+     * Retorna 200 OK com a lista de chamados.
+     */
+    @GetMapping
+    public ResponseEntity<List<TicketResponseDTO>> listAll() {
+        return ResponseEntity.ok(listAllTicketsUseCase.execute());
+    }
 
     /**
      * Abre um novo chamado com status OPEN e slaDeadline calculado automaticamente.

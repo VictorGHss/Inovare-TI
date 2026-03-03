@@ -145,8 +145,9 @@ export default function ArticleDetails() {
                 ol: ({ ...props }) => (
                   <ol {...props} className="list-decimal list-inside mb-4 text-slate-700" />
                 ),
-                code: ({ inline, ...props }: { inline?: boolean; [key: string]: unknown }) =>
-                  inline ? (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                code: (props: any) =>
+                  props.inline ? (
                     <code
                       {...props}
                       className="bg-slate-100 px-2 py-1 rounded text-sm font-mono text-red-600"

@@ -17,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CloseTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class TicketController {
     private final CreateTicketUseCase createTicketUseCase;
     private final CloseTicketUseCase closeTicketUseCase;
     private final ListAllTicketsUseCase listAllTicketsUseCase;
+    private final FindTicketByIdUseCase findTicketByIdUseCase;
 
     /**
      * Lista todos os chamados com suas relações carregadas.
@@ -41,6 +43,15 @@ public class TicketController {
     @GetMapping
     public ResponseEntity<List<TicketResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllTicketsUseCase.execute());
+    }
+
+    /**
+     * Retorna os dados de um único chamado pelo UUID.
+     * Retorna 200 OK ou 404 se não encontrado.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketResponseDTO> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(findTicketByIdUseCase.execute(id));
     }
 
     /**

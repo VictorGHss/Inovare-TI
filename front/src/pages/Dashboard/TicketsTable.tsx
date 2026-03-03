@@ -1,4 +1,5 @@
 // Tabela de chamados com dados reais da API
+import { useNavigate } from 'react-router-dom';
 import type { Ticket } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 
@@ -21,6 +22,8 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 export default function TicketsTable({ tickets }: TicketsTableProps) {
+  const navigate = useNavigate();
+
   if (!Array.isArray(tickets) || tickets.length === 0) {
     return (
       <p className="text-center text-slate-400 py-12 text-sm">
@@ -43,7 +46,12 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
           {tickets.map((ticket) => (
-            <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
+            <tr
+              key={ticket.id}
+              // Navega para a tela de detalhes ao clicar na linha
+              onClick={() => navigate(`/tickets/${ticket.id}`)}
+              className="hover:bg-slate-50 transition-colors cursor-pointer"
+            >
               <td className="px-4 py-3 font-medium text-slate-800">
                 {String(ticket.title ?? '-')}
               </td>

@@ -83,4 +83,16 @@ export async function createTicket(dto: CreateTicketDto): Promise<Ticket> {
   return data;
 }
 
+// Busca um chamado específico pelo UUID
+export async function getTicketById(id: string): Promise<Ticket> {
+  const { data } = await api.get<Ticket>(`/api/tickets/${id}`);
+  return data;
+}
+
+// Fecha um chamado existente pelo UUID
+export async function closeTicket(id: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/close`);
+  return data;
+}
+
 export default api;

@@ -26,12 +26,19 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [quantity, setQuantity] = useState(1);
   const [files, setFiles] = useState<File[]>([]);
 
+  // Nome do item selecionado — usado para gerar o título automático de solicitações
+  const [selectedItemName, setSelectedItemName] = useState('');
+
   const [form, setForm] = useState<CreateTicketDto>({
-    title: '', description: '', priority: 'NORMAL',
-    categoryId: 0, ticketType: 'INCIDENT',
+    title: '',
+    description: '',
+    priority: 'NORMAL',
+    // categoryId é UUID (string) — inicializado vazio enquanto as categorias carregam
+    categoryId: '',
+    requestedItemId: undefined,
+    requestedQuantity: 1,
   });
 
   useEffect(() => {
@@ -39,6 +46,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
       .then(([cats, itens]) => {
         setCategories(cats);
         setItems(itens);
+        // Pré-seleciona a primeira categoria; id é UUID (string)
         if (cats.length > 0) setForm((f) => ({ ...f, categoryId: cats[0].id }));
       })
       .catch(() => toast.error('Erro ao carregar opções do formulário.'));
@@ -56,29 +64,37 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
   function handleTypeChange(v: TicketType) {
     onTypeChange(v);
-    setForm((f) => ({ ...f, ticketType: v, title: '', itemId: undefined }));
+    // Limpa campos específicos do tipo anterior ao alternar
+    setForm((f) => ({ ...f, title: '', requestedItemId: undefined, requestedQuantity: 1 }));
+    setSelectedItemName('');
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.categoryId) return;
 
-    // Para SOLICITAÇÃO, o título é gerado automaticamente
+    // Para SOLICITAÇÃO, o título é composto a partir do item e da quantidade selecionados
     let finalTitle = form.title.trim();
     if (ticketType === 'REQUEST') {
-      const selectedItem = items.find((i) => i.id === form.itemId);
-      const itemName = selectedItem?.name ?? 'Item não especificado';
-      finalTitle = `Solicitação: ${itemName}, ${quantity} unidade${quantity !== 1 ? 's' : ''}`;
+      const itemName = selectedItemName || 'Item não especificado';
+      const qty = form.requestedQuantity ?? 1;
+      finalTitle = `Solicitação: ${itemName}, ${qty} unidade${qty !== 1 ? 's' : ''}`;
     }
     if (!finalTitle) return;
 
+    // Payload alinhado com TicketRequestDTO do backend — sem requesterId nem ticketType
+    const payload: CreateTicketDto = {
+      title: finalTitle,
+      description: form.description,
+      priority: form.priority,
+      categoryId: form.categoryId,
+      requestedItemId: ticketType === 'REQUEST' ? form.requestedItemId : undefined,
+      requestedQuantity: ticketType === 'REQUEST' ? (form.requestedQuantity ?? 1) : undefined,
+    };
+
     setSubmitting(true);
     try {
-      await createTicket({
-        ...form,
-        title: finalTitle,
-        quantity: ticketType === 'REQUEST' ? quantity : undefined,
-      });
+      await createTicket(payload);
       toast.success('Chamado criado com sucesso!');
       navigate('/dashboard');
     } catch {
@@ -120,9 +136,16 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
       {ticketType === 'REQUEST' && (
         <RequestItemFields
-          items={items} itemId={form.itemId} quantity={quantity} inputCls={inputCls}
-          onItemChange={(id) => set('itemId', id)}
-          onQuantityChange={setQuantity}
+          items={items}
+          requestedItemId={form.requestedItemId}
+          requestedQuantity={form.requestedQuantity ?? 1}
+          inputCls={inputCls}
+          onItemChange={(id, name) => {
+            // Atualiza o ID do item no formulário e o nome para o título automático
+            set('requestedItemId', id);
+            setSelectedItemName(name ?? '');
+          }}
+          onQuantityChange={(q) => set('requestedQuantity', q)}
         />
       )}
 

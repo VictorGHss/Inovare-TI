@@ -24,12 +24,14 @@ export interface Ticket {
 }
 
 export interface TicketCategory {
-  id: number;
+  // UUID retornado pelo backend como string
+  id: string;
   name: string;
 }
 
 export interface Item {
-  id: number;
+  // UUID retornado pelo backend como string
+  id: string;
   name: string;
 }
 
@@ -37,10 +39,11 @@ export interface CreateTicketDto {
   title: string;
   description: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
-  categoryId: number;
-  ticketType: 'INCIDENT' | 'REQUEST';
-  itemId?: number;
-  quantity?: number;
+  // UUID da categoria (string) — alinhado com TicketRequestDTO do backend
+  categoryId: string;
+  // Campos preenchidos apenas para chamados do tipo REQUEST
+  requestedItemId?: string;
+  requestedQuantity?: number;
 }
 
 const api = axios.create({

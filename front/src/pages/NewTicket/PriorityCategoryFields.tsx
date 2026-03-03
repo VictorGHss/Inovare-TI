@@ -3,11 +3,12 @@ import type { CreateTicketDto, TicketCategory } from '../../services/api';
 
 interface Props {
   priority: CreateTicketDto['priority'];
-  categoryId: number;
+  // categoryId é UUID (string) alinhado com o backend
+  categoryId: string;
   categories: TicketCategory[];
   inputCls: string;
   onPriorityChange: (v: CreateTicketDto['priority']) => void;
-  onCategoryChange: (id: number) => void;
+  onCategoryChange: (id: string) => void;
 }
 
 const priorities = [
@@ -33,8 +34,9 @@ export default function PriorityCategoryFields({
         <label className="text-sm font-medium text-slate-700">
           Categoria <span className="text-red-500">*</span>
         </label>
+        {/* Passa o UUID como string diretamente — sem conversão para número */}
         <select className={inputCls} value={categoryId}
-          onChange={(e) => onCategoryChange(Number(e.target.value))} required>
+          onChange={(e) => onCategoryChange(e.target.value)} required>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>

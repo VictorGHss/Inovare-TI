@@ -1,5 +1,5 @@
 // Formulário de criação de chamado com lógica dinâmica por tipo
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, type ClipboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -69,6 +69,43 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
     setSelectedItemName('');
   }
 
+  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const items = clipboardData.items;
+    let imageFound = false;
+
+    // Iterate through clipboard items looking for images
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Check if the item is an image
+      if (item.type.indexOf('image') !== -1) {
+        imageFound = true;
+        const blob = item.getAsFile();
+        
+        if (blob) {
+          // Create a File object with a generated filename
+          const timestamp = new Date().getTime();
+          const extension = item.type.split('/')[1] || 'png';
+          const filename = `clipboard-image-${timestamp}.${extension}`;
+          const file = new File([blob], filename, { type: item.type });
+          
+          // Add to existing files without removing previous ones
+          setFiles((prevFiles) => [...prevFiles, file]);
+          toast.success(`Imagem colada adicionada aos anexos: ${filename}`);
+        }
+      }
+    }
+
+    // Prevent default paste behavior if an image was found
+    // This prevents pasting binary data as text in the textarea
+    if (imageFound) {
+      e.preventDefault();
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.categoryId) return;
@@ -131,7 +168,9 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
         <label className="text-sm font-medium text-slate-700">Descrição</label>
         <textarea className={`${inputCls} resize-none`} rows={4}
           placeholder={ticketType === 'REQUEST' ? 'Justifique a necessidade do item...' : 'Detalhe o problema, passos para reproduzir...'}
-          value={form.description} onChange={(e) => set('description', e.target.value)} />
+          value={form.description} 
+          onChange={(e) => set('description', e.target.value)}
+          onPaste={handlePaste} />
       </div>
 
       <FileAttachment files={files} setFiles={setFiles} />

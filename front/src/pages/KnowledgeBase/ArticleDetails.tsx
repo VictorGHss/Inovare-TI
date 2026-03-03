@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Article, getArticleById } from '../../services/api';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import type { Article } from '../../services/api';
+import { getArticleById } from '../../services/api';
+import MarkdownRenderer from '../../components/MarkdownRenderer.tsx';
 
 export default function ArticleDetails() {
   const { id } = useParams<{ id: string }>();

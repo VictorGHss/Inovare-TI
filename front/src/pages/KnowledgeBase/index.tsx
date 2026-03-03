@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, User, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Article, getArticles } from '../../services/api';
+import type { Article } from '../../services/api';
+import { getArticles } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function KnowledgeBase() {

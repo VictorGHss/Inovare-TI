@@ -13,4 +13,9 @@ import org.springframework.stereotype.Repository;
 public interface StockBatchRepository extends JpaRepository<StockBatch, UUID> {
 
     List<StockBatch> findAllByItem(Item item);
+
+    /**
+     * Busca todos os lotes de estoque de um item, ordenados do mais recente para o mais antigo.
+     */
+    List<StockBatch> findByItemOrderByEntryDateDesc(Item item);
 }

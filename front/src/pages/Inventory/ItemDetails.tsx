@@ -1,0 +1,179 @@
+// Página de detalhes de um item — exibe especificações e histórico de lotes
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Package, FileText } from 'lucide-react';
+import { toast } from 'react-toastify';
+import { getItemById, getItemBatches, type Item, type Batch } from '../../services/api';
+import StatusBadge from '../../components/StatusBadge';
+
+// Formata data ISO para dd/MM/yyyy
+function formatDate(iso: string): string {
+  try {
+    const date = new Date(iso);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return '-';
+  }
+}
+
+// Formata preço em reais
+function formatPrice(price: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(price);
+}
+
+export default function ItemDetails() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [item, setItem] = useState<Item | null>(null);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    // Carrega item e histórico de lotes em paralelo
+    Promise.all([getItemById(id), getItemBatches(id)])
+      .then(([itemData, batchesData]) => {
+        setItem(itemData);
+        setBatches(batchesData);
+      })
+      .catch(() => {
+        toast.error('Item não encontrado.');
+        navigate('/inventory');
+      })
+      .finally(() => setLoading(false));
+  }, [id, navigate]);
+
+  if (loading) {
+    return (
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Skeleton de carregamento */}
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-slate-200 rounded w-1/3" />
+          <div className="h-40 bg-slate-100 rounded-xl" />
+          <div className="h-32 bg-slate-100 rounded-xl" />
+        </div>
+      </main>
+    );
+  }
+
+  if (!item) return null;
+
+  const hasStock = item.currentStock > 0;
+  const specs = item.specifications || {};
+  const hasSpecs = Object.keys(specs).length > 0;
+
+  return (
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      {/* Navegação de retorno */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => navigate('/inventory')}
+          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+          aria-label="Voltar"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <p className="text-xs text-slate-400">Detalhes do Item</p>
+          <h1 className="text-base font-bold text-slate-800 leading-tight">
+            {item.name}
+          </h1>
+        </div>
+      </div>
+
+      {/* Header do item */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-slate-800 mb-1">{item.name}</h2>
+            <p className="text-sm text-slate-500">{item.itemCategoryName}</p>
+          </div>
+          <StatusBadge status={hasStock ? 'OPEN' : 'CLOSED'} />
+        </div>
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-slate-400" />
+            <span className="text-sm text-slate-600">
+              Estoque Atual:{' '}
+              <span className={`font-semibold ${hasStock ? 'text-green-600' : 'text-red-600'}`}>
+                {item.currentStock} {item.currentStock === 1 ? 'unidade' : 'unidades'}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Card de Especificações */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <FileText size={18} className="text-slate-600" />
+          <h3 className="text-sm font-semibold text-slate-700">Especificações</h3>
+        </div>
+        {hasSpecs ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+            {Object.entries(specs).map(([key, value]) => (
+              <div key={key} className="flex flex-col">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  {key}
+                </span>
+                <span className="text-sm text-slate-800 mt-0.5">
+                  {String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">Nenhuma especificação cadastrada.</p>
+        )}
+      </div>
+
+      {/* Card de Histórico de Entradas */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 className="text-sm font-semibold text-slate-700 mb-4">Histórico de Entradas</h3>
+        {batches.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="pb-3 text-left font-medium">Data de Entrada</th>
+                  <th className="pb-3 text-right font-medium">Qtd. Comprada</th>
+                  <th className="pb-3 text-right font-medium">Qtd. Restante</th>
+                  <th className="pb-3 text-right font-medium">Preço Unitário</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {batches.map((batch) => (
+                  <tr key={batch.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 text-slate-700">{formatDate(batch.entryDate)}</td>
+                    <td className="py-3 text-right text-slate-700">{batch.originalQuantity}</td>
+                    <td className="py-3 text-right">
+                      <span
+                        className={
+                          batch.remainingQuantity > 0 ? 'text-green-600 font-medium' : 'text-slate-400'
+                        }
+                      >
+                        {batch.remainingQuantity}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right text-slate-700 font-medium">
+                      {formatPrice(batch.unitPrice)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">Nenhum lote registrado ainda.</p>
+        )}
+      </div>
+    </main>
+  );
+}

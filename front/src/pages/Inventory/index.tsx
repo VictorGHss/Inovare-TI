@@ -83,7 +83,11 @@ export default function Inventory() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={item.id}
+                    onClick={() => navigate(`/inventory/${item.id}`)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {item.name}
                     </td>

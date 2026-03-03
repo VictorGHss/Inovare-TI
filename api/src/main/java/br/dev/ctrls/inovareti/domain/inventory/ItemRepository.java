@@ -21,4 +21,10 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
      */
     @Query("SELECT i FROM Item i JOIN FETCH i.itemCategory")
     List<Item> findAllWithCategory();
+
+    /**
+     * Busca um item por ID com a categoria carregada via JOIN FETCH.
+     */
+    @Query("SELECT i FROM Item i JOIN FETCH i.itemCategory WHERE i.id = :id")
+    java.util.Optional<Item> findByIdWithCategory(UUID id);
 }

@@ -12,12 +12,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.domain.inventory.dto.BatchResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.CreateItemUseCase;
+import br.dev.ctrls.inovareti.domain.inventory.usecase.FindItemByIdUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.ListAllItemsUseCase;
+import br.dev.ctrls.inovareti.domain.inventory.usecase.ListItemBatchesUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.RegisterStockBatchUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,8 @@ public class ItemController {
     private final CreateItemUseCase createItemUseCase;
     private final ListAllItemsUseCase listAllItemsUseCase;
     private final RegisterStockBatchUseCase registerStockBatchUseCase;
+    private final FindItemByIdUseCase findItemByIdUseCase;
+    private final ListItemBatchesUseCase listItemBatchesUseCase;
 
     /**
      * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
@@ -42,6 +47,25 @@ public class ItemController {
     @GetMapping
     public ResponseEntity<List<ItemResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllItemsUseCase.execute());
+    }
+
+    /**
+     * Busca um item de inventário específico por ID.
+     * Retorna 200 OK com os dados do item ou 404 se não encontrado.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ItemResponseDTO> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok(findItemByIdUseCase.execute(id));
+    }
+
+    /**
+     * Lista todos os lotes de estoque de um item específico.
+     * Os lotes são retornados ordenados do mais recente para o mais antigo.
+     * Retorna 200 OK com a lista (vazia se não houver lotes).
+     */
+    @GetMapping("/{id}/batches")
+    public ResponseEntity<List<BatchResponseDTO>> listBatches(@PathVariable UUID id) {
+        return ResponseEntity.ok(listItemBatchesUseCase.execute(id));
     }
 
     /**

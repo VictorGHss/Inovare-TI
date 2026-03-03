@@ -10,6 +10,7 @@ import NewTicket from './pages/NewTicket';
 import TicketDetails from './pages/TicketDetails';
 import Inventory from './pages/Inventory';
 import NewItem from './pages/Inventory/NewItem';
+import ItemDetails from './pages/Inventory/ItemDetails';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -30,6 +31,8 @@ function AppRoutes() {
         {/* Rotas de inventário */}
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/inventory/new" element={<NewItem />} />
+        {/* Rota de detalhes de item — :id é o UUID do item */}
+        <Route path="/inventory/:id" element={<ItemDetails />} />
       </Route>
       {/* Redireciona a raiz para /login */}
       <Route path="*" element={<Navigate to="/login" replace />} />

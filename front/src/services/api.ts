@@ -56,6 +56,14 @@ export interface CreateBatchDto {
   unitPrice: number;
 }
 
+export interface Batch {
+  id: string;
+  originalQuantity: number;
+  remainingQuantity: number;
+  unitPrice: number;
+  entryDate: string; // ISO string
+}
+
 export interface CreateTicketDto {
   title: string;
   description: string;
@@ -95,6 +103,18 @@ export async function getTicketCategories(): Promise<TicketCategory[]> {
 // Busca todos os itens de inventário disponíveis
 export async function getItems(): Promise<Item[]> {
   const { data } = await api.get<Item[]>('/api/items');
+  return data;
+}
+
+// Busca um item de inventário específico pelo UUID
+export async function getItemById(id: string): Promise<Item> {
+  const { data } = await api.get<Item>(`/api/items/${id}`);
+  return data;
+}
+
+// Busca todos os lotes de estoque de um item específico
+export async function getItemBatches(id: string): Promise<Batch[]> {
+  const { data } = await api.get<Batch[]>(`/api/items/${id}/batches`);
   return data;
 }
 

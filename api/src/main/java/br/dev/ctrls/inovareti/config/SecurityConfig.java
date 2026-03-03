@@ -61,13 +61,18 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS configuration — libera o front-end Vite (localhost:5173) para consumir a API.
+     * CORS configuration — allows frontend from localhost and server IPs to consume the API.
+     * Explicitly allows OPTIONS for preflight requests.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
-        config.setAllowedMethods(List.of("*"));
+        config.setAllowedOrigins(List.of(
+            "http://localhost:5173",
+            "http://172.25.0.171:5173",
+            "http://172.25.0.171"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

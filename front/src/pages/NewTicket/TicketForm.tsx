@@ -27,7 +27,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [suggestedArticles, setSuggestedArticles] = useState<ArticleSearchResult[]>([]);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Nome do item selecionado — usado para gerar o título automático de solicitações
   const [selectedItemName, setSelectedItemName] = useState('');

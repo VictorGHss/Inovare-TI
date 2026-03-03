@@ -69,7 +69,12 @@ export default function ArticleDetails() {
   });
 
   // Custom image component to handle base URL
-  const CustomImage = ({ node, ...props }: any) => {
+  interface ImgProps {
+    src?: string;
+    alt?: string;
+  }
+  
+  const CustomImage = ({ ...props }: ImgProps) => {
     const src = props.src || '';
     const fullUrl = src.startsWith('http') 
       ? src 
@@ -122,25 +127,25 @@ export default function ArticleDetails() {
             <ReactMarkdown
               components={{
                 img: CustomImage,
-                p: ({ node, ...props }) => (
+                p: ({ ...props }) => (
                   <p {...props} className="text-slate-700 mb-4" />
                 ),
-                h1: ({ node, ...props }) => (
+                h1: ({ ...props }) => (
                   <h1 {...props} className="text-2xl font-bold mt-6 mb-4 text-slate-900" />
                 ),
-                h2: ({ node, ...props }) => (
+                h2: ({ ...props }) => (
                   <h2 {...props} className="text-xl font-bold mt-5 mb-3 text-slate-900" />
                 ),
-                h3: ({ node, ...props }) => (
+                h3: ({ ...props }) => (
                   <h3 {...props} className="text-lg font-bold mt-4 mb-2 text-slate-900" />
                 ),
-                ul: ({ node, ...props }) => (
+                ul: ({ ...props }) => (
                   <ul {...props} className="list-disc list-inside mb-4 text-slate-700" />
                 ),
-                ol: ({ node, ...props }) => (
+                ol: ({ ...props }) => (
                   <ol {...props} className="list-decimal list-inside mb-4 text-slate-700" />
                 ),
-                code: ({ node, inline, ...props }: any) =>
+                code: ({ inline, ...props }: { inline?: boolean; [key: string]: unknown }) =>
                   inline ? (
                     <code
                       {...props}

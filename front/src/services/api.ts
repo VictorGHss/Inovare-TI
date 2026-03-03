@@ -33,6 +33,27 @@ export interface Item {
   // UUID retornado pelo backend como string
   id: string;
   name: string;
+  itemCategoryId: string;
+  itemCategoryName: string;
+  currentStock: number;
+  specifications: Record<string, unknown> | null;
+}
+
+export interface ItemCategory {
+  id: string;
+  name: string;
+  isConsumable: boolean;
+}
+
+export interface CreateItemDto {
+  itemCategoryId: string;
+  name: string;
+  specifications?: Record<string, unknown>;
+}
+
+export interface CreateBatchDto {
+  quantity: number;
+  unitPrice: number;
 }
 
 export interface CreateTicketDto {
@@ -75,6 +96,23 @@ export async function getTicketCategories(): Promise<TicketCategory[]> {
 export async function getItems(): Promise<Item[]> {
   const { data } = await api.get<Item[]>('/api/items');
   return data;
+}
+
+// Busca todas as categorias de item de inventário
+export async function getItemCategories(): Promise<ItemCategory[]> {
+  const { data } = await api.get<ItemCategory[]>('/api/item-categories');
+  return data;
+}
+
+// Cria um novo item de inventário
+export async function createItem(dto: CreateItemDto): Promise<Item> {
+  const { data } = await api.post<Item>('/api/items', dto);
+  return data;
+}
+
+// Registra um lote de entrada de estoque para um item
+export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<void> {
+  await api.post(`/api/items/${itemId}/batches`, dto);
 }
 
 // Cria um novo chamado

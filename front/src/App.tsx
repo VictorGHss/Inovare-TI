@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import NewTicket from './pages/NewTicket';
 import TicketDetails from './pages/TicketDetails';
+import Inventory from './pages/Inventory';
+import NewItem from './pages/Inventory/NewItem';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -25,6 +27,9 @@ function AppRoutes() {
         <Route path="/tickets/new" element={<NewTicket />} />
         {/* Rota de detalhes de chamado — :id é o UUID do chamado */}
         <Route path="/tickets/:id" element={<TicketDetails />} />
+        {/* Rotas de inventário */}
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/inventory/new" element={<NewItem />} />
       </Route>
       {/* Redireciona a raiz para /login */}
       <Route path="*" element={<Navigate to="/login" replace />} />

@@ -1,5 +1,5 @@
 // Layout padrão compartilhado entre todas as páginas autenticadas
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Github } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -8,6 +8,7 @@ const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 export default function DefaultLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   function handleLogout() {
     signOut();
@@ -18,12 +19,37 @@ export default function DefaultLayout() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Cabeçalho global fixo no topo */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <img
-          src={LOGO_URL}
-          alt="Inovare TI"
-          className="h-10 object-contain cursor-pointer"
-          onClick={() => navigate('/dashboard')}
-        />
+        <div className="flex items-center gap-6">
+          <img
+            src={LOGO_URL}
+            alt="Inovare TI"
+            className="h-10 object-contain cursor-pointer"
+            onClick={() => navigate('/dashboard')}
+          />
+          {/* Links de navegação */}
+          <nav className="hidden sm:flex items-center gap-1">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/tickets')
+                  ? 'bg-primary text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Chamados
+            </button>
+            <button
+              onClick={() => navigate('/inventory')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname.startsWith('/inventory')
+                  ? 'bg-primary text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Inventário
+            </button>
+          </nav>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-500 hidden sm:block">
             {user?.name ?? 'Usuário'}

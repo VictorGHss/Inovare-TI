@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
+import TicketComments from '../../components/TicketComments';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '-';
@@ -257,6 +258,9 @@ export default function TicketDetails() {
               </div>
             </div>
           )}
+
+          {/* Seção de histórico e comentários */}
+          <TicketComments ticketId={ticket.id} ticketStatus={ticket.status} />
 
           {!isClosed && (
             <div className="flex flex-wrap justify-end gap-3">

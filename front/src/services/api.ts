@@ -264,9 +264,30 @@ export interface DashboardAnalyticsDTO {
   lowStockItemsCount: number;
 }
 
+// Comentário de ticket
+export interface TicketComment {
+  id: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
 // Busca métricas agregadas do dashboard
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
   const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
+  return data;
+}
+
+// Adiciona um novo comentário a um chamado
+export async function addTicketComment(ticketId: string, content: string): Promise<TicketComment> {
+  const { data } = await api.post<TicketComment>(`/api/tickets/${ticketId}/comments`, { content });
+  return data;
+}
+
+// Lista todos os comentários de um chamado
+export async function getTicketComments(ticketId: string): Promise<TicketComment[]> {
+  const { data } = await api.get<TicketComment[]>(`/api/tickets/${ticketId}/comments`);
   return data;
 }
 

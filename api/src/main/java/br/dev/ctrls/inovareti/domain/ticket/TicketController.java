@@ -18,12 +18,16 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketAttachmentResponseDTO;
+import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentRequestDTO;
+import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.AddTicketCommentUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ClaimTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CloseTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
@@ -45,6 +49,8 @@ public class TicketController {
     private final CloseTicketUseCase closeTicketUseCase;
     private final ClaimTicketUseCase claimTicketUseCase;
     private final TransferTicketUseCase transferTicketUseCase;
+    private final AddTicketCommentUseCase addTicketCommentUseCase;
+    private final GetTicketCommentsUseCase getTicketCommentsUseCase;
     private final ListAllTicketsUseCase listAllTicketsUseCase;
     private final FindTicketByIdUseCase findTicketByIdUseCase;
     private final LocalFileStorageService fileStorageService;
@@ -167,5 +173,26 @@ public class TicketController {
                 .collect(Collectors.toList());
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Adiciona um novo comentário a um chamado existente.
+     * Retorna 201 Created com os dados do comentário.
+     */
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<TicketCommentResponseDTO> addComment(
+            @PathVariable UUID id,
+            @Valid @RequestBody TicketCommentRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(addTicketCommentUseCase.execute(id, request));
+    }
+
+    /**
+     * Lista todos os comentários de um chamado específico.
+     * Retorna 200 OK com a lista de comentários ordenados por data.
+     */
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<TicketCommentResponseDTO>> listComments(@PathVariable UUID id) {
+        return ResponseEntity.ok(getTicketCommentsUseCase.execute(id));
     }
 }

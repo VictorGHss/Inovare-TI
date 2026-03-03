@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.ticket.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
@@ -28,7 +29,8 @@ public record TicketResponseDTO(
         Integer requestedQuantity,
         LocalDateTime slaDeadline,
         LocalDateTime createdAt,
-        LocalDateTime closedAt
+        LocalDateTime closedAt,
+        List<AttachmentResponseDTO> attachments
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -50,7 +52,8 @@ public record TicketResponseDTO(
                 ticket.getRequestedQuantity(),
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
-                ticket.getClosedAt()
+                ticket.getClosedAt(),
+                List.of() // Empty list by default, can be populated by use case
         );
     }
 }

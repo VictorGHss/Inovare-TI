@@ -1,6 +1,14 @@
 // Instância do Axios configurada para a API do Inovare TI
 import axios from 'axios';
 
+// Attachment in ticket response
+export interface AttachmentResponse {
+  id: string;
+  originalFilename: string;
+  fileUrl: string;
+  fileType: string;
+}
+
 // Espelha exatamente o TicketResponseDTO retornado pelo backend
 export interface Ticket {
   id: string;            // UUID do chamado
@@ -21,6 +29,7 @@ export interface Ticket {
   slaDeadline: string | null;
   createdAt: string;
   closedAt: string | null;
+  attachments: AttachmentResponse[];
 }
 
 export interface TicketCategory {

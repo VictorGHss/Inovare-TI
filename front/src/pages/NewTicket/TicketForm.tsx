@@ -94,14 +94,16 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
     setSubmitting(true);
     try {
+      // Step 1: Create the ticket
       const ticket = await createTicket(payload);
       
-      // Upload dos anexos após criar o chamado
+      // Step 2: Upload attachments if any
       if (files.length > 0) {
-        const uploadPromises = files.map(file => uploadTicketAttachment(ticket.id, file));
-        await Promise.all(uploadPromises);
+        toast.info(`Enviando ${files.length} anexo${files.length > 1 ? 's' : ''}...`);
+        await Promise.all(files.map(file => uploadTicketAttachment(ticket.id, file)));
       }
       
+      // Step 3: Success - only navigate after everything is done
       toast.success('Chamado criado com sucesso!');
       navigate('/dashboard');
     } catch {
@@ -163,7 +165,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
         </button>
         <button type="submit" disabled={submitting}
           className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
-          {submitting ? 'Enviando...' : 'Abrir Chamado'}
+          {submitting ? (files.length > 0 ? 'Enviando arquivos...' : 'Enviando...') : 'Abrir Chamado'}
         </button>
       </div>
     </form>

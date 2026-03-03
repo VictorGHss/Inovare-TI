@@ -1,9 +1,9 @@
 // Página de detalhes de um chamado — exibe informações completas e permite fechar
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTicketById, closeTicket, getTicketAttachments, type Ticket, type TicketAttachment } from '../../services/api';
+import { getTicketById, closeTicket, type Ticket } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 
 // Formata data ISO para exibição em português — retorna '-' para valores nulos
@@ -42,18 +42,14 @@ export default function TicketDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    // Carrega os dados do chamado e seus anexos
-    Promise.all([getTicketById(id), getTicketAttachments(id)])
-      .then(([ticketData, attachmentsData]) => {
-        setTicket(ticketData);
-        setAttachments(attachmentsData);
-      })
+    // Carrega os dados do chamado (attachments já incluídos no response)
+    getTicketById(id)
+      .then(setTicket)
       .catch(() => {
         toast.error('Chamado não encontrado.');
         navigate('/dashboard');
@@ -93,11 +89,6 @@ export default function TicketDetails() {
 
   const isClosed = ticket.status === 'CLOSED';
   const apiUrl = import.meta.env.VITE_API_URL;
-
-  // Função para gerar URL do anexo
-  function getAttachmentUrl(storedFilename: string): string {
-    return `${apiUrl}/api/attachments/${storedFilename}`;
-  }
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -159,32 +150,32 @@ export default function TicketDetails() {
           </div>
 
           {/* Bloco de anexos */}
-          {attachments.length > 0 && (
+          {ticket.attachments && ticket.attachments.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Paperclip size={16} className="text-slate-500" />
                 <h3 className="text-sm font-semibold text-slate-700">
-                  Anexos ({attachments.length})
+                  Anexos ({ticket.attachments.length})
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {attachments.map((attachment) => {
-                  const isImage = attachment.fileType.startsWith('image/');
-                  const attachmentUrl = getAttachmentUrl(attachment.storedFilename);
+                {ticket.attachments.map((attachment) => {
+                  const isImage = attachment.fileType.includes('image');
+                  const fullUrl = `${apiUrl}${attachment.fileUrl}`;
                   
                   if (isImage) {
                     return (
                       <a
                         key={attachment.id}
-                        href={attachmentUrl}
+                        href={fullUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group relative block rounded-lg border border-slate-200 overflow-hidden hover:border-primary hover:shadow-md transition-all"
                       >
                         <img
-                          src={attachmentUrl}
+                          src={fullUrl}
                           alt={attachment.originalFilename}
-                          className="w-full h-32 object-cover"
+                          className="w-full max-h-64 object-contain rounded-lg border bg-slate-50"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
@@ -199,7 +190,8 @@ export default function TicketDetails() {
                   return (
                     <a
                       key={attachment.id}
-                      href={attachmentUrl}
+                      href={fullUrl}
+                      target="_blank"
                       download={attachment.originalFilename}
                       className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-primary hover:bg-slate-50 transition-all group"
                     >

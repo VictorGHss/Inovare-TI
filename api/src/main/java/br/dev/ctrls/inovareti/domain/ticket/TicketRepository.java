@@ -25,4 +25,11 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     List<Ticket> findAllWithRelations();
 
     List<Ticket> findAllByStatus(TicketStatus status);
+
+    /**
+     * Counts tickets by status for analytics.
+     * @param status the ticket status to count
+     * @return total number of tickets with the given status
+     */
+    long countByStatus(TicketStatus status);
 }

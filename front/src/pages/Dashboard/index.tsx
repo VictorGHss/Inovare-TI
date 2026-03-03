@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTickets, type Ticket } from '../../services/api';
+import { getTickets, getDashboardAnalytics, type Ticket, type DashboardAnalyticsDTO } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
 import TicketsTable from './TicketsTable';
 import SummaryAside from './SummaryAside';
@@ -11,22 +11,27 @@ import SummaryAside from './SummaryAside';
 export default function Dashboard() {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [analytics, setAnalytics] = useState<DashboardAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Busca chamados e previne crash de renderização em caso de erro de API
-    const fetchTickets = async () => {
+    // Busca chamados e analytics em paralelo
+    const fetchData = async () => {
       try {
-        const data = await getTickets();
-        setTickets(data);
+        const [ticketsData, analyticsData] = await Promise.all([
+          getTickets(),
+          getDashboardAnalytics(),
+        ]);
+        setTickets(ticketsData);
+        setAnalytics(analyticsData);
       } catch {
-        toast.error('Erro ao carregar chamados. Tente novamente.');
+        toast.error('Erro ao carregar dados. Tente novamente.');
         setTickets([]); // garante array válido para evitar crash no render
       } finally {
         setLoading(false);
       }
     };
-    fetchTickets();
+    fetchData();
   }, []);
 
   return (
@@ -48,8 +53,16 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0">
           {loading ? <SkeletonTable /> : <TicketsTable tickets={tickets} />}
         </div>
-        <SummaryAside />
+        {analytics && (
+          <SummaryAside
+            openTickets={analytics.totalOpenTickets}
+            inProgressTickets={analytics.totalInProgressTickets}
+            resolvedTickets={analytics.totalResolvedTickets}
+            lowStockItems={analytics.lowStockItemsCount}
+          />
+        )}
       </div>
     </main>
   );
 }
+

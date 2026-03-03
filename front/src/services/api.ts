@@ -244,4 +244,18 @@ export async function getTicketAttachments(ticketId: string): Promise<TicketAtta
   return data;
 }
 
+// Interface para dashboard analytics
+export interface DashboardAnalyticsDTO {
+  totalOpenTickets: number;
+  totalInProgressTickets: number;
+  totalResolvedTickets: number;
+  lowStockItemsCount: number;
+}
+
+// Busca métricas agregadas do dashboard
+export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
+  const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
+  return data;
+}
+
 export default api;

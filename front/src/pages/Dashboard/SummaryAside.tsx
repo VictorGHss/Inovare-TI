@@ -1,19 +1,31 @@
 // Sidebar direita com resumo dos chamados
+interface SummaryAsideProps {
+  openTickets: number;
+  inProgressTickets: number;
+  resolvedTickets: number;
+  lowStockItems: number;
+}
+
 interface SummaryItem {
   label: string;
   value: number;
   color: string;
 }
 
-const summaryItems: SummaryItem[] = [
-  { label: 'Abertos', value: 4, color: 'text-red-600' },
-  { label: 'Em Andamento', value: 2, color: 'text-yellow-600' },
-  { label: 'Resolvidos', value: 7, color: 'text-green-600' },
-  { label: 'Fechados', value: 3, color: 'text-gray-500' },
-];
+export default function SummaryAside({
+  openTickets,
+  inProgressTickets,
+  resolvedTickets,
+  lowStockItems,
+}: SummaryAsideProps) {
+  const summaryItems: SummaryItem[] = [
+    { label: 'Abertos', value: openTickets, color: 'text-red-600' },
+    { label: 'Em Andamento', value: inProgressTickets, color: 'text-yellow-600' },
+    { label: 'Resolvidos', value: resolvedTickets, color: 'text-green-600' },
+    { label: 'Itens Baixo Estoque', value: lowStockItems, color: 'text-orange-600' },
+  ];
 
-export default function SummaryAside() {
-  const total = summaryItems.reduce((acc, i) => acc + i.value, 0);
+  const total = openTickets + inProgressTickets + resolvedTickets;
 
   return (
     <aside className="w-full lg:w-64 shrink-0">
@@ -34,10 +46,11 @@ export default function SummaryAside() {
         </ul>
 
         <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">Total</span>
+          <span className="text-sm font-semibold text-slate-700">Total Tickets</span>
           <span className="text-sm font-bold text-primary">{total}</span>
         </div>
       </div>
     </aside>
   );
 }
+

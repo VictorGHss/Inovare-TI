@@ -27,4 +27,11 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
      */
     @Query("SELECT i FROM Item i JOIN FETCH i.itemCategory WHERE i.id = :id")
     java.util.Optional<Item> findByIdWithCategory(UUID id);
+
+    /**
+     * Counts items with stock at or below the threshold for low stock alerts.
+     * @param threshold the maximum stock level to consider as "low stock"
+     * @return total number of items with stock <= threshold
+     */
+    long countByCurrentStockLessThanEqual(int threshold);
 }

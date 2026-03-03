@@ -1,18 +1,61 @@
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: inovareti_postgres
+    container_name: inovareti_db
     restart: always
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-inovare_ti}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    networks:
+      - inovare_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: inovareti_api
+    restart: always
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-inovare_ti}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-default-secret-key-change-in-production}
+    ports:
+      - "8085:8085"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - inovare_network
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://172.25.0.171:8085
+    container_name: inovareti_front
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - inovare_network
+
+networks:
+  inovare_network:
+    driver: bridge
 
 volumes:
   postgres_data:

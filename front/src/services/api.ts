@@ -297,6 +297,16 @@ export interface TicketComment {
   createdAt: string;
 }
 
+// Notificação de usuario
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  link: string | null;
+  createdAt: string;
+}
+
 // Busca métricas agregadas do dashboard
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
   const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
@@ -358,6 +368,20 @@ export async function uploadGenericFile(file: File): Promise<GenericAttachmentRe
       'Content-Type': 'multipart/form-data',
     },
   });
+  return data;
+}
+
+// ==================== NOTIFICATIONS ====================
+
+// Busca todas as notificações não lidas do usuário autenticado
+export async function getUnreadNotifications(): Promise<Notification[]> {
+  const { data } = await api.get<Notification[]>('/api/notifications/unread');
+  return data;
+}
+
+// Marca uma notificação como lida
+export async function markNotificationAsRead(id: string): Promise<Notification> {
+  const { data } = await api.patch<Notification>(`/api/notifications/${id}/read`);
   return data;
 }
 

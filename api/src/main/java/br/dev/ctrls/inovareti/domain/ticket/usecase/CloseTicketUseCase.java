@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
@@ -28,6 +29,7 @@ public class CloseTicketUseCase {
 
     private final TicketRepository ticketRepository;
     private final ItemRepository itemRepository;
+    private final CreateNotificationService createNotificationService;
 
     /**
      * Fecha o chamado e, se houver item solicitado, debita o estoque.
@@ -65,6 +67,15 @@ public class CloseTicketUseCase {
         ticket.setClosedAt(LocalDateTime.now());
 
         Ticket closedTicket = ticketRepository.save(ticket);
+
+        // Notify requester about ticket closure
+        createNotificationService.create(
+                closedTicket.getRequester().getId(),
+                "Chamado Resolvido",
+                "Seu chamado #" + closedTicket.getId().toString().substring(0, 8) + " foi resolvido e fechado",
+                "/tickets/" + closedTicket.getId()
+        );
+
         log.info("Ticket {} closed successfully by system", ticketId);
 
         return TicketResponseDTO.from(closedTicket);

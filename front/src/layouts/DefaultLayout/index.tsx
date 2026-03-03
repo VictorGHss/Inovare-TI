@@ -2,6 +2,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Github } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationBell from '../../components/NotificationBell';
 
 const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 
@@ -86,6 +87,7 @@ export default function DefaultLayout() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <span className="text-sm text-slate-500 hidden sm:block">
             {user?.name ?? 'Usuário'}
           </span>

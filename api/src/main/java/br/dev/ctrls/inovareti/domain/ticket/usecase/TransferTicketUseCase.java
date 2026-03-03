@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
@@ -22,6 +23,7 @@ public class TransferTicketUseCase {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final CreateNotificationService createNotificationService;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UUID newUserId) {
@@ -38,7 +40,15 @@ public class TransferTicketUseCase {
         }
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        // Notify new assignee about the transfer
+        createNotificationService.create(
+                newAssignee.getId(),
+                "Chamado Transferido",
+                "Um chamado #" + savedTicket.getId().toString().substring(0, 8) + " foi transferido para você",
+                "/tickets/" + savedTicket.getId()
+        );
 
+        
         log.info("Ticket {} transferred to user {} ({})", savedTicket.getId(), newAssignee.getName(), newAssignee.getEmail());
 
         return TicketResponseDTO.from(savedTicket);

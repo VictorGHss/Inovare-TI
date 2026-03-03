@@ -1,10 +1,10 @@
 // Formulário de criação de chamado com lógica dinâmica por tipo
-import { useState, useEffect, type FormEvent, type ClipboardEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent, type ClipboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  getTicketCategories, getItems, createTicket, uploadTicketAttachment,
-  type TicketCategory, type Item, type CreateTicketDto,
+  getTicketCategories, getItems, createTicket, uploadTicketAttachment, searchArticles,
+  type TicketCategory, type Item, type CreateTicketDto, type ArticleSearchResult,
 } from '../../services/api';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';
@@ -22,11 +22,12 @@ const inputCls =
 
 export default function TicketForm({ ticketType, onTypeChange }: Props) {
   const navigate = useNavigate();
-  const [showKb, setShowKb] = useState(false);
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [suggestedArticles, setSuggestedArticles] = useState<ArticleSearchResult[]>([]);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Nome do item selecionado — usado para gerar o título automático de solicitações
   const [selectedItemName, setSelectedItemName] = useState('');
@@ -52,11 +53,44 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
       .catch(() => toast.error('Erro ao carregar opções do formulário.'));
   }, []);
 
-  // Exibe sugestões da KB quando o usuário digita mais de 5 caracteres (apenas para INCIDENT)
+  // Debounce para busca de artigos quando o título muda (Ticket Deflection)
   useEffect(() => {
-    const hasContent = (form.title + form.description).trim().length > 5;
-    setShowKb(ticketType === 'INCIDENT' && hasContent);
-  }, [form.title, form.description, ticketType]);
+    if (ticketType !== 'INCIDENT') {
+      setSuggestedArticles([]);
+      return;
+    }
+
+    // Limpa o timer anterior
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    const query = form.title.trim();
+
+    // Se o título tem menos de 3 caracteres, não busca
+    if (query.length < 3) {
+      setSuggestedArticles([]);
+      return;
+    }
+
+    // Cria novo timer para busca com debounce de 500ms
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const results = await searchArticles(query);
+        setSuggestedArticles(results);
+      } catch (error) {
+        console.error('Erro ao buscar artigos:', error);
+        setSuggestedArticles([]);
+      }
+    }, 500);
+
+    // Cleanup: limpa o timer ao desmontar ou quando o efeito é chamado novamente
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [form.title, ticketType]);
 
   function set<K extends keyof CreateTicketDto>(key: K, value: CreateTicketDto[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -162,7 +196,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
         </div>
       )}
 
-      {showKb && <KbSuggestions />}
+      {suggestedArticles.length > 0 && <KbSuggestions articles={suggestedArticles} />}
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Descrição</label>

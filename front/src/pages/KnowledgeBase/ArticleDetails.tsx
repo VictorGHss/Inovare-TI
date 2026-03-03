@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import ReactMarkdown from 'react-markdown';
 import type { Article } from '../../services/api';
 import { getArticleById } from '../../services/api';
-import MarkdownRenderer from '../../components/MarkdownRenderer.tsx';
 
 export default function ArticleDetails() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +68,24 @@ export default function ArticleDetails() {
     minute: '2-digit',
   });
 
+  // Custom image component to handle base URL
+  const CustomImage = ({ node, ...props }: any) => {
+    const src = props.src || '';
+    const fullUrl = src.startsWith('http') 
+      ? src 
+      : `${import.meta.env.VITE_API_URL}${src}`;
+    
+    return (
+      <img
+        {...props}
+        src={fullUrl}
+        alt={props.alt || 'Imagem do artigo'}
+        className="max-w-full rounded-lg border border-slate-200 shadow-sm my-4"
+        loading="lazy"
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto">
@@ -100,8 +118,44 @@ export default function ArticleDetails() {
           </div>
 
           {/* Conteúdo renderizado em Markdown */}
-          <div className="prose prose-sm max-w-none text-slate-700">
-            <MarkdownRenderer content={article.content} />
+          <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-wrap">
+            <ReactMarkdown
+              components={{
+                img: CustomImage,
+                p: ({ node, ...props }) => (
+                  <p {...props} className="text-slate-700 mb-4" />
+                ),
+                h1: ({ node, ...props }) => (
+                  <h1 {...props} className="text-2xl font-bold mt-6 mb-4 text-slate-900" />
+                ),
+                h2: ({ node, ...props }) => (
+                  <h2 {...props} className="text-xl font-bold mt-5 mb-3 text-slate-900" />
+                ),
+                h3: ({ node, ...props }) => (
+                  <h3 {...props} className="text-lg font-bold mt-4 mb-2 text-slate-900" />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul {...props} className="list-disc list-inside mb-4 text-slate-700" />
+                ),
+                ol: ({ node, ...props }) => (
+                  <ol {...props} className="list-decimal list-inside mb-4 text-slate-700" />
+                ),
+                code: ({ node, inline, ...props }: any) =>
+                  inline ? (
+                    <code
+                      {...props}
+                      className="bg-slate-100 px-2 py-1 rounded text-sm font-mono text-red-600"
+                    />
+                  ) : (
+                    <code
+                      {...props}
+                      className="block bg-slate-100 p-4 rounded-lg text-sm font-mono text-slate-800 overflow-x-auto mb-4"
+                    />
+                  ),
+              }}
+            >
+              {article.content}
+            </ReactMarkdown>
           </div>
         </article>
       </div>

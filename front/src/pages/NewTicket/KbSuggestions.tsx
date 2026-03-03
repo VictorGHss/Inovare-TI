@@ -1,27 +1,34 @@
-// Sugestões fictícias da base de conhecimento exibidas ao digitar um problema
-import { Lightbulb, BookOpen } from 'lucide-react';
+// Sugestões dinâmicas da Base de Conhecimento — desvia de criação de chamado (Ticket Deflection)
+import { Lightbulb, ExternalLink } from 'lucide-react';
+import type { ArticleSearchResult } from '../../services/api';
 
-const articles = [
-  'Como reiniciar serviços de rede corporativa',
-  'Impressora não imprime — diagnóstico rápido',
-  'VPN: configuração e solução de erros comuns',
-];
+interface Props {
+  articles: ArticleSearchResult[];
+}
 
-export default function KbSuggestions() {
+export default function KbSuggestions({ articles }: Props) {
+  if (articles.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 transition-all">
-      <p className="text-xs font-semibold text-amber-700 mb-3 flex items-center gap-1.5">
-        <Lightbulb size={14} />
-        Sugestões da Base de Conhecimento
+    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 transition-all">
+      <p className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
+        <Lightbulb size={16} />
+        Antes de abrir o chamado, veja se estes artigos ajudam:
       </p>
       <ul className="flex flex-col gap-2">
-        {articles.map((title, i) => (
-          <li
-            key={i}
-            className="flex items-center gap-2 text-sm text-slate-700 hover:text-primary cursor-pointer transition-colors"
-          >
-            <BookOpen size={13} className="text-amber-500 shrink-0" />
-            {title}
+        {articles.map((article) => (
+          <li key={article.id}>
+            <a
+              href={`/knowledge-base/${article.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline transition-colors"
+            >
+              <ExternalLink size={14} className="shrink-0" />
+              {article.title}
+            </a>
           </li>
         ))}
       </ul>

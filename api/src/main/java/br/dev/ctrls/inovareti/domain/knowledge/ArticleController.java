@@ -15,10 +15,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleRequestDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleResponseDTO;
+import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleSearchResultDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +60,25 @@ public class ArticleController {
         return articleRepository.findById(id)
             .map(article -> ResponseEntity.ok(ArticleResponseDTO.from(article)))
             .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Busca artigos por título (text search).
+     * Usado para sugestões de "Ticket Deflection" ao criar novo chamado.
+     * Retorna lista resumida (ID e Title) de artigos encontrados.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<ArticleSearchResultDTO>> search(@RequestParam String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        return ResponseEntity.ok(
+            articleRepository.findByTitleContainingIgnoreCase(query.trim())
+                .stream()
+                .map(ArticleSearchResultDTO::from)
+                .collect(Collectors.toList())
+        );
     }
 
     /**

@@ -142,6 +142,11 @@ export interface GenericAttachmentResponse {
   url: string;
 }
 
+export interface ArticleSearchResult {
+  id: string;
+  title: string;
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
@@ -327,6 +332,17 @@ export async function getArticleById(id: string): Promise<Article> {
 // Cria um novo artigo (requer ADMIN ou TECHNICIAN)
 export async function createArticle(dto: CreateArticleDto): Promise<Article> {
   const { data } = await api.post<Article>('/api/articles', dto);
+  return data;
+}
+
+// Busca artigos por título (para Ticket Deflection)
+export async function searchArticles(query: string): Promise<ArticleSearchResult[]> {
+  if (!query || query.trim().length === 0) {
+    return [];
+  }
+  const { data } = await api.get<ArticleSearchResult[]>('/api/articles/search', {
+    params: { query: query.trim() },
+  });
   return data;
 }
 

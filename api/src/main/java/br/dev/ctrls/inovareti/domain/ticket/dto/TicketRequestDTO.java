@@ -9,36 +9,34 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTO de entrada para abertura de um chamado.
- * O status inicial (OPEN) e o slaDeadline são calculados automaticamente.
+ * DTO for opening a new ticket.
+ * The initial status (OPEN) and slaDeadline are calculated automatically.
+ * The requester is extracted from the JWT token in the SecurityContext.
  */
 public record TicketRequestDTO(
 
-        @NotBlank(message = "O título é obrigatório.")
-        @Size(max = 200, message = "O título deve ter no máximo 200 caracteres.")
+        @NotBlank(message = "Title is required.")
+        @Size(max = 200, message = "Title must have at most 200 characters.")
         String title,
 
         String description,
 
-        @Size(max = 50, message = "O código AnyDesk deve ter no máximo 50 caracteres.")
+        @Size(max = 50, message = "AnyDesk code must have at most 50 characters.")
         String anydeskCode,
 
-        @NotNull(message = "A prioridade é obrigatória.")
+        @NotNull(message = "Priority is required.")
         TicketPriority priority,
 
-        @NotNull(message = "O ID do solicitante é obrigatório.")
-        UUID requesterId,
-
-        /** ID do técnico responsável. Opcional na abertura. */
+        /** ID of the assigned technician. Optional on creation. */
         UUID assignedToId,
 
-        @NotNull(message = "O ID da categoria é obrigatório.")
+        @NotNull(message = "Category ID is required.")
         UUID categoryId,
 
-        /** ID do item solicitado. Preencher junto com requestedQuantity. */
+        /** ID of the requested item. Fill together with requestedQuantity. */
         UUID requestedItemId,
 
-        @Positive(message = "A quantidade solicitada deve ser maior que zero.")
+        @Positive(message = "Requested quantity must be greater than zero.")
         Integer requestedQuantity
 
 ) {}

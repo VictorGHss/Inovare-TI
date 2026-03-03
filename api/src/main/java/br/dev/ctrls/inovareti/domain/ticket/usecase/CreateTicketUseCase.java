@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.ticket.usecase;
 
 import java.time.LocalDateTime;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +21,12 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Caso de uso: abre um novo chamado.
- * Responsabilidades:
- *   1. Validar existência do solicitante, categoria e item (se informado).
- *   2. Calcular o slaDeadline somando baseSlaHours ao momento atual.
- *   3. Definir status inicial como OPEN.
+ * Use case: opens a new ticket.
+ * Responsibilities:
+ *   1. Resolve requester from JWT via SecurityContext.
+ *   2. Validate category and optional assigned technician / requested item.
+ *   3. Compute slaDeadline by adding baseSlaHours to the current time.
+ *   4. Set initial status as OPEN.
  */
 @Component
 @RequiredArgsConstructor
@@ -36,33 +38,35 @@ public class CreateTicketUseCase {
     private final ItemRepository itemRepository;
 
     /**
-     * Abre um chamado com as informações fornecidas.
+     * Opens a ticket with the provided information.
+     * The requester is resolved from the authenticated user in the SecurityContext.
      *
-     * @param request DTO com os dados do chamado
-     * @return DTO com os dados do chamado criado
+     * @param request DTO with the ticket data
+     * @return DTO with the created ticket data
      */
     @Transactional
     public TicketResponseDTO execute(TicketRequestDTO request) {
-        User requester = userRepository.findById(request.requesterId())
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User requester = userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException(
-                        "Solicitante não encontrado com o id: " + request.requesterId()));
+                        "Authenticated user not found with email: " + email));
 
         User assignedTo = null;
         if (request.assignedToId() != null) {
             assignedTo = userRepository.findById(request.assignedToId())
                     .orElseThrow(() -> new NotFoundException(
-                            "Técnico não encontrado com o id: " + request.assignedToId()));
+                            "Technician not found with id: " + request.assignedToId()));
         }
 
         TicketCategory category = ticketCategoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new NotFoundException(
-                        "Categoria não encontrada com o id: " + request.categoryId()));
+                        "Category not found with id: " + request.categoryId()));
 
         Item requestedItem = null;
         if (request.requestedItemId() != null) {
             requestedItem = itemRepository.findById(request.requestedItemId())
                     .orElseThrow(() -> new NotFoundException(
-                            "Item não encontrado com o id: " + request.requestedItemId()));
+                            "Requested item not found with id: " + request.requestedItemId()));
         }
 
         LocalDateTime now = LocalDateTime.now();

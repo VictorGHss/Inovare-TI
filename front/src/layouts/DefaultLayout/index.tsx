@@ -48,6 +48,31 @@ export default function DefaultLayout() {
             >
               Inventário
             </button>
+            {/* Links administrativos — visíveis apenas para ADMIN */}
+            {user?.role === 'ADMIN' && (
+              <>
+                <button
+                  onClick={() => navigate('/users')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    location.pathname.startsWith('/users')
+                      ? 'bg-primary text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Equipe
+                </button>
+                <button
+                  onClick={() => navigate('/sectors')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    location.pathname.startsWith('/sectors')
+                      ? 'bg-primary text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Setores
+                </button>
+              </>
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-3">

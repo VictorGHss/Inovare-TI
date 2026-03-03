@@ -8,6 +8,7 @@ import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -25,15 +26,16 @@ public class LoginUseCase {
      * Authenticates the given credentials and returns a signed JWT.
      *
      * @param request the login credentials (email + password)
-     * @return {@link AuthResponseDTO} containing the JWT token
+     * @return {@link AuthResponseDTO} containing the JWT token and user data
      */
     public AuthResponseDTO execute(AuthRequestDTO request) {
         var credentials = new UsernamePasswordAuthenticationToken(
                 request.email(), request.password());
 
         var authentication = authenticationManager.authenticate(credentials);
-        String token = tokenService.generateToken((User) authentication.getPrincipal());
+        User user = (User) authentication.getPrincipal();
+        String token = tokenService.generateToken(user);
 
-        return new AuthResponseDTO(token);
+        return new AuthResponseDTO(token, UserResponseDTO.from(user));
     }
 }

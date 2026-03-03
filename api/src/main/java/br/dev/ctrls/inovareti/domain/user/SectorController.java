@@ -1,20 +1,22 @@
 package br.dev.ctrls.inovareti.domain.user;
 
-import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.usecase.CreateSectorUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.ListAllSectorsUseCase;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
+import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
+import br.dev.ctrls.inovareti.domain.user.usecase.CreateSectorUseCase;
+import br.dev.ctrls.inovareti.domain.user.usecase.ListAllSectorsUseCase;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Controller REST para gerenciamento de setores.
@@ -31,7 +33,9 @@ public class SectorController {
     /**
      * Cria um novo setor.
      * Retorna 201 Created com o setor criado no corpo da resposta.
+     * Requer permissão ADMIN.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<SectorResponseDTO> create(@Valid @RequestBody SectorRequestDTO request) {
         SectorResponseDTO response = createSectorUseCase.execute(request);
@@ -41,7 +45,9 @@ public class SectorController {
     /**
      * Lista todos os setores cadastrados.
      * Retorna 200 OK com a lista.
+     * Requer permissão ADMIN.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<SectorResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllSectorsUseCase.execute());

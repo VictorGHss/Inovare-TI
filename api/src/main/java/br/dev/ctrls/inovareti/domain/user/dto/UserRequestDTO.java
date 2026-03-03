@@ -1,12 +1,12 @@
 package br.dev.ctrls.inovareti.domain.user.dto;
 
+import java.util.UUID;
+
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
-import java.util.UUID;
 
 /**
  * DTO de entrada para criação de um usuário.
@@ -34,7 +34,6 @@ public record UserRequestDTO(
         @NotNull(message = "O setor é obrigatório.")
         UUID sectorId,
 
-        @NotBlank(message = "A localização é obrigatória.")
         @Size(max = 150, message = "A localização deve ter no máximo 150 caracteres.")
         String location,
 

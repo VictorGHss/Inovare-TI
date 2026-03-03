@@ -64,6 +64,36 @@ export interface Batch {
   entryDate: string; // ISO string
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'TECHNICIAN' | 'USER';
+  sectorId: string;
+  sectorName: string;
+  location: string;
+  discordUserId: string | null;
+}
+
+export interface Sector {
+  id: string;
+  name: string;
+}
+
+export interface CreateUserDto {
+  name: string;
+  email: string;
+  password: string;
+  role: 'ADMIN' | 'TECHNICIAN' | 'USER';
+  sectorId: string;
+  location?: string;
+  discordUserId?: string;
+}
+
+export interface CreateSectorDto {
+  name: string;
+}
+
 export interface CreateTicketDto {
   title: string;
   description: string;
@@ -150,6 +180,30 @@ export async function getTicketById(id: string): Promise<Ticket> {
 // Fecha um chamado existente pelo UUID
 export async function closeTicket(id: string): Promise<Ticket> {
   const { data } = await api.patch<Ticket>(`/api/tickets/${id}/close`);
+  return data;
+}
+
+// Busca todos os usuários cadastrados (requer ADMIN)
+export async function getUsers(): Promise<User[]> {
+  const { data } = await api.get<User[]>('/api/users');
+  return data;
+}
+
+// Cria um novo usuário (requer ADMIN)
+export async function createUser(dto: CreateUserDto): Promise<User> {
+  const { data } = await api.post<User>('/api/users', dto);
+  return data;
+}
+
+// Busca todos os setores cadastrados (requer ADMIN)
+export async function getSectors(): Promise<Sector[]> {
+  const { data } = await api.get<Sector[]>('/api/sectors');
+  return data;
+}
+
+// Cria um novo setor (requer ADMIN)
+export async function createSector(dto: CreateSectorDto): Promise<Sector> {
+  const { data } = await api.post<Sector>('/api/sectors', dto);
   return data;
 }
 

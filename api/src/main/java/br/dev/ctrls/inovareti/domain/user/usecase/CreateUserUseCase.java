@@ -1,5 +1,9 @@
 package br.dev.ctrls.inovareti.domain.user.usecase;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.user.Sector;
@@ -9,9 +13,6 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Caso de uso: cria um novo usuário no sistema.
@@ -56,7 +57,9 @@ public class CreateUserUseCase {
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .role(request.role())
                 .sector(sector)
-                .location(request.location())
+                .location(request.location() != null && !request.location().isBlank() 
+                        ? request.location() 
+                        : "Não especificado")
                 .discordUserId(request.discordUserId())
                 .build();
 

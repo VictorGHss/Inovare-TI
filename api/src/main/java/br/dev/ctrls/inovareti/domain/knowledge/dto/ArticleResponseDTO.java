@@ -25,6 +25,7 @@ public class ArticleResponseDTO {
     private String content;
     private UUID authorId;
     private String authorName;
+    private String tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -38,6 +39,7 @@ public class ArticleResponseDTO {
                 .content(article.getContent())
                 .authorId(article.getAuthorId())
                 .authorName(article.getAuthorName())
+                .tags(article.getTags())
                 .createdAt(article.getCreatedAt())
                 .updatedAt(article.getUpdatedAt())
                 .build();

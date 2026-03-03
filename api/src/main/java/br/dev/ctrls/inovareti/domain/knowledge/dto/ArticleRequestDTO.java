@@ -22,4 +22,6 @@ public class ArticleRequestDTO {
 
     @NotBlank
     private String content;
+
+    private String tags;
 }

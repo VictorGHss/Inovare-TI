@@ -57,15 +57,20 @@ export default function TicketDetails() {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
 
-  useEffect(() => {
+  // Função para buscar dados do ticket
+  const fetchTicket = async () => {
     if (!id) return;
-    getTicketById(id)
-      .then(setTicket)
-      .catch(() => {
-        toast.error('Chamado não encontrado.');
-        navigate('/dashboard');
-      })
-      .finally(() => setLoading(false));
+    try {
+      const data = await getTicketById(id);
+      setTicket(data);
+    } catch {
+      toast.error('Chamado não encontrado.');
+      navigate('/dashboard');
+    }
+  };
+
+  useEffect(() => {
+    fetchTicket().finally(() => setLoading(false));
   }, [id, navigate]);
 
   async function handleClose() {
@@ -86,8 +91,8 @@ export default function TicketDetails() {
     if (!ticket) return;
     setClaiming(true);
     try {
-      const updated = await claimTicket(ticket.id);
-      setTicket(updated);
+      await claimTicket(ticket.id);
+      await fetchTicket(); // Recarrega o ticket
       toast.success('Chamado assumido com sucesso!');
     } catch {
       toast.error('Erro ao assumir o chamado.');
@@ -110,8 +115,8 @@ export default function TicketDetails() {
     if (!ticket || !selectedUserId) return;
     setTransferring(true);
     try {
-      const updated = await transferTicket(ticket.id, selectedUserId);
-      setTicket(updated);
+      await transferTicket(ticket.id, selectedUserId);
+      await fetchTicket(); // Recarrega o ticket
       setShowTransfer(false);
       setSelectedUserId('');
       toast.success('Chamado transferido com sucesso!');
@@ -264,30 +269,39 @@ export default function TicketDetails() {
 
           {!isClosed && (
             <div className="flex flex-wrap justify-end gap-3">
-              <button
-                onClick={handleClaim}
-                disabled={claiming || transferring || closing}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
-              >
-                {claiming ? 'Assumindo...' : 'Assumir Chamado'}
-              </button>
+              {/* Assumir Chamado - apenas se status é OPEN */}
+              {ticket.status === 'OPEN' && (
+                <button
+                  onClick={handleClaim}
+                  disabled={claiming || transferring || closing}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  {claiming ? 'Assumindo...' : 'Assumir Chamado'}
+                </button>
+              )}
 
-              <button
-                onClick={handleOpenTransfer}
-                disabled={claiming || transferring || closing}
-                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
-              >
-                Transferir
-              </button>
+              {/* Transferir - esconder se CLOSED */}
+              {ticket.status !== 'CLOSED' && (
+                <button
+                  onClick={handleOpenTransfer}
+                  disabled={claiming || transferring || closing}
+                  className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  Transferir
+                </button>
+              )}
 
-              <button
-                onClick={handleClose}
-                disabled={closing || claiming || transferring}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
-              >
-                <CheckCircle2 size={16} />
-                {closing ? 'Fechando...' : 'Resolver e Fechar Chamado'}
-              </button>
+              {/* Resolver e Fechar - apenas se status é IN_PROGRESS */}
+              {ticket.status === 'IN_PROGRESS' && (
+                <button
+                  onClick={handleClose}
+                  disabled={closing || claiming || transferring}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  <CheckCircle2 size={16} />
+                  {closing ? 'Fechando...' : 'Resolver e Fechar Chamado'}
+                </button>
+              )}
             </div>
           )}
 

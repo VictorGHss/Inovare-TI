@@ -108,6 +108,7 @@ public class ArticleController {
         Article article = Article.builder()
             .title(request.getTitle())
             .content(request.getContent())
+            .tags(request.getTags())
             .authorId(userId)
             .authorName(userName)
             .createdAt(LocalDateTime.now())

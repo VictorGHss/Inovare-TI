@@ -129,6 +129,7 @@ export interface Article {
   content: string;
   authorId: string;
   authorName: string;
+  tags: string | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -136,6 +137,7 @@ export interface Article {
 export interface CreateArticleDto {
   title: string;
   content: string;
+  tags?: string;
 }
 
 export interface GenericAttachmentResponse {

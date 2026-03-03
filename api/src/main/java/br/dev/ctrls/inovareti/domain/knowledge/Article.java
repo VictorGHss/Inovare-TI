@@ -51,6 +51,9 @@ public class Article {
     @Column(name = "author_name", nullable = false, length = 255)
     private String authorName;
 
+    @Column(name = "tags", length = 500)
+    private String tags;
+
     @NotNull
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

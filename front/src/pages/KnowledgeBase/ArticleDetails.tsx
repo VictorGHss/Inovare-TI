@@ -110,6 +110,20 @@ export default function ArticleDetails() {
             {article.title}
           </h1>
 
+          {/* Tags */}
+          {article.tags && article.tags.trim() && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {article.tags.split(',').map((tag, index) => (
+                <span
+                  key={index}
+                  className="bg-blue-100 text-blue-800 text-xs font-medium px-3 py-1 rounded-full"
+                >
+                  {tag.trim()}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Metadados */}
           <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600 mb-8 pb-6 border-b border-slate-200">
             <div className="flex items-center gap-2">

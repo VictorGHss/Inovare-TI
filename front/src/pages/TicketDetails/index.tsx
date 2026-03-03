@@ -3,10 +3,18 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTicketById, closeTicket, type Ticket } from '../../services/api';
+import {
+  getTicketById,
+  closeTicket,
+  claimTicket,
+  transferTicket,
+  getUsers,
+  type Ticket,
+  type User,
+} from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
+import SlaBadge from '../../components/SlaBadge';
 
-// Formata data ISO para exibição em português — retorna '-' para valores nulos
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '-';
   try {
@@ -22,7 +30,6 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-// Traduz prioridade para português
 const priorityLabels: Record<string, string> = {
   LOW: 'Baixa',
   NORMAL: 'Normal',
@@ -30,7 +37,6 @@ const priorityLabels: Record<string, string> = {
   URGENT: 'Urgente',
 };
 
-// Cores de prioridade
 const priorityColors: Record<string, string> = {
   LOW: 'text-slate-500',
   NORMAL: 'text-blue-600',
@@ -44,10 +50,14 @@ export default function TicketDetails() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   useEffect(() => {
     if (!id) return;
-    // Carrega os dados do chamado (attachments já incluídos no response)
     getTicketById(id)
       .then(setTicket)
       .catch(() => {
@@ -61,7 +71,6 @@ export default function TicketDetails() {
     if (!ticket) return;
     setClosing(true);
     try {
-      // Chama o endpoint de fechar e atualiza o estado local com o retorno
       const updated = await closeTicket(ticket.id);
       setTicket(updated);
       toast.success('Chamado fechado com sucesso!');
@@ -72,10 +81,49 @@ export default function TicketDetails() {
     }
   }
 
+  async function handleClaim() {
+    if (!ticket) return;
+    setClaiming(true);
+    try {
+      const updated = await claimTicket(ticket.id);
+      setTicket(updated);
+      toast.success('Chamado assumido com sucesso!');
+    } catch {
+      toast.error('Erro ao assumir o chamado.');
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  async function handleOpenTransfer() {
+    try {
+      const usersData = await getUsers();
+      setUsers(usersData);
+      setShowTransfer(true);
+    } catch {
+      toast.error('Erro ao carregar usuários para transferência.');
+    }
+  }
+
+  async function handleTransfer() {
+    if (!ticket || !selectedUserId) return;
+    setTransferring(true);
+    try {
+      const updated = await transferTicket(ticket.id, selectedUserId);
+      setTicket(updated);
+      setShowTransfer(false);
+      setSelectedUserId('');
+      toast.success('Chamado transferido com sucesso!');
+    } catch {
+      toast.error('Erro ao transferir chamado.');
+    } finally {
+      setTransferring(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        {/* Skeleton de carregamento */}
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-slate-200 rounded w-1/3" />
           <div className="h-40 bg-slate-100 rounded-xl" />
@@ -92,7 +140,6 @@ export default function TicketDetails() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      {/* Navegação de retorno */}
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate('/dashboard')}
@@ -110,9 +157,7 @@ export default function TicketDetails() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Coluna principal — título, status, descrição */}
         <div className="lg:col-span-8 flex flex-col gap-5">
-          {/* Header do chamado */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <h2 className="text-xl font-bold text-slate-800 leading-snug flex-1">
@@ -134,10 +179,10 @@ export default function TicketDetails() {
               <span className={priorityColors[ticket.priority]}>
                 Prioridade: {priorityLabels[ticket.priority] ?? ticket.priority}
               </span>
+              <SlaBadge deadline={ticket.slaDeadline} />
             </div>
           </div>
 
-          {/* Bloco de descrição detalhada */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Descrição</h3>
             {ticket.description ? (
@@ -149,7 +194,6 @@ export default function TicketDetails() {
             )}
           </div>
 
-          {/* Bloco de anexos */}
           {ticket.attachments && ticket.attachments.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -162,7 +206,7 @@ export default function TicketDetails() {
                 {ticket.attachments.map((attachment) => {
                   const isImage = attachment.fileType.includes('image');
                   const fullUrl = `${apiUrl}${attachment.fileUrl}`;
-                  
+
                   if (isImage) {
                     return (
                       <a
@@ -186,7 +230,7 @@ export default function TicketDetails() {
                       </a>
                     );
                   }
-                  
+
                   return (
                     <a
                       key={attachment.id}
@@ -214,12 +258,27 @@ export default function TicketDetails() {
             </div>
           )}
 
-          {/* Botão de ação — visível apenas para chamados não fechados */}
           {!isClosed && (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-3">
+              <button
+                onClick={handleClaim}
+                disabled={claiming || transferring || closing}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              >
+                {claiming ? 'Assumindo...' : 'Assumir Chamado'}
+              </button>
+
+              <button
+                onClick={handleOpenTransfer}
+                disabled={claiming || transferring || closing}
+                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              >
+                Transferir
+              </button>
+
               <button
                 onClick={handleClose}
-                disabled={closing}
+                disabled={closing || claiming || transferring}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
               >
                 <CheckCircle2 size={16} />
@@ -227,14 +286,49 @@ export default function TicketDetails() {
               </button>
             </div>
           )}
+
+          {showTransfer && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Transferir Chamado</h3>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <select
+                  value={selectedUserId}
+                  onChange={(event) => setSelectedUserId(event.target.value)}
+                  className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Selecione um usuário</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleTransfer}
+                  disabled={!selectedUserId || transferring}
+                  className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                >
+                  {transferring ? 'Transferindo...' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTransfer(false);
+                    setSelectedUserId('');
+                  }}
+                  disabled={transferring}
+                  className="bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Aside lateral — meta-informações */}
         <aside className="lg:col-span-4 flex flex-col gap-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h3 className="text-sm font-semibold text-slate-700 mb-4">Informações</h3>
             <ul className="flex flex-col gap-3 text-sm">
-              {/* Categoria */}
               <li className="flex items-start gap-2.5 text-slate-600">
                 <Tag size={15} className="mt-0.5 text-slate-400 shrink-0" />
                 <div>
@@ -242,7 +336,6 @@ export default function TicketDetails() {
                   <p className="font-medium text-slate-700">{ticket.categoryName}</p>
                 </div>
               </li>
-              {/* Data de criação */}
               <li className="flex items-start gap-2.5 text-slate-600">
                 <Calendar size={15} className="mt-0.5 text-slate-400 shrink-0" />
                 <div>
@@ -250,17 +343,18 @@ export default function TicketDetails() {
                   <p className="font-medium text-slate-700">{formatDate(ticket.createdAt)}</p>
                 </div>
               </li>
-              {/* Prazo SLA */}
               <li className="flex items-start gap-2.5 text-slate-600">
                 <Clock size={15} className="mt-0.5 text-slate-400 shrink-0" />
                 <div>
                   <p className="text-xs text-slate-400">Prazo SLA</p>
-                  <p className="font-medium text-slate-700">
-                    {ticket.slaDeadline ? formatDate(ticket.slaDeadline) : 'Sem prazo'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-slate-700">
+                      {ticket.slaDeadline ? formatDate(ticket.slaDeadline) : 'Sem prazo'}
+                    </p>
+                    <SlaBadge deadline={ticket.slaDeadline} />
+                  </div>
                 </div>
               </li>
-              {/* Item solicitado — exibido apenas quando presente */}
               {ticket.requestedItemName && (
                 <li className="flex items-start gap-2.5 text-slate-600">
                   <Package size={15} className="mt-0.5 text-slate-400 shrink-0" />
@@ -277,7 +371,6 @@ export default function TicketDetails() {
                   </div>
                 </li>
               )}
-              {/* Data de fechamento — exibido apenas quando presente */}
               {ticket.closedAt && (
                 <li className="flex items-start gap-2.5 text-slate-600">
                   <CheckCircle2 size={15} className="mt-0.5 text-green-500 shrink-0" />

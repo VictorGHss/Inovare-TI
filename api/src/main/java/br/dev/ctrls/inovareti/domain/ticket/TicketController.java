@@ -20,10 +20,12 @@ import org.springframework.web.multipart.MultipartFile;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketAttachmentResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.ClaimTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CloseTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,8 @@ public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
     private final CloseTicketUseCase closeTicketUseCase;
+    private final ClaimTicketUseCase claimTicketUseCase;
+    private final TransferTicketUseCase transferTicketUseCase;
     private final ListAllTicketsUseCase listAllTicketsUseCase;
     private final FindTicketByIdUseCase findTicketByIdUseCase;
     private final LocalFileStorageService fileStorageService;
@@ -82,6 +86,23 @@ public class TicketController {
     @PatchMapping("/{id}/close")
     public ResponseEntity<TicketResponseDTO> close(@PathVariable UUID id) {
         return ResponseEntity.ok(closeTicketUseCase.execute(id));
+    }
+
+    /**
+     * Assumes a ticket for the authenticated user and sets it to IN_PROGRESS.
+     */
+    @PatchMapping("/{id}/claim")
+    public ResponseEntity<TicketResponseDTO> claim(@PathVariable UUID id) {
+        return ResponseEntity.ok(claimTicketUseCase.execute(id));
+    }
+
+    /**
+     * Transfers a ticket to another user.
+     * If ticket is OPEN, status is changed to IN_PROGRESS.
+     */
+    @PatchMapping("/{id}/transfer/{userId}")
+    public ResponseEntity<TicketResponseDTO> transfer(@PathVariable UUID id, @PathVariable UUID userId) {
+        return ResponseEntity.ok(transferTicketUseCase.execute(id, userId));
     }
 
     /**

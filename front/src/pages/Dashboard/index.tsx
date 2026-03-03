@@ -53,14 +53,12 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0">
           {loading ? <SkeletonTable /> : <TicketsTable tickets={tickets} />}
         </div>
-        {analytics && (
-          <SummaryAside
-            openTickets={analytics.totalOpenTickets}
-            inProgressTickets={analytics.totalInProgressTickets}
-            resolvedTickets={analytics.totalResolvedTickets}
-            lowStockItems={analytics.lowStockItemsCount}
-          />
-        )}
+        <SummaryAside
+          openTickets={analytics?.totalOpenTickets ?? 0}
+          inProgressTickets={analytics?.totalInProgressTickets ?? 0}
+          resolvedTickets={analytics?.totalResolvedTickets ?? 0}
+          lowStockItems={analytics?.lowStockItemsCount ?? 0}
+        />
       </div>
     </main>
   );

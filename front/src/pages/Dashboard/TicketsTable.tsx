@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Ticket } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
+import SlaBadge from '../../components/SlaBadge';
 
 interface TicketsTableProps {
   tickets: Ticket[];
@@ -41,6 +42,7 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
             <th className="px-4 py-3 text-left">Categoria</th>
             <th className="px-4 py-3 text-left">Prioridade</th>
             <th className="px-4 py-3 text-left">Status</th>
+            <th className="px-4 py-3 text-left">SLA</th>
             <th className="px-4 py-3 text-left">Criado em</th>
           </tr>
         </thead>
@@ -63,6 +65,9 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
               </td>
               <td className="px-4 py-3">
                 <StatusBadge status={ticket.status} />
+              </td>
+              <td className="px-4 py-3">
+                <SlaBadge deadline={ticket.slaDeadline} />
               </td>
               <td className="px-4 py-3 text-slate-400">
                 {formatDate(ticket.createdAt)}

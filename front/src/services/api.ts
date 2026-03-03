@@ -201,6 +201,18 @@ export async function closeTicket(id: string): Promise<Ticket> {
   return data;
 }
 
+// Assume um chamado para o usuário autenticado e muda para IN_PROGRESS
+export async function claimTicket(id: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/claim`);
+  return data;
+}
+
+// Transfere um chamado para outro usuário
+export async function transferTicket(id: string, userId: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/transfer/${userId}`);
+  return data;
+}
+
 // Busca todos os usuários cadastrados (requer ADMIN)
 export async function getUsers(): Promise<User[]> {
   const { data } = await api.get<User[]>('/api/users');

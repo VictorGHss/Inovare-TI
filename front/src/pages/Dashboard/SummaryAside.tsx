@@ -4,6 +4,8 @@ interface SummaryAsideProps {
   inProgressTickets: number;
   resolvedTickets: number;
   lowStockItems: number;
+  totalTickets?: number;
+  closedTickets?: number;
 }
 
 interface SummaryItem {
@@ -17,6 +19,8 @@ export default function SummaryAside({
   inProgressTickets,
   resolvedTickets,
   lowStockItems,
+  totalTickets,
+  closedTickets = 0,
 }: SummaryAsideProps) {
   const summaryItems: SummaryItem[] = [
     { label: 'Abertos', value: openTickets, color: 'text-red-600' },
@@ -25,7 +29,8 @@ export default function SummaryAside({
     { label: 'Itens Baixo Estoque', value: lowStockItems, color: 'text-orange-600' },
   ];
 
-  const total = openTickets + inProgressTickets + resolvedTickets;
+  // Use provided totalTickets or calculate from components
+  const total = totalTickets ?? (openTickets + inProgressTickets + resolvedTickets + closedTickets);
 
   return (
     <aside className="w-full lg:w-64 shrink-0">

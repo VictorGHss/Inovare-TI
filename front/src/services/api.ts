@@ -288,6 +288,8 @@ export interface DashboardAnalyticsDTO {
   totalInProgressTickets: number;
   totalResolvedTickets: number;
   lowStockItemsCount: number;
+  totalTickets: number;
+  totalClosedTickets: number;
 }
 
 // Comentário de ticket

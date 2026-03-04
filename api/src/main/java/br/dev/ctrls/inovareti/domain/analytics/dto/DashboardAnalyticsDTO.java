@@ -8,5 +8,7 @@ public record DashboardAnalyticsDTO(
     long totalOpenTickets,
     long totalInProgressTickets,
     long totalResolvedTickets,
-    long lowStockItemsCount
+    long lowStockItemsCount,
+    long totalTickets,
+    long totalClosedTickets
 ) {}

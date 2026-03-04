@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +32,7 @@ import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.TransferTicketUseCase;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,14 +59,32 @@ public class TicketController {
     private final LocalFileStorageService fileStorageService;
     private final TicketAttachmentRepository attachmentRepository;
     private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
 
     /**
-     * Lista todos os chamados com suas relações carregadas.
+     * Lista todos os chamados com isolamento por role.
+     * ADMIN/TECHNICIAN: ver todos os chamados
+     * USER: ver apenas seus próprios chamados
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
     public ResponseEntity<List<TicketResponseDTO>> listAll() {
-        return ResponseEntity.ok(listAllTicketsUseCase.execute());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID userId;
+        
+        try {
+            userId = UUID.fromString(auth.getPrincipal().toString());
+        } catch (Exception e) {
+            log.warn("Could not parse user ID from authentication");
+            return ResponseEntity.badRequest().build();
+        }
+        
+        var user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole()));
     }
 
     /**

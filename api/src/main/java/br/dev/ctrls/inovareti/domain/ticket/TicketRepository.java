@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -24,6 +25,16 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
             """)
     List<Ticket> findAllWithRelations();
 
+    /**
+     * Busca todos os chamados de um solicitante específico, ordenados por data decrescente.
+     */
+    @Query("""
+            SELECT t FROM Ticket t
+            WHERE t.requester.id = :requesterId
+            ORDER BY t.createdAt DESC
+            """)
+    List<Ticket> findByRequesterIdOrderByCreatedAtDesc(@Param("requesterId") UUID requesterId);
+
     List<Ticket> findAllByStatus(TicketStatus status);
 
     /**
@@ -32,4 +43,9 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * @return total number of tickets with the given status
      */
     long countByStatus(TicketStatus status);
+
+    /**
+     * Counts tickets by requester and status for user-specific analytics.
+     */
+    long countByRequesterIdAndStatus(@Param("requesterId") UUID requesterId, TicketStatus status);
 }

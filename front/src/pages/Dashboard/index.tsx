@@ -58,6 +58,8 @@ export default function Dashboard() {
           inProgressTickets={analytics?.totalInProgressTickets ?? 0}
           resolvedTickets={analytics?.totalResolvedTickets ?? 0}
           lowStockItems={analytics?.lowStockItemsCount ?? 0}
+          totalTickets={analytics?.totalTickets ?? 0}
+          closedTickets={analytics?.totalClosedTickets ?? 0}
         />
       </div>
     </main>

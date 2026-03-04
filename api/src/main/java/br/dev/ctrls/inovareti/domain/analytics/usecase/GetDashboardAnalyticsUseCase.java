@@ -1,12 +1,17 @@
 package br.dev.ctrls.inovareti.domain.analytics.usecase;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
+import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
+import br.dev.ctrls.inovareti.domain.analytics.dto.InventorySummaryDTO;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -28,6 +33,7 @@ public class GetDashboardAnalyticsUseCase {
     private final ItemRepository itemRepository;
 
     private static final int LOW_STOCK_THRESHOLD = 3;
+    private static final int OUT_OF_STOCK_THRESHOLD = 0;
 
     /**
      * Gathers analytics data for the dashboard.
@@ -44,7 +50,7 @@ public class GetDashboardAnalyticsUseCase {
         long inProgressTickets;
         long resolvedTickets;
         long closedTickets;
-        long lowStockItems;
+        List<Ticket> allTickets;
 
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
             // ADMIN and TECHNICIAN see all tickets
@@ -52,15 +58,27 @@ public class GetDashboardAnalyticsUseCase {
             inProgressTickets = ticketRepository.countByStatus(TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByStatus(TicketStatus.RESOLVED);
             closedTickets = ticketRepository.countByStatus(TicketStatus.CLOSED);
+            allTickets = ticketRepository.findAll();
         } else {
             // USER sees only their own tickets
             openTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.RESOLVED);
             closedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.CLOSED);
+            allTickets = ticketRepository.findByRequesterId(userId);
         }
 
-        lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
+        // Build tickets by status metrics
+        List<MetricDTO> ticketsByStatus = buildTicketsByStatusMetrics(openTickets, inProgressTickets, resolvedTickets, closedTickets);
+
+        // Build tickets by category metrics
+        List<MetricDTO> ticketsByCategory = buildTicketsByCategoryMetrics(allTickets);
+
+        // Build inventory summary metrics
+        long totalItems = itemRepository.count();
+        long lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
+        long outOfStockItems = itemRepository.countByCurrentStockLessThanEqual(OUT_OF_STOCK_THRESHOLD);
+        InventorySummaryDTO inventorySummary = new InventorySummaryDTO(totalItems, lowStockItems, outOfStockItems);
 
         log.info("Analytics retrieved: open={}, inProgress={}, resolved={}, closed={}, lowStock={}",
                 openTickets, inProgressTickets, resolvedTickets, closedTickets, lowStockItems);
@@ -74,7 +92,37 @@ public class GetDashboardAnalyticsUseCase {
                 resolvedTickets,
                 lowStockItems,
                 totalTickets,
-                closedTickets
+                closedTickets,
+                ticketsByStatus,
+                ticketsByCategory,
+                inventorySummary
         );
+    }
+
+    /**
+     * Builds a list of metrics representing tickets by status.
+     */
+    private List<MetricDTO> buildTicketsByStatusMetrics(long open, long inProgress, long resolved, long closed) {
+        return List.of(
+                new MetricDTO("Aberto", open),
+                new MetricDTO("Em Progresso", inProgress),
+                new MetricDTO("Resolvido", resolved),
+                new MetricDTO("Fechado", closed)
+        );
+    }
+
+    /**
+     * Builds a list of metrics representing tickets by category.
+     */
+    private List<MetricDTO> buildTicketsByCategoryMetrics(List<Ticket> tickets) {
+        return tickets.stream()
+                .collect(Collectors.groupingByConcurrent(
+                        ticket -> ticket.getCategory().getName(),
+                        Collectors.counting()
+                ))
+                .entrySet()
+                .stream()
+                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
     }
 }

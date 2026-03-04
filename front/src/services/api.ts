@@ -283,6 +283,17 @@ export async function getTicketAttachments(ticketId: string): Promise<TicketAtta
 }
 
 // Interface para dashboard analytics
+export interface MetricDTO {
+  name: string;
+  value: number;
+}
+
+export interface InventorySummaryDTO {
+  totalItems: number;
+  lowStockItems: number;
+  outOfStockItems: number;
+}
+
 export interface DashboardAnalyticsDTO {
   totalOpenTickets: number;
   totalInProgressTickets: number;
@@ -290,6 +301,9 @@ export interface DashboardAnalyticsDTO {
   lowStockItemsCount: number;
   totalTickets: number;
   totalClosedTickets: number;
+  ticketsByStatus: MetricDTO[];
+  ticketsByCategory: MetricDTO[];
+  inventorySummary: InventorySummaryDTO;
 }
 
 // Comentário de ticket
@@ -314,6 +328,14 @@ export interface Notification {
 // Busca métricas agregadas do dashboard
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
   const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
+  return data;
+}
+
+// Exporta relatório de tickets em Excel
+export async function exportTicketsReport(): Promise<Blob> {
+  const { data } = await api.get('/api/reports/tickets/export', {
+    responseType: 'blob',
+  });
   return data;
 }
 

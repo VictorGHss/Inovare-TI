@@ -1,18 +1,28 @@
-// Página principal de gerenciamento de chamados
+// Dashboard dinâmica para Admin e User
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTickets, getDashboardAnalytics, type Ticket, type DashboardAnalyticsDTO } from '../../services/api';
+import { getTickets, getDashboardAnalytics, type Ticket, type DashboardAnalyticsDTO, exportTicketsReport } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
 import TicketsTable from './TicketsTable';
 import SummaryAside from './SummaryAside';
+import ChartsPie from '../../components/ChartsPie';
+import ChartsBar from '../../components/ChartsBar';
+import InventorySummaryCard from '../../components/InventorySummaryCard';
+import ReceivedItemsCard from '../../components/ReceivedItemsCard';
+import UserTicketHistory from '../../components/UserTicketHistory';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [analytics, setAnalytics] = useState<DashboardAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
   useEffect(() => {
     // Busca chamados e analytics em paralelo
@@ -34,34 +44,122 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  const handleExportReport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportTicketsReport();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio_chamados_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Relatório exportado com sucesso!');
+    } catch {
+      toast.error('Erro ao exportar relatório.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Cabeçalho da seção */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Meus Chamados</h1>
-        <button
-          onClick={() => navigate('/tickets/new')}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          Novo Chamado
-        </button>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold text-slate-800">
+          {isAdmin ? 'Visão Geral de Chamados' : 'Meus Chamados'}
+        </h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => navigate('/tickets/new')}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            Novo Chamado
+          </button>
+          {isAdmin && (
+            <button
+              onClick={handleExportReport}
+              disabled={exporting}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <Download size={17} />
+              {exporting ? 'Exportando...' : 'Exportar Excel'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Layout de duas colunas: tabela + aside */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        <div className="flex-1 min-w-0">
-          {loading ? <SkeletonTable /> : <TicketsTable tickets={tickets} />}
-        </div>
-        <SummaryAside
-          openTickets={analytics?.totalOpenTickets ?? 0}
-          inProgressTickets={analytics?.totalInProgressTickets ?? 0}
-          resolvedTickets={analytics?.totalResolvedTickets ?? 0}
-          lowStockItems={analytics?.lowStockItemsCount ?? 0}
-          totalTickets={analytics?.totalTickets ?? 0}
-          closedTickets={analytics?.totalClosedTickets ?? 0}
-        />
+      {/* Summary cards no topo */}
+      <div className="mb-8">
+        {loading ? (
+          <SkeletonTable />
+        ) : (
+          <SummaryAside
+            openTickets={analytics?.totalOpenTickets ?? 0}
+            inProgressTickets={analytics?.totalInProgressTickets ?? 0}
+            resolvedTickets={analytics?.totalResolvedTickets ?? 0}
+            lowStockItems={analytics?.lowStockItemsCount ?? 0}
+            totalTickets={analytics?.totalTickets ?? 0}
+            closedTickets={analytics?.totalClosedTickets ?? 0}
+          />
+        )}
       </div>
+
+      {/* Admin Dashboard */}
+      {isAdmin ? (
+        <>
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {analytics && (
+              <>
+                <ChartsPie
+                  data={analytics.ticketsByStatus}
+                  title="Chamados por Status"
+                />
+                <ChartsPie
+                  data={analytics.ticketsByCategory}
+                  title="Chamados por Categoria"
+                />
+              </>
+            )}
+          </div>
+
+          {/* Volume Mensal e Inventário */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {!loading && (
+              <>
+                <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
+                {analytics && (
+                  <InventorySummaryCard data={analytics.inventorySummary} />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Tabela de Chamados */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800">Todos os Chamados</h3>
+            </div>
+            {loading ? <SkeletonTable /> : <TicketsTable tickets={tickets} />}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* User Dashboard */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {!loading && (
+              <>
+                <UserTicketHistory tickets={tickets} />
+                <ReceivedItemsCard tickets={tickets} />
+              </>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }

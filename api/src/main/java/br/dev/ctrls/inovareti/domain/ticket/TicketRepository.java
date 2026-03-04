@@ -48,4 +48,9 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * Counts tickets by requester and status for user-specific analytics.
      */
     long countByRequesterIdAndStatus(@Param("requesterId") UUID requesterId, TicketStatus status);
+
+    /**
+     * Finds all tickets by requester ID.
+     */
+    List<Ticket> findByRequesterId(@Param("requesterId") UUID requesterId);
 }

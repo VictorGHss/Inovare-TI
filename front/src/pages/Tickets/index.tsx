@@ -32,15 +32,9 @@ export default function Tickets() {
     fetchTickets();
   }, []);
 
-  // Filter tickets based on user role and tab
-  const filteredTickets = tickets.filter((_) => {
-    if (isAdmin) {
-      // Admin sees all tickets
-      return true;
-    }
-    // User sees only their own tickets
-    return true;
-  });
+  // Filtra chamados baseado no papel do usuário
+  // Nota: A API já retorna apenas os chamados relevantes para o usuário
+  const filteredTickets = tickets;
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">

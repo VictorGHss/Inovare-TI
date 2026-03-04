@@ -385,6 +385,22 @@ export async function exportTicketsReport(): Promise<Blob> {
   return data;
 }
 
+// Exporta relatório de entradas de estoque (compras)
+export async function exportInventoryEntriesReport(): Promise<Blob> {
+  const { data } = await api.get('/api/reports/inventory/entries', {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+// Exporta relatório de saídas de estoque (consumo)
+export async function exportInventoryExitsReport(): Promise<Blob> {
+  const { data } = await api.get('/api/reports/inventory/exits', {
+    responseType: 'blob',
+  });
+  return data;
+}
+
 // Adiciona um novo comentário a um chamado
 export async function addTicketComment(ticketId: string, content: string): Promise<TicketComment> {
   const { data } = await api.post<TicketComment>(`/api/tickets/${ticketId}/comments`, { content });

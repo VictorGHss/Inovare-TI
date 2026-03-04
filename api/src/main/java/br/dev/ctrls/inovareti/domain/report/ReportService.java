@@ -19,6 +19,7 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
+import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.extern.slf4j.Slf4j;
 
@@ -84,5 +85,114 @@ public class ReportService {
             log.error("Error generating Excel report for tickets", e);
             throw new RuntimeException("Failed to generate Excel report", e);
         }
+    }
+
+    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Entradas");
+
+            // Create header style
+            CellStyle headerStyle = createHeaderStyle(workbook);
+
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"ID", "Item", "Categoria", "Data de Entrada", "Quantidade Comprada", "Preço Unitário", "Valor Total"};
+
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Fill data rows
+            int rowNum = 1;
+            for (StockBatch batch : batches) {
+                Row row = sheet.createRow(rowNum++);
+
+                row.createCell(0).setCellValue(batch.getId().toString());
+                row.createCell(1).setCellValue(batch.getItem().getName());
+                row.createCell(2).setCellValue(batch.getItem().getItemCategory().getName());
+                row.createCell(3).setCellValue(batch.getEntryDate().format(DATE_FORMATTER));
+                row.createCell(4).setCellValue(batch.getOriginalQuantity());
+                row.createCell(5).setCellValue(batch.getUnitPrice().doubleValue());
+                row.createCell(6).setCellValue(batch.getUnitPrice().doubleValue() * batch.getOriginalQuantity());
+            }
+
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            // Write to ByteArrayOutputStream
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+
+            return new ByteArrayInputStream(outputStream.toByteArray());
+        } catch (IOException e) {
+            log.error("Error generating Excel report for inventory entries", e);
+            throw new RuntimeException("Failed to generate Excel report", e);
+        }
+    }
+
+    public ByteArrayInputStream exportInventoryExitsToExcel(List<Ticket> tickets) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Saídas");
+
+            // Create header style
+            CellStyle headerStyle = createHeaderStyle(workbook);
+
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"ID Chamado", "Item Solicitado", "Quantidade Entregue", "Solicitante", "Setor do Solicitante", "Data da Entrega"};
+
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Fill data rows - only resolved tickets with requested items
+            int rowNum = 1;
+            for (Ticket ticket : tickets) {
+                if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
+                    Row row = sheet.createRow(rowNum++);
+
+                    row.createCell(0).setCellValue(ticket.getId().toString());
+                    row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
+                    row.createCell(2).setCellValue(ticket.getRequestedQuantity());
+                    row.createCell(3).setCellValue(ticket.getRequester().getName());
+                    row.createCell(4).setCellValue(ticket.getRequester().getSector().getName());
+                    row.createCell(5).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
+                }
+            }
+
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            // Write to ByteArrayOutputStream
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+
+            return new ByteArrayInputStream(outputStream.toByteArray());
+        } catch (IOException e) {
+            log.error("Error generating Excel report for inventory exits", e);
+            throw new RuntimeException("Failed to generate Excel report", e);
+        }
+    }
+
+    private CellStyle createHeaderStyle(XSSFWorkbook workbook) {
+        CellStyle headerStyle = workbook.createCellStyle();
+        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setBorderBottom(BorderStyle.THIN);
+        headerStyle.setBorderRight(BorderStyle.THIN);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        return headerStyle;
     }
 }

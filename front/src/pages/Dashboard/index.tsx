@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getDashboardAnalytics, getTickets, type Ticket, type DashboardAnalyticsDTO, exportTicketsReport } from '../../services/api';
+import { getDashboardAnalytics, getTickets, type Ticket, type DashboardAnalyticsDTO } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';
@@ -11,6 +11,7 @@ import ChartsBar from '../../components/ChartsBar';
 import InventorySummaryCard from '../../components/InventorySummaryCard';
 import ReceivedItemsCard from '../../components/ReceivedItemsCard';
 import UserTicketHistory from '../../components/UserTicketHistory';
+import ReportHubModal from '../../components/ReportHubModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Dashboard() {
@@ -19,7 +20,7 @@ export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [analytics, setAnalytics] = useState<DashboardAnalyticsDTO | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  const [reportHubOpen, setReportHubOpen] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
@@ -43,26 +44,6 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const handleExportReport = async () => {
-    setExporting(true);
-    try {
-      const blob = await exportTicketsReport();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `relatorio_chamados_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('Relatório exportado com sucesso!');
-    } catch {
-      toast.error('Erro ao exportar relatório.');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Cabeçalho da seção */}
@@ -80,12 +61,11 @@ export default function Dashboard() {
           </button>
           {isAdmin && (
             <button
-              onClick={handleExportReport}
-              disabled={exporting}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              onClick={() => setReportHubOpen(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <Download size={17} />
-              {exporting ? 'Exportando...' : 'Exportar Excel'}
+              Central de Relatórios
             </button>
           )}
         </div>
@@ -151,6 +131,8 @@ export default function Dashboard() {
           </div>
         </>
       )}
+
+      <ReportHubModal isOpen={reportHubOpen} onClose={() => setReportHubOpen(false)} />
     </main>
   );
 }

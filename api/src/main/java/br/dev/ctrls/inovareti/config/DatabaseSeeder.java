@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.config;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
@@ -14,6 +15,8 @@ import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategoryRepository;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
+import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
 import br.dev.ctrls.inovareti.domain.knowledge.Article;
 import br.dev.ctrls.inovareti.domain.knowledge.ArticleRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
@@ -44,6 +47,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final SectorRepository sectorRepository;
     private final UserRepository userRepository;
     private final ItemRepository itemRepository;
+    private final StockBatchRepository stockBatchRepository;
     private final TicketRepository ticketRepository;
     private final ArticleRepository articleRepository;
     private final AssetRepository assetRepository;
@@ -78,6 +82,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         // Seed inventory items
         if (itemRepository.count() == 0) {
             seedInventoryItems();
+        }
+
+        // Seed stock batches
+        if (stockBatchRepository.count() == 0) {
+            seedStockBatches();
         }
 
         // Seed tickets
@@ -323,6 +332,72 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         ticketRepository.saveAll(tickets);
         log.info("Seeded {} tickets", tickets.size());
+
+        // Add 3 Item Request tickets with RESOLVED status
+        List<Item> items = itemRepository.findAll();
+        if (!items.isEmpty()) {
+            List<Ticket> itemRequestTickets = new java.util.ArrayList<>();
+            for (int i = 1; i <= 3; i++) {
+                Item requestedItem = items.get(random.nextInt(items.size()));
+                User requester = requesters.get(random.nextInt(requesters.size()));
+                int quantity = random.nextInt(10) + 1; // 1-10 items
+
+                LocalDateTime createdAt = now.minusDays(random.nextInt(20)).minusHours(random.nextInt(24));
+                LocalDateTime closedAt = createdAt.plusHours(random.nextInt(48) + 1);
+                LocalDateTime slaDeadline = createdAt.plusHours(24);
+
+                Ticket itemRequestTicket = Ticket.builder()
+                    .title("Solicitação de Item #" + (26 + i) + " - " + requestedItem.getName())
+                    .description("Solicitação automática de " + quantity + "x " + requestedItem.getName())
+                    .status(TicketStatus.RESOLVED)
+                    .priority(TicketPriority.NORMAL)
+                    .requester(requester)
+                    .assignedTo(technician)
+                    .category(categories.get(0)) // Use first category
+                    .requestedItem(requestedItem)
+                    .requestedQuantity(quantity)
+                    .slaDeadline(slaDeadline)
+                    .createdAt(createdAt)
+                    .closedAt(closedAt)
+                    .build();
+
+                itemRequestTickets.add(itemRequestTicket);
+            }
+            ticketRepository.saveAll(itemRequestTickets);
+            log.info("Seeded {} item request tickets", itemRequestTickets.size());
+        }
+    }
+
+    private void seedStockBatches() {
+        List<Item> items = itemRepository.findAll();
+        if (items.isEmpty()) {
+            log.warn("No items found for stock batch seeding");
+            return;
+        }
+
+        List<StockBatch> batches = new java.util.ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        // Create 5 stock batches for randomly selected items
+        for (int i = 1; i <= 5; i++) {
+            Item item = items.get(random.nextInt(items.size()));
+            int quantity = random.nextInt(20) + 10; // 10-30 units per batch
+            BigDecimal unitPrice = new BigDecimal(random.nextInt(500) + 50); // 50-550 per unit
+            LocalDateTime entryDate = now.minusDays(random.nextInt(15)).minusHours(random.nextInt(24));
+
+            StockBatch batch = StockBatch.builder()
+                .item(item)
+                .originalQuantity(quantity)
+                .remainingQuantity(quantity)
+                .unitPrice(unitPrice)
+                .entryDate(entryDate)
+                .build();
+
+            batches.add(batch);
+        }
+
+        stockBatchRepository.saveAll(batches);
+        log.info("Seeded {} stock batches", batches.size());
     }
 
     private void seedAssets() {

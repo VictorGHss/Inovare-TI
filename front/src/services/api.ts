@@ -379,7 +379,7 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
 
 // Exporta relatório de tickets em Excel
 export async function exportTicketsReport(): Promise<Blob> {
-  const { data } = await api.get('/api/reports/tickets/export', {
+  const { data } = await api.get('/api/reports/tickets', {
     responseType: 'blob',
   });
   return data;

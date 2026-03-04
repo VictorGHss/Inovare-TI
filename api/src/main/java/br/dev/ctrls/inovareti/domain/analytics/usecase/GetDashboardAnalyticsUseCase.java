@@ -49,7 +49,6 @@ public class GetDashboardAnalyticsUseCase {
         long openTickets;
         long inProgressTickets;
         long resolvedTickets;
-        long closedTickets;
         List<Ticket> allTickets;
 
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
@@ -57,19 +56,19 @@ public class GetDashboardAnalyticsUseCase {
             openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByStatus(TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByStatus(TicketStatus.RESOLVED);
-            closedTickets = ticketRepository.countByStatus(TicketStatus.CLOSED);
             allTickets = ticketRepository.findAll();
         } else {
             // USER sees only their own tickets
             openTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.RESOLVED);
-            closedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.CLOSED);
             allTickets = ticketRepository.findByRequesterId(userId);
         }
 
+        long closedTickets = 0;
+
         // Build tickets by status metrics
-        List<MetricDTO> ticketsByStatus = buildTicketsByStatusMetrics(openTickets, inProgressTickets, resolvedTickets, closedTickets);
+        List<MetricDTO> ticketsByStatus = buildTicketsByStatusMetrics(openTickets, inProgressTickets, resolvedTickets);
 
         // Build tickets by category metrics
         List<MetricDTO> ticketsByCategory = buildTicketsByCategoryMetrics(allTickets);
@@ -102,12 +101,11 @@ public class GetDashboardAnalyticsUseCase {
     /**
      * Builds a list of metrics representing tickets by status.
      */
-    private List<MetricDTO> buildTicketsByStatusMetrics(long open, long inProgress, long resolved, long closed) {
+    private List<MetricDTO> buildTicketsByStatusMetrics(long open, long inProgress, long resolved) {
         return List.of(
                 new MetricDTO("Aberto", open),
                 new MetricDTO("Em Progresso", inProgress),
-                new MetricDTO("Resolvido", resolved),
-                new MetricDTO("Fechado", closed)
+                new MetricDTO("Resolvido", resolved)
         );
     }
 

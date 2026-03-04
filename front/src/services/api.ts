@@ -15,7 +15,7 @@ export interface Ticket {
   title: string;
   description: string | null;
   anydeskCode: string | null;
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   requesterId: string;
   requesterName: string;
@@ -222,9 +222,9 @@ export async function getTicketById(id: string): Promise<Ticket> {
   return data;
 }
 
-// Fecha um chamado existente pelo UUID
-export async function closeTicket(id: string): Promise<Ticket> {
-  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/close`);
+// Resolve um chamado existente pelo UUID
+export async function resolveTicket(id: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/resolve`);
   return data;
 }
 

@@ -17,10 +17,10 @@ export default function SlaBadge({ deadline, status, closedAt }: SlaBadgeProps) 
   }
 
   const deadlineDate = new Date(deadline);
-  const isClosedOrResolved = status === 'RESOLVED' || status === 'CLOSED';
+  const isResolved = status === 'RESOLVED';
 
-  // If ticket is resolved/closed, compare deadline with closedAt
-  if (isClosedOrResolved && closedAt) {
+  // If ticket is resolved, compare deadline with closedAt
+  if (isResolved && closedAt) {
     const closedDate = new Date(closedAt);
     const isOnTime = closedDate <= deadlineDate;
 
@@ -33,7 +33,7 @@ export default function SlaBadge({ deadline, status, closedAt }: SlaBadgeProps) 
         }`}
         title={`Prazo: ${deadlineDate.toLocaleDateString('pt-BR')} ${deadlineDate.toLocaleTimeString('pt-BR')}`}
       >
-        {isOnTime ? 'No Prazo' : 'Fechado com Atraso'}
+        {isOnTime ? 'No Prazo' : 'Resolvido com Atraso'}
       </span>
     );
   }

@@ -26,11 +26,11 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.AddTicketCommentUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ClaimTicketUseCase;
-import br.dev.ctrls.inovareti.domain.ticket.usecase.CloseTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
@@ -49,7 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
-    private final CloseTicketUseCase closeTicketUseCase;
+    private final ResolveTicketUseCase resolveTicketUseCase;
     private final ClaimTicketUseCase claimTicketUseCase;
     private final TransferTicketUseCase transferTicketUseCase;
     private final AddTicketCommentUseCase addTicketCommentUseCase;
@@ -107,13 +107,13 @@ public class TicketController {
     }
 
     /**
-     * Fecha um chamado existente.
-     * Se o chamado tiver item e quantidade solicitados, debita o estoque atomicamente.
-     * Retorna 200 OK com o chamado atualizado.
+     * Resolves an existing ticket.
+     * If the ticket has requested item and quantity, debits stock atomically.
+     * Returns 200 OK with updated ticket data.
      */
-    @PatchMapping("/{id}/close")
-    public ResponseEntity<TicketResponseDTO> close(@PathVariable UUID id) {
-        return ResponseEntity.ok(closeTicketUseCase.execute(id));
+    @PatchMapping("/{id}/resolve")
+    public ResponseEntity<TicketResponseDTO> resolve(@PathVariable UUID id) {
+        return ResponseEntity.ok(resolveTicketUseCase.execute(id));
     }
 
     /**

@@ -267,7 +267,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<User> requesters = List.of(requesterJoao, requesterMaria, requesterPedro);
 
         List<TicketCategory> categories = ticketCategoryRepository.findAll();
-        List<TicketStatus> statuses = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CLOSED);
+        List<TicketStatus> statuses = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
         List<TicketPriority> priorities = List.of(TicketPriority.LOW, TicketPriority.NORMAL, TicketPriority.HIGH, TicketPriority.URGENT);
 
         List<Ticket> tickets = new java.util.ArrayList<>();
@@ -285,9 +285,9 @@ public class DatabaseSeeder implements CommandLineRunner {
             // Spread created dates over the last 30 days
             LocalDateTime createdAt = now.minusDays(random.nextInt(30)).minusHours(random.nextInt(24)).minusMinutes(random.nextInt(60));
 
-            // If closed, set closedAt to sometime after createdAt
+            // If resolved, set closedAt to sometime after createdAt
             LocalDateTime closedAt = null;
-            if (status == TicketStatus.CLOSED || status == TicketStatus.RESOLVED) {
+            if (status == TicketStatus.RESOLVED) {
                 closedAt = createdAt.plusHours(random.nextInt(72) + 1);
             }
 

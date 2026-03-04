@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface TicketCommentsProps {
   ticketId: string;
-  ticketStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  ticketStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
   assignedToId: string | null;
 }
 
@@ -61,7 +61,7 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
     }
   }
 
-  const isTicketClosed = ticketStatus === 'CLOSED';
+  const isTicketResolved = ticketStatus === 'RESOLVED';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
   const isCommentDisabled = isAdmin && assignedToId !== user?.id;
 
@@ -113,7 +113,7 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
       </div>
 
       {/* Campo de novo comentário */}
-      {!isTicketClosed && (
+      {!isTicketResolved && (
         <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
           {isCommentDisabled && (
             <p className="text-xs text-slate-400 italic bg-slate-50 p-2 rounded">
@@ -139,10 +139,10 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
         </div>
       )}
 
-      {isTicketClosed && (
+      {isTicketResolved && (
         <div className="border-t border-slate-100 pt-4">
           <p className="text-xs text-slate-400 text-center italic">
-            Comentários desabilitados para chamados fechados.
+            Comentários desabilitados para chamados resolvidos.
           </p>
         </div>
       )}

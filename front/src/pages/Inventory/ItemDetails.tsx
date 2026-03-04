@@ -4,7 +4,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItemById, getItemBatches, type Item, type Batch } from '../../services/api';
-import StatusBadge from '../../components/StatusBadge';
 
 // Formata data ISO para dd/MM/yyyy
 function formatDate(iso: string): string {
@@ -95,7 +94,13 @@ export default function ItemDetails() {
             <h2 className="text-xl font-bold text-slate-800 mb-1">{item.name}</h2>
             <p className="text-sm text-slate-500">{item.itemCategoryName}</p>
           </div>
-          <StatusBadge status={hasStock ? 'OPEN' : 'CLOSED'} />
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              hasStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {hasStock ? 'Em Estoque' : 'Sem Estoque'}
+          </span>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-// Página de detalhes de um chamado — exibe informações completas e permite fechar
+// Página de detalhes de um chamado — exibe informações completas e permite resolver
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText } from 'lucide-react';
@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getTicketById,
-  closeTicket,
+  resolveTicket,
   claimTicket,
   transferTicket,
   getUsers,
@@ -75,15 +75,15 @@ export default function TicketDetails() {
     fetchTicket().finally(() => setLoading(false));
   }, [id, navigate]);
 
-  async function handleClose() {
+  async function handleResolve() {
     if (!ticket) return;
     setClosing(true);
     try {
-      const updated = await closeTicket(ticket.id);
+      const updated = await resolveTicket(ticket.id);
       setTicket(updated);
-      toast.success('Chamado fechado com sucesso!');
+      toast.success('Chamado resolvido com sucesso!');
     } catch {
-      toast.error('Erro ao fechar o chamado. Tente novamente.');
+      toast.error('Erro ao resolver o chamado. Tente novamente.');
     } finally {
       setClosing(false);
     }
@@ -143,7 +143,7 @@ export default function TicketDetails() {
 
   if (!ticket) return null;
 
-  const isClosed = ticket.status === 'CLOSED';
+  const isResolved = ticket.status === 'RESOLVED';
   const apiUrl = import.meta.env.VITE_API_URL;
 
   return (
@@ -269,7 +269,7 @@ export default function TicketDetails() {
           {/* Seção de histórico e comentários */}
           <TicketComments ticketId={ticket.id} ticketStatus={ticket.status} assignedToId={ticket.assignedToId} />
 
-          {!isClosed && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+          {!isResolved && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
             <div className="flex flex-wrap justify-end gap-3">
               {/* Assumir Chamado - apenas se status é OPEN e user é ADMIN ou TECHNICIAN */}
               {ticket.status === 'OPEN' && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
@@ -283,7 +283,7 @@ export default function TicketDetails() {
               )}
 
               {/* Transfer - only if user owns ticket or is admin, and user is ADMIN or TECHNICIAN */}
-              {ticket.status !== 'CLOSED' && (ticket.assignedToId === user?.id || user?.role === 'ADMIN') && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              {ticket.status !== 'RESOLVED' && (ticket.assignedToId === user?.id || user?.role === 'ADMIN') && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
                   onClick={handleOpenTransfer}
                   disabled={claiming || transferring || closing}
@@ -293,15 +293,15 @@ export default function TicketDetails() {
                 </button>
               )}
 
-              {/* Close - only if user owns ticket, status is in progress, and user is ADMIN or TECHNICIAN */}
+              {/* Resolve - only if user owns ticket, status is in progress, and user is ADMIN or TECHNICIAN */}
               {ticket.status === 'IN_PROGRESS' && ticket.assignedToId === user?.id && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
-                  onClick={handleClose}
+                  onClick={handleResolve}
                   disabled={closing || claiming || transferring}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
                 >
                   <CheckCircle2 size={16} />
-                  {closing ? 'Fechando...' : 'Resolver e Fechar Chamado'}
+                  {closing ? 'Resolvendo...' : 'Resolver Chamado'}
                 </button>
               )}
             </div>

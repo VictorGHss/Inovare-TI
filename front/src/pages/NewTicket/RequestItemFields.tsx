@@ -79,7 +79,7 @@ export default function RequestItemFields({
               </button>
             )}
           </div>
-          {isDropdownOpen && filteredItems.length > 0 && (
+          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length > 0 && (
             <ul className="absolute z-50 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
               {filteredItems.map((item) => (
                 <li key={item.id}>
@@ -94,7 +94,7 @@ export default function RequestItemFields({
               ))}
             </ul>
           )}
-          {isDropdownOpen && filteredItems.length === 0 && searchTerm && (
+          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length === 0 && (
             <div className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full px-4 py-2.5 text-sm text-slate-500">
               Nenhum item encontrado
             </div>

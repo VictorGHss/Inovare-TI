@@ -6,6 +6,5 @@ package br.dev.ctrls.inovareti.domain.ticket;
 public enum TicketStatus {
     OPEN,
     IN_PROGRESS,
-    RESOLVED,
-    CLOSED
+    RESOLVED
 }

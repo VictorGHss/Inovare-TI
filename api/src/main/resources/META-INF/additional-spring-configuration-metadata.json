@@ -13,5 +13,10 @@
     "name": "app.upload.max-file-size-bytes",
     "type": "java.lang.Long",
     "description": "Maximum allowed file size in bytes for application upload validation."
+  },
+  {
+    "name": "app.security.encryption.secret",
+    "type": "java.lang.String",
+    "description": "Secret key used for AES encryption of sensitive database columns."
   }
 ]}

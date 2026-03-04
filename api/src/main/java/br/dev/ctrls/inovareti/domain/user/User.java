@@ -8,7 +8,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import br.dev.ctrls.inovareti.domain.security.CryptoConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -84,7 +86,8 @@ public class User implements UserDetails {
     private String discordUserId;
 
     /** Segredo TOTP para autenticação 2FA. Armazenado criptografado. */
-    @Column(name = "totp_secret", length = 255)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "totp_secret", length = 500)
     private String totpSecret;
 
     // -------------------------------------------------------------------------

@@ -1,8 +1,13 @@
 package br.dev.ctrls.inovareti.domain.ticket;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import br.dev.ctrls.inovareti.domain.inventory.Item;
+import br.dev.ctrls.inovareti.domain.security.CryptoConverter;
 import br.dev.ctrls.inovareti.domain.user.User;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -20,9 +25,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * Representa um chamado (ticket) de suporte ou solicitação de item.
@@ -51,7 +53,8 @@ public class Ticket {
     private String description;
 
     /** Código AnyDesk do computador do solicitante, para acesso remoto. */
-    @Column(name = "anydesk_code", length = 50)
+    @Convert(converter = CryptoConverter.class)
+    @Column(name = "anydesk_code", length = 500)
     private String anydeskCode;
 
     @NotNull

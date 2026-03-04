@@ -45,8 +45,8 @@ public class ItemCategoryController {
     /**
      * Lista todas as categorias de item cadastradas.
      * Retorna 200 OK com a lista.
+     * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
     public ResponseEntity<List<ItemCategoryResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllItemCategoriesUseCase.execute());

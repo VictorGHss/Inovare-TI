@@ -44,8 +44,8 @@ public class ItemController {
     /**
      * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
      * Retorna 200 OK com a lista (vazia se não houver itens).
+     * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
     public ResponseEntity<List<ItemResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllItemsUseCase.execute());
@@ -54,8 +54,8 @@ public class ItemController {
     /**
      * Busca um item de inventário específico por ID.
      * Retorna 200 OK com os dados do item ou 404 se não encontrado.
+     * Todos os usuários autenticados podem ler (necessário para visualização em chamados).
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping("/{id}")
     public ResponseEntity<ItemResponseDTO> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(findItemByIdUseCase.execute(id));
@@ -65,8 +65,8 @@ public class ItemController {
      * Lista todos os lotes de estoque de um item específico.
      * Os lotes são retornados ordenados do mais recente para o mais antigo.
      * Retorna 200 OK com a lista (vazia se não houver lotes).
+     * Todos os usuários autenticados podem ler informações de estoque.
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping("/{id}/batches")
     public ResponseEntity<List<BatchResponseDTO>> listBatches(@PathVariable UUID id) {
         return ResponseEntity.ok(listItemBatchesUseCase.execute(id));

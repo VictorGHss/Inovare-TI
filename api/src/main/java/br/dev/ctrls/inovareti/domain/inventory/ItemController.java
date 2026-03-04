@@ -97,7 +97,10 @@ public class ItemController {
         StockBatchRequestDTO consistentRequest = new StockBatchRequestDTO(
                 id,
                 request.quantity(),
-                request.unitPrice()
+                request.unitPrice(),
+                request.brand(),
+                request.supplier(),
+                request.purchaseReason()
         );
 
         return ResponseEntity

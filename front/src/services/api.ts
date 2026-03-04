@@ -79,6 +79,9 @@ export interface CreateItemDto {
 export interface CreateBatchDto {
   quantity: number;
   unitPrice: number;
+  brand?: string;
+  supplier?: string;
+  purchaseReason?: string;
 }
 
 export interface Batch {

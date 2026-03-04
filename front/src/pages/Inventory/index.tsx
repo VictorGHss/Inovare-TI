@@ -1,7 +1,7 @@
 // Página de listagem de inventário com tabela e ações
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Package } from 'lucide-react';
+import { PlusCircle, Package, PackagePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItems, type Item } from '../../services/api';
 import AddBatchModal from './AddBatchModal';
@@ -11,6 +11,7 @@ export default function Inventory() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [preselectedItemId, setPreselectedItemId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     loadItems();
@@ -31,7 +32,19 @@ export default function Inventory() {
 
   function handleBatchAdded() {
     setShowBatchModal(false);
+    setPreselectedItemId(undefined);
     loadItems(); // Recarrega a lista após adicionar lote
+  }
+
+  function openBatchModalForItem(itemId: string, e: React.MouseEvent) {
+    e.stopPropagation(); // Prevent navigation to item details
+    setPreselectedItemId(itemId);
+    setShowBatchModal(true);
+  }
+
+  function openBatchModal() {
+    setPreselectedItemId(undefined);
+    setShowBatchModal(true);
   }
 
   return (
@@ -41,7 +54,7 @@ export default function Inventory() {
         <h1 className="text-2xl font-bold text-slate-800">Inventário</h1>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowBatchModal(true)}
+            onClick={openBatchModal}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <Package size={17} />
@@ -79,6 +92,7 @@ export default function Inventory() {
                   <th className="px-4 py-3 text-left">Categoria</th>
                   <th className="px-4 py-3 text-left">Estoque Atual</th>
                   <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -108,6 +122,18 @@ export default function Inventory() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={(e) => openBatchModalForItem(item.id, e)}
+                          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                          title="Registrar nova entrada de lote"
+                        >
+                          <PackagePlus size={15} />
+                          Nova Entrada
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -122,6 +148,7 @@ export default function Inventory() {
         onClose={() => setShowBatchModal(false)}
         onSuccess={handleBatchAdded}
         items={items}
+        preselectedItemId={preselectedItemId}
       />
     </main>
   );

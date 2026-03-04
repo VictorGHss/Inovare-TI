@@ -3,7 +3,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getItemCategories, createItem, type ItemCategory } from '../../services/api';
+import { getItemCategories, createItem, addBatch, type ItemCategory } from '../../services/api';
 
 interface SpecEntry {
   key: string;
@@ -20,6 +20,14 @@ export default function NewItem() {
   const [categoryId, setCategoryId] = useState('');
   const [specs, setSpecs] = useState<SpecEntry[]>([{ key: '', value: '' }]);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Estados para registro de primeira entrada
+  const [registerFirstBatch, setRegisterFirstBatch] = useState(false);
+  const [batchQuantity, setBatchQuantity] = useState(1);
+  const [batchUnitPrice, setBatchUnitPrice] = useState('');
+  const [batchBrand, setBatchBrand] = useState('');
+  const [batchSupplier, setBatchSupplier] = useState('');
+  const [batchPurchaseReason, setBatchPurchaseReason] = useState('');
 
   useEffect(() => {
     // Carrega as categorias de item disponíveis
@@ -30,12 +38,12 @@ export default function NewItem() {
       })
       .catch(() => toast.error('Erro ao carregar categorias de item.'));
   }, []);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !categoryId) {
-      toast.error('Preencha todos os campos obrigatórios.');
-      return;
+Valida campos de lote se o checkbox estiver marcado
+    if (registerFirstBatch) {
+      if (batchQuantity < 1 || !batchUnitPrice || parseFloat(batchUnitPrice) <= 0) {
+        toast.error('Preencha quantidade e preço unitário do lote corretamente.');
+        return;
+      }
     }
 
     // Converte o array de specs em um objeto Record<string, string>
@@ -51,6 +59,30 @@ export default function NewItem() {
 
     setSubmitting(true);
     try {
+      // 1. Cria o item
+      const newItem = await createItem({
+        name: name.trim(),
+        itemCategoryId: categoryId,
+        specifications: finalSpecs,
+      });
+      
+      // 2. Se checkbox marcado, registra o primeiro lote
+      if (registerFirstBatch) {
+        await addBatch(newItem.id, {
+          quantity: batchQuantity,
+          unitPrice: parseFloat(batchUnitPrice),
+          brand: batchBrand.trim() || undefined,
+          supplier: batchSupplier.trim() || undefined,
+          purchaseReason: batchPurchaseReason.trim() || undefined,
+        });
+        toast.success('Item e primeiro lote criados com sucesso!');
+      } else {
+        toast.success('Item criado com sucesso!');
+      }
+      
+      navigate('/inventory');
+    } catch (error) {
+      console.error('Erro ao criar item:', error);
       await createItem({
         name: name.trim(),
         itemCategoryId: categoryId,
@@ -190,6 +222,114 @@ export default function NewItem() {
             Adicionar Especificação
           </button>
         </div>
+
+        {/* Divisor */}
+        <div className="border-t border-slate-200 my-2" />
+
+        {/* Toggle para registrar primeira entrada */}
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="registerFirstBatch"
+            checked={registerFirstBatch}
+            onChange={(e) => setRegisterFirstBatch(e.target.checked)}
+            className="w-4 h-4 text-primary bg-white border-slate-300 rounded focus:ring-2 focus:ring-primary cursor-pointer"
+          />
+          <label
+            htmlFor="registerFirstBatch"
+            className="text-sm font-medium text-slate-700 cursor-pointer select-none"
+          >
+            Registrar primeira entrada de estoque agora?
+          </label>
+        </div>
+
+        {/* Campos de lote (condicionais) */}
+        {registerFirstBatch && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-blue-900">
+              Dados da Primeira Entrada
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantidade */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Quantidade <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  value={batchQuantity}
+                  onChange={(e) => setBatchQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  required={registerFirstBatch}
+                />
+              </div>
+
+              {/* Preço Unitário */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Preço Unitário (R$) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  className={inputCls}
+                  value={batchUnitPrice}
+                  onChange={(e) => setBatchUnitPrice(e.target.value)}
+                  placeholder="0.00"
+                  required={registerFirstBatch}
+                />
+              </div>
+
+              {/* Marca */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Marca
+                </label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={batchBrand}
+                  onChange={(e) => setBatchBrand(e.target.value)}
+                  placeholder="Ex: Logitech, HP, Dell"
+                  maxLength={100}
+                />
+              </div>
+
+              {/* Fornecedor */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Fornecedor
+                </label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={batchSupplier}
+                  onChange={(e) => setBatchSupplier(e.target.value)}
+                  placeholder="Ex: Kabum, Amazon, Kalunga"
+                  maxLength={150}
+                />
+              </div>
+
+              {/* Motivo da Compra */}
+              <div className="flex flex-col gap-1.5 md:col-span-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Motivo da Compra
+                </label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={batchPurchaseReason}
+                  onChange={(e) => setBatchPurchaseReason(e.target.value)}
+                  placeholder="Ex: Reposição mensal, Expansão de TI"
+                  maxLength={200}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Botões de ação */}
         <div className="flex items-center justify-end gap-3 pt-2">

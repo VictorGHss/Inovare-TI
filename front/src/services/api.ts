@@ -115,6 +115,7 @@ export interface CreateSectorDto {
 export interface CreateTicketDto {
   title: string;
   description: string;
+  anydeskCode?: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   // UUID da categoria (string) — alinhado com TicketRequestDTO do backend
   categoryId: string;

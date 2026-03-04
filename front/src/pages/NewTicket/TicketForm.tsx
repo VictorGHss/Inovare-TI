@@ -35,6 +35,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
   const [form, setForm] = useState<CreateTicketDto>({
     title: '',
     description: '',
+    anydeskCode: '',
     priority: 'NORMAL',
     // categoryId é UUID (string) — inicializado vazio enquanto as categorias carregam
     categoryId: '',
@@ -157,6 +158,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
     const payload: CreateTicketDto = {
       title: finalTitle,
       description: form.description,
+      anydeskCode: form.anydeskCode || undefined,
       priority: form.priority,
       categoryId: form.categoryId,
       requestedItemId: ticketType === 'REQUEST' ? form.requestedItemId : undefined,
@@ -197,6 +199,13 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
       )}
 
       {suggestedArticles.length > 0 && <KbSuggestions articles={suggestedArticles} />}
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-slate-700">Código AnyDesk (Acesso Remoto) - Opcional</label>
+        <input className={inputCls} placeholder="Ex: 123 456 789" value={form.anydeskCode || ''}
+          onChange={(e) => set('anydeskCode', e.target.value)} />
+        <p className="text-xs text-slate-400">Use este código para permitir acesso remoto ao seu computador durante o suporte.</p>
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Descrição</label>

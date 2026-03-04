@@ -12,6 +12,8 @@ import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategoryRepository;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.knowledge.Article;
+import br.dev.ctrls.inovareti.domain.knowledge.ArticleRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
@@ -41,6 +43,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final ItemRepository itemRepository;
     private final TicketRepository ticketRepository;
+    private final ArticleRepository articleRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final Random random = new Random();
@@ -77,6 +80,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         // Seed tickets
         if (ticketRepository.count() == 0) {
             seedTickets();
+        }
+
+        // Seed articles/tutorials
+        if (articleRepository.count() == 0) {
+            seedArticles();
         }
 
         log.info("Database seeding completed successfully");
@@ -307,5 +315,111 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         ticketRepository.saveAll(tickets);
         log.info("Seeded {} tickets", tickets.size());
+    }
+
+    private void seedArticles() {
+        // Busca um usuário ADMIN para ser o autor dos artigos
+        User adminUser = userRepository.findByEmail("admin@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Admin user not found"));
+
+        List<Article> articles = List.of(
+            Article.builder()
+                .title("Como trocar o toner da impressora")
+                .content("# Como trocar o toner da impressora\n\n" +
+                    "## Materiais necessários\n" +
+                    "- Novo cartucho de toner\n" +
+                    "- Pano macio e seco\n\n" +
+                    "## Passo a passo\n\n" +
+                    "### 1. Desligar a impressora\n" +
+                    "Certifique-se de desligar completamente a impressora antes de começar o procedimento.\n\n" +
+                    "### 2. Abrir o painel frontal\n" +
+                    "Localize o painel de acesso ao cartucho e puxe-o gentilmente em sua direção.\n\n" +
+                    "### 3. Remover o cartucho gasto\n" +
+                    "Segure a aba de retirada do cartucho e puxe-o para fora com um movimento suave.\n\n" +
+                    "### 4. Instalar o novo toner\n" +
+                    "Retire o novo cartucho de sua embalagem e remova a fita protetora. Alinhe o cartucho com as guias e insira-o até ouvir um clique.\n\n" +
+                    "### 5. Fechar o painel\n" +
+                    "Pressione o painel frontal até que ele se encaixe no lugar.\n\n" +
+                    "### 6. Ligar a impressora\n" +
+                    "Ligue a impressora e realize uma impressão de teste para confirmar.\n")
+                .authorId(adminUser.getId())
+                .tags("impressora, toner, tinta, manutencao")
+                .createdAt(LocalDateTime.now())
+                .build(),
+            Article.builder()
+                .title("Sistema Feegow não abre (Tela Branca)")
+                .content("# Sistema Feegow não abre (Tela Branca)\n\n" +
+                    "## Problema comum\n" +
+                    "Ao acessar o Feegow, uma tela branca aparece sem carregar o sistema.\n\n" +
+                    "## Causas possíveis\n" +
+                    "- Cache do navegador corrompido\n" +
+                    "- Cookies expirados\n" +
+                    "- Histórico de navegação com dados obsoletos\n\n" +
+                    "## Solução\n\n" +
+                    "### Passo 1: Limpar o Cache do Navegador\n" +
+                    "1. Abra o navegador (Chrome, Firefox, Safari, etc)\n" +
+                    "2. Pressione **Ctrl + Shift + Delete** (Windows) ou **Cmd + Shift + Delete** (Mac)\n" +
+                    "3. Selecione o período **Todos os tempos**\n" +
+                    "4. Marque as opções:\n" +
+                    "   - Cookies e outros dados de sites\n" +
+                    "   - Arquivos em cache\n" +
+                    "5. Clique em **Limpar dados**\n\n" +
+                    "### Passo 2: Fechar e reabrir o navegador\n" +
+                    "Feche completamente o navegador (todas as abas e janelas) e abra-o novamente.\n\n" +
+                    "### Passo 3: Acessar o Feegow\n" +
+                    "Acesse o portal do Feegow novamente em uma nova aba.\n\n" +
+                    "## Se o problema persistir\n" +
+                    "Abra um chamado técnico com a seguinte informação:\n" +
+                    "- Navegador e versão\n" +
+                    "- Sistema operacional\n" +
+                    "- Mensagens de erro (se houver)\n")
+                .authorId(adminUser.getId())
+                .tags("feegow, sistema, erro, cache, navegador")
+                .createdAt(LocalDateTime.now())
+                .build(),
+            Article.builder()
+                .title("Configurar assinatura de E-mail no Outlook")
+                .content("# Configurar assinatura de E-mail no Outlook\n\n" +
+                    "## Passo 1: Abrir as Configurações do Outlook\n" +
+                    "1. Abra o Outlook\n" +
+                    "2. Clique em **Arquivo** (canto superior esquerdo)\n" +
+                    "3. Selecione **Opções**\n\n" +
+                    "## Passo 2: Acessar a seção de Assinatura\n" +
+                    "1. Na janela de Opções, clique em **Correio**\n" +
+                    "2. Em seguida, clique em **Assinaturas...** (lado direito da tela)\n\n" +
+                    "## Passo 3: Criar uma nova assinatura\n" +
+                    "1. Clique em **Novo** para criar uma assinatura\n" +
+                    "2. Digite um nome para a assinatura (ex: \"Corporativa\")\n" +
+                    "3. Clique em **OK**\n\n" +
+                    "## Passo 4: Editar a assinatura\n" +
+                    "Na caixa de texto grande, digite sua assinatura. Você pode incluir:\n" +
+                    "- Seu nome completo\n" +
+                    "- Cargo\n" +
+                    "- Departamento\n" +
+                    "- Telefone\n" +
+                    "- E-mail\n" +
+                    "- Logotipo da empresa\n\n" +
+                    "### Exemplo de assinatura:\n" +
+                    "```\n" +
+                    "João Silva\n" +
+                    "Especialista em TI\n" +
+                    "Centro de Inovação - Inovare Soluções\n" +
+                    "Tel: (11) 1234-5678\n" +
+                    "Email: joao.silva@inovare.med.br\n" +
+                    "```\n\n" +
+                    "## Passo 5: Configurar uso automático\n" +
+                    "1. No dropdown **Escolher Assinatura Padrão**, selecione sua assinatura\n" +
+                    "2. Isso aplicará a assinatura em todos os novos e-mails\n" +
+                    "3. Clique em **OK** para salvar\n\n" +
+                    "## Pronto!\n" +
+                    "Sua assinatura será adicionada automaticamente a todos os e-mails enviados.\n")
+                .authorId(adminUser.getId())
+                .tags("email, outlook, assinatura, configuracao")
+                .createdAt(LocalDateTime.now())
+                .build()
+        );
+
+        articleRepository.saveAll(articles);
+        log.info("Seeded {} articles", articles.size());
     }
 }

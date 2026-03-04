@@ -32,7 +32,17 @@ export default function DefaultLayout() {
             <button
               onClick={() => navigate('/dashboard')}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/tickets')
+                location.pathname === '/dashboard'
+                  ? 'bg-primary text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/tickets')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname === '/tickets'
                   ? 'bg-primary text-white'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}

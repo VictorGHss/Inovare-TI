@@ -67,7 +67,7 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
                 <StatusBadge status={ticket.status} />
               </td>
               <td className="px-4 py-3">
-                <SlaBadge deadline={ticket.slaDeadline} />
+                <SlaBadge deadline={ticket.slaDeadline} status={ticket.status} closedAt={ticket.closedAt} />
               </td>
               <td className="px-4 py-3 text-slate-400">
                 {formatDate(ticket.createdAt)}

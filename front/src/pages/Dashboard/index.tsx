@@ -3,9 +3,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTickets, getDashboardAnalytics, type Ticket, type DashboardAnalyticsDTO, exportTicketsReport } from '../../services/api';
+import { getDashboardAnalytics, getTickets, type Ticket, type DashboardAnalyticsDTO, exportTicketsReport } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
-import TicketsTable from './TicketsTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';
 import ChartsBar from '../../components/ChartsBar';
@@ -69,7 +68,7 @@ export default function Dashboard() {
       {/* Cabeçalho da seção */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-slate-800">
-          {isAdmin ? 'Visão Geral de Chamados' : 'Meus Chamados'}
+          {isAdmin ? 'Visão Geral de Chamados' : 'Dashboard'}
         </h1>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -128,7 +127,7 @@ export default function Dashboard() {
           </div>
 
           {/* Volume Mensal e Inventário */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {!loading && (
               <>
                 <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
@@ -137,14 +136,6 @@ export default function Dashboard() {
                 )}
               </>
             )}
-          </div>
-
-          {/* Tabela de Chamados */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-800">Todos os Chamados</h3>
-            </div>
-            {loading ? <SkeletonTable /> : <TicketsTable tickets={tickets} />}
           </div>
         </>
       ) : (

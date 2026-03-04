@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import DefaultLayout from './layouts/DefaultLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Tickets from './pages/Tickets';
 import NewTicket from './pages/NewTicket';
 import TicketDetails from './pages/TicketDetails';
 import Inventory from './pages/Inventory';
@@ -30,6 +31,7 @@ function AppRoutes() {
       {/* Rotas protegidas compartilham o DefaultLayout */}
       <Route element={<PrivateLayoutRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/tickets" element={<Tickets />} />
         <Route path="/tickets/new" element={<NewTicket />} />
         {/* Rota de detalhes de chamado — :id é o UUID do chamado */}
         <Route path="/tickets/:id" element={<TicketDetails />} />

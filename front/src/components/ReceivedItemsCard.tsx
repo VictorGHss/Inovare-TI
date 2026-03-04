@@ -6,9 +6,9 @@ interface ReceivedItemsCardProps {
 }
 
 export default function ReceivedItemsCard({ tickets }: ReceivedItemsCardProps) {
-  // Filter tickets that are CLOSED and have requested items
+  // Filter tickets that are RESOLVED and have requested items
   const receivedItems = tickets
-    .filter((t) => t.status === 'CLOSED' && t.requestedItemName)
+    .filter((t) => t.status === 'RESOLVED' && t.requestedItemName)
     .slice(0, 5); // Show last 5 items
 
   return (

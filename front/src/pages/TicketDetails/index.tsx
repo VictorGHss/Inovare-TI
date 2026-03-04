@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   getTicketById,
   closeTicket,
@@ -48,6 +49,7 @@ const priorityColors: Record<string, string> = {
 export default function TicketDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
@@ -280,8 +282,8 @@ export default function TicketDetails() {
                 </button>
               )}
 
-              {/* Transferir - esconder se CLOSED */}
-              {ticket.status !== 'CLOSED' && (
+              {/* Transfer - only if user owns ticket or is admin */}
+              {ticket.status !== 'CLOSED' && (ticket.assignedToId === user?.id || user?.role === 'ADMIN') && (
                 <button
                   onClick={handleOpenTransfer}
                   disabled={claiming || transferring || closing}
@@ -291,8 +293,8 @@ export default function TicketDetails() {
                 </button>
               )}
 
-              {/* Resolver e Fechar - apenas se status é IN_PROGRESS */}
-              {ticket.status === 'IN_PROGRESS' && (
+              {/* Close - only if user owns ticket and status is in progress */}
+              {ticket.status === 'IN_PROGRESS' && ticket.assignedToId === user?.id && (
                 <button
                   onClick={handleClose}
                   disabled={closing || claiming || transferring}

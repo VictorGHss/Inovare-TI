@@ -60,6 +60,18 @@ public class StockBatch {
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
+    /** Marca do item neste lote (ex: Logitech, HP, Dell). */
+    @Column(name = "brand", length = 100)
+    private String brand;
+
+    /** Fornecedor do item neste lote (ex: Kabum, Kalunga, Dell Store). */
+    @Column(name = "supplier", length = 150)
+    private String supplier;
+
+    /** Motivo da compra deste lote (ex: Reposição mensal, Expansão, Substituição). */
+    @Column(name = "purchase_reason", length = 200)
+    private String purchaseReason;
+
     @NotNull
     @Column(name = "entry_date", nullable = false)
     private LocalDateTime entryDate;

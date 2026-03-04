@@ -23,6 +23,12 @@ public record StockBatchRequestDTO(
 
         @NotNull(message = "O preço unitário é obrigatório.")
         @DecimalMin(value = "0.01", message = "O preço unitário deve ser maior que zero.")
-        BigDecimal unitPrice
+        BigDecimal unitPrice,
+
+        String brand,
+
+        String supplier,
+
+        String purchaseReason
 
 ) {}

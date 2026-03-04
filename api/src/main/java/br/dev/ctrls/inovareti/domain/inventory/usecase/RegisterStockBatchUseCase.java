@@ -48,6 +48,9 @@ public class RegisterStockBatchUseCase {
                 .originalQuantity(request.quantity())
                 .remainingQuantity(request.quantity())
                 .unitPrice(request.unitPrice())
+                .brand(request.brand())
+                .supplier(request.supplier())
+                .purchaseReason(request.purchaseReason())
                 .entryDate(LocalDateTime.now())
                 .build();
 

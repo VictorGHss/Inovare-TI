@@ -16,6 +16,7 @@ export default function Tickets() {
   const [searchTitle, setSearchTitle] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
@@ -54,6 +55,13 @@ export default function Tickets() {
     }
     
     return true;
+  });
+
+  // Sort tickets by created date
+  const sortedTickets = [...filteredTickets].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
   // Get unique categories from tickets
@@ -110,7 +118,7 @@ export default function Tickets() {
 
       {/* Advanced Filter Bar */}
       <div className="mb-6 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search by Title */}
           <div className="relative">
             <label className="block text-xs font-semibold text-slate-600 mb-2">
@@ -173,6 +181,21 @@ export default function Tickets() {
               ))}
             </select>
           </div>
+
+          {/* Sort Order */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">
+              Ordenar por Data
+            </label>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+            >
+              <option value="newest">Mais Recentes</option>
+              <option value="oldest">Mais Antigos</option>
+            </select>
+          </div>
         </div>
 
         {/* Active Filters Indicator */}
@@ -219,7 +242,7 @@ export default function Tickets() {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow">
-        {loading ? <SkeletonTable /> : <TicketsTable tickets={filteredTickets} />}
+        {loading ? <SkeletonTable /> : <TicketsTable tickets={sortedTickets} />}
       </div>
     </main>
   );

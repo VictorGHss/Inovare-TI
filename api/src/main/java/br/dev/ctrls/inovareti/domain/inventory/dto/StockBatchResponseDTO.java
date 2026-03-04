@@ -16,6 +16,9 @@ public record StockBatchResponseDTO(
         Integer originalQuantity,
         Integer remainingQuantity,
         BigDecimal unitPrice,
+        String brand,
+        String supplier,
+        String purchaseReason,
         LocalDateTime entryDate
 ) {
     /** Converte uma entidade {@link StockBatch} para este DTO. */
@@ -27,6 +30,9 @@ public record StockBatchResponseDTO(
                 batch.getOriginalQuantity(),
                 batch.getRemainingQuantity(),
                 batch.getUnitPrice(),
+                batch.getBrand(),
+                batch.getSupplier(),
+                batch.getPurchaseReason(),
                 batch.getEntryDate()
         );
     }

@@ -3,8 +3,11 @@ package br.dev.ctrls.inovareti.domain.report;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -20,14 +23,20 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
+import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ReportService {
 
+    private final StockBatchRepository stockBatchRepository;
+    
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.of("pt", "BR"));
 
     public ByteArrayInputStream exportTicketsToExcel(List<Ticket> tickets) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
@@ -96,7 +105,7 @@ public class ReportService {
 
             // Create header row
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"ID", "Item", "Categoria", "Data de Entrada", "Quantidade Comprada", "Preço Unitário", "Valor Total"};
+            String[] headers = {"Tipo de Item", "Item", "Marca", "Qtd Adquirida", "Fornecedor", "Preço Un.", "Preço Total", "Motivo da Compra", "Data de Entrada"};
 
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -109,13 +118,18 @@ public class ReportService {
             for (StockBatch batch : batches) {
                 Row row = sheet.createRow(rowNum++);
 
-                row.createCell(0).setCellValue(batch.getId().toString());
+                row.createCell(0).setCellValue(batch.getItem().getItemCategory().getName());
                 row.createCell(1).setCellValue(batch.getItem().getName());
-                row.createCell(2).setCellValue(batch.getItem().getItemCategory().getName());
-                row.createCell(3).setCellValue(batch.getEntryDate().format(DATE_FORMATTER));
-                row.createCell(4).setCellValue(batch.getOriginalQuantity());
-                row.createCell(5).setCellValue(batch.getUnitPrice().doubleValue());
-                row.createCell(6).setCellValue(batch.getUnitPrice().doubleValue() * batch.getOriginalQuantity());
+                row.createCell(2).setCellValue(batch.getBrand() != null ? batch.getBrand() : "-");
+                row.createCell(3).setCellValue(batch.getOriginalQuantity());
+                row.createCell(4).setCellValue(batch.getSupplier() != null ? batch.getSupplier() : "-");
+                row.createCell(5).setCellValue(CURRENCY_FORMATTER.format(batch.getUnitPrice()));
+                
+                BigDecimal totalPrice = batch.getUnitPrice().multiply(BigDecimal.valueOf(batch.getOriginalQuantity()));
+                row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
+                
+                row.createCell(7).setCellValue(batch.getPurchaseReason() != null ? batch.getPurchaseReason() : "-");
+                row.createCell(8).setCellValue(batch.getEntryDate().format(DATE_FORMATTER));
             }
 
             // Auto-size columns
@@ -143,7 +157,7 @@ public class ReportService {
 
             // Create header row
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"ID Chamado", "Item Solicitado", "Quantidade Entregue", "Solicitante", "Setor do Solicitante", "Data da Entrega"};
+            String[] headers = {"Tipo de Item", "Item", "Qtd Entregue", "Quem Solicitou", "Local do Usuário", "Setor do Usuário", "Preço Total", "Data da Entrega"};
 
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -157,12 +171,18 @@ public class ReportService {
                 if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
                     Row row = sheet.createRow(rowNum++);
 
-                    row.createCell(0).setCellValue(ticket.getId().toString());
+                    row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
                     row.createCell(2).setCellValue(ticket.getRequestedQuantity());
                     row.createCell(3).setCellValue(ticket.getRequester().getName());
-                    row.createCell(4).setCellValue(ticket.getRequester().getSector().getName());
-                    row.createCell(5).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
+                    row.createCell(4).setCellValue(ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
+                    row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
+                    
+                    // Calculate total price based on last batch unit price
+                    BigDecimal totalPrice = calculateExitTotalPrice(ticket.getRequestedItem(), ticket.getRequestedQuantity());
+                    row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
+                    
+                    row.createCell(7).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
                 }
             }
 
@@ -180,6 +200,25 @@ public class ReportService {
             log.error("Error generating Excel report for inventory exits", e);
             throw new RuntimeException("Failed to generate Excel report", e);
         }
+    }
+
+    /**
+     * Calculates the total price for an item exit based on the most recent batch unit price.
+     * @param item The item being exited
+     * @param quantity The quantity being exited
+     * @return Total price (quantity * unit price from most recent batch), or ZERO if no batches found
+     */
+    private BigDecimal calculateExitTotalPrice(br.dev.ctrls.inovareti.domain.inventory.Item item, Integer quantity) {
+        List<StockBatch> batches = stockBatchRepository.findByItemOrderByEntryDateDesc(item);
+        
+        if (batches.isEmpty()) {
+            log.warn("No batches found for item {}, returning zero price", item.getId());
+            return BigDecimal.ZERO;
+        }
+        
+        // Get the most recent batch (first in the list ordered by desc)
+        BigDecimal unitPrice = batches.get(0).getUnitPrice();
+        return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 
     private CellStyle createHeaderStyle(XSSFWorkbook workbook) {

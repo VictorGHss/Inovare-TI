@@ -378,6 +378,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<StockBatch> batches = new java.util.ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
+        // Sample brands, suppliers and purchase reasons for realistic data
+        String[] brands = {"Logitech", "HP", "Dell", "Lenovo", "Samsung", "Corsair", "Kingston"};
+        String[] suppliers = {"Kabum", "Kalunga", "Mercado Livre", "Amazon", "Dell Store", "Magazine Luiza"};
+        String[] purchaseReasons = {"Reposição mensal", "Expansão de TI", "Substituição de equipamento danificado", "Novo projeto", "Manutenção preventiva"};
+
         // Create 5 stock batches for randomly selected items
         for (int i = 1; i <= 5; i++) {
             Item item = items.get(random.nextInt(items.size()));
@@ -390,6 +395,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .originalQuantity(quantity)
                 .remainingQuantity(quantity)
                 .unitPrice(unitPrice)
+                .brand(brands[random.nextInt(brands.length)])
+                .supplier(suppliers[random.nextInt(suppliers.length)])
+                .purchaseReason(purchaseReasons[random.nextInt(purchaseReasons.length)])
                 .entryDate(entryDate)
                 .build();
 

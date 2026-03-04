@@ -269,10 +269,10 @@ export default function TicketDetails() {
           {/* Seção de histórico e comentários */}
           <TicketComments ticketId={ticket.id} ticketStatus={ticket.status} />
 
-          {!isClosed && (
+          {!isClosed && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
             <div className="flex flex-wrap justify-end gap-3">
-              {/* Assumir Chamado - apenas se status é OPEN */}
-              {ticket.status === 'OPEN' && (
+              {/* Assumir Chamado - apenas se status é OPEN e user é ADMIN ou TECHNICIAN */}
+              {ticket.status === 'OPEN' && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
                   onClick={handleClaim}
                   disabled={claiming || transferring || closing}
@@ -282,8 +282,8 @@ export default function TicketDetails() {
                 </button>
               )}
 
-              {/* Transfer - only if user owns ticket or is admin */}
-              {ticket.status !== 'CLOSED' && (ticket.assignedToId === user?.id || user?.role === 'ADMIN') && (
+              {/* Transfer - only if user owns ticket or is admin, and user is ADMIN or TECHNICIAN */}
+              {ticket.status !== 'CLOSED' && (ticket.assignedToId === user?.id || user?.role === 'ADMIN') && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
                   onClick={handleOpenTransfer}
                   disabled={claiming || transferring || closing}
@@ -293,8 +293,8 @@ export default function TicketDetails() {
                 </button>
               )}
 
-              {/* Close - only if user owns ticket and status is in progress */}
-              {ticket.status === 'IN_PROGRESS' && ticket.assignedToId === user?.id && (
+              {/* Close - only if user owns ticket, status is in progress, and user is ADMIN or TECHNICIAN */}
+              {ticket.status === 'IN_PROGRESS' && ticket.assignedToId === user?.id && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
                   onClick={handleClose}
                   disabled={closing || claiming || transferring}

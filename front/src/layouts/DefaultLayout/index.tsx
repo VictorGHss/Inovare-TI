@@ -59,7 +59,7 @@ export default function DefaultLayout() {
             >
               Tutoriais
             </button>
-            {/* Links administrativos — visíveis apenas para ADMIN */}
+          {/* Links administrativos — visíveis apenas para ADMIN */}
             {user?.role === 'ADMIN' && (
               <>
                 <button

@@ -5,7 +5,7 @@ import {
   exportTicketsReport,
   exportInventoryEntriesReport,
   exportInventoryExitsReport,
-} from '../../services/api';
+} from '../services/api';
 
 interface ReportHubModalProps {
   isOpen: boolean;

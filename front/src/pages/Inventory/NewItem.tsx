@@ -38,7 +38,15 @@ export default function NewItem() {
       })
       .catch(() => toast.error('Erro ao carregar categorias de item.'));
   }, []);
-Valida campos de lote se o checkbox estiver marcado
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !categoryId) {
+      toast.error('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    // Valida campos de lote se o checkbox estiver marcado
     if (registerFirstBatch) {
       if (batchQuantity < 1 || !batchUnitPrice || parseFloat(batchUnitPrice) <= 0) {
         toast.error('Preencha quantidade e preço unitário do lote corretamente.');
@@ -83,14 +91,6 @@ Valida campos de lote se o checkbox estiver marcado
       navigate('/inventory');
     } catch (error) {
       console.error('Erro ao criar item:', error);
-      await createItem({
-        name: name.trim(),
-        itemCategoryId: categoryId,
-        specifications: finalSpecs,
-      });
-      toast.success('Item criado com sucesso!');
-      navigate('/inventory');
-    } catch {
       toast.error('Erro ao criar item. Tente novamente.');
     } finally {
       setSubmitting(false);

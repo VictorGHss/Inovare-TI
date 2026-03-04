@@ -1,4 +1,6 @@
-// Campos de item e quantidade para chamados do tipo REQUEST
+// Campos de item e quantidade para chamados do tipo REQUEST (com typeahead/autocomplete)
+import { useState } from 'react';
+import { X } from 'lucide-react';
 import type { Item } from '../../services/api';
 
 interface Props {
@@ -15,22 +17,79 @@ interface Props {
 export default function RequestItemFields({
   items, requestedItemId, requestedQuantity, inputCls, onItemChange, onQuantityChange,
 }: Props) {
+  const [searchTerm, setSearchTerm] = useState(
+    items.find((i) => i.id === requestedItemId)?.name ?? ''
+  );
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Filter items based on search term
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Handle item selection from dropdown
+  const handleSelectItem = (item: Item) => {
+    setSearchTerm(item.name);
+    onItemChange(item.id, item.name);
+    setIsDropdownOpen(false);
+  };
+
+  // Handle clear button
+  const handleClear = () => {
+    setSearchTerm('');
+    onItemChange(undefined, undefined);
+    setIsDropdownOpen(false);
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 relative">
         <label className="text-sm font-medium text-slate-700">Item Solicitado</label>
-        <select
-          className={inputCls}
-          value={requestedItemId ?? ''}
-          onChange={(e) => {
-            // Passa UUID como string e o nome do item para geração do título automático
-            const selected = items.find((i) => i.id === e.target.value);
-            onItemChange(selected?.id, selected?.name);
-          }}
-        >
-          <option value="">Selecione um item</option>
-          {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
+        <div className="relative">
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              placeholder="Digite para buscar um item..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setIsDropdownOpen(true);
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              className={`${inputCls} pr-10`}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                aria-label="Limpar campo"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+          {isDropdownOpen && filteredItems.length > 0 && (
+            <ul className="absolute z-10 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
+              {filteredItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectItem(item)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-primary hover:text-white transition-colors text-sm"
+                  >
+                    {item.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {isDropdownOpen && filteredItems.length === 0 && searchTerm && (
+            <div className="absolute z-10 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full px-4 py-2.5 text-sm text-slate-500">
+              Nenhum item encontrado
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Quantidade</label>

@@ -13,7 +13,7 @@ const TIPS: Record<TicketType, { heading: string; items: string[] }> = {
     ],
   },
   REQUEST: {
-    heading: 'Dicas para Solicitar Material',
+    heading: 'Dicas para Solicitar Item de TI',
     items: [
       'Verifique se o item não está disponível no seu setor.',
       'Especifique corretamente a quantidade necessária.',

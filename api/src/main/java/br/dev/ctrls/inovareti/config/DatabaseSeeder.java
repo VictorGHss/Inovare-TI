@@ -353,6 +353,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     Ligue a impressora e realize uma impressão de teste para confirmar.
                     """)
                 .authorId(adminUser.getId())
+                .authorName(adminUser.getName())
                 .tags("impressora, toner, tinta, manutencao")
                 .createdAt(LocalDateTime.now())
                 .build(),
@@ -393,6 +394,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     - Mensagens de erro (se houver)
                     """)
                 .authorId(adminUser.getId())
+                .authorName(adminUser.getName())
                 .tags("feegow, sistema, erro, cache, navegador")
                 .createdAt(LocalDateTime.now())
                 .build(),
@@ -442,6 +444,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     Sua assinatura será adicionada automaticamente a todos os e-mails enviados.
                     """)
                 .authorId(adminUser.getId())
+                .authorName(adminUser.getName())
                 .tags("email, outlook, assinatura, configuracao")
                 .createdAt(LocalDateTime.now())
                 .build()

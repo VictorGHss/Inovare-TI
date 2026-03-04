@@ -10,7 +10,7 @@ interface Props {
 
 const tabs = [
   { value: 'INCIDENT' as TicketType, label: 'Relatar Problema', Icon: AlertCircle },
-  { value: 'REQUEST' as TicketType, label: 'Solicitar Material', Icon: Package },
+  { value: 'REQUEST' as TicketType, label: 'Solicitar Item de TI', Icon: Package },
 ];
 
 export default function TicketTypeToggle({ value, onChange }: Props) {

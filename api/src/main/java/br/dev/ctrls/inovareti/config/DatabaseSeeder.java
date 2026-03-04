@@ -325,94 +325,122 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<Article> articles = List.of(
             Article.builder()
                 .title("Como trocar o toner da impressora")
-                .content("# Como trocar o toner da impressora\n\n" +
-                    "## Materiais necessários\n" +
-                    "- Novo cartucho de toner\n" +
-                    "- Pano macio e seco\n\n" +
-                    "## Passo a passo\n\n" +
-                    "### 1. Desligar a impressora\n" +
-                    "Certifique-se de desligar completamente a impressora antes de começar o procedimento.\n\n" +
-                    "### 2. Abrir o painel frontal\n" +
-                    "Localize o painel de acesso ao cartucho e puxe-o gentilmente em sua direção.\n\n" +
-                    "### 3. Remover o cartucho gasto\n" +
-                    "Segure a aba de retirada do cartucho e puxe-o para fora com um movimento suave.\n\n" +
-                    "### 4. Instalar o novo toner\n" +
-                    "Retire o novo cartucho de sua embalagem e remova a fita protetora. Alinhe o cartucho com as guias e insira-o até ouvir um clique.\n\n" +
-                    "### 5. Fechar o painel\n" +
-                    "Pressione o painel frontal até que ele se encaixe no lugar.\n\n" +
-                    "### 6. Ligar a impressora\n" +
-                    "Ligue a impressora e realize uma impressão de teste para confirmar.\n")
+                .content("""
+                    # Como trocar o toner da impressora
+                    
+                    ## Materiais necessários
+                    - Novo cartucho de toner
+                    - Pano macio e seco
+                    
+                    ## Passo a passo
+                    
+                    ### 1. Desligar a impressora
+                    Certifique-se de desligar completamente a impressora antes de começar o procedimento.
+                    
+                    ### 2. Abrir o painel frontal
+                    Localize o painel de acesso ao cartucho e puxe-o gentilmente em sua direção.
+                    
+                    ### 3. Remover o cartucho gasto
+                    Segure a aba de retirada do cartucho e puxe-o para fora com um movimento suave.
+                    
+                    ### 4. Instalar o novo toner
+                    Retire o novo cartucho de sua embalagem e remova a fita protetora. Alinhe o cartucho com as guias e insira-o até ouvir um clique.
+                    
+                    ### 5. Fechar o painel
+                    Pressione o painel frontal até que ele se encaixe no lugar.
+                    
+                    ### 6. Ligar a impressora
+                    Ligue a impressora e realize uma impressão de teste para confirmar.
+                    """)
                 .authorId(adminUser.getId())
                 .tags("impressora, toner, tinta, manutencao")
                 .createdAt(LocalDateTime.now())
                 .build(),
             Article.builder()
                 .title("Sistema Feegow não abre (Tela Branca)")
-                .content("# Sistema Feegow não abre (Tela Branca)\n\n" +
-                    "## Problema comum\n" +
-                    "Ao acessar o Feegow, uma tela branca aparece sem carregar o sistema.\n\n" +
-                    "## Causas possíveis\n" +
-                    "- Cache do navegador corrompido\n" +
-                    "- Cookies expirados\n" +
-                    "- Histórico de navegação com dados obsoletos\n\n" +
-                    "## Solução\n\n" +
-                    "### Passo 1: Limpar o Cache do Navegador\n" +
-                    "1. Abra o navegador (Chrome, Firefox, Safari, etc)\n" +
-                    "2. Pressione **Ctrl + Shift + Delete** (Windows) ou **Cmd + Shift + Delete** (Mac)\n" +
-                    "3. Selecione o período **Todos os tempos**\n" +
-                    "4. Marque as opções:\n" +
-                    "   - Cookies e outros dados de sites\n" +
-                    "   - Arquivos em cache\n" +
-                    "5. Clique em **Limpar dados**\n\n" +
-                    "### Passo 2: Fechar e reabrir o navegador\n" +
-                    "Feche completamente o navegador (todas as abas e janelas) e abra-o novamente.\n\n" +
-                    "### Passo 3: Acessar o Feegow\n" +
-                    "Acesse o portal do Feegow novamente em uma nova aba.\n\n" +
-                    "## Se o problema persistir\n" +
-                    "Abra um chamado técnico com a seguinte informação:\n" +
-                    "- Navegador e versão\n" +
-                    "- Sistema operacional\n" +
-                    "- Mensagens de erro (se houver)\n")
+                .content("""
+                    # Sistema Feegow não abre (Tela Branca)
+                    
+                    ## Problema comum
+                    Ao acessar o Feegow, uma tela branca aparece sem carregar o sistema.
+                    
+                    ## Causas possíveis
+                    - Cache do navegador corrompido
+                    - Cookies expirados
+                    - Histórico de navegação com dados obsoletos
+                    
+                    ## Solução
+                    
+                    ### Passo 1: Limpar o Cache do Navegador
+                    1. Abra o navegador (Chrome, Firefox, Safari, etc)
+                    2. Pressione **Ctrl + Shift + Delete** (Windows) ou **Cmd + Shift + Delete** (Mac)
+                    3. Selecione o período **Todos os tempos**
+                    4. Marque as opções:
+                       - Cookies e outros dados de sites
+                       - Arquivos em cache
+                    5. Clique em **Limpar dados**
+                    
+                    ### Passo 2: Fechar e reabrir o navegador
+                    Feche completamente o navegador (todas as abas e janelas) e abra-o novamente.
+                    
+                    ### Passo 3: Acessar o Feegow
+                    Acesse o portal do Feegow novamente em uma nova aba.
+                    
+                    ## Se o problema persistir
+                    Abra um chamado técnico com a seguinte informação:
+                    - Navegador e versão
+                    - Sistema operacional
+                    - Mensagens de erro (se houver)
+                    """)
                 .authorId(adminUser.getId())
                 .tags("feegow, sistema, erro, cache, navegador")
                 .createdAt(LocalDateTime.now())
                 .build(),
             Article.builder()
                 .title("Configurar assinatura de E-mail no Outlook")
-                .content("# Configurar assinatura de E-mail no Outlook\n\n" +
-                    "## Passo 1: Abrir as Configurações do Outlook\n" +
-                    "1. Abra o Outlook\n" +
-                    "2. Clique em **Arquivo** (canto superior esquerdo)\n" +
-                    "3. Selecione **Opções**\n\n" +
-                    "## Passo 2: Acessar a seção de Assinatura\n" +
-                    "1. Na janela de Opções, clique em **Correio**\n" +
-                    "2. Em seguida, clique em **Assinaturas...** (lado direito da tela)\n\n" +
-                    "## Passo 3: Criar uma nova assinatura\n" +
-                    "1. Clique em **Novo** para criar uma assinatura\n" +
-                    "2. Digite um nome para a assinatura (ex: \"Corporativa\")\n" +
-                    "3. Clique em **OK**\n\n" +
-                    "## Passo 4: Editar a assinatura\n" +
-                    "Na caixa de texto grande, digite sua assinatura. Você pode incluir:\n" +
-                    "- Seu nome completo\n" +
-                    "- Cargo\n" +
-                    "- Departamento\n" +
-                    "- Telefone\n" +
-                    "- E-mail\n" +
-                    "- Logotipo da empresa\n\n" +
-                    "### Exemplo de assinatura:\n" +
-                    "```\n" +
-                    "João Silva\n" +
-                    "Especialista em TI\n" +
-                    "Centro de Inovação - Inovare Soluções\n" +
-                    "Tel: (11) 1234-5678\n" +
-                    "Email: joao.silva@inovare.med.br\n" +
-                    "```\n\n" +
-                    "## Passo 5: Configurar uso automático\n" +
-                    "1. No dropdown **Escolher Assinatura Padrão**, selecione sua assinatura\n" +
-                    "2. Isso aplicará a assinatura em todos os novos e-mails\n" +
-                    "3. Clique em **OK** para salvar\n\n" +
-                    "## Pronto!\n" +
-                    "Sua assinatura será adicionada automaticamente a todos os e-mails enviados.\n")
+                .content("""
+                    # Configurar assinatura de E-mail no Outlook
+                    
+                    ## Passo 1: Abrir as Configurações do Outlook
+                    1. Abra o Outlook
+                    2. Clique em **Arquivo** (canto superior esquerdo)
+                    3. Selecione **Opções**
+                    
+                    ## Passo 2: Acessar a seção de Assinatura
+                    1. Na janela de Opções, clique em **Correio**
+                    2. Em seguida, clique em **Assinaturas...** (lado direito da tela)
+                    
+                    ## Passo 3: Criar uma nova assinatura
+                    1. Clique em **Novo** para criar uma assinatura
+                    2. Digite um nome para a assinatura (ex: "Corporativa")
+                    3. Clique em **OK**
+                    
+                    ## Passo 4: Editar a assinatura
+                    Na caixa de texto grande, digite sua assinatura. Você pode incluir:
+                    - Seu nome completo
+                    - Cargo
+                    - Departamento
+                    - Telefone
+                    - E-mail
+                    - Logotipo da empresa
+                    
+                    ### Exemplo de assinatura:
+                    ```
+                    João Silva
+                    Especialista em TI
+                    Centro de Inovação - Inovare Soluções
+                    Tel: (11) 1234-5678
+                    Email: joao.silva@inovare.med.br
+                    ```
+                    
+                    ## Passo 5: Configurar uso automático
+                    1. No dropdown **Escolher Assinatura Padrão**, selecione sua assinatura
+                    2. Isso aplicará a assinatura em todos os novos e-mails
+                    3. Clique em **OK** para salvar
+                    
+                    ## Pronto!
+                    Sua assinatura será adicionada automaticamente a todos os e-mails enviados.
+                    """)
                 .authorId(adminUser.getId())
                 .tags("email, outlook, assinatura, configuracao")
                 .createdAt(LocalDateTime.now())

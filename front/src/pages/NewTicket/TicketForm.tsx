@@ -13,14 +13,14 @@ import RequestItemFields from './RequestItemFields';
 import PriorityCategoryFields from './PriorityCategoryFields';
 
 interface Props {
-  ticketType: TicketType;
+  type: TicketType;
   onTypeChange: (v: TicketType) => void;
 }
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
 
-export default function TicketForm({ ticketType, onTypeChange }: Props) {
+export default function TicketForm({ type, onTypeChange }: Props) {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -56,7 +56,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
   // Debounce para busca de artigos quando o título muda (Ticket Deflection)
   useEffect(() => {
-    if (ticketType !== 'INCIDENT') {
+    if (type !== 'INCIDENT') {
       setSuggestedArticles([]);
       return;
     }
@@ -91,7 +91,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [form.title, ticketType]);
+  }, [form.title, type]);
 
   function set<K extends keyof CreateTicketDto>(key: K, value: CreateTicketDto[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -99,8 +99,17 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
   function handleTypeChange(v: TicketType) {
     onTypeChange(v);
-    // Limpa campos específicos do tipo anterior ao alternar
-    setForm((f) => ({ ...f, title: '', requestedItemId: undefined, requestedQuantity: 1 }));
+    setFiles([]);
+    // Reset type-specific fields when toggling
+    setForm((f) => ({
+      ...f,
+      title: '',
+      description: '',
+      anydeskCode: '',
+      requestedItemId: undefined,
+      requestedQuantity: 1,
+      priority: 'NORMAL',
+    }));
     setSelectedItemName('');
   }
 
@@ -143,26 +152,30 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.categoryId) return;
 
-    // Para SOLICITAÇÃO, o título é composto a partir do item e da quantidade selecionados
+    const defaultCategoryId = categories[0]?.id;
+    const effectiveCategoryId = form.categoryId || defaultCategoryId;
+    if (!effectiveCategoryId) {
+      toast.error('Nenhuma categoria disponível para abrir o chamado.');
+      return;
+    }
+
     let finalTitle = form.title.trim();
-    if (ticketType === 'REQUEST') {
+    if (type === 'REQUEST') {
       const itemName = selectedItemName || 'Item não especificado';
       const qty = form.requestedQuantity ?? 1;
       finalTitle = `Solicitação: ${itemName}, ${qty} unidade${qty !== 1 ? 's' : ''}`;
     }
     if (!finalTitle) return;
 
-    // Payload alinhado com TicketRequestDTO do backend — sem requesterId nem ticketType
     const payload: CreateTicketDto = {
       title: finalTitle,
       description: form.description,
-      anydeskCode: form.anydeskCode || undefined,
-      priority: form.priority,
-      categoryId: form.categoryId,
-      requestedItemId: ticketType === 'REQUEST' ? form.requestedItemId : undefined,
-      requestedQuantity: ticketType === 'REQUEST' ? (form.requestedQuantity ?? 1) : undefined,
+      anydeskCode: type === 'INCIDENT' ? (form.anydeskCode || undefined) : undefined,
+      priority: type === 'INCIDENT' ? form.priority : 'NORMAL',
+      categoryId: effectiveCategoryId,
+      requestedItemId: type === 'REQUEST' ? form.requestedItemId : undefined,
+      requestedQuantity: type === 'REQUEST' ? (form.requestedQuantity ?? 1) : undefined,
     };
 
     setSubmitting(true);
@@ -171,7 +184,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
       const ticket = await createTicket(payload);
       
       // Step 2: Upload attachments if any
-      if (files.length > 0) {
+      if (type === 'INCIDENT' && files.length > 0) {
         toast.info(`Enviando ${files.length} anexo${files.length > 1 ? 's' : ''}...`);
         await Promise.all(files.map(file => uploadTicketAttachment(ticket.id, file)));
       }
@@ -188,9 +201,23 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
-      <TicketTypeToggle value={ticketType} onChange={handleTypeChange} />
+      <TicketTypeToggle value={type} onChange={handleTypeChange} />
 
-      {ticketType === 'INCIDENT' && (
+      {type === 'REQUEST' && (
+        <RequestItemFields
+          items={items}
+          requestedItemId={form.requestedItemId}
+          requestedQuantity={form.requestedQuantity ?? 1}
+          inputCls={inputCls}
+          onItemChange={(id, name) => {
+            set('requestedItemId', id);
+            setSelectedItemName(name ?? '');
+          }}
+          onQuantityChange={(q) => set('requestedQuantity', q)}
+        />
+      )}
+
+      {type === 'INCIDENT' && (
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-slate-700">Título <span className="text-red-500">*</span></label>
           <input className={inputCls} placeholder="Descreva brevemente" value={form.title}
@@ -200,44 +227,33 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
 
       {suggestedArticles.length > 0 && <KbSuggestions articles={suggestedArticles} />}
 
+      {type === 'INCIDENT' && (
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Código AnyDesk (Acesso Remoto) - Opcional</label>
         <input className={inputCls} placeholder="Ex: 123 456 789" value={form.anydeskCode || ''}
           onChange={(e) => set('anydeskCode', e.target.value)} />
         <p className="text-xs text-slate-400">Use este código para permitir acesso remoto ao seu computador durante o suporte.</p>
       </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Descrição</label>
         <textarea className={`${inputCls} resize-none`} rows={4}
-          placeholder={ticketType === 'REQUEST' ? 'Justifique a necessidade do item...' : 'Detalhe o problema, passos para reproduzir...'}
+          placeholder={type === 'REQUEST' ? 'Justifique a necessidade do item...' : 'Detalhe o problema, passos para reproduzir...'}
           value={form.description} 
           onChange={(e) => set('description', e.target.value)}
           onPaste={handlePaste} />
       </div>
 
-      <FileAttachment files={files} setFiles={setFiles} />
+      {type === 'INCIDENT' && <FileAttachment files={files} setFiles={setFiles} />}
 
+      {type === 'INCIDENT' && (
       <PriorityCategoryFields
         priority={form.priority} categoryId={form.categoryId} categories={categories}
         inputCls={inputCls}
         onPriorityChange={(v) => set('priority', v)}
         onCategoryChange={(id) => set('categoryId', id)}
       />
-
-      {ticketType === 'REQUEST' && (
-        <RequestItemFields
-          items={items}
-          requestedItemId={form.requestedItemId}
-          requestedQuantity={form.requestedQuantity ?? 1}
-          inputCls={inputCls}
-          onItemChange={(id, name) => {
-            // Atualiza o ID do item no formulário e o nome para o título automático
-            set('requestedItemId', id);
-            setSelectedItemName(name ?? '');
-          }}
-          onQuantityChange={(q) => set('requestedQuantity', q)}
-        />
       )}
 
       <div className="flex items-center justify-end gap-3 pt-2">
@@ -247,7 +263,7 @@ export default function TicketForm({ ticketType, onTypeChange }: Props) {
         </button>
         <button type="submit" disabled={submitting}
           className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
-          {submitting ? (files.length > 0 ? 'Enviando arquivos...' : 'Enviando...') : 'Abrir Chamado'}
+          {submitting ? (type === 'INCIDENT' && files.length > 0 ? 'Enviando arquivos...' : 'Enviando...') : 'Abrir Chamado'}
         </button>
       </div>
     </form>

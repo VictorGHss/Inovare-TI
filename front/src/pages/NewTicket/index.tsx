@@ -33,7 +33,7 @@ export default function NewTicket() {
       {/* Grid 12 colunas: formulário + tutorial */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8">
-          <TicketForm ticketType={ticketType} onTypeChange={setTicketType} />
+          <TicketForm type={ticketType} onTypeChange={setTicketType} />
         </div>
         <div className="lg:col-span-4">
           <TutorialAside ticketType={ticketType} />

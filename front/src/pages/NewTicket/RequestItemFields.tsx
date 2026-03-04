@@ -1,6 +1,6 @@
-// Campos de item e quantidade para chamados do tipo REQUEST (com typeahead/autocomplete)
-import { useState } from 'react';
-import { X } from 'lucide-react';
+// Fields for REQUEST tickets with typeahead/autocomplete
+import { useEffect, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import type { Item } from '../../services/api';
 
 interface Props {
@@ -22,23 +22,32 @@ export default function RequestItemFields({
   );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Filter items based on search term
+  useEffect(() => {
+    const selectedItem = items.find((item) => item.id === requestedItemId);
+    if (selectedItem) {
+      setSearchTerm(selectedItem.name);
+      return;
+    }
+
+    if (!requestedItemId) {
+      setSearchTerm('');
+    }
+  }, [items, requestedItemId]);
+
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Handle item selection from dropdown
   const handleSelectItem = (item: Item) => {
     setSearchTerm(item.name);
     onItemChange(item.id, item.name);
     setIsDropdownOpen(false);
   };
 
-  // Handle clear button
   const handleClear = () => {
     setSearchTerm('');
     onItemChange(undefined, undefined);
-    setIsDropdownOpen(false);
+    setIsDropdownOpen(true);
   };
 
   return (
@@ -47,6 +56,7 @@ export default function RequestItemFields({
         <label className="text-sm font-medium text-slate-700">Item Solicitado</label>
         <div className="relative">
           <div className="relative flex items-center">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Digite para buscar um item..."
@@ -56,7 +66,7 @@ export default function RequestItemFields({
                 setIsDropdownOpen(true);
               }}
               onFocus={() => setIsDropdownOpen(true)}
-              className={`${inputCls} pr-10`}
+              className={`${inputCls} pl-9 pr-10`}
             />
             {searchTerm && (
               <button
@@ -70,7 +80,7 @@ export default function RequestItemFields({
             )}
           </div>
           {isDropdownOpen && filteredItems.length > 0 && (
-            <ul className="absolute z-10 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
+            <ul className="absolute z-50 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
               {filteredItems.map((item) => (
                 <li key={item.id}>
                   <button
@@ -85,7 +95,7 @@ export default function RequestItemFields({
             </ul>
           )}
           {isDropdownOpen && filteredItems.length === 0 && searchTerm && (
-            <div className="absolute z-10 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full px-4 py-2.5 text-sm text-slate-500">
+            <div className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full px-4 py-2.5 text-sm text-slate-500">
               Nenhum item encontrado
             </div>
           )}

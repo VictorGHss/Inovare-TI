@@ -20,24 +20,24 @@ export default function ChartsPie({ data, title }: ChartsPieProps) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-slate-800 mb-4">{title}</h3>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({ name, value }) => `${name}: ${value}`}
-            outerRadius={80}
+            cy="45%"
+            innerRadius={60}
+            outerRadius={100}
             fill="#8884d8"
             dataKey="value"
+            paddingAngle={2}
           >
             {data.map((_, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(value) => `${value}`} />
-          <Legend />
+          <Tooltip formatter={(value) => `${value}`} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+          <Legend verticalAlign="bottom" height={36} />
         </PieChart>
       </ResponsiveContainer>
     </div>

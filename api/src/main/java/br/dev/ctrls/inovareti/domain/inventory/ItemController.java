@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,6 +45,7 @@ public class ItemController {
      * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
      * Retorna 200 OK com a lista (vazia se não houver itens).
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
     public ResponseEntity<List<ItemResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllItemsUseCase.execute());
@@ -53,6 +55,7 @@ public class ItemController {
      * Busca um item de inventário específico por ID.
      * Retorna 200 OK com os dados do item ou 404 se não encontrado.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping("/{id}")
     public ResponseEntity<ItemResponseDTO> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(findItemByIdUseCase.execute(id));
@@ -63,6 +66,7 @@ public class ItemController {
      * Os lotes são retornados ordenados do mais recente para o mais antigo.
      * Retorna 200 OK com a lista (vazia se não houver lotes).
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping("/{id}/batches")
     public ResponseEntity<List<BatchResponseDTO>> listBatches(@PathVariable UUID id) {
         return ResponseEntity.ok(listItemBatchesUseCase.execute(id));
@@ -72,6 +76,7 @@ public class ItemController {
      * Cria um novo item de inventário com estoque inicial zero.
      * Retorna 201 Created com os dados do item.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PostMapping
     public ResponseEntity<ItemResponseDTO> create(@Valid @RequestBody ItemRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(createItemUseCase.execute(request));
@@ -82,6 +87,7 @@ public class ItemController {
      * Atualiza o currentStock do item atomicamente.
      * Retorna 201 Created com os dados do lote.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PostMapping("/{id}/batches")
     public ResponseEntity<StockBatchResponseDTO> registerBatch(
             @PathVariable UUID id,

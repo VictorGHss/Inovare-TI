@@ -245,10 +245,18 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedTickets() {
-        User requester = userRepository.findByEmail("joao.silva@inovare.med.br")
-            .orElseThrow(() -> new RuntimeException("Requester user not found"));
+        // Busca múltiplos requesters USER para distribuir tickets
+        User requesterJoao = userRepository.findByEmail("joao.silva@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester João user not found"));
+        User requesterMaria = userRepository.findByEmail("maria.santos@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester Maria user not found"));
+        User requesterPedro = userRepository.findByEmail("pedro.costa@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester Pedro user not found"));
         User technician = userRepository.findByEmail("tecnico@inovare.med.br")
             .orElseThrow(() -> new RuntimeException("Technician user not found"));
+
+        // Lista de requesters para distribuição aleatória
+        List<User> requesters = List.of(requesterJoao, requesterMaria, requesterPedro);
 
         List<TicketCategory> categories = ticketCategoryRepository.findAll();
         List<TicketStatus> statuses = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CLOSED);
@@ -262,6 +270,9 @@ public class DatabaseSeeder implements CommandLineRunner {
             TicketStatus status = statuses.get(random.nextInt(statuses.size()));
             TicketCategory category = categories.get(random.nextInt(categories.size()));
             TicketPriority priority = priorities.get(random.nextInt(priorities.size()));
+
+            // Distribute requester randomly among the 3 USER accounts
+            User requester = requesters.get(random.nextInt(requesters.size()));
 
             // Spread created dates over the last 30 days
             LocalDateTime createdAt = now.minusDays(random.nextInt(30)).minusHours(random.nextInt(24)).minusMinutes(random.nextInt(60));

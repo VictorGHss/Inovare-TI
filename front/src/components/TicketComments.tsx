@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface TicketCommentsProps {
   ticketId: string;
   ticketStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  assignedToId: string | null;
 }
 
 function formatDate(iso: string): string {
@@ -19,7 +20,7 @@ function formatDate(iso: string): string {
   });
 }
 
-export default function TicketComments({ ticketId, ticketStatus }: TicketCommentsProps) {
+export default function TicketComments({ ticketId, ticketStatus, assignedToId }: TicketCommentsProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,8 @@ export default function TicketComments({ ticketId, ticketStatus }: TicketComment
   }
 
   const isTicketClosed = ticketStatus === 'CLOSED';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
+  const isCommentDisabled = isAdmin && assignedToId !== user?.id;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -112,17 +115,22 @@ export default function TicketComments({ ticketId, ticketStatus }: TicketComment
       {/* Campo de novo comentário */}
       {!isTicketClosed && (
         <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+          {isCommentDisabled && (
+            <p className="text-xs text-slate-400 italic bg-slate-50 p-2 rounded">
+              Você precisa assumir o chamado para enviar mensagens.
+            </p>
+          )}
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Adicione um comentário para tirar dúvidas..."
             rows={3}
-            disabled={submitting}
+            disabled={submitting || isCommentDisabled}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:bg-slate-50"
           />
           <button
             onClick={handleSubmitComment}
-            disabled={submitting || !newComment.trim()}
+            disabled={submitting || !newComment.trim() || isCommentDisabled}
             className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
           >
             <Send size={16} />

@@ -30,35 +30,27 @@ export default function DefaultLayout() {
           {/* Links de navegação */}
           <nav className="hidden sm:flex items-center gap-1">
             <button
-              onClick={() => navigate('/dashboard')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname === '/dashboard'
-                  ? 'bg-primary text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Dashboard
-            </button>
-            <button
               onClick={() => navigate('/tickets')}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname === '/tickets'
+                location.pathname.startsWith('/tickets')
                   ? 'bg-primary text-white'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               Chamados
             </button>
-            <button
-              onClick={() => navigate('/inventory')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname.startsWith('/inventory')
-                  ? 'bg-primary text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Inventário
-            </button>
+            {user?.role !== 'USER' && (
+              <button
+                onClick={() => navigate('/inventory')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  location.pathname.startsWith('/inventory')
+                    ? 'bg-primary text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Inventário
+              </button>
+            )}
             <button
               onClick={() => navigate('/knowledge-base')}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${

@@ -150,7 +150,7 @@ export default function TicketDetails() {
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/tickets')}
           className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
           aria-label="Voltar"
         >
@@ -267,7 +267,7 @@ export default function TicketDetails() {
           )}
 
           {/* Seção de histórico e comentários */}
-          <TicketComments ticketId={ticket.id} ticketStatus={ticket.status} />
+          <TicketComments ticketId={ticket.id} ticketStatus={ticket.status} assignedToId={ticket.assignedToId} />
 
           {!isClosed && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
             <div className="flex flex-wrap justify-end gap-3">

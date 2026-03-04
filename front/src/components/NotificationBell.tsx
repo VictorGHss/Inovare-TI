@@ -14,8 +14,8 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchNotifications();
     
-    // Configura intervalo de polling a cada 30 segundos
-    const interval = setInterval(fetchNotifications, 30000);
+    // Configura intervalo de polling a cada 10 segundos
+    const interval = setInterval(fetchNotifications, 10000);
     
     return () => clearInterval(interval);
   }, []);

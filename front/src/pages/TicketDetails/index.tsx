@@ -187,7 +187,7 @@ export default function TicketDetails() {
               <span className={priorityColors[ticket.priority]}>
                 Prioridade: {priorityLabels[ticket.priority] ?? ticket.priority}
               </span>
-              <SlaBadge deadline={ticket.slaDeadline} />
+              <SlaBadge deadline={ticket.slaDeadline} status={ticket.status} closedAt={ticket.closedAt} />
             </div>
           </div>
 
@@ -371,7 +371,7 @@ export default function TicketDetails() {
                     <p className="font-medium text-slate-700">
                       {ticket.slaDeadline ? formatDate(ticket.slaDeadline) : 'Sem prazo'}
                     </p>
-                    <SlaBadge deadline={ticket.slaDeadline} />
+                    <SlaBadge deadline={ticket.slaDeadline} status={ticket.status} closedAt={ticket.closedAt} />
                   </div>
                 </div>
               </li>

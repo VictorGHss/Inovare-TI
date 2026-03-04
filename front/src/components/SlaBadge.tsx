@@ -1,4 +1,4 @@
-import { formatDistanceToNow, isPast } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface SlaBadgeProps {

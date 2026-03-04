@@ -33,7 +33,7 @@ export default function Tickets() {
   }, []);
 
   // Filter tickets based on user role and tab
-  const filteredTickets = tickets.filter((ticket) => {
+  const filteredTickets = tickets.filter((_) => {
     if (isAdmin) {
       // Admin sees all tickets
       return true;

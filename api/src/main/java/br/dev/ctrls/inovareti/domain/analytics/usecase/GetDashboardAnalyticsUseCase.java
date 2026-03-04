@@ -1,15 +1,15 @@
 package br.dev.ctrls.inovareti.domain.analytics.usecase;
 
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
-import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.InventorySummaryDTO;
+import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;

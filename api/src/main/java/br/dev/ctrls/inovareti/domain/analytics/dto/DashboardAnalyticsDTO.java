@@ -16,5 +16,7 @@ public record DashboardAnalyticsDTO(
     long totalClosedTickets,
     List<MetricDTO> ticketsByStatus,
     List<MetricDTO> ticketsByCategory,
+    List<MetricDTO> ticketsBySector,
+    List<MetricDTO> ticketsByRequester,
     InventorySummaryDTO inventorySummary
 ) {}

@@ -73,6 +73,12 @@ public class GetDashboardAnalyticsUseCase {
         // Build tickets by category metrics
         List<MetricDTO> ticketsByCategory = buildTicketsByCategoryMetrics(allTickets);
 
+        // Build tickets by sector metrics (Top 5)
+        List<MetricDTO> ticketsBySector = buildTicketsBySectorMetrics(allTickets);
+
+        // Build tickets by requester metrics (Top 5)
+        List<MetricDTO> ticketsByRequester = buildTicketsByRequesterMetrics(allTickets);
+
         // Build inventory summary metrics
         long totalItems = itemRepository.count();
         long lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
@@ -94,6 +100,8 @@ public class GetDashboardAnalyticsUseCase {
                 closedTickets,
                 ticketsByStatus,
                 ticketsByCategory,
+                ticketsBySector,
+                ticketsByRequester,
                 inventorySummary
         );
     }
@@ -120,6 +128,40 @@ public class GetDashboardAnalyticsUseCase {
                 ))
                 .entrySet()
                 .stream()
+                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Builds a list of top 5 metrics representing tickets by sector.
+     */
+    private List<MetricDTO> buildTicketsBySectorMetrics(List<Ticket> tickets) {
+        return tickets.stream()
+                .collect(Collectors.groupingByConcurrent(
+                        ticket -> ticket.getRequester().getSector().getName(),
+                        Collectors.counting()
+                ))
+                .entrySet()
+                .stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .limit(5)
+                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Builds a list of top 5 metrics representing tickets by requester (user).
+     */
+    private List<MetricDTO> buildTicketsByRequesterMetrics(List<Ticket> tickets) {
+        return tickets.stream()
+                .collect(Collectors.groupingByConcurrent(
+                        ticket -> ticket.getRequester().getName(),
+                        Collectors.counting()
+                ))
+                .entrySet()
+                .stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .limit(5)
                 .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
     }

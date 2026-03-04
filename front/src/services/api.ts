@@ -349,6 +349,8 @@ export interface DashboardAnalyticsDTO {
   totalClosedTickets: number;
   ticketsByStatus: MetricDTO[];
   ticketsByCategory: MetricDTO[];
+  ticketsBySector: MetricDTO[];
+  ticketsByRequester: MetricDTO[];
   inventorySummary: InventorySummaryDTO;
 }
 

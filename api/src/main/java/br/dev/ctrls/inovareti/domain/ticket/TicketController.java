@@ -99,6 +99,7 @@ public class TicketController {
     /**
      * Abre um novo chamado com status OPEN e slaDeadline calculado automaticamente.
      * Retorna 201 Created com os dados do chamado.
+     * ✅ Acessível a todos os usuários autenticados (USER, TECHNICIAN e ADMIN).
      */
     @PostMapping
     public ResponseEntity<TicketResponseDTO> create(@Valid @RequestBody TicketRequestDTO request) {

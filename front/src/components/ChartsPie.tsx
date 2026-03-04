@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { MetricDTO } from '../../services/api';
+import { MetricDTO } from '../services/api';
 
 interface ChartsPieProps {
   data: MetricDTO[];

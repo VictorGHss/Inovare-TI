@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Ticket } from '../../services/api';
+import { Ticket } from '../services/api';
 
 interface ChartsBarProps {
   tickets: Ticket[];

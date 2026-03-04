@@ -1,16 +1,29 @@
 // Campo de anexo de arquivos com UI de arrastar/clicar
 import type { Dispatch, SetStateAction, ChangeEvent } from 'react';
 import { Paperclip } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 interface Props {
   files: File[];
   setFiles: Dispatch<SetStateAction<File[]>>;
 }
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 export default function FileAttachment({ files, setFiles }: Props) {
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+      const selectedFiles = Array.from(e.target.files);
+      const validFiles = selectedFiles.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
+      const oversizedFiles = selectedFiles.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+
+      oversizedFiles.forEach((file) => {
+        toast.error(`Arquivo ${file.name} excede o limite de 5MB.`);
+      });
+
+      if (validFiles.length > 0) {
+        setFiles((prev) => [...prev, ...validFiles]);
+      }
     }
   }
 

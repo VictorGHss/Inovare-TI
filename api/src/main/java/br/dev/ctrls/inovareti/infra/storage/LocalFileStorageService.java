@@ -13,6 +13,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +27,9 @@ public class LocalFileStorageService {
 
     @Value("${file.upload-dir}")
     private String uploadDir;
+
+    @Value("${app.upload.max-file-size-bytes:5242880}")
+    private long maxFileSizeBytes;
 
     private Path uploadPath;
 
@@ -50,6 +54,10 @@ public class LocalFileStorageService {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isBlank()) {
             throw new IllegalArgumentException("File must have a valid filename");
+        }
+
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new FileSizeLimitExceededException("O arquivo excede o limite máximo de 5MB");
         }
 
         // Extract file extension

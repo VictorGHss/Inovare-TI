@@ -54,6 +54,22 @@ export interface ItemCategory {
   isConsumable: boolean;
 }
 
+export interface Asset {
+  id: string;
+  userId: string;
+  name: string;
+  patrimonyCode: string;
+  specifications: string | null;
+  createdAt: string;
+}
+
+export interface CreateAssetDto {
+  userId: string;
+  name: string;
+  patrimonyCode: string;
+  specifications?: string;
+}
+
 export interface CreateItemDto {
   itemCategoryId: string;
   name: string;
@@ -262,6 +278,35 @@ export async function getSectors(): Promise<Sector[]> {
 export async function createSector(dto: CreateSectorDto): Promise<Sector> {
   const { data } = await api.post<Sector>('/api/sectors', dto);
   return data;
+}
+
+export async function getAssets(): Promise<Asset[]> {
+  const { data } = await api.get<Asset[]>('/api/assets');
+  return data;
+}
+
+export async function getAssetById(id: string): Promise<Asset> {
+  const { data } = await api.get<Asset>(`/api/assets/${id}`);
+  return data;
+}
+
+export async function getAssetsByUser(userId: string): Promise<Asset[]> {
+  const { data } = await api.get<Asset[]>(`/api/assets/user/${userId}`);
+  return data;
+}
+
+export async function createAsset(dto: CreateAssetDto): Promise<Asset> {
+  const { data } = await api.post<Asset>('/api/assets', dto);
+  return data;
+}
+
+export async function updateAsset(id: string, dto: CreateAssetDto): Promise<Asset> {
+  const { data } = await api.patch<Asset>(`/api/assets/${id}`, dto);
+  return data;
+}
+
+export async function deleteAsset(id: string): Promise<void> {
+  await api.delete(`/api/assets/${id}`);
 }
 
 // Faz upload de um anexo para um chamado específico

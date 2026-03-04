@@ -8,6 +8,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import br.dev.ctrls.inovareti.domain.asset.Asset;
+import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategoryRepository;
@@ -44,6 +46,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final ItemRepository itemRepository;
     private final TicketRepository ticketRepository;
     private final ArticleRepository articleRepository;
+    private final AssetRepository assetRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final Random random = new Random();
@@ -80,6 +83,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         // Seed tickets
         if (ticketRepository.count() == 0) {
             seedTickets();
+        }
+
+        // Seed assets
+        if (assetRepository.count() == 0) {
+            seedAssets();
         }
 
         // Seed articles/tutorials
@@ -315,6 +323,45 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         ticketRepository.saveAll(tickets);
         log.info("Seeded {} tickets", tickets.size());
+    }
+
+    private void seedAssets() {
+        User requesterJoao = userRepository.findByEmail("joao.silva@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester João user not found"));
+        User requesterMaria = userRepository.findByEmail("maria.santos@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester Maria user not found"));
+        User requesterPedro = userRepository.findByEmail("pedro.costa@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Requester Pedro user not found"));
+
+        List<Asset> assets = List.of(
+            Asset.builder()
+                .userId(requesterJoao.getId())
+                .name("Notebook Dell Latitude 5420")
+                .patrimonyCode("INV-NTB-0001")
+                .specifications("CPU i5, 16GB RAM, SSD 512GB, Windows 11")
+                .build(),
+            Asset.builder()
+                .userId(requesterJoao.getId())
+                .name("Monitor LG 24\"")
+                .patrimonyCode("INV-MON-0027")
+                .specifications("24 polegadas, Full HD, HDMI")
+                .build(),
+            Asset.builder()
+                .userId(requesterMaria.getId())
+                .name("Notebook Lenovo ThinkPad E14")
+                .patrimonyCode("INV-NTB-0012")
+                .specifications("CPU i7, 16GB RAM, SSD 256GB, Windows 11")
+                .build(),
+            Asset.builder()
+                .userId(requesterPedro.getId())
+                .name("Desktop HP ProDesk 400")
+                .patrimonyCode("INV-DESK-0008")
+                .specifications("CPU i5, 8GB RAM, SSD 256GB, Ethernet Cat6")
+                .build()
+        );
+
+        assetRepository.saveAll(assets);
+        log.info("Seeded {} assets", assets.size());
     }
 
     private void seedArticles() {

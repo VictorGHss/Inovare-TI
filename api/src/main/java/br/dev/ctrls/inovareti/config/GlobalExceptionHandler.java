@@ -9,8 +9,10 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -76,6 +78,22 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(422));
         problem.setTitle("Regra de negócio violada");
         problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
+    @ExceptionHandler(FileSizeLimitExceededException.class)
+    public ProblemDetail handleFileSizeLimitExceeded(FileSizeLimitExceededException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
+        problem.setTitle("Arquivo excede limite de tamanho");
+        problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
+        problem.setTitle("Arquivo excede limite de tamanho");
+        problem.setDetail("O arquivo excede o limite máximo de 5MB");
         return problem;
     }
 

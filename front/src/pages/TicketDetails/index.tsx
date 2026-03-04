@@ -1,7 +1,7 @@
 // Página de detalhes de um chamado — exibe informações completas e permite resolver
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText, Laptop, Monitor } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -10,8 +10,10 @@ import {
   claimTicket,
   transferTicket,
   getUsers,
+  getAssetsByUser,
   type Ticket,
   type User,
+  type Asset,
 } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
@@ -58,6 +60,8 @@ export default function TicketDetails() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
 
   // Função para buscar dados do ticket
   const fetchTicket = async () => {
@@ -74,6 +78,27 @@ export default function TicketDetails() {
   useEffect(() => {
     fetchTicket().finally(() => setLoading(false));
   }, [id, navigate]);
+
+  useEffect(() => {
+    async function fetchAssets() {
+      if (!ticket?.requesterId) {
+        setAssets([]);
+        return;
+      }
+
+      setLoadingAssets(true);
+      try {
+        const data = await getAssetsByUser(ticket.requesterId);
+        setAssets(data);
+      } catch {
+        toast.error('Erro ao carregar equipamentos do usuário.');
+      } finally {
+        setLoadingAssets(false);
+      }
+    }
+
+    fetchAssets();
+  }, [ticket?.requesterId]);
 
   async function handleResolve() {
     if (!ticket) return;
@@ -401,6 +426,39 @@ export default function TicketDetails() {
                 </li>
               )}
             </ul>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Equipamentos do Usuário</h3>
+
+            {loadingAssets ? (
+              <p className="text-sm text-slate-400">Carregando equipamentos...</p>
+            ) : assets.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">Nenhum equipamento vinculado.</p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {assets.map((asset) => {
+                  const normalizedName = asset.name.toLowerCase();
+                  const isLaptop = normalizedName.includes('notebook') || normalizedName.includes('laptop');
+                  const AssetIcon = isLaptop ? Laptop : Monitor;
+
+                  return (
+                    <li key={asset.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-start gap-2.5">
+                        <AssetIcon size={16} className="mt-0.5 text-slate-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-700 truncate">{asset.name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Patrimônio: {asset.patrimonyCode}</p>
+                          <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap break-words">
+                            {asset.specifications || 'Sem especificações.'}
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </aside>
       </div>

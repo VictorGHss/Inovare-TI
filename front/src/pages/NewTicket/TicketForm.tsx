@@ -17,6 +17,8 @@ interface Props {
   onTypeChange: (v: TicketType) => void;
 }
 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
 
@@ -135,6 +137,11 @@ export default function TicketForm({ type, onTypeChange }: Props) {
           const extension = item.type.split('/')[1] || 'png';
           const filename = `clipboard-image-${timestamp}.${extension}`;
           const file = new File([blob], filename, { type: item.type });
+
+          if (file.size > MAX_FILE_SIZE_BYTES) {
+            toast.error('O arquivo excede o limite máximo de 5MB.');
+            continue;
+          }
           
           // Add to existing files without removing previous ones
           setFiles((prevFiles) => [...prevFiles, file]);
@@ -185,6 +192,11 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       
       // Step 2: Upload attachments if any
       if (type === 'INCIDENT' && files.length > 0) {
+        if (files.some((file) => file.size > MAX_FILE_SIZE_BYTES)) {
+          toast.error('O arquivo excede o limite máximo de 5MB.');
+          return;
+        }
+
         toast.info(`Enviando ${files.length} anexo${files.length > 1 ? 's' : ''}...`);
         await Promise.all(files.map(file => uploadTicketAttachment(ticket.id, file)));
       }

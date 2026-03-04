@@ -32,10 +32,10 @@ public class AddTicketCommentUseCase {
 
     @Transactional
     public TicketCommentResponseDTO execute(UUID ticketId, TicketCommentRequestDTO request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        User author = userRepository.findByEmail(email)
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found with email: " + email));
+        String userIdStr = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        UUID userId = UUID.fromString(userIdStr);
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
 
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));

@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.ticket.usecase;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -51,10 +52,11 @@ public class CreateTicketUseCase {
      */
     @Transactional
     public TicketResponseDTO execute(TicketRequestDTO request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User requester = userRepository.findByEmail(email)
+        String userIdStr = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        UUID userId = UUID.fromString(userIdStr);
+        User requester = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Authenticated user not found with email: " + email));
+                        "Authenticated user not found with id: " + userId));
 
         User assignedTo = null;
         if (request.assignedToId() != null) {

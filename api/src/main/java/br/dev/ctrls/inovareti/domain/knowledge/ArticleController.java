@@ -18,9 +18,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleRequestDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleResponseDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleSearchResultDTO;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ArticleController {
 
     private final ArticleRepository articleRepository;
+    private final UserRepository userRepository;
 
     /**
      * Lista todos os artigos (público para usuários logados).
@@ -88,29 +92,21 @@ public class ArticleController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<ArticleResponseDTO> create(@Valid @RequestBody ArticleRequestDTO request) {
-        // Obter informações do usuário autenticado
+        // Extract user ID from authentication principal as UUID
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String userName = auth.getName();
+        String userIdStr = auth.getPrincipal().toString();
+        UUID userId = UUID.fromString(userIdStr);
         
-        // Extrair o UUID do usuário a partir do authentication
-        // Nota: Aqui assumimos que o authentication possui um principal com toString() = UUID
-        String principalString = auth.getPrincipal() != null ? auth.getPrincipal().toString() : null;
-        UUID userId;
-        
-        try {
-            userId = UUID.fromString(principalString);
-        } catch (Exception e) {
-            // Fallback: gerar UUID aleatório (em produção, isso deveria vir do user service)
-            userId = UUID.randomUUID();
-            log.warn("Could not parse user ID from authentication, using random UUID");
-        }
+        // Fetch user details to get the author name
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
 
         Article article = Article.builder()
             .title(request.getTitle())
             .content(request.getContent())
             .tags(request.getTags())
             .authorId(userId)
-            .authorName(userName)
+            .authorName(author.getName())
             .createdAt(LocalDateTime.now())
             .build();
 

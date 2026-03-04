@@ -26,10 +26,10 @@ public class ClaimTicketUseCase {
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found with email: " + email));
+        String userIdStr = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        UUID userId = UUID.fromString(userIdStr);
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
 
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));

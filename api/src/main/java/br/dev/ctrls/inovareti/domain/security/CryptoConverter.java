@@ -1,11 +1,16 @@
 package br.dev.ctrls.inovareti.domain.security;
 
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -51,7 +56,8 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             cipher.init(Cipher.ENCRYPT_MODE, key);
             byte[] encryptedBytes = cipher.doFinal(attribute.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encryptedBytes);
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | 
+                 IllegalBlockSizeException | BadPaddingException e) {
             log.error("Error encrypting attribute", e);
             throw new RuntimeException("Failed to encrypt attribute", e);
         }
@@ -74,7 +80,8 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             byte[] decodedBytes = Base64.getDecoder().decode(dbData);
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | 
+                 IllegalBlockSizeException | BadPaddingException | IllegalArgumentException e) {
             log.error("Error decrypting attribute", e);
             throw new RuntimeException("Failed to decrypt attribute", e);
         }
@@ -90,7 +97,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             key = sha.digest(key);
             key = Arrays.copyOf(key, 16); // Use first 128 bits for AES-128
             return new SecretKeySpec(key, ALGORITHM);
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException e) {
             log.error("Error generating encryption key", e);
             throw new RuntimeException("Failed to generate encryption key", e);
         }

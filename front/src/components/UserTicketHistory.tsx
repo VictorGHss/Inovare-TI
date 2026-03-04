@@ -1,4 +1,4 @@
-import { Ticket } from '../services/api';
+import type { Ticket } from '../services/api';
 import StatusBadge from './StatusBadge';
 import { Calendar, FileText } from 'lucide-react';
 

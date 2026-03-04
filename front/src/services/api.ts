@@ -375,6 +375,12 @@ export async function uploadGenericFile(file: File): Promise<GenericAttachmentRe
 
 // ==================== NOTIFICATIONS ====================
 
+// Busca todas as notificações do usuário autenticado (lidas e não lidas)
+export async function getNotifications(): Promise<Notification[]> {
+  const { data } = await api.get<Notification[]>('/api/notifications');
+  return data;
+}
+
 // Busca todas as notificações não lidas do usuário autenticado
 export async function getUnreadNotifications(): Promise<Notification[]> {
   const { data } = await api.get<Notification[]>('/api/notifications/unread');

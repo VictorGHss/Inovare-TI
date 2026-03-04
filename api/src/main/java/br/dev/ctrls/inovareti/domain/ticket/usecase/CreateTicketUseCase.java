@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
@@ -18,6 +19,7 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +40,7 @@ public class CreateTicketUseCase {
     private final UserRepository userRepository;
     private final TicketCategoryRepository ticketCategoryRepository;
     private final ItemRepository itemRepository;
+    private final CreateNotificationService createNotificationService;
 
     /**
      * Opens a ticket with the provided information.
@@ -92,6 +95,33 @@ public class CreateTicketUseCase {
         log.info("Ticket created with ID: {} by user: {} ({}), category: {}, priority: {}",
                 savedTicket.getId(), requester.getName(), requester.getEmail(),
                 category.getName(), savedTicket.getPriority());
+
+        // Notify all ADMIN and TECHNICIAN users about the new ticket
+        var adminUsers = userRepository.findAllByRole(UserRole.ADMIN);
+        var technicianUsers = userRepository.findAllByRole(UserRole.TECHNICIAN);
+        
+        String ticketIdShort = savedTicket.getId().toString().substring(0, 8).toUpperCase();
+        String notificationTitle = "Novo chamado aberto";
+        String notificationMessage = String.format("Novo chamado #%s: %s", ticketIdShort, savedTicket.getTitle());
+        String notificationLink = "/tickets/" + savedTicket.getId();
+        
+        for (User admin : adminUsers) {
+            createNotificationService.create(
+                admin.getId(),
+                notificationTitle,
+                notificationMessage,
+                notificationLink
+            );
+        }
+        
+        for (User technician : technicianUsers) {
+            createNotificationService.create(
+                technician.getId(),
+                notificationTitle,
+                notificationMessage,
+                notificationLink
+            );
+        }
 
         return TicketResponseDTO.from(savedTicket);
     }

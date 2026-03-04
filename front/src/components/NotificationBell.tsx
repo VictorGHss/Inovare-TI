@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
-import { getUnreadNotifications, markNotificationAsRead, type Notification } from '../services/api';
+import { Bell, Check } from 'lucide-react';
+import { getNotifications, markNotificationAsRead, type Notification } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {
@@ -10,12 +10,12 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Busca as notificações não lidas ao montar o componente
+  // Busca as notificações ao montar o componente
   useEffect(() => {
-    fetchUnreadNotifications();
+    fetchNotifications();
     
     // Configura intervalo de polling a cada 30 segundos
-    const interval = setInterval(fetchUnreadNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 30000);
     
     return () => clearInterval(interval);
   }, []);
@@ -34,10 +34,10 @@ export default function NotificationBell() {
     }
   }, [isOpen]);
 
-  async function fetchUnreadNotifications() {
+  async function fetchNotifications() {
     try {
       setIsLoading(true);
-      const data = await getUnreadNotifications();
+      const data = await getNotifications();
       setNotifications(data);
     } catch (error) {
       console.error('Erro ao buscar notificações:', error);
@@ -46,13 +46,34 @@ export default function NotificationBell() {
     }
   }
 
+  async function handleMarkAllAsRead() {
+    try {
+      // Marca todas as não lidas como lidas
+      const unreadNotifications = notifications.filter(n => !n.isRead);
+      
+      for (const notification of unreadNotifications) {
+        await markNotificationAsRead(notification.id);
+      }
+      
+      // Atualiza a lista local
+      const updated = notifications.map(n => ({ ...n, isRead: true }));
+      setNotifications(updated);
+    } catch (error) {
+      console.error('Erro ao marcar notificações como lidas:', error);
+    }
+  }
+
   async function handleNotificationClick(notification: Notification) {
     try {
-      // Marca como lida
-      await markNotificationAsRead(notification.id);
-      
-      // Remove da lista local
-      setNotifications(notifications.filter(n => n.id !== notification.id));
+      // Marca como lida se ainda não estiver
+      if (!notification.isRead) {
+        await markNotificationAsRead(notification.id);
+        
+        // Atualiza na lista local
+        setNotifications(notifications.map(n => 
+          n.id === notification.id ? { ...n, isRead: true } : n
+        ));
+      }
       
       // Navega para o link se houver
       if (notification.link) {
@@ -64,7 +85,7 @@ export default function NotificationBell() {
     }
   }
 
-  const unreadCount = notifications.length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -87,11 +108,21 @@ export default function NotificationBell() {
       {/* Dropdown com notificações */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-          {/* Cabeçalho */}
+          {/* Cabeçalho com botão Marcar todas como lidas */}
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">
               Notificações {unreadCount > 0 && `(${unreadCount})`}
             </h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                title="Marcar todas como lidas"
+              >
+                <Check size={14} />
+                Marcar todas
+              </button>
+            )}
           </div>
 
           {/* Conteúdo */}
@@ -110,7 +141,11 @@ export default function NotificationBell() {
                   <button
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors text-sm"
+                    className={`w-full px-4 py-3 text-left transition-colors text-sm ${
+                      notification.isRead 
+                        ? 'hover:bg-slate-50 bg-white' 
+                        : 'hover:bg-blue-50 bg-blue-50'
+                    }`}
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
@@ -129,7 +164,9 @@ export default function NotificationBell() {
                           })}
                         </p>
                       </div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                      {!notification.isRead && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                      )}
                     </div>
                   </button>
                 ))}

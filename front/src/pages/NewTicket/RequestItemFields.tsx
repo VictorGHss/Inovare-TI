@@ -1,5 +1,5 @@
 // Fields for REQUEST tickets with typeahead/autocomplete
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { Item } from '../../services/api';
 
@@ -17,22 +17,10 @@ interface Props {
 export default function RequestItemFields({
   items, requestedItemId, requestedQuantity, inputCls, onItemChange, onQuantityChange,
 }: Props) {
-  const [searchTerm, setSearchTerm] = useState(
-    items.find((i) => i.id === requestedItemId)?.name ?? ''
-  );
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return items.find((i) => i.id === requestedItemId)?.name ?? '';
+  });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    const selectedItem = items.find((item) => item.id === requestedItemId);
-    if (selectedItem) {
-      setSearchTerm(selectedItem.name);
-      return;
-    }
-
-    if (!requestedItemId) {
-      setSearchTerm('');
-    }
-  }, [items, requestedItemId]);
 
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())

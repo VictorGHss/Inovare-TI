@@ -1,5 +1,5 @@
 // Página de detalhes de um chamado — exibe informações completas e permite resolver
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText, Laptop, Monitor } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -63,8 +63,7 @@ export default function TicketDetails() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // Função para buscar dados do ticket
-  const fetchTicket = async () => {
+  const fetchTicket = useCallback(async () => {
     if (!id) return;
     try {
       const data = await getTicketById(id);
@@ -73,11 +72,11 @@ export default function TicketDetails() {
       toast.error('Chamado não encontrado.');
       navigate('/dashboard');
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchTicket().finally(() => setLoading(false));
-  }, [id, navigate]);
+  }, [fetchTicket]);
 
   useEffect(() => {
     async function fetchAssets() {

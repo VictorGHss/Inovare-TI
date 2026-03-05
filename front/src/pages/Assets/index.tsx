@@ -27,6 +27,7 @@ export default function Assets() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedAssetForInvoice, setSelectedAssetForInvoice] = useState<Asset | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<CreateAssetDto>({
     name: '',
@@ -72,6 +73,7 @@ export default function Assets() {
       userId: '',
       specifications: '',
     });
+    setSelectedInvoiceFile(null);
   }
 
   function openInvoiceModal(asset: Asset) {
@@ -126,14 +128,20 @@ export default function Assets() {
 
     setSubmitting(true);
     try {
-      await createAsset({
+      const asset = await createAsset({
         name: formData.name.trim(),
         patrimonyCode: formData.patrimonyCode.trim(),
         userId: formData.userId,
         specifications: formData.specifications?.trim() || undefined,
       });
 
-      toast.success('Ativo cadastrado com sucesso!');
+      if (selectedInvoiceFile) {
+        await uploadAssetInvoice(asset.id, selectedInvoiceFile);
+        toast.success('Ativo cadastrado e nota fiscal anexada com sucesso!');
+      } else {
+        toast.success('Ativo cadastrado com sucesso!');
+      }
+
       setShowModal(false);
       resetForm();
       loadData();
@@ -326,6 +334,22 @@ export default function Assets() {
                 />
               </div>
 
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">Nota Fiscal (opcional)</label>
+                <input
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg,image/jpg"
+                  onChange={(e) => setSelectedInvoiceFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-hover file:cursor-pointer cursor-pointer"
+                />
+                <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
+                {selectedInvoiceFile && (
+                  <p className="text-xs text-green-700 font-medium mt-1">
+                    Selecionado: {selectedInvoiceFile.name} ({(selectedInvoiceFile.size / 1024).toFixed(2)} KB)
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -342,7 +366,9 @@ export default function Assets() {
                   disabled={submitting}
                   className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
                 >
-                  {submitting ? 'Salvando...' : 'Cadastrar Ativo'}
+                  {submitting 
+                    ? (selectedInvoiceFile ? 'Criando e anexando NF...' : 'Salvando...') 
+                    : 'Cadastrar Ativo'}
                 </button>
               </div>
             </form>

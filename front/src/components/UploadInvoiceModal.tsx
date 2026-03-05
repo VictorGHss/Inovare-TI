@@ -94,12 +94,13 @@ export default function UploadInvoiceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-800">Anexar Nota Fiscal</h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
             aria-label="Fechar modal"
@@ -124,17 +125,17 @@ export default function UploadInvoiceModal({
           </div>
 
           {/* Drag & Drop Area */}
-          <div
+          <label
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+            className={`relative block border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
               isDragOver
                 ? 'border-primary bg-primary bg-opacity-5'
                 : 'border-slate-300 hover:border-primary hover:bg-slate-50'
             }`}
           >
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 pointer-events-none">
               <Upload
                 size={32}
                 className={isDragOver ? 'text-primary' : 'text-slate-400'}
@@ -153,7 +154,7 @@ export default function UploadInvoiceModal({
               className="absolute inset-0 opacity-0 cursor-pointer"
               aria-label="Selecionar arquivo"
             />
-          </div>
+          </label>
 
           {/* Selected File */}
           {selectedFile && (
@@ -172,6 +173,7 @@ export default function UploadInvoiceModal({
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
           <button
+            type="button"
             onClick={onClose}
             disabled={uploading}
             className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
@@ -179,6 +181,7 @@ export default function UploadInvoiceModal({
             Cancelar
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={!selectedFile || uploading}
             className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

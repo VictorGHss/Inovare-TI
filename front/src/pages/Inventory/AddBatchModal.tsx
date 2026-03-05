@@ -2,7 +2,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { addBatch, type Item } from '../../services/api';
+import { addBatch, uploadBatchInvoice, type Item } from '../../services/api';
 
 interface AddBatchModalProps {
   isOpen: boolean;
@@ -26,6 +26,7 @@ export default function AddBatchModal({
   const [supplier, setSupplier] = useState('');
   const [purchaseReason, setPurchaseReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
 
   // Update selected item when preselected changes
   useEffect(() => {
@@ -43,14 +44,21 @@ export default function AddBatchModal({
 
     setSubmitting(true);
     try {
-      await addBatch(selectedItemId, {
+      const batch = await addBatch(selectedItemId, {
         quantity,
         unitPrice: parseFloat(unitPrice),
         brand: brand.trim() || undefined,
         supplier: supplier.trim() || undefined,
         purchaseReason: purchaseReason.trim() || undefined,
       });
-      toast.success('Lote registrado com sucesso!');
+
+      if (selectedInvoiceFile) {
+        await uploadBatchInvoice(selectedItemId, batch.id, selectedInvoiceFile);
+        toast.success('Lote registrado e nota fiscal anexada com sucesso!');
+      } else {
+        toast.success('Lote registrado com sucesso!');
+      }
+
       onSuccess();
       // Limpa os campos após sucesso
       setSelectedItemId('');
@@ -59,6 +67,7 @@ export default function AddBatchModal({
       setBrand('');
       setSupplier('');
       setPurchaseReason('');
+      setSelectedInvoiceFile(null);
     } catch {
       toast.error('Erro ao registrar lote. Tente novamente.');
     } finally {
@@ -183,6 +192,25 @@ export default function AddBatchModal({
             />
           </div>
 
+          {/* Nota Fiscal */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">
+              Nota Fiscal (opcional)
+            </label>
+            <input
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,image/jpg"
+              onChange={(e) => setSelectedInvoiceFile(e.target.files?.[0] || null)}
+              className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-hover file:cursor-pointer cursor-pointer"
+            />
+            <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
+            {selectedInvoiceFile && (
+              <p className="text-xs text-green-700 font-medium mt-1">
+                Selecionado: {selectedInvoiceFile.name} ({(selectedInvoiceFile.size / 1024).toFixed(2)} KB)
+              </p>
+            )}
+          </div>
+
           {/* Botões de ação */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
@@ -197,7 +225,9 @@ export default function AddBatchModal({
               disabled={submitting}
               className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
             >
-              {submitting ? 'Salvando...' : 'Registrar Lote'}
+              {submitting 
+                ? (selectedInvoiceFile ? 'Registrando e anexando NF...' : 'Salvando...') 
+                : 'Registrar Lote'}
             </button>
           </div>
         </form>

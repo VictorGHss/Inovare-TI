@@ -278,7 +278,6 @@ export default function ItemDetails() {
         entityName="Lote"
         entityId={selectedBatchForInvoice?.id ?? ''}
       />
-      </div>
     </main>
   );
 }

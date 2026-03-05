@@ -166,6 +166,24 @@ export interface CreateArticleDto {
   tags?: string;
 }
 
+export interface AssetMaintenance {
+  id: string;
+  assetId: string;
+  maintenanceDate: string;
+  type: 'Preventiva' | 'Corretiva' | 'Upgrade';
+  description: string | null;
+  cost: number | null;
+  technicianName: string;
+  technicianEmail: string;
+}
+
+export interface CreateAssetMaintenanceData {
+  maintenanceDate: string;
+  type: 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE';
+  description?: string;
+  cost?: number | null;
+}
+
 export interface GenericAttachmentResponse {
   url: string;
 }
@@ -317,6 +335,17 @@ export async function updateAsset(id: string, dto: CreateAssetDto): Promise<Asse
 
 export async function deleteAsset(id: string): Promise<void> {
   await api.delete(`/api/assets/${id}`);
+}
+
+// Asset Maintenance methods
+export async function getAssetMaintenances(assetId: string): Promise<AssetMaintenance[]> {
+  const { data } = await api.get<AssetMaintenance[]>(`/api/assets/${assetId}/maintenances`);
+  return data;
+}
+
+export async function createAssetMaintenance(assetId: string, dto: CreateAssetMaintenanceData): Promise<AssetMaintenance> {
+  const { data } = await api.post<AssetMaintenance>(`/api/assets/${assetId}/maintenances`, dto);
+  return data;
 }
 
 // Faz upload de um anexo para um chamado específico

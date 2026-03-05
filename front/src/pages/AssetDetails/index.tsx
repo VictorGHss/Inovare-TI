@@ -1,14 +1,25 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, HardDrive, FileText, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, HardDrive, FileText, Download, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAssetById, downloadAssetInvoice, type Asset } from '../../services/api';
+import {
+  getAssetById,
+  downloadAssetInvoice,
+  getAssetMaintenances,
+  type Asset,
+  type AssetMaintenance,
+} from '../../services/api';
+import NewMaintenanceModal from './NewMaintenanceModal';
+import MaintenanceTimeline from './MaintenanceTimeline';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
+  const [maintenances, setMaintenances] = useState<AssetMaintenance[]>([]);
+  const [loadingMaintenances, setLoadingMaintenances] = useState(false);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
 
   const loadAsset = useCallback(async () => {
     if (!id) return;
@@ -24,9 +35,23 @@ export default function AssetDetails() {
     }
   }, [id, navigate]);
 
+  const loadMaintenances = useCallback(async () => {
+    if (!id) return;
+    setLoadingMaintenances(true);
+    try {
+      const data = await getAssetMaintenances(id);
+      setMaintenances(data);
+    } catch {
+      toast.error('Erro ao carregar manutenções.');
+    } finally {
+      setLoadingMaintenances(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadAsset();
-  }, [loadAsset]);
+    loadMaintenances();
+  }, [loadAsset, loadMaintenances]);
 
   async function handleInvoiceDownload(e: React.MouseEvent) {
     e.stopPropagation();
@@ -49,6 +74,11 @@ export default function AssetDetails() {
     } catch {
       toast.error('Erro ao baixar nota fiscal.');
     }
+  }
+
+  function handleMaintenanceCreated(newMaintenance: AssetMaintenance) {
+    setMaintenances([newMaintenance, ...maintenances]);
+    setIsMaintenanceModalOpen(false);
   }
 
   if (loading) {
@@ -161,6 +191,43 @@ export default function AssetDetails() {
             Nenhuma nota fiscal anexada a este ativo.
           </p>
         </div>
+      )}
+
+      {/* Seção de Histórico de Manutenções */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Wrench size={20} className="text-slate-600" />
+            <h3 className="text-lg font-bold text-slate-800">Histórico de Manutenções</h3>
+          </div>
+          <button
+            onClick={() => setIsMaintenanceModalOpen(true)}
+            className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            Registrar Manutenção
+          </button>
+        </div>
+
+        {loadingMaintenances ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 size={32} className="text-primary animate-spin" />
+              <p className="text-slate-600 text-sm">Carregando manutenções...</p>
+            </div>
+          </div>
+        ) : (
+          <MaintenanceTimeline maintenances={maintenances} />
+        )}
+      </div>
+
+      {/* Modal de Nova Manutenção */}
+      {id && (
+        <NewMaintenanceModal
+          isOpen={isMaintenanceModalOpen}
+          assetId={id}
+          onClose={() => setIsMaintenanceModalOpen(false)}
+          onMaintenanceCreated={handleMaintenanceCreated}
+        />
       )}
     </main>
   );

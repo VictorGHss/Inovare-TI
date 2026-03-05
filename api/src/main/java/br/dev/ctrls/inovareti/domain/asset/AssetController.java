@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -19,10 +20,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceRequestDTO;
+import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceResponseDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetResponseDTO;
 import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
 import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
+import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +39,7 @@ public class AssetController {
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final AssetMaintenanceService maintenanceService;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
@@ -172,5 +177,47 @@ public class AssetController {
                 .header("Content-Disposition",
                         "inline; filename=\"" + asset.getInvoiceFileName() + "\"")
                 .body(fileContent);
+    }
+
+    /**
+     * Registra uma nova manutenção para um ativo.
+     *
+     * POST /api/assets/{id}/maintenances
+     * Body: AssetMaintenanceRequestDTO
+     *
+     * O usuário logado é automaticamente definido como técnico responsável.
+     *
+     * @param id      UUID do Asset
+     * @param request Dados da manutenção (data, tipo, custo, descrição)
+     * @return        Manutenção criada
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PostMapping("/{id}/maintenances")
+    public ResponseEntity<AssetMaintenanceResponseDTO> createMaintenance(
+            @PathVariable UUID id,
+            @Valid @RequestBody AssetMaintenanceRequestDTO request) {
+
+        // Obtém o usuário logado do SecurityContextHolder
+        String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        User technician = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+
+        AssetMaintenanceResponseDTO response = maintenanceService.create(id, request, technician);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Lista todas as manutenções de um ativo, ordenadas por data DESC.
+     *
+     * GET /api/assets/{id}/maintenances
+     *
+     * @param id UUID do Asset
+     * @return   Lista de manutenções formatadas
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
+    @GetMapping("/{id}/maintenances")
+    public ResponseEntity<List<AssetMaintenanceResponseDTO>> listMaintenances(@PathVariable UUID id) {
+        List<AssetMaintenanceResponseDTO> response = maintenanceService.getByAssetId(id);
+        return ResponseEntity.ok(response);
     }
 }

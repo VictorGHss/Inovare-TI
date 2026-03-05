@@ -148,7 +148,7 @@ export default function AssetDetails() {
               className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors"
             >
               <RefreshCw size={16} />
-              Transferir
+              Transferir Ativo
             </button>
           </div>
         </div>
@@ -259,19 +259,23 @@ export default function AssetDetails() {
       )}
 
       {/* Modal de Transferência */}
-      <TransferAssetModal
-        isOpen={isTransferModalOpen}
-        asset={asset}
-        onClose={() => setIsTransferModalOpen(false)}
-        onTransferSuccess={handleTransferSuccess}
+      {asset && (
+        <TransferAssetModal
+          isOpen={isTransferModalOpen}
+          asset={asset}
+          onClose={() => setIsTransferModalOpen(false)}
+          onTransferSuccess={handleTransferSuccess}
+        />
+      )}
 
-            {/* Modal de Impressão de Etiqueta */}
-            <PrintLabelModal
-              isOpen={isPrintModalOpen}
-              onClose={() => setIsPrintModalOpen(false)}
-              asset={asset}
-            />
-      />
+      {/* Modal de Impressão de Etiqueta */}
+      {asset && (
+        <PrintLabelModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          asset={asset}
+        />
+      )}
     </main>
   );
 }

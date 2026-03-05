@@ -61,6 +61,9 @@ export interface Asset {
   patrimonyCode: string;
   specifications: string | null;
   createdAt: string;
+  invoiceFileName?: string;
+  invoiceContentType?: string;
+  invoiceFilePath?: string;
 }
 
 export interface CreateAssetDto {
@@ -90,6 +93,9 @@ export interface Batch {
   remainingQuantity: number;
   unitPrice: number;
   entryDate: string; // ISO string
+  invoiceFileName?: string;
+  invoiceContentType?: string;
+  invoiceFilePath?: string;
 }
 
 export interface User {
@@ -481,6 +487,78 @@ export async function getUnreadNotifications(): Promise<Notification[]> {
 // Marca uma notificação como lida
 export async function markNotificationAsRead(id: string): Promise<Notification> {
   const { data } = await api.patch<Notification>(`/api/notifications/${id}/read`);
+  return data;
+}
+
+// ==================== INVOICE UPLOAD (ASSETS & BATCHES) ====================
+
+/**
+ * Faz upload de uma nota fiscal (PDF ou imagem) para um ativo.
+ * @param assetId UUID do Asset
+ * @param file    Arquivo a fazer upload (PDF, JPG, PNG)
+ * @returns       Asset atualizado com informações de nota fiscal
+ */
+export async function uploadAssetInvoice(assetId: string, file: File): Promise<Asset> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data } = await api.post<Asset>(`/api/assets/${assetId}/invoice`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
+}
+
+/**
+ * Faz download de uma nota fiscal de um ativo.
+ * @param assetId UUID do Asset
+ * @returns       Blob com o arquivo (PDF ou imagem)
+ */
+export async function downloadAssetInvoice(assetId: string): Promise<Blob> {
+  const { data } = await api.get(`/api/assets/${assetId}/invoice`, {
+    responseType: 'blob',
+  });
+  return data;
+}
+
+/**
+ * Faz upload de uma nota fiscal (PDF ou imagem) para um lote de estoque.
+ * @param itemId  UUID do Item
+ * @param batchId UUID do StockBatch
+ * @param file    Arquivo a fazer upload (PDF, JPG, PNG)
+ * @returns       Lote atualizado com informações de nota fiscal
+ */
+export async function uploadBatchInvoice(
+  itemId: string,
+  batchId: string,
+  file: File
+): Promise<Batch> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const { data } = await api.post<Batch>(
+    `/api/items/${itemId}/batches/${batchId}/invoice`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+  return data;
+}
+
+/**
+ * Faz download de uma nota fiscal de um lote de estoque.
+ * @param itemId  UUID do Item
+ * @param batchId UUID do StockBatch
+ * @returns       Blob com o arquivo (PDF ou imagem)
+ */
+export async function downloadBatchInvoice(itemId: string, batchId: string): Promise<Blob> {
+  const { data } = await api.get(`/api/items/${itemId}/batches/${batchId}/invoice`, {
+    responseType: 'blob',
+  });
   return data;
 }
 

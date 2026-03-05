@@ -1,9 +1,17 @@
 // Página de detalhes de um item — exibe especificações e histórico de lotes
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, FileText } from 'lucide-react';
+import { ArrowLeft, Package, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getItemById, getItemBatches, type Item, type Batch } from '../../services/api';
+import UploadInvoiceModal from '../../components/UploadInvoiceModal';
+import {
+  getItemById,
+  getItemBatches,
+  uploadBatchInvoice,
+  downloadBatchInvoice,
+  type Item,
+  type Batch,
+} from '../../services/api';
 
 // Formata data ISO para dd/MM/yyyy
 function formatDate(iso: string): string {
@@ -33,21 +41,73 @@ export default function ItemDetails() {
   const [item, setItem] = useState<Item | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedBatchForInvoice, setSelectedBatchForInvoice] = useState<Batch | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    // Carrega item e histórico de lotes em paralelo
-    Promise.all([getItemById(id), getItemBatches(id)])
-      .then(([itemData, batchesData]) => {
-        setItem(itemData);
-        setBatches(batchesData);
-      })
-      .catch(() => {
-        toast.error('Item não encontrado.');
-        navigate('/inventory');
-      })
-      .finally(() => setLoading(false));
+    loadData();
   }, [id, navigate]);
+
+  async function loadData() {
+    try {
+      const [itemData, batchesData] = await Promise.all([
+        getItemById(id!),
+        getItemBatches(id!),
+      ]);
+      setItem(itemData);
+      setBatches(batchesData);
+    } catch {
+      toast.error('Item não encontrado.');
+      navigate('/inventory');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openInvoiceModal(batch: Batch) {
+    setSelectedBatchForInvoice(batch);
+    setShowInvoiceModal(true);
+  }
+
+  async function handleInvoiceUpload(file: File) {
+    if (!id || !selectedBatchForInvoice) return;
+
+    try {
+      await uploadBatchInvoice(id, selectedBatchForInvoice.id, file);
+      setShowInvoiceModal(false);
+      setSelectedBatchForInvoice(null);
+      loadData(); // Recarrega dados para atualizar a tabela
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      throw new Error(message);
+    }
+  }
+
+  async function handleInvoiceDownload(batch: Batch, e: React.MouseEvent) {
+    if (!id) return;
+
+    e.stopPropagation();
+
+    if (!batch.invoiceFileName) {
+      toast.error('Nenhuma nota fiscal anexada a este lote.');
+      return;
+    }
+
+    try {
+      const blob = await downloadBatchInvoice(id, batch.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = batch.invoiceFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Erro ao baixar nota fiscal.');
+    }
+  }
 
   if (loading) {
     return (
@@ -151,6 +211,7 @@ export default function ItemDetails() {
                   <th className="pb-3 text-right font-medium">Qtd. Comprada</th>
                   <th className="pb-3 text-right font-medium">Qtd. Restante</th>
                   <th className="pb-3 text-right font-medium">Preço Unitário</th>
+                  <th className="pb-3 text-center font-medium">Nota Fiscal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -170,6 +231,32 @@ export default function ItemDetails() {
                     <td className="py-3 text-right text-slate-700 font-medium">
                       {formatPrice(batch.unitPrice)}
                     </td>
+                    <td className="py-3">
+                      <div className="flex items-center justify-center">
+                        {batch.invoiceFileName ? (
+                          <button
+                            onClick={(e) => handleInvoiceDownload(batch, e)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                            title="Visualizar/baixar nota fiscal"
+                          >
+                            <Download size={13} />
+                            Ver NF
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openInvoiceModal(batch);
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-2 py-1 rounded transition-colors"
+                            title="Anexar nota fiscal"
+                          >
+                            <FileText size={13} />
+                            Anexar
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -178,6 +265,19 @@ export default function ItemDetails() {
         ) : (
           <p className="text-sm text-slate-400 italic">Nenhum lote registrado ainda.</p>
         )}
+      </div>
+
+      {/* Modal de Nota Fiscal */}
+      <UploadInvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => {
+          setShowInvoiceModal(false);
+          setSelectedBatchForInvoice(null);
+        }}
+        onUpload={handleInvoiceUpload}
+        entityName="Lote"
+        entityId={selectedBatchForInvoice?.id ?? ''}
+      />
       </div>
     </main>
   );

@@ -75,4 +75,16 @@ public class StockBatch {
     @NotNull
     @Column(name = "entry_date", nullable = false)
     private LocalDateTime entryDate;
+
+    /** Nome do arquivo da nota fiscal (PDF ou imagem). */
+    @Column(name = "invoice_file_name", length = 255)
+    private String invoiceFileName;
+
+    /** Tipo MIME do arquivo da nota fiscal (ex: application/pdf, image/png). */
+    @Column(name = "invoice_content_type", length = 50)
+    private String invoiceContentType;
+
+    /** Caminho do arquivo da nota fiscal no disco (ex: uploads/invoices/batch-{id}-{timestamp}.pdf). */
+    @Column(name = "invoice_file_path", length = 500)
+    private String invoiceFilePath;
 }

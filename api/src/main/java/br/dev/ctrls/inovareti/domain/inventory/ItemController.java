@@ -11,8 +11,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.inventory.dto.BatchResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemResponseDTO;
@@ -23,6 +27,8 @@ import br.dev.ctrls.inovareti.domain.inventory.usecase.FindItemByIdUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.ListAllItemsUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.ListItemBatchesUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.RegisterStockBatchUseCase;
+import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
+import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +46,8 @@ public class ItemController {
     private final RegisterStockBatchUseCase registerStockBatchUseCase;
     private final FindItemByIdUseCase findItemByIdUseCase;
     private final ListItemBatchesUseCase listItemBatchesUseCase;
+    private final StockBatchRepository stockBatchRepository;
+    private final FileStorageService fileStorageService;
 
     /**
      * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
@@ -106,5 +114,85 @@ public class ItemController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(registerStockBatchUseCase.execute(consistentRequest));
+    }
+
+    /**
+     * Upload de nota fiscal (PDF ou imagem) para um lote de estoque.
+     * O arquivo é salvo em disco e os metadados são armazenados na entidade StockBatch.
+     *
+     * POST /api/items/{itemId}/batches/{batchId}/invoice
+     * Content-Type: multipart/form-data
+     * Form parameter: file (MultipartFile)
+     *
+     * @param itemId  UUID do Item
+     * @param batchId UUID do StockBatch
+     * @param file    Arquivo PDF ou Imagem (máx 5MB)
+     * @return        Lote atualizado com metadados da NF
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PostMapping("/{itemId}/batches/{batchId}/invoice")
+    public ResponseEntity<BatchResponseDTO> uploadBatchInvoice(
+            @PathVariable UUID itemId,
+            @PathVariable UUID batchId,
+            @RequestParam("file") MultipartFile file) throws BadRequestException {
+
+        StockBatch batch = stockBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("Stock batch not found with id: " + batchId));
+
+        // Validar que o lote pertence ao item informado
+        if (!batch.getItem().getId().equals(itemId)) {
+            throw new BadRequestException("Stock batch does not belong to the specified item.");
+        }
+
+        // Se já existe um arquivo anterior, remove-o do disco
+        if (batch.getInvoiceFilePath() != null) {
+            fileStorageService.deleteInvoiceFile(batch.getInvoiceFilePath());
+        }
+
+        // Salva o novo arquivo
+        InvoiceFileMetadata metadata = fileStorageService.saveInvoiceFile(file, batchId, "batch");
+
+        // Atualiza a entidade com os metadados do arquivo
+        batch.setInvoiceFileName(metadata.getFileName());
+        batch.setInvoiceContentType(metadata.getContentType());
+        batch.setInvoiceFilePath(metadata.getFilePath());
+
+        StockBatch updatedBatch = stockBatchRepository.save(batch);
+        return ResponseEntity.ok(BatchResponseDTO.from(updatedBatch));
+    }
+
+    /**
+     * Download de nota fiscal (PDF ou imagem) de um lote de estoque.
+     *
+     * GET /api/items/{itemId}/batches/{batchId}/invoice
+     *
+     * @param itemId  UUID do Item
+     * @param batchId UUID do StockBatch
+     * @return        Arquivo binário com headers apropriados (Content-Disposition, Content-Type)
+     */
+    @GetMapping("/{itemId}/batches/{batchId}/invoice")
+    public ResponseEntity<byte[]> downloadBatchInvoice(
+            @PathVariable UUID itemId,
+            @PathVariable UUID batchId) {
+
+        StockBatch batch = stockBatchRepository.findById(batchId)
+                .orElseThrow(() -> new NotFoundException("Stock batch not found with id: " + batchId));
+
+        // Validar que o lote pertence ao item informado
+        if (!batch.getItem().getId().equals(itemId)) {
+            throw new BadRequestException("Stock batch does not belong to the specified item.");
+        }
+
+        if (batch.getInvoiceFilePath() == null || batch.getInvoiceFilePath().isBlank()) {
+            throw new NotFoundException("Nenhuma nota fiscal anexada a este lote.");
+        }
+
+        byte[] fileContent = fileStorageService.loadInvoiceFile(batch.getInvoiceFilePath());
+
+        return ResponseEntity.ok()
+                .header("Content-Type", batch.getInvoiceContentType())
+                .header("Content-Disposition",
+                        "inline; filename=\"" + batch.getInvoiceFileName() + "\"")
+                .body(fileContent);
     }
 }

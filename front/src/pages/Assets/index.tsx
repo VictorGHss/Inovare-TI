@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PlusCircle, X, HardDrive } from 'lucide-react';
+import { PlusCircle, X, HardDrive, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
+import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import {
   getAssets,
   createAsset,
   getUsers,
+  uploadAssetInvoice,
+  downloadAssetInvoice,
   type Asset,
   type User,
   type CreateAssetDto,
@@ -21,6 +24,8 @@ export default function Assets() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedAssetForInvoice, setSelectedAssetForInvoice] = useState<Asset | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<CreateAssetDto>({
@@ -67,6 +72,48 @@ export default function Assets() {
       userId: '',
       specifications: '',
     });
+  }
+
+  function openInvoiceModal(asset: Asset) {
+    setSelectedAssetForInvoice(asset);
+    setShowInvoiceModal(true);
+  }
+
+  async function handleInvoiceUpload(file: File) {
+    if (!selectedAssetForInvoice) return;
+
+    try {
+      await uploadAssetInvoice(selectedAssetForInvoice.id, file);
+      setShowInvoiceModal(false);
+      setSelectedAssetForInvoice(null);
+      loadData(); // Recarrega dados para atualizar a tabela
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      throw new Error(message);
+    }
+  }
+
+  async function handleInvoiceDownload(asset: Asset, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    if (!asset.invoiceFileName) {
+      toast.error('Nenhuma nota fiscal anexada a este ativo.');
+      return;
+    }
+
+    try {
+      const blob = await downloadAssetInvoice(asset.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = asset.invoiceFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Erro ao baixar nota fiscal.');
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -142,6 +189,7 @@ export default function Assets() {
                   <th className="px-4 py-3 text-left">Nome</th>
                   <th className="px-4 py-3 text-left">Patrimônio</th>
                   <th className="px-4 py-3 text-left">Usuário Vinculado</th>
+                  <th className="px-4 py-3 text-center">Nota Fiscal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -155,6 +203,32 @@ export default function Assets() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
                     <td className="px-4 py-3 text-slate-600">{userNameById.get(asset.userId) ?? 'Usuário não encontrado'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2">
+                        {asset.invoiceFileName ? (
+                          <button
+                            onClick={(e) => handleInvoiceDownload(asset, e)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors"
+                            title="Visualizar/baixar nota fiscal"
+                          >
+                            <Download size={14} />
+                            Ver NF
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openInvoiceModal(asset);
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
+                            title="Anexar nota fiscal"
+                          >
+                            <FileText size={14} />
+                            Anexar NF
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -162,6 +236,18 @@ export default function Assets() {
           </div>
         )}
       </div>
+
+      {/* Modal de Nota Fiscal */}
+      <UploadInvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => {
+          setShowInvoiceModal(false);
+          setSelectedAssetForInvoice(null);
+        }}
+        onUpload={handleInvoiceUpload}
+        entityName="Ativo"
+        entityId={selectedAssetForInvoice?.id ?? ''}
+      />
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">

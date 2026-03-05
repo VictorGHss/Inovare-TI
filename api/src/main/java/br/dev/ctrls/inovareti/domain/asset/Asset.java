@@ -47,6 +47,18 @@ public class Asset {
     @Column(name = "specifications", columnDefinition = "text")
     private String specifications;
 
+    /** Nome do arquivo da nota fiscal (PDF ou imagem). */
+    @Column(name = "invoice_file_name", length = 255)
+    private String invoiceFileName;
+
+    /** Tipo MIME do arquivo da nota fiscal (ex: application/pdf, image/png). */
+    @Column(name = "invoice_content_type", length = 50)
+    private String invoiceContentType;
+
+    /** Caminho do arquivo da nota fiscal no disco (ex: uploads/invoices/asset-{id}-{timestamp}.pdf). */
+    @Column(name = "invoice_file_path", length = 500)
+    private String invoiceFilePath;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

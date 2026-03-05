@@ -5,9 +5,12 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
@@ -43,6 +46,10 @@ public class Asset {
     @NotBlank
     @Column(name = "patrimony_code", nullable = false, length = 80)
     private String patrimonyCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private AssetCategory category;
 
     @Column(name = "specifications", columnDefinition = "text")
     private String specifications;

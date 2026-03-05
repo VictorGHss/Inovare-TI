@@ -603,4 +603,32 @@ export async function downloadBatchInvoice(itemId: string, batchId: string): Pro
   return data;
 }
 
+// ============================================================================
+// ADMIN / BULK IMPORT
+// ============================================================================
+
+export interface ImportResult {
+  success: boolean;
+  usersCreated: number;
+  sectorsCreated: number;
+  assetsCreated: number;
+  categoriesCreated: number;
+  errors: string[];
+}
+
+/**
+ * Imports users and assets from CSV file.
+ */
+export async function importCsv(file: File): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await api.post<ImportResult>('/admin/import/csv', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+}
+
 export default api;

@@ -1,6 +1,6 @@
 // Página de listagem e cadastro de usuários
 import { useEffect, useState } from 'react';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Upload } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getUsers,
@@ -10,12 +10,14 @@ import {
   type Sector,
   type CreateUserDto,
 } from '../../services/api';
+import BulkImportModal from './BulkImportModal';
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<CreateUserDto>({
@@ -94,13 +96,22 @@ export default function Users() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Equipe</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          Novo Usuário
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <Upload size={17} />
+            Importar Planilha
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            Novo Usuário
+          </button>
+        </div>
       </div>
 
       {/* Tabela de usuários */}
@@ -243,6 +254,13 @@ export default function Users() {
 
               <button
                 type="submit"
+
+      {/* Modal de importação CSV */}
+      <BulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={loadUsers}
+      />
                 disabled={submitting}
                 className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
               >

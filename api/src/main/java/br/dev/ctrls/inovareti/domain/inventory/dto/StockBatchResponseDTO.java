@@ -19,7 +19,8 @@ public record StockBatchResponseDTO(
         String brand,
         String supplier,
         String purchaseReason,
-        LocalDateTime entryDate
+        LocalDateTime entryDate,
+        String invoiceFileName
 ) {
     /** Converte uma entidade {@link StockBatch} para este DTO. */
     public static StockBatchResponseDTO from(StockBatch batch) {
@@ -33,7 +34,8 @@ public record StockBatchResponseDTO(
                 batch.getBrand(),
                 batch.getSupplier(),
                 batch.getPurchaseReason(),
-                batch.getEntryDate()
+                batch.getEntryDate(),
+                batch.getInvoiceFileName()
         );
     }
 }

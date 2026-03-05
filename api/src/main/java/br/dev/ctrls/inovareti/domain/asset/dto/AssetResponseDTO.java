@@ -11,7 +11,8 @@ public record AssetResponseDTO(
         String name,
         String patrimonyCode,
         String specifications,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String invoiceFileName
 ) {
     public static AssetResponseDTO from(Asset asset) {
         return new AssetResponseDTO(
@@ -20,7 +21,8 @@ public record AssetResponseDTO(
                 asset.getName(),
                 asset.getPatrimonyCode(),
                 asset.getSpecifications(),
-                asset.getCreatedAt()
+                asset.getCreatedAt(),
+                asset.getInvoiceFileName()
         );
     }
 }

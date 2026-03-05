@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PlusCircle, X, HardDrive, FileText, Download, Printer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { PlusCircle, X, HardDrive, FileText, Download, Printer, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
@@ -20,6 +21,7 @@ const inputClassName =
 
 export default function Assets() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -222,6 +224,17 @@ export default function Assets() {
                     <td className="px-4 py-3 text-slate-600">{userNameById.get(asset.userId) ?? 'Usuário não encontrado'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/assets/${asset.id}`);
+                                                  }}
+                                                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                                                  title="Ver detalhes do ativo"
+                                                >
+                                                  <Eye size={14} />
+                                                  Detalhes
+                                                </button>
                         {asset.invoiceFileName ? (
                           <button
                             onClick={(e) => handleInvoiceDownload(asset, e)}

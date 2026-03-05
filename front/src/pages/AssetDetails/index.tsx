@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, HardDrive, FileText, Download, Loader2, Wrench, RefreshCw } from 'lucide-react';
+import { ArrowLeft, HardDrive, FileText, Download, Loader2, Wrench, RefreshCw, Printer } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getAssetById,
@@ -12,6 +12,7 @@ import {
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';
+import PrintLabelModal from '../../components/PrintLabelModal';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ export default function AssetDetails() {
   const [loadingMaintenances, setLoadingMaintenances] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const loadAsset = useCallback(async () => {
     if (!id) return;
@@ -133,13 +135,22 @@ export default function AssetDetails() {
             </div>
             <p className="text-sm text-slate-500">Código do Patrimônio</p>
           </div>
-          <button
-            onClick={() => setIsTransferModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            <RefreshCw size={16} />
-            Transferir
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsPrintModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              <Printer size={16} />
+              Imprimir Etiqueta
+            </button>
+            <button
+              onClick={() => setIsTransferModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              <RefreshCw size={16} />
+              Transferir
+            </button>
+          </div>
         </div>
 
         {/* Código do patrimônio em destaque */}
@@ -159,7 +170,9 @@ export default function AssetDetails() {
           </div>
           <div className="flex-1">
             <p className="text-xs text-slate-500">Usuário Vinculado</p>
-            <p className="text-sm font-medium text-slate-700">{asset.userId}</p>
+            <p className="text-sm font-medium text-slate-700">
+              {asset.assignedToName || 'Em Estoque (TI)'}
+            </p>
           </div>
         </div>
       </div>
@@ -251,6 +264,13 @@ export default function AssetDetails() {
         asset={asset}
         onClose={() => setIsTransferModalOpen(false)}
         onTransferSuccess={handleTransferSuccess}
+
+            {/* Modal de Impressão de Etiqueta */}
+            <PrintLabelModal
+              isOpen={isPrintModalOpen}
+              onClose={() => setIsPrintModalOpen(false)}
+              asset={asset}
+            />
       />
     </main>
   );

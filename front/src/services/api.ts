@@ -57,6 +57,7 @@ export interface ItemCategory {
 export interface Asset {
   id: string;
   userId: string;
+    assignedToName: string | null;
   name: string;
   patrimonyCode: string;
   specifications: string | null;

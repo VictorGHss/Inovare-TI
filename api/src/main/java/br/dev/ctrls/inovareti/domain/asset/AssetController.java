@@ -41,13 +41,20 @@ public class AssetController {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
+    private AssetResponseDTO toResponseDTO(Asset asset) {
+        User assignedUser = asset.getUserId() != null 
+            ? userRepository.findById(asset.getUserId()).orElse(null) 
+            : null;
+        return AssetResponseDTO.from(asset, assignedUser);
+    }
+
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
     public ResponseEntity<List<AssetResponseDTO>> listAll() {
         List<AssetResponseDTO> response = assetRepository.findAll()
                 .stream()
-                .map(AssetResponseDTO::from)
+                .map(this::toResponseDTO)
                 .toList();
         return ResponseEntity.ok(response);
     }
@@ -57,14 +64,14 @@ public class AssetController {
     public ResponseEntity<AssetResponseDTO> findById(@PathVariable UUID id) {
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
-        return ResponseEntity.ok(AssetResponseDTO.from(asset));
+        return ResponseEntity.ok(toResponseDTO(asset));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<AssetResponseDTO>> findByUser(@PathVariable UUID userId) {
         List<AssetResponseDTO> response = assetRepository.findByUserId(userId)
                 .stream()
-                .map(AssetResponseDTO::from)
+                .map(this::toResponseDTO)
                 .toList();
         return ResponseEntity.ok(response);
     }
@@ -84,7 +91,7 @@ public class AssetController {
                 .build();
 
         Asset savedAsset = assetRepository.save(asset);
-        return ResponseEntity.status(HttpStatus.CREATED).body(AssetResponseDTO.from(savedAsset));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDTO(savedAsset));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -103,7 +110,7 @@ public class AssetController {
         asset.setSpecifications(request.specifications());
 
         Asset savedAsset = assetRepository.save(asset);
-        return ResponseEntity.ok(AssetResponseDTO.from(savedAsset));
+        return ResponseEntity.ok(toResponseDTO(savedAsset));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -151,7 +158,7 @@ public class AssetController {
         asset.setInvoiceFilePath(metadata.getFilePath());
 
         Asset updatedAsset = assetRepository.save(asset);
-        return ResponseEntity.ok(AssetResponseDTO.from(updatedAsset));
+        return ResponseEntity.ok(toResponseDTO(updatedAsset));
     }
 
     /**
@@ -266,6 +273,6 @@ public class AssetController {
         // Cria o log de transferência
         maintenanceService.createTransferLog(updatedAsset, oldUser, newUser, request.reason(), technician);
 
-        return ResponseEntity.ok(AssetResponseDTO.from(updatedAsset));
+        return ResponseEntity.ok(toResponseDTO(updatedAsset));
     }
 }

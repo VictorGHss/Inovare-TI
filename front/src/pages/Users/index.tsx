@@ -254,13 +254,6 @@ export default function Users() {
 
               <button
                 type="submit"
-
-      {/* Modal de importação CSV */}
-      <BulkImportModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onSuccess={loadUsers}
-      />
                 disabled={submitting}
                 className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
               >
@@ -270,6 +263,13 @@ export default function Users() {
           </div>
         </div>
       )}
+
+      {/* Modal de importação CSV */}
+      <BulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={loadUsers}
+      />
     </main>
   );
 }

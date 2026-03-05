@@ -231,8 +231,9 @@ export async function createItem(dto: CreateItemDto): Promise<Item> {
 }
 
 // Registra um lote de entrada de estoque para um item
-export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<void> {
-  await api.post(`/api/items/${itemId}/batches`, dto);
+export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<Batch> {
+  const { data } = await api.post<Batch>(`/api/items/${itemId}/batches`, dto);
+  return data;
 }
 
 // Cria um novo chamado

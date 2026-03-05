@@ -33,5 +33,10 @@
     "name": "spring.flyway.baseline-on-migrate",
     "type": "java.lang.String",
     "description": "A description for 'spring.flyway.baseline-on-migrate'"
+  },
+  {
+    "name": "discord.webhook.url",
+    "type": "java.lang.String",
+    "description": "A description for 'discord.webhook.url'"
   }
 ]}

@@ -11,6 +11,7 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
+import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;

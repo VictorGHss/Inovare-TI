@@ -59,7 +59,7 @@ public class DiscordWebhookService {
 
             log.info("Discord webhook notification sent successfully for ticket #{}",
                     ticketIdShort);
-        } catch (Exception e) {
+        } catch (org.springframework.web.client.RestClientException e) {
             log.warn("Failed to send Discord webhook notification for ticket: {}",
                     ticket.getId(), e);
         }

@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -33,15 +36,19 @@ public class DiscordWebhookService {
 
     /**
      * Sends a new ticket alert to Discord asynchronously.
-     * If the webhook URL is empty or null, silently aborts the operation.
+     * If the webhook URL is empty or null, logs a warning and aborts.
      *
      * @param ticket the ticket that was created
      */
     @Async
     public void sendNewTicketAlert(Ticket ticket) {
-        // Silently abort if webhook URL is not configured
+        // Log webhook URL configuration status
+        log.info("Starting Discord webhook send. URL configured: {}", 
+                discordWebhookUrl != null && !discordWebhookUrl.isBlank() ? "YES" : "NO");
+
+        // Abort if webhook URL is not configured
         if (discordWebhookUrl == null || discordWebhookUrl.isBlank()) {
-            log.debug("Discord webhook URL not configured, skipping notification");
+            log.warn("Discord webhook cancelled: URL not configured.");
             return;
         }
 
@@ -52,27 +59,51 @@ public class DiscordWebhookService {
 
             Map<String, Object> payload = buildDiscordPayload(ticket, ticketIdShort);
 
-            restTemplate.postForObject(
-                    discordWebhookUrl,
-                    payload,
-                    String.class);
+            // Set up HTTP headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("User-Agent", "InovareTI-Bot");
+
+            // Create HTTP entity with payload and headers
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+            // Send the webhook
+            restTemplate.postForObject(discordWebhookUrl, request, String.class);
 
             log.info("Discord webhook notification sent successfully for ticket #{}",
                     ticketIdShort);
-        } catch (org.springframework.web.client.RestClientException e) {
-            log.warn("Failed to send Discord webhook notification for ticket: {}",
-                    ticket.getId(), e);
+        } catch (Exception e) {
+            log.error("Error sending Discord webhook for ticket: {}", ticket.getId(), e);
         }
     }
 
     /**
      * Builds the Discord embed payload according to the Discord Webhooks API specification.
+     * 
+     * Payload structure:
+     * {
+     *   "embeds": [
+     *     {
+     *       "title": "...",
+     *       "description": "...",
+     *       "color": 16711680,
+     *       "fields": [
+     *         { "name": "...", "value": "...", "inline": true },
+     *         ...
+     *       ],
+     *       "footer": { "text": "..." },
+     *       "timestamp": 1234567890
+     *     }
+     *   ]
+     * }
      *
      * @param ticket the ticket object containing notification data
      * @param ticketIdShort the short ticket ID for display
      * @return a Map representing the Discord webhook payload
      */
     private Map<String, Object> buildDiscordPayload(Ticket ticket, String ticketIdShort) {
+        log.debug("Building Discord payload for ticket #{}", ticketIdShort);
+        
         int embedColor = getEmbedColor(ticket.getPriority());
         String requesterName = ticket.getRequester().getName();
         String requesterSector = ticket.getRequester().getSector().getName();
@@ -114,10 +145,15 @@ public class DiscordWebhookService {
                 "timestamp", System.currentTimeMillis() / 1000
         );
 
-        // Build the complete payload
-        return Map.of(
+        // Build the complete payload with embeds array
+        Map<String, Object> payload = Map.of(
                 "embeds", List.of(embed)
         );
+        
+        log.debug("Discord payload built successfully. Embed color: {}, Fields count: {}",
+                embedColor, fields.size());
+        
+        return payload;
     }
 
     /**

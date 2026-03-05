@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
@@ -72,7 +73,7 @@ public class DiscordWebhookService {
 
             log.info("Discord webhook notification sent successfully for ticket #{}",
                     ticketIdShort);
-        } catch (Exception e) {
+        } catch (RestClientException e) {
             log.error("Error sending Discord webhook for ticket: {}", ticket.getId(), e);
         }
     }

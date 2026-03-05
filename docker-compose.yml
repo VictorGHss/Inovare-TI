@@ -30,6 +30,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     ports:
       - "8085:8085"
     volumes:

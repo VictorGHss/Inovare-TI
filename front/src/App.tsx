@@ -1,5 +1,5 @@
 // Configuração de rotas e providers globais da aplicação
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -18,11 +18,18 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import NewArticle from './pages/KnowledgeBase/NewArticle';
 import ArticleDetails from './pages/KnowledgeBase/ArticleDetails';
 import Assets from './pages/Assets';
+import AssetDetails from './pages/AssetDetails';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
   const { token } = useAuth();
-  return token ? <DefaultLayout /> : <Navigate to="/login" replace />;
+  const location = useLocation();
+  
+  if (!token) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+  
+  return <DefaultLayout />;
 }
 
 function AppRoutes() {
@@ -43,6 +50,7 @@ function AppRoutes() {
         <Route path="/inventory/:id" element={<ItemDetails />} />
         {/* Rotas de ativos (CMDB) */}
         <Route path="/assets" element={<Assets />} />
+        <Route path="/assets/:id" element={<AssetDetails />} />
         {/* Rotas de gestão de pessoas (requerem ADMIN) */}
         <Route path="/users" element={<Users />} />
         <Route path="/sectors" element={<Sectors />} />

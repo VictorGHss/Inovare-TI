@@ -46,7 +46,7 @@ public class AssetController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/{id}")
     public ResponseEntity<AssetResponseDTO> findById(@PathVariable UUID id) {
         Asset asset = assetRepository.findById(id)

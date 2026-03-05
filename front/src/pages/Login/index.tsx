@@ -1,6 +1,6 @@
 // Tela de login do sistema Inovare TI
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoginField from './LoginField';
@@ -10,6 +10,7 @@ const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +24,9 @@ export default function Login() {
 
     try {
       await signIn({ email, password });
-      navigate('/dashboard');
+      // Redireciona para o caminho anterior se existir, caso contrário vai para dashboard
+      const destination = (location.state as { from?: string } | null)?.from || '/dashboard';
+      navigate(destination);
     } catch {
       setError('E-mail ou senha inválidos. Tente novamente.');
     } finally {

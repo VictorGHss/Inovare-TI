@@ -32,6 +32,12 @@ export default function RequestItemFields({
     setIsDropdownOpen(false);
   };
 
+  const handleSelectOther = () => {
+    setSearchTerm('Outro (Especificar na descrição)');
+    onItemChange('OUTRO', undefined);
+    setIsDropdownOpen(false);
+  };
+
   const handleClear = () => {
     setSearchTerm('');
     onItemChange(undefined, undefined);
@@ -61,13 +67,7 @@ export default function RequestItemFields({
                 type="button"
                 onClick={handleClear}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                aria-label="Limpar campo"
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length > 0 && (
+                aria-label="Limpar campo"(
             <ul className="absolute z-50 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
               {filteredItems.map((item) => (
                 <li key={item.id}>
@@ -76,6 +76,33 @@ export default function RequestItemFields({
                     onClick={() => handleSelectItem(item)}
                     className="w-full text-left px-4 py-2.5 hover:bg-primary hover:text-white transition-colors text-sm"
                   >
+                    {item.name}
+                  </button>
+                </li>
+              ))}
+              {filteredItems.length > 0 && <li className="border-t border-slate-100" />}
+              <li>
+                <button
+                  type="button"
+                  onClick={handleSelectOther}
+                  className="w-full text-left px-4 py-2.5 hover:bg-amber-50 hover:text-amber-700 transition-colors text-sm font-medium text-amber-600"
+                >
+                  📝 Outro (Especificar na descrição)
+                </button>
+             ul className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full">
+              <li className="px-4 py-2.5 text-sm text-slate-500">
+                Nenhum item encontrado
+              </li>
+              <li className="border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleSelectOther}
+                  className="w-full text-left px-4 py-2.5 hover:bg-amber-50 hover:text-amber-700 transition-colors text-sm font-medium text-amber-600"
+                >
+                  📝 Outro (Especificar na descrição)
+                </button>
+              </li>
+            </ul >
                     {item.name}
                   </button>
                 </li>

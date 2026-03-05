@@ -45,6 +45,9 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     requestedQuantity: 1,
   });
 
+  // Track if "Outro" (other) option was selected
+  const isOtherItemSelected = form.requestedItemId === 'OUTRO';
+
   useEffect(() => {
     Promise.all([getTicketCategories(), getItems()])
       .then(([cats, itens]) => {
@@ -115,6 +118,15 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     setSelectedItemName('');
   }
 
+  function handleItemChange(id: string | undefined, name: string | undefined) {
+    set('requestedItemId', id);
+    setSelectedItemName(name ?? '');
+    // Force HIGH priority if "Outro" is selected
+    if (id === 'OUTRO') {
+      set('priority', 'HIGH');
+    }
+  }
+
   function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
@@ -169,16 +181,21 @@ export default function TicketForm({ type, onTypeChange }: Props) {
 
     let finalTitle = form.title.trim();
     if (type === 'REQUEST') {
-      const itemName = selectedItemName || 'Item não especificado';
-      const qty = form.requestedQuantity ?? 1;
-      finalTitle = `Solicitação: ${itemName}, ${qty} unidade${qty !== 1 ? 's' : ''}`;
+      if (isOtherItemSelected) {
+        finalTitle = 'Solicitação: Aquisição de Equipamento';
+      } else {
+        const itemName = selectedItemName || 'Item não especificado';
+        const qty = form.requestedQuantity ?? 1;
+        finalTitle = `Solicitação: ${itemName}, ${qty} unidade${qty !== 1 ? 's' : ''}`;
+      }
     }
     if (!finalTitle) return;
 
-    const payload: CreateTicketDto = {
-      title: finalTitle,
-      description: form.description,
-      anydeskCode: type === 'INCIDENT' ? (form.anydeskCode || undefined) : undefined,
+    const payload: CreateTicketDto = {(isOtherItemSelected ? 'HIGH' : 'NORMAL'),
+      categoryId: effectiveCategoryId,
+      // Don't send requestedItemId if "Outro" was selected
+      requestedItemId: type === 'REQUEST' && !isOtherItemSelected ? form.requestedItemId : undefined,
+      requestedQuantity: type === 'REQUEST' && !isOtherItemSelectedorm.anydeskCode || undefined) : undefined,
       priority: type === 'INCIDENT' ? form.priority : 'NORMAL',
       categoryId: effectiveCategoryId,
       requestedItemId: type === 'REQUEST' ? form.requestedItemId : undefined,
@@ -215,17 +232,24 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
       <TicketTypeToggle value={type} onChange={handleTypeChange} />
 
-      {type === 'REQUEST' && (
-        <RequestItemFields
-          items={items}
-          requestedItemId={form.requestedItemId}
-          requestedQuantity={form.requestedQuantity ?? 1}
-          inputCls={inputCls}
-          onItemChange={(id, name) => {
-            set('requestedItemId', id);
-            setSelectedItemName(name ?? '');
-          }}
-          onQuantityChange={(q) => set('requestedQuantity', q)}
+      {ty>
+          <RequestItemFields
+            items={items}
+            requestedItemId={form.requestedItemId}
+            requestedQuantity={form.requestedQuantity ?? 1}
+            inputCls={inputCls}
+            onItemChange={handleItemChange}
+            onQuantityChange={(q) => set('requestedQuantity', q)}
+          />
+          {isOtherItemSelected && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-800 font-medium">⚠️ Requisição de Compra</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Ao solicitar um item fora do catálogo, o chamado será tratado como requisição de compra e passará por aprovação.
+              </p>
+            </div>
+          )}
+        <  onQuantityChange={(q) => set('requestedQuantity', q)}
         />
       )}
 

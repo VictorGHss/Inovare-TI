@@ -191,15 +191,15 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     }
     if (!finalTitle) return;
 
-    const payload: CreateTicketDto = {(isOtherItemSelected ? 'HIGH' : 'NORMAL'),
+    const payload: CreateTicketDto = {
+      title: finalTitle,
+      description: form.description,
+      anydeskCode: type === 'INCIDENT' ? (form.anydeskCode || undefined) : undefined,
+      priority: type === 'INCIDENT' ? form.priority : (isOtherItemSelected ? 'HIGH' : 'NORMAL'),
       categoryId: effectiveCategoryId,
       // Don't send requestedItemId if "Outro" was selected
       requestedItemId: type === 'REQUEST' && !isOtherItemSelected ? form.requestedItemId : undefined,
-      requestedQuantity: type === 'REQUEST' && !isOtherItemSelectedorm.anydeskCode || undefined) : undefined,
-      priority: type === 'INCIDENT' ? form.priority : 'NORMAL',
-      categoryId: effectiveCategoryId,
-      requestedItemId: type === 'REQUEST' ? form.requestedItemId : undefined,
-      requestedQuantity: type === 'REQUEST' ? (form.requestedQuantity ?? 1) : undefined,
+      requestedQuantity: type === 'REQUEST' && !isOtherItemSelected ? (form.requestedQuantity ?? 1) : undefined,
     };
 
     setSubmitting(true);
@@ -232,7 +232,8 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
       <TicketTypeToggle value={type} onChange={handleTypeChange} />
 
-      {ty>
+      {type === 'REQUEST' && (
+        <>
           <RequestItemFields
             items={items}
             requestedItemId={form.requestedItemId}
@@ -249,8 +250,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
               </p>
             </div>
           )}
-        <  onQuantityChange={(q) => set('requestedQuantity', q)}
-        />
+        </>
       )}
 
       {type === 'INCIDENT' && (

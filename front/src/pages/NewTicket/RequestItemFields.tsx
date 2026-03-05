@@ -67,7 +67,13 @@ export default function RequestItemFields({
                 type="button"
                 onClick={handleClear}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                aria-label="Limpar campo"(
+                aria-label="Limpar campo"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {isDropdownOpen && filteredItems.length > 0 && (
             <ul className="absolute z-50 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
               {filteredItems.map((item) => (
                 <li key={item.id}>
@@ -80,7 +86,7 @@ export default function RequestItemFields({
                   </button>
                 </li>
               ))}
-              {filteredItems.length > 0 && <li className="border-t border-slate-100" />}
+              <li className="border-t border-slate-100" />
               <li>
                 <button
                   type="button"
@@ -89,11 +95,16 @@ export default function RequestItemFields({
                 >
                   📝 Outro (Especificar na descrição)
                 </button>
-             ul className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full">
+              </li>
+            </ul>
+          )}
+          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length === 0 && (
+            <ul className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full">
               <li className="px-4 py-2.5 text-sm text-slate-500">
                 Nenhum item encontrado
               </li>
-              <li className="border-t border-slate-100">
+              <li className="border-t border-slate-100" />
+              <li>
                 <button
                   type="button"
                   onClick={handleSelectOther}
@@ -102,17 +113,7 @@ export default function RequestItemFields({
                   📝 Outro (Especificar na descrição)
                 </button>
               </li>
-            </ul >
-                    {item.name}
-                  </button>
-                </li>
-              ))}
             </ul>
-          )}
-          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length === 0 && (
-            <div className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full px-4 py-2.5 text-sm text-slate-500">
-              Nenhum item encontrado
-            </div>
           )}
         </div>
       </div>

@@ -45,6 +45,7 @@ public class ArticleController {
      * Lista todos os artigos (público para usuários logados).
      * Retorna 200 OK com a lista de artigos.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping
     public ResponseEntity<List<ArticleResponseDTO>> listAll() {
         return ResponseEntity.ok(
@@ -59,6 +60,7 @@ public class ArticleController {
      * Retorna um artigo específico pelo ID (público para usuários logados).
      * Retorna 200 OK ou 404 se não encontrado.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/{id}")
     public ResponseEntity<ArticleResponseDTO> getById(@PathVariable UUID id) {
         return articleRepository.findById(id)
@@ -71,6 +73,7 @@ public class ArticleController {
      * Usado para sugestões de "Ticket Deflection" ao criar novo chamado.
      * Retorna lista resumida (ID e Title) de artigos encontrados.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/search")
     public ResponseEntity<List<ArticleSearchResultDTO>> search(@RequestParam String query) {
         if (query == null || query.trim().isEmpty()) {

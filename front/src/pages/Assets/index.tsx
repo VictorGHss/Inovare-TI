@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PlusCircle, X, HardDrive, FileText, Download } from 'lucide-react';
+import { PlusCircle, X, HardDrive, FileText, Download, Printer } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
+import PrintLabelModal from '../../components/PrintLabelModal';
 import {
   getAssets,
   createAsset,
@@ -25,7 +26,9 @@ export default function Assets() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedAssetForInvoice, setSelectedAssetForInvoice] = useState<Asset | null>(null);
+  const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<Asset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
 
@@ -79,6 +82,11 @@ export default function Assets() {
   function openInvoiceModal(asset: Asset) {
     setSelectedAssetForInvoice(asset);
     setShowInvoiceModal(true);
+  }
+
+  function openPrintModal(asset: Asset) {
+    setSelectedAssetForPrint(asset);
+    setShowPrintModal(true);
   }
 
   async function handleInvoiceUpload(file: File) {
@@ -198,6 +206,7 @@ export default function Assets() {
                   <th className="px-4 py-3 text-left">Patrimônio</th>
                   <th className="px-4 py-3 text-left">Usuário Vinculado</th>
                   <th className="px-4 py-3 text-center">Nota Fiscal</th>
+                  <th className="px-4 py-3 text-center">Etiqueta</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -237,6 +246,21 @@ export default function Assets() {
                         )}
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPrintModal(asset);
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                          title="Imprimir etiqueta com QR Code"
+                        >
+                          <Printer size={14} />
+                          Imprimir
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -256,6 +280,18 @@ export default function Assets() {
         entityName="Ativo"
         entityId={selectedAssetForInvoice?.id ?? ''}
       />
+
+      {/* Modal de Impressão de Etiqueta */}
+      {selectedAssetForPrint && (
+        <PrintLabelModal
+          isOpen={showPrintModal}
+          onClose={() => {
+            setShowPrintModal(false);
+            setSelectedAssetForPrint(null);
+          }}
+          asset={selectedAssetForPrint}
+        />
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">

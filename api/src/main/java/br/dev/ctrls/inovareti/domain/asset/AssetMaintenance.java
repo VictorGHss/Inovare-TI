@@ -77,6 +77,7 @@ public class AssetMaintenance {
     public enum MaintenanceType {
         PREVENTIVE,
         CORRECTIVE,
-        UPGRADE
+        UPGRADE,
+        TRANSFER
     }
 }

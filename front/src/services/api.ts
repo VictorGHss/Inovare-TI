@@ -170,7 +170,7 @@ export interface AssetMaintenance {
   id: string;
   assetId: string;
   maintenanceDate: string;
-  type: 'Preventiva' | 'Corretiva' | 'Upgrade';
+  type: 'Preventiva' | 'Corretiva' | 'Upgrade' | 'Transferência';
   description: string | null;
   cost: number | null;
   technicianName: string;
@@ -182,6 +182,11 @@ export interface CreateAssetMaintenanceData {
   type: 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE';
   description?: string;
   cost?: number | null;
+}
+
+export interface TransferAssetData {
+  newUserId: string | null;
+  reason: string;
 }
 
 export interface GenericAttachmentResponse {
@@ -345,6 +350,11 @@ export async function getAssetMaintenances(assetId: string): Promise<AssetMainte
 
 export async function createAssetMaintenance(assetId: string, dto: CreateAssetMaintenanceData): Promise<AssetMaintenance> {
   const { data } = await api.post<AssetMaintenance>(`/api/assets/${assetId}/maintenances`, dto);
+  return data;
+}
+
+export async function transferAsset(assetId: string, dto: TransferAssetData): Promise<Asset> {
+  const { data } = await api.patch<Asset>(`/api/assets/${assetId}/transfer`, dto);
   return data;
 }
 

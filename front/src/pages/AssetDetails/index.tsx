@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, HardDrive, FileText, Download, Loader2, Wrench } from 'lucide-react';
+import { ArrowLeft, HardDrive, FileText, Download, Loader2, Wrench, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getAssetById,
@@ -11,6 +11,7 @@ import {
 } from '../../services/api';
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
+import TransferAssetModal from './TransferAssetModal';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export default function AssetDetails() {
   const [maintenances, setMaintenances] = useState<AssetMaintenance[]>([]);
   const [loadingMaintenances, setLoadingMaintenances] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   const loadAsset = useCallback(async () => {
     if (!id) return;
@@ -81,6 +83,12 @@ export default function AssetDetails() {
     setIsMaintenanceModalOpen(false);
   }
 
+  async function handleTransferSuccess(updatedAsset: Asset) {
+    setAsset(updatedAsset);
+    await loadMaintenances();
+    setIsTransferModalOpen(false);
+  }
+
   if (loading) {
     return (
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -125,6 +133,13 @@ export default function AssetDetails() {
             </div>
             <p className="text-sm text-slate-500">Código do Patrimônio</p>
           </div>
+          <button
+            onClick={() => setIsTransferModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            <RefreshCw size={16} />
+            Transferir
+          </button>
         </div>
 
         {/* Código do patrimônio em destaque */}
@@ -229,6 +244,14 @@ export default function AssetDetails() {
           onMaintenanceCreated={handleMaintenanceCreated}
         />
       )}
+
+      {/* Modal de Transferência */}
+      <TransferAssetModal
+        isOpen={isTransferModalOpen}
+        asset={asset}
+        onClose={() => setIsTransferModalOpen(false)}
+        onTransferSuccess={handleTransferSuccess}
+      />
     </main>
   );
 }

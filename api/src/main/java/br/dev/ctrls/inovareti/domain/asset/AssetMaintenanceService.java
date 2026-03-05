@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,5 +47,25 @@ public class AssetMaintenanceService {
                 .stream()
                 .map(AssetMaintenanceResponseDTO::from)
                 .toList();
+    }
+
+    public void createTransferLog(Asset asset, User oldUser, User newUser, String reason, User technician) {
+        String oldUserName = oldUser != null ? oldUser.getName() : "Estoque da TI";
+        String newUserName = newUser != null ? newUser.getName() : "Estoque da TI";
+
+        String description = newUser != null
+                ? String.format("Ativo transferido de %s para %s. Motivo: %s", oldUserName, newUserName, reason)
+                : String.format("Ativo desvinculado de %s e retornado ao estoque. Motivo: %s", oldUserName, reason);
+
+        AssetMaintenance maintenance = AssetMaintenance.builder()
+                .asset(asset)
+                .maintenanceDate(LocalDate.now())
+                .type(AssetMaintenance.MaintenanceType.TRANSFER)
+                .description(description)
+                .cost(BigDecimal.ZERO)
+                .technician(technician)
+                .build();
+
+        maintenanceRepository.save(maintenance);
     }
 }

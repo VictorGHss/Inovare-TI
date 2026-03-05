@@ -24,6 +24,7 @@ import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceResponseDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetResponseDTO;
+import br.dev.ctrls.inovareti.domain.asset.dto.TransferAssetDTO;
 import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
 import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -219,5 +220,52 @@ public class AssetController {
     public ResponseEntity<List<AssetMaintenanceResponseDTO>> listMaintenances(@PathVariable UUID id) {
         List<AssetMaintenanceResponseDTO> response = maintenanceService.getByAssetId(id);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Transfere um ativo para um novo usuário ou o devolve ao estoque da TI.
+     *
+     * PATCH /api/assets/{id}/transfer
+     * Body: TransferAssetDTO { newUserId (nullable), reason }
+     *
+     * Se newUserId for null, o ativo é desvinculado e retornado ao estoque.
+     * Cria automaticamente um log de transferência no histórico de manutenções.
+     *
+     * @param id   UUID do Asset
+     * @param request Dados da transferência (novo usuário e motivo)
+     * @return    Ativo atualizado
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PatchMapping("/{id}/transfer")
+    public ResponseEntity<AssetResponseDTO> transferAsset(
+            @PathVariable UUID id,
+            @Valid @RequestBody TransferAssetDTO request) {
+
+        Asset asset = assetRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
+
+        // Valida o novo usuário se foi fornecido
+        User newUser = null;
+        if (request.newUserId() != null) {
+            newUser = userRepository.findById(request.newUserId())
+                    .orElseThrow(() -> new NotFoundException("User not found with id: " + request.newUserId()));
+        }
+
+        // Obtém o usuário antigo (pode ser nulo se já estava desvinculado)
+        User oldUser = asset.getUserId() != null ? userRepository.findById(asset.getUserId()).orElse(null) : null;
+
+        // Obtém o usuário logado (técnico que realiza a transferência)
+        String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        User technician = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+
+        // Atualiza o ativo com o novo usuário
+        asset.setUserId(newUser != null ? newUser.getId() : null);
+        Asset updatedAsset = assetRepository.save(asset);
+
+        // Cria o log de transferência
+        maintenanceService.createTransferLog(updatedAsset, oldUser, newUser, request.reason(), technician);
+
+        return ResponseEntity.ok(AssetResponseDTO.from(updatedAsset));
     }
 }

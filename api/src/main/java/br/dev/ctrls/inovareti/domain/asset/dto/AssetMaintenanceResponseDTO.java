@@ -34,6 +34,7 @@ public record AssetMaintenanceResponseDTO(
             case PREVENTIVE -> "Preventiva";
             case CORRECTIVE -> "Corretiva";
             case UPGRADE -> "Upgrade";
+            case TRANSFER -> "Transferência";
         };
     }
 }

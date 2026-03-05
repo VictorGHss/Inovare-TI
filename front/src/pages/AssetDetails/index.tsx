@@ -1,34 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, HardDrive, FileText, Download, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAssetById, downloadAssetInvoice, type Asset, type User } from '../../services/api';
+import { getAssetById, downloadAssetInvoice, type Asset } from '../../services/api';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [asset, setAsset] = useState<Asset | null>(null);
-  const [userInfo, setUserInfo] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadAsset = useCallback(async () => {
     if (!id) return;
-    loadAsset();
-  }, [id, navigate]);
-
-  async function loadAsset() {
+    
     try {
-      const assetData = await getAssetById(id!);
+      const assetData = await getAssetById(id);
       setAsset(assetData);
-      // Se existir uma função para obter usuário por ID, use-a
-      // Por enquanto, vamos apenas exibir o ID do usuário
     } catch {
       toast.error('Ativo não encontrado.');
       navigate('/assets');
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, navigate]);
+
+  useEffect(() => {
+    loadAsset();
+  }, [loadAsset]);
 
   async function handleInvoiceDownload(e: React.MouseEvent) {
     e.stopPropagation();

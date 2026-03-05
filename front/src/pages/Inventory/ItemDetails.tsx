@@ -1,5 +1,5 @@
 // Página de detalhes de um item — exibe especificações e histórico de lotes
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -44,16 +44,13 @@ export default function ItemDetails() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedBatchForInvoice, setSelectedBatchForInvoice] = useState<Batch | null>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!id) return;
-    loadData();
-  }, [id, navigate]);
-
-  async function loadData() {
+    
     try {
       const [itemData, batchesData] = await Promise.all([
-        getItemById(id!),
-        getItemBatches(id!),
+        getItemById(id),
+        getItemBatches(id),
       ]);
       setItem(itemData);
       setBatches(batchesData);
@@ -63,7 +60,11 @@ export default function ItemDetails() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, navigate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   function openInvoiceModal(batch: Batch) {
     setSelectedBatchForInvoice(batch);

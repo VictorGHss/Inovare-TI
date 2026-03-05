@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.notification.discord;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -81,6 +82,8 @@ public class DiscordWebhookService {
     /**
      * Builds the Discord embed payload according to the Discord Webhooks API specification.
      * 
+     * Uses explicit HashMap and ArrayList for proper JSON serialization by Jackson.
+     * 
      * Payload structure:
      * {
      *   "embeds": [
@@ -105,54 +108,83 @@ public class DiscordWebhookService {
     private Map<String, Object> buildDiscordPayload(Ticket ticket, String ticketIdShort) {
         log.debug("Building Discord payload for ticket #{}", ticketIdShort);
         
-        int embedColor = getEmbedColor(ticket.getPriority());
+        // Validate ticket and related entities
+        if (ticket == null) {
+            log.error("Cannot build Discord payload: ticket is null");
+            throw new IllegalArgumentException("Ticket cannot be null");
+        }
+        if (ticket.getRequester() == null) {
+            log.error("Cannot build Discord payload: ticket requester is null");
+            throw new IllegalArgumentException("Ticket requester cannot be null");
+        }
+        if (ticket.getPriority() == null) {
+            log.error("Cannot build Discord payload: ticket priority is null");
+            throw new IllegalArgumentException("Ticket priority cannot be null");
+        }
+        if (ticket.getCategory() == null) {
+            log.error("Cannot build Discord payload: ticket category is null");
+            throw new IllegalArgumentException("Ticket category cannot be null");
+        }
+        
+        Integer embedColor = getColorByPriority(ticket.getPriority().name());
         String requesterName = ticket.getRequester().getName();
-        String requesterSector = ticket.getRequester().getSector().getName();
-        String priorityText = ticket.getPriority().toString();
+        String requesterSector = ticket.getRequester().getSector() != null 
+            ? ticket.getRequester().getSector().getName() 
+            : "Unknown Sector";
+        String priorityText = ticket.getPriority().name();
+        String categoryName = ticket.getCategory().getName();
 
-        // Build the embed fields
+        log.debug("Building fields for ticket. Requester: {}, Priority: {}, Category: {}", 
+                requesterName, priorityText, categoryName);
+
+        // Build the embed fields using explicit HashMaps
         List<Map<String, Object>> fields = new ArrayList<>();
 
         // Requester info field
-        fields.add(Map.of(
-                "name", "Requester",
-                "value", String.format("%s (%s)", requesterName, requesterSector),
-                "inline", true
-        ));
+        Map<String, Object> field1 = new HashMap<>();
+        field1.put("name", "Requester");
+        field1.put("value", String.format("%s (%s)", requesterName, requesterSector));
+        field1.put("inline", true);
+        fields.add(field1);
 
         // Priority field
-        fields.add(Map.of(
-                "name", "Priority",
-                "value", priorityText,
-                "inline", true
-        ));
+        Map<String, Object> field2 = new HashMap<>();
+        field2.put("name", "Priority");
+        field2.put("value", priorityText);
+        field2.put("inline", true);
+        fields.add(field2);
 
         // Category field
-        fields.add(Map.of(
-                "name", "Category",
-                "value", ticket.getCategory().getName(),
-                "inline", true
-        ));
+        Map<String, Object> field3 = new HashMap<>();
+        field3.put("name", "Category");
+        field3.put("value", categoryName);
+        field3.put("inline", true);
+        fields.add(field3);
 
-        // Build the embed object
-        Map<String, Object> embed = Map.of(
-                "title", String.format("🎫 New Ticket: #%s", ticketIdShort),
-                "description", ticket.getTitle(),
-                "color", embedColor,
-                "fields", fields,
-                "footer", Map.of(
-                        "text", ticket.getId().toString()
-                ),
-                "timestamp", System.currentTimeMillis() / 1000
-        );
+        // Build the footer object
+        Map<String, Object> footer = new HashMap<>();
+        footer.put("text", ticket.getId().toString());
+
+        // Build the embed object using explicit HashMap
+        Map<String, Object> embed = new HashMap<>();
+        embed.put("title", String.format("🎫 New Ticket: #%s", ticketIdShort));
+        embed.put("description", ticket.getTitle());
+        embed.put("color", embedColor);
+        embed.put("fields", fields);
+        embed.put("footer", footer);
+        embed.put("timestamp", System.currentTimeMillis() / 1000);
 
         // Build the complete payload with embeds array
-        Map<String, Object> payload = Map.of(
-                "embeds", List.of(embed)
-        );
+        List<Map<String, Object>> embedsList = new ArrayList<>();
+        embedsList.add(embed);
         
-        log.debug("Discord payload built successfully. Embed color: {}, Fields count: {}",
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("embeds", embedsList);
+        
+        log.debug("Discord payload built successfully. Embed color: {}, Fields count: {}", 
                 embedColor, fields.size());
+        log.debug("Payload structure: embeds count={}, first embed title={}", 
+                embedsList.size(), embed.get("title"));
         
         return payload;
     }
@@ -160,15 +192,24 @@ public class DiscordWebhookService {
     /**
      * Returns the Discord embed color in decimal format based on ticket priority.
      *
-     * @param priority the ticket priority level
-     * @return the color value in decimal format
+     * @param priorityName the ticket priority name (e.g., "URGENT", "HIGH", "NORMAL", "LOW")
+     * @return the color value in decimal format as Integer
      */
-    private int getEmbedColor(TicketPriority priority) {
-        return switch (priority) {
-            case URGENT -> 0xFF0000;    // Red for URGENT
-            case HIGH -> 0xFFAA00;      // Orange for HIGH
-            case NORMAL -> 0x0099FF;    // Blue for NORMAL
-            case LOW -> 0x00AA00;       // Green for LOW
+    private Integer getColorByPriority(String priorityName) {
+        if (priorityName == null || priorityName.isBlank()) {
+            log.warn("Priority name is null or blank, using default color");
+            return 0x0099FF; // Default to NORMAL (Blue)
+        }
+        
+        return switch (priorityName) {
+            case "URGENT" -> 0xFF0000;    // Red for URGENT
+            case "HIGH" -> 0xFFAA00;      // Orange for HIGH
+            case "NORMAL" -> 0x0099FF;    // Blue for NORMAL
+            case "LOW" -> 0x00AA00;       // Green for LOW
+            default -> {
+                log.warn("Unknown priority: {}, using default color", priorityName);
+                yield 0x0099FF; // Default to NORMAL (Blue)
+            }
         };
     }
 }

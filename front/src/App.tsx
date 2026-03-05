@@ -17,6 +17,7 @@ import Sectors from './pages/Sectors';
 import KnowledgeBase from './pages/KnowledgeBase';
 import NewArticle from './pages/KnowledgeBase/NewArticle';
 import ArticleDetails from './pages/KnowledgeBase/ArticleDetails';
+import Assets from './pages/Assets';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -40,6 +41,8 @@ function AppRoutes() {
         <Route path="/inventory/new" element={<NewItem />} />
         {/* Rota de detalhes de item — :id é o UUID do item */}
         <Route path="/inventory/:id" element={<ItemDetails />} />
+        {/* Rotas de ativos (CMDB) */}
+        <Route path="/assets" element={<Assets />} />
         {/* Rotas de gestão de pessoas (requerem ADMIN) */}
         <Route path="/users" element={<Users />} />
         <Route path="/sectors" element={<Sectors />} />

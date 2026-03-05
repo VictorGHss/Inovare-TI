@@ -433,7 +433,7 @@ export default function TicketDetails() {
             {loadingAssets ? (
               <p className="text-sm text-slate-400">Carregando equipamentos...</p>
             ) : assets.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Nenhum equipamento vinculado.</p>
+              <p className="text-sm text-slate-400 italic">Nenhum equipamento registrado.</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {assets.map((asset) => {

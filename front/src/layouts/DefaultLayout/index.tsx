@@ -1,6 +1,6 @@
 // Layout padrão compartilhado entre todas as páginas autenticadas
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Github } from 'lucide-react';
+import { LogOut, Github, HardDrive } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 
@@ -49,6 +49,19 @@ export default function DefaultLayout() {
                 }`}
               >
                 Inventário
+              </button>
+            )}
+            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              <button
+                onClick={() => navigate('/assets')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                  location.pathname.startsWith('/assets')
+                    ? 'bg-primary text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <HardDrive size={14} />
+                Ativos
               </button>
             )}
             <button

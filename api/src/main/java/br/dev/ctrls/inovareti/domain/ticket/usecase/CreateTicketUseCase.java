@@ -42,6 +42,7 @@ public class CreateTicketUseCase {
     private final TicketCategoryRepository ticketCategoryRepository;
     private final ItemRepository itemRepository;
     private final CreateNotificationService createNotificationService;
+    private final DiscordWebhookService discordWebhookService;
 
     /**
      * Opens a ticket with the provided information.
@@ -97,6 +98,9 @@ public class CreateTicketUseCase {
         log.info("Ticket created with ID: {} by user: {} ({}), category: {}, priority: {}",
                 savedTicket.getId(), requester.getName(), requester.getEmail(),
                 category.getName(), savedTicket.getPriority());
+
+        // Send Discord webhook notification asynchronously
+        discordWebhookService.sendNewTicketAlert(savedTicket);
 
         // Notify all ADMIN and TECHNICIAN users about the new ticket
         var adminUsers = userRepository.findAllByRole(UserRole.ADMIN);

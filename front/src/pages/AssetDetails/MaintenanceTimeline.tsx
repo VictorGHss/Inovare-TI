@@ -1,4 +1,4 @@
-import { AssetMaintenance } from '../../services/api';
+import type { AssetMaintenance } from '../../services/api';
 import { formatCurrency } from '../../lib/formatters';
 
 interface MaintenanceTimelineProps {

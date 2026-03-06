@@ -623,7 +623,7 @@ export async function importCsv(file: File): Promise<ImportResult> {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await api.post<ImportResult>('/admin/import/csv', formData, {
+  const response = await api.post<ImportResult>('/api/admin/import/csv', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

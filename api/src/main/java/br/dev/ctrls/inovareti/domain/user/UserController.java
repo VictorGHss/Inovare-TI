@@ -44,9 +44,9 @@ public class UserController {
     /**
      * Lista todos os usuários cadastrados.
      * Retorna 200 OK com a lista.
-     * Requer permissão ADMIN ou TECHNICIAN.
+     * Requer permissão ADMIN, TECHNICIAN ou USER.
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping
     public ResponseEntity<List<UserResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllUsersUseCase.execute());

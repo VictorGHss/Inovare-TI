@@ -45,9 +45,9 @@ public class SectorController {
     /**
      * Lista todos os setores cadastrados.
      * Retorna 200 OK com a lista.
-     * Requer permissão ADMIN.
+     * Requer autenticação.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping
     public ResponseEntity<List<SectorResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllSectorsUseCase.execute());

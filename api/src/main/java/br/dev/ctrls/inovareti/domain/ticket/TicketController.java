@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import br.dev.ctrls.inovareti.domain.ticket.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketAttachmentResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentResponseDTO;
@@ -107,13 +108,15 @@ public class TicketController {
     }
 
     /**
-     * Resolves an existing ticket.
-     * If the ticket has requested item and quantity, debits stock atomically.
+     * Resolves an existing ticket with optional asset/item fulfillment.
+     * If asset or item delivery is specified, performs fulfillment atomically.
      * Returns 200 OK with updated ticket data.
      */
     @PatchMapping("/{id}/resolve")
-    public ResponseEntity<TicketResponseDTO> resolve(@PathVariable UUID id) {
-        return ResponseEntity.ok(resolveTicketUseCase.execute(id));
+    public ResponseEntity<TicketResponseDTO> resolve(
+            @PathVariable UUID id,
+            @RequestBody ResolveTicketDTO request) {
+        return ResponseEntity.ok(resolveTicketUseCase.execute(id, request));
     }
 
     /**

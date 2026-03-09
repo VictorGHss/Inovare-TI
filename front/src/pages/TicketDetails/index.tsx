@@ -18,6 +18,7 @@ import {
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
 import TicketComments from '../../components/TicketComments';
+import ResolveTicketModal from './ResolveTicketModal';
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '-';
@@ -58,6 +59,7 @@ export default function TicketDetails() {
   const [claiming, setClaiming] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showResolveModal, setShowResolveModal] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -99,11 +101,21 @@ export default function TicketDetails() {
     fetchAssets();
   }, [ticket?.requesterId]);
 
-  async function handleResolve() {
+  async function handleResolve(
+    resolutionNotes: string,
+    assetId?: string,
+    itemId?: string,
+    quantity?: number
+  ) {
     if (!ticket) return;
     setClosing(true);
     try {
-      const updated = await resolveTicket(ticket.id);
+      const updated = await resolveTicket(ticket.id, {
+        resolutionNotes,
+        assetIdToDeliver: assetId,
+        inventoryItemIdToDeliver: itemId,
+        quantityToDeliver: quantity,
+      });
       setTicket(updated);
       toast.success('Chamado resolvido com sucesso!');
     } catch {
@@ -320,7 +332,7 @@ export default function TicketDetails() {
               {/* Resolve - only if user owns ticket, status is in progress, and user is ADMIN or TECHNICIAN */}
               {ticket.status === 'IN_PROGRESS' && ticket.assignedToId === user?.id && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
                 <button
-                  onClick={handleResolve}
+                  onClick={() => setShowResolveModal(true)}
                   disabled={closing || claiming || transferring}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
                 >
@@ -461,6 +473,14 @@ export default function TicketDetails() {
           </div>
         </aside>
       </div>
+
+      {/* Resolve Ticket Modal */}
+      <ResolveTicketModal
+        isOpen={showResolveModal}
+        onClose={() => setShowResolveModal(false)}
+        onResolve={handleResolve}
+        isSubmitting={closing}
+      />
     </main>
   );
 }

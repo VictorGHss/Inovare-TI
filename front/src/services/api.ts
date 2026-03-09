@@ -273,8 +273,13 @@ export async function getTicketById(id: string): Promise<Ticket> {
 }
 
 // Resolve um chamado existente pelo UUID
-export async function resolveTicket(id: string): Promise<Ticket> {
-  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/resolve`);
+export async function resolveTicket(id: string, request: {
+  resolutionNotes?: string;
+  assetIdToDeliver?: string;
+  inventoryItemIdToDeliver?: string;
+  quantityToDeliver?: number;
+}): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/api/tickets/${id}/resolve`, request);
   return data;
 }
 

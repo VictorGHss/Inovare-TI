@@ -34,7 +34,7 @@ export default function ArticleDetails() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-2">
-          <Loader2 size={40} className="text-blue-600 animate-spin" />
+          <Loader2 size={40} className="text-brand-primary animate-spin" />
           <p className="text-slate-600">Carregando artigo...</p>
         </div>
       </div>
@@ -44,12 +44,12 @@ export default function ArticleDetails() {
   if (!article) {
     return (
       <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center py-12">
             <p className="text-slate-600 mb-4">Artigo não encontrado</p>
             <button
               onClick={() => navigate('/knowledge-base')}
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className="text-brand-primary hover:text-brand-primary-dark font-medium"
             >
               Voltar à Base de Conhecimento
             </button>
@@ -93,7 +93,7 @@ export default function ArticleDetails() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
         {/* Voltar */}
         <button
           onClick={() => navigate('/knowledge-base')}
@@ -116,7 +116,7 @@ export default function ArticleDetails() {
               {article.tags.split(',').map((tag, index) => (
                 <span
                   key={index}
-                  className="bg-blue-100 text-blue-800 text-xs font-medium px-3 py-1 rounded-full"
+                  className="bg-brand-secondary text-brand-primary text-xs font-medium px-3 py-1 rounded-full"
                 >
                   {tag.trim()}
                 </span>

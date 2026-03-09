@@ -48,14 +48,14 @@ export default function Inventory() {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Cabeçalho da seção */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Inventário</h1>
         <div className="flex gap-3">
           <button
             onClick={openBatchModal}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <Package size={17} />
             Entrada de Lote
@@ -117,7 +117,7 @@ export default function Inventory() {
                           Sem Estoque
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-secondary text-brand-primary">
                           Em Estoque
                         </span>
                       )}
@@ -126,7 +126,7 @@ export default function Inventory() {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={(e) => openBatchModalForItem(item.id, e)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
                           title="Registrar nova entrada de lote"
                         >
                           <PackagePlus size={15} />

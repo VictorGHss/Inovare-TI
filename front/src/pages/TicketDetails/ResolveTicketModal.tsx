@@ -227,7 +227,7 @@ export default function ResolveTicketModal({
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
               placeholder="Descreva como o problema foi resolvido..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
               rows={4}
               disabled={isSubmitting}
             />
@@ -250,7 +250,7 @@ export default function ResolveTicketModal({
 
           {/* Delivery Options */}
           {deliverEquipment && (
-            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 flex flex-col gap-4">
+            <div className="border border-brand-primary bg-brand-secondary rounded-lg p-4 flex flex-col gap-4">
               {/* Delivery Type Tabs */}
               <div className="flex gap-2">
                 <button
@@ -258,7 +258,7 @@ export default function ResolveTicketModal({
                   onClick={() => setDeliveryType('asset')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                     deliveryType === 'asset'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-primary text-white'
                       : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
                   }`}
                   disabled={isSubmitting}
@@ -271,7 +271,7 @@ export default function ResolveTicketModal({
                   onClick={() => setDeliveryType('item')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                     deliveryType === 'item'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-primary text-white'
                       : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
                   }`}
                   disabled={isSubmitting}
@@ -290,7 +290,7 @@ export default function ResolveTicketModal({
                       onClick={() => setAssetMode('existing')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         assetMode === 'existing'
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-brand-primary text-white'
                           : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
                       }`}
                       disabled={isSubmitting}
@@ -302,7 +302,7 @@ export default function ResolveTicketModal({
                       onClick={() => setAssetMode('new')}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         assetMode === 'new'
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-brand-primary text-white'
                           : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
                       }`}
                       disabled={isSubmitting}
@@ -324,7 +324,7 @@ export default function ResolveTicketModal({
                         <select
                           value={selectedAssetId}
                           onChange={(e) => setSelectedAssetId(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                           disabled={isSubmitting}
                         >
                           <option value="">-- Selecione um equipamento --</option>
@@ -346,7 +346,7 @@ export default function ResolveTicketModal({
                           type="text"
                           value={newAssetName}
                           onChange={(e) => setNewAssetName(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                           placeholder="Ex.: Notebook Dell Latitude"
                           disabled={isSubmitting}
                         />
@@ -360,7 +360,7 @@ export default function ResolveTicketModal({
                           <select
                             value={newAssetCategoryId}
                             onChange={(e) => setNewAssetCategoryId(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                             disabled={isSubmitting}
                           >
                             <option value="">-- Selecione a categoria --</option>
@@ -379,7 +379,7 @@ export default function ResolveTicketModal({
                           type="text"
                           value={newAssetPatrimonyCode}
                           onChange={(e) => setNewAssetPatrimonyCode(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                           placeholder="Ex.: PAT-2026-001"
                           disabled={isSubmitting}
                         />
@@ -390,7 +390,7 @@ export default function ResolveTicketModal({
                         <textarea
                           value={newAssetSpecifications}
                           onChange={(e) => setNewAssetSpecifications(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
                           rows={3}
                           placeholder="CPU, memória, armazenamento, etc."
                           disabled={isSubmitting}
@@ -416,7 +416,7 @@ export default function ResolveTicketModal({
                       <select
                         value={selectedItemId}
                         onChange={(e) => setSelectedItemId(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                         disabled={isSubmitting}
                       >
                         <option value="">-- Selecione um material --</option>
@@ -439,7 +439,7 @@ export default function ResolveTicketModal({
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                       min="1"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -461,7 +461,7 @@ export default function ResolveTicketModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Resolvendo...' : 'Resolver Chamado'}
             </button>

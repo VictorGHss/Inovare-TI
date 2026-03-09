@@ -98,7 +98,7 @@ export default function NewArticle() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
         {/* Cabeçalho */}
         <div className="flex items-center gap-4 mb-6">
           <button
@@ -125,7 +125,7 @@ export default function NewArticle() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Digite o título do artigo"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               disabled={isLoading || isUploading}
             />
           </div>
@@ -140,7 +140,7 @@ export default function NewArticle() {
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="ex: tutorial, configuração, rede, vpn"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               disabled={isLoading || isUploading}
             />
             <p className="text-xs text-slate-500 mt-1">
@@ -162,7 +162,7 @@ export default function NewArticle() {
               onChange={(e) => setContent(e.target.value)}
               onPaste={handlePaste}
               placeholder="Digite o conteúdo do artigo em Markdown. Cole imagens com Ctrl+V!"
-              className="w-full h-96 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              className="w-full h-96 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent font-mono text-sm"
               disabled={isLoading || isUploading}
             />
           </div>
@@ -179,7 +179,7 @@ export default function NewArticle() {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
               disabled={isLoading || isUploading}
             >
               {isLoading ? (

@@ -216,7 +216,7 @@ export default function NewItem() {
           <button
             type="button"
             onClick={addSpecRow}
-            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium self-start transition-colors"
+            className="flex items-center gap-2 text-sm text-brand-primary hover:text-brand-primary-dark font-medium self-start transition-colors"
           >
             <Plus size={16} />
             Adicionar Especificação
@@ -245,8 +245,8 @@ export default function NewItem() {
 
         {/* Campos de lote (condicionais) */}
         {registerFirstBatch && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-blue-900">
+          <div className="bg-brand-secondary border border-brand-primary rounded-xl p-4 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-slate-900">
               Dados da Primeira Entrada
             </h3>
 

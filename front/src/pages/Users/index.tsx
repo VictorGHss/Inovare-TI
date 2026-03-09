@@ -92,7 +92,7 @@ export default function Users() {
   };
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Equipe</h1>
@@ -148,7 +148,7 @@ export default function Users() {
                           user.role === 'ADMIN'
                             ? 'bg-red-100 text-red-700'
                             : user.role === 'TECHNICIAN'
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-brand-secondary text-brand-primary'
                             : 'bg-slate-100 text-slate-700'
                         }`}
                       >

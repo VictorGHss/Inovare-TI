@@ -45,7 +45,7 @@ const priorityLabels: Record<string, string> = {
 
 const priorityColors: Record<string, string> = {
   LOW: 'text-slate-500',
-  NORMAL: 'text-blue-600',
+  NORMAL: 'text-brand-primary',
   HIGH: 'text-orange-600',
   URGENT: 'text-red-600 font-semibold',
 };
@@ -158,7 +158,7 @@ export default function TicketDetails() {
 
   if (loading) {
     return (
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-slate-200 rounded w-1/3" />
           <div className="h-40 bg-slate-100 rounded-xl" />
@@ -174,7 +174,7 @@ export default function TicketDetails() {
   const apiUrl = import.meta.env.VITE_API_URL;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate('/tickets')}
@@ -303,7 +303,7 @@ export default function TicketDetails() {
                 <button
                   onClick={handleClaim}
                   disabled={claiming || transferring || closing}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                  className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
                 >
                   {claiming ? 'Assumindo...' : 'Assumir Chamado'}
                 </button>
@@ -325,7 +325,7 @@ export default function TicketDetails() {
                 <button
                   onClick={() => setShowResolveModal(true)}
                   disabled={closing || claiming || transferring}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                  className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
                 >
                   <CheckCircle2 size={16} />
                   {closing ? 'Resolvendo...' : 'Resolver Chamado'}

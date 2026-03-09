@@ -12,8 +12,8 @@ export default function KbSuggestions({ articles }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 transition-all">
-      <p className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
+    <div className="rounded-lg border border-brand-primary bg-brand-secondary p-4 transition-all">
+      <p className="text-sm font-semibold text-brand-primary mb-3 flex items-center gap-2">
         <Lightbulb size={16} />
         Antes de abrir o chamado, veja se estes artigos ajudam:
       </p>
@@ -24,7 +24,7 @@ export default function KbSuggestions({ articles }: Props) {
               href={`/knowledge-base/${article.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline transition-colors"
+              className="flex items-center gap-2 text-sm text-brand-primary hover:text-brand-primary-dark hover:underline transition-colors"
             >
               <ExternalLink size={14} className="shrink-0" />
               {article.title}

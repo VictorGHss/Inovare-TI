@@ -73,8 +73,8 @@ export default function PrimeiroAcesso() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-5"
         >
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
-            <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-brand-secondary border border-brand-primary">
+            <ShieldCheck className="w-5 h-5 text-brand-primary mt-0.5" />
             <p className="text-sm text-slate-700">
               Bem-vindo! Por segurança, você precisa criar sua própria senha antes de entrar.
             </p>

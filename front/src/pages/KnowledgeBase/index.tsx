@@ -35,7 +35,7 @@ export default function KnowledgeBase() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-2">
-          <Loader2 size={40} className="text-blue-600 animate-spin" />
+          <Loader2 size={40} className="text-brand-primary animate-spin" />
           <p className="text-slate-600">Carregando artigos...</p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
         {/* Cabeçalho */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -60,7 +60,7 @@ export default function KnowledgeBase() {
           {canCreateArticle && (
             <button
               onClick={() => navigate('/knowledge-base/new')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors font-medium"
             >
               <Plus size={18} />
               Novo Artigo
@@ -77,7 +77,7 @@ export default function KnowledgeBase() {
             {canCreateArticle && (
               <button
                 onClick={() => navigate('/knowledge-base/new')}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-brand-primary hover:text-brand-primary-dark font-medium"
               >
                 Crie o primeiro artigo
               </button>
@@ -103,10 +103,10 @@ export default function KnowledgeBase() {
                 <button
                   key={article.id}
                   onClick={() => navigate(`/knowledge-base/${article.id}`)}
-                  className="p-5 bg-white rounded-lg shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-300 transition-all text-left"
+                  className="p-5 bg-white rounded-lg shadow-sm border border-slate-200 hover:shadow-md hover:border-brand-primary transition-all text-left"
                 >
                   {/* Título */}
-                  <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 hover:text-blue-600">
+                  <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 hover:text-brand-primary">
                     {article.title}
                   </h3>
 

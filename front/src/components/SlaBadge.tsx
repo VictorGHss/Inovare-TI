@@ -61,7 +61,7 @@ export default function SlaBadge({ deadline, status, closedAt }: SlaBadgeProps) 
 
   return (
     <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-secondary text-brand-primary"
       title={`Prazo: ${deadlineDate.toLocaleDateString('pt-BR')} ${deadlineDate.toLocaleTimeString('pt-BR')}`}
     >
       {`Faltam ${timeRemaining}`}

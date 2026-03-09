@@ -13,7 +13,7 @@ export default function InventorySummaryCard({ data }: InventorySummaryCardProps
         {/* Total Items */}
         <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg">
           <div className="flex-shrink-0">
-            <Package className="w-8 h-8 text-blue-500" />
+            <Package className="w-8 h-8 text-brand-primary" />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-600">Total de Itens</p>

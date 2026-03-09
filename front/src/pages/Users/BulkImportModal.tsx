@@ -127,9 +127,9 @@ export default function BulkImportModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6">
           {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2">📋 Instruções</h3>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+          <div className="bg-brand-secondary border border-brand-primary rounded-lg p-4">
+            <h3 className="font-semibold text-slate-900 mb-2">📋 Instruções</h3>
+            <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
               <li>Baixe o template CSV e preencha com seus dados</li>
               <li>Formato: UserName, UserEmail, UserRole, SectorName, AssetName, AssetCategory, PatrimonyCode, AssetSpecs</li>
               <li>UserRole aceita: ADMIN, TECHNICIAN, USER (padrão: USER)</li>
@@ -142,7 +142,7 @@ export default function BulkImportModal({
           <button
             type="button"
             onClick={downloadTemplate}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white font-medium rounded-lg transition-colors"
           >
             <Download size={18} />
             Baixar Template CSV
@@ -162,8 +162,8 @@ export default function BulkImportModal({
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-medium
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
+                  file:bg-brand-secondary file:text-slate-700
+                  hover:file:bg-orange-200
                   file:cursor-pointer cursor-pointer"
               />
             </div>
@@ -238,7 +238,7 @@ export default function BulkImportModal({
             <button
               type="submit"
               disabled={!selectedFile || submitting}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {submitting ? (
                 <>

@@ -46,7 +46,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Cabeçalho da seção */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-slate-800">
@@ -63,7 +63,7 @@ export default function Dashboard() {
           {isAdmin && (
             <button
               onClick={() => setReportHubOpen(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <Download size={17} />
               Central de Relatórios

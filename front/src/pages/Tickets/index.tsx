@@ -84,7 +84,7 @@ export default function Tickets() {
   ];
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-slate-800">
@@ -107,7 +107,7 @@ export default function Tickets() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'bg-slate-100 text-blue-600'
+                ? 'bg-brand-secondary text-brand-primary'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -131,7 +131,7 @@ export default function Tickets() {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
                 placeholder="Digite o título do chamado..."
-                className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm"
               />
               {searchTitle && (
                 <button
@@ -152,7 +152,7 @@ export default function Tickets() {
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="all">Todas as Prioridades</option>
               {priorities.map((priority) => (
@@ -171,7 +171,7 @@ export default function Tickets() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="all">Todas as Categorias</option>
               {categories.map((category) => (
@@ -190,7 +190,7 @@ export default function Tickets() {
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="newest">Mais Recentes</option>
               <option value="oldest">Mais Antigos</option>
@@ -203,9 +203,9 @@ export default function Tickets() {
           <div className="mt-3 pt-3 border-t border-slate-200 flex items-center gap-2">
             <span className="text-xs text-slate-600 font-medium">Filtros ativos:</span>
             {searchTitle && (
-              <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-2.5 py-1 rounded-md text-xs font-medium">
                 Título: "{searchTitle}"
-                <button onClick={() => setSearchTitle('')} className="hover:text-blue-900">
+                <button onClick={() => setSearchTitle('')} className="hover:text-brand-primary">
                   <X size={14} />
                 </button>
               </span>
@@ -219,7 +219,7 @@ export default function Tickets() {
               </span>
             )}
             {selectedCategory !== 'all' && (
-              <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-2.5 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-2.5 py-1 rounded-md text-xs font-medium">
                 {categories.find(c => c.id === selectedCategory)?.name}
                 <button onClick={() => setSelectedCategory('all')} className="hover:text-green-900">
                   <X size={14} />

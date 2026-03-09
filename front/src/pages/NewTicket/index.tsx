@@ -12,7 +12,7 @@ export default function NewTicket() {
   const [ticketType, setTicketType] = useState<TicketType>('INCIDENT');
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Navegação de retorno */}
       <div className="flex items-center gap-3 mb-6">
         <button

@@ -93,7 +93,7 @@ export default function AssetDetails() {
 
   if (loading) {
     return (
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
             <Loader2 size={40} className="text-primary animate-spin" />
@@ -107,7 +107,7 @@ export default function AssetDetails() {
   if (!asset) return null;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Navegação de retorno */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -202,7 +202,7 @@ export default function AssetDetails() {
             </div>
             <button
               onClick={handleInvoiceDownload}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
             >
               <Download size={16} />
               Baixar NF

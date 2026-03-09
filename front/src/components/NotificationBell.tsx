@@ -116,7 +116,7 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                className="flex items-center gap-1 text-xs text-brand-primary hover:text-brand-primary-dark transition-colors"
                 title="Marcar todas como lidas"
               >
                 <Check size={14} />
@@ -144,7 +144,7 @@ export default function NotificationBell() {
                     className={`w-full px-4 py-3 text-left transition-colors text-sm ${
                       notification.isRead 
                         ? 'hover:bg-slate-50 bg-white' 
-                        : 'hover:bg-blue-50 bg-blue-50'
+                        : 'hover:bg-brand-secondary bg-brand-secondary'
                     }`}
                   >
                     <div className="flex items-start gap-2">
@@ -165,7 +165,7 @@ export default function NotificationBell() {
                         </p>
                       </div>
                       {!notification.isRead && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                        <div className="w-2 h-2 bg-brand-primary rounded-full mt-2 flex-shrink-0" />
                       )}
                     </div>
                   </button>

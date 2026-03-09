@@ -6,9 +6,9 @@ interface MaintenanceTimelineProps {
 }
 
 const typeColors = {
-  'Preventiva': { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-800' },
+  'Preventiva': { bg: 'bg-brand-secondary', border: 'border-brand-primary', badge: 'bg-brand-secondary text-brand-primary' },
   'Corretiva': { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-800' },
-  'Upgrade': { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-800' },
+  'Upgrade': { bg: 'bg-brand-secondary', border: 'border-brand-primary', badge: 'bg-brand-secondary text-brand-primary' },
   'Transferência': { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800' },
 };
 

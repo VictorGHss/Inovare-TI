@@ -117,9 +117,9 @@ export default function UploadInvoiceModal({
           </p>
 
           {/* Alert Info */}
-          <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
-            <AlertCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-700">
+          <div className="flex gap-3 bg-brand-secondary border border-brand-primary rounded-lg p-3 mb-6">
+            <AlertCircle size={18} className="text-brand-primary flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-slate-700">
               Máximo de 5MB. Formatos aceitos: PDF, PNG, JPG.
             </p>
           </div>

@@ -164,7 +164,7 @@ export default function Assets() {
 
   if (!canManageAssets) {
     return (
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
           <p className="text-sm text-slate-500">Você não possui permissão para acessar esta área.</p>
         </div>
@@ -173,7 +173,7 @@ export default function Assets() {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Ativos (CMDB)</h1>
@@ -229,7 +229,7 @@ export default function Assets() {
                                                     e.stopPropagation();
                                                     navigate(`/assets/${asset.id}`);
                                                   }}
-                                                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                                                  className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
                                                   title="Ver detalhes do ativo"
                                                 >
                                                   <Eye size={14} />
@@ -238,7 +238,7 @@ export default function Assets() {
                         {asset.invoiceFileName ? (
                           <button
                             onClick={(e) => handleInvoiceDownload(asset, e)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
                             title="Visualizar/baixar nota fiscal"
                           >
                             <Download size={14} />
@@ -266,7 +266,7 @@ export default function Assets() {
                             e.stopPropagation();
                             openPrintModal(asset);
                           }}
-                          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
                           title="Imprimir etiqueta com QR Code"
                         >
                           <Printer size={14} />

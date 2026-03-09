@@ -237,7 +237,7 @@ export default function ItemDetails() {
                         {batch.invoiceFileName ? (
                           <button
                             onClick={(e) => handleInvoiceDownload(batch, e)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-medium bg-brand-secondary text-orange-800 hover:bg-orange-200 px-2 py-1 rounded transition-colors"
                             title="Visualizar/baixar nota fiscal"
                           >
                             <Download size={13} />

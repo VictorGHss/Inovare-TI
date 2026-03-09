@@ -117,9 +117,9 @@ export default function DefaultLayout() {
       </header>
 
       {/* Conteúdo da página atual — cresce para empurrar o rodapé */}
-      <div className="flex-grow">
+      <main className="flex-1 w-full max-w-full">
         <Outlet />
-      </div>
+      </main>
 
       {/* Rodapé */}
       <footer className="mt-auto py-4 text-center border-t border-slate-200 bg-white">

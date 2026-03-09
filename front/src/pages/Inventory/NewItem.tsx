@@ -120,7 +120,7 @@ export default function NewItem() {
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Navegação de retorno */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -216,7 +216,7 @@ export default function NewItem() {
           <button
             type="button"
             onClick={addSpecRow}
-            className="flex items-center gap-2 text-sm text-brand-primary hover:text-brand-primary-dark font-medium self-start transition-colors"
+            className="flex items-center gap-2 text-sm bg-brand-primary hover:bg-orange-500 text-white font-medium self-start px-3 py-2 rounded-lg transition-colors"
           >
             <Plus size={16} />
             Adicionar Especificação

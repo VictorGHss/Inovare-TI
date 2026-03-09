@@ -178,14 +178,14 @@ export default function BulkImportModal({
           {result && (
             <div className={`rounded-lg p-4 border ${
               result.success 
-                ? 'bg-green-50 border-green-200' 
+                ? 'bg-brand-secondary border-brand-secondary' 
                 : 'bg-yellow-50 border-yellow-200'
             }`}>
               <div className="flex items-center gap-2 mb-3">
                 {result.success ? (
                   <>
-                    <CheckCircle size={20} className="text-green-600" />
-                    <h3 className="font-semibold text-green-900">Importação Concluída!</h3>
+                    <CheckCircle size={20} className="text-orange-700" />
+                    <h3 className="font-semibold text-orange-900">Importação Concluída!</h3>
                   </>
                 ) : (
                   <>

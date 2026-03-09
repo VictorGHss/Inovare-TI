@@ -107,7 +107,7 @@ export default function Tickets() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'bg-brand-secondary text-brand-primary'
+                ? 'bg-brand-primary text-white'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -221,7 +221,7 @@ export default function Tickets() {
             {selectedCategory !== 'all' && (
               <span className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-2.5 py-1 rounded-md text-xs font-medium">
                 {categories.find(c => c.id === selectedCategory)?.name}
-                <button onClick={() => setSelectedCategory('all')} className="hover:text-green-900">
+                <button onClick={() => setSelectedCategory('all')} className="hover:text-brand-primary-dark">
                   <X size={14} />
                 </button>
               </span>

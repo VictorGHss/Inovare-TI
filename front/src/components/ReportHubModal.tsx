@@ -92,9 +92,9 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
           <button
             onClick={() => handleExport('entries')}
             disabled={exporting !== null}
-            className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-green-600 transition-all disabled:opacity-50 text-left"
+            className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-brand-secondary transition-all disabled:opacity-50 text-left"
           >
-            <TrendingUp size={20} className="text-green-600 flex-shrink-0" />
+            <TrendingUp size={20} className="text-brand-primary flex-shrink-0" />
             <div className="flex-1">
               <div className="font-semibold text-slate-800">
                 {exporting === 'entries' ? 'Exportando...' : 'Entradas de Estoque'}

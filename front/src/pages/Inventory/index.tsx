@@ -55,7 +55,7 @@ export default function Inventory() {
         <div className="flex gap-3">
           <button
             onClick={openBatchModal}
-            className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <Package size={17} />
             Entrada de Lote
@@ -126,7 +126,7 @@ export default function Inventory() {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={(e) => openBatchModalForItem(item.id, e)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-medium bg-brand-primary hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
                           title="Registrar nova entrada de lote"
                         >
                           <PackagePlus size={15} />

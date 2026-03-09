@@ -158,12 +158,12 @@ export default function UploadInvoiceModal({
 
           {/* Selected File */}
           {selectedFile && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-xs text-green-700 font-medium">Arquivo selecionado:</p>
-              <p className="text-sm text-green-800 font-semibold mt-1 break-words">
+            <div className="mt-4 p-3 bg-brand-secondary border border-brand-secondary rounded-lg">
+              <p className="text-xs text-orange-700 font-medium">Arquivo selecionado:</p>
+              <p className="text-sm text-orange-800 font-semibold mt-1 break-words">
                 {selectedFile.name}
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-xs text-orange-700 mt-1">
                 {(selectedFile.size / 1024).toFixed(2)} KB
               </p>
             </div>

@@ -229,7 +229,7 @@ export default function Assets() {
                                                     e.stopPropagation();
                                                     navigate(`/assets/${asset.id}`);
                                                   }}
-                                                  className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
+                                                  className="flex items-center gap-1.5 text-xs font-medium bg-brand-secondary text-orange-800 hover:bg-orange-200 px-3 py-1.5 rounded-lg transition-colors"
                                                   title="Ver detalhes do ativo"
                                                 >
                                                   <Eye size={14} />

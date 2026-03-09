@@ -36,11 +36,18 @@ public class LoginUseCase {
 
         var authentication = authenticationManager.authenticate(credentials);
         User user = (User) authentication.getPrincipal();
+
+        if (user.isMustChangePassword()) {
+            String tempToken = tokenService.generateInitialPasswordResetToken(user);
+            log.info("User {} requires initial password reset", user.getEmail());
+            return AuthResponseDTO.passwordResetRequired(tempToken, user.getId());
+        }
+
         String token = tokenService.generateToken(user);
 
         log.info("User {} ({}) successfully authenticated with role: {}",
                 user.getEmail(), user.getName(), user.getRole());
 
-        return new AuthResponseDTO(token, UserResponseDTO.from(user));
+        return AuthResponseDTO.authenticated(token, UserResponseDTO.from(user));
     }
 }

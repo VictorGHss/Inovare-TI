@@ -6,5 +6,6 @@ package br.dev.ctrls.inovareti.domain.analytics.dto;
 public record InventorySummaryDTO(
     long totalItems,
     long lowStockItems,
-    long outOfStockItems
+    long outOfStockItems,
+    long receivedItemsCount
 ) {}

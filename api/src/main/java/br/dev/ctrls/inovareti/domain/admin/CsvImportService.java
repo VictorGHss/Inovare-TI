@@ -141,6 +141,7 @@ public class CsvImportService {
                             .name(userName)
                             .email(userEmail)
                             .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
+                            .mustChangePassword(true)
                             .role(role)
                             .sector(sector)
                             .location(DEFAULT_LOCATION)

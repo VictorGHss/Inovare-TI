@@ -413,6 +413,7 @@ export interface InventorySummaryDTO {
   totalItems: number;
   lowStockItems: number;
   outOfStockItems: number;
+  receivedItemsCount: number;
 }
 
 export interface DashboardAnalyticsDTO {
@@ -427,6 +428,20 @@ export interface DashboardAnalyticsDTO {
   ticketsBySector: MetricDTO[];
   ticketsByRequester: MetricDTO[];
   inventorySummary: InventorySummaryDTO;
+}
+
+export interface AuthResponseDTO {
+  status: 'AUTHENTICATED' | 'PASSWORD_RESET_REQUIRED';
+  token: string | null;
+  tempToken: string | null;
+  userId: string | null;
+  user: User | null;
+}
+
+export interface ResetInitialPasswordRequestDTO {
+  tempToken: string;
+  userId: string;
+  newPassword: string;
 }
 
 // Comentário de ticket
@@ -451,6 +466,13 @@ export interface Notification {
 // Busca métricas agregadas do dashboard
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
   const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
+  return data;
+}
+
+export async function resetInitialPassword(
+  payload: ResetInitialPasswordRequestDTO,
+): Promise<AuthResponseDTO> {
+  const { data } = await api.post<AuthResponseDTO>('/api/auth/reset-initial-password', payload);
   return data;
 }
 

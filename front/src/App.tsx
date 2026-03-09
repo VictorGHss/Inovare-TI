@@ -19,6 +19,7 @@ import NewArticle from './pages/KnowledgeBase/NewArticle';
 import ArticleDetails from './pages/KnowledgeBase/ArticleDetails';
 import Assets from './pages/Assets';
 import AssetDetails from './pages/AssetDetails';
+import PrimeiroAcesso from './pages/PrimeiroAcesso';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -36,6 +37,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
       {/* Rotas protegidas compartilham o DefaultLayout */}
       <Route element={<PrivateLayoutRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />

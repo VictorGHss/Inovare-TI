@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Spring Security configuration — stateless JWT.
- * Only POST /api/auth/login is publicly accessible.
+ * Only auth bootstrap endpoints are publicly accessible.
  * All other routes require a valid Bearer token.
  */
 @Configuration
@@ -40,7 +40,7 @@ public class SecurityConfig {
      * - CSRF disabled (stateless API)
      * - CORS enabled (allows Vite dev server at localhost:5173)
      * - Session management: STATELESS
-     * - Public route: POST /api/auth/login
+    * - Public routes: POST /api/auth/login and POST /api/auth/reset-initial-password
      * - All other routes: authenticated
      * - JWT filter runs before UsernamePasswordAuthenticationFilter
      */
@@ -53,6 +53,7 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/reset-initial-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/attachments/**").permitAll()
                 .anyRequest().authenticated()
             )

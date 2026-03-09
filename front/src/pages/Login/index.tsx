@@ -23,7 +23,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signIn({ email, password });
+      const result = await signIn({ email, password });
+
+      if (result.status === 'PASSWORD_RESET_REQUIRED' && result.tempToken && result.userId) {
+        navigate('/primeiro-acesso', {
+          replace: true,
+          state: {
+            tempToken: result.tempToken,
+            userId: result.userId,
+          },
+        });
+        return;
+      }
+
       // Redireciona para o caminho anterior se existir, caso contrário vai para dashboard
       const destination = (location.state as { from?: string } | null)?.from || '/dashboard';
       navigate(destination);

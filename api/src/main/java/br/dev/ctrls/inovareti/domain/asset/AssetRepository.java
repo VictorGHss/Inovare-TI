@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AssetRepository extends JpaRepository<Asset, UUID> {
     List<Asset> findByUserId(UUID userId);
+
+    long countByUserId(UUID userId);
     
     Optional<Asset> findByPatrimonyCode(String patrimonyCode);
     

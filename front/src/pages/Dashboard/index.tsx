@@ -170,7 +170,10 @@ export default function Dashboard() {
             {!loading && (
               <>
                 <UserTicketHistory tickets={tickets} />
-                <ReceivedItemsCard tickets={tickets} />
+                <ReceivedItemsCard
+                  tickets={tickets}
+                  totalReceivedCount={analytics?.inventorySummary.receivedItemsCount ?? 0}
+                />
               </>
             )}
           </div>

@@ -7,17 +7,28 @@ import {
   type ReactNode,
 } from 'react';
 import api from '../services/api';
-import type { User } from '../services/api';
+import { resetInitialPassword, type AuthResponseDTO, type User } from '../services/api';
 
 interface SignInCredentials {
   email: string;
   password: string;
 }
 
+interface SignInResult {
+  status: 'AUTHENTICATED' | 'PASSWORD_RESET_REQUIRED';
+  tempToken?: string;
+  userId?: string;
+}
+
 interface AuthContextData {
   user: User | null;
   token: string | null;
-  signIn: (credentials: SignInCredentials) => Promise<void>;
+  signIn: (credentials: SignInCredentials) => Promise<SignInResult>;
+  completeInitialPasswordReset: (payload: {
+    tempToken: string;
+    userId: string;
+    newPassword: string;
+  }) => Promise<void>;
   signOut: () => void;
 }
 
@@ -38,15 +49,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Realiza login e persiste credenciais no localStorage
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
-    const { data } = await api.post<{ token: string; user: User }>(
+    const { data } = await api.post<AuthResponseDTO>(
       '/api/auth/login',
       { email, password },
     );
+
+    if (data.status === 'PASSWORD_RESET_REQUIRED' && data.tempToken && data.userId) {
+      return {
+        status: 'PASSWORD_RESET_REQUIRED' as const,
+        tempToken: data.tempToken,
+        userId: data.userId,
+      };
+    }
+
+    if (!data.token || !data.user) {
+      throw new Error('Resposta de autenticação inválida.');
+    }
 
     localStorage.setItem('@InovareTI:token', data.token);
     localStorage.setItem('@InovareTI:user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+
+    return { status: 'AUTHENTICATED' as const };
+  }, []);
+
+  const completeInitialPasswordReset = useCallback(async (payload: {
+    tempToken: string;
+    userId: string;
+    newPassword: string;
+  }) => {
+    const response = await resetInitialPassword(payload);
+
+    if (!response.token || !response.user) {
+      throw new Error('Falha ao concluir redefinição de senha.');
+    }
+
+    localStorage.setItem('@InovareTI:token', response.token);
+    localStorage.setItem('@InovareTI:user', JSON.stringify(response.user));
+    setToken(response.token);
+    setUser(response.user);
   }, []);
 
   // Remove as credenciais e desconecta o usuário
@@ -58,7 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, token, signIn, completeInitialPasswordReset, signOut }}>
       {children}
     </AuthContext.Provider>
   );

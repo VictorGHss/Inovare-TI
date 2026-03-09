@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.InventorySummaryDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
+import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
@@ -31,6 +32,7 @@ public class GetDashboardAnalyticsUseCase {
 
     private final TicketRepository ticketRepository;
     private final ItemRepository itemRepository;
+        private final AssetRepository assetRepository;
 
     private static final int LOW_STOCK_THRESHOLD = 3;
     private static final int OUT_OF_STOCK_THRESHOLD = 0;
@@ -83,7 +85,27 @@ public class GetDashboardAnalyticsUseCase {
         long totalItems = itemRepository.count();
         long lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
         long outOfStockItems = itemRepository.countByCurrentStockLessThanEqual(OUT_OF_STOCK_THRESHOLD);
-        InventorySummaryDTO inventorySummary = new InventorySummaryDTO(totalItems, lowStockItems, outOfStockItems);
+        long receivedItemsCount = 0;
+
+        if (userRole == UserRole.USER) {
+            long receivedInventoryItems = allTickets.stream()
+                    .filter(ticket -> ticket.getStatus() == TicketStatus.RESOLVED)
+                    .filter(ticket -> ticket.getRequestedItem() != null)
+                    .mapToLong(ticket -> ticket.getRequestedQuantity() != null
+                            ? ticket.getRequestedQuantity().longValue()
+                            : 0L)
+                    .sum();
+
+            long receivedAssets = assetRepository.countByUserId(userId);
+            receivedItemsCount = receivedInventoryItems + receivedAssets;
+        }
+
+        InventorySummaryDTO inventorySummary = new InventorySummaryDTO(
+                totalItems,
+                lowStockItems,
+                outOfStockItems,
+                receivedItemsCount
+        );
 
         log.info("Analytics retrieved: open={}, inProgress={}, resolved={}, closed={}, lowStock={}",
                 openTickets, inProgressTickets, resolvedTickets, closedTickets, lowStockItems);

@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
+import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final LoginUseCase loginUseCase;
+    private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
 
     /**
      * Authenticates the user and returns a signed JWT token.
@@ -33,5 +36,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
         return ResponseEntity.ok(loginUseCase.execute(request));
+    }
+
+    @PostMapping("/reset-initial-password")
+    public ResponseEntity<AuthResponseDTO> resetInitialPassword(
+            @Valid @RequestBody ResetInitialPasswordRequestDTO request) {
+        return ResponseEntity.ok(resetInitialPasswordUseCase.execute(request));
     }
 }

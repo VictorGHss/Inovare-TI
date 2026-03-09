@@ -3,9 +3,10 @@ import { CheckCircle2 } from 'lucide-react';
 
 interface ReceivedItemsCardProps {
   tickets: Ticket[];
+  totalReceivedCount: number;
 }
 
-export default function ReceivedItemsCard({ tickets }: ReceivedItemsCardProps) {
+export default function ReceivedItemsCard({ tickets, totalReceivedCount }: ReceivedItemsCardProps) {
   // Filter tickets that are RESOLVED and have requested items
   const receivedItems = tickets
     .filter((t) => t.status === 'RESOLVED' && t.requestedItemName)
@@ -14,6 +15,7 @@ export default function ReceivedItemsCard({ tickets }: ReceivedItemsCardProps) {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-slate-800 mb-4">Itens Recebidos da TI</h3>
+      <p className="text-sm text-slate-500 mb-4">Total recebido: <span className="font-semibold text-slate-700">{totalReceivedCount}</span></p>
       
       {receivedItems.length === 0 ? (
         <p className="text-slate-500 text-center py-6">Nenhum item recebido ainda</p>

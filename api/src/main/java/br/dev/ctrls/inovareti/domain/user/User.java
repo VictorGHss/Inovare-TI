@@ -63,7 +63,7 @@ public class User implements UserDetails {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "must_change_password", nullable = false)
+    @Column(name = "must_change_password", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private boolean mustChangePassword = false;
 

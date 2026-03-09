@@ -20,6 +20,7 @@ import ArticleDetails from './pages/KnowledgeBase/ArticleDetails';
 import Assets from './pages/Assets';
 import AssetDetails from './pages/AssetDetails';
 import PrimeiroAcesso from './pages/PrimeiroAcesso';
+import Profile from './pages/Profile';
 
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
@@ -53,6 +54,7 @@ function AppRoutes() {
         {/* Rotas de ativos (CMDB) */}
         <Route path="/assets" element={<Assets />} />
         <Route path="/assets/:id" element={<AssetDetails />} />
+        <Route path="/profile" element={<Profile />} />
         {/* Rotas de gestão de pessoas (requerem ADMIN) */}
         <Route path="/users" element={<Users />} />
         <Route path="/sectors" element={<Sectors />} />

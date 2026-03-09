@@ -107,6 +107,16 @@ export default function DefaultLayout() {
             {user?.name ?? 'Usuário'}
           </span>
           <button
+            onClick={() => navigate('/profile')}
+            className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              location.pathname.startsWith('/profile')
+                ? 'bg-brand-primary text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Meu Perfil
+          </button>
+          <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-500 transition-colors"
           >

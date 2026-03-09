@@ -5,14 +5,19 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.domain.user.usecase.ChangeMyPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ListAllUsersUseCase;
 import jakarta.validation.Valid;
@@ -29,6 +34,7 @@ public class UserController {
 
     private final CreateUserUseCase createUserUseCase;
     private final ListAllUsersUseCase listAllUsersUseCase;
+    private final ChangeMyPasswordUseCase changeMyPasswordUseCase;
 
     /**
      * Cria um novo usuário.
@@ -50,5 +56,15 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllUsersUseCase.execute());
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changeMyPassword(@Valid @RequestBody ChangePasswordRequestDTO request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String authenticatedUserId = auth.getPrincipal().toString();
+
+        changeMyPasswordUseCase.execute(authenticatedUserId, request);
+        return ResponseEntity.noContent().build();
     }
 }

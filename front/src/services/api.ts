@@ -444,6 +444,11 @@ export interface ResetInitialPasswordRequestDTO {
   newPassword: string;
 }
 
+export interface ChangePasswordRequestDTO {
+  currentPassword: string;
+  newPassword: string;
+}
+
 // Comentário de ticket
 export interface TicketComment {
   id: string;
@@ -474,6 +479,11 @@ export async function resetInitialPassword(
 ): Promise<AuthResponseDTO> {
   const { data } = await api.post<AuthResponseDTO>('/api/auth/reset-initial-password', payload);
   return data;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const payload: ChangePasswordRequestDTO = { currentPassword, newPassword };
+  await api.put('/api/users/me/password', payload);
 }
 
 // Exporta relatório de tickets em Excel

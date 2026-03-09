@@ -17,8 +17,18 @@ export default function PrimeiroAcesso() {
   const { completeInitialPasswordReset } = useAuth();
 
   const state = (location.state as FirstAccessState | null) ?? null;
-  const tempToken = state?.tempToken;
-  const userId = state?.userId;
+  const pending = (() => {
+    const raw = sessionStorage.getItem('@InovareTI:firstAccess');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as FirstAccessState;
+    } catch {
+      return null;
+    }
+  })();
+
+  const tempToken = state?.tempToken ?? pending?.tempToken;
+  const userId = state?.userId ?? pending?.userId;
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,6 +45,12 @@ export default function PrimeiroAcesso() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
+    if (!tempToken || !userId) {
+      toast.error('Sessão de primeiro acesso inválida. Faça login novamente.');
+      navigate('/login', { replace: true });
+      return;
+    }
+
     if (newPassword.length < 8) {
       toast.error('A nova senha deve ter pelo menos 8 caracteres.');
       return;
@@ -48,13 +64,15 @@ export default function PrimeiroAcesso() {
     setLoading(true);
     try {
       await completeInitialPasswordReset({
-        tempToken: tempToken!,
-        userId: userId!,
+        tempToken,
+        userId,
         newPassword,
       });
+      sessionStorage.removeItem('@InovareTI:firstAccess');
       toast.success('Senha atualizada com sucesso!');
       navigate('/dashboard', { replace: true });
     } catch {
+      sessionStorage.removeItem('@InovareTI:firstAccess');
       toast.error('Não foi possível redefinir a senha. Faça login novamente.');
       navigate('/login', { replace: true });
     } finally {

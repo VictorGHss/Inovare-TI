@@ -26,6 +26,10 @@ export default function Login() {
       const result = await signIn({ email, password });
 
       if (result.status === 'PASSWORD_RESET_REQUIRED' && result.tempToken && result.userId) {
+        sessionStorage.setItem(
+          '@InovareTI:firstAccess',
+          JSON.stringify({ tempToken: result.tempToken, userId: result.userId }),
+        );
         navigate('/primeiro-acesso', {
           replace: true,
           state: {

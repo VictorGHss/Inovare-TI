@@ -104,21 +104,22 @@ public class CsvImportService {
         String[] columns = line.split(",", -1);
         
         if (columns.length < 4) {
-            throw new IllegalArgumentException("Linha com formato inválido. Mínimo 4 colunas esperadas.");
+            throw new IllegalArgumentException("Invalid line format. Minimum 4 columns expected.");
         }
         
-        String userName = columns[0].trim();
-        String userEmail = columns[1].trim();
-        String userRoleStr = columns.length > 2 ? columns[2].trim() : "";
-        String sectorName = columns.length > 3 ? columns[3].trim() : "";
-        String assetName = columns.length > 4 ? columns[4].trim() : "";
-        String assetCategoryName = columns.length > 5 ? columns[5].trim() : "";
-        String patrimonyCode = columns.length > 6 ? columns[6].trim() : "";
-        String assetSpecs = columns.length > 7 ? columns[7].trim() : "";
+        // Extract and trim all fields in a bullet-proof manner
+        String userName = extractAndTrim(columns, 0);
+        String userEmail = extractAndTrim(columns, 1);
+        String userRoleStr = extractAndTrim(columns, 2);
+        String sectorName = extractAndTrim(columns, 3);
+        String assetName = extractAndTrim(columns, 4);
+        String assetCategoryName = extractAndTrim(columns, 5);
+        String patrimonyCode = extractAndTrim(columns, 6);
+        String assetSpecs = extractAndTrim(columns, 7);
         
         // Validate required fields
         if (userName.isEmpty() || userEmail.isEmpty() || sectorName.isEmpty()) {
-            throw new IllegalArgumentException("UserName, UserEmail e SectorName são obrigatórios");
+            throw new IllegalArgumentException("UserName, UserEmail and SectorName are required");
         }
         
         // 1. Find or create Sector
@@ -217,5 +218,31 @@ public class CsvImportService {
             log.warn("Invalid role '{}', defaulting to USER", roleStr);
             return UserRole.USER;
         }
+    }
+    
+    /**
+     * Safely extracts a value from a CSV column array and applies trimming.
+     * This method is designed to be bullet-proof against whitespace issues.
+     * 
+     * @param columns the split CSV columns array
+     * @param index the column index to extract
+     * @return the trimmed string value, or empty string if index is out of bounds
+     */
+    private String extractAndTrim(String[] columns, int index) {
+        // Handle index out of bounds gracefully
+        if (index < 0 || index >= columns.length) {
+            return "";
+        }
+        
+        String value = columns[index];
+        
+        // Handle null value
+        if (value == null) {
+            return "";
+        }
+        
+        // Apply trim() to remove leading and trailing whitespace
+        // Also use strip() to handle Unicode whitespace characters
+        return value.trim().strip();
     }
 }

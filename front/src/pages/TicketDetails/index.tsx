@@ -11,6 +11,7 @@ import {
   transferTicket,
   getUsers,
   getAssetsByUser,
+  type ResolveTicketRequest,
   type Ticket,
   type User,
   type Asset,
@@ -101,21 +102,11 @@ export default function TicketDetails() {
     fetchAssets();
   }, [ticket?.requesterId]);
 
-  async function handleResolve(
-    resolutionNotes: string,
-    assetId?: string,
-    itemId?: string,
-    quantity?: number
-  ) {
+  async function handleResolve(request: ResolveTicketRequest) {
     if (!ticket) return;
     setClosing(true);
     try {
-      const updated = await resolveTicket(ticket.id, {
-        resolutionNotes,
-        assetIdToDeliver: assetId,
-        inventoryItemIdToDeliver: itemId,
-        quantityToDeliver: quantity,
-      });
+      const updated = await resolveTicket(ticket.id, request);
       setTicket(updated);
       toast.success('Chamado resolvido com sucesso!');
     } catch {
@@ -479,6 +470,7 @@ export default function TicketDetails() {
         isOpen={showResolveModal}
         onClose={() => setShowResolveModal(false)}
         onResolve={handleResolve}
+        requesterId={ticket.requesterId}
         isSubmitting={closing}
       />
     </main>

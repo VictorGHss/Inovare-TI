@@ -19,6 +19,8 @@ public record AssetRequestDTO(
         @Size(max = 80, message = "Patrimony code must have at most 80 characters.")
         String patrimonyCode,
 
+        UUID categoryId,
+
         String specifications
 
 ) {}

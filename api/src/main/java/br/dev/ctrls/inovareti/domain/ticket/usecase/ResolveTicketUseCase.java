@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.asset.Asset;
+import br.dev.ctrls.inovareti.domain.asset.AssetCategory;
+import br.dev.ctrls.inovareti.domain.asset.AssetCategoryRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetMaintenance;
 import br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
@@ -40,6 +42,7 @@ public class ResolveTicketUseCase {
     private final TicketRepository ticketRepository;
     private final ItemRepository itemRepository;
     private final AssetRepository assetRepository;
+        private final AssetCategoryRepository assetCategoryRepository;
     private final AssetMaintenanceRepository assetMaintenanceRepository;
     private final CreateNotificationService createNotificationService;
 
@@ -76,6 +79,11 @@ public class ResolveTicketUseCase {
                     ticketId, item.getName(), ticket.getRequestedQuantity(), newStock);
         }
 
+        if (request.assetIdToDeliver() != null && request.newAssetToDeliver() != null) {
+            throw new IllegalStateException(
+                    "Choose only one asset delivery mode: existing asset or quick new asset registration.");
+        }
+
         // Deliver asset if assetIdToDeliver is provided
         if (request.assetIdToDeliver() != null) {
             Asset asset = assetRepository.findById(request.assetIdToDeliver())
@@ -106,6 +114,52 @@ public class ResolveTicketUseCase {
             assetMaintenanceRepository.save(maintenance);
             log.info("AssetMaintenance TRANSFER record created for asset {}", asset.getId());
         }
+
+                // Quick-register and deliver a new asset if provided
+                if (request.newAssetToDeliver() != null) {
+                        var newAssetRequest = request.newAssetToDeliver();
+
+                        if (newAssetRequest.name() == null || newAssetRequest.name().isBlank()) {
+                                throw new IllegalStateException("New asset name is required.");
+                        }
+                        if (newAssetRequest.patrimonyCode() == null || newAssetRequest.patrimonyCode().isBlank()) {
+                                throw new IllegalStateException("New asset patrimony code is required.");
+                        }
+                        if (newAssetRequest.categoryId() == null) {
+                                throw new IllegalStateException("New asset category is required.");
+                        }
+                        if (assetRepository.existsByPatrimonyCode(newAssetRequest.patrimonyCode().trim())) {
+                                throw new IllegalStateException(
+                                                "Patrimony code '" + newAssetRequest.patrimonyCode().trim() + "' is already in use.");
+                        }
+
+                        AssetCategory category = assetCategoryRepository.findById(newAssetRequest.categoryId())
+                                        .orElseThrow(() -> new NotFoundException(
+                                                        "Asset category not found with id: " + newAssetRequest.categoryId()));
+
+                        Asset newAsset = Asset.builder()
+                                        .userId(ticket.getRequester().getId())
+                                        .name(newAssetRequest.name().trim())
+                                        .patrimonyCode(newAssetRequest.patrimonyCode().trim())
+                                        .category(category)
+                                        .specifications(newAssetRequest.specifications())
+                                        .build();
+
+                        Asset deliveredAsset = assetRepository.save(newAsset);
+                        log.info("New asset {} created and delivered to requester {} via ticket {}",
+                                        deliveredAsset.getId(), ticket.getRequester().getId(), ticketId);
+
+                        AssetMaintenance maintenance = AssetMaintenance.builder()
+                                        .asset(deliveredAsset)
+                                        .maintenanceDate(LocalDate.now())
+                                        .type(AssetMaintenance.MaintenanceType.TRANSFER)
+                                        .description("Ativo cadastrado e entregue via Chamado #" + ticket.getId())
+                                        .cost(BigDecimal.ZERO)
+                                        .technician(ticket.getAssignedTo() != null ? ticket.getAssignedTo() : ticket.getRequester())
+                                        .build();
+                        assetMaintenanceRepository.save(maintenance);
+                        log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
+                }
 
         // Deliver inventory item if inventoryItemIdToDeliver is provided
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
@@ -151,7 +205,7 @@ public class ResolveTicketUseCase {
      */
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {
-        return execute(ticketId, new ResolveTicketDTO(null, null, null, null));
+                return execute(ticketId, new ResolveTicketDTO(null, null, null, null, null));
     }
 }
 

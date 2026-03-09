@@ -57,7 +57,7 @@ export interface ItemCategory {
 export interface Asset {
   id: string;
   userId: string;
-    assignedToName: string | null;
+  assignedToName: string | null;
   name: string;
   patrimonyCode: string;
   specifications: string | null;
@@ -71,7 +71,27 @@ export interface CreateAssetDto {
   userId: string;
   name: string;
   patrimonyCode: string;
+  categoryId?: string;
   specifications?: string;
+}
+
+export interface AssetCategory {
+  id: string;
+  name: string;
+}
+
+export interface ResolveTicketRequest {
+  resolutionNotes?: string;
+  assetIdToDeliver?: string;
+  inventoryItemIdToDeliver?: string;
+  quantityToDeliver?: number;
+  newAssetToDeliver?: {
+    userId: string;
+    name: string;
+    patrimonyCode: string;
+    categoryId: string;
+    specifications?: string;
+  };
 }
 
 export interface CreateItemDto {
@@ -273,12 +293,7 @@ export async function getTicketById(id: string): Promise<Ticket> {
 }
 
 // Resolve um chamado existente pelo UUID
-export async function resolveTicket(id: string, request: {
-  resolutionNotes?: string;
-  assetIdToDeliver?: string;
-  inventoryItemIdToDeliver?: string;
-  quantityToDeliver?: number;
-}): Promise<Ticket> {
+export async function resolveTicket(id: string, request: ResolveTicketRequest): Promise<Ticket> {
   const { data } = await api.patch<Ticket>(`/api/tickets/${id}/resolve`, request);
   return data;
 }
@@ -331,6 +346,11 @@ export async function getAssetById(id: string): Promise<Asset> {
 
 export async function getAssetsByUser(userId: string): Promise<Asset[]> {
   const { data } = await api.get<Asset[]>(`/api/assets/user/${userId}`);
+  return data;
+}
+
+export async function getAssetCategories(): Promise<AssetCategory[]> {
+  const { data } = await api.get<AssetCategory[]>('/api/asset-categories');
   return data;
 }
 

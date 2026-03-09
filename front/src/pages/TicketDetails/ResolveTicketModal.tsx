@@ -2,36 +2,53 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, Laptop, Box } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAssets, getItems, type Asset, type Item } from '../../services/api';
+import {
+  getAssets,
+  getItems,
+  getAssetCategories,
+  type Asset,
+  type Item,
+  type AssetCategory,
+  type ResolveTicketRequest,
+} from '../../services/api';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onResolve: (resolutionNotes: string, assetId?: string, itemId?: string, quantity?: number) => Promise<void>;
+  requesterId: string;
+  onResolve: (request: ResolveTicketRequest) => Promise<void>;
   isSubmitting: boolean;
 }
 
 export default function ResolveTicketModal({
   isOpen,
   onClose,
+  requesterId,
   onResolve,
   isSubmitting,
 }: ResolveTicketModalProps) {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [deliverEquipment, setDeliverEquipment] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'asset' | 'item'>('asset');
+  const [assetMode, setAssetMode] = useState<'existing' | 'new'>('existing');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedItemId, setSelectedItemId] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [newAssetName, setNewAssetName] = useState('');
+  const [newAssetCategoryId, setNewAssetCategoryId] = useState('');
+  const [newAssetPatrimonyCode, setNewAssetPatrimonyCode] = useState('');
+  const [newAssetSpecifications, setNewAssetSpecifications] = useState('');
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [loadingAssetCategories, setLoadingAssetCategories] = useState(false);
 
   // Carrega assets ao abrir modal ou ao mudar deliverEquipment
   useEffect(() => {
     async function loadAssets() {
-      if (!deliverEquipment || deliveryType !== 'asset') {
+      if (!deliverEquipment || deliveryType !== 'asset' || assetMode !== 'existing') {
         setAssets([]);
         return;
       }
@@ -52,7 +69,29 @@ export default function ResolveTicketModal({
     }
 
     loadAssets();
-  }, [deliverEquipment, deliveryType]);
+  }, [deliverEquipment, deliveryType, assetMode]);
+
+  useEffect(() => {
+    async function loadAssetCategories() {
+      if (!deliverEquipment || deliveryType !== 'asset' || assetMode !== 'new') {
+        setAssetCategories([]);
+        return;
+      }
+
+      setLoadingAssetCategories(true);
+      try {
+        const data = await getAssetCategories();
+        setAssetCategories(data);
+      } catch {
+        toast.error('Erro ao carregar categorias de ativo.');
+        setAssetCategories([]);
+      } finally {
+        setLoadingAssetCategories(false);
+      }
+    }
+
+    loadAssetCategories();
+  }, [deliverEquipment, deliveryType, assetMode]);
 
   // Carrega items ao abrir modal ou ao mudar deliverEquipment
   useEffect(() => {
@@ -89,9 +128,26 @@ export default function ResolveTicketModal({
     }
 
     if (deliverEquipment) {
-      if (deliveryType === 'asset' && !selectedAssetId) {
-        toast.error('Selecione um equipamento para entregar.');
-        return;
+      if (deliveryType === 'asset') {
+        if (assetMode === 'existing' && !selectedAssetId) {
+          toast.error('Selecione um equipamento para entregar.');
+          return;
+        }
+
+        if (assetMode === 'new') {
+          if (!newAssetName.trim()) {
+            toast.error('Informe o nome do ativo.');
+            return;
+          }
+          if (!newAssetCategoryId) {
+            toast.error('Selecione a categoria do ativo.');
+            return;
+          }
+          if (!newAssetPatrimonyCode.trim()) {
+            toast.error('Informe o código do patrimônio.');
+            return;
+          }
+        }
       }
 
       if (deliveryType === 'item' && (!selectedItemId || quantity < 1)) {
@@ -101,19 +157,43 @@ export default function ResolveTicketModal({
     }
 
     try {
-      if (deliverEquipment && deliveryType === 'asset') {
-        await onResolve(resolutionNotes, selectedAssetId, undefined, undefined);
+      if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
+        await onResolve({
+          resolutionNotes,
+          assetIdToDeliver: selectedAssetId,
+        });
+      } else if (deliverEquipment && deliveryType === 'asset' && assetMode === 'new') {
+        await onResolve({
+          resolutionNotes,
+          newAssetToDeliver: {
+            userId: requesterId,
+            name: newAssetName.trim(),
+            patrimonyCode: newAssetPatrimonyCode.trim(),
+            categoryId: newAssetCategoryId,
+            specifications: newAssetSpecifications.trim() || undefined,
+          },
+        });
       } else if (deliverEquipment && deliveryType === 'item') {
-        await onResolve(resolutionNotes, undefined, selectedItemId, quantity);
+        await onResolve({
+          resolutionNotes,
+          inventoryItemIdToDeliver: selectedItemId,
+          quantityToDeliver: quantity,
+        });
       } else {
-        await onResolve(resolutionNotes, undefined, undefined, undefined);
+        await onResolve({ resolutionNotes });
       }
 
       setResolutionNotes('');
       setDeliverEquipment(false);
+      setDeliveryType('asset');
+      setAssetMode('existing');
       setSelectedAssetId('');
       setSelectedItemId('');
       setQuantity(1);
+      setNewAssetName('');
+      setNewAssetCategoryId('');
+      setNewAssetPatrimonyCode('');
+      setNewAssetSpecifications('');
       onClose();
     } catch (error) {
       console.error('Erro ao resolver chamado:', error);
@@ -203,28 +283,120 @@ export default function ResolveTicketModal({
 
               {/* Asset Selection */}
               {deliveryType === 'asset' && (
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Selecione o Equipamento *
-                  </label>
-                  {loadingAssets ? (
-                    <div className="text-sm text-slate-500">Carregando equipamentos...</div>
-                  ) : assets.length === 0 ? (
-                    <div className="text-sm text-red-600">Nenhum equipamento disponível no estoque da TI.</div>
-                  ) : (
-                    <select
-                      value={selectedAssetId}
-                      onChange={(e) => setSelectedAssetId(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <div className="flex flex-col gap-4">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAssetMode('existing')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        assetMode === 'existing'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                      }`}
                       disabled={isSubmitting}
                     >
-                      <option value="">-- Selecione um equipamento --</option>
-                      {assets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name} ({asset.patrimonyCode})
-                        </option>
-                      ))}
-                    </select>
+                      Selecionar Existente
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssetMode('new')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        assetMode === 'new'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                      }`}
+                      disabled={isSubmitting}
+                    >
+                      Cadastrar Novo
+                    </button>
+                  </div>
+
+                  {assetMode === 'existing' && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-slate-700">
+                        Selecione o Equipamento *
+                      </label>
+                      {loadingAssets ? (
+                        <div className="text-sm text-slate-500">Carregando equipamentos...</div>
+                      ) : assets.length === 0 ? (
+                        <div className="text-sm text-red-600">Nenhum equipamento disponível no estoque da TI.</div>
+                      ) : (
+                        <select
+                          value={selectedAssetId}
+                          onChange={(e) => setSelectedAssetId(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          disabled={isSubmitting}
+                        >
+                          <option value="">-- Selecione um equipamento --</option>
+                          {assets.map((asset) => (
+                            <option key={asset.id} value={asset.id}>
+                              {asset.name} ({asset.patrimonyCode})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {assetMode === 'new' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Nome do Ativo *</label>
+                        <input
+                          type="text"
+                          value={newAssetName}
+                          onChange={(e) => setNewAssetName(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex.: Notebook Dell Latitude"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-700">Categoria *</label>
+                        {loadingAssetCategories ? (
+                          <div className="text-sm text-slate-500">Carregando categorias...</div>
+                        ) : (
+                          <select
+                            value={newAssetCategoryId}
+                            onChange={(e) => setNewAssetCategoryId(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={isSubmitting}
+                          >
+                            <option value="">-- Selecione a categoria --</option>
+                            {assetCategories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-700">Código do Patrimônio *</label>
+                        <input
+                          type="text"
+                          value={newAssetPatrimonyCode}
+                          onChange={(e) => setNewAssetPatrimonyCode(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex.: PAT-2026-001"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700">Especificações</label>
+                        <textarea
+                          value={newAssetSpecifications}
+                          onChange={(e) => setNewAssetSpecifications(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows={3}
+                          placeholder="CPU, memória, armazenamento, etc."
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

@@ -82,12 +82,18 @@ public class GetDashboardAnalyticsUseCase {
         List<MetricDTO> ticketsByRequester = buildTicketsByRequesterMetrics(allTickets);
 
         // Build inventory summary metrics
-        long totalItems = itemRepository.count();
-        long lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
-        long outOfStockItems = itemRepository.countByCurrentStockLessThanEqual(OUT_OF_STOCK_THRESHOLD);
+        // SECURITY: Only ADMIN and TECHNICIAN see global inventory data
+        long totalItems;
+        long lowStockItems;
+        long outOfStockItems;
         long receivedItemsCount = 0;
 
         if (userRole == UserRole.USER) {
+            // USER sees only their own received items count, no global inventory data
+            totalItems = 0;
+            lowStockItems = 0;
+            outOfStockItems = 0;
+
             long receivedInventoryItems = allTickets.stream()
                     .filter(ticket -> ticket.getStatus() == TicketStatus.RESOLVED)
                     .filter(ticket -> ticket.getRequestedItem() != null)
@@ -98,6 +104,13 @@ public class GetDashboardAnalyticsUseCase {
 
             long receivedAssets = assetRepository.countByUserId(userId);
             receivedItemsCount = receivedInventoryItems + receivedAssets;
+            
+            log.debug("USER {} dashboard: inventory data hidden, receivedItems={}", userId, receivedItemsCount);
+        } else {
+            // ADMIN and TECHNICIAN see all global inventory metrics
+            totalItems = itemRepository.count();
+            lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
+            outOfStockItems = itemRepository.countByCurrentStockLessThanEqual(OUT_OF_STOCK_THRESHOLD);
         }
 
         InventorySummaryDTO inventorySummary = new InventorySummaryDTO(

@@ -6,6 +6,7 @@ interface SummaryAsideProps {
   lowStockItems: number;
   totalTickets?: number;
   closedTickets?: number;
+  isAdmin?: boolean;
 }
 
 interface SummaryItem {
@@ -21,12 +22,14 @@ export default function SummaryAside({
   lowStockItems,
   totalTickets,
   closedTickets = 0,
+  isAdmin = true,
 }: SummaryAsideProps) {
   const summaryItems: SummaryItem[] = [
     { label: 'Abertos', value: openTickets, color: 'text-red-600' },
     { label: 'Em Andamento', value: inProgressTickets, color: 'text-yellow-600' },
     { label: 'Resolvidos', value: resolvedTickets, color: 'text-green-600' },
-    { label: 'Itens Baixo Estoque', value: lowStockItems, color: 'text-orange-600' },
+    // SECURITY: Only show low stock items for ADMIN and TECHNICIAN
+    ...(isAdmin ? [{ label: 'Itens Baixo Estoque', value: lowStockItems, color: 'text-orange-600' }] : []),
   ];
 
   // Use provided totalTickets or calculate from components

@@ -1,6 +1,6 @@
 // Modal para resolver chamado com opção de entregar equipamento/material
 import { useState, useEffect, type FormEvent } from 'react';
-import { X, Laptop, Box } from 'lucide-react';
+import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getAssets,
@@ -10,6 +10,7 @@ import {
   type Item,
   type AssetCategory,
   type ResolveTicketRequest,
+  type Ticket,
 } from '../../services/api';
 
 interface ResolveTicketModalProps {
@@ -18,6 +19,7 @@ interface ResolveTicketModalProps {
   requesterId: string;
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
   isSubmitting: boolean;
+  ticket?: Ticket;
 }
 
 export default function ResolveTicketModal({
@@ -26,6 +28,7 @@ export default function ResolveTicketModal({
   requesterId,
   onResolve,
   isSubmitting,
+  ticket,
 }: ResolveTicketModalProps) {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [deliverEquipment, setDeliverEquipment] = useState(false);
@@ -236,22 +239,36 @@ export default function ResolveTicketModal({
           {/* Deliver Equipment Checkbox */}
           <div className="flex items-center gap-2">
             <input
-              type="checkbox"
               id="deliverEquipment"
-              checked={deliverEquipment}
-              onChange={(e) => setDeliverEquipment(e.target.checked)}
-              className="w-4 h-4 cursor-pointer"
-              disabled={isSubmitting}
-            />
-            <label htmlFor="deliverEquipment" className="text-sm font-medium text-slate-700 cursor-pointer">
-              Entregar Equipamento ou Material nesta resolução?
-            </label>
-          </div>
-
-          {/* Delivery Options */}
-          {deliverEquipment && (
+                      </div>
             <div className="border border-brand-primary bg-brand-secondary rounded-lg p-4 flex flex-col gap-4">
+                      {/* Auto-deduction message when ticket has requested item */}
+                      {ticket?.requestedItem && ticket?.requestedQuantity ? (
+                        <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <AlertCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-blue-900">
+                              Dedu ção Automática
+                            </p>
+                            <p className="text-sm text-blue-700 mt-1">
+                              O item <strong>{ticket.requestedItem.name}</strong> ({ticket.requestedQuantity} unidade{ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do estoque ao fechar este chamado.
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
               {/* Delivery Type Tabs */}
+                      {/* Deliver Equipment Checkbox */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="deliverEquipment"
+                          checked={deliverEquipment}
+                          onChange={(e) => setDeliverEquipment(e.target.checked)}
+                          className="w-4 h-4 cursor-pointer"
+                          disabled={isSubmitting || (!!ticket?.requestedItem && !!ticket?.requestedQuantity)}
+                        />
+                        <label htmlFor="deliverEquipment" className="text-sm font-medium text-slate-700 cursor-pointer">
+                          Entregar Equipamento ou Material nesta resolução?
               <div className="flex gap-2">
                 <button
                   type="button"

@@ -1,10 +1,10 @@
 // Dashboard dinâmica para Admin e User
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Download } from 'lucide-react';
+import { PlusCircle, Download, Laptop } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { getDashboardAnalytics, getTickets, type Ticket, type DashboardAnalyticsDTO } from '../../services/api';
+import { getDashboardAnalytics, getTickets, getAssets, type Ticket, type DashboardAnalyticsDTO, type Asset } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [analytics, setAnalytics] = useState<DashboardAnalyticsDTO | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportHubOpen, setReportHubOpen] = useState(false);
 
@@ -72,7 +73,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Summary cards no topo */}
+      {/* Summary cards no topo — SECURITY: hide inventory data for USER */}
       <div className="mb-8">
         {loading ? (
           <SkeletonTable />
@@ -81,9 +82,10 @@ export default function Dashboard() {
             openTickets={analytics?.totalOpenTickets ?? 0}
             inProgressTickets={analytics?.totalInProgressTickets ?? 0}
             resolvedTickets={analytics?.totalResolvedTickets ?? 0}
-            lowStockItems={analytics?.lowStockItemsCount ?? 0}
+            lowStockItems={isAdmin ? (analytics?.lowStockItemsCount ?? 0) : 0}
             totalTickets={analytics?.totalTickets ?? 0}
             closedTickets={analytics?.totalClosedTickets ?? 0}
+            isAdmin={isAdmin}
           />
         )}
       </div>
@@ -173,15 +175,79 @@ export default function Dashboard() {
                 <ReceivedItemsCard
                   tickets={tickets}
                   totalReceivedCount={analytics?.inventorySummary.receivedItemsCount ?? 0}
-                />
-              </>
-            )}
-          </div>
-        </>
-      )}
+                ) : (
+                  <>
+                    {/* User Dashboard */}
+                    <div className="grid grid-cols-1 gap-6">
+                      {!loading && (
+                        <>
+                          <UserTicketHistory tickets={tickets} />
+                          <ReceivedItemsCard
+                            tickets={tickets}
+                            totalReceivedCount={analytics?.inventorySummary.receivedItemsCount ?? 0}
+                          />
 
-      <ReportHubModal isOpen={reportHubOpen} onClose={() => setReportHubOpen(false)} />
-    </main>
-  );
-}
+                          {/* Meus Equipamentos/Ativos */}
+                          {assets.length > 0 && (
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                              <div className="flex items-center gap-2 mb-4">
+                                <Laptop size={18} className="text-slate-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">
+                                  Meus Equipamentos
+                                </h3>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left">Nome</th>
+                                      <th className="px-4 py-3 text-left">Patrimônio</th>
+                                      <th className="px-4 py-3 text-left">Ação</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {assets.map(asset => (
+                                      <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-3 font-medium text-slate-800">
+                                          {asset.name}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-600">
+                                          {asset.patrimonyCode}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <button
+                                            onClick={() => navigate(`/assets/${asset.id}`)}
+                                            className="text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+                                          >
+                                            Detalhes
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+      const loadUserAssets = async () => {
+        try {
+          const allAssets = await getAssets();
+          // Filter assets assigned to this user
+          const userAssets = allAssets.filter(asset => asset.userId === user.id);
+          setAssets(userAssets);
+        } catch {
+          // Fail silently for assets
+          setAssets([]);
+        }
+      };
+      loadUserAssets();
+    }
+  }, [isAdmin, user?.id]);
+
+  return (
 

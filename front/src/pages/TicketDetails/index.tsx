@@ -472,6 +472,7 @@ export default function TicketDetails() {
         onResolve={handleResolve}
         requesterId={ticket.requesterId}
         isSubmitting={closing}
+        ticket={ticket}
       />
     </main>
   );

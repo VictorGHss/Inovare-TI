@@ -198,7 +198,7 @@ export default function Dashboard() {
                           <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3 font-medium text-slate-800">{asset.name}</td>
                             <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
-                            <td className="px-4 py-3 text-slate-600">-</td>
+                            <td className="px-4 py-3 text-slate-600">{asset.categoryName ?? '—'}</td>
                           </tr>
                         ))}
                       </tbody>

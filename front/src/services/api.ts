@@ -346,8 +346,12 @@ export async function createSector(dto: CreateSectorDto): Promise<Sector> {
 }
 
 export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
+  const sanitizedParams = Object.fromEntries(
+    Object.entries(params ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ''),
+  );
+
   const { data } = await api.get<Asset[]>('/api/assets', {
-    params,
+    params: sanitizedParams,
   });
   return data;
 }

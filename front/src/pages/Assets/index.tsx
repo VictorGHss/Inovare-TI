@@ -15,6 +15,7 @@ import {
   type Asset,
   type AssetCategory,
   type AssetFilterStatus,
+  type AssetSortBy,
   type User,
   type CreateAssetDto,
 } from '../../services/api';
@@ -55,38 +56,58 @@ export default function Assets() {
   }, [users]);
 
   useEffect(() => {
+    fetchInitialData();
+    fetchAssets();
+  }, []);
+
+  useEffect(() => {
+    fetchInitialData();
+    fetchAssets();
+  }, [canManageAssets]);
+
+  useEffect(() => {
+    fetchAssets();
+  }, [statusFilter, categoryFilter, sortFilter]);
+
+  async function fetchInitialData() {
+    if (!canManageAssets) {
+      return;
+    }
+
+    try {
+      const [usersData, categoriesData] = await Promise.all([getUsers(), getAssetCategories()]);
+      setUsers(usersData);
+      setCategories(categoriesData);
+    } catch {
+      toast.error('Erro ao carregar usuários e categorias.');
+      setUsers([]);
+      setCategories([]);
+    }
+  }
+
+  async function fetchAssets() {
     if (!canManageAssets) {
       setLoading(false);
       return;
     }
 
-    loadData();
-  }, [canManageAssets, statusFilter, categoryFilter, sortFilter]);
-
-  async function loadData() {
     setLoading(true);
     try {
-      const [assetsData, usersData, categoriesData] = await Promise.all([
-        getAssets({
-          status: statusFilter,
-          sortBy: sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt',
-          categoryId: categoryFilter !== 'ALL' ? categoryFilter : undefined,
-        }),
-        getUsers(),
-        getAssetCategories(),
-      ]);
+      const filters: { status: AssetFilterStatus; sortBy: AssetSortBy; categoryId: string } = {
+        status: statusFilter,
+        sortBy: sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt',
+        categoryId: categoryFilter !== 'ALL' ? categoryFilter : '',
+      };
+
+      const assetsData = await getAssets(filters);
 
       // O backend retorna createdAt DESC; para "Mais Antigos" invertemos localmente.
       const sortedAssets = sortFilter === 'OLDEST' ? [...assetsData].reverse() : assetsData;
 
       setAssets(sortedAssets);
-      setUsers(usersData);
-      setCategories(categoriesData);
     } catch {
-      toast.error('Erro ao carregar ativos e filtros.');
+      toast.error('Erro ao carregar ativos.');
       setAssets([]);
-      setUsers([]);
-      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -158,7 +179,7 @@ export default function Assets() {
       await uploadAssetInvoice(selectedAssetForInvoice.id, file);
       setShowInvoiceModal(false);
       setSelectedAssetForInvoice(null);
-      loadData(); // Recarrega dados para atualizar a tabela
+      fetchAssets(); // Recarrega dados para atualizar a tabela
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
       throw new Error(message);
@@ -214,7 +235,7 @@ export default function Assets() {
 
       setShowModal(false);
       resetForm();
-      loadData();
+      fetchAssets();
     } catch {
       toast.error('Erro ao cadastrar ativo. Verifique os dados.');
     } finally {

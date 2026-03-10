@@ -39,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class AssetController {
 
     private final AssetRepository assetRepository;
+    private final AssetCategoryRepository assetCategoryRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
@@ -122,10 +123,13 @@ public class AssetController {
             throw new NotFoundException("User not found with id: " + request.userId());
         }
 
+        AssetCategory category = resolveCategory(request.categoryId());
+
         Asset asset = Asset.builder()
                 .userId(request.userId())
                 .name(request.name().trim())
                 .patrimonyCode(request.patrimonyCode().trim())
+                .category(category)
                 .specifications(request.specifications())
                 .build();
 
@@ -140,12 +144,15 @@ public class AssetController {
             throw new NotFoundException("User not found with id: " + request.userId());
         }
 
+        AssetCategory category = resolveCategory(request.categoryId());
+
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
 
         asset.setUserId(request.userId());
         asset.setName(request.name().trim());
         asset.setPatrimonyCode(request.patrimonyCode().trim());
+        asset.setCategory(category);
         asset.setSpecifications(request.specifications());
 
         Asset savedAsset = assetRepository.save(asset);
@@ -198,6 +205,15 @@ public class AssetController {
 
         Asset updatedAsset = assetRepository.save(asset);
         return ResponseEntity.ok(toResponseDTO(updatedAsset));
+    }
+
+    private AssetCategory resolveCategory(UUID categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+
+        return assetCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new NotFoundException("Asset category not found with id: " + categoryId));
     }
 
     /**

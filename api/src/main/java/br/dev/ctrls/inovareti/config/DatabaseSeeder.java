@@ -10,6 +10,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.domain.asset.Asset;
+import br.dev.ctrls.inovareti.domain.asset.AssetCategory;
+import br.dev.ctrls.inovareti.domain.asset.AssetCategoryRepository;
+import br.dev.ctrls.inovareti.domain.asset.AssetMaintenance;
+import br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
@@ -51,6 +55,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final TicketRepository ticketRepository;
     private final ArticleRepository articleRepository;
     private final AssetRepository assetRepository;
+    private final AssetCategoryRepository assetCategoryRepository;
+    private final AssetMaintenanceRepository assetMaintenanceRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final Random random = new Random();
@@ -95,8 +101,18 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         // Seed assets
+        if (assetCategoryRepository.count() == 0) {
+            seedAssetCategories();
+        }
+
+        // Seed assets
         if (assetRepository.count() == 0) {
             seedAssets();
+        }
+
+        // Seed asset maintenances
+        if (assetMaintenanceRepository.count() == 0) {
+            seedAssetMaintenances();
         }
 
         // Seed articles/tutorials
@@ -416,35 +432,122 @@ public class DatabaseSeeder implements CommandLineRunner {
         User requesterPedro = userRepository.findByEmail("pedro.costa@inovare.med.br")
             .orElseThrow(() -> new RuntimeException("Requester Pedro user not found"));
 
+        AssetCategory laptops = assetCategoryRepository.findByName("Laptops")
+            .orElseThrow(() -> new RuntimeException("Laptops category not found"));
+        AssetCategory desktops = assetCategoryRepository.findByName("Desktops")
+            .orElseThrow(() -> new RuntimeException("Desktops category not found"));
+        AssetCategory accessories = assetCategoryRepository.findByName("Acessórios")
+            .orElseThrow(() -> new RuntimeException("Acessórios category not found"));
+
+        LocalDateTime now = LocalDateTime.now();
+
         List<Asset> assets = List.of(
             Asset.builder()
                 .userId(requesterJoao.getId())
                 .name("Notebook Dell Latitude 5420")
                 .patrimonyCode("INV-NTB-0001")
+                .category(laptops)
                 .specifications("CPU i5, 16GB RAM, SSD 512GB, Windows 11")
+                .createdAt(now.minusMonths(6))
                 .build(),
             Asset.builder()
                 .userId(requesterJoao.getId())
                 .name("Monitor LG 24\"")
                 .patrimonyCode("INV-MON-0027")
+                .category(accessories)
                 .specifications("24 polegadas, Full HD, HDMI")
+                .createdAt(now.minusDays(2))
                 .build(),
             Asset.builder()
                 .userId(requesterMaria.getId())
                 .name("Notebook Lenovo ThinkPad E14")
                 .patrimonyCode("INV-NTB-0012")
+                .category(laptops)
                 .specifications("CPU i7, 16GB RAM, SSD 256GB, Windows 11")
+                .createdAt(now.minusDays(45))
                 .build(),
             Asset.builder()
                 .userId(requesterPedro.getId())
                 .name("Desktop HP ProDesk 400")
                 .patrimonyCode("INV-DESK-0008")
+                .category(desktops)
                 .specifications("CPU i5, 8GB RAM, SSD 256GB, Ethernet Cat6")
+                .createdAt(now.minusDays(12))
                 .build()
         );
 
         assetRepository.saveAll(assets);
         log.info("Seeded {} assets", assets.size());
+    }
+
+    private void seedAssetCategories() {
+        List<AssetCategory> categories = List.of(
+            AssetCategory.builder().name("Laptops").build(),
+            AssetCategory.builder().name("Desktops").build(),
+            AssetCategory.builder().name("Acessórios").build()
+        );
+        assetCategoryRepository.saveAll(categories);
+        log.info("Seeded {} asset categories", categories.size());
+    }
+
+    private void seedAssetMaintenances() {
+        User technician = userRepository.findByEmail("tecnico@inovare.med.br")
+            .orElseThrow(() -> new RuntimeException("Technician user not found"));
+
+        Asset notebookDell = assetRepository.findByPatrimonyCode("INV-NTB-0001")
+            .orElseThrow(() -> new RuntimeException("Asset INV-NTB-0001 not found"));
+        Asset desktopHp = assetRepository.findByPatrimonyCode("INV-DESK-0008")
+            .orElseThrow(() -> new RuntimeException("Asset INV-DESK-0008 not found"));
+        Asset monitorLg = assetRepository.findByPatrimonyCode("INV-MON-0027")
+            .orElseThrow(() -> new RuntimeException("Asset INV-MON-0027 not found"));
+
+        LocalDateTime now = LocalDateTime.now();
+
+        List<AssetMaintenance> maintenances = List.of(
+            AssetMaintenance.builder()
+                .asset(notebookDell)
+                .maintenanceDate(now.minusDays(50).toLocalDate())
+                .type(AssetMaintenance.MaintenanceType.CORRECTIVE)
+                .description("Substituição de ventoinha por superaquecimento")
+                .cost(new BigDecimal("320.00"))
+                .technician(technician)
+                .build(),
+            AssetMaintenance.builder()
+                .asset(notebookDell)
+                .maintenanceDate(now.minusDays(20).toLocalDate())
+                .type(AssetMaintenance.MaintenanceType.PREVENTIVE)
+                .description("Limpeza interna e troca de pasta térmica")
+                .cost(new BigDecimal("180.00"))
+                .technician(technician)
+                .build(),
+            AssetMaintenance.builder()
+                .asset(notebookDell)
+                .maintenanceDate(now.minusDays(7).toLocalDate())
+                .type(AssetMaintenance.MaintenanceType.CORRECTIVE)
+                .description("Troca do SSD por falha de leitura")
+                .cost(new BigDecimal("450.00"))
+                .technician(technician)
+                .build(),
+            AssetMaintenance.builder()
+                .asset(desktopHp)
+                .maintenanceDate(now.minusDays(15).toLocalDate())
+                .type(AssetMaintenance.MaintenanceType.UPGRADE)
+                .description("Upgrade de memoria RAM de 8GB para 16GB")
+                .cost(new BigDecimal("260.00"))
+                .technician(technician)
+                .build(),
+            AssetMaintenance.builder()
+                .asset(monitorLg)
+                .maintenanceDate(now.minusDays(5).toLocalDate())
+                .type(AssetMaintenance.MaintenanceType.PREVENTIVE)
+                .description("Revisão de cabos e ajuste de brilho")
+                .cost(new BigDecimal("75.00"))
+                .technician(technician)
+                .build()
+        );
+
+        assetMaintenanceRepository.saveAll(maintenances);
+        log.info("Seeded {} asset maintenances", maintenances.size());
     }
 
     private void seedArticles() {

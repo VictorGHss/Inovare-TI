@@ -42,11 +42,11 @@ export default function BulkImportModal({
 
   function downloadTemplate() {
     const csvContent = 
-      'UserName,UserEmail,UserRole,SectorName,AssetName,AssetCategory,PatrimonyCode,AssetSpecs\n' +
-      'João Silva,joao.silva@empresa.com,USER,TI,Notebook Dell,Laptop,NB-001,Intel i5 8GB RAM\n' +
-      'Maria Santos,maria.santos@empresa.com,TECHNICIAN,Suporte,Desktop HP,Desktop,DT-002,Intel i7 16GB RAM';
+      'UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs\n' +
+      'João Silva;joao.silva@empresa.com;USER;TI;Notebook Dell;Laptop;NB-001;Intel i5 8GB RAM\n' +
+      'Maria Santos;maria.santos@empresa.com;TECHNICIAN;Suporte;Desktop HP;Desktop;DT-002;Intel i7 16GB RAM';
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     
@@ -131,7 +131,7 @@ export default function BulkImportModal({
             <h3 className="font-semibold text-slate-900 mb-2">📋 Instruções</h3>
             <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
               <li>Baixe o template CSV e preencha com seus dados</li>
-              <li>Formato: UserName, UserEmail, UserRole, SectorName, AssetName, AssetCategory, PatrimonyCode, AssetSpecs</li>
+              <li>Formato: UserName; UserEmail; UserRole; SectorName; AssetName; AssetCategory; PatrimonyCode; AssetSpecs (separador: ponto-e-vírgula)</li>
               <li>UserRole aceita: ADMIN, TECHNICIAN, USER (padrão: USER)</li>
               <li>Senha padrão para todos os usuários: <strong>Mudar@123</strong></li>
               <li>Colunas de ativos são opcionais (deixe vazias se não tiver ativos)</li>

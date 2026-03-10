@@ -47,7 +47,8 @@ public class CsvImportService {
 
     /**
      * Imports data from CSV file.
-     * CSV format: UserName,UserEmail,UserRole,SectorName,AssetName,AssetCategory,PatrimonyCode,AssetSpecs
+     * CSV format: UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs
+     * (Separator: semicolon for Portuguese Excel compatibility)
      * 
      * @param file CSV file uploaded
      * @return ImportResultDTO with statistics
@@ -100,8 +101,8 @@ public class CsvImportService {
     }
 
     private void processLine(String line, ImportResultDTO result) {
-        // Parse CSV line (handle commas inside quotes if needed)
-        String[] columns = line.split(",", -1);
+        // Parse CSV line using semicolon as separator (Portuguese Excel format)
+        String[] columns = line.split(";", -1);
         
         if (columns.length < 4) {
             throw new IllegalArgumentException("Invalid line format. Minimum 4 columns expected.");

@@ -1,20 +1,16 @@
 // Layout padrão compartilhado entre todas as páginas autenticadas
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Github, HardDrive } from 'lucide-react';
+import { Github, HardDrive } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
+import UserDropdown from '../../components/UserDropdown';
 
 const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 
 export default function DefaultLayout() {
-  const { signOut, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  function handleLogout() {
-    signOut();
-    navigate('/login');
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -74,7 +70,7 @@ export default function DefaultLayout() {
             >
               Tutoriais
             </button>
-          {/* Links administrativos — visíveis apenas para ADMIN */}
+            {/* Links administrativos — visíveis apenas para ADMIN */}
             {user?.role === 'ADMIN' && (
               <>
                 <button
@@ -97,42 +93,13 @@ export default function DefaultLayout() {
                 >
                   Setores
                 </button>
-                <button
-                  onClick={() => navigate('/settings')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                    location.pathname.startsWith('/settings')
-                      ? 'bg-primary text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Configurações
-                </button>
               </>
             )}
           </nav>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <NotificationBell />
-          <span className="text-sm text-slate-500 hidden sm:block">
-            {user?.name ?? 'Usuário'}
-          </span>
-          <button
-            onClick={() => navigate('/profile')}
-            className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              location.pathname.startsWith('/profile')
-                ? 'bg-brand-primary text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Meu Perfil
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-500 transition-colors"
-          >
-            <LogOut size={16} />
-            Sair
-          </button>
+          {user && <UserDropdown userName={user.name} userRole={user.role} />}
         </div>
       </header>
 

@@ -4,8 +4,11 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 /**
  * Repositório de acesso a dados para a entidade {@link Item}.
@@ -27,6 +30,10 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
      */
     @Query("SELECT i FROM Item i JOIN FETCH i.itemCategory WHERE i.id = :id")
     java.util.Optional<Item> findByIdWithCategory(UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM Item i WHERE i.id = :id")
+    java.util.Optional<Item> findByIdForUpdate(UUID id);
 
     /**
      * Conta itens com estoque igual ou inferior ao limiar de alerta de estoque baixo.

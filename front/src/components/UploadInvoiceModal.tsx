@@ -148,6 +148,7 @@ export default function UploadInvoiceModal({
               </div>
             </div>
             <input
+              id="upload-invoice-input"
               type="file"
               accept={ACCEPTED_FORMATS}
               onChange={handleInputChange}
@@ -155,6 +156,18 @@ export default function UploadInvoiceModal({
               aria-label="Selecionar arquivo"
             />
           </label>
+
+          <div className="mt-3 flex items-center gap-3">
+            <label
+              htmlFor="upload-invoice-input"
+              className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+            >
+              Selecionar Arquivo
+            </label>
+            <span className="text-xs text-slate-600 truncate">
+              {selectedFile?.name ?? 'Nenhum arquivo anexado'}
+            </span>
+          </div>
 
           {/* Selected File */}
           {selectedFile && (

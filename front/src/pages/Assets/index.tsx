@@ -38,6 +38,7 @@ export default function Assets() {
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<Asset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
+  const [assetFileInputId] = useState(`asset-invoice-${Math.random().toString(36).slice(2)}`);
   const [statusFilter, setStatusFilter] = useState<AssetFilterStatus>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
@@ -47,6 +48,7 @@ export default function Assets() {
     patrimonyCode: '',
     userId: '',
     specifications: '',
+    quantity: 1,
   });
 
   const canManageAssets = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
@@ -159,6 +161,7 @@ export default function Assets() {
       patrimonyCode: '',
       userId: '',
       specifications: '',
+      quantity: 1,
     });
     setSelectedInvoiceFile(null);
   }
@@ -225,6 +228,7 @@ export default function Assets() {
         patrimonyCode: formData.patrimonyCode.trim(),
         userId: formData.userId,
         specifications: formData.specifications?.trim() || undefined,
+        quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,
       });
 
       if (selectedInvoiceFile) {
@@ -495,6 +499,25 @@ export default function Assets() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-slate-700">
+                  Quantidade a cadastrar (Lote)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={formData.quantity ?? 1}
+                  onChange={(event) => {
+                    const value = Math.max(1, Number.parseInt(event.target.value, 10) || 1);
+                    setFormData((prev) => ({ ...prev, quantity: value }));
+                  }}
+                  className={inputClassName}
+                />
+                <p className="text-xs text-slate-500">
+                  Se for maior que 1, o código de patrimônio receberá sufixo sequencial (ex.: MON-00-1, MON-00-2).
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
                   Usuário Vinculado <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -526,17 +549,24 @@ export default function Assets() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-slate-700">Nota Fiscal (opcional)</label>
                 <input
+                  id={assetFileInputId}
                   type="file"
                   accept="application/pdf,image/png,image/jpeg,image/jpg"
                   onChange={(e) => setSelectedInvoiceFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-hover file:cursor-pointer cursor-pointer"
+                  className="sr-only"
                 />
+                <div className="flex items-center gap-3">
+                  <label
+                    htmlFor={assetFileInputId}
+                    className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                  >
+                    Selecionar Arquivo
+                  </label>
+                  <span className="text-xs text-slate-600 truncate">
+                    {selectedInvoiceFile?.name ?? 'Nenhum arquivo anexado'}
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
-                {selectedInvoiceFile && (
-                  <p className="text-xs text-green-700 font-medium mt-1">
-                    Selecionado: {selectedInvoiceFile.name} ({(selectedInvoiceFile.size / 1024).toFixed(2)} KB)
-                  </p>
-                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">

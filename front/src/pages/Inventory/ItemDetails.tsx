@@ -7,10 +7,12 @@ import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import {
   getItemById,
   getItemBatches,
+  getItemOutMovements,
   uploadBatchInvoice,
   downloadBatchInvoice,
   type Item,
   type Batch,
+  type StockMovement,
 } from '../../services/api';
 
 // Formata data ISO para dd/MM/yyyy
@@ -40,7 +42,9 @@ export default function ItemDetails() {
   const navigate = useNavigate();
   const [item, setItem] = useState<Item | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [outMovements, setOutMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'IN' | 'OUT'>('IN');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedBatchForInvoice, setSelectedBatchForInvoice] = useState<Batch | null>(null);
 
@@ -48,12 +52,14 @@ export default function ItemDetails() {
     if (!id) return;
     
     try {
-      const [itemData, batchesData] = await Promise.all([
+      const [itemData, batchesData, outMovementsData] = await Promise.all([
         getItemById(id),
         getItemBatches(id),
+        getItemOutMovements(id),
       ]);
       setItem(itemData);
       setBatches(batchesData);
+      setOutMovements(outMovementsData);
     } catch {
       toast.error('Item não encontrado.');
       navigate('/inventory');
@@ -200,10 +206,30 @@ export default function ItemDetails() {
         )}
       </div>
 
-      {/* Card de Histórico de Entradas */}
+      {/* Card de Movimentações */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-4">Histórico de Entradas</h3>
-        {batches.length > 0 ? (
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('IN')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === 'IN' ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Lotes de Entrada
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('OUT')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              activeTab === 'OUT' ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Histórico de Saídas
+          </button>
+        </div>
+
+        {activeTab === 'IN' && batches.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
@@ -263,8 +289,31 @@ export default function ItemDetails() {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : activeTab === 'IN' ? (
           <p className="text-sm text-slate-400 italic">Nenhum lote registrado ainda.</p>
+        ) : outMovements.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="pb-3 text-left font-medium">Data da Saída</th>
+                  <th className="pb-3 text-right font-medium">Quantidade</th>
+                  <th className="pb-3 text-left font-medium">Referência</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {outMovements.map((movement) => (
+                  <tr key={movement.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 text-slate-700">{formatDate(movement.date)}</td>
+                    <td className="py-3 text-right text-red-600 font-medium">-{movement.quantity}</td>
+                    <td className="py-3 text-slate-600">{movement.reference}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">Nenhuma saída registrada ainda.</p>
         )}
       </div>
 

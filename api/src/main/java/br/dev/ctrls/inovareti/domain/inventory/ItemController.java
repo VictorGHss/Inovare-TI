@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.domain.inventory.dto.ItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchResponseDTO;
+import br.dev.ctrls.inovareti.domain.inventory.dto.StockMovementResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.CreateItemUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.FindItemByIdUseCase;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.ListAllItemsUseCase;
@@ -47,6 +48,7 @@ public class ItemController {
     private final FindItemByIdUseCase findItemByIdUseCase;
     private final ListItemBatchesUseCase listItemBatchesUseCase;
     private final StockBatchRepository stockBatchRepository;
+    private final StockMovementRepository stockMovementRepository;
     private final FileStorageService fileStorageService;
 
     /**
@@ -78,6 +80,16 @@ public class ItemController {
     @GetMapping("/{id}/batches")
     public ResponseEntity<List<BatchResponseDTO>> listBatches(@PathVariable UUID id) {
         return ResponseEntity.ok(listItemBatchesUseCase.execute(id));
+    }
+
+    @GetMapping("/{id}/movements/out")
+    public ResponseEntity<List<StockMovementResponseDTO>> listOutMovements(@PathVariable UUID id) {
+        List<StockMovementResponseDTO> response = stockMovementRepository
+                .findByItemIdAndTypeOrderByDateDesc(id, StockMovementType.OUT)
+                .stream()
+                .map(StockMovementResponseDTO::from)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     /**

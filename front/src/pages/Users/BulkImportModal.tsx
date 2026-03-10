@@ -153,19 +153,23 @@ export default function BulkImportModal({
             <label className="text-sm font-medium text-slate-700">
               Arquivo CSV *
             </label>
-            <div className="relative">
+            <div className="flex items-center gap-3">
               <input
+                id="bulk-import-file-input"
                 type="file"
                 accept=".csv"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-600
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-brand-secondary file:text-slate-700
-                  hover:file:bg-orange-200
-                  file:cursor-pointer cursor-pointer"
+                className="sr-only"
               />
+              <label
+                htmlFor="bulk-import-file-input"
+                className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+              >
+                Selecionar Arquivo
+              </label>
+              <span className="text-xs text-slate-600 truncate">
+                {selectedFile?.name ?? 'Nenhum arquivo anexado'}
+              </span>
             </div>
             {selectedFile && (
               <p className="text-xs text-slate-600 mt-1">

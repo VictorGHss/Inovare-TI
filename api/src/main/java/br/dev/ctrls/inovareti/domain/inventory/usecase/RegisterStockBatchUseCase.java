@@ -10,6 +10,9 @@ import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovement;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovementType;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.StockBatchResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ public class RegisterStockBatchUseCase {
 
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
+        private final StockMovementRepository stockMovementRepository;
 
     /**
      * Registra o lote e atualiza o estoque do item.
@@ -59,6 +63,15 @@ public class RegisterStockBatchUseCase {
         // Atualiza o estoque atual do item somando a quantidade do novo lote
         item.setCurrentStock(item.getCurrentStock() + request.quantity());
         itemRepository.save(item);
+
+        StockMovement movement = StockMovement.builder()
+                .itemId(item.getId())
+                .type(StockMovementType.IN)
+                .quantity(request.quantity())
+                .reference("BATCH:" + batch.getId())
+                .date(LocalDateTime.now())
+                .build();
+        stockMovementRepository.save(movement);
 
         return StockBatchResponseDTO.from(batch);
     }

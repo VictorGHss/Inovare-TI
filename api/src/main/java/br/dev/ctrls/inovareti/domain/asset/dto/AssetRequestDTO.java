@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record AssetRequestDTO(
@@ -21,6 +22,9 @@ public record AssetRequestDTO(
 
         UUID categoryId,
 
-        String specifications
+        String specifications,
+
+        @Positive(message = "Quantity must be greater than zero.")
+        Integer quantity
 
 ) {}

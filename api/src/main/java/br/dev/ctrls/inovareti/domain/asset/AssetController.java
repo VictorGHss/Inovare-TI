@@ -41,6 +41,7 @@ public class AssetController {
     private final AssetRepository assetRepository;
     private final AssetCategoryRepository assetCategoryRepository;
     private final UserRepository userRepository;
+    private final AssetService assetService;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
     private AssetResponseDTO toResponseDTO(Asset asset) {
@@ -119,21 +120,7 @@ public class AssetController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PostMapping
     public ResponseEntity<AssetResponseDTO> create(@Valid @RequestBody AssetRequestDTO request) {
-        if (!userRepository.existsById(request.userId())) {
-            throw new NotFoundException("User not found with id: " + request.userId());
-        }
-
-        AssetCategory category = resolveCategory(request.categoryId());
-
-        Asset asset = Asset.builder()
-                .userId(request.userId())
-                .name(request.name().trim())
-                .patrimonyCode(request.patrimonyCode().trim())
-                .category(category)
-                .specifications(request.specifications())
-                .build();
-
-        Asset savedAsset = assetRepository.save(asset);
+        Asset savedAsset = assetService.createAssets(request).get(0);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDTO(savedAsset));
     }
 

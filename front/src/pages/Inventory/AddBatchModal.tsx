@@ -27,6 +27,7 @@ export default function AddBatchModal({
   const [purchaseReason, setPurchaseReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
+  const invoiceInputId = 'batch-invoice-input';
 
   // Update selected item when preselected changes
   useEffect(() => {
@@ -198,17 +199,24 @@ export default function AddBatchModal({
               Nota Fiscal (opcional)
             </label>
             <input
+              id={invoiceInputId}
               type="file"
               accept="application/pdf,image/png,image/jpeg,image/jpg"
               onChange={(e) => setSelectedInvoiceFile(e.target.files?.[0] || null)}
-              className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-hover file:cursor-pointer cursor-pointer"
+              className="sr-only"
             />
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor={invoiceInputId}
+                className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+              >
+                Selecionar Arquivo
+              </label>
+              <span className="text-xs text-slate-600 truncate">
+                {selectedInvoiceFile?.name ?? 'Nenhum arquivo anexado'}
+              </span>
+            </div>
             <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
-            {selectedInvoiceFile && (
-              <p className="text-xs text-green-700 font-medium mt-1">
-                Selecionado: {selectedInvoiceFile.name} ({(selectedInvoiceFile.size / 1024).toFixed(2)} KB)
-              </p>
-            )}
           </div>
 
           {/* Botões de ação */}

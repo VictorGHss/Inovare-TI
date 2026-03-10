@@ -11,6 +11,8 @@ interface Props {
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 export default function FileAttachment({ files, setFiles }: Props) {
+  const inputId = 'new-ticket-attachment-input';
+
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
@@ -35,6 +37,18 @@ export default function FileAttachment({ files, setFiles }: Props) {
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-slate-700">Anexos</label>
 
+      <div className="flex items-center gap-3">
+        <label
+          htmlFor={inputId}
+          className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+        >
+          Selecionar Arquivo
+        </label>
+        <span className="text-xs text-slate-600 truncate">
+          {files.length > 0 ? files[0].name : 'Nenhum arquivo anexado'}
+        </span>
+      </div>
+
       <label className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
         <Paperclip size={20} className="text-slate-400" />
         <span className="text-sm text-slate-400 text-center">
@@ -42,6 +56,7 @@ export default function FileAttachment({ files, setFiles }: Props) {
           <span className="text-slate-300">(opcional)</span>
         </span>
         <input
+          id={inputId}
           type="file"
           multiple
           className="hidden"

@@ -84,6 +84,16 @@ export interface CreateAssetDto {
   patrimonyCode: string;
   categoryId?: string;
   specifications?: string;
+  quantity?: number;
+}
+
+export interface StockMovement {
+  id: string;
+  itemId: string;
+  type: 'IN' | 'OUT';
+  quantity: number;
+  reference: string;
+  date: string;
 }
 
 export interface AssetCategory {
@@ -277,6 +287,11 @@ export async function getItemById(id: string): Promise<Item> {
 // Busca todos os lotes de estoque de um item específico
 export async function getItemBatches(id: string): Promise<Batch[]> {
   const { data } = await api.get<Batch[]>(`/api/items/${id}/batches`);
+  return data;
+}
+
+export async function getItemOutMovements(id: string): Promise<StockMovement[]> {
+  const { data } = await api.get<StockMovement[]>(`/api/items/${id}/movements/out`);
   return data;
 }
 

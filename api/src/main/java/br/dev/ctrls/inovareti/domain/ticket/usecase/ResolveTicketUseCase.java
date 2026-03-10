@@ -15,7 +15,7 @@ import br.dev.ctrls.inovareti.domain.asset.AssetCategoryRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetMaintenance;
 import br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
-import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockDeductionService;
 import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
@@ -40,11 +40,11 @@ import lombok.extern.slf4j.Slf4j;
 public class ResolveTicketUseCase {
 
     private final TicketRepository ticketRepository;
-    private final ItemRepository itemRepository;
     private final AssetRepository assetRepository;
         private final AssetCategoryRepository assetCategoryRepository;
     private final AssetMaintenanceRepository assetMaintenanceRepository;
     private final CreateNotificationService createNotificationService;
+        private final StockDeductionService stockDeductionService;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -63,20 +63,13 @@ public class ResolveTicketUseCase {
 
         // Debita estoque se o chamado tiver item solicitado
         if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
-            var item = ticket.getRequestedItem();
-            int newStock = item.getCurrentStock() - ticket.getRequestedQuantity();
-
-            if (newStock < 0) {
-                throw new IllegalStateException(
-                        "Insufficient stock for item '" + item.getName()
-                        + "'. Current stock: " + item.getCurrentStock()
-                        + ", requested quantity: " + ticket.getRequestedQuantity());
-            }
-
-            item.setCurrentStock(newStock);
-            itemRepository.save(item);
-            log.info("Stock debited for ticket {}: item '{}', quantity: {}, new stock: {}",
-                    ticketId, item.getName(), ticket.getRequestedQuantity(), newStock);
+            String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
+            stockDeductionService.deductWithFifo(
+                    ticket.getRequestedItem().getId(),
+                    ticket.getRequestedQuantity(),
+                    reference
+            );
+            log.info("Stock debited with FIFO for requested item in ticket {}", ticketId);
         }
 
         if (request.assetIdToDeliver() != null && request.newAssetToDeliver() != null) {
@@ -163,23 +156,13 @@ public class ResolveTicketUseCase {
 
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
-            var item = itemRepository.findById(request.inventoryItemIdToDeliver())
-                    .orElseThrow(() -> new NotFoundException(
-                            "Item not found with id: " + request.inventoryItemIdToDeliver()));
-
-            int newStock = item.getCurrentStock() - request.quantityToDeliver();
-
-            if (newStock < 0) {
-                throw new IllegalStateException(
-                        "Insufficient stock for item '" + item.getName()
-                        + "'. Current stock: " + item.getCurrentStock()
-                        + ", requested quantity: " + request.quantityToDeliver());
-            }
-
-            item.setCurrentStock(newStock);
-            itemRepository.save(item);
-            log.info("Stock debited for delivery in ticket {}: item '{}', quantity: {}, new stock: {}",
-                    ticketId, item.getName(), request.quantityToDeliver(), newStock);
+            String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
+            stockDeductionService.deductWithFifo(
+                    request.inventoryItemIdToDeliver(),
+                    request.quantityToDeliver(),
+                    reference
+            );
+            log.info("Stock debited with FIFO for manual item delivery in ticket {}", ticketId);
         }
 
         // Marca o chamado como resolvido

@@ -60,7 +60,7 @@ public class DiscordBotConfig {
                             GatewayIntent.GUILD_VOICE_STATES
                     )
                     // Define a atividade do bot
-                    .setActivity(Activity.playing("Soporte Técnico | /chamado"))
+                    .setActivity(Activity.playing("Suporte de TI | /chamado"))
                     // Registra o listener de eventos
                     .addEventListeners(eventListener)
                     // Constrói e aguarda a inicialização

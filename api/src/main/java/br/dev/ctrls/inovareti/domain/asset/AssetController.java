@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -51,12 +52,50 @@ public class AssetController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
-    public ResponseEntity<List<AssetResponseDTO>> listAll() {
-        List<AssetResponseDTO> response = assetRepository.findAll()
+    public ResponseEntity<List<AssetResponseDTO>> listAll(
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "createdAt") String sortBy
+    ) {
+        AssetFilterStatus parsedStatus = parseStatus(status);
+        AssetSortBy parsedSortBy = parseSortBy(sortBy);
+
+        List<Asset> assets = parsedSortBy == AssetSortBy.MAINTENANCE_COUNT
+                ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name())
+                : assetRepository.findWithFiltersOrderByCreatedAtDesc(categoryId, parsedStatus.name());
+
+        List<AssetResponseDTO> response = assets
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
         return ResponseEntity.ok(response);
+    }
+
+    private AssetFilterStatus parseStatus(String status) {
+        try {
+            return AssetFilterStatus.valueOf(status.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Invalid status. Allowed values: ALL, IN_USE, IN_STOCK.");
+        }
+    }
+
+    private AssetSortBy parseSortBy(String sortBy) {
+        return switch (sortBy) {
+            case "createdAt" -> AssetSortBy.CREATED_AT;
+            case "maintenanceCount" -> AssetSortBy.MAINTENANCE_COUNT;
+            default -> throw new BadRequestException("Invalid sortBy. Allowed values: createdAt, maintenanceCount.");
+        };
+    }
+
+    private enum AssetFilterStatus {
+        ALL,
+        IN_USE,
+        IN_STOCK
+    }
+
+    private enum AssetSortBy {
+        CREATED_AT,
+        MAINTENANCE_COUNT
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")

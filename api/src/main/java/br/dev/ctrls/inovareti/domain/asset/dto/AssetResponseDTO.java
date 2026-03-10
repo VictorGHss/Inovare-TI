@@ -9,9 +9,11 @@ import br.dev.ctrls.inovareti.domain.user.User;
 public record AssetResponseDTO(
         UUID id,
         UUID userId,
-            String assignedToName,
+    String assignedToName,
         String name,
         String patrimonyCode,
+    UUID categoryId,
+    String categoryName,
         String specifications,
         LocalDateTime createdAt,
         String invoiceFileName
@@ -20,9 +22,11 @@ public record AssetResponseDTO(
         return new AssetResponseDTO(
                 asset.getId(),
                 asset.getUserId(),
-                                assignedToUser != null ? assignedToUser.getName() : null,
+                assignedToUser != null ? assignedToUser.getName() : null,
                 asset.getName(),
                 asset.getPatrimonyCode(),
+                asset.getCategory() != null ? asset.getCategory().getId() : null,
+                asset.getCategory() != null ? asset.getCategory().getName() : null,
                 asset.getSpecifications(),
                 asset.getCreatedAt(),
                 asset.getInvoiceFileName()

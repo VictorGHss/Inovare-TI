@@ -56,15 +56,26 @@ export interface ItemCategory {
 
 export interface Asset {
   id: string;
-  userId: string;
+  userId: string | null;
   assignedToName: string | null;
   name: string;
   patrimonyCode: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
   specifications: string | null;
   createdAt: string;
   invoiceFileName?: string;
   invoiceContentType?: string;
   invoiceFilePath?: string;
+}
+
+export type AssetFilterStatus = 'ALL' | 'IN_USE' | 'IN_STOCK';
+export type AssetSortBy = 'createdAt' | 'maintenanceCount';
+
+export interface GetAssetsParams {
+  categoryId?: string;
+  status?: AssetFilterStatus;
+  sortBy?: AssetSortBy;
 }
 
 export interface CreateAssetDto {
@@ -334,8 +345,10 @@ export async function createSector(dto: CreateSectorDto): Promise<Sector> {
   return data;
 }
 
-export async function getAssets(): Promise<Asset[]> {
-  const { data } = await api.get<Asset[]>('/api/assets');
+export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
+  const { data } = await api.get<Asset[]>('/api/assets', {
+    params,
+  });
   return data;
 }
 

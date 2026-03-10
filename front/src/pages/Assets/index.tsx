@@ -9,9 +9,12 @@ import {
   getAssets,
   createAsset,
   getUsers,
+  getAssetCategories,
   uploadAssetInvoice,
   downloadAssetInvoice,
   type Asset,
+  type AssetCategory,
+  type AssetFilterStatus,
   type User,
   type CreateAssetDto,
 } from '../../services/api';
@@ -25,6 +28,7 @@ export default function Assets() {
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -33,6 +37,9 @@ export default function Assets() {
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<Asset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
+  const [statusFilter, setStatusFilter] = useState<AssetFilterStatus>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
 
   const [formData, setFormData] = useState<CreateAssetDto>({
     name: '',
@@ -54,21 +61,74 @@ export default function Assets() {
     }
 
     loadData();
-  }, [canManageAssets]);
+  }, [canManageAssets, statusFilter, categoryFilter, sortFilter]);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [assetsData, usersData] = await Promise.all([getAssets(), getUsers()]);
-      setAssets(assetsData);
+      const [assetsData, usersData, categoriesData] = await Promise.all([
+        getAssets({
+          status: statusFilter,
+          sortBy: sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt',
+          categoryId: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+        }),
+        getUsers(),
+        getAssetCategories(),
+      ]);
+
+      // O backend retorna createdAt DESC; para "Mais Antigos" invertemos localmente.
+      const sortedAssets = sortFilter === 'OLDEST' ? [...assetsData].reverse() : assetsData;
+
+      setAssets(sortedAssets);
       setUsers(usersData);
+      setCategories(categoriesData);
     } catch {
-      toast.error('Erro ao carregar ativos e usuários.');
+      toast.error('Erro ao carregar ativos e filtros.');
       setAssets([]);
       setUsers([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
+  }
+
+  function formatCreatedAt(isoDate: string): string {
+    return new Date(isoDate).toLocaleDateString('pt-BR');
+  }
+
+  function escapeCsvValue(value: string): string {
+    const escaped = value.replaceAll('"', '""');
+    return `"${escaped}"`;
+  }
+
+  function handleExportCsv() {
+    if (assets.length === 0) {
+      toast.info('Nenhum ativo para exportar com os filtros atuais.');
+      return;
+    }
+
+    const headers = ['Nome', 'Patrimônio', 'Categoria', 'Usuário Atual', 'Data de Cadastro'];
+    const rows = assets.map((asset) => [
+      asset.name,
+      asset.patrimonyCode,
+      asset.categoryName ?? 'Sem categoria',
+      asset.assignedToName ?? 'No estoque (TI)',
+      formatCreatedAt(asset.createdAt),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'relatorio_ativos.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   function resetForm() {
@@ -180,14 +240,70 @@ export default function Assets() {
           <p className="text-sm text-slate-400 mt-1">Gestão de equipamentos permanentes vinculados aos usuários</p>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          Novo Ativo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-2 border border-brand-primary/20 bg-brand-secondary text-brand-primary hover:bg-brand-secondary/70 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <Download size={17} />
+            Exportar (CSV)
+          </button>
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            Novo Equipamento
+          </button>
+        </div>
       </div>
+
+      <section className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as AssetFilterStatus)}
+              className={inputClassName}
+            >
+              <option value="ALL">Todos</option>
+              <option value="IN_USE">Em Uso</option>
+              <option value="IN_STOCK">No Estoque (TI)</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Categoria</label>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className={inputClassName}
+            >
+              <option value="ALL">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Ordenar por</label>
+            <select
+              value={sortFilter}
+              onChange={(event) => setSortFilter(event.target.value as 'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES')}
+              className={inputClassName}
+            >
+              <option value="NEWEST">Mais Recentes</option>
+              <option value="OLDEST">Mais Antigos</option>
+              <option value="MOST_MAINTENANCES">Mais Manutenções (Problemáticos)</option>
+            </select>
+          </div>
+        </div>
+      </section>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         {loading ? (
@@ -206,6 +322,7 @@ export default function Assets() {
                 <tr>
                   <th className="px-4 py-3 text-left">Nome</th>
                   <th className="px-4 py-3 text-left">Patrimônio</th>
+                  <th className="px-4 py-3 text-left">Categoria</th>
                   <th className="px-4 py-3 text-left">Usuário Vinculado</th>
                   <th className="px-4 py-3 text-center">Nota Fiscal</th>
                   <th className="px-4 py-3 text-center">Etiqueta</th>
@@ -221,7 +338,8 @@ export default function Assets() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
-                    <td className="px-4 py-3 text-slate-600">{userNameById.get(asset.userId) ?? 'Usuário não encontrado'}</td>
+                    <td className="px-4 py-3 text-slate-600">{asset.categoryName ?? 'Sem categoria'}</td>
+                    <td className="px-4 py-3 text-slate-600">{asset.assignedToName ?? (asset.userId ? userNameById.get(asset.userId) ?? 'Usuário não encontrado' : 'No estoque (TI)')}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                                                 <button

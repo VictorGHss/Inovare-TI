@@ -5,8 +5,12 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +68,8 @@ public class CsvImportService {
             String line;
             int lineNumber = 0;
             
+            List<CsvImportRow> parsedRows = new ArrayList<>();
+
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
                 
@@ -78,13 +84,16 @@ public class CsvImportService {
                 }
                 
                 try {
-                    processLine(line, result);
+                    parsedRows.add(parseLine(line, lineNumber));
                 } catch (Exception e) {
                     String errorMsg = String.format("Erro na linha %d: %s", lineNumber, e.getMessage());
                     log.error(errorMsg, e);
                     errors.add(errorMsg);
                 }
             }
+
+            Map<String, List<CsvImportRow>> rowsByEmail = groupRowsByEmail(parsedRows);
+            processGroupedRows(rowsByEmail, result, errors);
             
             result.setErrors(errors);
             result.setSuccess(errors.isEmpty());
@@ -100,7 +109,7 @@ public class CsvImportService {
         return result;
     }
 
-    private void processLine(String line, ImportResultDTO result) {
+    private CsvImportRow parseLine(String line, int lineNumber) {
         // Faz o parse da linha CSV usando ponto-e-vírgula como separador (formato Excel PT-BR)
         String[] columns = line.split(";", -1);
         
@@ -118,48 +127,140 @@ public class CsvImportService {
         String patrimonyCode = extractAndTrim(columns, 6);
         String assetSpecs = extractAndTrim(columns, 7);
         
-        // Valida campos obrigatórios
-        if (userName.isEmpty() || userEmail.isEmpty() || sectorName.isEmpty()) {
-            throw new IllegalArgumentException("UserName, UserEmail e SectorName são obrigatórios");
+        // Para agrupamento seguro, o único campo obrigatório em toda linha é o e-mail.
+        if (userEmail.isEmpty()) {
+            throw new IllegalArgumentException("UserEmail é obrigatório");
         }
-        
-        // 1. Busca ou cria o Setor
+
+        return new CsvImportRow(
+                lineNumber,
+                userName,
+                userEmail,
+                userRoleStr,
+                sectorName,
+                assetName,
+                assetCategoryName,
+                patrimonyCode,
+                assetSpecs
+        );
+    }
+
+    private Map<String, List<CsvImportRow>> groupRowsByEmail(List<CsvImportRow> parsedRows) {
+        Map<String, List<CsvImportRow>> rowsByEmail = new LinkedHashMap<>();
+        for (CsvImportRow row : parsedRows) {
+            rowsByEmail.computeIfAbsent(row.userEmail(), key -> new ArrayList<>()).add(row);
+        }
+        return rowsByEmail;
+    }
+
+    private void processGroupedRows(
+            Map<String, List<CsvImportRow>> rowsByEmail,
+            ImportResultDTO result,
+            List<String> errors
+    ) {
+        for (Map.Entry<String, List<CsvImportRow>> entry : rowsByEmail.entrySet()) {
+            String userEmail = entry.getKey();
+            List<CsvImportRow> userRows = entry.getValue();
+
+            Optional<CsvImportRow> referenceRow = userRows.stream().findFirst();
+            if (referenceRow.isEmpty()) {
+                continue;
+            }
+
+            try {
+                User user = findOrCreateUser(referenceRow.get(), userRows, result);
+
+                for (CsvImportRow row : userRows) {
+                    try {
+                        processAssetRow(row, user, result);
+                    } catch (Exception e) {
+                        String assetError = String.format(
+                                "Erro na linha %d (ativo do usuário %s): %s",
+                                row.lineNumber(),
+                                userEmail,
+                                e.getMessage()
+                        );
+                        log.error(assetError, e);
+                        errors.add(assetError);
+                    }
+                }
+            } catch (Exception e) {
+                String userError = String.format(
+                        "Erro ao processar usuário %s (linha %d): %s",
+                        userEmail,
+                        referenceRow.get().lineNumber(),
+                        e.getMessage()
+                );
+                log.error(userError, e);
+                errors.add(userError);
+            }
+        }
+    }
+
+    private User findOrCreateUser(CsvImportRow referenceRow, List<CsvImportRow> userRows, ImportResultDTO result) {
+        User existingUser = userRepository.findByEmail(referenceRow.userEmail()).orElse(null);
+        if (existingUser != null) {
+            return existingUser;
+        }
+
+        String userName = firstNonBlank(userRows, CsvImportRow::userName)
+                .orElseThrow(() -> new IllegalArgumentException("UserName é obrigatório para criar novo usuário"));
+        String sectorName = firstNonBlank(userRows, CsvImportRow::sectorName)
+                .orElseThrow(() -> new IllegalArgumentException("SectorName é obrigatório para criar novo usuário"));
+        String userRoleStr = firstNonBlank(userRows, CsvImportRow::userRoleStr).orElse("USER");
+
+        // Busca ou cria setor apenas quando realmente precisarmos criar usuário.
         Sector sector = sectorRepository.findByName(sectorName)
                 .orElseGet(() -> {
                     Sector newSector = Sector.builder()
                             .name(sectorName)
                             .build();
-                    Sector saved = sectorRepository.save(newSector);
+                    Sector savedSector = sectorRepository.save(newSector);
                     result.incrementSectorsCreated();
                     log.debug("Created new sector: {}", sectorName);
-                    return saved;
+                    return savedSector;
                 });
-        
-        // 2. Busca ou cria o Usuário
-        User user = userRepository.findByEmail(userEmail)
-                .orElseGet(() -> {
-                    UserRole role = parseUserRole(userRoleStr);
-                    User newUser = User.builder()
-                            .name(userName)
-                            .email(userEmail)
-                            .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
-                            .mustChangePassword(true)
-                            .role(role)
-                            .sector(sector)
-                            .location(DEFAULT_LOCATION)
-                            .build();
-                    User saved = userRepository.save(newUser);
-                    result.incrementUsersCreated();
-                    log.debug("Created new user: {}", userEmail);
-                    return saved;
-                });
-        
-        // 3. Processa o Equipamento se o nome estiver preenchido
-        if (!assetName.isEmpty() && !patrimonyCode.isEmpty()) {
-            processAsset(assetName, assetCategoryName, patrimonyCode, assetSpecs, user, result);
+
+        UserRole role = parseUserRole(userRoleStr);
+
+        User newUser = User.builder()
+                .name(userName)
+                .email(referenceRow.userEmail())
+                .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
+                .mustChangePassword(true)
+                .role(role)
+                .sector(sector)
+                .location(DEFAULT_LOCATION)
+                .build();
+
+        try {
+            User savedUser = userRepository.save(newUser);
+            result.incrementUsersCreated();
+            log.debug("Created new user: {}", referenceRow.userEmail());
+            return savedUser;
+        } catch (DataIntegrityViolationException ex) {
+            // Blindagem para concorrência: se outro processo criou o usuário ao mesmo tempo,
+            // reutilizamos o registro recém-criado.
+            return userRepository.findByEmail(referenceRow.userEmail())
+                    .orElseThrow(() -> ex);
         }
     }
 
+    private void processAssetRow(CsvImportRow row, User user, ImportResultDTO result) {
+        if (row.assetName().isEmpty() || row.patrimonyCode().isEmpty()) {
+            return;
+        }
+
+        processAsset(
+                row.assetName(),
+                row.assetCategoryName(),
+                row.patrimonyCode(),
+                row.assetSpecs(),
+                user,
+                result
+        );
+    }
+        
     private void processAsset(String assetName, String assetCategoryName, String patrimonyCode, 
                                String assetSpecs, User user, ImportResultDTO result) {
         // Verifica se o equipamento já existe pelo código de patrimônio
@@ -191,7 +292,14 @@ public class CsvImportService {
                 .category(category)
                 .specifications(assetSpecs.isEmpty() ? null : assetSpecs)
                 .build();
-        Asset savedAsset = assetRepository.save(asset);
+        Asset savedAsset;
+        try {
+            savedAsset = assetRepository.save(asset);
+        } catch (DataIntegrityViolationException ex) {
+            // Blindagem para colisões de patrimônio durante processamento concorrente.
+            log.warn("Asset with patrimony code {} was created concurrently. Skipping.", patrimonyCode);
+            return;
+        }
         result.incrementAssetsCreated();
         log.debug("Created new asset: {} ({})", assetName, patrimonyCode);
         
@@ -245,5 +353,25 @@ public class CsvImportService {
         // Aplica trim() para remover espaços no início e no fim
         // Usa strip() também para tratar caracteres de whitespace Unicode
         return value.trim().strip();
+    }
+
+    private Optional<String> firstNonBlank(List<CsvImportRow> rows, java.util.function.Function<CsvImportRow, String> extractor) {
+        return rows.stream()
+                .map(extractor)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst();
+    }
+
+    private record CsvImportRow(
+            int lineNumber,
+            String userName,
+            String userEmail,
+            String userRoleStr,
+            String sectorName,
+            String assetName,
+            String assetCategoryName,
+            String patrimonyCode,
+            String assetSpecs
+    ) {
     }
 }

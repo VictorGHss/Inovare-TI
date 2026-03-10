@@ -18,7 +18,7 @@ public class DiscordUserLinkingService {
 
     private final UserRepository userRepository;
 
-    private static final String USER_NOT_FOUND_MESSAGE = "❌ User not found for the provided email.";
+    private static final String USER_NOT_FOUND_MESSAGE = "❌ Usuário não encontrado para o e-mail informado.";
 
     /**
      * Links a Discord account to a clinic user and returns a final response message.

@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
@@ -26,6 +27,7 @@ public class DiscordTicketService {
     private final UserRepository userRepository;
     private final TicketRepository ticketRepository;
     private final TicketCategoryRepository ticketCategoryRepository;
+    private final DiscordWebhookService discordWebhookService;
 
     @Transactional
     public String createTicketFromDiscord(String discordUserId, String description, String priorityRaw) {
@@ -42,7 +44,7 @@ public class DiscordTicketService {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
 
         Ticket ticket = Ticket.builder()
-                .title("Support request from Discord")
+            .title("Chamado aberto via Discord")
                 .description(description)
                 .status(TicketStatus.OPEN)
                 .priority(priority)
@@ -53,6 +55,9 @@ public class DiscordTicketService {
                 .build();
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        initializeWebhookRelations(savedTicket);
+        discordWebhookService.sendNewTicketAlert(savedTicket);
+
         String ticketIdShort = savedTicket.getId().toString().substring(0, 8).toUpperCase();
 
         return "✅ Chamado #" + ticketIdShort + " aberto com sucesso! A TI foi notificada.";
@@ -60,24 +65,17 @@ public class DiscordTicketService {
 
     @Transactional(readOnly = true)
     public String getTicketStatusFromDiscord(String rawTicketId) {
-        UUID ticketId;
-        try {
-            ticketId = UUID.fromString(rawTicketId);
-        } catch (IllegalArgumentException ex) {
-            return "❌ Invalid ticket ID format. Please provide a valid UUID.";
-        }
-
-        Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
+        Ticket ticket = findTicketByIdentifier(rawTicketId);
         if (ticket == null) {
-            return "❌ Ticket not found.";
+            return "❌ Chamado não encontrado.";
         }
 
-        String assignedTo = ticket.getAssignedTo() != null ? ticket.getAssignedTo().getName() : "Unassigned";
-        return "📋 Ticket #" + ticket.getId().toString().substring(0, 8).toUpperCase()
-                + " | Status: " + ticket.getStatus().name()
-                + " | Priority: " + ticket.getPriority().name()
-                + " | Requester: " + ticket.getRequester().getName()
-                + " | Assigned to: " + assignedTo;
+        String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
+        return String.format(
+                "🔍 O chamado #%s está atualmente: **%s**",
+                shortId,
+                toFriendlyStatus(ticket.getStatus())
+        );
     }
 
     private TicketPriority parsePriority(String priorityRaw) {
@@ -90,5 +88,39 @@ public class DiscordTicketService {
             log.warn("Invalid priority '{}'. Falling back to NORMAL.", priorityRaw);
             return TicketPriority.NORMAL;
         }
+    }
+
+    private Ticket findTicketByIdentifier(String rawTicketId) {
+        if (rawTicketId == null || rawTicketId.isBlank()) {
+            return null;
+        }
+
+        if (rawTicketId.length() < 36) {
+            return ticketRepository.findByShortIdStartingWith(rawTicketId)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        try {
+            UUID ticketId = UUID.fromString(rawTicketId);
+            return ticketRepository.findById(ticketId).orElse(null);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String toFriendlyStatus(TicketStatus status) {
+        return switch (status) {
+            case OPEN -> "ABERTO";
+            case IN_PROGRESS -> "EM ANDAMENTO";
+            case RESOLVED -> "RESOLVIDO";
+        };
+    }
+
+    private void initializeWebhookRelations(Ticket ticket) {
+        ticket.getRequester().getName();
+        ticket.getRequester().getSector().getName();
+        ticket.getCategory().getName();
     }
 }

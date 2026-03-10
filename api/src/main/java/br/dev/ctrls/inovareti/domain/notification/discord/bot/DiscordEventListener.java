@@ -83,7 +83,7 @@ public class DiscordEventListener extends ListenerAdapter {
             String discordUserId = event.getUser().getId();
             var descricaoOption = event.getOption("descricao");
             if (descricaoOption == null || descricaoOption.getAsString().isBlank()) {
-                event.reply("❌ Please provide a valid description.").setEphemeral(true).queue();
+                event.reply("❌ Informe uma descrição válida.").setEphemeral(true).queue();
                 return;
             }
 
@@ -98,7 +98,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
         } catch (Exception e) {
             log.error("❌ Error processing /chamado command", e);
-            event.reply("❌ Error while creating your ticket. Please contact an administrator.")
+            event.reply("❌ Erro ao criar seu chamado. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
         }
@@ -110,7 +110,7 @@ public class DiscordEventListener extends ListenerAdapter {
         try {
             var emailOption = event.getOption("email");
             if (emailOption == null || emailOption.getAsString().isBlank()) {
-                event.reply("❌ Please provide a valid email.").setEphemeral(true).queue();
+                event.reply("❌ Informe um e-mail válido.").setEphemeral(true).queue();
                 return;
             }
 
@@ -124,7 +124,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
         } catch (Exception e) {
             log.error("❌ Error processing /vincular command", e);
-            event.reply("❌ Error while linking your account. Please contact an administrator.")
+            event.reply("❌ Erro ao vincular sua conta. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
         }
@@ -136,7 +136,7 @@ public class DiscordEventListener extends ListenerAdapter {
         try {
             var idOption = event.getOption("id_chamado");
             if (idOption == null || idOption.getAsString().isBlank()) {
-                event.reply("❌ Please provide a valid ticket ID.").setEphemeral(true).queue();
+                event.reply("❌ Informe um ID de chamado válido.").setEphemeral(true).queue();
                 return;
             }
 
@@ -146,7 +146,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
         } catch (Exception e) {
             log.error("❌ Error processing /status command", e);
-            event.reply("❌ Error while retrieving ticket status. Please contact an administrator.")
+            event.reply("❌ Erro ao consultar o status do chamado. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
         }

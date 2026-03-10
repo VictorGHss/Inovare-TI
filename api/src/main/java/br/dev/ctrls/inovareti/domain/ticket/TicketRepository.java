@@ -37,6 +37,9 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     List<Ticket> findAllByStatus(TicketStatus status);
 
+    @Query("SELECT t FROM Ticket t WHERE CAST(t.id AS string) ILIKE CONCAT(:shortId, '%')")
+    List<Ticket> findByShortIdStartingWith(@Param("shortId") String shortId);
+
     /**
      * Conta chamados por status para analítica.
      * @param status o status do chamado a ser contado

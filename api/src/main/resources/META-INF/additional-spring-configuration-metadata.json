@@ -38,5 +38,15 @@
     "name": "discord.webhook.url",
     "type": "java.lang.String",
     "description": "A description for 'discord.webhook.url'"
+  },
+  {
+    "name": "discord.bot.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'discord.bot.enabled'"
+  },
+  {
+    "name": "discord.bot.token",
+    "type": "java.lang.String",
+    "description": "A description for 'discord.bot.token'"
   }
 ]}

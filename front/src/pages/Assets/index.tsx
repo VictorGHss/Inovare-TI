@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, X, HardDrive, FileText, Download, Printer, Eye } from 'lucide-react';
+import { PlusCircle, X, HardDrive, FileText, Download, Printer } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
@@ -176,6 +176,10 @@ export default function Assets() {
   function openPrintModal(asset: Asset) {
     setSelectedAssetForPrint(asset);
     setShowPrintModal(true);
+  }
+
+  function handleOpenDetails(asset: Asset) {
+    navigate(`/assets/${asset.id}`);
   }
 
   async function handleInvoiceUpload(file: File) {
@@ -359,7 +363,11 @@ export default function Assets() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {assets.map((asset) => (
-                  <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={asset.id}
+                    onClick={() => handleOpenDetails(asset)}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       <div className="flex items-center gap-2">
                         <HardDrive size={15} className="text-slate-400" />
@@ -371,17 +379,6 @@ export default function Assets() {
                     <td className="px-4 py-3 text-slate-600">{asset.assignedToName ?? (asset.userId ? userNameById.get(asset.userId) ?? 'Usuário não encontrado' : 'No estoque (TI)')}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/assets/${asset.id}`);
-                                                  }}
-                                                  className="flex items-center gap-1.5 text-xs font-medium bg-brand-secondary text-orange-800 hover:bg-orange-200 px-3 py-1.5 rounded-lg transition-colors"
-                                                  title="Ver detalhes do ativo"
-                                                >
-                                                  <Eye size={14} />
-                                                  Detalhes
-                                                </button>
                         {asset.invoiceFileName ? (
                           <button
                             onClick={(e) => handleInvoiceDownload(asset, e)}

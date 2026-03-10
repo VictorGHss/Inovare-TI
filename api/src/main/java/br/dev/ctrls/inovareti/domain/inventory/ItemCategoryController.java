@@ -34,11 +34,16 @@ public class ItemCategoryController {
      * Cria uma nova categoria de item de inventário.
      * Retorna 201 Created com a categoria criada no corpo da resposta.
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ItemCategoryResponseDTO> create(
             @Valid @RequestBody ItemCategoryRequestDTO request) {
-        ItemCategoryResponseDTO response = createItemCategoryUseCase.execute(request);
+        ItemCategoryRequestDTO normalizedRequest = new ItemCategoryRequestDTO(
+            request.name(),
+            request.isConsumable() != null ? request.isConsumable() : Boolean.TRUE
+        );
+
+        ItemCategoryResponseDTO response = createItemCategoryUseCase.execute(normalizedRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

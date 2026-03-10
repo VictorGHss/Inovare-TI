@@ -4,8 +4,14 @@ import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  createAssetCategory,
+  createItemCategory,
+  getAssetCategories,
+  getItemCategories,
   getSystemSettings,
   updateSystemSettings,
+  type AssetCategory,
+  type ItemCategory,
   type SystemSetting,
   type UpdateSystemSettingsPayload,
 } from '../../services/api';
@@ -31,6 +37,12 @@ export default function Settings() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
+  const [itemCategories, setItemCategories] = useState<ItemCategory[]>([]);
+  const [assetCategoryName, setAssetCategoryName] = useState('');
+  const [itemCategoryName, setItemCategoryName] = useState('');
+  const [savingAssetCategory, setSavingAssetCategory] = useState(false);
+  const [savingItemCategory, setSavingItemCategory] = useState(false);
 
   // User preferences state
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -68,6 +80,30 @@ export default function Settings() {
     loadSettings();
   }, [isAdmin]);
 
+  useEffect(() => {
+    async function loadCategories() {
+      if (!isAdmin) {
+        return;
+      }
+
+      try {
+        const [assetData, itemData] = await Promise.all([
+          getAssetCategories(),
+          getItemCategories(),
+        ]);
+
+        setAssetCategories(assetData);
+        setItemCategories(itemData);
+      } catch {
+        toast.error('Erro ao carregar categorias de configuração.');
+        setAssetCategories([]);
+        setItemCategories([]);
+      }
+    }
+
+    loadCategories();
+  }, [isAdmin]);
+
   const hasChanges = useMemo(() => {
     return settings.some((setting) => values[setting.id] !== setting.value);
   }, [settings, values]);
@@ -103,6 +139,70 @@ export default function Settings() {
   function handleSavePreferences() {
     // Mock save - preferences not persisted yet
     toast.success('Preferências salvas com sucesso.');
+  }
+
+  function getApiErrorMessage(error: unknown, fallbackMessage: string): string {
+    if (typeof error === 'object' && error !== null) {
+      const maybeResponse = error as { response?: { data?: { detail?: string } } };
+      if (maybeResponse.response?.data?.detail) {
+        return maybeResponse.response.data.detail;
+      }
+    }
+
+    return fallbackMessage;
+  }
+
+  async function refreshCategories() {
+    const [assetData, itemData] = await Promise.all([
+      getAssetCategories(),
+      getItemCategories(),
+    ]);
+
+    setAssetCategories(assetData);
+    setItemCategories(itemData);
+  }
+
+  async function handleCreateAssetCategory() {
+    const normalizedName = assetCategoryName.trim();
+    if (!normalizedName) {
+      toast.error('Digite um nome para a categoria de equipamentos.');
+      return;
+    }
+
+    setSavingAssetCategory(true);
+    try {
+      await createAssetCategory({ name: normalizedName });
+      setAssetCategoryName('');
+      await refreshCategories();
+      toast.success('Categoria de equipamentos adicionada com sucesso.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao adicionar categoria de equipamentos.'));
+    } finally {
+      setSavingAssetCategory(false);
+    }
+  }
+
+  async function handleCreateItemCategory() {
+    const normalizedName = itemCategoryName.trim();
+    if (!normalizedName) {
+      toast.error('Digite um nome para a categoria de inventário.');
+      return;
+    }
+
+    setSavingItemCategory(true);
+    try {
+      await createItemCategory({
+        name: normalizedName,
+        isConsumable: true,
+      });
+      setItemCategoryName('');
+      await refreshCategories();
+      toast.success('Categoria de inventário adicionada com sucesso.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao adicionar categoria de inventário.'));
+    } finally {
+      setSavingItemCategory(false);
+    }
   }
 
   if (!isAdmin && activeTab === 'global') {
@@ -204,6 +304,88 @@ export default function Settings() {
                       <Save size={16} />
                       {saving ? 'Salvando...' : 'Salvar Configurações'}
                     </button>
+                  </div>
+
+                  <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <h3 className="text-sm font-semibold text-slate-800">Categorias de Equipamentos (CMDB)</h3>
+                      <p className="text-xs text-slate-500 mt-1">Gerencie as categorias usadas nos ativos físicos.</p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {assetCategories.length === 0 ? (
+                          <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
+                        ) : (
+                          assetCategories.map((category) => (
+                            <span
+                              key={category.id}
+                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
+                            >
+                              {category.name}
+                            </span>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <input
+                          type="text"
+                          value={assetCategoryName}
+                          onChange={(event) => setAssetCategoryName(event.target.value)}
+                          className={inputClassName}
+                          placeholder="Nova categoria de equipamento"
+                          maxLength={100}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateAssetCategory}
+                          disabled={savingAssetCategory}
+                          className="shrink-0 bg-brand-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                          {savingAssetCategory ? 'Adicionando...' : 'Adicionar'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <h3 className="text-sm font-semibold text-slate-800">Categorias de Inventário (Consumíveis)</h3>
+                      <p className="text-xs text-slate-500 mt-1">Gerencie categorias para materiais e itens de estoque.</p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {itemCategories.filter((category) => category.isConsumable).length === 0 ? (
+                          <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
+                        ) : (
+                          itemCategories
+                            .filter((category) => category.isConsumable)
+                            .map((category) => (
+                            <span
+                              key={category.id}
+                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
+                            >
+                              {category.name}
+                            </span>
+                            ))
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <input
+                          type="text"
+                          value={itemCategoryName}
+                          onChange={(event) => setItemCategoryName(event.target.value)}
+                          className={inputClassName}
+                          placeholder="Nova categoria de inventário"
+                          maxLength={100}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateItemCategory}
+                          disabled={savingItemCategory}
+                          className="shrink-0 bg-brand-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                          {savingItemCategory ? 'Adicionando...' : 'Adicionar'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

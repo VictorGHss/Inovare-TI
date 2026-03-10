@@ -54,6 +54,15 @@ export interface ItemCategory {
   isConsumable: boolean;
 }
 
+export interface CreateAssetCategoryDto {
+  name: string;
+}
+
+export interface CreateItemCategoryDto {
+  name: string;
+  isConsumable?: boolean;
+}
+
 export interface Asset {
   id: string;
   userId: string | null;
@@ -301,6 +310,11 @@ export async function getItemCategories(): Promise<ItemCategory[]> {
   return data;
 }
 
+export async function createItemCategory(dto: CreateItemCategoryDto): Promise<ItemCategory> {
+  const { data } = await api.post<ItemCategory>('/api/item-categories', dto);
+  return data;
+}
+
 // Cria um novo item de inventário
 export async function createItem(dto: CreateItemDto): Promise<Item> {
   const { data } = await api.post<Item>('/api/items', dto);
@@ -401,6 +415,11 @@ export async function getAssetsByUser(userId: string): Promise<Asset[]> {
 
 export async function getAssetCategories(): Promise<AssetCategory[]> {
   const { data } = await api.get<AssetCategory[]>('/api/asset-categories');
+  return data;
+}
+
+export async function createAssetCategory(dto: CreateAssetCategoryDto): Promise<AssetCategory> {
+  const { data } = await api.post<AssetCategory>('/api/asset-categories', dto);
   return data;
 }
 

@@ -55,8 +55,8 @@ public class StockDeductionService {
         }
 
         if (remainingToDeduct > 0) {
-            throw new IllegalStateException(
-                    "Stock batches could not satisfy FIFO deduction. Missing quantity: " + remainingToDeduct);
+            log.warn("FIFO deduction fallback: {} units cannot be satisfied from stock batches. Treating as legacy/phantom stock for itemId={}, reference={}", 
+                    remainingToDeduct, itemId, reference);
         }
 
         stockBatchRepository.saveAll(fifoBatches);

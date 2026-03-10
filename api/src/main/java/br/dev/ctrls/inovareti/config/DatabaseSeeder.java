@@ -407,10 +407,14 @@ public class DatabaseSeeder implements CommandLineRunner {
         String[] suppliers = {"Kabum", "Kalunga", "Mercado Livre", "Amazon", "Dell Store", "Magazine Luiza"};
         String[] purchaseReasons = {"Reposição mensal", "Expansão de TI", "Substituição de equipamento danificado", "Novo projeto", "Manutenção preventiva"};
 
-        // Cria 5 lotes de estoque para itens selecionados aleatoriamente
-        for (int i = 1; i <= 5; i++) {
-            Item item = items.get(random.nextInt(items.size()));
-            int quantity = random.nextInt(20) + 10; // 10-30 units per batch
+        // Cria um lote de estoque para CADA item com a mesma quantidade do currentStock inicial
+        for (Item item : items) {
+            int quantity = item.getCurrentStock();
+            if (quantity <= 0) {
+                log.debug("Skipping stock batch creation for item {} with zero/negative currentStock", item.getId());
+                continue;
+            }
+
             BigDecimal unitPrice = new BigDecimal(random.nextInt(500) + 50); // 50-550 per unit
             LocalDateTime entryDate = now.minusDays(random.nextInt(15)).minusHours(random.nextInt(24));
 
@@ -429,7 +433,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         stockBatchRepository.saveAll(batches);
-        log.info("Seeded {} stock batches", batches.size());
+        log.info("Seeded {} stock batches (one per inventory item)", batches.size());
     }
 
     private void seedAssets() {

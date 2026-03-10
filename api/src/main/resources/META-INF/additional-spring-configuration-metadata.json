@@ -48,5 +48,10 @@
     "name": "discord.bot.token",
     "type": "java.lang.String",
     "description": "A description for 'discord.bot.token'"
+  },
+  {
+    "name": "app.frontend.url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.frontend.url'"
   }
 ]}

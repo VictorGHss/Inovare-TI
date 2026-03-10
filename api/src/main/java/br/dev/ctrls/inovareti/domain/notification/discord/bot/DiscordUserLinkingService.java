@@ -20,6 +20,10 @@ public class DiscordUserLinkingService {
 
     private static final String USER_NOT_FOUND_MESSAGE = "❌ Usuário não encontrado para o e-mail informado.";
 
+    public boolean isDiscordUserLinked(String discordUserId) {
+        return userRepository.findByDiscordUserId(discordUserId).isPresent();
+    }
+
     /**
      * Links a Discord account to a clinic user and returns a final response message.
      */

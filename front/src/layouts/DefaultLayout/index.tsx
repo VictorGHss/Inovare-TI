@@ -1,6 +1,14 @@
 // Layout padrão compartilhado entre todas as páginas autenticadas
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Github, HardDrive } from 'lucide-react';
+import {
+  BookOpen,
+  Github,
+  LayoutDashboard,
+  Monitor,
+  Package,
+  Ticket,
+  Users,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import UserDropdown from '../../components/UserDropdown';
@@ -11,6 +19,23 @@ export default function DefaultLayout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isDashboardActive = location.pathname.startsWith('/dashboard');
+  const isTicketsActive = location.pathname.startsWith('/tickets');
+  const isInventoryActive = location.pathname.startsWith('/inventory');
+  const isAssetsActive = location.pathname.startsWith('/assets');
+  const isKnowledgeBaseActive = location.pathname.startsWith('/knowledge-base');
+  const isUsersActive = location.pathname.startsWith('/users');
+
+  const navButtonClass = (isActive: boolean) =>
+    `px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+      isActive
+        ? 'bg-primary/10 text-primary'
+        : 'text-slate-600 hover:bg-slate-100'
+    }`;
+
+  const navIconClass = (isActive: boolean) =>
+    isActive ? 'text-primary' : 'text-slate-400';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -26,61 +51,52 @@ export default function DefaultLayout() {
           {/* Links de navegação */}
           <nav className="hidden sm:flex items-center gap-1">
             <button
-              onClick={() => navigate('/tickets')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname.startsWith('/tickets')
-                  ? 'bg-primary text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              onClick={() => navigate('/dashboard')}
+              className={navButtonClass(isDashboardActive)}
             >
+              <LayoutDashboard size={14} className={navIconClass(isDashboardActive)} />
+              Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/tickets')}
+              className={navButtonClass(isTicketsActive)}
+            >
+              <Ticket size={14} className={navIconClass(isTicketsActive)} />
               Chamados
             </button>
             {user?.role !== 'USER' && (
               <button
                 onClick={() => navigate('/inventory')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  location.pathname.startsWith('/inventory')
-                    ? 'bg-primary text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
+                className={navButtonClass(isInventoryActive)}
               >
+                <Package size={14} className={navIconClass(isInventoryActive)} />
                 Inventário
               </button>
             )}
             {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
               <button
                 onClick={() => navigate('/assets')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                  location.pathname.startsWith('/assets')
-                    ? 'bg-primary text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
+                className={navButtonClass(isAssetsActive)}
               >
-                <HardDrive size={14} />
-                Ativos
+                <Monitor size={14} className={navIconClass(isAssetsActive)} />
+                Equipamentos
               </button>
             )}
             <button
               onClick={() => navigate('/knowledge-base')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                location.pathname.startsWith('/knowledge-base')
-                  ? 'bg-primary text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              className={navButtonClass(isKnowledgeBaseActive)}
             >
-              Tutoriais
+              <BookOpen size={14} className={navIconClass(isKnowledgeBaseActive)} />
+              Base de Conhecimento
             </button>
             {/* Links administrativos — visíveis apenas para ADMIN */}
             {user?.role === 'ADMIN' && (
               <>
                 <button
                   onClick={() => navigate('/users')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                    location.pathname.startsWith('/users')
-                      ? 'bg-primary text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={navButtonClass(isUsersActive)}
                 >
+                  <Users size={14} className={navIconClass(isUsersActive)} />
                   Equipe
                 </button>
                 <button

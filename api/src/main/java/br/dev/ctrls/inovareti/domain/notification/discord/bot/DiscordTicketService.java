@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -78,6 +79,39 @@ public class DiscordTicketService {
                 shortId,
                 toFriendlyStatus(ticket.getStatus())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public String listMyActiveTicketsFromDiscord(String discordUserId) {
+        User requester = userRepository.findByDiscordUserId(discordUserId).orElse(null);
+        if (requester == null) {
+            return "⚠️ Seu Discord não está vinculado à sua conta da clínica. Use o comando /vincular [seu-email].";
+        }
+
+        List<TicketStatus> activeStatuses = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS);
+        List<Ticket> activeTickets = ticketRepository.findByRequesterIdAndStatusInOrderByCreatedAtDesc(
+                requester.getId(),
+                activeStatuses
+        );
+
+        if (activeTickets.isEmpty()) {
+            return "Você não tem nenhum chamado em andamento no momento! 🎉";
+        }
+
+        StringBuilder messageBuilder = new StringBuilder("Seus chamados em andamento:\n");
+        for (Ticket ticket : activeTickets) {
+            String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
+            messageBuilder
+                    .append("📌 #")
+                    .append(shortId)
+                    .append(" - ")
+                    .append(ticket.getTitle())
+                    .append(" (Status: ")
+                    .append(toFriendlyStatus(ticket.getStatus()))
+                    .append(")\n");
+        }
+
+        return messageBuilder.toString().trim();
     }
 
     private TicketPriority parsePriority(String priorityRaw) {

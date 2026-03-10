@@ -53,6 +53,12 @@ public class DiscordEventListener extends ListenerAdapter {
                             error -> log.error("❌ Failed to register /status command", error)
                     );
 
+                jda.upsertCommand("meuschamados", "Lista os seus chamados em andamento")
+                    .queue(
+                        success -> log.info("✅ Slash Command '/meuschamados' registered successfully"),
+                        error -> log.error("❌ Failed to register /meuschamados command", error)
+                    );
+
             log.info("✅ All slash commands registered successfully!");
 
         } catch (Exception e) {
@@ -72,6 +78,7 @@ public class DiscordEventListener extends ListenerAdapter {
             case "chamado" -> handleChamadoCommand(event);
             case "vincular" -> handleVincularCommand(event);
             case "status" -> handleStatusCommand(event);
+            case "meuschamados" -> handleMeusChamadosCommand(event);
             default -> event.reply("❌ Comando desconhecido: " + commandName).setEphemeral(true).queue();
         }
     }
@@ -147,6 +154,31 @@ public class DiscordEventListener extends ListenerAdapter {
         } catch (Exception e) {
             log.error("❌ Error processing /status command", e);
             event.reply("❌ Erro ao consultar o status do chamado. Entre em contato com um administrador.")
+                    .setEphemeral(true)
+                    .queue();
+        }
+    }
+
+    private void handleMeusChamadosCommand(SlashCommandInteractionEvent event) {
+        log.info("📋 Processing /meuschamados command from user {}", event.getUser().getId());
+
+        try {
+            String discordUserId = event.getUser().getId();
+            boolean isLinked = discordUserLinkingService.isDiscordUserLinked(discordUserId);
+
+            if (!isLinked) {
+                event.reply("⚠️ Seu Discord ainda não está vinculado. Use /vincular com seu e-mail corporativo.")
+                        .setEphemeral(true)
+                        .queue();
+                return;
+            }
+
+            String message = discordTicketService.listMyActiveTicketsFromDiscord(discordUserId);
+            event.reply(message).queue();
+
+        } catch (Exception e) {
+            log.error("❌ Error processing /meuschamados command", e);
+            event.reply("❌ Erro ao listar seus chamados. Tente novamente em instantes.")
                     .setEphemeral(true)
                     .queue();
         }

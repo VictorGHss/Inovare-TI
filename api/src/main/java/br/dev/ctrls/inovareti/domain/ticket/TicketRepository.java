@@ -56,4 +56,12 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * Retorna todos os chamados de um solicitante.
      */
     List<Ticket> findByRequesterId(@Param("requesterId") UUID requesterId);
+
+        /**
+         * Retorna os chamados de um solicitante filtrados por status, mais recentes primeiro.
+         */
+        List<Ticket> findByRequesterIdAndStatusInOrderByCreatedAtDesc(
+                        @Param("requesterId") UUID requesterId,
+                        @Param("statusList") List<TicketStatus> statusList
+        );
 }

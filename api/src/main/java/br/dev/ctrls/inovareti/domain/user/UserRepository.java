@@ -28,4 +28,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     @Query("SELECT u FROM User u JOIN FETCH u.sector")
     List<User> findAllWithSector();
+
+    /**
+     * Busca um usuário pelo seu Discord ID.
+     */
+    Optional<User> findByDiscordUserId(String discordUserId);
 }

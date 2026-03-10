@@ -97,7 +97,7 @@ export default function DefaultLayout() {
             )}
           </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <NotificationBell />
           {user && <UserDropdown userName={user.name} userRole={user.role} />}
         </div>

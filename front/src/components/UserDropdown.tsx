@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Settings } from 'lucide-react';
+import { LogOut, User, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface UserDropdownProps {
@@ -42,28 +42,32 @@ export default function UserDropdown({ userName, userRole }: UserDropdownProps) 
   const settingsPath = '/settings';
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative flex-shrink-0">
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+        className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors max-w-[220px]"
       >
         {/* Avatar com Initial */}
-        <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm font-semibold">
+        <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm font-semibold shrink-0">
           {userInitial}
         </div>
         {/* Nome do usuário */}
-        <span className="hidden sm:block text-sm font-medium text-slate-700">
+        <span className="hidden sm:block text-sm font-medium text-slate-700 truncate">
           {userName}
+        </span>
+        {/* Chevron indica estado do menu */}
+        <span className="hidden sm:block text-slate-400 shrink-0">
+          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu — abre abaixo do trigger, alinhado à direita */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
+        <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
           {/* Header com Nome e Role */}
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-            <p className="text-sm font-semibold text-slate-800">{userName}</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">{userName}</p>
             <p className="text-xs text-slate-500 mt-0.5">{roleLabel}</p>
           </div>
 

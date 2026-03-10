@@ -4,8 +4,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * DTO for ticket report export.
- * Contains all information needed for Excel export.
+ * DTO para exportação de relatório de chamados.
+ * Contém todas as informações necessárias para a exportação em Excel.
  */
 public record TicketReportDTO(
     UUID id,

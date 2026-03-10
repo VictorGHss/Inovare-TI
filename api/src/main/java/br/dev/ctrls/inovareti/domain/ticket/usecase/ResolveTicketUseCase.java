@@ -26,13 +26,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Use case: resolves a ticket with optional asset/item fulfillment.
- * Critical business rules:
- * 1. If the ticket has requestedItem and requestedQuantity,
- *    item currentStock is decremented atomically in the same transaction.
- * 2. If assetIdToDeliver is provided, asset ownership is transferred to requester
- *    and an AssetMaintenance TRANSFER record is created.
- * 3. If inventoryItemIdToDeliver is provided, stock is decremented.
+ * Caso de uso: resolve um chamado com entrega opcional de equipamento ou item.
+ * Regras de negócio críticas:
+ * 1. Se o chamado possuir requestedItem e requestedQuantity,
+ *    o estoque atual do item é decrementado atomicamente na mesma transação.
+ * 2. Se assetIdToDeliver for fornecido, a propriedade do equipamento é transferida para o solicitante
+ *    e um registro AssetMaintenance de TRANSFER é criado.
+ * 3. Se inventoryItemIdToDeliver for fornecido, o estoque é decrementado.
  */
 @Slf4j
 @Component
@@ -47,13 +47,13 @@ public class ResolveTicketUseCase {
     private final CreateNotificationService createNotificationService;
 
     /**
-     * Resolves a ticket and optionally delivers assets/items.
+     * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
      *
-     * @param ticketId UUID of the ticket to resolve
-     * @param request DTO with resolution notes and optional fulfillment data
-     * @return DTO with updated ticket data
-     * @throws NotFoundException if ticket or asset/item is not found
-     * @throws IllegalStateException if business rules are violated
+     * @param ticketId UUID do chamado a ser resolvido
+     * @param request DTO com notas de resolução e dados opcionais de entrega
+     * @return DTO com os dados atualizados do chamado
+     * @throws NotFoundException se o chamado ou equipamento/item não for encontrado
+     * @throws IllegalStateException se regras de negócio forem violadas
      */
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, ResolveTicketDTO request) {
@@ -61,7 +61,7 @@ public class ResolveTicketUseCase {
                 .orElseThrow(() -> new NotFoundException(
                         "Ticket not found with id: " + ticketId));
 
-        // Debit inventory stock if ticket has requested item
+        // Debita estoque se o chamado tiver item solicitado
         if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
             var item = ticket.getRequestedItem();
             int newStock = item.getCurrentStock() - ticket.getRequestedQuantity();
@@ -84,7 +84,7 @@ public class ResolveTicketUseCase {
                     "Choose only one asset delivery mode: existing asset or quick new asset registration.");
         }
 
-        // Deliver asset if assetIdToDeliver is provided
+        // Entrega equipamento existente se assetIdToDeliver for fornecido
         if (request.assetIdToDeliver() != null) {
             Asset asset = assetRepository.findById(request.assetIdToDeliver())
                     .orElseThrow(() -> new NotFoundException(
@@ -96,13 +96,13 @@ public class ResolveTicketUseCase {
                         + "Cannot deliver asset that is already in use.");
             }
 
-            // Transfer asset ownership to requester
+            // Transfere a propriedade do equipamento para o solicitante
             asset.setUserId(ticket.getRequester().getId());
             Asset deliveredAsset = assetRepository.save(asset);
             log.info("Asset {} transferred to user {} via ticket {}",
                     asset.getId(), ticket.getRequester().getId(), ticketId);
 
-            // Create AssetMaintenance record for audit trail
+            // Cria registro de auditoria (AssetMaintenance) da transferência
             AssetMaintenance maintenance = AssetMaintenance.builder()
                     .asset(deliveredAsset)
                     .maintenanceDate(LocalDate.now())
@@ -115,7 +115,7 @@ public class ResolveTicketUseCase {
             log.info("AssetMaintenance TRANSFER record created for asset {}", asset.getId());
         }
 
-                // Quick-register and deliver a new asset if provided
+                // Cadastra rapidamente e entrega novo equipamento se fornecido
                 if (request.newAssetToDeliver() != null) {
                         var newAssetRequest = request.newAssetToDeliver();
 
@@ -161,7 +161,7 @@ public class ResolveTicketUseCase {
                         log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
                 }
 
-        // Deliver inventory item if inventoryItemIdToDeliver is provided
+        // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
             var item = itemRepository.findById(request.inventoryItemIdToDeliver())
                     .orElseThrow(() -> new NotFoundException(
@@ -182,7 +182,7 @@ public class ResolveTicketUseCase {
                     ticketId, item.getName(), request.quantityToDeliver(), newStock);
         }
 
-        // Mark ticket as resolved
+        // Marca o chamado como resolvido
         ticket.setStatus(TicketStatus.RESOLVED);
         ticket.setClosedAt(LocalDateTime.now());
 
@@ -201,7 +201,7 @@ public class ResolveTicketUseCase {
     }
 
     /**
-     * Legacy method for backward compatibility: resolves without fulfillment.
+     * Método legado para compatibilidade: resolve sem entrega de itens.
      */
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {

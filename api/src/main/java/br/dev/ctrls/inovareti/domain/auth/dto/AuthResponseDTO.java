@@ -5,8 +5,8 @@ import java.util.UUID;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 
 /**
- * Response payload returned after a successful authentication.
- * Includes JWT token and user data.
+ * Payload de resposta retornado após autenticação bem-sucedida.
+ * Inclui o token JWT e os dados do usuário.
  */
 public record AuthResponseDTO(
 		String status,

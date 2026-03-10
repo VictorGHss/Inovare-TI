@@ -9,9 +9,9 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTO for opening a new ticket.
- * The initial status (OPEN) and slaDeadline are calculated automatically.
- * The requester is extracted from the JWT token in the SecurityContext.
+ * DTO para abertura de novo chamado.
+ * O status inicial (OPEN) e o slaDeadline são calculados automaticamente.
+ * O solicitante é extraído do token JWT no SecurityContext.
  */
 public record TicketRequestDTO(
 
@@ -27,13 +27,13 @@ public record TicketRequestDTO(
         @NotNull(message = "Priority is required.")
         TicketPriority priority,
 
-        /** ID of the assigned technician. Optional on creation. */
+        /** ID do técnico responsável. Opcional na criação. */
         UUID assignedToId,
 
         @NotNull(message = "Category ID is required.")
         UUID categoryId,
 
-        /** ID of the requested item. Fill together with requestedQuantity. */
+        /** ID do item solicitado. Preencher junto com requestedQuantity. */
         UUID requestedItemId,
 
         @Positive(message = "Requested quantity must be greater than zero.")

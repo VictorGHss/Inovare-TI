@@ -7,15 +7,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /**
- * Repository for managing ticket attachments.
+ * Repositório para gerenciamento de anexos de chamados.
  */
 @Repository
 public interface TicketAttachmentRepository extends JpaRepository<TicketAttachment, UUID> {
     
     /**
-     * Finds all attachments for a specific ticket.
-     * @param ticketId the UUID of the ticket
-     * @return list of attachments for the ticket
+     * Retorna todos os anexos de um chamado específico.
+     * @param ticketId o UUID do chamado
+     * @return lista de anexos do chamado
      */
     List<TicketAttachment> findByTicketId(UUID ticketId);
 }

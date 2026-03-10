@@ -26,12 +26,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Use case: opens a new ticket.
- * Responsibilities:
- *   1. Resolve requester from JWT via SecurityContext.
- *   2. Validate category and optional assigned technician / requested item.
- *   3. Compute slaDeadline by adding baseSlaHours to the current time.
- *   4. Set initial status as OPEN.
+ * Caso de uso: abre um novo chamado.
+ * Responsabilidades:
+ *   1. Resolver o solicitante via JWT pelo SecurityContext.
+ *   2. Validar a categoria e o técnico/item solicitado (opcionais).
+ *   3. Calcular o slaDeadline adicionando baseSlaHours ao momento atual.
+ *   4. Definir o status inicial como OPEN.
  */
 @Slf4j
 @Component
@@ -46,11 +46,11 @@ public class CreateTicketUseCase {
     private final DiscordWebhookService discordWebhookService;
 
     /**
-     * Opens a ticket with the provided information.
-     * The requester is resolved from the authenticated user in the SecurityContext.
+     * Abre um chamado com os dados fornecidos.
+     * O solicitante é resolvido pelo usuário autenticado no SecurityContext.
      *
-     * @param request DTO with the ticket data
-     * @return DTO with the created ticket data
+     * @param request DTO com os dados do chamado
+     * @return DTO com os dados do chamado criado
      */
     @Transactional
     public TicketResponseDTO execute(TicketRequestDTO request) {
@@ -100,10 +100,10 @@ public class CreateTicketUseCase {
                 savedTicket.getId(), requester.getName(), requester.getEmail(),
                 category.getName(), savedTicket.getPriority());
 
-        // Send Discord webhook notification asynchronously
+        // Envia notificação de webhook do Discord de forma assíncrona
         discordWebhookService.sendNewTicketAlert(savedTicket);
 
-        // Notify all ADMIN and TECHNICIAN users about the new ticket
+        // Notifica todos os usuários ADMIN e TECHNICIAN sobre o novo chamado
         var adminUsers = userRepository.findAllByRole(UserRole.ADMIN);
         var technicianUsers = userRepository.findAllByRole(UserRole.TECHNICIAN);
         

@@ -22,9 +22,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Represents a file attachment associated with a ticket.
- * Files are stored physically on the server with a generated UUID-based filename
- * to prevent conflicts, while preserving the original filename for display.
+ * Representa um arquivo anexo associado a um chamado.
+ * Os arquivos são armazenados fisicamente no servidor com nome baseado em UUID
+ * para evitar conflitos, preservando o nome original para exibição.
  */
 @Entity
 @Table(name = "ticket_attachments")

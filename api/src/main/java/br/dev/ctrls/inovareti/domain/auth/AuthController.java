@@ -15,8 +15,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * REST controller for authentication endpoints.
- * Base path: /api/auth
+ * Controlador REST para os endpoints de autenticação.
+ * Caminho base: /api/auth
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -27,11 +27,11 @@ public class AuthController {
     private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
 
     /**
-     * Authenticates the user and returns a signed JWT token.
-     * This is the only public endpoint in the API.
+     * Autentica o usuário e retorna um token JWT assinado.
+     * Este é o único endpoint público da API.
      *
-     * @param request login credentials (email + password)
-     * @return 200 OK with the JWT token
+     * @param request credenciais de login (e-mail + senha)
+     * @return 200 OK com o token JWT
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {

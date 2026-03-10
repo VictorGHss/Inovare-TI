@@ -12,10 +12,10 @@ import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case: lists all tickets with tenant isolation based on user role.
- * 
- * - ADMIN/TECHNICIAN: can see all tickets
- * - USER: can only see their own tickets (where they are the requester)
+ * Caso de uso: lista todos os chamados com isolamento por perfil de usuário.
+ *
+ * - ADMIN/TECHNICIAN: podem ver todos os chamados
+ * - USER: só podem ver seus próprios chamados (onde são o solicitante)
  */
 @Service
 @RequiredArgsConstructor
@@ -24,24 +24,24 @@ public class ListAllTicketsUseCase {
     private final TicketRepository ticketRepository;
 
     /**
-     * Returns tickets based on user role and ID.
-     * 
-     * @param userId the authenticated user's ID
-     * @param userRole the authenticated user's role
-     * @return list of tickets the user can see
+     * Retorna chamados de acordo com o perfil e ID do usuário.
+     *
+     * @param userId ID do usuário autenticado
+     * @param userRole perfil do usuário autenticado
+     * @return lista de chamados visíveis ao usuário
      */
     @Transactional(readOnly = true)
     public List<TicketResponseDTO> execute(UUID userId, UserRole userRole) {
         List<TicketResponseDTO> tickets;
         
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
-            // ADMIN and TECHNICIAN can see all tickets
+            // ADMIN e TECHNICIAN podem ver todos os chamados
             tickets = ticketRepository.findAllWithRelations()
                     .stream()
                     .map(TicketResponseDTO::from)
                     .toList();
         } else {
-            // USER can only see tickets they created
+            // USER só pode ver chamados que criou
             tickets = ticketRepository.findByRequesterIdOrderByCreatedAtDesc(userId)
                     .stream()
                     .map(TicketResponseDTO::from)

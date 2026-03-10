@@ -5,16 +5,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Configuration for RestTemplate bean.
- * Used for external HTTP requests (e.g., Discord webhooks).
+ * Configuração do bean RestTemplate.
+ * Utilizado para requisições HTTP externas (ex.: webhooks do Discord).
  */
 @Configuration
 public class RestTemplateConfig {
 
     /**
-     * Creates and configures a RestTemplate bean.
+     * Cria e configura o bean RestTemplate.
      *
-     * @return configured RestTemplate instance
+     * @return instância configurada de RestTemplate
      */
     @Bean
     public RestTemplate restTemplate() {

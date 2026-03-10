@@ -9,8 +9,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTO for updating an existing user's data (name, email, role, sector).
- * Password is handled separately via the reset-password endpoint.
+ * DTO para atualização dos dados de um usuário existente (nome, e-mail, perfil, setor).
+ * A senha é tratada separadamente pelo endpoint reset-password.
  */
 public record UpdateUserRequestDTO(
 

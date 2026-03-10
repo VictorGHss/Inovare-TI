@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Represents a category for assets (e.g., "Desktop", "Laptop", "Monitor").
+ * Representa uma categoria para ativos (ex.: "Desktop", "Notebook", "Monitor").
  */
 @Entity
 @Table(name = "asset_categories")

@@ -42,7 +42,7 @@ public class ReportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Chamados");
 
-            // Create header style
+            // Cria o estilo do cabeçalho
             CellStyle headerStyle = workbook.createCellStyle();
             headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
@@ -54,7 +54,7 @@ public class ReportService {
             headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
             headerStyle.setAlignment(HorizontalAlignment.CENTER);
 
-            // Create header row
+            // Cria a linha de cabeçalho
             Row headerRow = sheet.createRow(0);
             String[] headers = {"ID", "Título", "Solicitante", "Setor", "Categoria", "Status", "Prioridade", "Criado Em", "Resolvido Em"};
 
@@ -64,7 +64,7 @@ public class ReportService {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Fill data rows
+            // Preenche as linhas de dados
             int rowNum = 1;
             for (Ticket ticket : tickets) {
                 Row row = sheet.createRow(rowNum++);
@@ -80,12 +80,12 @@ public class ReportService {
                 row.createCell(8).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
             }
 
-            // Auto-size columns
+            // Ajusta automaticamente a largura das colunas
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
-            // Write to ByteArrayOutputStream
+            // Grava no ByteArrayOutputStream
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
 
@@ -100,10 +100,10 @@ public class ReportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Entradas");
 
-            // Create header style
+            // Cria o estilo do cabeçalho
             CellStyle headerStyle = createHeaderStyle(workbook);
 
-            // Create header row
+            // Cria a linha de cabeçalho
             Row headerRow = sheet.createRow(0);
             String[] headers = {"Tipo de Item", "Item", "Marca", "Qtd Adquirida", "Fornecedor", "Preço Un.", "Preço Total", "Motivo da Compra", "Data de Entrada"};
 
@@ -113,7 +113,7 @@ public class ReportService {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Fill data rows
+            // Preenche as linhas de dados
             int rowNum = 1;
             for (StockBatch batch : batches) {
                 Row row = sheet.createRow(rowNum++);
@@ -132,12 +132,12 @@ public class ReportService {
                 row.createCell(8).setCellValue(batch.getEntryDate().format(DATE_FORMATTER));
             }
 
-            // Auto-size columns
+            // Ajusta automaticamente a largura das colunas
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
-            // Write to ByteArrayOutputStream
+            // Grava no ByteArrayOutputStream
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
 
@@ -152,10 +152,10 @@ public class ReportService {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Saídas");
 
-            // Create header style
+            // Cria o estilo do cabeçalho
             CellStyle headerStyle = createHeaderStyle(workbook);
 
-            // Create header row
+            // Cria a linha de cabeçalho
             Row headerRow = sheet.createRow(0);
             String[] headers = {"Tipo de Item", "Item", "Qtd Entregue", "Quem Solicitou", "Local do Usuário", "Setor do Usuário", "Preço Total", "Data da Entrega"};
 
@@ -165,7 +165,7 @@ public class ReportService {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Fill data rows - only resolved tickets with requested items
+            // Preenche as linhas de dados — apenas chamados resolvidos com itens solicitados
             int rowNum = 1;
             for (Ticket ticket : tickets) {
                 if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
@@ -178,7 +178,7 @@ public class ReportService {
                     row.createCell(4).setCellValue(ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
                     row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
                     
-                    // Calculate total price based on last batch unit price
+                    // Calcula o preço total com base no preço unitário do último lote
                     BigDecimal totalPrice = calculateExitTotalPrice(ticket.getRequestedItem(), ticket.getRequestedQuantity());
                     row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
                     
@@ -186,12 +186,12 @@ public class ReportService {
                 }
             }
 
-            // Auto-size columns
+            // Ajusta automaticamente a largura das colunas
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
-            // Write to ByteArrayOutputStream
+            // Grava no ByteArrayOutputStream
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
 
@@ -203,10 +203,10 @@ public class ReportService {
     }
 
     /**
-     * Calculates the total price for an item exit based on the most recent batch unit price.
-     * @param item The item being exited
-     * @param quantity The quantity being exited
-     * @return Total price (quantity * unit price from most recent batch), or ZERO if no batches found
+     * Calcula o preço total de uma saída de item com base no preço unitário do lote mais recente.
+     * @param item o item sendo retirado
+     * @param quantity a quantidade sendo retirada
+     * @return preço total (quantidade * preço unitário do lote mais recente), ou ZERO se não houver lotes
      */
     private BigDecimal calculateExitTotalPrice(br.dev.ctrls.inovareti.domain.inventory.Item item, Integer quantity) {
         List<StockBatch> batches = stockBatchRepository.findByItemOrderByEntryDateDesc(item);
@@ -216,7 +216,7 @@ public class ReportService {
             return BigDecimal.ZERO;
         }
         
-        // Get the most recent batch (first in the list ordered by desc)
+        // Obtém o lote mais recente (primeiro da lista ordenada por data decrescente)
         BigDecimal unitPrice = batches.get(0).getUnitPrice();
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }

@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Use case responsible for authenticating a user and returning a JWT token.
- * Delegates credential verification to the Spring Security {@link AuthenticationManager}.
+ * Caso de uso responsável por autenticar um usuário e retornar um token JWT.
+ * Delega a verificação das credenciais ao {@link AuthenticationManager} do Spring Security.
  */
 @Slf4j
 @Component
@@ -25,10 +25,10 @@ public class LoginUseCase {
     private final TokenService tokenService;
 
     /**
-     * Authenticates the given credentials and returns a signed JWT.
+     * Autentica as credenciais informadas e retorna um JWT assinado.
      *
-     * @param request the login credentials (email + password)
-     * @return {@link AuthResponseDTO} containing the JWT token and user data
+     * @param request as credenciais de login (e-mail + senha)
+     * @return {@link AuthResponseDTO} com o token JWT e os dados do usuário
      */
     public AuthResponseDTO execute(AuthRequestDTO request) {
         var credentials = new UsernamePasswordAuthenticationToken(

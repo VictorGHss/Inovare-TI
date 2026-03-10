@@ -23,9 +23,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Spring Security configuration — stateless JWT.
- * Only auth bootstrap endpoints are publicly accessible.
- * All other routes require a valid Bearer token.
+ * Configuração do Spring Security — JWT sem estado (stateless).
+ * Apenas os endpoints de autenticação são públicos.
+ * Todas as demais rotas exigem um Bearer token válido.
  */
 @Configuration
 @EnableWebSecurity
@@ -36,13 +36,13 @@ public class SecurityConfig {
     private final SecurityFilter securityFilter;
 
     /**
-     * Defines the security filter chain:
-     * - CSRF disabled (stateless API)
-     * - CORS enabled (allows Vite dev server at localhost:5173)
-     * - Session management: STATELESS
-    * - Public routes: POST /api/auth/login and POST /api/auth/reset-initial-password
-     * - All other routes: authenticated
-     * - JWT filter runs before UsernamePasswordAuthenticationFilter
+     * Define a cadeia de filtros de segurança:
+     * - CSRF desabilitado (API stateless)
+     * - CORS habilitado (permite o servidor Vite em localhost:5173)
+     * - Gerenciamento de sessão: STATELESS
+     * - Rotas pública: POST /api/auth/login e POST /api/auth/reset-initial-password
+     * - Demais rotas: autenticadas
+     * - Filtro JWT executado antes do UsernamePasswordAuthenticationFilter
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -63,8 +63,8 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS configuration — allows frontend from localhost and server IPs to consume the API.
-     * Explicitly allows OPTIONS for preflight requests.
+     * Configuração de CORS — permite que o frontend (localhost e IPs do servidor) consuma a API.
+     * Libera explicitamente requisitiões OPTIONS para preflight.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -84,7 +84,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Exposes the {@link AuthenticationManager} bean used by {@code LoginUseCase}.
+     * Expõe o bean {@link AuthenticationManager} utilizado pelo {@code LoginUseCase}.
      */
     @Bean
     public AuthenticationManager authenticationManager(
@@ -93,7 +93,7 @@ public class SecurityConfig {
     }
 
     /**
-     * BCrypt password encoder bean — used when hashing and verifying passwords.
+     * Bean de codificador de senha BCrypt — utilizado para criar e verificar hashes de senha.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {

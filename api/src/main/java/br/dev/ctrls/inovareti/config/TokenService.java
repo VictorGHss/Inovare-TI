@@ -15,9 +15,9 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import br.dev.ctrls.inovareti.domain.user.User;
 
 /**
- * Service responsible for generating and validating JWT tokens.
- * The signing secret is injected from application properties.
- * Tokens are issued by "inovare-ti" and expire after 8 hours.
+ * Serviço responsável por gerar e validar tokens JWT.
+ * O segredo de assinatura é injetado via propriedades da aplicação.
+ * Os tokens são emitidos por "inovare-ti" e expiram em 8 horas.
  */
 @Service
 public class TokenService {
@@ -30,10 +30,10 @@ public class TokenService {
     private String secret;
 
     /**
-     * Generates a signed JWT token for the given user.
+     * Gera um token JWT assinado para o usuário informado.
      *
-     * @param user the authenticated user
-     * @return signed JWT string
+     * @param user o usuário autenticado
+     * @return token JWT assinado
      */
     public String generateToken(User user) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -55,11 +55,11 @@ public class TokenService {
     }
 
     /**
-     * Validates the given JWT token and returns the subject (e-mail).
-     * Returns an empty string if the token is invalid or expired.
+     * Valida o token JWT informado e retorna o subject (e-mail).
+     * Retorna uma string vazia se o token for inválido ou expirado.
      *
-     * @param token the raw JWT string (without "Bearer " prefix)
-     * @return the subject claim (e-mail), or empty string on failure
+     * @param token a string JWT bruta (sem o prefixo "Bearer ")
+     * @return o claim subject (e-mail), ou string vazia em caso de falha
      */
     public String validateToken(String token) {
         try {

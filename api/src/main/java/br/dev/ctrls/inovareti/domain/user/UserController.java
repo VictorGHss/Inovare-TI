@@ -76,8 +76,8 @@ public class UserController {
     }
 
     /**
-     * Updates a user's name, email, role and sector.
-     * Restricted to ADMIN.
+     * Atualiza nome, e-mail, perfil e setor de um usuário.
+     * Restrito a ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
@@ -88,9 +88,9 @@ public class UserController {
     }
 
     /**
-     * Resets a user's password to the default value "Mudar@123"
-     * and forces password change on next login.
-     * Restricted to ADMIN.
+     * Redefine a senha de um usuário para o valor padrão "Mudar@123"
+     * e força a troca de senha no próximo login.
+     * Restrito a ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/reset-password")

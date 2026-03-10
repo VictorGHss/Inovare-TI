@@ -23,8 +23,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Use case: generates an Excel file with ticket report data.
- * Applies tenant isolation (USER sees only their tickets, ADMIN sees all).
+ * Caso de uso: gera um arquivo Excel com os dados do relatório de chamados.
+ * Aplica isolamento por perfil (USER vê apenas seus chamados, ADMIN vê todos).
  */
 @Slf4j
 @Component
@@ -36,12 +36,12 @@ public class TicketReportUseCase {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     /**
-     * Generates an Excel file with ticket data.
+     * Gera um arquivo Excel com os dados dos chamados.
      *
-     * @param userId the authenticated user's ID
-     * @param userRole the authenticated user's role
-     * @return ByteArrayInputStream containing the Excel file
-     * @throws IOException if error occurs during file generation
+     * @param userId o ID do usuário autenticado
+     * @param userRole o perfil do usuário autenticado
+     * @return ByteArrayInputStream contendo o arquivo Excel
+     * @throws IOException se ocorrer erro durante a geração do arquivo
      */
     @Transactional(readOnly = true)
     public ByteArrayInputStream generateTicketReport(UUID userId, UserRole userRole) throws IOException {
@@ -49,10 +49,10 @@ public class TicketReportUseCase {
 
         List<Ticket> tickets;
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
-            // ADMIN and TECHNICIAN see all tickets
+            // ADMIN e TECHNICIAN visualizam todos os chamados
             tickets = ticketRepository.findAll();
         } else {
-            // USER sees only their own tickets
+            // USER visualiza apenas seus próprios chamados
             tickets = ticketRepository.findByRequesterId(userId);
         }
 
@@ -64,7 +64,7 @@ public class TicketReportUseCase {
     }
 
     /**
-     * Converts a Ticket entity to TicketReportDTO.
+     * Converte uma entidade Ticket em TicketReportDTO.
      */
     private TicketReportDTO mapTicketToReport(Ticket ticket) {
         return new TicketReportDTO(
@@ -79,7 +79,7 @@ public class TicketReportUseCase {
     }
 
     /**
-     * Creates an Excel workbook with ticket report data.
+     * Cria um workbook Excel com os dados do relatório de chamados.
      */
     private ByteArrayInputStream generateExcelFile(List<TicketReportDTO> reports) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -87,10 +87,10 @@ public class TicketReportUseCase {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             XSSFSheet sheet = workbook.createSheet("Relatório de Chamados");
 
-            // Create header style
+            // Cria o estilo do cabeçalho
             CellStyle headerStyle = createHeaderStyle(workbook);
 
-            // Create header row
+            // Cria a linha de cabeçalho
             String[] headers = {"ID", "Título", "Solicitante", "Setor", "Status", "Criado Em", "Resolvido Em"};
             var headerRow = sheet.createRow(0);
 
@@ -100,7 +100,7 @@ public class TicketReportUseCase {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Add data rows
+            // Adiciona as linhas de dados
             int rowNum = 1;
             for (TicketReportDTO report : reports) {
                 var row = sheet.createRow(rowNum++);
@@ -114,7 +114,7 @@ public class TicketReportUseCase {
                 row.createCell(6).setCellValue(report.resolvedAt() != null ? report.resolvedAt().format(DATE_FORMATTER) : "");
             }
 
-            // Auto-size columns
+            // Ajusta automaticamente a largura das colunas
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
@@ -127,7 +127,7 @@ public class TicketReportUseCase {
     }
 
     /**
-     * Creates a header style for Excel cells (bold background).
+     * Cria o estilo de cabeçalho para células Excel (fundo em negrito).
      */
     private CellStyle createHeaderStyle(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
@@ -136,7 +136,7 @@ public class TicketReportUseCase {
         font.setColor((short) 15);
         style.setFont(font);
 
-        // Light gray background
+        // Fundo cinza claro
         style.setFillForegroundColor((short) 8);
         style.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
 

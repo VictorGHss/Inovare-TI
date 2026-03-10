@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for CSV import result statistics.
+ * DTO com as estatísticas do resultado da importação via CSV.
  */
 @Data
 @NoArgsConstructor

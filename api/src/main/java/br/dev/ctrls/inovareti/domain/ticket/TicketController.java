@@ -108,9 +108,9 @@ public class TicketController {
     }
 
     /**
-     * Resolves an existing ticket with optional asset/item fulfillment.
-     * If asset or item delivery is specified, performs fulfillment atomically.
-     * Returns 200 OK with updated ticket data.
+     * Resolve um chamado existente com entrega opcional de equipamento ou item.
+     * Se entrega de equipamento ou item for especificada, executa o fulfillment atomicamente.
+     * Retorna 200 OK com os dados atualizados do chamado.
      */
     @PatchMapping("/{id}/resolve")
     public ResponseEntity<TicketResponseDTO> resolve(
@@ -120,7 +120,7 @@ public class TicketController {
     }
 
     /**
-     * Assumes a ticket for the authenticated user and sets it to IN_PROGRESS.
+     * Assume um chamado para o usuário autenticado e altera o status para EM_PROGRESSO.
      */
     @PatchMapping("/{id}/claim")
     public ResponseEntity<TicketResponseDTO> claim(@PathVariable UUID id) {
@@ -128,8 +128,8 @@ public class TicketController {
     }
 
     /**
-     * Transfers a ticket to another user.
-     * If ticket is OPEN, status is changed to IN_PROGRESS.
+     * Transfere um chamado para outro usuário.
+     * Se o chamado estiver ABERTO, o status é alterado para EM_PROGRESSO.
      */
     @PatchMapping("/{id}/transfer/{userId}")
     public ResponseEntity<TicketResponseDTO> transfer(@PathVariable UUID id, @PathVariable UUID userId) {

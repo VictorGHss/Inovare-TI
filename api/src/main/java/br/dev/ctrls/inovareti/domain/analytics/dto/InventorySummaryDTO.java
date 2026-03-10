@@ -1,7 +1,7 @@
 package br.dev.ctrls.inovareti.domain.analytics.dto;
 
 /**
- * DTO representing inventory summary metrics.
+ * DTO com as métricas resumidas do estoque.
  */
 public record InventorySummaryDTO(
     long totalItems,

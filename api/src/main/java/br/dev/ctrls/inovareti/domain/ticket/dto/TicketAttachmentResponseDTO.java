@@ -4,13 +4,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * DTO for ticket attachment response.
- * @param id attachment UUID
- * @param originalFilename the original filename when uploaded
- * @param storedFilename the UUID-based filename on server
- * @param fileType MIME type of the file
- * @param ticketId UUID of the associated ticket
- * @param uploadedAt timestamp when the file was uploaded
+ * DTO para resposta de anexo de chamado.
+ * @param id UUID do anexo
+ * @param originalFilename nome original do arquivo no upload
+ * @param storedFilename nome do arquivo baseado em UUID armazenado no servidor
+ * @param fileType tipo MIME do arquivo
+ * @param ticketId UUID do chamado associado
+ * @param uploadedAt data e hora do upload
  */
 public record TicketAttachmentResponseDTO(
     UUID id,

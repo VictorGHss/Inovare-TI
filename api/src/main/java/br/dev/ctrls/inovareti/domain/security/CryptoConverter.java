@@ -21,10 +21,10 @@ import jakarta.persistence.Converter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * JPA AttributeConverter for encrypting and decrypting sensitive string columns using AES-128.
- * The encryption secret is loaded from application.properties.
- * 
- * Apply this converter to sensitive fields with:
+ * JPA AttributeConverter para criptografar e descriptografar colunas de string sensíveis usando AES-128.
+ * O segredo de criptografia é carregado do application.properties.
+ *
+ * Aplique este converter a campos sensíveis com:
  * @Convert(converter = CryptoConverter.class)
  */
 @Slf4j
@@ -41,8 +41,8 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     }
 
     /**
-     * Encrypts the attribute value before storing it in the database.
-     * Returns null if the input is null or empty.
+     * Criptografa o valor do atributo antes de armazená-lo no banco de dados.
+     * Retorna null se a entrada for nula ou vazia.
      */
     @Override
     public String convertToDatabaseColumn(String attribute) {
@@ -64,8 +64,8 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     }
 
     /**
-     * Decrypts the database value back to the original attribute value.
-     * Returns null if the input is null or empty.
+     * Descriptografa o valor do banco de dados de volta ao valor original do atributo.
+     * Retorna null se a entrada for nula ou vazia.
      */
     @Override
     public String convertToEntityAttribute(String dbData) {
@@ -88,14 +88,14 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     }
 
     /**
-     * Generates a 128-bit AES key from the configured secret using SHA-256 hash.
+     * Gera uma chave AES de 128 bits a partir do segredo configurado usando hash SHA-256.
      */
     private SecretKeySpec generateKey() {
         try {
             byte[] key = encryptionSecret.getBytes(StandardCharsets.UTF_8);
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             key = sha.digest(key);
-            key = Arrays.copyOf(key, 16); // Use first 128 bits for AES-128
+            key = Arrays.copyOf(key, 16); // Usa os primeiros 128 bits para AES-128
             return new SecretKeySpec(key, ALGORITHM);
         } catch (NoSuchAlgorithmException e) {
             log.error("Error generating encryption key", e);

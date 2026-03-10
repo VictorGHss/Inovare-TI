@@ -9,8 +9,8 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Service responsible for loading a user by their e-mail address.
- * Integrates with Spring Security's authentication pipeline.
+ * Serviço responsável por carregar um usuário pelo seu e-mail.
+ * Integra-se ao pipeline de autenticação do Spring Security.
  */
 @Service
 @RequiredArgsConstructor
@@ -19,11 +19,11 @@ public class AuthorizationService implements UserDetailsService {
     private final UserRepository userRepository;
 
     /**
-     * Locates a user by the given e-mail (used as the Spring Security username).
+     * Localiza um usuário pelo e-mail informado (usado como username no Spring Security).
      *
-     * @param email the e-mail address to search for
-     * @return the matching {@link UserDetails}
-     * @throws UsernameNotFoundException if no user with the given e-mail exists
+     * @param email o endereço de e-mail a ser buscado
+     * @return o {@link UserDetails} correspondente
+     * @throws UsernameNotFoundException se não existir usuário com o e-mail informado
      */
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {

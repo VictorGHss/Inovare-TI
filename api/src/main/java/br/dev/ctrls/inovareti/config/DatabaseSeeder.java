@@ -40,8 +40,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Seeds default data on startup when tables are empty.
- * Creates categories, sectors, users, inventory items, and simulated tickets with varied data.
+ * Popula dados padrão na inicialização quando as tabelas estiverem vazias.
+ * Cria categorias, setores, usuários, itens de estoque e chamados simulados com dados variados.
  */
 @Slf4j
 @Component
@@ -68,62 +68,62 @@ public class DatabaseSeeder implements CommandLineRunner {
     public void run(String... args) {
         log.info("Starting database seeding...");
 
-        // Seed ticket categories
+        // Insere categorias de chamados
         if (ticketCategoryRepository.count() == 0) {
             seedTicketCategories();
         }
 
-        // Seed item categories
+        // Insere categorias de itens
         if (itemCategoryRepository.count() == 0) {
             seedItemCategories();
         }
 
-        // Seed sectors
+        // Insere setores
         if (sectorRepository.count() == 0) {
             seedSectors();
         }
 
-        // Seed users
+        // Insere usuários
         if (userRepository.count() == 0) {
             seedUsers();
         }
 
-        // Seed inventory items
+        // Insere itens de estoque
         if (itemRepository.count() == 0) {
             seedInventoryItems();
         }
 
-        // Seed stock batches
+        // Insere lotes de estoque
         if (stockBatchRepository.count() == 0) {
             seedStockBatches();
         }
 
-        // Seed tickets
+        // Insere chamados
         if (ticketRepository.count() == 0) {
             seedTickets();
         }
 
-        // Seed assets
+        // Insere categorias de equipamentos
         if (assetCategoryRepository.count() == 0) {
             seedAssetCategories();
         }
 
-        // Seed assets
+        // Insere equipamentos
         if (assetRepository.count() == 0) {
             seedAssets();
         }
 
-        // Seed asset maintenances
+        // Insere manutenções de equipamentos
         if (assetMaintenanceRepository.count() == 0) {
             seedAssetMaintenances();
         }
 
-        // Seed system settings
+        // Insere configurações do sistema
         if (systemSettingRepository.count() == 0) {
             seedSystemSettings();
         }
 
-        // Seed articles/tutorials
+        // Insere artigos e tutoriais
         if (articleRepository.count() == 0) {
             seedArticles();
         }
@@ -314,25 +314,25 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<Ticket> tickets = new java.util.ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        // Generate 25 simulated tickets
+        // Gera 25 chamados simulados
         for (int i = 1; i <= 25; i++) {
             TicketStatus status = statuses.get(random.nextInt(statuses.size()));
             TicketCategory category = categories.get(random.nextInt(categories.size()));
             TicketPriority priority = priorities.get(random.nextInt(priorities.size()));
 
-            // Distribute requester randomly among the 3 USER accounts
+            // Distribui o solicitante aleatoriamente entre as 3 contas de usuário
             User requester = requesters.get(random.nextInt(requesters.size()));
 
-            // Spread created dates over the last 30 days
+            // Distribui datas de criação pelos últimos 30 dias
             LocalDateTime createdAt = now.minusDays(random.nextInt(30)).minusHours(random.nextInt(24)).minusMinutes(random.nextInt(60));
 
-            // If resolved, set closedAt to sometime after createdAt
+            // Se resolvido, define a data de fechamento após a data de criação
             LocalDateTime closedAt = null;
             if (status == TicketStatus.RESOLVED) {
                 closedAt = createdAt.plusHours(random.nextInt(72) + 1);
             }
 
-            // Calculate SLA deadline (category-based + created date)
+            // Calcula o prazo SLA com base na categoria e data de criação
             TicketCategory categoryForSla = category;
             LocalDateTime slaDeadline = createdAt.plusHours(categoryForSla.getBaseSlaHours());
 
@@ -357,7 +357,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         ticketRepository.saveAll(tickets);
         log.info("Seeded {} tickets", tickets.size());
 
-        // Add 3 Item Request tickets with RESOLVED status
+        // Adiciona 3 chamados de solicitação de item com status RESOLVED
         List<Item> items = itemRepository.findAll();
         if (!items.isEmpty()) {
             List<Ticket> itemRequestTickets = new java.util.ArrayList<>();
@@ -377,7 +377,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .priority(TicketPriority.NORMAL)
                     .requester(requester)
                     .assignedTo(technician)
-                    .category(categories.get(0)) // Use first category
+                    .category(categories.get(0)) // Usa a primeira categoria
                     .requestedItem(requestedItem)
                     .requestedQuantity(quantity)
                     .slaDeadline(slaDeadline)
@@ -402,12 +402,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         List<StockBatch> batches = new java.util.ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        // Sample brands, suppliers and purchase reasons for realistic data
+        // Marcas, fornecedores e motivos de compra de exemplo para dados realistas
         String[] brands = {"Logitech", "HP", "Dell", "Lenovo", "Samsung", "Corsair", "Kingston"};
         String[] suppliers = {"Kabum", "Kalunga", "Mercado Livre", "Amazon", "Dell Store", "Magazine Luiza"};
         String[] purchaseReasons = {"Reposição mensal", "Expansão de TI", "Substituição de equipamento danificado", "Novo projeto", "Manutenção preventiva"};
 
-        // Create 5 stock batches for randomly selected items
+        // Cria 5 lotes de estoque para itens selecionados aleatoriamente
         for (int i = 1; i <= 5; i++) {
             Item item = items.get(random.nextInt(items.size()));
             int quantity = random.nextInt(20) + 10; // 10-30 units per batch

@@ -16,8 +16,8 @@ import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case: updates an existing user's name, email, role and sector.
- * Email uniqueness is validated excluding the user being edited.
+ * Caso de uso: atualiza nome, e-mail, perfil e setor de um usuário existente.
+ * O e-mail único é validado excluindo o próprio usuário sendo editado.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,7 +31,7 @@ public class UpdateUserUseCase {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
 
-        // Check email conflict only against other users
+        // Verifica conflito de e-mail apenas em relação a outros usuários
         if (!user.getEmail().equalsIgnoreCase(request.email())
                 && userRepository.existsByEmail(request.email())) {
             throw new ConflictException("Email already in use: " + request.email());

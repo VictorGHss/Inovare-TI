@@ -38,19 +38,19 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     List<Ticket> findAllByStatus(TicketStatus status);
 
     /**
-     * Counts tickets by status for analytics.
-     * @param status the ticket status to count
-     * @return total number of tickets with the given status
+     * Conta chamados por status para analítica.
+     * @param status o status do chamado a ser contado
+     * @return total de chamados com aquele status
      */
     long countByStatus(TicketStatus status);
 
     /**
-     * Counts tickets by requester and status for user-specific analytics.
+     * Conta chamados por solicitante e status para analítica individual.
      */
     long countByRequesterIdAndStatus(@Param("requesterId") UUID requesterId, TicketStatus status);
 
     /**
-     * Finds all tickets by requester ID.
+     * Retorna todos os chamados de um solicitante.
      */
     List<Ticket> findByRequesterId(@Param("requesterId") UUID requesterId);
 }

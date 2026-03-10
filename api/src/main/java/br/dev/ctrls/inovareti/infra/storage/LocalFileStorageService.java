@@ -18,8 +18,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service for storing files locally on the server filesystem.
- * Generates a UUID-based filename to prevent conflicts and ensure uniqueness.
+ * Serviço para armazenar arquivos localmente no sistema de arquivos do servidor.
+ * Gera um nome de arquivo baseado em UUID para evitar conflitos e garantir unicidade.
  */
 @Slf4j
 @Service
@@ -45,10 +45,10 @@ public class LocalFileStorageService {
     }
 
     /**
-     * Stores a file in the configured directory with a UUID-based filename.
-     * @param file the multipart file to store
-     * @return the generated stored filename (UUID + extension)
-     * @throws IOException if file storage fails
+     * Armazena um arquivo no diretório configurado com um nome baseado em UUID.
+     * @param file o arquivo multipart a ser armazenado
+     * @return o nome do arquivo gerado (UUID + extensão)
+     * @throws IOException se o armazenamento falhar
      */
     public String store(MultipartFile file) throws IOException {
         String originalFilename = file.getOriginalFilename();
@@ -60,23 +60,23 @@ public class LocalFileStorageService {
             throw new FileSizeLimitExceededException("O arquivo excede o limite máximo de 5MB");
         }
 
-        // Extract file extension
+        // Extrai a extensão do arquivo
         String extension = "";
         int dotIndex = originalFilename.lastIndexOf('.');
         if (dotIndex > 0) {
             extension = originalFilename.substring(dotIndex);
         }
 
-        // Generate unique filename using UUID
+        // Gera um nome de arquivo único usando UUID
         String storedFilename = UUID.randomUUID().toString() + extension;
         Path destinationFile = uploadPath.resolve(storedFilename).normalize();
 
-        // Security check: ensure the file is stored within the upload directory
+        // Verificação de segurança: garante que o arquivo seja armazenado dentro do diretório de upload
         if (!destinationFile.getParent().equals(uploadPath)) {
             throw new SecurityException("Cannot store file outside upload directory");
         }
 
-        // Copy file to destination
+        // Copia o arquivo para o destino
         Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
         log.info("File stored: {} -> {}", originalFilename, storedFilename);
 
@@ -84,15 +84,15 @@ public class LocalFileStorageService {
     }
 
     /**
-     * Loads a file as a Resource by its stored filename.
-     * @param storedFilename the UUID-based filename
-     * @return the file as a Resource
-     * @throws IOException if file cannot be found or read
+     * Carrega um arquivo como Resource pelo seu nome armazenado.
+     * @param storedFilename o nome do arquivo baseado em UUID
+     * @return o arquivo como Resource
+     * @throws IOException se o arquivo não puder ser encontrado ou lido
      */
     public Resource load(String storedFilename) throws IOException {
         Path file = uploadPath.resolve(storedFilename).normalize();
         
-        // Security check
+        // Verificação de segurança
         if (!file.getParent().equals(uploadPath)) {
             throw new SecurityException("Cannot access file outside upload directory");
         }
@@ -106,14 +106,14 @@ public class LocalFileStorageService {
     }
 
     /**
-     * Deletes a file by its stored filename.
-     * @param storedFilename the UUID-based filename
-     * @throws IOException if deletion fails
+     * Exclui um arquivo pelo seu nome armazenado.
+     * @param storedFilename o nome do arquivo baseado em UUID
+     * @throws IOException se a exclusão falhar
      */
     public void delete(String storedFilename) throws IOException {
         Path file = uploadPath.resolve(storedFilename).normalize();
         
-        // Security check
+        // Verificação de segurança
         if (!file.getParent().equals(uploadPath)) {
             throw new SecurityException("Cannot delete file outside upload directory");
         }

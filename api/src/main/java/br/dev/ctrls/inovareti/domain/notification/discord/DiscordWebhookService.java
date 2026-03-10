@@ -16,13 +16,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service responsible for sending real-time alerts to Discord via webhooks
- * when tickets are created.
- * 
- * This service uses @Async to prevent blocking the API while Discord processes
- * the webhook payload.
- * 
- * Uses strongly-typed Java Records to ensure proper JSON serialization.
+ * Serviço responsável por enviar alertas em tempo real ao Discord via webhooks
+ * quando chamados são criados.
+ *
+ * Utiliza @Async para não bloquear a API enquanto o Discord processa o payload.
+ *
+ * Usa Java Records com tipagem estrita para garantir a serialização JSON correta.
  */
 @Slf4j
 @Service
@@ -35,25 +34,25 @@ public class DiscordWebhookService {
     private final RestTemplate restTemplate;
 
     /**
-     * Sends a new ticket alert to Discord asynchronously.
-     * If the webhook URL is empty or null, logs a warning and aborts.
+     * Envia um alerta de novo chamado ao Discord de forma assíncrona.
+     * Se a URL do webhook estiver vazia ou nula, registra um aviso e aborta.
      *
-     * @param ticket the ticket that was created
+     * @param ticket o chamado que foi criado
      */
     @Async
     public void sendNewTicketAlert(Ticket ticket) {
-        // Log webhook URL configuration status
+        // Registra o status de configuração da URL do webhook
         log.info("Starting Discord webhook send. URL configured: {}", 
                 discordWebhookUrl != null && !discordWebhookUrl.isBlank() ? "YES" : "NO");
 
-        // Abort if webhook URL is not configured
+        // Aborta se a URL do webhook não estiver configurada
         if (discordWebhookUrl == null || discordWebhookUrl.isBlank()) {
             log.warn("Discord webhook cancelled: URL not configured.");
             return;
         }
 
         try {
-            // Validate ticket and related entities
+            // Valida o chamado e entidades relacionadas
             validateTicket(ticket);
 
             String ticketIdShort = ticket.getId().toString()
@@ -62,7 +61,7 @@ public class DiscordWebhookService {
 
             log.debug("Building Discord payload for ticket #{}", ticketIdShort);
 
-            // Extract data with null safety
+            // Extrai dados com proteção contra nulos
             String requesterName = ticket.getRequester().getName();
             String requesterSector = ticket.getRequester().getSector() != null 
                 ? ticket.getRequester().getSector().getName() 
@@ -70,13 +69,13 @@ public class DiscordWebhookService {
             String priorityName = ticket.getPriority().name();
             String categoryName = ticket.getCategory().getName();
 
-            // Build fields with strict typing
+            // Constrói os fields com tipagem estrita
             var field1 = new DiscordField("Solicitante", requesterName, true);
             var field2 = new DiscordField("Setor", requesterSector, true);
             var field3 = new DiscordField("Prioridade", priorityName, true);
             var field4 = new DiscordField("Categoria", categoryName, true);
 
-            // Build embed with strict typing
+            // Constrói o embed com tipagem estrita
             Integer embedColor = getColorByPriority(priorityName);
             var embed = new DiscordEmbed(
                 String.format("🎫 Novo Chamado: #%s", ticketIdShort),
@@ -85,21 +84,21 @@ public class DiscordWebhookService {
                 List.of(field1, field2, field3, field4)
             );
 
-            // Build payload with strict typing
+            // Constrói o payload com tipagem estrita
             var payload = new DiscordPayload(List.of(embed));
 
             log.debug("Payload built successfully. Embed color: {}, Fields count: {}", 
                     embedColor, 4);
 
-            // Set up HTTP headers
+            // Configura os cabeçalhos HTTP
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("User-Agent", "InovareTI-Bot");
 
-            // Create HTTP entity with typed payload
+            // Cria a entidade HTTP com o payload tipado
             HttpEntity<DiscordPayload> request = new HttpEntity<>(payload, headers);
 
-            // Send the webhook
+            // Envia o webhook
             restTemplate.postForObject(discordWebhookUrl, request, String.class);
 
             log.info("Discord webhook notification sent successfully for ticket #{}",
@@ -113,10 +112,10 @@ public class DiscordWebhookService {
     }
 
     /**
-     * Validates ticket and related entities.
+     * Valida o chamado e suas entidades relacionadas.
      *
-     * @param ticket the ticket to validate
-     * @throws IllegalArgumentException if validation fails
+     * @param ticket o chamado a ser validado
+     * @throws IllegalArgumentException se a validação falhar
      */
     private void validateTicket(Ticket ticket) {
         if (ticket == null) {
@@ -134,37 +133,37 @@ public class DiscordWebhookService {
     }
 
     /**
-     * Returns the Discord embed color in decimal format based on ticket priority.
-     * Colors are returned as strict Integer values.
+     * Retorna a cor do embed do Discord em formato decimal com base na prioridade do chamado.
+     * As cores são retornadas como valores Integer estritos.
      *
-     * @param priorityName the ticket priority name (e.g., "URGENT", "HIGH", "NORMAL", "LOW")
-     * @return the color value in decimal format as Integer
+     * @param priorityName o nome da prioridade do chamado (ex.: "URGENT", "HIGH", "NORMAL", "LOW")
+     * @return o valor da cor em formato decimal como Integer
      */
     private Integer getColorByPriority(String priorityName) {
         if (priorityName == null || priorityName.isBlank()) {
             log.warn("Priority name is null or blank, using default color");
-            return 39423; // Default to NORMAL (Blue)
+            return 39423; // Padrão: NORMAL (Azul)
         }
         
         return switch (priorityName) {
-            case "URGENT" -> 16711680;    // Red for URGENT
-            case "HIGH" -> 16753920;      // Orange for HIGH
-            case "NORMAL" -> 39423;       // Blue for NORMAL
-            case "LOW" -> 43520;          // Green for LOW
+            case "URGENT" -> 16711680;    // Vermelho para URGENTE
+            case "HIGH" -> 16753920;      // Laranja para ALTA
+            case "NORMAL" -> 39423;       // Azul para NORMAL
+            case "LOW" -> 43520;          // Verde para BAIXA
             default -> {
                 log.warn("Unknown priority: {}, using default color", priorityName);
-                yield 39423; // Default to NORMAL (Blue)
+                yield 39423; // Padrão: NORMAL (Azul)
             }
         };
     }
 
     /**
-     * Discord Field Record - strictly typed field for embeds.
+     * Record DiscordField — field com tipagem estrita para embeds.
      */
     public record DiscordField(String name, String value, boolean inline) {}
 
     /**
-     * Discord Embed Record - strictly typed embed object.
+     * Record DiscordEmbed — objeto embed com tipagem estrita.
      */
     public record DiscordEmbed(
         String title,
@@ -174,8 +173,8 @@ public class DiscordWebhookService {
     ) {}
 
     /**
-     * Discord Payload Record - strictly typed webhook payload.
-     * This is the root object sent to Discord Webhooks API.
+     * Record DiscordPayload — payload do webhook com tipagem estrita.
+     * É o objeto raiz enviado à API de Webhooks do Discord.
      */
     public record DiscordPayload(List<DiscordEmbed> embeds) {}
 }

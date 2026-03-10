@@ -96,10 +96,10 @@ export default function Users() {
     setResetting(true);
     try {
       await resetUserPassword(resetTargetUser.id);
-      toast.success(`Senha de ${resetTargetUser.name} reposta para "Mudar@123".`);
+      toast.success(`Senha de ${resetTargetUser.name} redefinida para "Mudar@123".`);
       setResetTargetUser(null);
     } catch {
-      toast.error('Erro ao repor senha. Tente novamente.');
+      toast.error('Erro ao redefinir senha. Tente novamente.');
     } finally {
       setResetting(false);
     }
@@ -187,7 +187,7 @@ export default function Users() {
                         </button>
                         <button
                           onClick={() => setResetTargetUser(user)}
-                          title="Repor senha"
+                          title="Redefinir senha"
                           className="p-1.5 rounded-lg text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
                         >
                           <KeyRound size={15} />
@@ -318,12 +318,12 @@ export default function Users() {
         onSuccess={loadUsers}
       />
 
-      {/* Modal de confirmação de reposição de senha */}
+      {/* Modal de confirmação de redefinição de senha */}
       {resetTargetUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-800">Repor Senha</h2>
+              <h2 className="text-lg font-bold text-slate-800">Redefinir Senha</h2>
               <button
                 onClick={() => setResetTargetUser(null)}
                 className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
@@ -333,7 +333,7 @@ export default function Users() {
               </button>
             </div>
             <p className="text-sm text-slate-600 mb-6">
-              Tem certeza que deseja repor a senha de{' '}
+              Tem certeza que deseja redefinir a senha de{' '}
               <strong className="text-slate-800">{resetTargetUser.name}</strong> para{' '}
               <strong className="text-slate-800">"Mudar@123"</strong>?<br />
               <span className="text-slate-500 mt-1 inline-block">
@@ -354,7 +354,7 @@ export default function Users() {
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               >
                 <KeyRound size={15} />
-                {resetting ? 'Repondo...' : 'Confirmar Reposição'}
+                {resetting ? 'Redefinindo...' : 'Confirmar Redefinição'}
               </button>
             </div>
           </div>

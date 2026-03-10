@@ -1,8 +1,8 @@
 package br.dev.ctrls.inovareti.domain.analytics.dto;
 
 /**
- * DTO representing a metric value with a label.
- * Used for charts and summaries.
+ * DTO representando um valor métrico com rótulo.
+ * Utilizado em gráficos e resumos.
  */
 public record MetricDTO(
     String name,

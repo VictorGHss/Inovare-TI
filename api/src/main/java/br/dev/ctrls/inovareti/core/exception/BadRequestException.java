@@ -4,16 +4,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
- * Exception thrown when a request is invalid or contains bad data.
- * Automatically maps to HTTP 400 Bad Request response.
+ * Exceção lançada quando uma requisição é inválida ou contém dados incorretos.
+ * Mapeada automaticamente para resposta HTTP 400 Bad Request.
  */
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public class BadRequestException extends RuntimeException {
 
     /**
-     * Constructs a new BadRequestException with the specified error message.
+     * Constrói uma nova BadRequestException com a mensagem de erro especificada.
      *
-     * @param message the detail message
+     * @param message a mensagem de detalhe
      */
     public BadRequestException(String message) {
         super(message);

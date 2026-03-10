@@ -29,9 +29,9 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     java.util.Optional<Item> findByIdWithCategory(UUID id);
 
     /**
-     * Counts items with stock at or below the threshold for low stock alerts.
-     * @param threshold the maximum stock level to consider as "low stock"
-     * @return total number of items with stock <= threshold
+     * Conta itens com estoque igual ou inferior ao limiar de alerta de estoque baixo.
+     * @param threshold o nível máximo de estoque para considerar como "estoque baixo"
+     * @return total de itens com estoque <= threshold
      */
     long countByCurrentStockLessThanEqual(int threshold);
 }

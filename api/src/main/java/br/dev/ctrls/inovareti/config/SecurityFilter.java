@@ -15,9 +15,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
- * JWT authentication filter executed once per request.
- * Extracts the Bearer token from the Authorization header, validates it,
- * loads the matching user and populates the {@link SecurityContextHolder}.
+ * Filtro de autenticação JWT executado uma vez por requisição.
+ * Extrai o Bearer token do cabeçalho Authorization, valida-o,
+ * carrega o usuário correspondente e popula o {@link SecurityContextHolder}.
  */
 @Component
 @RequiredArgsConstructor

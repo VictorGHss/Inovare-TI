@@ -5,7 +5,7 @@ import java.util.UUID;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
 
 /**
- * DTO for resolving a ticket with optional asset/item delivery fulfillment.
+ * DTO para resolver um chamado com entrega opcional de equipamento ou item.
  */
 public record ResolveTicketDTO(
     String resolutionNotes,

@@ -23,8 +23,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
- * REST Controller for report endpoints.
- * Provides download capabilities for Excel reports.
+ * Controlador REST para endpoints de relatórios.
+ * Disponibiliza download de relatórios em formato Excel.
  */
 @Slf4j
 @RestController
@@ -37,10 +37,10 @@ public class ReportsController {
 
     /**
      * GET /api/reports/tickets/export
-     * Generates and returns a ticket report as Excel file.
-     * Applies tenant isolation based on user role.
+     * Gera e retorna um relatório de chamados em formato Excel.
+     * Aplica isolamento por perfil de usuário (tenant isolation).
      *
-     * @return ResponseEntity with Excel file stream
+     * @return ResponseEntity com o fluxo do arquivo Excel
      */
     @GetMapping("/tickets/export")
     public ResponseEntity<Resource> exportTicketsReport() throws IOException {

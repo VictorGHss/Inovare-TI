@@ -16,8 +16,8 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case: finds a single ticket by its UUID.
- * Throws {@link NotFoundException} when the ticket does not exist.
+ * Caso de uso: busca um chamado pelo seu UUID.
+ * Lança {@link NotFoundException} se o chamado não existir.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,7 +31,7 @@ public class FindTicketByIdUseCase {
         Ticket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
 
-        // Fetch attachments for this ticket
+        // Busca os anexos do chamado
         List<AttachmentResponseDTO> attachments = attachmentRepository.findByTicketId(id)
                 .stream()
                 .map(attachment -> new AttachmentResponseDTO(
@@ -42,7 +42,7 @@ public class FindTicketByIdUseCase {
                 ))
                 .collect(Collectors.toList());
 
-        // Build the response with attachments
+        // Monta a resposta com os anexos incluídos
         return new TicketResponseDTO(
                 ticket.getId(),
                 ticket.getTitle(),

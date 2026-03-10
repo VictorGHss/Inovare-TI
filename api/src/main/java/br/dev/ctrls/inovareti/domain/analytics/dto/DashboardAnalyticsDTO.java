@@ -3,9 +3,9 @@ package br.dev.ctrls.inovareti.domain.analytics.dto;
 import java.util.List;
 
 /**
- * DTO for dashboard analytics data.
- * Provides comprehensive metrics for the main dashboard view,
- * including status breakdown, category metrics, and inventory summary.
+ * DTO com os dados de analítica do dashboard.
+ * Fornece métricas abrangentes para a visão principal do dashboard,
+ * incluindo breakdown por status, métricas por categoria e resumo de estoque.
  */
 public record DashboardAnalyticsDTO(
     long totalOpenTickets,

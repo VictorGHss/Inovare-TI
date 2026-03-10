@@ -346,7 +346,7 @@ export async function updateUser(id: string, dto: UpdateUserDto): Promise<User> 
   return data;
 }
 
-// Repõe a senha de um usuário para o padrão Mudar@123 (requer ADMIN)
+// Redefine a senha de um usuário para o padrão Mudar@123 (requer ADMIN)
 export async function resetUserPassword(id: string): Promise<void> {
   await api.post(`/api/users/${id}/reset-password`);
 }

@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controller for administrative operations.
- * Base path: /api/admin
+ * Controlador para operações administrativas.
+ * Caminho base: /api/admin
  */
 @RestController
 @RequestMapping("/api/admin")
@@ -25,11 +25,11 @@ public class AdminController {
     private final CsvImportService csvImportService;
 
     /**
-     * Bulk import users and assets from CSV file.
-     * CSV format: UserName,UserEmail,UserRole,SectorName,AssetName,AssetCategory,PatrimonyCode,AssetSpecs
-     * 
-     * @param file CSV file
-     * @return Import result with statistics
+     * Importação em massa de usuários e equipamentos a partir de arquivo CSV.
+     * Formato CSV: UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs
+     *
+     * @param file arquivo CSV
+     * @return resultado da importação com estatísticas
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/import/csv")

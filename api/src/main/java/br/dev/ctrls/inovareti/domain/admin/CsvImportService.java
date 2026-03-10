@@ -27,8 +27,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service responsible for bulk CSV import functionality.
- * Processes CSV file to create users, sectors, asset categories and assets with proper associations.
+ * Serviço responsável pela funcionalidade de importação em massa via CSV.
+ * Processa o arquivo CSV para criar usuários, setores, categorias de equipamentos e equipamentos com as devidas associações.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,12 +46,12 @@ public class CsvImportService {
     private static final String DEFAULT_LOCATION = "Matriz";
 
     /**
-     * Imports data from CSV file.
-     * CSV format: UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs
-     * (Separator: semicolon for Portuguese Excel compatibility)
-     * 
-     * @param file CSV file uploaded
-     * @return ImportResultDTO with statistics
+     * Importa dados de um arquivo CSV.
+     * Formato CSV: UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs
+     * (Separador: ponto-e-vírgula para compatibilidade com Excel em PT-BR)
+     *
+     * @param file arquivo CSV enviado
+     * @return ImportResultDTO com as estatísticas da importação
      */
     @Transactional
     public ImportResultDTO importCsv(MultipartFile file) {
@@ -67,12 +67,12 @@ public class CsvImportService {
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
                 
-                // Skip header line
+                // Pula a linha de cabeçalho
                 if (lineNumber == 1) {
                     continue;
                 }
                 
-                // Skip empty lines
+                // Pula linhas vazias
                 if (line.trim().isEmpty()) {
                     continue;
                 }
@@ -101,14 +101,14 @@ public class CsvImportService {
     }
 
     private void processLine(String line, ImportResultDTO result) {
-        // Parse CSV line using semicolon as separator (Portuguese Excel format)
+        // Faz o parse da linha CSV usando ponto-e-vírgula como separador (formato Excel PT-BR)
         String[] columns = line.split(";", -1);
         
         if (columns.length < 4) {
-            throw new IllegalArgumentException("Invalid line format. Minimum 4 columns expected.");
+            throw new IllegalArgumentException("Formato de linha inválido. São esperadas no mínimo 4 colunas.");
         }
         
-        // Extract and trim all fields in a bullet-proof manner
+        // Extrai e normaliza todos os campos de forma robusta
         String userName = extractAndTrim(columns, 0);
         String userEmail = extractAndTrim(columns, 1);
         String userRoleStr = extractAndTrim(columns, 2);
@@ -118,12 +118,12 @@ public class CsvImportService {
         String patrimonyCode = extractAndTrim(columns, 6);
         String assetSpecs = extractAndTrim(columns, 7);
         
-        // Validate required fields
+        // Valida campos obrigatórios
         if (userName.isEmpty() || userEmail.isEmpty() || sectorName.isEmpty()) {
-            throw new IllegalArgumentException("UserName, UserEmail and SectorName are required");
+            throw new IllegalArgumentException("UserName, UserEmail e SectorName são obrigatórios");
         }
         
-        // 1. Find or create Sector
+        // 1. Busca ou cria o Setor
         Sector sector = sectorRepository.findByName(sectorName)
                 .orElseGet(() -> {
                     Sector newSector = Sector.builder()
@@ -135,7 +135,7 @@ public class CsvImportService {
                     return saved;
                 });
         
-        // 2. Find or create User
+        // 2. Busca ou cria o Usuário
         User user = userRepository.findByEmail(userEmail)
                 .orElseGet(() -> {
                     UserRole role = parseUserRole(userRoleStr);
@@ -154,7 +154,7 @@ public class CsvImportService {
                     return saved;
                 });
         
-        // 3. Process Asset if AssetName is provided
+        // 3. Processa o Equipamento se o nome estiver preenchido
         if (!assetName.isEmpty() && !patrimonyCode.isEmpty()) {
             processAsset(assetName, assetCategoryName, patrimonyCode, assetSpecs, user, result);
         }
@@ -162,13 +162,13 @@ public class CsvImportService {
 
     private void processAsset(String assetName, String assetCategoryName, String patrimonyCode, 
                                String assetSpecs, User user, ImportResultDTO result) {
-        // Check if asset already exists
+        // Verifica se o equipamento já existe pelo código de patrimônio
         if (assetRepository.existsByPatrimonyCode(patrimonyCode)) {
             log.debug("Asset with patrimony code {} already exists, skipping", patrimonyCode);
             return;
         }
         
-        // Find or create AssetCategory
+        // Busca ou cria a Categoria do Equipamento
         AssetCategory category = null;
         if (!assetCategoryName.isEmpty()) {
             category = assetCategoryRepository.findByName(assetCategoryName)
@@ -183,7 +183,7 @@ public class CsvImportService {
                     });
         }
         
-        // Create Asset
+        // Cria o Equipamento
         Asset asset = Asset.builder()
                 .userId(user.getId())
                 .name(assetName)
@@ -195,7 +195,7 @@ public class CsvImportService {
         result.incrementAssetsCreated();
         log.debug("Created new asset: {} ({})", assetName, patrimonyCode);
         
-        // Create audit record (AssetMaintenance)
+        // Cria registro de auditoria (AssetMaintenance)
         AssetMaintenance maintenance = AssetMaintenance.builder()
                 .asset(savedAsset)
                 .maintenanceDate(LocalDate.now())
@@ -222,28 +222,28 @@ public class CsvImportService {
     }
     
     /**
-     * Safely extracts a value from a CSV column array and applies trimming.
-     * This method is designed to be bullet-proof against whitespace issues.
-     * 
-     * @param columns the split CSV columns array
-     * @param index the column index to extract
-     * @return the trimmed string value, or empty string if index is out of bounds
+     * Extrai um valor do array de colunas CSV e aplica normalização de espaços.
+     * Método robusto contra problemas de whitespace.
+     *
+     * @param columns o array de colunas obtido após o split do CSV
+     * @param index o índice da coluna a ser extraída
+     * @return o valor normalizado, ou string vazia se o índice estiver fora dos limites
      */
     private String extractAndTrim(String[] columns, int index) {
-        // Handle index out of bounds gracefully
+        // Trata índice fora dos limites com segurança
         if (index < 0 || index >= columns.length) {
             return "";
         }
         
         String value = columns[index];
         
-        // Handle null value
+        // Trata valor nulo
         if (value == null) {
             return "";
         }
         
-        // Apply trim() to remove leading and trailing whitespace
-        // Also use strip() to handle Unicode whitespace characters
+        // Aplica trim() para remover espaços no início e no fim
+        // Usa strip() também para tratar caracteres de whitespace Unicode
         return value.trim().strip();
     }
 }

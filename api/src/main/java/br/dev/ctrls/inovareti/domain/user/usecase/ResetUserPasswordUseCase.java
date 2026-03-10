@@ -12,8 +12,8 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case: resets a user's password to the default value "Mudar@123"
- * and forces the user to change it on next login.
+ * Caso de uso: redefine a senha de um usuário para o valor padrão "Mudar@123"
+ * e obriga o usuário a trocada de senha no próximo login.
  */
 @Component
 @RequiredArgsConstructor

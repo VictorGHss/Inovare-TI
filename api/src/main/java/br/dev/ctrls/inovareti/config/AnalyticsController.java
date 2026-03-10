@@ -16,8 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * REST Controller for analytics endpoints.
- * Provides aggregated metrics for dashboard and reporting views.
+ * Controlador REST para endpoints de analítica.
+ * Fornece métricas agregadas para as visões de dashboard e relatórios.
  */
 @Slf4j
 @RestController
@@ -30,10 +30,10 @@ public class AnalyticsController {
 
     /**
      * GET /api/analytics/dashboard
-     * Returns aggregated metrics for the dashboard view.
-     * Applies tenant isolation based on user role.
-     * 
-     * @return Dashboard analytics data including ticket counts and inventory alerts
+     * Retorna métricas agregadas para a visão de dashboard.
+     * Aplica isolamento por perfil de usuário (tenant isolation).
+     *
+     * @return dados de analítica do dashboard com contagens de chamados e alertas de estoque
      */
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardAnalyticsDTO> getDashboardAnalytics() {

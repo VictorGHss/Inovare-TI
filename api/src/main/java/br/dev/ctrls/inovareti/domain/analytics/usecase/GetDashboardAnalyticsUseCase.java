@@ -20,10 +20,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Use case: retrieves dashboard analytics data with tenant isolation.
- * 
- * - ADMIN/TECHNICIAN: see all ticket counts
- * - USER: see only their own ticket counts
+ * Caso de uso: recupera os dados de analítica do dashboard com isolamento por perfil.
+ *
+ * - ADMIN/TECHNICIAN: visualiza todos os chamados
+ * - USER: visualiza apenas seus próprios chamados
  */
 @Slf4j
 @Component
@@ -54,13 +54,13 @@ public class GetDashboardAnalyticsUseCase {
         List<Ticket> allTickets;
 
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
-            // ADMIN and TECHNICIAN see all tickets
+            // ADMIN e TECHNICIAN visualizam todos os chamados
             openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByStatus(TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByStatus(TicketStatus.RESOLVED);
             allTickets = ticketRepository.findAll();
         } else {
-            // USER sees only their own tickets
+            // USER visualiza apenas seus próprios chamados
             openTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.RESOLVED);
@@ -69,27 +69,27 @@ public class GetDashboardAnalyticsUseCase {
 
         long closedTickets = 0;
 
-        // Build tickets by status metrics
+        // Agrega métricas de chamados por status
         List<MetricDTO> ticketsByStatus = buildTicketsByStatusMetrics(openTickets, inProgressTickets, resolvedTickets);
 
-        // Build tickets by category metrics
+        // Agrega métricas de chamados por categoria
         List<MetricDTO> ticketsByCategory = buildTicketsByCategoryMetrics(allTickets);
 
-        // Build tickets by sector metrics (Top 5)
+        // Agrega métricas de chamados por setor (Top 5)
         List<MetricDTO> ticketsBySector = buildTicketsBySectorMetrics(allTickets);
 
-        // Build tickets by requester metrics (Top 5)
+        // Agrega métricas de chamados por solicitante (Top 5)
         List<MetricDTO> ticketsByRequester = buildTicketsByRequesterMetrics(allTickets);
 
-        // Build inventory summary metrics
-        // SECURITY: Only ADMIN and TECHNICIAN see global inventory data
+        // Agrega métricas de estoque
+        // SEGURANÇA: apenas ADMIN e TECHNICIAN visualizam dados globais de estoque
         long totalItems;
         long lowStockItems;
         long outOfStockItems;
         long receivedItemsCount = 0;
 
         if (userRole == UserRole.USER) {
-            // USER sees only their own received items count, no global inventory data
+            // USER visualiza apenas a contagem de itens recebidos; sem dados globais de estoque
             totalItems = 0;
             lowStockItems = 0;
             outOfStockItems = 0;
@@ -107,7 +107,7 @@ public class GetDashboardAnalyticsUseCase {
             
             log.debug("USER {} dashboard: inventory data hidden, receivedItems={}", userId, receivedItemsCount);
         } else {
-            // ADMIN and TECHNICIAN see all global inventory metrics
+            // ADMIN e TECHNICIAN visualizam todas as métricas globais de estoque
             totalItems = itemRepository.count();
             lowStockItems = itemRepository.countByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD);
             outOfStockItems = itemRepository.countByCurrentStockLessThanEqual(OUT_OF_STOCK_THRESHOLD);
@@ -123,7 +123,7 @@ public class GetDashboardAnalyticsUseCase {
         log.info("Analytics retrieved: open={}, inProgress={}, resolved={}, closed={}, lowStock={}",
                 openTickets, inProgressTickets, resolvedTickets, closedTickets, lowStockItems);
 
-        // Total tickets = sum of all statuses
+        // Total de chamados = soma de todos os status
         long totalTickets = openTickets + inProgressTickets + resolvedTickets + closedTickets;
 
         return new DashboardAnalyticsDTO(
@@ -142,7 +142,7 @@ public class GetDashboardAnalyticsUseCase {
     }
 
     /**
-     * Builds a list of metrics representing tickets by status.
+     * Constrói a lista de métricas de chamados agrupados por status.
      */
     private List<MetricDTO> buildTicketsByStatusMetrics(long open, long inProgress, long resolved) {
         return List.of(
@@ -153,7 +153,7 @@ public class GetDashboardAnalyticsUseCase {
     }
 
     /**
-     * Builds a list of metrics representing tickets by category.
+     * Constrói a lista de métricas de chamados agrupados por categoria.
      */
     private List<MetricDTO> buildTicketsByCategoryMetrics(List<Ticket> tickets) {
         return tickets.stream()
@@ -168,7 +168,7 @@ public class GetDashboardAnalyticsUseCase {
     }
 
     /**
-     * Builds a list of top 5 metrics representing tickets by sector.
+     * Constrói a lista com o Top 5 de métricas de chamados agrupados por setor.
      */
     private List<MetricDTO> buildTicketsBySectorMetrics(List<Ticket> tickets) {
         return tickets.stream()
@@ -185,7 +185,7 @@ public class GetDashboardAnalyticsUseCase {
     }
 
     /**
-     * Builds a list of top 5 metrics representing tickets by requester (user).
+     * Constrói a lista com o Top 5 de métricas de chamados agrupados por solicitante.
      */
     private List<MetricDTO> buildTicketsByRequesterMetrics(List<Ticket> tickets) {
         return tickets.stream()

@@ -3,13 +3,11 @@ package br.dev.ctrls.inovareti.domain.asset.dto;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record AssetRequestDTO(
 
-        @NotNull(message = "User id is required.")
         UUID userId,
 
         @NotBlank(message = "Asset name is required.")

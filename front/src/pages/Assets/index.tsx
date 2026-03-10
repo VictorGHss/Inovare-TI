@@ -47,6 +47,7 @@ export default function Assets() {
     name: '',
     patrimonyCode: '',
     userId: '',
+    categoryId: '',
     specifications: '',
     quantity: 1,
   });
@@ -160,6 +161,7 @@ export default function Assets() {
       name: '',
       patrimonyCode: '',
       userId: '',
+      categoryId: '',
       specifications: '',
       quantity: 1,
     });
@@ -216,7 +218,7 @@ export default function Assets() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    if (!formData.name.trim() || !formData.patrimonyCode.trim() || !formData.userId) {
+    if (!formData.name.trim() || !formData.patrimonyCode.trim()) {
       toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
@@ -226,7 +228,8 @@ export default function Assets() {
       const asset = await createAsset({
         name: formData.name.trim(),
         patrimonyCode: formData.patrimonyCode.trim(),
-        userId: formData.userId,
+        userId: formData.userId || undefined,
+        categoryId: formData.categoryId || undefined,
         specifications: formData.specifications?.trim() || undefined,
         quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,
       });
@@ -499,6 +502,24 @@ export default function Assets() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-slate-700">
+                  Categoria
+                </label>
+                <select
+                  value={formData.categoryId ?? ''}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, categoryId: event.target.value }))}
+                  className={inputClassName}
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
                   Quantidade a cadastrar (Lote)
                 </label>
                 <input
@@ -518,15 +539,14 @@ export default function Assets() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-slate-700">
-                  Usuário Vinculado <span className="text-red-500">*</span>
+                  Usuário Vinculado
                 </label>
                 <select
                   value={formData.userId}
                   onChange={(event) => setFormData((prev) => ({ ...prev, userId: event.target.value }))}
                   className={inputClassName}
-                  required
                 >
-                  <option value="">Selecione um usuário</option>
+                  <option value="">Deixar no Estoque da TI</option>
                   {users.map((currentUser) => (
                     <option key={currentUser.id} value={currentUser.id}>
                       {currentUser.name} ({currentUser.email})
@@ -558,7 +578,7 @@ export default function Assets() {
                 <div className="flex items-center gap-3">
                   <label
                     htmlFor={assetFileInputId}
-                    className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                      className="inline-flex items-center px-3 py-2 bg-brand-primary text-white rounded-lg text-sm cursor-pointer hover:opacity-90 transition-opacity"
                   >
                     Selecionar Arquivo
                   </label>

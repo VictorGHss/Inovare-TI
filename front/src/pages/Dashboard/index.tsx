@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Download, Laptop } from 'lucide-react';
+import { PlusCircle, Download, Laptop, HardDrive } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -126,14 +126,39 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {!loading && (
               <>
-                <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
+                <div className="lg:col-span-2">
+                  <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
+                </div>
                 {analytics && <InventorySummaryCard data={analytics.inventorySummary} />}
               </>
             )}
           </div>
+
+          {analytics && (
+            <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <HardDrive size={18} className="text-brand-primary" />
+                <h3 className="text-sm font-semibold text-slate-700">Resumo de Ativos (CMDB)</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-4">
+                  <span className="text-2xl font-bold text-slate-800">{analytics.totalAssets}</span>
+                  <span className="text-xs text-slate-500 mt-1">Total de Ativos</span>
+                </div>
+                <div className="flex flex-col items-center justify-center bg-brand-secondary rounded-xl p-4">
+                  <span className="text-2xl font-bold text-brand-primary">{analytics.assetsInUse}</span>
+                  <span className="text-xs text-slate-500 mt-1">Em Uso</span>
+                </div>
+                <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl p-4">
+                  <span className="text-2xl font-bold text-slate-600">{analytics.assetsInStock}</span>
+                  <span className="text-xs text-slate-500 mt-1">No Estoque (TI)</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {analytics && analytics.ticketsBySector.length > 0 && (

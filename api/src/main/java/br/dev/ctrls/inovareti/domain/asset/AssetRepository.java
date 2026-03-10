@@ -12,7 +12,10 @@ public interface AssetRepository extends JpaRepository<Asset, UUID> {
     List<Asset> findByUserId(UUID userId);
 
     long countByUserId(UUID userId);
+
+    long countByUserIdIsNotNull();
     
+    long countByUserIdIsNull();
     Optional<Asset> findByPatrimonyCode(String patrimonyCode);
     
     boolean existsByPatrimonyCode(String patrimonyCode);

@@ -209,6 +209,7 @@ export default function AddBatchModal({
               <label
                 htmlFor={invoiceInputId}
                 className="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-slate-700 cursor-pointer hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center px-3 py-2 bg-brand-primary text-white rounded-lg text-sm cursor-pointer hover:opacity-90 transition-opacity"
               >
                 Selecionar Arquivo
               </label>

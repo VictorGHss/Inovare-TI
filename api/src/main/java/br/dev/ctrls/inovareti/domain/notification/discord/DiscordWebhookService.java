@@ -74,6 +74,10 @@ public class DiscordWebhookService {
             var field2 = new DiscordField("Setor", requesterSector, true);
             var field3 = new DiscordField("Prioridade", priorityName, true);
             var field4 = new DiscordField("Categoria", categoryName, true);
+            String descriptionValue = ticket.getDescription() != null && !ticket.getDescription().isBlank()
+                    ? ticket.getDescription()
+                    : "Sem descrição.";
+            var field5 = new DiscordField("Descrição", descriptionValue, false);
 
             // Constrói o embed com tipagem estrita
             Integer embedColor = getColorByPriority(priorityName);
@@ -81,7 +85,7 @@ public class DiscordWebhookService {
                 String.format("🎫 Novo Chamado: #%s", ticketIdShort),
                 ticket.getTitle(),
                 embedColor,
-                List.of(field1, field2, field3, field4)
+                List.of(field1, field2, field3, field4, field5)
             );
 
             // Constrói o payload com tipagem estrita

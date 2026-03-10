@@ -43,8 +43,10 @@ public class DiscordTicketService {
         TicketPriority priority = parsePriority(priorityRaw);
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
 
+        String title = description.length() > 40 ? description.substring(0, 37) + "..." : description;
+
         Ticket ticket = Ticket.builder()
-            .title("Chamado aberto via Discord")
+            .title(title)
                 .description(description)
                 .status(TicketStatus.OPEN)
                 .priority(priority)

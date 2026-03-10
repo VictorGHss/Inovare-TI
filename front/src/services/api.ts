@@ -79,7 +79,7 @@ export interface GetAssetsParams {
 }
 
 export interface CreateAssetDto {
-  userId: string;
+  userId?: string;
   name: string;
   patrimonyCode: string;
   categoryId?: string;
@@ -478,6 +478,9 @@ export interface DashboardAnalyticsDTO {
   ticketsBySector: MetricDTO[];
   ticketsByRequester: MetricDTO[];
   inventorySummary: InventorySummaryDTO;
+  totalAssets: number;
+  assetsInUse: number;
+  assetsInStock: number;
 }
 
 export interface AuthResponseDTO {

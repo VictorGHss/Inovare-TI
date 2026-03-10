@@ -126,6 +126,11 @@ public class GetDashboardAnalyticsUseCase {
         // Total de chamados = soma de todos os status
         long totalTickets = openTickets + inProgressTickets + resolvedTickets + closedTickets;
 
+        // Agrega métricas de ativos físicos
+        long totalAssets = assetRepository.count();
+        long assetsInUse = assetRepository.countByUserIdIsNotNull();
+        long assetsInStock = assetRepository.countByUserIdIsNull();
+
         return new DashboardAnalyticsDTO(
                 openTickets,
                 inProgressTickets,
@@ -137,7 +142,10 @@ public class GetDashboardAnalyticsUseCase {
                 ticketsByCategory,
                 ticketsBySector,
                 ticketsByRequester,
-                inventorySummary
+                inventorySummary,
+                totalAssets,
+                assetsInUse,
+                assetsInStock
         );
     }
 

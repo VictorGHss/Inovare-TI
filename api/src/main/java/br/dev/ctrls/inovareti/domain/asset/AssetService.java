@@ -22,7 +22,7 @@ public class AssetService {
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
-        if (!userRepository.existsById(request.userId())) {
+        if (request.userId() != null && !userRepository.existsById(request.userId())) {
             throw new NotFoundException("User not found with id: " + request.userId());
         }
 

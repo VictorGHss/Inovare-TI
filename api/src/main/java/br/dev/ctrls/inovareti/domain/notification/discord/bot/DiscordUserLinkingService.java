@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
-import java.util.Optional;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,8 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço responsável por gerenciar a vinculação de usuários Discord com contas no sistema.
- * Permite que usuários vinculem seus IDs do Discord aos seus emails no sistema.
+ * Service responsible for linking Discord users to clinic accounts.
  */
 @Slf4j
 @Service
@@ -21,58 +18,33 @@ public class DiscordUserLinkingService {
 
     private final UserRepository userRepository;
 
+    private static final String USER_NOT_FOUND_MESSAGE = "❌ User not found for the provided email.";
+
     /**
-     * Vincula um ID do Discord a um usuário com o email fornecido.
-     * Se o usuário for encontrado, atualiza o campo discord_user_id e salva no banco.
-     *
-     * @param email o email do usuário no sistema
-     * @param discordUserId o ID do usuário no Discord
-     * @return Optional contendo o usuário se encontrado e vinculado com sucesso
+     * Links a Discord account to a clinic user and returns a final response message.
      */
     @Transactional
-    public Optional<User> linkDiscordToUser(String email, String discordUserId) {
+    public String linkDiscordToUserAndBuildMessage(String email, String discordUserId) {
         log.info("Attempting to link Discord user ID {} to email {}", discordUserId, email);
 
-        // Busca o usuário pelo email
-        Optional<User> userOpt = userRepository.findByEmail(email);
-
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-
-            // Atualiza o discord_user_id
-            user.setDiscordUserId(discordUserId);
-
-            // Salva o usuário com o novo discord_user_id
-            userRepository.save(user);
-
-            log.info("✅ Discord user {} successfully linked to user {}", 
-                    discordUserId, user.getId());
-
-            return Optional.of(user);
-        } else {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
             log.warn("⚠️ User with email {} not found. Discord linking failed.", email);
-            return Optional.empty();
+            return USER_NOT_FOUND_MESSAGE;
         }
-    }
 
-    /**
-     * Busca um usuário pelo seu ID do Discord.
-     *
-     * @param discordUserId o ID do usuário no Discord
-     * @return Optional contendo o usuário se encontrado
-     */
-    public Optional<User> findUserByDiscordId(String discordUserId) {
-        log.debug("Searching for user with Discord ID: {}", discordUserId);
-        return userRepository.findByDiscordUserId(discordUserId);
-    }
+        user.setDiscordUserId(discordUserId);
+        userRepository.save(user);
 
-    /**
-     * Verifica se um Discord ID está vinculado a algum usuário.
-     *
-     * @param discordUserId o ID do usuário no Discord
-     * @return true se o Discord ID está vinculado, false caso contrário
-     */
-    public boolean isDiscordIdLinked(String discordUserId) {
-        return userRepository.findByDiscordUserId(discordUserId).isPresent();
+        // Build the final message inside transaction to safely access lazy relations.
+        String sectorName = user.getSector().getName();
+        String successMessage = "✅ Conta vinculada com sucesso ao e-mail "
+                + user.getEmail()
+                + " (Setor: "
+                + sectorName
+                + ").";
+
+        log.info("✅ Discord user {} successfully linked to user {}", discordUserId, user.getId());
+        return successMessage;
     }
 }

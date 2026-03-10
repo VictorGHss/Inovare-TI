@@ -165,6 +165,13 @@ export interface CreateUserDto {
   discordUserId?: string;
 }
 
+export interface UpdateUserDto {
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'TECHNICIAN' | 'USER';
+  sectorId: string;
+}
+
 export interface CreateSectorDto {
   name: string;
 }
@@ -331,6 +338,17 @@ export async function getUsers(): Promise<User[]> {
 export async function createUser(dto: CreateUserDto): Promise<User> {
   const { data } = await api.post<User>('/api/users', dto);
   return data;
+}
+
+// Atualiza dados de um usuário (requer ADMIN)
+export async function updateUser(id: string, dto: UpdateUserDto): Promise<User> {
+  const { data } = await api.put<User>(`/api/users/${id}`, dto);
+  return data;
+}
+
+// Repõe a senha de um usuário para o padrão Mudar@123 (requer ADMIN)
+export async function resetUserPassword(id: string): Promise<void> {
+  await api.post(`/api/users/${id}/reset-password`);
 }
 
 // Busca todos os setores cadastrados (requer ADMIN)

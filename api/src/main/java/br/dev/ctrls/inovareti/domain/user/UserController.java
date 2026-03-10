@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.user;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,11 +17,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
+import br.dev.ctrls.inovareti.domain.user.dto.UpdateUserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.usecase.ChangeMyPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ListAllUsersUseCase;
+import br.dev.ctrls.inovareti.domain.user.usecase.ResetUserPasswordUseCase;
+import br.dev.ctrls.inovareti.domain.user.usecase.UpdateUserUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +40,8 @@ public class UserController {
     private final CreateUserUseCase createUserUseCase;
     private final ListAllUsersUseCase listAllUsersUseCase;
     private final ChangeMyPasswordUseCase changeMyPasswordUseCase;
+    private final UpdateUserUseCase updateUserUseCase;
+    private final ResetUserPasswordUseCase resetUserPasswordUseCase;
 
     /**
      * Cria um novo usuário.
@@ -65,6 +72,30 @@ public class UserController {
         String authenticatedUserId = auth.getPrincipal().toString();
 
         changeMyPasswordUseCase.execute(authenticatedUserId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Updates a user's name, email, role and sector.
+     * Restricted to ADMIN.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponseDTO> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateUserRequestDTO request) {
+        return ResponseEntity.ok(updateUserUseCase.execute(id, request));
+    }
+
+    /**
+     * Resets a user's password to the default value "Mudar@123"
+     * and forces password change on next login.
+     * Restricted to ADMIN.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<Void> resetPassword(@PathVariable UUID id) {
+        resetUserPasswordUseCase.execute(id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,16 +1,18 @@
 // Página de listagem e cadastro de usuários
 import { useEffect, useState } from 'react';
-import { PlusCircle, X, Upload } from 'lucide-react';
+import { PlusCircle, X, Upload, Pencil, KeyRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getUsers,
   createUser,
   getSectors,
+  resetUserPassword,
   type User,
   type Sector,
   type CreateUserDto,
 } from '../../services/api';
 import BulkImportModal from './BulkImportModal';
+import EditUserModal from './EditUserModal';
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,6 +21,10 @@ export default function Users() {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [resetTargetUser, setResetTargetUser] = useState<User | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   const [formData, setFormData] = useState<CreateUserDto>({
     name: '',
@@ -85,6 +91,20 @@ export default function Users() {
     setFormData({ name: '', email: '', password: '', role: 'USER', sectorId: '' });
   }
 
+  async function handleConfirmResetPassword() {
+    if (!resetTargetUser) return;
+    setResetting(true);
+    try {
+      await resetUserPassword(resetTargetUser.id);
+      toast.success(`Senha de ${resetTargetUser.name} reposta para "Mudar@123".`);
+      setResetTargetUser(null);
+    } catch {
+      toast.error('Erro ao repor senha. Tente novamente.');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   const roleLabels = {
     ADMIN: 'Administrador',
     TECHNICIAN: 'Técnico',
@@ -134,6 +154,7 @@ export default function Users() {
                   <th className="px-4 py-3 text-left">E-mail</th>
                   <th className="px-4 py-3 text-left">Setor</th>
                   <th className="px-4 py-3 text-left">Nível de Acesso</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -154,6 +175,24 @@ export default function Users() {
                       >
                         {roleLabels[user.role]}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          title="Editar usuário"
+                          className="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => setResetTargetUser(user)}
+                          title="Repor senha"
+                          className="p-1.5 rounded-lg text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                        >
+                          <KeyRound size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -270,6 +309,57 @@ export default function Users() {
         onClose={() => setShowImportModal(false)}
         onSuccess={loadUsers}
       />
+
+      {/* Modal de edição de usuário */}
+      <EditUserModal
+        user={editingUser}
+        sectors={sectors}
+        onClose={() => setEditingUser(null)}
+        onSuccess={loadUsers}
+      />
+
+      {/* Modal de confirmação de reposição de senha */}
+      {resetTargetUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-800">Repor Senha</h2>
+              <button
+                onClick={() => setResetTargetUser(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                disabled={resetting}
+              >
+                <X size={18} className="text-slate-500" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 mb-6">
+              Tem certeza que deseja repor a senha de{' '}
+              <strong className="text-slate-800">{resetTargetUser.name}</strong> para{' '}
+              <strong className="text-slate-800">"Mudar@123"</strong>?<br />
+              <span className="text-slate-500 mt-1 inline-block">
+                O usuário terá de criar uma nova senha no próximo login.
+              </span>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setResetTargetUser(null)}
+                disabled={resetting}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmResetPassword}
+                disabled={resetting}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                <KeyRound size={15} />
+                {resetting ? 'Repondo...' : 'Confirmar Reposição'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

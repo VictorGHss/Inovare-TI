@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
@@ -23,6 +24,7 @@ public class ClaimTicketUseCase {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final DiscordDirectMessageService discordDirectMessageService;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {
@@ -38,6 +40,12 @@ public class ClaimTicketUseCase {
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
         Ticket savedTicket = ticketRepository.save(ticket);
+
+        String shortId = savedTicket.getId().toString().substring(0, 8).toUpperCase();
+        String dmTitle = "Chamado Assumido";
+        String dmDescription = "Seu chamado #" + shortId
+            + " foi assumido pelo técnico **" + currentUser.getName() + "**.";
+        discordDirectMessageService.sendTicketUpdateDM(savedTicket, dmTitle, dmDescription);
 
         log.info("Ticket {} claimed by user {} ({})", savedTicket.getId(), currentUser.getName(), currentUser.getEmail());
 

@@ -17,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository;
 import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockDeductionService;
 import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
@@ -45,6 +46,7 @@ public class ResolveTicketUseCase {
     private final AssetMaintenanceRepository assetMaintenanceRepository;
     private final CreateNotificationService createNotificationService;
         private final StockDeductionService stockDeductionService;
+        private final DiscordDirectMessageService discordDirectMessageService;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -170,6 +172,15 @@ public class ResolveTicketUseCase {
         ticket.setClosedAt(LocalDateTime.now());
 
         Ticket resolvedTicket = ticketRepository.save(ticket);
+
+        String shortId = resolvedTicket.getId().toString().substring(0, 8).toUpperCase();
+        String resolutionText = request.resolutionNotes() != null && !request.resolutionNotes().isBlank()
+                ? request.resolutionNotes().trim()
+                : "Não informada.";
+        String dmTitle = "Chamado Resolvido";
+        String dmDescription = "Seu chamado #" + shortId + " foi marcado como resolvido.\n"
+                + "**Resolução:** " + resolutionText;
+        discordDirectMessageService.sendTicketUpdateDM(resolvedTicket, dmTitle, dmDescription);
 
         createNotificationService.create(
                 resolvedTicket.getRequester().getId(),

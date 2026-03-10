@@ -31,6 +31,9 @@ public class DiscordWebhookService {
     @Value("${discord.webhook.url:}")
     private String discordWebhookUrl;
 
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     private final RestTemplate restTemplate;
 
     /**
@@ -68,6 +71,7 @@ public class DiscordWebhookService {
                 : "Unknown Sector";
             String priorityName = ticket.getPriority().name();
             String categoryName = ticket.getCategory().getName();
+            String ticketUrl = buildTicketUrl(ticket);
 
             // Constrói os fields com tipagem estrita
             var field1 = new DiscordField("Solicitante", requesterName, true);
@@ -78,6 +82,7 @@ public class DiscordWebhookService {
                     ? ticket.getDescription()
                     : "Sem descrição.";
             var field5 = new DiscordField("Descrição", descriptionValue, false);
+            var field6 = new DiscordField("Acesso Rápido", "[Acessar Chamado no Sistema](" + ticketUrl + ")", false);
 
             // Constrói o embed com tipagem estrita
             Integer embedColor = getColorByPriority(priorityName);
@@ -85,14 +90,14 @@ public class DiscordWebhookService {
                 String.format("🎫 Novo Chamado: #%s", ticketIdShort),
                 ticket.getTitle(),
                 embedColor,
-                List.of(field1, field2, field3, field4, field5)
+                List.of(field1, field2, field3, field4, field5, field6)
             );
 
             // Constrói o payload com tipagem estrita
             var payload = new DiscordPayload(List.of(embed));
 
             log.debug("Payload built successfully. Embed color: {}, Fields count: {}", 
-                    embedColor, 4);
+                    embedColor, 6);
 
             // Configura os cabeçalhos HTTP
             HttpHeaders headers = new HttpHeaders();
@@ -159,6 +164,15 @@ public class DiscordWebhookService {
                 yield 39423; // Padrão: NORMAL (Azul)
             }
         };
+    }
+
+    private String buildTicketUrl(Ticket ticket) {
+        String normalizedBaseUrl = frontendUrl != null ? frontendUrl.trim() : "http://localhost:5173";
+        if (normalizedBaseUrl.endsWith("/")) {
+            normalizedBaseUrl = normalizedBaseUrl.substring(0, normalizedBaseUrl.length() - 1);
+        }
+
+        return normalizedBaseUrl + "/tickets/" + ticket.getId();
     }
 
     /**

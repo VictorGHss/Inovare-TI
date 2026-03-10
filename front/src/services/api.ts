@@ -26,6 +26,7 @@ export interface Ticket {
   requestedItemId: string | null;
   requestedItemName: string | null;
   requestedQuantity: number | null;
+  isFromDiscord: boolean;
   slaDeadline: string | null;
   createdAt: string;
   closedAt: string | null;

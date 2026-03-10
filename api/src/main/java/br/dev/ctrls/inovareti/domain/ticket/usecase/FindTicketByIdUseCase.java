@@ -59,6 +59,7 @@ public class FindTicketByIdUseCase {
                 ticket.getRequestedItem() != null ? ticket.getRequestedItem().getId() : null,
                 ticket.getRequestedItem() != null ? ticket.getRequestedItem().getName() : null,
                 ticket.getRequestedQuantity(),
+                ticket.getDescription() != null && ticket.getDescription().startsWith("[DISCORD]"),
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),

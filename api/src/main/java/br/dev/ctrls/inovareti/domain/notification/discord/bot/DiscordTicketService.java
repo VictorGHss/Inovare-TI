@@ -44,11 +44,15 @@ public class DiscordTicketService {
         TicketPriority priority = parsePriority(priorityRaw);
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
 
-        String title = description.length() > 40 ? description.substring(0, 37) + "..." : description;
+        String normalizedDescription = description.trim();
+        String title = normalizedDescription.length() > 40
+            ? normalizedDescription.substring(0, 37) + "..."
+            : normalizedDescription;
+        String storedDescription = "[DISCORD] " + normalizedDescription;
 
         Ticket ticket = Ticket.builder()
             .title(title)
-                .description(description)
+                .description(storedDescription)
                 .status(TicketStatus.OPEN)
                 .priority(priority)
                 .requester(requester)

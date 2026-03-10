@@ -27,6 +27,7 @@ public record TicketResponseDTO(
         UUID requestedItemId,
         String requestedItemName,
         Integer requestedQuantity,
+        boolean isFromDiscord,
         LocalDateTime slaDeadline,
         LocalDateTime createdAt,
         LocalDateTime closedAt,
@@ -50,10 +51,16 @@ public record TicketResponseDTO(
                 ticket.getRequestedItem() != null ? ticket.getRequestedItem().getId() : null,
                 ticket.getRequestedItem() != null ? ticket.getRequestedItem().getName() : null,
                 ticket.getRequestedQuantity(),
+                isFromDiscord(ticket),
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),
                 List.of() // Empty list by default, can be populated by use case
         );
+    }
+
+    private static boolean isFromDiscord(Ticket ticket) {
+        String description = ticket.getDescription();
+        return description != null && description.startsWith("[DISCORD]");
     }
 }

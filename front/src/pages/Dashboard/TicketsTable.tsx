@@ -1,5 +1,6 @@
 // Tabela de chamados com dados reais da API
 import { useNavigate } from 'react-router-dom';
+import { Bot } from 'lucide-react';
 import type { Ticket } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
@@ -39,6 +40,7 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
         <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
           <tr>
             <th className="px-4 py-3 text-left">Título</th>
+            <th className="px-4 py-3 text-left">Solicitante</th>
             <th className="px-4 py-3 text-left">Categoria</th>
             <th className="px-4 py-3 text-left">Prioridade</th>
             <th className="px-4 py-3 text-left">Status</th>
@@ -55,7 +57,18 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
               className="hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <td className="px-4 py-3 font-medium text-slate-800">
-                {String(ticket.title ?? '-')}
+                <div className="flex items-center gap-2">
+                  <span>{String(ticket.title ?? '-')}</span>
+                  {ticket.isFromDiscord && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                      <Bot size={12} />
+                      Discord
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {String(ticket.requesterName ?? '-')}
               </td>
               <td className="px-4 py-3 text-slate-500">
                 {String(ticket.categoryName ?? '-')}

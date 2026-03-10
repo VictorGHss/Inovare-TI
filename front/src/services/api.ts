@@ -677,6 +677,24 @@ export async function downloadBatchInvoice(itemId: string, batchId: string): Pro
   return data;
 }
 
+export interface SystemSetting {
+  id: string;
+  value: string;
+  description: string | null;
+}
+
+export type UpdateSystemSettingsPayload = Record<string, string>;
+
+export async function getSystemSettings(): Promise<SystemSetting[]> {
+  const { data } = await api.get<SystemSetting[]>('/api/admin/settings');
+  return data;
+}
+
+export async function updateSystemSettings(payload: UpdateSystemSettingsPayload): Promise<SystemSetting[]> {
+  const { data } = await api.put<SystemSetting[]>('/api/admin/settings', payload);
+  return data;
+}
+
 // ============================================================================
 // ADMIN / BULK IMPORT
 // ============================================================================

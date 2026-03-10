@@ -23,6 +23,8 @@ import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
 import br.dev.ctrls.inovareti.domain.knowledge.Article;
 import br.dev.ctrls.inovareti.domain.knowledge.ArticleRepository;
+import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
+import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
@@ -57,6 +59,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final AssetRepository assetRepository;
     private final AssetCategoryRepository assetCategoryRepository;
     private final AssetMaintenanceRepository assetMaintenanceRepository;
+    private final SystemSettingRepository systemSettingRepository;
     private final PasswordEncoder passwordEncoder;
 
     private final Random random = new Random();
@@ -113,6 +116,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         // Seed asset maintenances
         if (assetMaintenanceRepository.count() == 0) {
             seedAssetMaintenances();
+        }
+
+        // Seed system settings
+        if (systemSettingRepository.count() == 0) {
+            seedSystemSettings();
         }
 
         // Seed articles/tutorials
@@ -548,6 +556,19 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         assetMaintenanceRepository.saveAll(maintenances);
         log.info("Seeded {} asset maintenances", maintenances.size());
+    }
+
+    private void seedSystemSettings() {
+        List<SystemSetting> settings = List.of(
+            new SystemSetting(
+                "SLA_URGENT_HOURS",
+                "4",
+                "Tempo máximo em horas para chamados urgentes"
+            )
+        );
+
+        systemSettingRepository.saveAll(settings);
+        log.info("Seeded {} system settings", settings.size());
     }
 
     private void seedArticles() {

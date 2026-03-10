@@ -118,8 +118,8 @@ export default function Assets() {
   }
 
   function escapeCsvValue(value: string): string {
-    const escaped = value.replaceAll('"', '""');
-    return `"${escaped}"`;
+    const sanitized = value.replaceAll('"', '');
+    return `"${sanitized}"`;
   }
 
   function handleExportCsv() {
@@ -138,10 +138,11 @@ export default function Assets() {
     ]);
 
     const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(','))
+      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(';'))
       .join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvWithBom = `\uFEFF${csvContent}`;
+    const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

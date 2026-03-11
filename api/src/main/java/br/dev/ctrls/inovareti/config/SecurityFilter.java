@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.config;
 
 import java.io.IOException;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -12,7 +13,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Filtro de autenticação JWT executado uma vez por requisição.
@@ -20,11 +20,17 @@ import lombok.RequiredArgsConstructor;
  * carrega o usuário correspondente e popula o {@link SecurityContextHolder}.
  */
 @Component
-@RequiredArgsConstructor
+// REMOVIDO: @RequiredArgsConstructor
 public class SecurityFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
     private final UserRepository userRepository;
+
+    // ADICIONADO: Construtor manual com a anotação @Lazy no repositório
+    public SecurityFilter(TokenService tokenService, @Lazy UserRepository userRepository) {
+        this.tokenService = tokenService;
+        this.userRepository = userRepository;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

@@ -63,18 +63,11 @@ public class DiscordBotConfig {
                     .setActivity(Activity.playing("Suporte de TI | /chamado"))
                     // Registra o listener de eventos
                     .addEventListeners(eventListener)
-                    // Constrói e aguarda a inicialização
+                    // Constrói sem bloquear — conexão ocorre em background; ReadyEvent é disparado ao DiscordEventListener
                     .build();
 
-            // Aguarda o bot estar pronto
-            jda.awaitReady();
-            log.info("✅ Discord bot initialized successfully and ready!");
-
+            log.info("JDA iniciado de forma assíncrona. Bot será marcado como pronto ao receber ReadyEvent.");
             return jda;
-        } catch (InterruptedException e) {
-            log.error("❌ Interrupted while waiting for JDA to be ready", e);
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Failed to initialize Discord bot: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("❌ Error initializing Discord bot", e);
             throw new RuntimeException("Failed to initialize Discord bot: " + e.getMessage(), e);

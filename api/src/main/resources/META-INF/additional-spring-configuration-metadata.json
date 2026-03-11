@@ -53,5 +53,10 @@
     "name": "app.frontend.url",
     "type": "java.lang.String",
     "description": "A description for 'app.frontend.url'"
+  },
+  {
+    "name": "app.seeder.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'app.seeder.enabled'"
   }
 ]}

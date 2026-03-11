@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -20,6 +21,7 @@ import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UpdateUserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
 import br.dev.ctrls.inovareti.domain.user.usecase.ChangeMyPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ListAllUsersUseCase;
@@ -42,6 +44,7 @@ public class UserController {
     private final ChangeMyPasswordUseCase changeMyPasswordUseCase;
     private final UpdateUserUseCase updateUserUseCase;
     private final ResetUserPasswordUseCase resetUserPasswordUseCase;
+    private final TwoFactorResetService twoFactorResetService;
 
     /**
      * Cria um novo usuário.
@@ -96,6 +99,17 @@ public class UserController {
     @PostMapping("/{id}/reset-password")
     public ResponseEntity<Void> resetPassword(@PathVariable UUID id) {
         resetUserPasswordUseCase.execute(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Reseta o 2FA de um usuário diretamente (sem código de recuperação).
+     * Exclusivo para ADMIN — útil quando o usuário perdeu completamente o acesso.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/2fa/reset")
+    public ResponseEntity<Void> adminResetTwoFactor(@PathVariable UUID id) {
+        twoFactorResetService.adminReset(id);
         return ResponseEntity.noContent().build();
     }
 }

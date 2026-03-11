@@ -14,10 +14,12 @@ import br.dev.ctrls.inovareti.domain.auth.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
+import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorResetConfirmRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorVerifyRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorAuthService;
+import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -33,6 +35,7 @@ public class AuthController {
     private final LoginUseCase loginUseCase;
     private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
     private final TwoFactorAuthService twoFactorAuthService;
+    private final TwoFactorResetService twoFactorResetService;
 
     /**
      * Autentica o usuário e retorna um token JWT assinado.
@@ -60,6 +63,27 @@ public class AuthController {
     @PostMapping("/2fa/verify")
     public ResponseEntity<AuthResponseDTO> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequestDTO request) {
         return ResponseEntity.ok(twoFactorAuthService.verifyCode(getAuthenticatedUserId(), request.code()));
+    }
+
+    /**
+     * Solicita a recuperação do 2FA: gera um código e envia ao Discord do usuário.
+     * Requer JWT válido (sem necessidade de 2FA verificado).
+     */
+    @PostMapping("/2fa/reset-request")
+    public ResponseEntity<Void> requestTwoFactorReset() {
+        twoFactorResetService.initiateReset(getAuthenticatedUserId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Confirma a recuperação do 2FA: valida o código recebido + senha atual.
+     * Se correto, limpa o totp_secret e retorna novo JWT.
+     */
+    @PostMapping("/2fa/reset-confirm")
+    public ResponseEntity<AuthResponseDTO> confirmTwoFactorReset(
+            @Valid @RequestBody TwoFactorResetConfirmRequestDTO request) {
+        return ResponseEntity.ok(
+                twoFactorResetService.confirmReset(getAuthenticatedUserId(), request.code(), request.password()));
     }
 
     private UUID getAuthenticatedUserId() {

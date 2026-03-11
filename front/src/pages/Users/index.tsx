@@ -1,12 +1,13 @@
 // Página de listagem e cadastro de usuários
 import { useEffect, useState } from 'react';
-import { PlusCircle, X, Upload, Pencil, KeyRound } from 'lucide-react';
+import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getUsers,
   createUser,
   getSectors,
   resetUserPassword,
+  adminReset2FA,
   type User,
   type Sector,
   type CreateUserDto,
@@ -25,6 +26,10 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetTargetUser, setResetTargetUser] = useState<User | null>(null);
   const [resetting, setResetting] = useState(false);
+
+  // Estado para redefinição de 2FA por admin
+  const [reset2FATargetUser, setReset2FATargetUser] = useState<User | null>(null);
+  const [resetting2FA, setResetting2FA] = useState(false);
 
   const [formData, setFormData] = useState<CreateUserDto>({
     name: '',
@@ -102,6 +107,20 @@ export default function Users() {
       toast.error('Erro ao redefinir senha. Tente novamente.');
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleConfirmReset2FA() {
+    if (!reset2FATargetUser) return;
+    setResetting2FA(true);
+    try {
+      await adminReset2FA(reset2FATargetUser.id);
+      toast.success(`2FA de ${reset2FATargetUser.name} redefinido com sucesso.`);
+      setReset2FATargetUser(null);
+    } catch {
+      toast.error('Erro ao redefinir o 2FA. Tente novamente.');
+    } finally {
+      setResetting2FA(false);
     }
   }
 
@@ -191,6 +210,13 @@ export default function Users() {
                           className="p-1.5 rounded-lg text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
                         >
                           <KeyRound size={15} />
+                                                <button
+                                                  onClick={() => setReset2FATargetUser(user)}
+                                                  title="Resetar 2FA"
+                                                  className="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                >
+                                                  <ShieldOff size={15} />
+                                                </button>
                         </button>
                       </div>
                     </td>
@@ -355,6 +381,47 @@ export default function Users() {
               >
                 <KeyRound size={15} />
                 {resetting ? 'Redefinindo...' : 'Confirmar Redefinição'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de confirmação de reset de 2FA (somente ADMIN) */}
+      {reset2FATargetUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-800">Resetar 2FA</h2>
+              <button
+                onClick={() => setReset2FATargetUser(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                disabled={resetting2FA}
+              >
+                <X size={18} className="text-slate-500" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 mb-6">
+              Tem certeza que deseja resetar o 2FA de{' '}
+              <strong className="text-slate-800">{reset2FATargetUser.name}</strong>?<br />
+              <span className="text-red-500 mt-1 inline-block text-xs">
+                ⚠️ O autenticador atual será removido. O usuário precisará configurar um novo na página de Perfil.
+              </span>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setReset2FATargetUser(null)}
+                disabled={resetting2FA}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleConfirmReset2FA()}
+                disabled={resetting2FA}
+                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                <ShieldOff size={15} />
+                {resetting2FA ? 'Resetando...' : 'Confirmar Reset 2FA'}
               </button>
             </div>
           </div>

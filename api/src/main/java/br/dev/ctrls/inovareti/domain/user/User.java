@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.user;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -93,6 +94,14 @@ public class User implements UserDetails {
     @Convert(converter = CryptoConverter.class)
     @Column(name = "totp_secret", length = 500)
     private String totpSecret;
+
+    /** Hash BCrypt do código temporário para recuperação de 2FA. */
+    @Column(name = "recovery_code_hash", length = 255)
+    private String recoveryCodeHash;
+
+    /** Expiração do código de recuperação (15 min após a solicitação). */
+    @Column(name = "recovery_code_expires_at")
+    private LocalDateTime recoveryCodeExpiresAt;
 
     // -------------------------------------------------------------------------
     // UserDetails contract

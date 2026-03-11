@@ -71,4 +71,40 @@ public class DiscordDirectMessageService {
 
         return normalizedBaseUrl + "/tickets/" + ticket.getId();
     }
+
+    /**
+     * Envia o código de recuperação do 2FA ao usuário via DM no Discord.
+     * Execução síncrona para garantir o retorno do código antes da resposta da API.
+     *
+     * @param discordUserId ID do usuário no Discord
+     * @param code          Código de 8 caracteres gerado para a recuperação
+     * @param userName      Nome exibido no embed para contextualizar ao usuário
+     */
+    public void sendTwoFactorResetCode(String discordUserId, String code, String userName) {
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("Skipping 2FA reset DM to {}: JDA is not available", discordUserId);
+            return;
+        }
+
+        var embed = new EmbedBuilder()
+                .setColor(CLINIC_BRAND_COLOR)
+                .setTitle("🔐 Recuperação de Autenticação 2FA — Inovare TI")
+                .setDescription(
+                        "Olá, **" + userName + "**!\n\n"
+                        + "Seu código de recuperação para redefinir o 2FA é:\n\n"
+                        + "```\n" + code + "\n```\n"
+                        + "⚠️ O código expira em **15 minutos** e é de uso único.\n"
+                        + "Se você não solicitou esta recuperação, ignore esta mensagem.")
+                .build();
+
+        try {
+            jda.retrieveUserById(discordUserId).complete()
+                    .openPrivateChannel().complete()
+                    .sendMessageEmbeds(embed).complete();
+            log.info("2FA reset code sent via Discord DM to user {}", discordUserId);
+        } catch (Exception ex) {
+            log.warn("Failed to send 2FA reset DM to Discord user {}: {}", discordUserId, ex.getMessage());
+        }
+    }
 }

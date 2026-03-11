@@ -605,6 +605,22 @@ export async function verify2FA(code: string): Promise<AuthResponseDTO> {
   return data;
 }
 
+// Solicita o código de recuperação do 2FA — código enviado ao Discord do usuário
+export async function request2FAReset(): Promise<void> {
+  await api.post('/api/auth/2fa/reset-request');
+}
+
+// Confirma a recuperação do 2FA com código + senha atual; retorna novo JWT com 2FA limpo
+export async function confirm2FAReset(code: string, password: string): Promise<AuthResponseDTO> {
+  const { data } = await api.post<AuthResponseDTO>('/api/auth/2fa/reset-confirm', { code, password });
+  return data;
+}
+
+// Reseta o 2FA de outro usuário diretamente (somente ADMIN)
+export async function adminReset2FA(userId: string): Promise<void> {
+  await api.patch(`/api/users/${userId}/2fa/reset`);
+}
+
 export async function getVaultItems(): Promise<VaultItem[]> {
   const { data } = await api.get<VaultItem[]>('/api/vault');
   return data;

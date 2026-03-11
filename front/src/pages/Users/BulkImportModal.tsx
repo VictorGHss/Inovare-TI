@@ -43,8 +43,9 @@ export default function BulkImportModal({
   function downloadTemplate() {
     const csvContent = 
       'UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs\n' +
-      'João Silva;joao.silva@empresa.com;USER;TI;Notebook Dell;Laptop;NB-001;Intel i5 8GB RAM\n' +
-      'Maria Santos;maria.santos@empresa.com;TECHNICIAN;Suporte;Desktop HP;Desktop;DT-002;Intel i7 16GB RAM';
+      'Dr. Carlos;carlos@clinica.com;USER;Urologia;Desktop HP;Desktops;PC-01;i5 8gb\n' +
+      'Dr. Carlos;carlos@clinica.com;USER;Urologia;Monitor LG;Monitores;MON-02;24 polegadas\n' +
+      'Maria TI;maria@clinica.com;TECHNICIAN;TI;Notebook Dell;Laptops;NB-99;i7 16gb';
     
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');

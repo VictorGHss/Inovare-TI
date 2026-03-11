@@ -1,9 +1,31 @@
 # Documentação da API — Inovare TI
 
-> **Base URL:** `http://localhost:8080`  
+> **Base URL:** `http://localhost:8085`  
 > **Formato:** JSON (`Content-Type: application/json`)  
 > **Erros:** Padrão RFC 7807 (Problem Details)  
 > **Autenticação:** JWT Bearer Token — envie `Authorization: Bearer <token>` em todas as rotas protegidas.
+
+---
+
+## Regras de Segurança
+
+> **Atenção — Controle de Acesso nas Ações Críticas**
+>
+> Os endpoints a seguir possuem regras de autorização explícitas além da autenticação JWT básica:
+>
+> | Endpoint                             | Quem pode acessar                                                              |
+> |--------------------------------------|--------------------------------------------------------------------------------|
+> | `PATCH /api/tickets/{id}/resolve`    | **ADMIN**, **TECHNICIAN** ou o próprio **dono do chamado** (`requesterId`)     |
+> | `PATCH /api/tickets/{id}/claim`      | Exclusivo para **ADMIN** e **TECHNICIAN** (`@PreAuthorize`)                    |
+> | `PATCH /api/tickets/{id}/transfer/{userId}` | Exclusivo para **ADMIN** e **TECHNICIAN** (`@PreAuthorize`)             |
+> | `GET /api/notifications`             | Retorna **apenas as notificações do usuário autenticado** (proteção por propriedade) |
+> | `GET /api/notifications/unread`      | Idem — notificações do usuário autenticado                                     |
+> | `PATCH /api/notifications/{id}/read` | Só o **dono da notificação** pode marcá-la como lida                           |
+> | `GET /api/tickets`                   | **ADMIN/TECHNICIAN** veem todos; **USER** vê apenas seus próprios chamados     |
+>
+> Tentativas de acesso não autorizado retornam **403 Forbidden**.
+
+
 
 ---
 
@@ -557,10 +579,68 @@ somando `baseSlaHours` da categoria ao momento da criação.
 
 ---
 
-### `PATCH /api/tickets/{id}/close`
+### `GET /api/tickets/{id}`
 
-Fecha um chamado. Se o chamado possuir `requestedItemId` e `requestedQuantity`, debita o
-estoque do item de forma atômica (mesma transação).
+Retorna os dados de um único chamado pelo UUID.
+
+**Resposta de Sucesso — `200 OK`:** objeto `TicketResponseDTO` completo.
+
+**Respostas de Erro:**
+
+| Código | Situação               |
+|--------|------------------------|
+| `404`  | Chamado não encontrado |
+
+---
+
+### `PATCH /api/tickets/{id}/resolve`
+
+> **Acesso:** ADMIN, TECHNICIAN ou o usuário que abriu o chamado (`requesterId`).
+
+Resolve um chamado existente, alterando o status para `RESOLVED`. Se o chamado possuir `requestedItemId` e `requestedQuantity`, debita o estoque do item de forma atômica (mesma transação).
+
+**Path Parameter:**
+
+| Parâmetro | Tipo | Descrição         |
+|-----------|------|-------------------|
+| `id`      | UUID | ID do chamado     |
+
+**Request Body (opcional):**
+
+```json
+{
+  "resolutionNotes": "Substituído o toner da impressora. Problema resolvido."
+}
+```
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+  "status": "RESOLVED",
+  "closedAt": "2026-03-11T16:45:00",
+  "...": "demais campos do chamado"
+}
+```
+
+> Se o chamado referenciar um item de inventário, o `currentStock` é decrementado em `requestedQuantity` atomicamente.
+
+**Respostas de Erro:**
+
+| Código | Situação                                                        |
+|--------|-----------------------------------------------------------------|
+| `403`  | Usuário não tem permissão (não é dono nem ADMIN/TECHNICIAN)    |
+| `404`  | Chamado não encontrado                                          |
+| `422`  | Estoque insuficiente para atender a quantidade solicitada       |
+
+---
+
+### `PATCH /api/tickets/{id}/claim`
+
+> **Acesso:** Exclusivo para **ADMIN** e **TECHNICIAN**.
+
+Assume o chamado para o usuário autenticado e altera o status para `IN_PROGRESS`.
 
 **Path Parameter:**
 
@@ -570,35 +650,162 @@ estoque do item de forma atômica (mesma transação).
 
 Não requer body.
 
-**Resposta de Sucesso — `200 OK`:**
-
-```json
-{
-  "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
-  "status": "CLOSED",
-  "closedAt": "2026-03-02T16:45:00",
-  "...": "demais campos do chamado"
-}
-```
-
-> Após este endpoint, o `currentStock` do item referenciado é decrementado em `requestedQuantity`.
+**Resposta de Sucesso — `200 OK`:** objeto `TicketResponseDTO` com `status: "IN_PROGRESS"` e `assignedToId` preenchido.
 
 **Respostas de Erro:**
 
-| Código | Situação                                                       |
-|--------|----------------------------------------------------------------|
-| `404`  | Chamado não encontrado                                         |
-| `422`  | Estoque insuficiente para atender a quantidade solicitada      |
+| Código | Situação                              |
+|--------|---------------------------------------|
+| `403`  | Role insuficiente (somente ADMIN/TECHNICIAN) |
+| `404`  | Chamado não encontrado                |
+
+---
+
+### `PATCH /api/tickets/{id}/transfer/{userId}`
+
+> **Acesso:** Exclusivo para **ADMIN** e **TECHNICIAN**.
+
+Transfere o chamado para outro técnico/usuário. Se o chamado estiver `OPEN`, muda o status para `IN_PROGRESS`.
+
+**Path Parameters:**
+
+| Parâmetro | Tipo | Descrição                             |
+|-----------|------|---------------------------------------|
+| `id`      | UUID | ID do chamado                         |
+| `userId`  | UUID | ID do usuário para quem será transferido |
+
+Não requer body.
+
+**Resposta de Sucesso — `200 OK`:** objeto `TicketResponseDTO` com `assignedToId` atualizado.
+
+**Respostas de Erro:**
+
+| Código | Situação                                      |
+|--------|-----------------------------------------------|
+| `403`  | Role insuficiente (somente ADMIN/TECHNICIAN)  |
+| `404`  | Chamado ou usuário de destino não encontrado  |
+
+---
+
+### `POST /api/tickets/{id}/attachments`
+
+Envia um arquivo como anexo ao chamado. Máximo **5 MB** por arquivo.
+
+**Path Parameter:** `id` — UUID do chamado.
+
+**Request:** `multipart/form-data` com o campo `file`.
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "cc3d4e5f-...",
+  "originalFilename": "nota-fiscal.pdf",
+  "storedFilename": "uuid-gerado-internamente.pdf",
+  "fileType": "application/pdf",
+  "ticketId": "aa11bb22-...",
+  "uploadedAt": "2026-03-11T10:00:00"
+}
+```
+
+---
+
+### `GET /api/tickets/{id}/attachments`
+
+Lista todos os anexos de um chamado.
+
+**Resposta de Sucesso — `200 OK`:** array de objetos `TicketAttachmentResponseDTO`.
+
+---
+
+### `POST /api/tickets/{id}/comments`
+
+Adiciona um comentário a um chamado existente.
+
+**Request Body:**
+
+```json
+{
+  "content": "Verificado in loco — aguardando peça de reposição.",
+  "authorId": "f1e2d3c4-b5a6-7890-fedc-ba0987654321"
+}
+```
+
+**Resposta de Sucesso — `201 Created`:** objeto do comentário com `id`, `content`, `authorName` e `createdAt`.
+
+---
+
+### `GET /api/tickets/{id}/comments`
+
+Lista todos os comentários de um chamado, ordenados por data crescente.
+
+**Resposta de Sucesso — `200 OK`:** array de objetos `TicketCommentResponseDTO`.
+
+---
+
+## Módulo: Notificações (`/api/notifications`)
+
+> **Segurança:** Todos os endpoints deste módulo retornam **apenas dados do usuário autenticado**. A proteção é feita por leitura do ID do usuário via JWT, garantindo isolamento total entre usuários.
+
+### `GET /api/notifications`
+
+Retorna todas as notificações do usuário autenticado (lidas e não lidas), ordenadas por data decrescente.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "dd4e5f6a-...",
+    "title": "Chamado #42 atribuído a você",
+    "message": "O chamado 'Impressora offline' foi transferido para você.",
+    "isRead": false,
+    "link": "/tickets/aa11bb22-...",
+    "createdAt": "2026-03-11T09:30:00"
+  }
+]
+```
+
+---
+
+### `GET /api/notifications/unread`
+
+Retorna apenas as notificações não lidas do usuário autenticado.
+
+**Resposta de Sucesso — `200 OK`:** array de objetos `NotificationResponseDTO` com `isRead: false`.
+
+---
+
+### `PATCH /api/notifications/{id}/read`
+
+> **Segurança:** Somente o **dono da notificação** pode marcá-la como lida. Tentativas de outro usuário resultam em `403 Forbidden`.
+
+Marca uma notificação específica como lida.
+
+**Path Parameter:** `id` — UUID da notificação.
+
+Não requer body.
+
+**Resposta de Sucesso — `200 OK`:** objeto `NotificationResponseDTO` com `isRead: true`.
+
+**Respostas de Erro:**
+
+| Código | Situação                                               |
+|--------|--------------------------------------------------------|
+| `403`  | A notificação pertence a outro usuário                 |
+| `404`  | Notificação não encontrada                             |
 
 ---
 
 ## Changelog
 
-| Versão | Data       | Descrição                                                              |
-|--------|------------|------------------------------------------------------------------------|
-| 0.5.0  | 2026-03-02 | Fase 5 — Segurança JWT: login, SecurityFilter, rotas bloqueadas         |
-| 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1           |
-| 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional           |
-| 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)  |
-| 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)  |
-| 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item             |
+| Versão | Data       | Descrição                                                                   |
+|--------|------------|-----------------------------------------------------------------------------|
+| 1.0.0  | 2026-03-11 | Documentação atualizada — Fases 1–4 concluídas, segurança e Flyway         |
+| 0.6.0  | 2026-03-11 | Segurança granular: resolve/claim/transfer com roles; notificações por dono |
+| 0.5.0  | 2026-03-02 | Fase 5 — Segurança JWT: login, SecurityFilter, rotas bloqueadas             |
+| 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1                |
+| 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional                |
+| 0.3.0  | 2026-03-02 — Fase 3 — Items de inventário e lotes de estoque (JSON specifications)   |
+| 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)       |
+| 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item                 |

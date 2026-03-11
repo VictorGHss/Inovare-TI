@@ -39,7 +39,7 @@ public class DiscordTicketService {
 
         TicketCategory category = ticketCategoryRepository.findAll().stream()
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No ticket category found in database"));
+            .orElseThrow(() -> new IllegalStateException("Nenhuma categoria de chamado foi encontrada no banco de dados"));
 
         TicketPriority priority = parsePriority(priorityRaw);
         LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
@@ -89,7 +89,7 @@ public class DiscordTicketService {
     public String listMyActiveTicketsFromDiscord(String discordUserId) {
         User requester = userRepository.findByDiscordUserId(discordUserId).orElse(null);
         if (requester == null) {
-            return "⚠️ Seu Discord não está vinculado à sua conta da clínica. Use o comando /vincular [seu-email].";
+            return "⚠️ Sua conta não está vinculada! Digite o comando /vincular e informe seu e-mail corporativo. Depois, é só usar o /meuschamados novamente!";
         }
 
         List<TicketStatus> activeStatuses = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS);
@@ -125,7 +125,7 @@ public class DiscordTicketService {
         try {
             return TicketPriority.valueOf(priorityRaw.toUpperCase());
         } catch (IllegalArgumentException ex) {
-            log.warn("Invalid priority '{}'. Falling back to NORMAL.", priorityRaw);
+            log.warn("Prioridade '{}' inválida. Aplicando NORMAL como padrão.", priorityRaw);
             return TicketPriority.NORMAL;
         }
     }

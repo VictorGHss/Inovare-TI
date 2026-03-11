@@ -10,7 +10,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 
 /**
- * Discord event listener based on JDA.
+ * Listener de eventos do Discord baseado em JDA.
  */
 @Slf4j
 @Component
@@ -21,11 +21,11 @@ public class DiscordEventListener extends ListenerAdapter {
     private final DiscordTicketService discordTicketService;
 
     /**
-     * Registers global slash commands when the bot is ready.
+     * Registra os slash commands globais quando o bot fica pronto.
      */
     @Override
     public void onReady(ReadyEvent event) {
-        log.info("✅ Discord bot is ready! Registering slash commands...");
+        log.info("✅ Bot do Discord pronto! Registrando slash commands...");
 
         try {
             var jda = event.getJDA();
@@ -35,44 +35,44 @@ public class DiscordEventListener extends ListenerAdapter {
                     .addOption(OptionType.STRING, "prioridade", 
                             "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false)
                     .queue(
-                            success -> log.info("✅ Slash Command '/chamado' registered successfully"),
-                            error -> log.error("❌ Failed to register /chamado command", error)
+                            success -> log.info("✅ Slash command '/chamado' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /chamado", error)
                     );
 
             jda.upsertCommand("vincular", "Vincula sua conta Discord à sua conta da clínica")
                     .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true)
                     .queue(
-                            success -> log.info("✅ Slash Command '/vincular' registered successfully"),
-                            error -> log.error("❌ Failed to register /vincular command", error)
+                            success -> log.info("✅ Slash command '/vincular' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /vincular", error)
                     );
 
             jda.upsertCommand("status", "Verifica o status de um chamado")
                     .addOption(OptionType.STRING, "id_chamado", "ID do chamado (UUID)", true)
                     .queue(
-                            success -> log.info("✅ Slash Command '/status' registered successfully"),
-                            error -> log.error("❌ Failed to register /status command", error)
+                            success -> log.info("✅ Slash command '/status' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /status", error)
                     );
 
-                jda.upsertCommand("meuschamados", "Lista os seus chamados em andamento")
+            jda.upsertCommand("meuschamados", "Lista os seus chamados em andamento na Inovare TI")
                     .queue(
-                        success -> log.info("✅ Slash Command '/meuschamados' registered successfully"),
-                        error -> log.error("❌ Failed to register /meuschamados command", error)
+                        success -> log.info("✅ Slash command '/meuschamados' registrado com sucesso"),
+                        error -> log.error("❌ Falha ao registrar o comando /meuschamados", error)
                     );
 
-            log.info("✅ All slash commands registered successfully!");
+            log.info("✅ Todos os slash commands foram registrados com sucesso!");
 
         } catch (Exception e) {
-            log.error("❌ Error registering slash commands", e);
+            log.error("❌ Erro ao registrar os slash commands", e);
         }
     }
 
     /**
-     * Routes slash command interactions to handlers.
+     * Encaminha as interações de slash command para os handlers.
      */
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         String commandName = event.getName();
-        log.info("📨 Received slash command: /{} from user {}", commandName, event.getUser().getAsTag());
+        log.info("📨 Slash command recebido: /{} do usuário {}", commandName, event.getUser().getAsTag());
 
         switch (commandName) {
             case "chamado" -> handleChamadoCommand(event);
@@ -84,7 +84,7 @@ public class DiscordEventListener extends ListenerAdapter {
     }
 
     private void handleChamadoCommand(SlashCommandInteractionEvent event) {
-        log.info("📋 Processing /chamado command from user {}", event.getUser().getId());
+        log.info("📋 Processando o comando /chamado do usuário {}", event.getUser().getId());
 
         try {
             String discordUserId = event.getUser().getId();
@@ -104,7 +104,7 @@ public class DiscordEventListener extends ListenerAdapter {
             event.reply(message).queue();
 
         } catch (Exception e) {
-            log.error("❌ Error processing /chamado command", e);
+            log.error("❌ Erro ao processar o comando /chamado", e);
             event.reply("❌ Erro ao criar seu chamado. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
@@ -112,7 +112,7 @@ public class DiscordEventListener extends ListenerAdapter {
     }
 
     private void handleVincularCommand(SlashCommandInteractionEvent event) {
-        log.info("🔗 Processing /vincular command from user {}", event.getUser().getId());
+        log.info("🔗 Processando o comando /vincular do usuário {}", event.getUser().getId());
 
         try {
             var emailOption = event.getOption("email");
@@ -124,13 +124,13 @@ public class DiscordEventListener extends ListenerAdapter {
             String email = emailOption.getAsString().trim();
             String discordUserId = event.getUser().getId();
 
-            log.debug("Attempting to link Discord user {} to email {}", discordUserId, email);
+            log.debug("Tentando vincular o usuário do Discord {} ao e-mail {}", discordUserId, email);
 
             String message = discordUserLinkingService.linkDiscordToUserAndBuildMessage(email, discordUserId);
             event.reply(message).queue();
 
         } catch (Exception e) {
-            log.error("❌ Error processing /vincular command", e);
+            log.error("❌ Erro ao processar o comando /vincular", e);
             event.reply("❌ Erro ao vincular sua conta. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
@@ -138,7 +138,7 @@ public class DiscordEventListener extends ListenerAdapter {
     }
 
     private void handleStatusCommand(SlashCommandInteractionEvent event) {
-        log.info("🔍 Processing /status command from user {}", event.getUser().getId());
+        log.info("🔍 Processando o comando /status do usuário {}", event.getUser().getId());
 
         try {
             var idOption = event.getOption("id_chamado");
@@ -152,7 +152,7 @@ public class DiscordEventListener extends ListenerAdapter {
             event.reply(message).queue();
 
         } catch (Exception e) {
-            log.error("❌ Error processing /status command", e);
+            log.error("❌ Erro ao processar o comando /status", e);
             event.reply("❌ Erro ao consultar o status do chamado. Entre em contato com um administrador.")
                     .setEphemeral(true)
                     .queue();
@@ -160,24 +160,15 @@ public class DiscordEventListener extends ListenerAdapter {
     }
 
     private void handleMeusChamadosCommand(SlashCommandInteractionEvent event) {
-        log.info("📋 Processing /meuschamados command from user {}", event.getUser().getId());
+        log.info("📋 Processando o comando /meuschamados do usuário {}", event.getUser().getId());
 
         try {
             String discordUserId = event.getUser().getId();
-            boolean isLinked = discordUserLinkingService.isDiscordUserLinked(discordUserId);
-
-            if (!isLinked) {
-                event.reply("⚠️ Seu Discord ainda não está vinculado. Use /vincular com seu e-mail corporativo.")
-                        .setEphemeral(true)
-                        .queue();
-                return;
-            }
-
             String message = discordTicketService.listMyActiveTicketsFromDiscord(discordUserId);
-            event.reply(message).queue();
+            event.reply(message).setEphemeral(true).queue();
 
         } catch (Exception e) {
-            log.error("❌ Error processing /meuschamados command", e);
+            log.error("❌ Erro ao processar o comando /meuschamados", e);
             event.reply("❌ Erro ao listar seus chamados. Tente novamente em instantes.")
                     .setEphemeral(true)
                     .queue();

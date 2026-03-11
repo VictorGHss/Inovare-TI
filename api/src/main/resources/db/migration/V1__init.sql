@@ -272,3 +272,38 @@ CREATE INDEX idx_stock_movements_date    ON stock_movements (date DESC);
 
 CREATE INDEX idx_assets_user_id              ON assets             (user_id);
 CREATE INDEX idx_asset_maintenances_asset_id ON asset_maintenances (asset_id);
+
+-- =============================================================================
+-- BLOCO 12 - vault_items e vault_item_shares: depende de users e vault_items
+-- =============================================================================
+
+CREATE TABLE vault_items (
+    id             uuid         NOT NULL DEFAULT gen_random_uuid(),
+    title          varchar(150) NOT NULL,
+    description    text,
+    item_type      varchar(20)  NOT NULL,
+    secret_content text,
+    file_path      varchar(500),
+    owner_id       uuid         NOT NULL,
+    sharing_type   varchar(20)  NOT NULL,
+    created_at     timestamp    NOT NULL,
+    updated_at     timestamp    NOT NULL,
+    CONSTRAINT pk_vault_items                    PRIMARY KEY (id),
+    CONSTRAINT ck_vault_items_item_type          CHECK       (item_type IN ('CREDENTIAL', 'DOCUMENT', 'NOTE')),
+    CONSTRAINT ck_vault_items_sharing_type       CHECK       (sharing_type IN ('PRIVATE', 'ALL_TECH_ADMIN', 'CUSTOM')),
+    CONSTRAINT fk_vault_items_owner              FOREIGN KEY (owner_id) REFERENCES users (id)
+);
+
+CREATE TABLE vault_item_shares (
+    id                  uuid      NOT NULL DEFAULT gen_random_uuid(),
+    vault_item_id       uuid      NOT NULL,
+    shared_with_user_id uuid      NOT NULL,
+    CONSTRAINT pk_vault_item_shares                     PRIMARY KEY (id),
+    CONSTRAINT fk_vault_item_shares_vault_item          FOREIGN KEY (vault_item_id) REFERENCES vault_items (id),
+    CONSTRAINT fk_vault_item_shares_shared_with_user    FOREIGN KEY (shared_with_user_id) REFERENCES users (id)
+);
+
+CREATE INDEX idx_vault_items_owner_id          ON vault_items       (owner_id);
+CREATE INDEX idx_vault_items_sharing_type      ON vault_items       (sharing_type);
+CREATE INDEX idx_vault_item_shares_vault_item  ON vault_item_shares (vault_item_id);
+CREATE INDEX idx_vault_item_shares_user        ON vault_item_shares (shared_with_user_id);

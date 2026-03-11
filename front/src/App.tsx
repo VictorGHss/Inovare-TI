@@ -120,10 +120,11 @@ export default function App() {
         {/* Container global de notificações toast */}
         <ToastContainer
           position="top-right"
-          autoClose={4000}
+          autoClose={3000}
           hideProgressBar={false}
           closeOnClick
-          pauseOnHover
+          pauseOnHover={false}
+          pauseOnFocusLoss={false}
           draggable
           theme="light"
         />

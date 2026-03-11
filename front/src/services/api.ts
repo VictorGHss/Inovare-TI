@@ -548,7 +548,6 @@ export interface VaultCreateItemRequestDTO {
   description?: string;
   itemType: 'CREDENTIAL' | 'DOCUMENT' | 'NOTE';
   secretContent?: string;
-  filePath?: string;
   sharingType: 'PRIVATE' | 'ALL_TECH_ADMIN' | 'CUSTOM';
   sharedWithUserIds?: string[];
 }
@@ -611,8 +610,23 @@ export async function getVaultItems(): Promise<VaultItem[]> {
   return data;
 }
 
-export async function createVaultItem(payload: VaultCreateItemRequestDTO): Promise<VaultItem> {
-  const { data } = await api.post<VaultItem>('/api/vault', payload);
+export async function createVaultItem(
+  payload: VaultCreateItemRequestDTO,
+  file?: File | null,
+): Promise<VaultItem> {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+
+  if (file) {
+    formData.append('file', file);
+  }
+
+  const { data } = await api.post<VaultItem>('/api/vault', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
   return data;
 }
 
@@ -622,6 +636,13 @@ export async function shareVaultItem(vaultItemId: string, userId: string): Promi
 
 export async function getVaultItemSecret(vaultItemId: string): Promise<VaultSecretResponseDTO> {
   const { data } = await api.get<VaultSecretResponseDTO>(`/api/vault/${vaultItemId}/secret`);
+  return data;
+}
+
+export async function getVaultItemFileBlob(vaultItemId: string): Promise<Blob> {
+  const { data } = await api.get(`/api/vault/${vaultItemId}/file`, {
+    responseType: 'blob',
+  });
   return data;
 }
 

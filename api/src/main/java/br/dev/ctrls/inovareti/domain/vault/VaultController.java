@@ -1,25 +1,31 @@
 package br.dev.ctrls.inovareti.domain.vault;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
-import jakarta.validation.Valid;
+import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,10 +35,16 @@ public class VaultController {
 
     private final VaultService vaultService;
     private final TwoFactorSessionGuard twoFactorSessionGuard;
+    private final ObjectMapper objectMapper;
+    private final LocalFileStorageService fileStorageService;
 
-    @PostMapping
-    public ResponseEntity<VaultItemResponseDTO> createItem(@Valid @RequestBody VaultCreateItemRequestDTO request) {
-        VaultItemResponseDTO response = vaultService.createItem(getAuthenticatedUserId(), request);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<VaultItemResponseDTO> createItem(
+            @RequestPart("payload") String payload,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+
+        VaultCreateItemRequestDTO request = parseCreatePayload(payload);
+        VaultItemResponseDTO response = vaultService.createItem(getAuthenticatedUserId(), request, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -48,6 +60,30 @@ public class VaultController {
         return ResponseEntity.ok(vaultService.getSecret(getAuthenticatedUserId(), itemId));
     }
 
+    @GetMapping("/{itemId}/file")
+    public ResponseEntity<byte[]> getVaultFile(@PathVariable UUID itemId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
+        var item = vaultService.findAccessibleItem(getAuthenticatedUserId(), itemId);
+        if (item.getFilePath() == null || item.getFilePath().isBlank()) {
+            throw new BadRequestException("Este item não possui anexo para visualização.");
+        }
+
+        try {
+            var resource = fileStorageService.load(item.getFilePath());
+            byte[] fileBytes = resource.getInputStream().readAllBytes();
+            String contentType = resolveContentType(item.getFilePath());
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + item.getFilePath() + "\"")
+                    .body(fileBytes);
+        } catch (IOException ex) {
+            throw new BadRequestException("Não foi possível carregar o anexo do item do cofre.");
+        }
+    }
+
     private UUID getAuthenticatedUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
@@ -59,5 +95,28 @@ public class VaultController {
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }
+    }
+
+    private VaultCreateItemRequestDTO parseCreatePayload(String payload) {
+        try {
+            return objectMapper.readValue(payload, VaultCreateItemRequestDTO.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new BadRequestException("Payload do item do cofre inválido.");
+        }
+    }
+
+    private String resolveContentType(String fileName) {
+        String normalizedFileName = fileName.toLowerCase();
+
+        if (normalizedFileName.endsWith(".png")) return "image/png";
+        if (normalizedFileName.endsWith(".jpg") || normalizedFileName.endsWith(".jpeg")) return "image/jpeg";
+        if (normalizedFileName.endsWith(".gif")) return "image/gif";
+        if (normalizedFileName.endsWith(".webp")) return "image/webp";
+        if (normalizedFileName.endsWith(".mp4")) return "video/mp4";
+        if (normalizedFileName.endsWith(".webm")) return "video/webm";
+        if (normalizedFileName.endsWith(".mov")) return "video/quicktime";
+        if (normalizedFileName.endsWith(".pdf")) return "application/pdf";
+
+        return "application/octet-stream";
     }
 }

@@ -63,5 +63,10 @@
     "name": "spring.flyway.fail-on-missing-locations",
     "type": "java.lang.String",
     "description": "A description for 'spring.flyway.fail-on-missing-locations'"
+  },
+  {
+    "name": "app.vault.encryption-key",
+    "type": "java.lang.String",
+    "description": "A description for 'app.vault.encryption-key'"
   }
 ]}

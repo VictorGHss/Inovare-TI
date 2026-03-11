@@ -6,17 +6,23 @@ import {
   FileLock,
   Key,
   Lock,
+  Paperclip,
   PlusCircle,
+  Search,
   ShieldCheck,
+  Video,
   X,
 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
   createVaultItem,
+  getUsers,
+  getVaultItemFileBlob,
   getVaultItemSecret,
   getVaultItems,
   verify2FA,
+  type User,
   type VaultCreateItemRequestDTO,
   type VaultItem,
 } from '../../services/api';
@@ -24,26 +30,41 @@ import {
 type VaultItemType = VaultCreateItemRequestDTO['itemType'];
 type VaultSharingType = VaultCreateItemRequestDTO['sharingType'];
 
+type AttachmentPreviewState = {
+  itemId: string;
+  url: string;
+  mimeType: string;
+};
+
 const inputClassName =
   'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+
+const dropzoneClassName =
+  'block w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500 hover:border-brand-primary hover:bg-brand-secondary/30 transition cursor-pointer';
 
 export default function Vault() {
   const { user, isTwoFactorVerified, updateAuthToken } = useAuth();
 
   const [items, setItems] = useState<VaultItem[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [unlockCode, setUnlockCode] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [revealingItemId, setRevealingItemId] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [attachmentPreview, setAttachmentPreview] = useState<AttachmentPreviewState | null>(null);
+  const [loadingAttachmentId, setLoadingAttachmentId] = useState<string | null>(null);
 
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formType, setFormType] = useState<VaultItemType>('CREDENTIAL');
   const [formSecretContent, setFormSecretContent] = useState('');
   const [formSharingType, setFormSharingType] = useState<VaultSharingType>('PRIVATE');
-  const [formSharedUsers, setFormSharedUsers] = useState('');
+  const [formSelectedUserIds, setFormSelectedUserIds] = useState<string[]>([]);
+  const [formUserSearch, setFormUserSearch] = useState('');
+  const [formAttachmentFile, setFormAttachmentFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
 
   const isAllowed = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
@@ -53,20 +74,89 @@ export default function Vault() {
     [items],
   );
 
+  const selectableUsers = useMemo(() => {
+    const normalizedSearch = formUserSearch.trim().toLowerCase();
+
+    return users
+      .filter((currentUser) => !formSelectedUserIds.includes(currentUser.id))
+      .filter((currentUser) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        return (
+          currentUser.name.toLowerCase().includes(normalizedSearch)
+          || currentUser.email.toLowerCase().includes(normalizedSearch)
+        );
+      })
+      .slice(0, 8);
+  }, [users, formSelectedUserIds, formUserSearch]);
+
   useEffect(() => {
     if (!isAllowed) {
       setLoading(false);
       return;
     }
 
-    void loadItems();
+    void loadInitialData();
   }, [isAllowed]);
+
+  useEffect(() => {
+    if (!showCreateModal) {
+      return;
+    }
+
+    function handlePaste(event: ClipboardEvent) {
+      const pastedFile = event.clipboardData?.files?.[0];
+      if (!pastedFile) {
+        return;
+      }
+
+      setFormAttachmentFile(pastedFile);
+      toast.success('Arquivo colado e preparado para upload.');
+    }
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [showCreateModal]);
+
+  useEffect(() => {
+    return () => {
+      if (attachmentPreview) {
+        URL.revokeObjectURL(attachmentPreview.url);
+      }
+    };
+  }, [attachmentPreview]);
+
+  async function loadInitialData() {
+    setLoading(true);
+    setLoadingUsers(true);
+
+    try {
+      const [vaultItems, collaborators] = await Promise.all([
+        getVaultItems(),
+        getUsers(),
+      ]);
+
+      setItems(vaultItems);
+      setUsers(collaborators);
+    } catch {
+      toast.error('Erro ao carregar dados do cofre.');
+      setItems([]);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+      setLoadingUsers(false);
+    }
+  }
 
   async function loadItems() {
     setLoading(true);
     try {
-      const data = await getVaultItems();
-      setItems(data);
+      const vaultItems = await getVaultItems();
+      setItems(vaultItems);
     } catch {
       toast.error('Erro ao carregar itens do cofre.');
       setItems([]);
@@ -86,13 +176,8 @@ export default function Vault() {
       return;
     }
 
-    const sharedWithUserIds = formSharedUsers
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    if (formSharingType === 'CUSTOM' && sharedWithUserIds.length === 0) {
-      toast.error('Informe ao menos um ID de usuário para compartilhamento customizado.');
+    if (formSharingType === 'CUSTOM' && formSelectedUserIds.length === 0) {
+      toast.error('Selecione ao menos um colaborador para compartilhamento customizado.');
       return;
     }
 
@@ -102,12 +187,12 @@ export default function Vault() {
       itemType: formType,
       secretContent: formSecretContent.trim() || undefined,
       sharingType: formSharingType,
-      sharedWithUserIds: formSharingType === 'CUSTOM' ? sharedWithUserIds : undefined,
+      sharedWithUserIds: formSharingType === 'CUSTOM' ? formSelectedUserIds : undefined,
     };
 
     setCreating(true);
     try {
-      await createVaultItem(payload);
+      await createVaultItem(payload, formAttachmentFile);
       toast.success('Item do cofre criado com sucesso.');
       resetCreateForm();
       setShowCreateModal(false);
@@ -137,9 +222,9 @@ export default function Vault() {
       toast.success('Cofre desbloqueado com sucesso.');
 
       if (revealingItemId) {
-        const currentItemId = revealingItemId;
+        const pendingItemId = revealingItemId;
         setRevealingItemId(null);
-        await handleRevealSecret(currentItemId, true);
+        await handleRevealSecret(pendingItemId, true);
       }
     } catch {
       toast.error('Código 2FA inválido.');
@@ -164,11 +249,59 @@ export default function Vault() {
     }
   }
 
+  async function handlePreviewAttachment(item: VaultItem) {
+    if (!item.filePath) {
+      toast.error('Este item não possui anexo para visualização.');
+      return;
+    }
+
+    if (!isTwoFactorVerified) {
+      setRevealingItemId(item.id);
+      toast.info('Valide o 2FA para visualizar anexos.');
+      return;
+    }
+
+    setLoadingAttachmentId(item.id);
+    try {
+      const fileBlob = await getVaultItemFileBlob(item.id);
+      const fileUrl = URL.createObjectURL(fileBlob);
+
+      if (attachmentPreview) {
+        URL.revokeObjectURL(attachmentPreview.url);
+      }
+
+      setAttachmentPreview({
+        itemId: item.id,
+        url: fileUrl,
+        mimeType: fileBlob.type || inferMimeTypeFromPath(item.filePath),
+      });
+    } catch {
+      toast.error('Não foi possível carregar o anexo para visualização.');
+    } finally {
+      setLoadingAttachmentId(null);
+    }
+  }
+
+  function inferMimeTypeFromPath(filePath: string) {
+    const normalizedPath = filePath.toLowerCase();
+
+    if (normalizedPath.endsWith('.png')) return 'image/png';
+    if (normalizedPath.endsWith('.jpg') || normalizedPath.endsWith('.jpeg')) return 'image/jpeg';
+    if (normalizedPath.endsWith('.gif')) return 'image/gif';
+    if (normalizedPath.endsWith('.webp')) return 'image/webp';
+    if (normalizedPath.endsWith('.mp4')) return 'video/mp4';
+    if (normalizedPath.endsWith('.webm')) return 'video/webm';
+    if (normalizedPath.endsWith('.mov')) return 'video/quicktime';
+    if (normalizedPath.endsWith('.pdf')) return 'application/pdf';
+
+    return 'application/octet-stream';
+  }
+
   function handleHideSecret(itemId: string) {
     setRevealedSecrets((prev) => {
-      const next = { ...prev };
-      delete next[itemId];
-      return next;
+      const nextState = { ...prev };
+      delete nextState[itemId];
+      return nextState;
     });
   }
 
@@ -178,7 +311,21 @@ export default function Vault() {
     setFormType('CREDENTIAL');
     setFormSecretContent('');
     setFormSharingType('PRIVATE');
-    setFormSharedUsers('');
+    setFormSelectedUserIds([]);
+    setFormUserSearch('');
+    setFormAttachmentFile(null);
+  }
+
+  function handleDropFile(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+
+    const droppedFile = event.dataTransfer.files?.[0];
+    if (!droppedFile) {
+      return;
+    }
+
+    setFormAttachmentFile(droppedFile);
+    toast.success('Arquivo anexado com sucesso.');
   }
 
   function getItemTypeLabel(itemType: VaultItem['itemType']) {
@@ -247,6 +394,7 @@ export default function Vault() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {sortedItems.map((item) => {
               const isSecretVisible = revealedSecrets[item.id] !== undefined;
+              const hasAttachment = Boolean(item.filePath);
 
               return (
                 <article
@@ -268,6 +416,22 @@ export default function Vault() {
                     <span className="inline-flex items-center rounded-full bg-brand-secondary text-brand-primary px-2.5 py-1 text-xs font-medium">
                       {getSharingTypeLabel(item.sharingType)}
                     </span>
+                    {hasAttachment && (
+                      <button
+                        onClick={() => void handlePreviewAttachment(item)}
+                        disabled={loadingAttachmentId === item.id}
+                        className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-medium hover:bg-slate-200"
+                      >
+                        {loadingAttachmentId === item.id ? (
+                          <span>Carregando anexo...</span>
+                        ) : (
+                          <>
+                            <Paperclip size={12} className="mr-1" />
+                            <span>Anexo</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
 
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 min-h-[58px]">
@@ -310,7 +474,7 @@ export default function Vault() {
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-xl p-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-xl p-6 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-800">Novo Item do Cofre</h2>
               <button
@@ -380,23 +544,98 @@ export default function Vault() {
                 <textarea
                   value={formSecretContent}
                   onChange={(event) => setFormSecretContent(event.target.value)}
-                  className={`${inputClassName} min-h-28 resize-y`}
+                  className={`${inputClassName} min-h-24 resize-y`}
                 />
               </div>
 
               {formSharingType === 'CUSTOM' && (
-                <div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    IDs de usuários (separados por vírgula)
+                    Compartilhar com colaboradores
                   </label>
-                  <input
-                    value={formSharedUsers}
-                    onChange={(event) => setFormSharedUsers(event.target.value)}
-                    className={inputClassName}
-                    placeholder="UUID1, UUID2"
-                  />
+
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                    <input
+                      value={formUserSearch}
+                      onChange={(event) => setFormUserSearch(event.target.value)}
+                      className={`${inputClassName} pl-8`}
+                      placeholder={loadingUsers ? 'Carregando usuários...' : 'Buscar por nome ou e-mail'}
+                    />
+                  </div>
+
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-white max-h-40 overflow-y-auto">
+                    {selectableUsers.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-slate-500">Nenhum colaborador encontrado.</p>
+                    ) : (
+                      selectableUsers.map((currentUser) => (
+                        <button
+                          key={currentUser.id}
+                          onClick={() => {
+                            setFormSelectedUserIds((prev) => [...prev, currentUser.id]);
+                            setFormUserSearch('');
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                        >
+                          <p className="text-sm font-medium text-slate-700">{currentUser.name}</p>
+                          <p className="text-xs text-slate-500">{currentUser.email}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {formSelectedUserIds.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {formSelectedUserIds.map((selectedUserId) => {
+                        const selectedUser = users.find((currentUser) => currentUser.id === selectedUserId);
+                        return (
+                          <span
+                            key={selectedUserId}
+                            className="inline-flex items-center gap-1 rounded-full bg-brand-secondary text-brand-primary px-2.5 py-1 text-xs font-medium"
+                          >
+                            {selectedUser?.name ?? selectedUserId}
+                            <button
+                              onClick={() => {
+                                setFormSelectedUserIds((prev) => prev.filter((value) => value !== selectedUserId));
+                              }}
+                              className="hover:text-brand-primary-dark"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
+
+              <div>
+                <label
+                  className={dropzoneClassName}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleDropFile}
+                >
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(event) => {
+                      const selectedFile = event.target.files?.[0];
+                      if (selectedFile) {
+                        setFormAttachmentFile(selectedFile);
+                        toast.success('Arquivo anexado com sucesso.');
+                      }
+                    }}
+                  />
+                  Arraste um arquivo aqui, clique para selecionar ou cole com Ctrl+V
+                </label>
+
+                {formAttachmentFile && (
+                  <div className="mt-2 rounded-lg bg-brand-secondary/50 border border-brand-secondary px-3 py-2 text-xs text-slate-700">
+                    Arquivo preparado: <strong>{formAttachmentFile.name}</strong>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-2">
@@ -450,6 +689,55 @@ export default function Vault() {
               <Lock size={16} />
               {unlocking ? 'Validando...' : 'Desbloquear Cofre'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {attachmentPreview && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full max-w-4xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">Pré-visualização do Anexo</h3>
+              <button
+                onClick={() => {
+                  URL.revokeObjectURL(attachmentPreview.url);
+                  setAttachmentPreview(null);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 min-h-[320px] flex items-center justify-center">
+              {attachmentPreview.mimeType.startsWith('image/') ? (
+                <img
+                  src={attachmentPreview.url}
+                  alt="Pré-visualização do anexo do cofre"
+                  className="max-h-[70vh] rounded-lg"
+                />
+              ) : attachmentPreview.mimeType.startsWith('video/') ? (
+                <video
+                  src={attachmentPreview.url}
+                  controls
+                  className="w-full max-h-[70vh] rounded-lg"
+                />
+              ) : (
+                <div className="text-center">
+                  <Video className="mx-auto mb-2 text-slate-400" size={24} />
+                  <p className="text-sm text-slate-600 mb-3">Este tipo de arquivo não possui pré-visualização embutida.</p>
+                  <a
+                    href={attachmentPreview.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-3 py-2"
+                  >
+                    <Paperclip size={14} />
+                    Abrir arquivo
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

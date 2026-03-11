@@ -1,12 +1,15 @@
 package br.dev.ctrls.inovareti.domain.vault;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
@@ -17,19 +20,40 @@ import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.infra.security.EncryptionService;
+import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class VaultService {
 
+    private static final Set<String> ALLOWED_FILE_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "text/plain",
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/gif",
+            "image/webp",
+            "video/mp4",
+            "video/webm",
+            "video/quicktime",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    );
+
     private final VaultItemRepository vaultItemRepository;
     private final VaultItemShareRepository vaultItemShareRepository;
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
+    private final LocalFileStorageService fileStorageService;
 
     @Transactional
-    public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request) {
+    public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file) {
         User owner = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
@@ -40,13 +64,15 @@ public class VaultService {
             secretContent = encryptionService.encrypt(secretContent);
         }
 
+        String storedFilePath = storeVaultFileIfPresent(file);
+
         LocalDateTime now = LocalDateTime.now();
         VaultItem item = VaultItem.builder()
                 .title(request.title())
                 .description(request.description())
                 .itemType(request.itemType())
                 .secretContent(secretContent)
-                .filePath(request.filePath())
+                .filePath(storedFilePath)
                 .owner(owner)
                 .sharingType(request.sharingType())
                 .createdAt(now)
@@ -73,15 +99,7 @@ public class VaultService {
 
     @Transactional(readOnly = true)
     public VaultSecretResponseDTO getSecret(UUID authenticatedUserId, UUID itemId) {
-        User user = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
-
-        VaultItem item = vaultItemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
-
-        if (!canUserAccessItem(user, item)) {
-            throw new AccessDeniedException("Você não possui permissão para acessar este item do cofre.");
-        }
+        VaultItem item = findAccessibleItem(authenticatedUserId, itemId);
 
         if (item.getSecretContent() == null || item.getSecretContent().isBlank()) {
             throw new BadRequestException("Este item não possui conteúdo secreto.");
@@ -95,6 +113,21 @@ public class VaultService {
         return new VaultSecretResponseDTO(item.getId(), content);
     }
 
+    @Transactional(readOnly = true)
+    public VaultItem findAccessibleItem(UUID authenticatedUserId, UUID itemId) {
+        User user = userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
+
+        VaultItem item = vaultItemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+
+        if (!canUserAccessItem(user, item)) {
+            throw new AccessDeniedException("Você não possui permissão para acessar este item do cofre.");
+        }
+
+        return item;
+    }
+
     private void validateCreateRequest(VaultCreateItemRequestDTO request) {
         if (request.itemType() == VaultItemType.CREDENTIAL
                 && (request.secretContent() == null || request.secretContent().isBlank())) {
@@ -104,6 +137,23 @@ public class VaultService {
         if (request.sharingType() == VaultSharingType.CUSTOM
                 && (request.sharedWithUserIds() == null || request.sharedWithUserIds().isEmpty())) {
             throw new BadRequestException("É necessário informar ao menos um usuário para compartilhamento CUSTOM.");
+        }
+    }
+
+    private String storeVaultFileIfPresent(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_FILE_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new BadRequestException("Tipo de arquivo não permitido para o cofre.");
+        }
+
+        try {
+            return fileStorageService.store(file);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao armazenar o anexo do cofre.", ex);
         }
     }
 

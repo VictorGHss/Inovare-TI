@@ -76,6 +76,8 @@ CREATE TABLE users (
     location             varchar(150) NOT NULL,
     discord_user_id      varchar(50),
     totp_secret          varchar(500),
+    recovery_code_hash   varchar(255),
+    recovery_code_expires_at timestamp,
     CONSTRAINT pk_users        PRIMARY KEY (id),
     CONSTRAINT uq_users_email  UNIQUE      (email),
     CONSTRAINT ck_users_role   CHECK       (role IN ('ADMIN', 'TECHNICIAN', 'USER')),

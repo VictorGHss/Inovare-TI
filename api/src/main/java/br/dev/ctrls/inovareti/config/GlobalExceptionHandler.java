@@ -103,7 +103,9 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleAccessDenied(Exception ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
         problem.setTitle("Acesso Negado");
-        problem.setDetail("Você não possui permissão para acessar este recurso.");
+        problem.setDetail(ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? ex.getMessage()
+                : "Você não possui permissão para acessar este recurso.");
         return problem;
     }
 

@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class FileStorageService {
 
-    @Value("${file.upload.dir:uploads/invoices}")
+    @Value("${file.upload-dir}")
     private String uploadDir;
 
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB

@@ -83,8 +83,18 @@ public class NotificationController {
      */
     @PatchMapping("/{id}/read")
     public ResponseEntity<NotificationResponseDTO> markAsRead(@PathVariable UUID id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID authenticatedUserId;
+
         try {
-            NotificationResponseDTO notification = markNotificationAsReadUseCase.execute(id);
+            authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
+        } catch (Exception e) {
+            log.warn("Could not parse user ID from authentication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            NotificationResponseDTO notification = markNotificationAsReadUseCase.execute(id, authenticatedUserId);
             log.info("Notification marked as read: {}", id);
             return ResponseEntity.ok(notification);
         } catch (IllegalArgumentException e) {

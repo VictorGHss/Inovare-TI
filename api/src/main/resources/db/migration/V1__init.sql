@@ -1,0 +1,1 @@
+-- Migração inicial criada para habilitar o versionamento do schema via Flyway.

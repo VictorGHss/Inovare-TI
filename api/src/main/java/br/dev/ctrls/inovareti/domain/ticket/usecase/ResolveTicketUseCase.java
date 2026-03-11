@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,9 @@ import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
 import br.dev.ctrls.inovareti.domain.ticket.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,13 +44,14 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ResolveTicketUseCase {
 
-    private final TicketRepository ticketRepository;
-    private final AssetRepository assetRepository;
+        private final TicketRepository ticketRepository;
+        private final AssetRepository assetRepository;
         private final AssetCategoryRepository assetCategoryRepository;
-    private final AssetMaintenanceRepository assetMaintenanceRepository;
-    private final CreateNotificationService createNotificationService;
+        private final AssetMaintenanceRepository assetMaintenanceRepository;
+        private final CreateNotificationService createNotificationService;
         private final StockDeductionService stockDeductionService;
         private final DiscordDirectMessageService discordDirectMessageService;
+        private final UserRepository userRepository;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -58,10 +63,22 @@ public class ResolveTicketUseCase {
      * @throws IllegalStateException se regras de negócio forem violadas
      */
     @Transactional
-    public TicketResponseDTO execute(UUID ticketId, ResolveTicketDTO request) {
+    public TicketResponseDTO execute(UUID ticketId, ResolveTicketDTO request, UUID authenticatedUserId) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException(
                         "Ticket not found with id: " + ticketId));
+
+        User authenticatedUser = userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new NotFoundException(
+                        "Authenticated user not found with id: " + authenticatedUserId));
+
+        boolean isAdminOrTechnician = authenticatedUser.getRole() == UserRole.ADMIN
+                || authenticatedUser.getRole() == UserRole.TECHNICIAN;
+        boolean isRequester = ticket.getRequester().getId().equals(authenticatedUserId);
+
+        if (!isAdminOrTechnician && !isRequester) {
+            throw new AccessDeniedException("Você não tem permissão para alterar este chamado.");
+        }
 
         // Debita estoque se o chamado tiver item solicitado
         if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
@@ -110,51 +127,51 @@ public class ResolveTicketUseCase {
             log.info("AssetMaintenance TRANSFER record created for asset {}", asset.getId());
         }
 
-                // Cadastra rapidamente e entrega novo equipamento se fornecido
-                if (request.newAssetToDeliver() != null) {
-                        var newAssetRequest = request.newAssetToDeliver();
+        // Cadastra rapidamente e entrega novo equipamento se fornecido
+        if (request.newAssetToDeliver() != null) {
+            var newAssetRequest = request.newAssetToDeliver();
 
-                        if (newAssetRequest.name() == null || newAssetRequest.name().isBlank()) {
-                                throw new IllegalStateException("New asset name is required.");
-                        }
-                        if (newAssetRequest.patrimonyCode() == null || newAssetRequest.patrimonyCode().isBlank()) {
-                                throw new IllegalStateException("New asset patrimony code is required.");
-                        }
-                        if (newAssetRequest.categoryId() == null) {
-                                throw new IllegalStateException("New asset category is required.");
-                        }
-                        if (assetRepository.existsByPatrimonyCode(newAssetRequest.patrimonyCode().trim())) {
-                                throw new IllegalStateException(
-                                                "Patrimony code '" + newAssetRequest.patrimonyCode().trim() + "' is already in use.");
-                        }
+            if (newAssetRequest.name() == null || newAssetRequest.name().isBlank()) {
+                throw new IllegalStateException("New asset name is required.");
+            }
+            if (newAssetRequest.patrimonyCode() == null || newAssetRequest.patrimonyCode().isBlank()) {
+                throw new IllegalStateException("New asset patrimony code is required.");
+            }
+            if (newAssetRequest.categoryId() == null) {
+                throw new IllegalStateException("New asset category is required.");
+            }
+            if (assetRepository.existsByPatrimonyCode(newAssetRequest.patrimonyCode().trim())) {
+                throw new IllegalStateException(
+                        "Patrimony code '" + newAssetRequest.patrimonyCode().trim() + "' is already in use.");
+            }
 
-                        AssetCategory category = assetCategoryRepository.findById(newAssetRequest.categoryId())
-                                        .orElseThrow(() -> new NotFoundException(
-                                                        "Asset category not found with id: " + newAssetRequest.categoryId()));
+            AssetCategory category = assetCategoryRepository.findById(newAssetRequest.categoryId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "Asset category not found with id: " + newAssetRequest.categoryId()));
 
-                        Asset newAsset = Asset.builder()
-                                        .userId(ticket.getRequester().getId())
-                                        .name(newAssetRequest.name().trim())
-                                        .patrimonyCode(newAssetRequest.patrimonyCode().trim())
-                                        .category(category)
-                                        .specifications(newAssetRequest.specifications())
-                                        .build();
+            Asset newAsset = Asset.builder()
+                    .userId(ticket.getRequester().getId())
+                    .name(newAssetRequest.name().trim())
+                    .patrimonyCode(newAssetRequest.patrimonyCode().trim())
+                    .category(category)
+                    .specifications(newAssetRequest.specifications())
+                    .build();
 
-                        Asset deliveredAsset = assetRepository.save(newAsset);
-                        log.info("New asset {} created and delivered to requester {} via ticket {}",
-                                        deliveredAsset.getId(), ticket.getRequester().getId(), ticketId);
+            Asset deliveredAsset = assetRepository.save(newAsset);
+            log.info("New asset {} created and delivered to requester {} via ticket {}",
+                    deliveredAsset.getId(), ticket.getRequester().getId(), ticketId);
 
-                        AssetMaintenance maintenance = AssetMaintenance.builder()
-                                        .asset(deliveredAsset)
-                                        .maintenanceDate(LocalDate.now())
-                                        .type(AssetMaintenance.MaintenanceType.TRANSFER)
-                                        .description("Ativo cadastrado e entregue via Chamado #" + ticket.getId())
-                                        .cost(BigDecimal.ZERO)
-                                        .technician(ticket.getAssignedTo() != null ? ticket.getAssignedTo() : ticket.getRequester())
-                                        .build();
-                        assetMaintenanceRepository.save(maintenance);
-                        log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
-                }
+            AssetMaintenance maintenance = AssetMaintenance.builder()
+                    .asset(deliveredAsset)
+                    .maintenanceDate(LocalDate.now())
+                    .type(AssetMaintenance.MaintenanceType.TRANSFER)
+                    .description("Ativo cadastrado e entregue via Chamado #" + ticket.getId())
+                    .cost(BigDecimal.ZERO)
+                    .technician(ticket.getAssignedTo() != null ? ticket.getAssignedTo() : ticket.getRequester())
+                    .build();
+            assetMaintenanceRepository.save(maintenance);
+            log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
+        }
 
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
@@ -194,12 +211,5 @@ public class ResolveTicketUseCase {
         return TicketResponseDTO.from(resolvedTicket);
     }
 
-    /**
-     * Método legado para compatibilidade: resolve sem entrega de itens.
-     */
-    @Transactional
-    public TicketResponseDTO execute(UUID ticketId) {
-                return execute(ticketId, new ResolveTicketDTO(null, null, null, null, null));
-    }
 }
 

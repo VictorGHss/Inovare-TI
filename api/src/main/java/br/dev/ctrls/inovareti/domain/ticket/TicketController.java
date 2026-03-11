@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -116,12 +117,23 @@ public class TicketController {
     public ResponseEntity<TicketResponseDTO> resolve(
             @PathVariable UUID id,
             @RequestBody ResolveTicketDTO request) {
-        return ResponseEntity.ok(resolveTicketUseCase.execute(id, request));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID authenticatedUserId;
+
+        try {
+            authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
+        } catch (Exception e) {
+            log.warn("Could not parse user ID from authentication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return ResponseEntity.ok(resolveTicketUseCase.execute(id, request, authenticatedUserId));
     }
 
     /**
      * Assume um chamado para o usuário autenticado e altera o status para EM_PROGRESSO.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}/claim")
     public ResponseEntity<TicketResponseDTO> claim(@PathVariable UUID id) {
         return ResponseEntity.ok(claimTicketUseCase.execute(id));
@@ -131,6 +143,7 @@ public class TicketController {
      * Transfere um chamado para outro usuário.
      * Se o chamado estiver ABERTO, o status é alterado para EM_PROGRESSO.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}/transfer/{userId}")
     public ResponseEntity<TicketResponseDTO> transfer(@PathVariable UUID id, @PathVariable UUID userId) {
         return ResponseEntity.ok(transferTicketUseCase.execute(id, userId));

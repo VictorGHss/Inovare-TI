@@ -2,8 +2,8 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   BookOpen,
+  Building2,
   Github,
-  LayoutDashboard,
   Monitor,
   Package,
   Ticket,
@@ -20,12 +20,12 @@ export default function DefaultLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isDashboardActive = location.pathname.startsWith('/dashboard');
   const isTicketsActive = location.pathname.startsWith('/tickets');
   const isInventoryActive = location.pathname.startsWith('/inventory');
   const isAssetsActive = location.pathname.startsWith('/assets');
   const isKnowledgeBaseActive = location.pathname.startsWith('/knowledge-base');
   const isUsersActive = location.pathname.startsWith('/users');
+  const isSectorsActive = location.pathname.startsWith('/sectors');
 
   const navButtonClass = (isActive: boolean) =>
     `px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
@@ -50,13 +50,6 @@ export default function DefaultLayout() {
           />
           {/* Links de navegação */}
           <nav className="hidden sm:flex items-center gap-1">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className={navButtonClass(isDashboardActive)}
-            >
-              <LayoutDashboard size={14} className={navIconClass(isDashboardActive)} />
-              Dashboard
-            </button>
             <button
               onClick={() => navigate('/tickets')}
               className={navButtonClass(isTicketsActive)}
@@ -101,12 +94,9 @@ export default function DefaultLayout() {
                 </button>
                 <button
                   onClick={() => navigate('/sectors')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                    location.pathname.startsWith('/sectors')
-                      ? 'bg-primary text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={navButtonClass(isSectorsActive)}
                 >
+                  <Building2 size={14} className={navIconClass(isSectorsActive)} />
                   Setores
                 </button>
               </>

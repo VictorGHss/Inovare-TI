@@ -522,6 +522,42 @@ export interface ChangePasswordRequestDTO {
   newPassword: string;
 }
 
+export interface TwoFactorGenerateResponseDTO {
+  qrCodeBase64: string;
+  otpauthUrl: string;
+}
+
+export interface TwoFactorVerifyRequestDTO {
+  code: string;
+}
+
+export interface VaultItem {
+  id: string;
+  title: string;
+  description: string | null;
+  itemType: 'CREDENTIAL' | 'DOCUMENT' | 'NOTE';
+  filePath: string | null;
+  ownerId: string;
+  sharingType: 'PRIVATE' | 'ALL_TECH_ADMIN' | 'CUSTOM';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultCreateItemRequestDTO {
+  title: string;
+  description?: string;
+  itemType: 'CREDENTIAL' | 'DOCUMENT' | 'NOTE';
+  secretContent?: string;
+  filePath?: string;
+  sharingType: 'PRIVATE' | 'ALL_TECH_ADMIN' | 'CUSTOM';
+  sharedWithUserIds?: string[];
+}
+
+export interface VaultSecretResponseDTO {
+  itemId: string;
+  secretContent: string;
+}
+
 // Comentário de ticket
 export interface TicketComment {
   id: string;
@@ -557,6 +593,36 @@ export async function resetInitialPassword(
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   const payload: ChangePasswordRequestDTO = { currentPassword, newPassword };
   await api.put('/api/users/me/password', payload);
+}
+
+export async function generate2FA(): Promise<TwoFactorGenerateResponseDTO> {
+  const { data } = await api.post<TwoFactorGenerateResponseDTO>('/api/auth/2fa/generate');
+  return data;
+}
+
+export async function verify2FA(code: string): Promise<AuthResponseDTO> {
+  const payload: TwoFactorVerifyRequestDTO = { code };
+  const { data } = await api.post<AuthResponseDTO>('/api/auth/2fa/verify', payload);
+  return data;
+}
+
+export async function getVaultItems(): Promise<VaultItem[]> {
+  const { data } = await api.get<VaultItem[]>('/api/vault');
+  return data;
+}
+
+export async function createVaultItem(payload: VaultCreateItemRequestDTO): Promise<VaultItem> {
+  const { data } = await api.post<VaultItem>('/api/vault', payload);
+  return data;
+}
+
+export async function shareVaultItem(vaultItemId: string, userId: string): Promise<void> {
+  await api.post(`/api/vault/${vaultItemId}/share`, { userId });
+}
+
+export async function getVaultItemSecret(vaultItemId: string): Promise<VaultSecretResponseDTO> {
+  const { data } = await api.get<VaultSecretResponseDTO>(`/api/vault/${vaultItemId}/secret`);
+  return data;
 }
 
 // Exporta relatório de tickets em Excel

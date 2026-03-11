@@ -4,6 +4,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import api from '../services/api';
@@ -23,12 +24,14 @@ interface SignInResult {
 interface AuthContextData {
   user: User | null;
   token: string | null;
+  isTwoFactorVerified: boolean;
   signIn: (credentials: SignInCredentials) => Promise<SignInResult>;
   completeInitialPasswordReset: (payload: {
     tempToken: string;
     userId: string;
     newPassword: string;
   }) => Promise<void>;
+  updateAuthToken: (nextToken: string, nextUser?: User | null) => void;
   signOut: () => void;
 }
 
@@ -46,6 +49,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const stored = localStorage.getItem('@InovareTI:user');
     return stored ? (JSON.parse(stored) as User) : null;
   });
+
+  const isTwoFactorVerified = useMemo(() => getTwoFactorClaimFromToken(token), [token]);
 
   // Realiza login e persiste credenciais no localStorage
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
@@ -91,6 +96,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(response.user);
   }, []);
 
+  const updateAuthToken = useCallback((nextToken: string, nextUser?: User | null) => {
+    localStorage.setItem('@InovareTI:token', nextToken);
+    setToken(nextToken);
+
+    if (nextUser) {
+      localStorage.setItem('@InovareTI:user', JSON.stringify(nextUser));
+      setUser(nextUser);
+    }
+  }, []);
+
   // Remove as credenciais e desconecta o usuário
   const signOut = useCallback(() => {
     localStorage.removeItem('@InovareTI:token');
@@ -100,7 +115,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, signIn, completeInitialPasswordReset, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isTwoFactorVerified,
+        signIn,
+        completeInitialPasswordReset,
+        updateAuthToken,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -110,4 +135,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+function getTwoFactorClaimFromToken(token: string | null): boolean {
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return false;
+    }
+
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64)) as { two_factor_verified?: boolean };
+    return payload.two_factor_verified === true;
+  } catch {
+    return false;
+  }
 }

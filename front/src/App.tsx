@@ -1,5 +1,6 @@
 // Configuração de rotas e providers globais da aplicação
 import { lazy, Suspense } from 'react';
+import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -27,6 +28,7 @@ const Sectors = lazy(() => import('./pages/Sectors'));
 const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
 const NewArticle = lazy(() => import('./pages/KnowledgeBase/NewArticle'));
 const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails'));
+const Vault = lazy(() => import('./pages/Vault'));
 
 function PageLoader() {
   return (
@@ -46,6 +48,22 @@ function PrivateLayoutRoute() {
   }
 
   return <DefaultLayout />;
+}
+
+function RoleRoute({
+  allowedRoles,
+  children,
+}: {
+  allowedRoles: Array<'ADMIN' | 'TECHNICIAN' | 'USER'>;
+  children: ReactElement;
+}) {
+  const { user } = useAuth();
+
+  if (!user || !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 }
 
 function AppRoutes() {
@@ -78,6 +96,14 @@ function AppRoutes() {
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
           <Route path="/knowledge-base/new" element={<NewArticle />} />
           <Route path="/knowledge-base/:id" element={<ArticleDetails />} />
+          <Route
+            path="/vault"
+            element={(
+              <RoleRoute allowedRoles={['ADMIN', 'TECHNICIAN']}>
+                <Vault />
+              </RoleRoute>
+            )}
+          />
         </Route>
         {/* Redireciona a raiz para /login */}
         <Route path="*" element={<Navigate to="/login" replace />} />

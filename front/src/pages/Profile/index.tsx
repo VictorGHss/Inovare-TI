@@ -1,16 +1,20 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
-import { ShieldCheck, UserCircle2 } from 'lucide-react';
+import { Key, Lock, ShieldCheck, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { changePassword } from '../../services/api';
+import { changePassword, generate2FA, verify2FA } from '../../services/api';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, isTwoFactorVerified, updateAuthToken } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [loadingQrCode, setLoadingQrCode] = useState(false);
+  const [validatingTwoFactor, setValidatingTwoFactor] = useState(false);
 
   const roleLabel = useMemo(() => {
     if (!user) return '-';
@@ -19,6 +23,8 @@ export default function Profile() {
     if (user.role === 'TECHNICIAN') return 'Técnico';
     return 'Usuário';
   }, [user]);
+
+  const canManageTwoFactor = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -54,6 +60,42 @@ export default function Profile() {
       toast.error('Não foi possível alterar a senha. Verifique a senha atual.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGenerateQrCode() {
+    setLoadingQrCode(true);
+    try {
+      const response = await generate2FA();
+      setQrCodeBase64(response.qrCodeBase64);
+      toast.success('QR Code do 2FA gerado com sucesso.');
+    } catch {
+      toast.error('Não foi possível gerar o QR Code do 2FA.');
+    } finally {
+      setLoadingQrCode(false);
+    }
+  }
+
+  async function handleVerifyTwoFactor() {
+    if (!/^\d{6}$/.test(twoFactorCode)) {
+      toast.error('Informe um código 2FA válido com 6 dígitos.');
+      return;
+    }
+
+    setValidatingTwoFactor(true);
+    try {
+      const response = await verify2FA(twoFactorCode);
+      if (!response.token) {
+        throw new Error('Token inválido');
+      }
+
+      updateAuthToken(response.token, response.user);
+      setTwoFactorCode('');
+      toast.success('2FA ativado e validado nesta sessão.');
+    } catch {
+      toast.error('Não foi possível validar o código 2FA.');
+    } finally {
+      setValidatingTwoFactor(false);
     }
   }
 
@@ -144,6 +186,78 @@ export default function Profile() {
           </form>
         </section>
       </div>
+
+      {canManageTwoFactor && (
+        <section className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <ShieldCheck className="w-5 h-5 text-brand-primary" />
+            <h2 className="text-base font-semibold text-slate-800">Autenticação em Dois Fatores (2FA)</h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm text-slate-600">
+                Aumente a segurança da sua conta gerando um QR Code e validando um código de 6 dígitos.
+              </p>
+
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => void handleGenerateQrCode()}
+                  disabled={loadingQrCode}
+                  className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                >
+                  <Key size={16} />
+                  {loadingQrCode ? 'Gerando...' : 'Gerar QR Code'}
+                </button>
+
+                <span
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    isTwoFactorVerified
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {isTwoFactorVerified ? '2FA validado na sessão' : '2FA não validado na sessão'}
+                </span>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Código do Autenticador</label>
+                <input
+                  type="text"
+                  value={twoFactorCode}
+                  onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                  placeholder="000000"
+                  inputMode="numeric"
+                />
+                <button
+                  onClick={() => void handleVerifyTwoFactor()}
+                  disabled={validatingTwoFactor}
+                  className="mt-3 inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                >
+                  <Lock size={16} />
+                  {validatingTwoFactor ? 'Validando...' : 'Validar 2FA'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-center min-h-[220px]">
+              {qrCodeBase64 ? (
+                <img
+                  src={`data:image/png;base64,${qrCodeBase64}`}
+                  alt="QR Code de autenticação em dois fatores"
+                  className="w-52 h-52 rounded-lg border border-slate-200 bg-white p-2"
+                />
+              ) : (
+                <p className="text-sm text-slate-500 text-center">
+                  Gere o QR Code para escanear no autenticador e concluir a ativação do 2FA.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

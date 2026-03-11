@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   BookOpen,
   Building2,
+  FileLock,
   Github,
   Monitor,
   Package,
@@ -24,6 +25,7 @@ export default function DefaultLayout() {
   const isInventoryActive = location.pathname.startsWith('/inventory');
   const isAssetsActive = location.pathname.startsWith('/assets');
   const isKnowledgeBaseActive = location.pathname.startsWith('/knowledge-base');
+  const isVaultActive = location.pathname.startsWith('/vault');
   const isUsersActive = location.pathname.startsWith('/users');
   const isSectorsActive = location.pathname.startsWith('/sectors');
 
@@ -82,6 +84,15 @@ export default function DefaultLayout() {
               <BookOpen size={14} className={navIconClass(isKnowledgeBaseActive)} />
               Base de Conhecimento
             </button>
+            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              <button
+                onClick={() => navigate('/vault')}
+                className={navButtonClass(isVaultActive)}
+              >
+                <FileLock size={14} className={navIconClass(isVaultActive)} />
+                Cofre
+              </button>
+            )}
             {/* Links administrativos — visíveis apenas para ADMIN */}
             {user?.role === 'ADMIN' && (
               <>

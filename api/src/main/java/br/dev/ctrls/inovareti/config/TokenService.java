@@ -36,10 +36,15 @@ public class TokenService {
      * @return token JWT assinado
      */
     public String generateToken(User user) {
+        return generateToken(user, false);
+    }
+
+    public String generateToken(User user, boolean twoFactorVerified) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
         return JWT.create()
                 .withIssuer(ISSUER)
                 .withSubject(user.getEmail())
+                .withClaim("two_factor_verified", twoFactorVerified)
                 .withExpiresAt(expiresAt())
                 .sign(algorithm);
     }
@@ -85,6 +90,20 @@ public class TokenService {
             return UUID.fromString(decoded.getSubject());
         } catch (JWTVerificationException | IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    public boolean isTwoFactorVerified(String token) {
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            var decoded = JWT.require(algorithm)
+                    .withIssuer(ISSUER)
+                    .build()
+                    .verify(token);
+            return decoded.getClaim("two_factor_verified").asBoolean() != null
+                    && decoded.getClaim("two_factor_verified").asBoolean();
+        } catch (JWTVerificationException | IllegalArgumentException e) {
+            return false;
         }
     }
 

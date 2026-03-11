@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.config;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -46,6 +47,9 @@ public class SecurityFilter extends OncePerRequestFilter {
                 userRepository.findByEmail(email).ifPresent(user -> {
                     var authentication = new UsernamePasswordAuthenticationToken(
                             user.getId().toString(), null, user.getAuthorities());
+                    authentication.setDetails(Map.of(
+                            "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+                    ));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
             }

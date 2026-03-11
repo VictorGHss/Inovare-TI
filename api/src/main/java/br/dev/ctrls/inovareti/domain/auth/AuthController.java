@@ -1,16 +1,23 @@
 package br.dev.ctrls.inovareti.domain.auth;
 
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
+import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
+import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorVerifyRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
+import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +32,7 @@ public class AuthController {
 
     private final LoginUseCase loginUseCase;
     private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
+    private final TwoFactorAuthService twoFactorAuthService;
 
     /**
      * Autentica o usuário e retorna um token JWT assinado.
@@ -42,5 +50,28 @@ public class AuthController {
     public ResponseEntity<AuthResponseDTO> resetInitialPassword(
             @Valid @RequestBody ResetInitialPasswordRequestDTO request) {
         return ResponseEntity.ok(resetInitialPasswordUseCase.execute(request));
+    }
+
+    @PostMapping("/2fa/generate")
+    public ResponseEntity<TwoFactorGenerateResponseDTO> generateTwoFactor() {
+        return ResponseEntity.ok(twoFactorAuthService.generateForUser(getAuthenticatedUserId()));
+    }
+
+    @PostMapping("/2fa/verify")
+    public ResponseEntity<AuthResponseDTO> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequestDTO request) {
+        return ResponseEntity.ok(twoFactorAuthService.verifyCode(getAuthenticatedUserId(), request.code()));
+    }
+
+    private UUID getAuthenticatedUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new BadRequestException("Usuário autenticado não encontrado.");
+        }
+
+        try {
+            return UUID.fromString(authentication.getPrincipal().toString());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+        }
     }
 }

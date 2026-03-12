@@ -83,6 +83,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 - [x] Integração com Discord para notificações operacionais e recuperação de segurança
 - [x] Migrações Flyway consolidadas no schema base (`V1__init.sql`)
 - [x] Revogação imediata de acesso ao Vault após reset do 2FA
+- [x] Fase 7 validada e mantida como concluída após estabilização de regressões
 
 ---
 
@@ -104,6 +105,9 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 - [x] Configurar `vite-plugin-pwa` no `vite.config.ts`
 - [x] Criar `manifest.json` com nome "Inovare TI", cores `#ffa751`/`#ffffff`, modo `standalone`
 - [x] Adicionar meta tags Apple para comportamento nativo no iPhone (sem barra do Safari)
+- [x] Ajustar manifesto com `scope: /` e `start_url: /dashboard` para navegação interna no app instalado
+- [x] Adicionar `display_override` com `standalone` e `window-controls-overlay`
+- [x] Implementar sidebar vertical colapsável no layout autenticado (desktop fixo, mobile com Menu/X)
 - [ ] Adicionar ícones PWA em resolução 192x192 e 512x512
 - [ ] Testar instalação como web app em iOS e Android
 - [ ] Adicionar suporte nativo a QR Code para fluxos de inventário e ativos

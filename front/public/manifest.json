@@ -5,9 +5,13 @@
   "theme_color": "#ffa751",
   "background_color": "#ffffff",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "window-controls-overlay"
+  ],
   "orientation": "portrait",
   "scope": "/",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "icons": [
     {
       "src": "pwa-192x192.png",

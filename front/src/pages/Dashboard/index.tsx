@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Download, Laptop, HardDrive } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -33,6 +34,23 @@ export default function Dashboard() {
   const [reportHubOpen, setReportHubOpen] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
+
+  const listContainerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05 },
+    },
+  };
+
+  const listItemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.22 },
+    },
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,7 +188,7 @@ export default function Dashboard() {
                     <XAxis type="number" style={{ fontSize: '12px' }} />
                     <YAxis type="category" dataKey="name" width={120} style={{ fontSize: '12px' }} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#3b82f6" />
+                    <Bar dataKey="value" fill="#ffa751" radius={[0, 8, 8, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -184,7 +202,7 @@ export default function Dashboard() {
                     <XAxis type="number" style={{ fontSize: '12px' }} />
                     <YAxis type="category" dataKey="name" width={120} style={{ fontSize: '12px' }} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#8b5cf6" />
+                    <Bar dataKey="value" fill="#1e2a44" radius={[0, 8, 8, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -219,15 +237,20 @@ export default function Dashboard() {
                           <th className="px-4 py-3 text-left">Categoria</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <motion.tbody
+                        className="divide-y divide-slate-100"
+                        variants={listContainerVariants}
+                        initial="hidden"
+                        animate="show"
+                      >
                         {assets.map((asset) => (
-                          <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                          <motion.tr key={asset.id} variants={listItemVariants} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3 font-medium text-slate-800">{asset.name}</td>
                             <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
                             <td className="px-4 py-3 text-slate-600">{asset.categoryName ?? '—'}</td>
-                          </tr>
+                          </motion.tr>
                         ))}
-                      </tbody>
+                      </motion.tbody>
                     </table>
                   </div>
                 )}

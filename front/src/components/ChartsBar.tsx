@@ -34,23 +34,23 @@ export default function ChartsBar({ tickets, title }: ChartsBarProps) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 flex items-center justify-center h-80">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex items-center justify-center h-80">
         <p className="text-slate-500">Sem dados disponíveis</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
       <h3 className="text-lg font-semibold text-slate-800 mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="month" stroke="#64748b" />
+          <YAxis stroke="#64748b" />
           <Tooltip formatter={(value) => `${value}`} />
           <Legend />
-          <Bar dataKey="tickets" fill="#3b82f6" name="Chamados" />
+          <Bar dataKey="tickets" fill="#ffa751" name="Chamados" radius={[8, 8, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

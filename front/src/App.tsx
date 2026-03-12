@@ -2,6 +2,7 @@
 import { lazy, Suspense } from 'react';
 import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -39,6 +40,18 @@ function PageLoader() {
   );
 }
 
+function PageTransition({ children }: { children: ReactElement }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 // Rota de layout: protege e fornece o header/footer para páginas autenticadas
 function PrivateLayoutRoute() {
   const { token } = useAuth();
@@ -71,8 +84,8 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
+        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/primeiro-acesso" element={<PageTransition><PrimeiroAcesso /></PageTransition>} />
         {/* Rotas protegidas compartilham o DefaultLayout */}
         <Route element={<PrivateLayoutRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />

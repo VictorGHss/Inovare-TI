@@ -1,4 +1,5 @@
 import { Download, FileText, HardDrive, Printer } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { Asset } from '../../../services/api';
 
 interface Props {
@@ -20,6 +21,23 @@ export default function AssetTable({
   onInvoiceDownload,
   onOpenPrintModal,
 }: Props) {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05 },
+    },
+  };
+
+  const rowVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.22 },
+    },
+  };
+
   if (loading) {
     return (
       <div className="p-12 text-center">
@@ -48,10 +66,16 @@ export default function AssetTable({
             <th className="px-4 py-3 text-center">Etiqueta</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <motion.tbody
+          className="divide-y divide-slate-100"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
           {assets.map((asset) => (
-            <tr
+            <motion.tr
               key={asset.id}
+              variants={rowVariants}
               onClick={() => onOpenDetails(asset)}
               className="cursor-pointer hover:bg-gray-50 transition-colors"
             >
@@ -110,9 +134,9 @@ export default function AssetTable({
                   </button>
                 </div>
               </td>
-            </tr>
+            </motion.tr>
           ))}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   );

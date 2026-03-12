@@ -4,9 +4,21 @@
 @theme {
   --color-brand-primary: #ffa751;
   --color-brand-primary-dark: #f08c2e;
-  --color-brand-secondary: #ffd3a6;
+  --color-brand-secondary: #ffd1a3;
 
   --color-primary: #ffa751;
   --color-primary-hover: #f08c2e;
-  --color-secondary: #ffd3a6;
+  --color-secondary: #ffd1a3;
+}
+
+@layer base {
+  button {
+    @apply rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 focus-visible:ring-offset-1;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary;
+  }
 }

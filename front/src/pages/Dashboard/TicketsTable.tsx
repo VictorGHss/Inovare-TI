@@ -1,6 +1,7 @@
 // Tabela de chamados com dados reais da API
 import { useNavigate } from 'react-router-dom';
 import { Bot } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { Ticket } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
@@ -26,6 +27,23 @@ function formatDate(iso: string | null | undefined): string {
 export default function TicketsTable({ tickets }: TicketsTableProps) {
   const navigate = useNavigate();
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.045 },
+    },
+  };
+
+  const rowVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.22 },
+    },
+  };
+
   if (!Array.isArray(tickets) || tickets.length === 0) {
     return (
       <p className="text-center text-slate-400 py-12 text-sm">
@@ -48,11 +66,16 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
             <th className="px-4 py-3 text-left">Criado em</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <motion.tbody
+          className="divide-y divide-slate-100 bg-white"
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
           {tickets.map((ticket) => (
-            <tr
+            <motion.tr
               key={ticket.id}
-              // Navega para a tela de detalhes ao clicar na linha
+              variants={rowVariants}
               onClick={() => navigate(`/tickets/${ticket.id}`)}
               className="hover:bg-slate-50 transition-colors cursor-pointer"
             >
@@ -85,9 +108,9 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
               <td className="px-4 py-3 text-slate-400">
                 {formatDate(ticket.createdAt)}
               </td>
-            </tr>
+            </motion.tr>
           ))}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   );

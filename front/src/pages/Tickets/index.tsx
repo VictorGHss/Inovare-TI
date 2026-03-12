@@ -105,7 +105,7 @@ export default function Tickets() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
               activeTab === tab.key
                 ? 'bg-brand-primary text-white'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -117,7 +117,7 @@ export default function Tickets() {
       </div>
 
       {/* Advanced Filter Bar */}
-      <div className="mb-6 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+      <div className="mb-6 bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search by Title */}
           <div className="relative">
@@ -131,7 +131,7 @@ export default function Tickets() {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
                 placeholder="Digite o título do chamado..."
-                className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm"
+                className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm"
               />
               {searchTitle && (
                 <button
@@ -152,7 +152,7 @@ export default function Tickets() {
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="all">Todas as Prioridades</option>
               {priorities.map((priority) => (
@@ -171,7 +171,7 @@ export default function Tickets() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="all">Todas as Categorias</option>
               {categories.map((category) => (
@@ -190,7 +190,7 @@ export default function Tickets() {
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
             >
               <option value="newest">Mais Recentes</option>
               <option value="oldest">Mais Antigos</option>
@@ -241,7 +241,7 @@ export default function Tickets() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         {loading ? <SkeletonTable /> : <TicketsTable tickets={sortedTickets} />}
       </div>
     </main>

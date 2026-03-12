@@ -311,6 +311,36 @@ CREATE INDEX idx_vault_item_shares_vault_item  ON vault_item_shares (vault_item_
 CREATE INDEX idx_vault_item_shares_user        ON vault_item_shares (shared_with_user_id);
 
 -- =============================================================================
+-- BLOCO 13 - audit_logs: tabela de trilha de auditoria (sem FK para preservar historico)
+-- =============================================================================
+
+CREATE TABLE audit_logs (
+    id            uuid         NOT NULL DEFAULT gen_random_uuid(),
+    user_id       uuid,
+    action        varchar(60)  NOT NULL,
+    resource_type varchar(60),
+    resource_id   uuid,
+    details       text,
+    ip_address    varchar(45),
+    created_at    timestamp    NOT NULL,
+    CONSTRAINT pk_audit_logs        PRIMARY KEY (id),
+    CONSTRAINT ck_audit_logs_action CHECK       (action IN (
+        'VAULT_SECRET_VIEW',
+        'VAULT_FILE_VIEW',
+        'VAULT_ITEM_CREATE',
+        'LOGIN_SUCCESS',
+        'LOGIN_FAILURE',
+        'TWO_FACTOR_RESET',
+        'TWO_FACTOR_ADMIN_RESET',
+        'USER_PERMISSION_CHANGE'
+    ))
+);
+
+CREATE INDEX idx_audit_logs_user_id    ON audit_logs (user_id);
+CREATE INDEX idx_audit_logs_action     ON audit_logs (action);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at DESC);
+
+-- =============================================================================
 -- NOTA DE SINCRONIZACAO DO SCHEMA BASE
 -- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
 -- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.

@@ -28,6 +28,7 @@ import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ListAllUsersUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ResetUserPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.UpdateUserUseCase;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -87,8 +88,10 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<UserResponseDTO> update(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateUserRequestDTO request) {
-        return ResponseEntity.ok(updateUserUseCase.execute(id, request));
+            @Valid @RequestBody UpdateUserRequestDTO request,
+            HttpServletRequest httpRequest) {
+        UUID adminUserId = getAuthenticatedUserId();
+        return ResponseEntity.ok(updateUserUseCase.execute(id, request, adminUserId, getClientIp(httpRequest)));
     }
 
     /**
@@ -109,7 +112,7 @@ public class UserController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/2fa/reset")
-    public ResponseEntity<Void> adminResetTwoFactor(@PathVariable UUID id) {
+    public ResponseEntity<Void> adminResetTwoFactor(@PathVariable UUID id, HttpServletRequest httpRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new BadRequestException("Usuário autenticado não encontrado.");
@@ -122,7 +125,27 @@ public class UserController {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }
 
-        twoFactorResetService.adminReset(id, adminUserId);
+        twoFactorResetService.adminReset(id, adminUserId, getClientIp(httpRequest));
         return ResponseEntity.noContent().build();
+    }
+
+    private UUID getAuthenticatedUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            throw new BadRequestException("Usuário autenticado não encontrado.");
+        }
+        try {
+            return UUID.fromString(auth.getPrincipal().toString());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

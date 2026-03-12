@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -39,6 +42,7 @@ public class TwoFactorResetService {
     private final TokenService tokenService;
     private final PasswordEncoder passwordEncoder;
     private final DiscordDirectMessageService discordDirectMessageService;
+    private final AuditLogService auditLogService;
 
     /**
      * Solicita a recuperação do 2FA: gera e envia um código ao Discord.
@@ -80,7 +84,7 @@ public class TwoFactorResetService {
      * @return novo JWT com 2FA em false (totp_secret = null)
      */
     @Transactional
-    public AuthResponseDTO confirmReset(UUID userId, String code, String password) {
+    public AuthResponseDTO confirmReset(UUID userId, String code, String password, String ipAddress) {
         User user = findUserOrThrow(userId);
 
         if (!isTwoFactorEnabled(user)) {
@@ -113,6 +117,11 @@ public class TwoFactorResetService {
         user.setRecoveryCodeExpiresAt(null);
         userRepository.save(user);
 
+        auditLogService.publish(AuditEvent.of(AuditAction.TWO_FACTOR_RESET)
+                .userId(userId)
+                .ipAddress(ipAddress)
+                .build());
+
         log.info("2FA successfully reset for user {} via recovery flow", userId);
 
         // Emite novo JWT sem flag de 2FA
@@ -126,7 +135,7 @@ public class TwoFactorResetService {
      * @param targetUserId ID do usuário cujo 2FA será resetado
      */
     @Transactional
-    public void adminReset(UUID targetUserId, UUID adminUserId) {
+    public void adminReset(UUID targetUserId, UUID adminUserId, String ipAddress) {
         User targetUser = findUserOrThrow(targetUserId);
         User adminUser = findUserOrThrow(adminUserId);
 
@@ -145,6 +154,12 @@ public class TwoFactorResetService {
                     targetUser.getName(),
                     adminUser.getName());
         }
+
+        auditLogService.publish(AuditEvent.of(AuditAction.TWO_FACTOR_ADMIN_RESET)
+                .userId(targetUserId)
+                .details("{\"adminUserId\": \"" + adminUserId + "\"}")
+                .ipAddress(ipAddress)
+                .build());
 
         log.info("2FA administratively reset for user {} by admin {}", targetUserId, adminUserId);
     }

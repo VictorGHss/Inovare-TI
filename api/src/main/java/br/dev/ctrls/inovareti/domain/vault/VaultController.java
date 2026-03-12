@@ -21,11 +21,15 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -37,14 +41,17 @@ public class VaultController {
     private final TwoFactorSessionGuard twoFactorSessionGuard;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final LocalFileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<VaultItemResponseDTO> createItem(
             @RequestPart("payload") String payload,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            HttpServletRequest httpRequest) {
 
         VaultCreateItemRequestDTO request = parseCreatePayload(payload);
-        VaultItemResponseDTO response = vaultService.createItem(getAuthenticatedUserId(), request, file);
+        VaultItemResponseDTO response = vaultService.createItem(
+                getAuthenticatedUserId(), request, file, getClientIp(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -54,18 +61,24 @@ public class VaultController {
     }
 
     @GetMapping("/{itemId}/secret")
-    public ResponseEntity<VaultSecretResponseDTO> getSecret(@PathVariable UUID itemId) {
+    public ResponseEntity<VaultSecretResponseDTO> getSecret(
+            @PathVariable UUID itemId,
+            HttpServletRequest httpRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         twoFactorSessionGuard.assertVerified(authentication);
-        return ResponseEntity.ok(vaultService.getSecret(getAuthenticatedUserId(), itemId));
+        return ResponseEntity.ok(
+                vaultService.getSecret(getAuthenticatedUserId(), itemId, getClientIp(httpRequest)));
     }
 
     @GetMapping("/{itemId}/file")
-    public ResponseEntity<byte[]> getVaultFile(@PathVariable UUID itemId) {
+    public ResponseEntity<byte[]> getVaultFile(
+            @PathVariable UUID itemId,
+            HttpServletRequest httpRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         twoFactorSessionGuard.assertVerified(authentication);
 
-        var item = vaultService.findAccessibleItem(getAuthenticatedUserId(), itemId);
+        UUID userId = getAuthenticatedUserId();
+        var item = vaultService.findAccessibleItem(userId, itemId);
         if (item.getFilePath() == null || item.getFilePath().isBlank()) {
             throw new BadRequestException("Este item não possui anexo para visualização.");
         }
@@ -74,6 +87,15 @@ public class VaultController {
             var resource = fileStorageService.load(item.getFilePath());
             byte[] fileBytes = resource.getInputStream().readAllBytes();
             String contentType = resolveContentType(item.getFilePath());
+
+            // Registra visualização de arquivo do Vault na trilha de auditoria
+            auditLogService.publish(AuditEvent.of(AuditAction.VAULT_FILE_VIEW)
+                    .userId(userId)
+                    .resourceType("VaultItem")
+                    .resourceId(item.getId())
+                    .details("{\"itemTitle\": \"" + item.getTitle() + "\"}")
+                    .ipAddress(getClientIp(httpRequest))
+                    .build());
 
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
@@ -88,6 +110,23 @@ public class VaultController {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new BadRequestException("Usuário autenticado não encontrado.");
+        }
+
+        try {
+            return UUID.fromString(authentication.getPrincipal().toString());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+        }
+    }
+
+    /** Extrai o IP real do cliente, respeitando proxies reversos via X-Forwarded-For. */
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
         }
 
         try {

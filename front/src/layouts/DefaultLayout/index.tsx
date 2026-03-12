@@ -9,6 +9,7 @@ import {
   Menu,
   Monitor,
   Package,
+  Shield,
   Ticket,
   Users,
   X,
@@ -51,6 +52,7 @@ export default function DefaultLayout() {
     },
     { path: '/users', label: 'Equipe', icon: Users, visible: user?.role === 'ADMIN' },
     { path: '/sectors', label: 'Setores', icon: Building2, visible: user?.role === 'ADMIN' },
+    { path: '/system-logs', label: 'Logs do Sistema', icon: Shield, visible: user?.role === 'ADMIN' },
   ]), [user?.role]);
 
   const desktopNavButtonClass = (isActive: boolean) =>

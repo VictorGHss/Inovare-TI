@@ -16,6 +16,9 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
@@ -51,9 +54,10 @@ public class VaultService {
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
     private final LocalFileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
 
     @Transactional
-    public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file) {
+    public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file, String ipAddress) {
         User owner = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
@@ -82,6 +86,15 @@ public class VaultService {
         VaultItem savedItem = vaultItemRepository.save(item);
         createCustomShares(savedItem, request.sharedWithUserIds());
 
+        // Registra criação de item no cofre na trilha de auditoria
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_CREATE)
+                .userId(authenticatedUserId)
+                .resourceType("VaultItem")
+                .resourceId(savedItem.getId())
+                .details("{\"itemTitle\": \"" + savedItem.getTitle() + "\"}")
+                .ipAddress(ipAddress)
+                .build());
+
         return VaultItemResponseDTO.from(savedItem);
     }
 
@@ -98,7 +111,7 @@ public class VaultService {
     }
 
     @Transactional(readOnly = true)
-    public VaultSecretResponseDTO getSecret(UUID authenticatedUserId, UUID itemId) {
+    public VaultSecretResponseDTO getSecret(UUID authenticatedUserId, UUID itemId, String ipAddress) {
         VaultItem item = findAccessibleItem(authenticatedUserId, itemId);
 
         if (item.getSecretContent() == null || item.getSecretContent().isBlank()) {
@@ -109,6 +122,15 @@ public class VaultService {
         if (item.getItemType() == VaultItemType.CREDENTIAL) {
             content = encryptionService.decrypt(content);
         }
+
+        // Evento crítico: leitura de segredo do Vault
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_SECRET_VIEW)
+                .userId(authenticatedUserId)
+                .resourceType("VaultItem")
+                .resourceId(item.getId())
+                .details("{\"itemTitle\": \"" + item.getTitle() + "\"}")
+                .ipAddress(ipAddress)
+                .build());
 
         return new VaultSecretResponseDTO(item.getId(), content);
     }

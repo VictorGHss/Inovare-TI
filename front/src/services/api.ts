@@ -882,4 +882,57 @@ export async function importCsv(file: File): Promise<ImportResult> {
   return response.data;
 }
 
+// ==================== AUDIT LOGS ====================
+
+export type AuditAction =
+  | 'VAULT_SECRET_VIEW'
+  | 'VAULT_FILE_VIEW'
+  | 'VAULT_ITEM_CREATE'
+  | 'LOGIN_SUCCESS'
+  | 'LOGIN_FAILURE'
+  | 'TWO_FACTOR_RESET'
+  | 'TWO_FACTOR_ADMIN_RESET'
+  | 'USER_PERMISSION_CHANGE';
+
+export interface AuditLog {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  action: AuditAction;
+  resourceType: string | null;
+  resourceId: string | null;
+  details: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface AuditLogPage {
+  content: AuditLog[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface GetAuditLogsParams {
+  userId?: string;
+  action?: AuditAction;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+}
+
+// Busca logs de auditoria com filtros opcionais (requer ADMIN)
+export async function getAuditLogs(params?: GetAuditLogsParams): Promise<AuditLogPage> {
+  const sanitized = Object.fromEntries(
+    Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  );
+  const { data } = await api.get<AuditLogPage>('/api/audit-logs', { params: sanitized });
+  return data;
+}
+
 export default api;
+

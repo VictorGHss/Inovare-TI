@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.user.Sector;
 import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -25,9 +28,10 @@ public class UpdateUserUseCase {
 
     private final UserRepository userRepository;
     private final SectorRepository sectorRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
-    public UserResponseDTO execute(UUID userId, UpdateUserRequestDTO request) {
+    public UserResponseDTO execute(UUID userId, UpdateUserRequestDTO request, UUID adminUserId, String ipAddress) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
 
@@ -40,11 +44,31 @@ public class UpdateUserUseCase {
         Sector sector = sectorRepository.findById(request.sectorId())
                 .orElseThrow(() -> new NotFoundException("Sector not found: " + request.sectorId()));
 
+        String oldRole = user.getRole() != null ? user.getRole().name() : null;
+        UUID oldSectorId = user.getSector() != null ? user.getSector().getId() : null;
+
         user.setName(request.name());
         user.setEmail(request.email());
         user.setRole(request.role());
         user.setSector(sector);
 
-        return UserResponseDTO.from(userRepository.save(user));
+        UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
+
+        String newRole = request.role() != null ? request.role().name() : null;
+        boolean roleChanged = !java.util.Objects.equals(oldRole, newRole);
+        boolean sectorChanged = !java.util.Objects.equals(oldSectorId, request.sectorId());
+
+        if (roleChanged || sectorChanged) {
+            String details = String.format(
+                    "{\"targetUserId\": \"%s\", \"adminUserId\": \"%s\", \"oldRole\": \"%s\", \"newRole\": \"%s\", \"sectorChanged\": %b}",
+                    userId, adminUserId, oldRole, newRole, sectorChanged);
+            auditLogService.publish(AuditEvent.of(AuditAction.USER_PERMISSION_CHANGE)
+                    .userId(userId)
+                    .details(details)
+                    .ipAddress(ipAddress)
+                    .build());
+        }
+
+        return result;
     }
 }

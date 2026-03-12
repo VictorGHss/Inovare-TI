@@ -20,6 +20,7 @@ import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorAuthService;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -45,8 +46,10 @@ public class AuthController {
      * @return 200 OK com o token JWT
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO request) {
-        return ResponseEntity.ok(loginUseCase.execute(request));
+    public ResponseEntity<AuthResponseDTO> login(
+            @Valid @RequestBody AuthRequestDTO request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(loginUseCase.execute(request, getClientIp(httpRequest)));
     }
 
     @PostMapping("/reset-initial-password")
@@ -81,9 +84,12 @@ public class AuthController {
      */
     @PostMapping("/2fa/reset-confirm")
     public ResponseEntity<AuthResponseDTO> confirmTwoFactorReset(
-            @Valid @RequestBody TwoFactorResetConfirmRequestDTO request) {
+            @Valid @RequestBody TwoFactorResetConfirmRequestDTO request,
+            HttpServletRequest httpRequest) {
         return ResponseEntity.ok(
-                twoFactorResetService.confirmReset(getAuthenticatedUserId(), request.code(), request.password()));
+                twoFactorResetService.confirmReset(
+                        getAuthenticatedUserId(), request.code(), request.password(),
+                        getClientIp(httpRequest)));
     }
 
     private UUID getAuthenticatedUserId() {
@@ -97,5 +103,13 @@ public class AuthController {
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

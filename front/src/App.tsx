@@ -29,6 +29,7 @@ const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
 const NewArticle = lazy(() => import('./pages/KnowledgeBase/NewArticle'));
 const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails'));
 const Vault = lazy(() => import('./pages/Vault'));
+const SystemLogs = lazy(() => import('./pages/SystemLogs'));
 
 function PageLoader() {
   return (
@@ -101,6 +102,14 @@ function AppRoutes() {
             element={(
               <RoleRoute allowedRoles={['ADMIN', 'TECHNICIAN']}>
                 <Vault />
+              </RoleRoute>
+            )}
+          />
+          <Route
+            path="/system-logs"
+            element={(
+              <RoleRoute allowedRoles={['ADMIN']}>
+                <SystemLogs />
               </RoleRoute>
             )}
           />

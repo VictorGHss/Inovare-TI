@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.knowledge.dto;
 
+import br.dev.ctrls.inovareti.domain.knowledge.ArticleStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,4 +25,6 @@ public class ArticleRequestDTO {
     private String content;
 
     private String tags;
+
+    private ArticleStatus status;
 }

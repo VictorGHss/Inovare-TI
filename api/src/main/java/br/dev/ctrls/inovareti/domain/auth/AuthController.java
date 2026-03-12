@@ -64,8 +64,13 @@ public class AuthController {
     }
 
     @PostMapping("/2fa/verify")
-    public ResponseEntity<AuthResponseDTO> verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequestDTO request) {
-        return ResponseEntity.ok(twoFactorAuthService.verifyCode(getAuthenticatedUserId(), request.code()));
+    public ResponseEntity<AuthResponseDTO> verifyTwoFactor(
+            @Valid @RequestBody TwoFactorVerifyRequestDTO request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(twoFactorAuthService.verifyCode(
+                getAuthenticatedUserId(),
+                request.code(),
+                getClientIp(httpRequest)));
     }
 
     /**

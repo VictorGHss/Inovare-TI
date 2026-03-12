@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategory;
 import br.dev.ctrls.inovareti.domain.inventory.ItemCategoryRepository;
@@ -25,6 +28,7 @@ public class CreateItemUseCase {
 
     private final ItemRepository itemRepository;
     private final ItemCategoryRepository itemCategoryRepository;
+        private final AuditLogService auditLogService;
 
     /**
      * Executa a criação do item.
@@ -49,6 +53,13 @@ public class CreateItemUseCase {
                         : new HashMap<>())
                 .build();
 
-        return ItemResponseDTO.from(itemRepository.save(item));
+        Item savedItem = itemRepository.save(item);
+        auditLogService.publish(AuditEvent.of(AuditAction.INVENTORY_ITEM_CREATE)
+                .resourceType("Item")
+                .resourceId(savedItem.getId())
+                .details("{\"name\": \"" + savedItem.getName() + "\"}")
+                .build());
+
+        return ItemResponseDTO.from(savedItem);
     }
 }

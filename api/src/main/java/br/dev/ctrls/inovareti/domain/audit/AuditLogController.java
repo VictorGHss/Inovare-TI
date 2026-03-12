@@ -7,12 +7,20 @@ import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.domain.audit.dto.QrScanAuditRequestDTO;
 import br.dev.ctrls.inovareti.domain.audit.dto.AuditLogResponseDTO;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -52,5 +60,43 @@ public class AuditLogController {
         // Limita o tamanho máximo de página para evitar consultas excessivas
         int safeSize = Math.min(size, 100);
         return ResponseEntity.ok(auditLogService.query(userId, action, startDate, endDate, page, safeSize));
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/qr-scan")
+    public ResponseEntity<Void> registerQrScan(
+            @Valid @RequestBody QrScanAuditRequestDTO request,
+            HttpServletRequest httpRequest) {
+
+        UUID authenticatedUserId = getAuthenticatedUserId();
+        auditLogService.publish(AuditEvent.of(AuditAction.QR_SCAN)
+                .userId(authenticatedUserId)
+                .resourceType("QR")
+                .details("{\"path\": \"" + request.scannedPath() + "\"}")
+                .ipAddress(getClientIp(httpRequest))
+                .build());
+
+        return ResponseEntity.noContent().build();
+    }
+
+    private UUID getAuthenticatedUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            throw new BadRequestException("Usuário autenticado não encontrado.");
+        }
+
+        try {
+            return UUID.fromString(auth.getPrincipal().toString());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

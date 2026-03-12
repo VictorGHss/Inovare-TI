@@ -13,12 +13,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleRequestDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleResponseDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleSearchResultDTO;
@@ -40,6 +44,7 @@ public class ArticleController {
 
     private final ArticleRepository articleRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     /**
      * Lista todos os artigos (público para usuários logados).
@@ -48,8 +53,13 @@ public class ArticleController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping
     public ResponseEntity<List<ArticleResponseDTO>> listAll() {
+        User user = getAuthenticatedUser();
+        List<Article> articles = user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.USER
+                ? articleRepository.findAllByStatusOrderByCreatedAtDesc(ArticleStatus.PUBLISHED)
+                : articleRepository.findAllByOrderByCreatedAtDesc();
+
         return ResponseEntity.ok(
-            articleRepository.findAll()
+            articles
                 .stream()
                 .map(ArticleResponseDTO::from)
                 .collect(Collectors.toList())
@@ -63,8 +73,19 @@ public class ArticleController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/{id}")
     public ResponseEntity<ArticleResponseDTO> getById(@PathVariable UUID id) {
+        User user = getAuthenticatedUser();
+
         return articleRepository.findById(id)
-            .map(article -> ResponseEntity.ok(ArticleResponseDTO.from(article)))
+            .map(article -> {
+                boolean canReadDraft = article.getStatus() != ArticleStatus.DRAFT
+                        || article.getAuthorId().equals(user.getId())
+                        || user.getRole() != br.dev.ctrls.inovareti.domain.user.UserRole.USER;
+
+                if (!canReadDraft) {
+                    return ResponseEntity.notFound().build();
+                }
+                return ResponseEntity.ok(ArticleResponseDTO.from(article));
+            })
             .orElse(ResponseEntity.notFound().build());
     }
 
@@ -81,7 +102,7 @@ public class ArticleController {
         }
 
         return ResponseEntity.ok(
-            articleRepository.findByTitleContainingIgnoreCase(query.trim())
+            articleRepository.findPublishedByTitleContainingIgnoreCase(query.trim())
                 .stream()
                 .map(ArticleSearchResultDTO::from)
                 .collect(Collectors.toList())
@@ -95,28 +116,70 @@ public class ArticleController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<ArticleResponseDTO> create(@Valid @RequestBody ArticleRequestDTO request) {
-        // Extract user ID from authentication principal as UUID
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String userIdStr = auth.getPrincipal().toString();
-        UUID userId = UUID.fromString(userIdStr);
-        
-        // Fetch user details to get the author name
-        User author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
+        User author = getAuthenticatedUser();
+        ArticleStatus status = request.getStatus() != null ? request.getStatus() : ArticleStatus.PUBLISHED;
 
         Article article = Article.builder()
             .title(request.getTitle())
             .content(request.getContent())
             .tags(request.getTags())
-            .authorId(userId)
+            .status(status)
+            .authorId(author.getId())
             .authorName(author.getName())
             .createdAt(LocalDateTime.now())
             .build();
 
         Article saved = articleRepository.save(article);
+        AuditAction action = status == ArticleStatus.DRAFT
+            ? AuditAction.KB_ARTICLE_DRAFT_CREATE
+            : AuditAction.KB_ARTICLE_PUBLISH;
+        auditLogService.publish(AuditEvent.of(action)
+            .userId(author.getId())
+            .resourceType("Article")
+            .resourceId(saved.getId())
+            .details("{\"title\": \"" + saved.getTitle() + "\", \"status\": \"" + saved.getStatus().name() + "\"}")
+            .build());
+
         log.info("Article created with ID: {}", saved.getId());
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ArticleResponseDTO.from(saved));
     }
+
+        @PutMapping("/{id}")
+        @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+        public ResponseEntity<ArticleResponseDTO> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody ArticleRequestDTO request) {
+        User editor = getAuthenticatedUser();
+
+        Article article = articleRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Article not found with id: " + id));
+
+        article.setTitle(request.getTitle());
+        article.setContent(request.getContent());
+        article.setTags(request.getTags());
+        if (request.getStatus() != null) {
+            article.setStatus(request.getStatus());
+        }
+        article.setUpdatedAt(LocalDateTime.now());
+
+        Article saved = articleRepository.save(article);
+        auditLogService.publish(AuditEvent.of(AuditAction.KB_ARTICLE_EDIT)
+            .userId(editor.getId())
+            .resourceType("Article")
+            .resourceId(saved.getId())
+            .details("{\"status\": \"" + saved.getStatus().name() + "\"}")
+            .build());
+
+        return ResponseEntity.ok(ArticleResponseDTO.from(saved));
+        }
+
+        private User getAuthenticatedUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userIdStr = auth.getPrincipal().toString();
+        UUID userId = UUID.fromString(userIdStr);
+        return userRepository.findById(userId)
+            .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
+        }
 }

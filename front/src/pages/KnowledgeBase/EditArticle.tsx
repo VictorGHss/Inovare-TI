@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createArticle, uploadGenericFile, type ArticleStatus } from '../../services/api';
+import { getArticleById, updateArticle, uploadGenericFile, type ArticleStatus } from '../../services/api';
 
-export default function NewArticle() {
+export default function EditArticle() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -12,116 +13,121 @@ export default function NewArticle() {
   const [status, setStatus] = useState<ArticleStatus>('PUBLISHED');
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Insere texto no textarea na posição do cursor
+  useEffect(() => {
+    if (!id) return;
+    const fetchArticle = async () => {
+      try {
+        const article = await getArticleById(id);
+        setTitle(article.title);
+        setContent(article.content);
+        setTags(article.tags ?? '');
+        setStatus(article.status ?? 'PUBLISHED');
+      } catch {
+        toast.error('Erro ao carregar artigo para edição.');
+        navigate('/knowledge-base');
+      } finally {
+        setIsFetching(false);
+      }
+    };
+    void fetchArticle();
+  }, [id, navigate]);
+
   const insertAtCursor = (text: string) => {
     if (!textareaRef.current) return;
-
     const textarea = textareaRef.current;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const newContent =
-      content.substring(0, start) + text + content.substring(end);
-
+    const newContent = content.substring(0, start) + text + content.substring(end);
     setContent(newContent);
-
-    // Reposiciona o cursor após o texto inserido
     setTimeout(() => {
       textarea.selectionStart = textarea.selectionEnd = start + text.length;
       textarea.focus();
     }, 0);
   };
 
-  // Manipula cola de imagens (Ctrl+V com imagem)
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;
     let hasImage = false;
-
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (item.type.includes('image')) {
         hasImage = true;
         e.preventDefault();
-
         const file = item.getAsFile();
         if (!file) continue;
-
         setIsUploading(true);
         toast.info('Fazendo upload...');
-
         try {
           const response = await uploadGenericFile(file);
-          const markdownImage = `![Imagem](${response.url})`;
-          insertAtCursor(markdownImage);
+          insertAtCursor(`![Imagem](${response.url})`);
           toast.success('Imagem inserida com sucesso!');
-        } catch (error) {
+        } catch {
           toast.error('Erro ao fazer upload da imagem');
-          console.error('Upload error:', error);
         } finally {
           setIsUploading(false);
         }
       }
     }
-
-    if (!hasImage) {
-      // Deixa o comportamento padrão para texto
-      return;
-    }
+    if (!hasImage) return;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!title.trim() || !content.trim()) {
       toast.error('Título e conteúdo são obrigatórios');
       return;
     }
-
+    if (!id) return;
     setIsLoading(true);
-
     try {
-      await createArticle({
+      await updateArticle(id, {
         title: title.trim(),
         content: content.trim(),
         tags: tags.trim() || undefined,
         status,
       });
-
-      toast.success(status === 'DRAFT' ? 'Rascunho salvo com sucesso!' : 'Artigo publicado com sucesso!');
-      navigate('/knowledge-base');
-    } catch (error) {
-      toast.error('Erro ao criar artigo');
-      console.error('Create article error:', error);
+      toast.success(status === 'DRAFT' ? 'Rascunho atualizado!' : 'Artigo atualizado e publicado!');
+      navigate(`/knowledge-base/${id}`);
+    } catch {
+      toast.error('Erro ao atualizar artigo');
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (isFetching) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 size={40} className="text-brand-primary animate-spin" />
+          <p className="text-slate-600">Carregando artigo...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
-        {/* Cabeçalho */}
         <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={() => navigate('/knowledge-base')}
+            onClick={() => navigate(`/knowledge-base/${id}`)}
             className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-3xl font-bold text-slate-900">Novo Artigo</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Editar Artigo</h1>
         </div>
 
-        {/* Formulário */}
         <form
           onSubmit={handleSubmit}
           className="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
         >
-          {/* Campo de Título */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Título
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Título</label>
             <input
               type="text"
               value={title}
@@ -132,7 +138,6 @@ export default function NewArticle() {
             />
           </div>
 
-          {/* Campo de Tags */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Tags (separadas por vírgula)
@@ -145,12 +150,8 @@ export default function NewArticle() {
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               disabled={isLoading || isUploading}
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Use tags para facilitar a busca. Exemplo: "vpn, tutorial, windows"
-            </p>
           </div>
 
-          {/* Status de publicação */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Status de Publicação
@@ -166,11 +167,8 @@ export default function NewArticle() {
             </select>
           </div>
 
-          {/* Campo de Conteúdo */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Conteúdo
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Conteúdo</label>
             <p className="text-xs text-slate-500 mb-2">
               💡 Cole imagens diretamente (Ctrl+V) para inserir: ![Imagem](url)
             </p>
@@ -185,11 +183,10 @@ export default function NewArticle() {
             />
           </div>
 
-          {/* Botões */}
           <div className="flex gap-3 justify-end">
             <button
               type="button"
-              onClick={() => navigate('/knowledge-base')}
+              onClick={() => navigate(`/knowledge-base/${id}`)}
               className="px-6 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
               disabled={isLoading || isUploading}
             >
@@ -206,7 +203,7 @@ export default function NewArticle() {
                   Salvando...
                 </>
               ) : (
-                status === 'DRAFT' ? 'Salvar Rascunho' : 'Publicar Artigo'
+                status === 'DRAFT' ? 'Salvar Rascunho' : 'Publicar Alterações'
               )}
             </button>
           </div>

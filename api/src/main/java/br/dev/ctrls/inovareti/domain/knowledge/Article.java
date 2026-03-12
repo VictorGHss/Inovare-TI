@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -53,6 +55,12 @@ public class Article {
 
     @Column(name = "tags", length = 500)
     private String tags;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private ArticleStatus status = ArticleStatus.PUBLISHED;
 
     @NotNull
     @Column(name = "created_at", nullable = false, updatable = false)

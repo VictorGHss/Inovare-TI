@@ -20,6 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceResponseDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
@@ -43,6 +46,7 @@ public class AssetController {
     private final AssetQueryService assetQueryService;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
+        private final AuditLogService auditLogService;
 
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -157,6 +161,11 @@ public class AssetController {
         asset.setInvoiceFilePath(metadata.getFilePath());
 
         Asset updatedAsset = assetRepository.save(asset);
+        auditLogService.publish(AuditEvent.of(AuditAction.ASSET_INVOICE_ATTACH)
+                .resourceType("Asset")
+                .resourceId(updatedAsset.getId())
+                .details("{\"invoiceFileName\": \"" + metadata.getFileName() + "\"}")
+                .build());
         return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));
     }
 

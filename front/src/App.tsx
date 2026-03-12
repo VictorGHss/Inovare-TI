@@ -28,6 +28,7 @@ const Users = lazy(() => import('./pages/Users'));
 const Sectors = lazy(() => import('./pages/Sectors'));
 const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
 const NewArticle = lazy(() => import('./pages/KnowledgeBase/NewArticle'));
+const EditArticle = lazy(() => import('./pages/KnowledgeBase/EditArticle'));
 const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails'));
 const Vault = lazy(() => import('./pages/Vault'));
 const SystemLogs = lazy(() => import('./pages/SystemLogs'));
@@ -110,6 +111,7 @@ function AppRoutes() {
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
           <Route path="/knowledge-base/new" element={<NewArticle />} />
           <Route path="/knowledge-base/:id" element={<ArticleDetails />} />
+          <Route path="/knowledge-base/:id/edit" element={<EditArticle />} />
           <Route
             path="/vault"
             element={(

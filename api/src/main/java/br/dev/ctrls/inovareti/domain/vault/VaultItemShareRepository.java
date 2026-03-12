@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface VaultItemShareRepository extends JpaRepository<VaultItemShare, UUID> {
 
     boolean existsByVaultItemIdAndSharedWithUserId(UUID vaultItemId, UUID sharedWithUserId);
+
+    void deleteByVaultItemId(UUID vaultItemId);
 }

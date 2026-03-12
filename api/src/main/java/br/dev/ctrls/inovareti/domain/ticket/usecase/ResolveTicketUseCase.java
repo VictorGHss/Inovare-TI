@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.asset.Asset;
 import br.dev.ctrls.inovareti.domain.asset.AssetCategory;
 import br.dev.ctrls.inovareti.domain.asset.AssetCategoryRepository;
@@ -52,6 +55,7 @@ public class ResolveTicketUseCase {
         private final StockDeductionService stockDeductionService;
         private final DiscordDirectMessageService discordDirectMessageService;
         private final UserRepository userRepository;
+        private final AuditLogService auditLogService;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -189,6 +193,12 @@ public class ResolveTicketUseCase {
         ticket.setClosedAt(LocalDateTime.now());
 
         Ticket resolvedTicket = ticketRepository.save(ticket);
+        auditLogService.publish(AuditEvent.of(AuditAction.TICKET_RESOLVE)
+                .userId(authenticatedUserId)
+                .resourceType("Ticket")
+                .resourceId(resolvedTicket.getId())
+                .details("{\"status\": \"RESOLVED\"}")
+                .build());
 
         String shortId = resolvedTicket.getId().toString().substring(0, 8).toUpperCase();
         String resolutionText = request.resolutionNotes() != null && !request.resolutionNotes().isBlank()

@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
+import br.dev.ctrls.inovareti.domain.vault.dto.VaultUpdateItemRequestDTO;
 import br.dev.ctrls.inovareti.infra.security.EncryptionService;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -135,6 +136,96 @@ public class VaultService {
         return new VaultSecretResponseDTO(item.getId(), content);
     }
 
+    @Transactional
+    public VaultItemResponseDTO updateItem(
+            UUID authenticatedUserId,
+            UUID itemId,
+            VaultUpdateItemRequestDTO request,
+            MultipartFile file,
+            String ipAddress) {
+        User authenticatedUser = userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
+
+        VaultItem item = vaultItemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+
+        if (!canUserManageItem(authenticatedUser, item)) {
+            throw new AccessDeniedException("Apenas o proprietário do item ou ADMIN podem editar este registro.");
+        }
+
+        validateUpdateRequest(request, item);
+
+        item.setTitle(request.title());
+        item.setDescription(request.description());
+        item.setItemType(request.itemType());
+        item.setSharingType(request.sharingType());
+
+        if (request.itemType() == VaultItemType.CREDENTIAL && request.secretContent() != null && !request.secretContent().isBlank()) {
+            item.setSecretContent(encryptionService.encrypt(request.secretContent()));
+        } else if (request.itemType() != VaultItemType.CREDENTIAL) {
+            item.setSecretContent(request.secretContent());
+        }
+
+        if (file != null && !file.isEmpty()) {
+            if (item.getFilePath() != null && !item.getFilePath().isBlank()) {
+                try {
+                    fileStorageService.delete(item.getFilePath());
+                } catch (IOException ex) {
+                    throw new IllegalStateException("Falha ao remover o anexo anterior do cofre.", ex);
+                }
+            }
+            item.setFilePath(storeVaultFileIfPresent(file));
+        }
+
+        item.setUpdatedAt(LocalDateTime.now());
+        VaultItem savedItem = vaultItemRepository.save(item);
+
+        vaultItemShareRepository.deleteByVaultItemId(savedItem.getId());
+        createCustomShares(savedItem, request.sharedWithUserIds());
+
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_EDIT)
+                .userId(authenticatedUserId)
+                .resourceType("VaultItem")
+                .resourceId(savedItem.getId())
+                .details("{\"itemTitle\": \"" + savedItem.getTitle() + "\"}")
+                .ipAddress(ipAddress)
+                .build());
+
+        return VaultItemResponseDTO.from(savedItem);
+    }
+
+    @Transactional
+    public void deleteItem(UUID authenticatedUserId, UUID itemId, String ipAddress) {
+        User authenticatedUser = userRepository.findById(authenticatedUserId)
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
+
+        VaultItem item = vaultItemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+
+        if (!canUserManageItem(authenticatedUser, item)) {
+            throw new AccessDeniedException("Apenas o proprietário do item ou ADMIN podem excluir este registro.");
+        }
+
+        if (item.getFilePath() != null && !item.getFilePath().isBlank()) {
+            try {
+                fileStorageService.delete(item.getFilePath());
+            } catch (IOException ex) {
+                throw new IllegalStateException("Falha ao remover o anexo do cofre.", ex);
+            }
+        }
+
+        vaultItemShareRepository.deleteByVaultItemId(item.getId());
+        vaultItemRepository.delete(item);
+
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_DELETE)
+                .userId(authenticatedUserId)
+                .resourceType("VaultItem")
+                .resourceId(itemId)
+                .details("{\"itemTitle\": \"" + item.getTitle() + "\"}")
+                .ipAddress(ipAddress)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public VaultItem findAccessibleItem(UUID authenticatedUserId, UUID itemId) {
         User user = userRepository.findById(authenticatedUserId)
@@ -154,6 +245,21 @@ public class VaultService {
         if (request.itemType() == VaultItemType.CREDENTIAL
                 && (request.secretContent() == null || request.secretContent().isBlank())) {
             throw new BadRequestException("O conteúdo secreto é obrigatório para itens do tipo CREDENTIAL.");
+        }
+
+        if (request.sharingType() == VaultSharingType.CUSTOM
+                && (request.sharedWithUserIds() == null || request.sharedWithUserIds().isEmpty())) {
+            throw new BadRequestException("É necessário informar ao menos um usuário para compartilhamento CUSTOM.");
+        }
+    }
+
+    private void validateUpdateRequest(VaultUpdateItemRequestDTO request, VaultItem currentItem) {
+        if (request.itemType() == VaultItemType.CREDENTIAL) {
+            boolean hasExistingSecret = currentItem.getSecretContent() != null && !currentItem.getSecretContent().isBlank();
+            boolean hasNewSecret = request.secretContent() != null && !request.secretContent().isBlank();
+            if (!hasExistingSecret && !hasNewSecret) {
+                throw new BadRequestException("O conteúdo secreto é obrigatório para itens do tipo CREDENTIAL.");
+            }
         }
 
         if (request.sharingType() == VaultSharingType.CUSTOM
@@ -212,5 +318,9 @@ public class VaultService {
         }
 
         return false;
+    }
+
+    private boolean canUserManageItem(User user, VaultItem item) {
+        return item.getOwner().getId().equals(user.getId()) || user.getRole() == UserRole.ADMIN;
     }
 }

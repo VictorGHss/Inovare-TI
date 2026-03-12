@@ -10,6 +10,10 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, UUID> {
+    List<Article> findAllByStatusOrderByCreatedAtDesc(ArticleStatus status);
+
+    List<Article> findAllByOrderByCreatedAtDesc();
+
     /**
      * Busca artigos cujo título ou tags contém o texto informado (case-insensitive).
      * @param query o texto de busca
@@ -17,4 +21,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID> {
      */
     @Query("SELECT a FROM Article a WHERE LOWER(a.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(a.tags) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Article> findByTitleContainingIgnoreCase(@Param("query") String query);
+
+    @Query("SELECT a FROM Article a WHERE a.status = br.dev.ctrls.inovareti.domain.knowledge.ArticleStatus.PUBLISHED AND (LOWER(a.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(a.tags) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<Article> findPublishedByTitleContainingIgnoreCase(@Param("query") String query);
 }

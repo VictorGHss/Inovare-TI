@@ -215,14 +215,18 @@ export interface Article {
   authorId: string;
   authorName: string;
   tags: string | null;
+  status: 'DRAFT' | 'PUBLISHED';
   createdAt: string;
   updatedAt: string | null;
 }
+
+export type ArticleStatus = 'DRAFT' | 'PUBLISHED';
 
 export interface CreateArticleDto {
   title: string;
   content: string;
   tags?: string;
+  status?: ArticleStatus;
 }
 
 export interface AssetMaintenance {
@@ -552,6 +556,15 @@ export interface VaultCreateItemRequestDTO {
   sharedWithUserIds?: string[];
 }
 
+export interface VaultUpdateItemRequestDTO {
+  title: string;
+  description?: string;
+  itemType: 'CREDENTIAL' | 'DOCUMENT' | 'NOTE';
+  secretContent?: string;
+  sharingType: 'PRIVATE' | 'ALL_TECH_ADMIN' | 'CUSTOM';
+  sharedWithUserIds?: string[];
+}
+
 export interface VaultSecretResponseDTO {
   itemId: string;
   secretContent: string;
@@ -646,6 +659,31 @@ export async function createVaultItem(
   return data;
 }
 
+export async function updateVaultItem(
+  vaultItemId: string,
+  payload: VaultUpdateItemRequestDTO,
+  file?: File | null,
+): Promise<VaultItem> {
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload));
+
+  if (file) {
+    formData.append('file', file);
+  }
+
+  const { data } = await api.patch<VaultItem>(`/api/vault/${vaultItemId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return data;
+}
+
+export async function deleteVaultItem(vaultItemId: string): Promise<void> {
+  await api.delete(`/api/vault/${vaultItemId}`);
+}
+
 export async function shareVaultItem(vaultItemId: string, userId: string): Promise<void> {
   await api.post(`/api/vault/${vaultItemId}/share`, { userId });
 }
@@ -715,6 +753,11 @@ export async function getArticleById(id: string): Promise<Article> {
 // Cria um novo artigo (requer ADMIN ou TECHNICIAN)
 export async function createArticle(dto: CreateArticleDto): Promise<Article> {
   const { data } = await api.post<Article>('/api/articles', dto);
+  return data;
+}
+
+export async function updateArticle(id: string, dto: CreateArticleDto): Promise<Article> {
+  const { data } = await api.put<Article>(`/api/articles/${id}`, dto);
   return data;
 }
 
@@ -867,6 +910,10 @@ export interface ImportResult {
   errors: string[];
 }
 
+export async function logQrScan(scannedPath: string): Promise<void> {
+  await api.post('/api/audit-logs/qr-scan', { scannedPath });
+}
+
 /**
  * Imports users and assets from CSV file.
  */
@@ -885,13 +932,33 @@ export async function importCsv(file: File): Promise<ImportResult> {
 // ==================== AUDIT LOGS ====================
 
 export type AuditAction =
+  | 'VAULT_LOGIN_SUCCESS'
+  | 'VAULT_LOGIN_FAILURE'
   | 'VAULT_SECRET_VIEW'
   | 'VAULT_FILE_VIEW'
   | 'VAULT_ITEM_CREATE'
+  | 'VAULT_ITEM_EDIT'
+  | 'VAULT_ITEM_DELETE'
   | 'LOGIN_SUCCESS'
   | 'LOGIN_FAILURE'
   | 'TWO_FACTOR_RESET'
   | 'TWO_FACTOR_ADMIN_RESET'
+  | 'TICKET_OPEN'
+  | 'TICKET_ASSIGN'
+  | 'TICKET_TRANSFER'
+  | 'TICKET_RESOLVE'
+  | 'INVENTORY_BATCH_ENTRY'
+  | 'INVENTORY_ITEM_CREATE'
+  | 'ASSET_CREATE'
+  | 'ASSET_INVOICE_ATTACH'
+  | 'QR_SCAN'
+  | 'KB_ARTICLE_DRAFT_CREATE'
+  | 'KB_ARTICLE_PUBLISH'
+  | 'KB_ARTICLE_EDIT'
+  | 'SECTOR_CREATE'
+  | 'USER_CREATE'
+  | 'USER_UPDATE'
+  | 'USER_PASSWORD_RESET'
   | 'USER_PERMISSION_CHANGE';
 
 export interface AuditLog {

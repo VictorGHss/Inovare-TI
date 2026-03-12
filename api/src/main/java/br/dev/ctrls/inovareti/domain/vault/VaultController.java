@@ -10,7 +10,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,7 @@ import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
+import br.dev.ctrls.inovareti.domain.vault.dto.VaultUpdateItemRequestDTO;
 import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +61,25 @@ public class VaultController {
     @GetMapping
     public ResponseEntity<List<VaultItemResponseDTO>> listVisibleItems() {
         return ResponseEntity.ok(vaultService.listVisibleItems(getAuthenticatedUserId()));
+    }
+
+    @PatchMapping(value = "/{itemId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<VaultItemResponseDTO> updateItem(
+            @PathVariable UUID itemId,
+            @RequestPart("payload") String payload,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            HttpServletRequest httpRequest) {
+
+        VaultUpdateItemRequestDTO request = parseUpdatePayload(payload);
+        VaultItemResponseDTO response = vaultService.updateItem(
+                getAuthenticatedUserId(), itemId, request, file, getClientIp(httpRequest));
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{itemId}")
+    public ResponseEntity<Void> deleteItem(@PathVariable UUID itemId, HttpServletRequest httpRequest) {
+        vaultService.deleteItem(getAuthenticatedUserId(), itemId, getClientIp(httpRequest));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{itemId}/secret")
@@ -133,6 +155,14 @@ public class VaultController {
             return objectMapper.readValue(payload, VaultCreateItemRequestDTO.class);
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             throw new BadRequestException("Payload do item do cofre inválido.");
+        }
+    }
+
+    private VaultUpdateItemRequestDTO parseUpdatePayload(String payload) {
+        try {
+            return objectMapper.readValue(payload, VaultUpdateItemRequestDTO.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new BadRequestException("Payload de atualização do item do cofre inválido.");
         }
     }
 

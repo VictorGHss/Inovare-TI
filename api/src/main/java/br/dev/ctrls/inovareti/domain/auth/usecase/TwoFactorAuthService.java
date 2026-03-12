@@ -24,6 +24,9 @@ import com.warrenstrange.googleauth.GoogleAuthenticator;
 import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -37,6 +40,7 @@ public class TwoFactorAuthService {
 
     private final UserRepository userRepository;
     private final TokenService tokenService;
+    private final AuditLogService auditLogService;
     private final GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
 
     @Value("${spring.application.name:inovare-ti}")
@@ -55,7 +59,7 @@ public class TwoFactorAuthService {
         return new TwoFactorGenerateResponseDTO(qrCodeBase64, otpauthUrl);
     }
 
-    public AuthResponseDTO verifyCode(UUID userId, String code) {
+    public AuthResponseDTO verifyCode(UUID userId, String code, String ipAddress) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado para validação de 2FA."));
 
@@ -72,8 +76,21 @@ public class TwoFactorAuthService {
 
         boolean isValid = googleAuthenticator.authorize(user.getTotpSecret(), codeNumber);
         if (!isValid) {
+            auditLogService.publish(AuditEvent.of(AuditAction.VAULT_LOGIN_FAILURE)
+                    .userId(userId)
+                    .resourceType("Vault")
+                    .details("{\"reason\": \"INVALID_2FA_CODE\"}")
+                    .ipAddress(ipAddress)
+                    .build());
             throw new BadRequestException("Código 2FA inválido.");
         }
+
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_LOGIN_SUCCESS)
+                .userId(userId)
+                .resourceType("Vault")
+                .details("{\"result\": \"2FA_VERIFIED\"}")
+                .ipAddress(ipAddress)
+                .build());
 
         String token = tokenService.generateToken(user, true);
         return AuthResponseDTO.authenticated(token, UserResponseDTO.from(user));

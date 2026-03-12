@@ -1,6 +1,9 @@
 package br.dev.ctrls.inovareti.domain.user.usecase;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.user.Sector;
 import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateSectorUseCase {
 
     private final SectorRepository sectorRepository;
+    private final AuditLogService auditLogService;
 
     /**
      * Executa a criação do setor.
@@ -38,6 +42,13 @@ public class CreateSectorUseCase {
                 .name(request.name())
                 .build();
 
-        return SectorResponseDTO.from(sectorRepository.save(sector));
+        Sector savedSector = sectorRepository.save(sector);
+        auditLogService.publish(AuditEvent.of(AuditAction.SECTOR_CREATE)
+            .resourceType("Sector")
+            .resourceId(savedSector.getId())
+            .details("{\"name\": \"" + savedSector.getName() + "\"}")
+            .build());
+
+        return SectorResponseDTO.from(savedSector);
     }
 }

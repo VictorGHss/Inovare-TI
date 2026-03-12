@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
@@ -44,6 +47,7 @@ public class CreateTicketUseCase {
     private final ItemRepository itemRepository;
     private final CreateNotificationService createNotificationService;
     private final DiscordWebhookService discordWebhookService;
+    private final AuditLogService auditLogService;
 
     /**
      * Abre um chamado com os dados fornecidos.
@@ -96,6 +100,12 @@ public class CreateTicketUseCase {
                 .build();
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        auditLogService.publish(AuditEvent.of(AuditAction.TICKET_OPEN)
+            .userId(requester.getId())
+            .resourceType("Ticket")
+            .resourceId(savedTicket.getId())
+            .details("{\"title\": \"" + savedTicket.getTitle() + "\"}")
+            .build());
         log.info("Ticket created with ID: {} by user: {} ({}), category: {}, priority: {}",
                 savedTicket.getId(), requester.getName(), requester.getEmail(),
                 category.getName(), savedTicket.getPriority());

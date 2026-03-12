@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
@@ -32,6 +35,7 @@ public class RegisterStockBatchUseCase {
     private final ItemRepository itemRepository;
     private final StockBatchRepository stockBatchRepository;
         private final StockMovementRepository stockMovementRepository;
+        private final AuditLogService auditLogService;
 
     /**
      * Registra o lote e atualiza o estoque do item.
@@ -72,6 +76,12 @@ public class RegisterStockBatchUseCase {
                 .date(LocalDateTime.now())
                 .build();
         stockMovementRepository.save(movement);
+
+        auditLogService.publish(AuditEvent.of(AuditAction.INVENTORY_BATCH_ENTRY)
+                .resourceType("StockBatch")
+                .resourceId(batch.getId())
+                .details("{\"itemId\": \"" + item.getId() + "\", \"quantity\": " + request.quantity() + "}")
+                .build());
 
         return StockBatchResponseDTO.from(batch);
     }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Download, Laptop, HardDrive } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   getDashboardAnalytics,
   getTickets,
@@ -51,6 +51,8 @@ export default function Dashboard() {
       transition: { duration: 0.22 },
     },
   };
+
+  const topBarsPalette = ['#ffa751', '#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#64748b'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -182,13 +184,17 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {analytics && analytics.ticketsBySector.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Top Setores com Mais Chamados</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">Top 5 Setores com Mais Chamados</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={analytics.ticketsBySector} layout="vertical">
                     <XAxis type="number" style={{ fontSize: '12px' }} />
                     <YAxis type="category" dataKey="name" width={120} style={{ fontSize: '12px' }} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#ffa751" radius={[0, 8, 8, 0]} />
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                      {analytics.ticketsBySector.map((entry, index) => (
+                        <Cell key={`sector-bar-${entry.name}`} fill={topBarsPalette[index % topBarsPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -196,13 +202,17 @@ export default function Dashboard() {
 
             {analytics && analytics.ticketsByRequester.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Top Usuários que Mais Abrem Chamados</h3>
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">Top 5 Usuários que Mais Abrem Chamados</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={analytics.ticketsByRequester} layout="vertical">
                     <XAxis type="number" style={{ fontSize: '12px' }} />
                     <YAxis type="category" dataKey="name" width={120} style={{ fontSize: '12px' }} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#1e2a44" radius={[0, 8, 8, 0]} />
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                      {analytics.ticketsByRequester.map((entry, index) => (
+                        <Cell key={`requester-bar-${entry.name}`} fill={topBarsPalette[index % topBarsPalette.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>

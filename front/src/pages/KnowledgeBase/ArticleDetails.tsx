@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ReactMarkdown from 'react-markdown';
 import type { Article } from '../../services/api';
 import { getArticleById } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function ArticleDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
   useEffect(() => {
     if (!id) return;
@@ -95,20 +99,39 @@ export default function ArticleDetails() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
         {/* Voltar */}
-        <button
-          onClick={() => navigate('/knowledge-base')}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors mb-6"
-        >
-          <ArrowLeft size={20} />
-          Voltar
-        </button>
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate('/knowledge-base')}
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft size={20} />
+            Voltar
+          </button>
+
+          {canEdit && (
+            <button
+              onClick={() => navigate(`/knowledge-base/${id}/edit`)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+            >
+              <Pencil size={15} />
+              Editar
+            </button>
+          )}
+        </div>
 
         {/* Container do Artigo */}
         <article className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
           {/* Título */}
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">
-            {article.title}
-          </h1>
+          <div className="flex flex-wrap items-start gap-3 mb-4">
+            <h1 className="text-4xl font-bold text-slate-900 flex-1">
+              {article.title}
+            </h1>
+            {article.status === 'DRAFT' && (
+              <span className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
+                Rascunho
+              </span>
+            )}
+          </div>
 
           {/* Tags */}
           {article.tags && article.tags.trim() && (

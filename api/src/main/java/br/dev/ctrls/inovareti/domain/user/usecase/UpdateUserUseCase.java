@@ -54,6 +54,14 @@ public class UpdateUserUseCase {
 
         UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
 
+        auditLogService.publish(AuditEvent.of(AuditAction.USER_UPDATE)
+                .userId(adminUserId)
+                .resourceType("User")
+                .resourceId(userId)
+                .details("{\"targetUserId\": \"" + userId + "\"}")
+                .ipAddress(ipAddress)
+                .build());
+
         String newRole = request.role().name();
         boolean roleChanged = !java.util.Objects.equals(oldRole, newRole);
         boolean sectorChanged = !java.util.Objects.equals(oldSectorId, request.sectorId());

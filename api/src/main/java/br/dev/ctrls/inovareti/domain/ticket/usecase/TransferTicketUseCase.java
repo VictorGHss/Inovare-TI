@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
@@ -24,6 +27,7 @@ public class TransferTicketUseCase {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final CreateNotificationService createNotificationService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UUID newUserId) {
@@ -40,6 +44,12 @@ public class TransferTicketUseCase {
         }
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        auditLogService.publish(AuditEvent.of(AuditAction.TICKET_TRANSFER)
+            .userId(newAssignee.getId())
+            .resourceType("Ticket")
+            .resourceId(savedTicket.getId())
+            .details("{\"newAssignee\": \"" + newAssignee.getEmail() + "\"}")
+            .build());
         // Notify new assignee about the transfer
         createNotificationService.create(
                 newAssignee.getId(),

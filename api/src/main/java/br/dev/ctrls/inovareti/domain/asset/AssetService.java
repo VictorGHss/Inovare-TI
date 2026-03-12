@@ -8,6 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ public class AssetService {
     private final AssetRepository assetRepository;
     private final AssetCategoryRepository assetCategoryRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
@@ -48,7 +52,14 @@ public class AssetService {
                     .specifications(request.specifications())
                     .build();
 
-            createdAssets.add(assetRepository.save(asset));
+            Asset savedAsset = assetRepository.save(asset);
+            auditLogService.publish(AuditEvent.of(AuditAction.ASSET_CREATE)
+                    .resourceType("Asset")
+                    .resourceId(savedAsset.getId())
+                    .details("{\"patrimonyCode\": \"" + savedAsset.getPatrimonyCode() + "\"}")
+                    .build());
+
+            createdAssets.add(savedAsset);
         }
 
         return createdAssets;

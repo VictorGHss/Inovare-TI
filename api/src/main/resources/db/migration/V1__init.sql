@@ -345,3 +345,51 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at DESC);
 -- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
 -- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.
 -- =============================================================================
+
+-- =============================================================================
+-- AJUSTES INCREMENTAIS V1 (SEM NOVA MIGRACAO)
+-- =============================================================================
+
+ALTER TABLE articles
+    ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'PUBLISHED';
+
+ALTER TABLE articles
+    DROP CONSTRAINT IF EXISTS ck_articles_status;
+
+ALTER TABLE articles
+    ADD CONSTRAINT ck_articles_status CHECK (status IN ('DRAFT', 'PUBLISHED'));
+
+ALTER TABLE audit_logs
+    DROP CONSTRAINT IF EXISTS ck_audit_logs_action;
+
+ALTER TABLE audit_logs
+    ADD CONSTRAINT ck_audit_logs_action CHECK (action IN (
+        'VAULT_LOGIN_SUCCESS',
+        'VAULT_LOGIN_FAILURE',
+        'VAULT_SECRET_VIEW',
+        'VAULT_FILE_VIEW',
+        'VAULT_ITEM_CREATE',
+        'VAULT_ITEM_EDIT',
+        'VAULT_ITEM_DELETE',
+        'LOGIN_SUCCESS',
+        'LOGIN_FAILURE',
+        'TWO_FACTOR_RESET',
+        'TWO_FACTOR_ADMIN_RESET',
+        'TICKET_OPEN',
+        'TICKET_ASSIGN',
+        'TICKET_TRANSFER',
+        'TICKET_RESOLVE',
+        'INVENTORY_BATCH_ENTRY',
+        'INVENTORY_ITEM_CREATE',
+        'ASSET_CREATE',
+        'ASSET_INVOICE_ATTACH',
+        'QR_SCAN',
+        'KB_ARTICLE_DRAFT_CREATE',
+        'KB_ARTICLE_PUBLISH',
+        'KB_ARTICLE_EDIT',
+        'SECTOR_CREATE',
+        'USER_CREATE',
+        'USER_UPDATE',
+        'USER_PASSWORD_RESET',
+        'USER_PERMISSION_CHANGE'
+    ));

@@ -105,6 +105,13 @@ export default function KnowledgeBase() {
                   onClick={() => navigate(`/knowledge-base/${article.id}`)}
                   className="p-5 bg-white rounded-lg shadow-sm border border-slate-200 hover:shadow-md hover:border-brand-primary transition-all text-left"
                 >
+                  {/* Badge de rascunho (visível apenas para quem pode gerenciar) */}
+                  {article.status === 'DRAFT' && canCreateArticle && (
+                    <span className="inline-block mb-2 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                      Rascunho
+                    </span>
+                  )}
+
                   {/* Título */}
                   <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 hover:text-brand-primary">
                     {article.title}

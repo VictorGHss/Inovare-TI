@@ -6,6 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.user.Sector;
 import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -29,6 +32,7 @@ public class CreateUserUseCase {
     private final UserRepository userRepository;
     private final SectorRepository sectorRepository;
     private final PasswordEncoder passwordEncoder;
+        private final AuditLogService auditLogService;
 
     /**
      * Executa a criação do usuário.
@@ -63,6 +67,13 @@ public class CreateUserUseCase {
                 .discordUserId(request.discordUserId())
                 .build();
 
-        return UserResponseDTO.from(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        auditLogService.publish(AuditEvent.of(AuditAction.USER_CREATE)
+                .resourceType("User")
+                .resourceId(savedUser.getId())
+                .details("{\"email\": \"" + savedUser.getEmail() + "\"}")
+                .build());
+
+        return UserResponseDTO.from(savedUser);
     }
 }

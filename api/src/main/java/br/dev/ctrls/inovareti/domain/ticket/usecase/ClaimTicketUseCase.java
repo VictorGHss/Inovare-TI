@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
@@ -25,6 +28,7 @@ public class ClaimTicketUseCase {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final DiscordDirectMessageService discordDirectMessageService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {
@@ -40,6 +44,12 @@ public class ClaimTicketUseCase {
         ticket.setStatus(TicketStatus.IN_PROGRESS);
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        auditLogService.publish(AuditEvent.of(AuditAction.TICKET_ASSIGN)
+            .userId(currentUser.getId())
+            .resourceType("Ticket")
+            .resourceId(savedTicket.getId())
+            .details("{\"assignedTo\": \"" + currentUser.getName() + "\"}")
+            .build());
 
         String shortId = savedTicket.getId().toString().substring(0, 8).toUpperCase();
         String dmTitle = "Chamado Assumido";

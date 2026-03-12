@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, X, HardDrive, FileText, Download, Printer } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -58,21 +58,7 @@ export default function Assets() {
     return new Map(users.map((currentUser) => [currentUser.id, currentUser.name]));
   }, [users]);
 
-  useEffect(() => {
-    fetchInitialData();
-    fetchAssets();
-  }, []);
-
-  useEffect(() => {
-    fetchInitialData();
-    fetchAssets();
-  }, [canManageAssets]);
-
-  useEffect(() => {
-    fetchAssets();
-  }, [statusFilter, categoryFilter, sortFilter]);
-
-  async function fetchInitialData() {
+  const fetchInitialData = useCallback(async () => {
     if (!canManageAssets) {
       return;
     }
@@ -86,9 +72,9 @@ export default function Assets() {
       setUsers([]);
       setCategories([]);
     }
-  }
+  }, [canManageAssets]);
 
-  async function fetchAssets() {
+  const fetchAssets = useCallback(async () => {
     if (!canManageAssets) {
       setLoading(false);
       return;
@@ -114,7 +100,15 @@ export default function Assets() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [canManageAssets, statusFilter, categoryFilter, sortFilter]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
 
   function formatCreatedAt(isoDate: string): string {
     return new Date(isoDate).toLocaleDateString('pt-BR');

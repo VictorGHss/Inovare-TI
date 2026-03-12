@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceResponseDTO;
@@ -37,7 +38,6 @@ import lombok.RequiredArgsConstructor;
 public class AssetController {
 
     private final AssetRepository assetRepository;
-    private final AssetCategoryRepository assetCategoryRepository;
     private final UserRepository userRepository;
     private final AssetService assetService;
     private final AssetQueryService assetQueryService;
@@ -272,6 +272,6 @@ public class AssetController {
         // Cria o log de transferência
         maintenanceService.createTransferLog(updatedAsset, oldUser, newUser, request.reason(), technician);
 
-        return ResponseEntity.ok(toResponseDTO(updatedAsset));
+                return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));
     }
 }

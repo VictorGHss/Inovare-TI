@@ -87,6 +87,11 @@ public class DiscordDirectMessageService {
             return;
         }
 
+        if (discordUserId == null || discordUserId.isBlank()) {
+            log.error("Failed to send 2FA reset DM: invalid Discord user id '{}'.", discordUserId);
+            return;
+        }
+
         var embed = new EmbedBuilder()
                 .setColor(CLINIC_BRAND_COLOR)
                 .setTitle("🔐 Recuperação de Autenticação 2FA — Inovare TI")
@@ -104,7 +109,11 @@ public class DiscordDirectMessageService {
                     .sendMessageEmbeds(embed).complete();
             log.info("2FA reset code sent via Discord DM to user {}", discordUserId);
         } catch (Exception ex) {
-            log.warn("Failed to send 2FA reset DM to Discord user {}: {}", discordUserId, ex.getMessage());
+            log.error(
+                    "Failed to send 2FA reset DM to Discord user {}. Possível causa: ID inválido, DM bloqueada ou permissão do bot. Erro: {}",
+                    discordUserId,
+                    ex.getMessage(),
+                    ex);
         }
     }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Eye,
@@ -46,7 +47,8 @@ const dropzoneClassName =
   'block w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500 hover:border-brand-primary hover:bg-brand-secondary/30 transition cursor-pointer';
 
 export default function Vault() {
-  const { user, isTwoFactorVerified, updateAuthToken } = useAuth();
+  const { user, isTwoFactorVerified, updateAuthToken, invalidateTwoFactorVerification } = useAuth();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState<VaultItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -249,6 +251,7 @@ export default function Vault() {
       const response = await confirm2FAReset(recoveryCode.trim(), recoveryPassword);
       if (!response.token) throw new Error('Token inválido');
       updateAuthToken(response.token, response.user);
+      invalidateTwoFactorVerification();
       toast.success('2FA redefinido com sucesso! Configure um novo autenticador na página de Perfil.');
       setShowRecoveryModal(false);
     } catch {
@@ -717,6 +720,17 @@ export default function Vault() {
       {!isTwoFactorVerified && (
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md flex items-center justify-center px-4">
           <div className="w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex justify-end">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-slate-400 hover:text-slate-600"
+                aria-label="Voltar para o dashboard"
+                title="Voltar"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
             <div className="flex items-center gap-2 mb-3">
               <ShieldCheck className="text-brand-primary" size={20} />
               <h2 className="text-lg font-semibold text-slate-800">Desbloqueio de Segurança</h2>
@@ -751,6 +765,15 @@ export default function Vault() {
                 className="text-xs text-slate-500 hover:text-brand-primary underline transition-colors"
               >
                 Perdi meu acesso ao autenticador
+              </button>
+            </div>
+
+            <div className="mt-2 text-center">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Voltar ao dashboard
               </button>
             </div>
           </div>

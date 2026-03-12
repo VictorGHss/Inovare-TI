@@ -12,10 +12,13 @@ import {
   type Sector,
   type CreateUserDto,
 } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import BulkImportModal from './BulkImportModal';
 import EditUserModal from './EditUserModal';
 
 export default function Users() {
+  const { user: authenticatedUser, invalidateTwoFactorVerification } = useAuth();
+
   const [users, setUsers] = useState<User[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,11 +26,12 @@ export default function Users() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [resetTargetUser, setResetTargetUser] = useState<User | null>(null);
-  const [resetting, setResetting] = useState(false);
 
-  // Estado para redefinição de 2FA por admin
+  const [resetTargetUser, setResetTargetUser] = useState<User | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+
   const [reset2FATargetUser, setReset2FATargetUser] = useState<User | null>(null);
   const [resetting2FA, setResetting2FA] = useState(false);
 
@@ -40,7 +44,7 @@ export default function Users() {
   });
 
   useEffect(() => {
-    Promise.all([loadUsers(), loadSectors()]);
+    void Promise.all([loadUsers(), loadSectors()]);
   }, []);
 
   async function loadUsers() {
@@ -84,7 +88,7 @@ export default function Users() {
       toast.success('Usuário cadastrado com sucesso!');
       setShowModal(false);
       resetForm();
-      loadUsers();
+      await loadUsers();
     } catch {
       toast.error('Erro ao cadastrar usuário. Verifique os dados.');
     } finally {
@@ -98,7 +102,8 @@ export default function Users() {
 
   async function handleConfirmResetPassword() {
     if (!resetTargetUser) return;
-    setResetting(true);
+
+    setResettingPassword(true);
     try {
       await resetUserPassword(resetTargetUser.id);
       toast.success(`Senha de ${resetTargetUser.name} redefinida para "Mudar@123".`);
@@ -106,16 +111,23 @@ export default function Users() {
     } catch {
       toast.error('Erro ao redefinir senha. Tente novamente.');
     } finally {
-      setResetting(false);
+      setResettingPassword(false);
     }
   }
 
   async function handleConfirmReset2FA() {
     if (!reset2FATargetUser) return;
+
     setResetting2FA(true);
     try {
       await adminReset2FA(reset2FATargetUser.id);
       toast.success(`2FA de ${reset2FATargetUser.name} redefinido com sucesso.`);
+
+      if (authenticatedUser?.id === reset2FATargetUser.id) {
+        invalidateTwoFactorVerification();
+        toast.info('Seu 2FA atual foi invalidado. Configure novamente para acessar o cofre.');
+      }
+
       setReset2FATargetUser(null);
     } catch {
       toast.error('Erro ao redefinir o 2FA. Tente novamente.');
@@ -128,11 +140,10 @@ export default function Users() {
     ADMIN: 'Administrador',
     TECHNICIAN: 'Técnico',
     USER: 'Usuário',
-  };
+  } as const;
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Equipe</h1>
         <div className="flex items-center gap-3">
@@ -153,7 +164,6 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Tabela de usuários */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         {loading ? (
           <div className="p-12 text-center">
@@ -173,52 +183,30 @@ export default function Users() {
                   <th className="px-4 py-3 text-left">E-mail</th>
                   <th className="px-4 py-3 text-left">Setor</th>
                   <th className="px-4 py-3 text-left">Nível de Acesso</th>
-                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-800">{user.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                    <td className="px-4 py-3 text-slate-600">{user.sectorName}</td>
+                {users.map((currentUser) => (
+                  <tr
+                    key={currentUser.id}
+                    onClick={() => setSelectedUser(currentUser)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-800">{currentUser.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
+                    <td className="px-4 py-3 text-slate-600">{currentUser.sectorName}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.role === 'ADMIN'
+                          currentUser.role === 'ADMIN'
                             ? 'bg-red-100 text-red-700'
-                            : user.role === 'TECHNICIAN'
-                            ? 'bg-brand-secondary text-brand-primary'
-                            : 'bg-slate-100 text-slate-700'
+                            : currentUser.role === 'TECHNICIAN'
+                              ? 'bg-brand-secondary text-brand-primary'
+                              : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {roleLabels[user.role]}
+                        {roleLabels[currentUser.role]}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => setEditingUser(user)}
-                          title="Editar usuário"
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => setResetTargetUser(user)}
-                          title="Redefinir senha"
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
-                        >
-                          <KeyRound size={15} />
-                                                <button
-                                                  onClick={() => setReset2FATargetUser(user)}
-                                                  title="Resetar 2FA"
-                                                  className="p-1.5 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                >
-                                                  <ShieldOff size={15} />
-                                                </button>
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -228,7 +216,6 @@ export default function Users() {
         )}
       </div>
 
-      {/* Modal de cadastro */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
@@ -247,9 +234,7 @@ export default function Users() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Nome Completo
-                </label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome Completo</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -300,9 +285,7 @@ export default function Users() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Nível de Acesso
-                </label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nível de Acesso</label>
                 <select
                   value={formData.role}
                   onChange={(e) =>
@@ -329,14 +312,63 @@ export default function Users() {
         </div>
       )}
 
-      {/* Modal de importação CSV */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-slate-800">Gestão de Usuário</h2>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X size={18} className="text-slate-500" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm mb-6">
+              <p><span className="font-semibold text-slate-700">Nome:</span> <span className="text-slate-600">{selectedUser.name}</span></p>
+              <p><span className="font-semibold text-slate-700">E-mail:</span> <span className="text-slate-600">{selectedUser.email}</span></p>
+              <p><span className="font-semibold text-slate-700">Setor:</span> <span className="text-slate-600">{selectedUser.sectorName}</span></p>
+              <p><span className="font-semibold text-slate-700">Perfil:</span> <span className="text-slate-600">{roleLabels[selectedUser.role]}</span></p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                onClick={() => {
+                  setEditingUser(selectedUser);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-semibold transition-colors"
+              >
+                <Pencil size={15} />
+                Editar Dados
+              </button>
+
+              <button
+                onClick={() => setResetTargetUser(selectedUser)}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-semibold transition-colors"
+              >
+                <KeyRound size={15} />
+                Redefinir Senha
+              </button>
+
+              <button
+                onClick={() => setReset2FATargetUser(selectedUser)}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm font-semibold transition-colors"
+              >
+                <ShieldOff size={15} />
+                Resetar 2FA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BulkImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onSuccess={loadUsers}
       />
 
-      {/* Modal de edição de usuário */}
       <EditUserModal
         user={editingUser}
         sectors={sectors}
@@ -344,7 +376,6 @@ export default function Users() {
         onSuccess={loadUsers}
       />
 
-      {/* Modal de confirmação de redefinição de senha */}
       {resetTargetUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
@@ -353,7 +384,7 @@ export default function Users() {
               <button
                 onClick={() => setResetTargetUser(null)}
                 className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
-                disabled={resetting}
+                disabled={resettingPassword}
               >
                 <X size={18} className="text-slate-500" />
               </button>
@@ -369,24 +400,24 @@ export default function Users() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setResetTargetUser(null)}
-                disabled={resetting}
+                disabled={resettingPassword}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleConfirmResetPassword}
-                disabled={resetting}
+                onClick={() => void handleConfirmResetPassword()}
+                disabled={resettingPassword}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               >
                 <KeyRound size={15} />
-                {resetting ? 'Redefinindo...' : 'Confirmar Redefinição'}
+                {resettingPassword ? 'Redefinindo...' : 'Confirmar Redefinição'}
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* Modal de confirmação de reset de 2FA (somente ADMIN) */}
+
       {reset2FATargetUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">

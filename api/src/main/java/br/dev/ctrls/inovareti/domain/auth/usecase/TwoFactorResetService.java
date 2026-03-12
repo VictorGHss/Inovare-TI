@@ -49,7 +49,7 @@ public class TwoFactorResetService {
     public void initiateReset(UUID userId) {
         User user = findUserOrThrow(userId);
 
-        if (user.getTotpSecret() == null || user.getTotpSecret().isBlank()) {
+        if (user.getTotpSecret() == null) {
             throw new BadRequestException("O 2FA não está ativado neste usuário.");
         }
 
@@ -58,12 +58,14 @@ public class TwoFactorResetService {
                     "Este usuário não possui conta Discord vinculada. Peça a um administrador para resetar seu 2FA.");
         }
 
+        log.info("Initiating 2FA reset for user {} with Discord ID {}", userId, user.getDiscordUserId());
+
         String code = generateSecureCode();
         user.setRecoveryCodeHash(passwordEncoder.encode(code));
         user.setRecoveryCodeExpiresAt(LocalDateTime.now().plusMinutes(CODE_EXPIRY_MINUTES));
         userRepository.save(user);
 
-        // Envia o código via Discord DM — falha silenciosa com log (Discord pode estar offline)
+        // Envia o código via Discord DM
         discordDirectMessageService.sendTwoFactorResetCode(user.getDiscordUserId(), code, user.getName());
 
         log.info("2FA recovery code generated for user {}", userId);

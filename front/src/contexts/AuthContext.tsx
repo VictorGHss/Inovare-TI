@@ -25,6 +25,7 @@ interface AuthContextData {
   user: User | null;
   token: string | null;
   isTwoFactorVerified: boolean;
+  invalidateTwoFactorVerification: () => void;
   signIn: (credentials: SignInCredentials) => Promise<SignInResult>;
   completeInitialPasswordReset: (payload: {
     tempToken: string;
@@ -49,8 +50,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const stored = localStorage.getItem('@InovareTI:user');
     return stored ? (JSON.parse(stored) as User) : null;
   });
+  const [forceTwoFactorUnverified, setForceTwoFactorUnverified] = useState(false);
 
-  const isTwoFactorVerified = useMemo(() => getTwoFactorClaimFromToken(token), [token]);
+  const isTwoFactorVerified = useMemo(
+    () => getTwoFactorClaimFromToken(token) && !forceTwoFactorUnverified,
+    [token, forceTwoFactorUnverified],
+  );
+
+  const invalidateTwoFactorVerification = useCallback(() => {
+    setForceTwoFactorUnverified(true);
+  }, []);
 
   // Realiza login e persiste credenciais no localStorage
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
@@ -75,6 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('@InovareTI:user', JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+    setForceTwoFactorUnverified(false);
 
     return { status: 'AUTHENTICATED' as const };
   }, []);
@@ -94,11 +104,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('@InovareTI:user', JSON.stringify(response.user));
     setToken(response.token);
     setUser(response.user);
+    setForceTwoFactorUnverified(false);
   }, []);
 
   const updateAuthToken = useCallback((nextToken: string, nextUser?: User | null) => {
     localStorage.setItem('@InovareTI:token', nextToken);
     setToken(nextToken);
+    setForceTwoFactorUnverified(false);
 
     if (nextUser) {
       localStorage.setItem('@InovareTI:user', JSON.stringify(nextUser));
@@ -112,6 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem('@InovareTI:user');
     setToken(null);
     setUser(null);
+    setForceTwoFactorUnverified(false);
   }, []);
 
   return (
@@ -120,6 +133,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user,
         token,
         isTwoFactorVerified,
+        invalidateTwoFactorVerification,
         signIn,
         completeInitialPasswordReset,
         updateAuthToken,

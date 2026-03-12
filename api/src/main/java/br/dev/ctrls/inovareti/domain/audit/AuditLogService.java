@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.domain.audit.dto.AuditLogResponseDTO;
@@ -58,7 +57,7 @@ public class AuditLogService {
             int size) {
 
         int safeSize = Math.min(size, 100);
-        PageRequest pageable = PageRequest.of(page, safeSize, Sort.by("createdAt").descending());
+        PageRequest pageable = PageRequest.of(page, safeSize);
         String actionName = action != null ? action.name() : null;
 
         return auditLogRepository

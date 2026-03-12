@@ -116,4 +116,43 @@ public class DiscordDirectMessageService {
                     ex);
         }
     }
+
+    /**
+     * Notifica o usuário quando um administrador reseta o seu 2FA.
+     */
+    public void sendTwoFactorResetByAdminNotification(String discordUserId, String targetUserName, String adminName) {
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("Skipping admin 2FA reset notification to {}: JDA is not available", discordUserId);
+            return;
+        }
+
+        if (discordUserId == null || discordUserId.isBlank()) {
+            log.error("Failed to send admin 2FA reset notification: invalid Discord user id '{}'.", discordUserId);
+            return;
+        }
+
+        var embed = new EmbedBuilder()
+                .setColor(CLINIC_BRAND_COLOR)
+                .setTitle("🔐 Seu 2FA foi resetado")
+                .setDescription(
+                        "Olá, **" + targetUserName + "**!\n\n"
+                                + "Seu Segundo Fator de Autenticação (2FA) foi resetado por um administrador.\n"
+                                + "Por favor, reconfigure-o no seu próximo acesso.\n\n"
+                                + "Administrador responsável: **" + adminName + "**")
+                .build();
+
+        try {
+            jda.retrieveUserById(discordUserId).complete()
+                    .openPrivateChannel().complete()
+                    .sendMessageEmbeds(embed).complete();
+            log.info("Admin 2FA reset notification sent via Discord DM to user {}", discordUserId);
+        } catch (Exception ex) {
+            log.error(
+                    "Failed to send admin 2FA reset DM to Discord user {}. Possível causa: ID inválido, DM bloqueada ou permissão do bot. Erro: {}",
+                    discordUserId,
+                    ex.getMessage(),
+                    ex);
+        }
+    }
 }

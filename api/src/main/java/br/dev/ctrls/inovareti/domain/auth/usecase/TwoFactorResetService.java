@@ -49,7 +49,7 @@ public class TwoFactorResetService {
     public void initiateReset(UUID userId) {
         User user = findUserOrThrow(userId);
 
-        if (user.getTotpSecret() == null) {
+        if (!isTwoFactorEnabled(user)) {
             throw new BadRequestException("O 2FA não está ativado neste usuário.");
         }
 
@@ -82,6 +82,10 @@ public class TwoFactorResetService {
     @Transactional
     public AuthResponseDTO confirmReset(UUID userId, String code, String password) {
         User user = findUserOrThrow(userId);
+
+        if (!isTwoFactorEnabled(user)) {
+            throw new BadRequestException("O 2FA já está desativado para este usuário.");
+        }
 
         // Valida senha atual
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
@@ -122,15 +126,27 @@ public class TwoFactorResetService {
      * @param targetUserId ID do usuário cujo 2FA será resetado
      */
     @Transactional
-    public void adminReset(UUID targetUserId) {
-        User user = findUserOrThrow(targetUserId);
+    public void adminReset(UUID targetUserId, UUID adminUserId) {
+        User targetUser = findUserOrThrow(targetUserId);
+        User adminUser = findUserOrThrow(adminUserId);
 
-        user.setTotpSecret(null);
-        user.setRecoveryCodeHash(null);
-        user.setRecoveryCodeExpiresAt(null);
-        userRepository.save(user);
+        if (!isTwoFactorEnabled(targetUser)) {
+            throw new BadRequestException("O 2FA já está desativado para este usuário.");
+        }
 
-        log.info("2FA administratively reset for user {}", targetUserId);
+        targetUser.setTotpSecret(null);
+        targetUser.setRecoveryCodeHash(null);
+        targetUser.setRecoveryCodeExpiresAt(null);
+        userRepository.save(targetUser);
+
+        if (targetUser.getDiscordUserId() != null && !targetUser.getDiscordUserId().isBlank()) {
+            discordDirectMessageService.sendTwoFactorResetByAdminNotification(
+                    targetUser.getDiscordUserId(),
+                    targetUser.getName(),
+                    adminUser.getName());
+        }
+
+        log.info("2FA administratively reset for user {} by admin {}", targetUserId, adminUserId);
     }
 
     // -------------------------------------------------------------------------
@@ -140,6 +156,10 @@ public class TwoFactorResetService {
     private User findUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado."));
+    }
+
+    private boolean isTwoFactorEnabled(User user) {
+        return user.getTotpSecret() != null && !user.getTotpSecret().isBlank();
     }
 
     private String generateSecureCode() {

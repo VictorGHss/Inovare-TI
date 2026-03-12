@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import type { AxiosError } from 'axios';
 import {
   Eye,
   EyeOff,
@@ -301,7 +302,12 @@ export default function Vault() {
       const data = await getVaultItemSecret(itemId);
       setRevealedSecrets((prev) => ({ ...prev, [itemId]: data.secretContent }));
       toast.success('Conteúdo secreto exibido com sucesso.');
-    } catch {
+    } catch (error) {
+      if ((error as AxiosError)?.response?.status === 403) {
+        invalidateTwoFactorVerification();
+        toast.error('Seu 2FA foi resetado. Reconfigure para continuar acessando o cofre.');
+        return;
+      }
       toast.error('Não foi possível revelar o conteúdo secreto.');
     }
   }
@@ -332,7 +338,12 @@ export default function Vault() {
         url: fileUrl,
         mimeType: fileBlob.type || inferMimeTypeFromPath(item.filePath),
       });
-    } catch {
+    } catch (error) {
+      if ((error as AxiosError)?.response?.status === 403) {
+        invalidateTwoFactorVerification();
+        toast.error('Seu 2FA foi resetado. Reconfigure para continuar acessando o cofre.');
+        return;
+      }
       toast.error('Não foi possível carregar o anexo para visualização.');
     } finally {
       setLoadingAttachmentId(null);

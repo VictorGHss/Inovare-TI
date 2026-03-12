@@ -21,6 +21,7 @@ import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UpdateUserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
 import br.dev.ctrls.inovareti.domain.user.usecase.ChangeMyPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
@@ -109,7 +110,19 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/2fa/reset")
     public ResponseEntity<Void> adminResetTwoFactor(@PathVariable UUID id) {
-        twoFactorResetService.adminReset(id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new BadRequestException("Usuário autenticado não encontrado.");
+        }
+
+        UUID adminUserId;
+        try {
+            adminUserId = UUID.fromString(authentication.getPrincipal().toString());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+        }
+
+        twoFactorResetService.adminReset(id, adminUserId);
         return ResponseEntity.noContent().build();
     }
 }

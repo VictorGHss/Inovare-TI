@@ -22,6 +22,7 @@ import UserTicketHistory from '../../components/UserTicketHistory';
 import QrScannerLauncher from '../../components/QrScannerLauncher';
 import ReportHubModal from '../../components/ReportHubModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { VIBRANT_CHART_COLORS } from '../../lib/chartPalette';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -51,8 +52,6 @@ export default function Dashboard() {
       transition: { duration: 0.22 },
     },
   };
-
-  const topBarsPalette = ['#ffa751', '#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#64748b'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -192,7 +191,7 @@ export default function Dashboard() {
                     <Tooltip />
                     <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                       {analytics.ticketsBySector.map((entry, index) => (
-                        <Cell key={`sector-bar-${entry.name}`} fill={topBarsPalette[index % topBarsPalette.length]} />
+                        <Cell key={`sector-bar-${entry.name}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -210,7 +209,7 @@ export default function Dashboard() {
                     <Tooltip />
                     <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                       {analytics.ticketsByRequester.map((entry, index) => (
-                        <Cell key={`requester-bar-${entry.name}`} fill={topBarsPalette[index % topBarsPalette.length]} />
+                        <Cell key={`requester-bar-${entry.name}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
                       ))}
                     </Bar>
                   </BarChart>

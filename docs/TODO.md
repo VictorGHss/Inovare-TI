@@ -100,6 +100,11 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 - [x] Sistema de eventos Spring (`AuditEvent` + `AuditEventListener`) desacoplado do core de negócio
 - [x] Rastreabilidade: leituras de segredos no Vault, falhas de login, resets de 2FA e alterações de permissão
 - [x] Endpoint `GET /api/audit-logs` com filtros por data, usuário e ação (acesso ADMIN)
+
+Fase 8 encerrada. Melhorias futuras de compliance permanecem no backlog abaixo.
+
+### Backlog Futuro — Compliance e Governança
+
 - [ ] Exportação de logs em CSV/XLSX
 - [ ] Alertas automáticos no Discord para eventos críticos (ex.: tentativas de brute-force)
 - [ ] Política de retenção e expurgo de logs antigos

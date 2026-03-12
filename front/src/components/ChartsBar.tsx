@@ -1,5 +1,6 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import type { Ticket } from '../services/api';
+import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsBarProps {
   tickets: Ticket[];
@@ -50,7 +51,11 @@ export default function ChartsBar({ tickets, title }: ChartsBarProps) {
           <YAxis stroke="#64748b" />
           <Tooltip formatter={(value) => `${value}`} />
           <Legend />
-          <Bar dataKey="tickets" fill="#ffa751" name="Chamados" radius={[8, 8, 0, 0]} />
+          <Bar dataKey="tickets" name="Chamados" radius={[8, 8, 0, 0]}>
+            {data.map((entry, index) => (
+              <Cell key={`monthly-bar-${entry.month}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

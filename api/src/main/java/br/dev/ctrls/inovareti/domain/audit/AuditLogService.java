@@ -9,6 +9,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import br.dev.ctrls.inovareti.domain.audit.dto.AuditLogResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
@@ -35,7 +41,7 @@ public class AuditLogService {
      * Publica um evento de auditoria. O listener persiste de forma assíncrona.
      */
     public void publish(AuditEvent event) {
-        eventPublisher.publishEvent(event);
+        eventPublisher.publishEvent(enrichWithClientIp(event));
     }
 
     /**
@@ -74,5 +80,33 @@ public class AuditLogService {
                 userRepository.findById(id)
                         .map(u -> u.getName())
                         .orElse("Usuário removido"));
+    }
+
+    private AuditEvent enrichWithClientIp(AuditEvent event) {
+        String resolvedIp = resolveCurrentRequestIp();
+        String finalIp = StringUtils.hasText(resolvedIp) ? resolvedIp : event.getIpAddress();
+
+        return AuditEvent.of(event.getAction())
+                .userId(event.getUserId())
+                .resourceType(event.getResourceType())
+                .resourceId(event.getResourceId())
+                .details(event.getDetails())
+                .ipAddress(finalIp)
+                .build();
+    }
+
+    private String resolveCurrentRequestIp() {
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        if (!(attributes instanceof ServletRequestAttributes servletAttributes)) {
+            return null;
+        }
+
+        HttpServletRequest request = servletAttributes.getRequest();
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwardedFor)) {
+            return forwardedFor.split(",")[0].trim();
+        }
+
+        return request.getRemoteAddr();
     }
 }

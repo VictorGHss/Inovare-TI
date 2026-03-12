@@ -1,12 +1,11 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { MetricDTO } from '../services/api';
+import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsPieProps {
   data: MetricDTO[];
   title: string;
 }
-
-const CHART_COLORS = ['#ffa751', '#f08c2e', '#c17c58', '#8a6f66', '#64748b', '#4b5563', '#1f2937', '#1e2a44'];
 
 export default function ChartsPie({ data, title }: ChartsPieProps) {
   if (!data || data.length === 0) {
@@ -33,7 +32,7 @@ export default function ChartsPie({ data, title }: ChartsPieProps) {
             paddingAngle={2}
           >
             {data.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
             ))}
           </Pie>
           <Tooltip formatter={(value) => `${value}`} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />

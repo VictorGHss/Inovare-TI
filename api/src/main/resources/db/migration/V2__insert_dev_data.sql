@@ -413,3 +413,82 @@ Sua assinatura sera adicionada automaticamente a todos os e-mails enviados.',
         'email, outlook, assinatura, configuracao',
         NOW() - INTERVAL '20 days'
     );
+
+-- =============================================================================
+-- 13. CARGA EXTRA PARA TESTE DE ESTRESSE DO DASHBOARD (TOP 5)
+-- Requisito: adicionar ao final da V2, sem criar nova migration.
+-- =============================================================================
+
+-- 4 usuarios adicionais (total geral passa para 9 usuarios)
+INSERT INTO users (id, name, email, password_hash, must_change_password, role, sector_id, location) VALUES
+    (
+        '55555555-5555-5555-5555-555555555006',
+        'Ana Paula Lima',
+        'ana.lima@inovare.med.br',
+        '$2a$10$/18BvCN1toDObzdS8OfMZOhGYAgJCNK.WDdodyl4HvE51bOTogJzy',
+        false,
+        'USER',
+        '11111111-1111-1111-1111-111111111002',
+        'Andar 4'
+    ),
+    (
+        '55555555-5555-5555-5555-555555555007',
+        'Carlos Eduardo Rocha',
+        'carlos.rocha@inovare.med.br',
+        '$2a$10$/18BvCN1toDObzdS8OfMZOhGYAgJCNK.WDdodyl4HvE51bOTogJzy',
+        false,
+        'USER',
+        '11111111-1111-1111-1111-111111111003',
+        'Andar 2'
+    ),
+    (
+        '55555555-5555-5555-5555-555555555008',
+        'Fernanda Alves',
+        'fernanda.alves@inovare.med.br',
+        '$2a$10$/18BvCN1toDObzdS8OfMZOhGYAgJCNK.WDdodyl4HvE51bOTogJzy',
+        false,
+        'USER',
+        '11111111-1111-1111-1111-111111111004',
+        'Unidade B'
+    ),
+    (
+        '55555555-5555-5555-5555-555555555009',
+        'Ricardo Menezes',
+        'ricardo.menezes@inovare.med.br',
+        '$2a$10$6nWPUSHrKJxoDX2p0CSjoOl8FO7ByzPN.hJZeTkdp2GqKDEPwU52u',
+        false,
+        'TECHNICIAN',
+        '11111111-1111-1111-1111-111111111001',
+        'Sede'
+    );
+
+-- 10 ativos adicionais para ampliar o volume de CMDB e distribuicao por usuarios
+INSERT INTO assets (id, user_id, name, patrimony_code, category_id, specifications, created_at) VALUES
+    ('77777777-7777-7777-7777-777777777005', '55555555-5555-5555-5555-555555555006', 'Notebook Dell Latitude 5440',  'INV-NTB-0201', '44444444-4444-4444-4444-444444444001', 'CPU i5, 16GB RAM, SSD 512GB, Windows 11', NOW() - INTERVAL '90 days'),
+    ('77777777-7777-7777-7777-777777777006', '55555555-5555-5555-5555-555555555006', 'Dock Station Dell WD19',       'INV-ACC-0202', '44444444-4444-4444-4444-444444444003', 'Dock USB-C com HDMI e Ethernet', NOW() - INTERVAL '75 days'),
+    ('77777777-7777-7777-7777-777777777007', '55555555-5555-5555-5555-555555555007', 'Notebook Lenovo E15 Gen 4',   'INV-NTB-0203', '44444444-4444-4444-4444-444444444001', 'CPU i7, 16GB RAM, SSD 512GB, Windows 11', NOW() - INTERVAL '120 days'),
+    ('77777777-7777-7777-7777-777777777008', '55555555-5555-5555-5555-555555555007', 'Headset Jabra Evolve 20',     'INV-ACC-0204', '44444444-4444-4444-4444-444444444003', 'Headset USB para atendimento e reunioes', NOW() - INTERVAL '60 days'),
+    ('77777777-7777-7777-7777-777777777009', '55555555-5555-5555-5555-555555555008', 'Desktop Dell OptiPlex 7010',  'INV-DESK-0205','44444444-4444-4444-4444-444444444002', 'CPU i5, 16GB RAM, SSD 256GB', NOW() - INTERVAL '110 days'),
+    ('77777777-7777-7777-7777-777777777010', '55555555-5555-5555-5555-555555555008', 'Monitor Samsung 27pol',       'INV-MON-0206', '44444444-4444-4444-4444-444444444003', 'Monitor 27 polegadas Full HD', NOW() - INTERVAL '95 days'),
+    ('77777777-7777-7777-7777-777777777011', '55555555-5555-5555-5555-555555555003', 'Notebook HP ProBook 440',     'INV-NTB-0207', '44444444-4444-4444-4444-444444444001', 'CPU i5, 8GB RAM, SSD 256GB', NOW() - INTERVAL '140 days'),
+    ('77777777-7777-7777-7777-777777777012', '55555555-5555-5555-5555-555555555004', 'Monitor Dell P2422H',         'INV-MON-0208', '44444444-4444-4444-4444-444444444003', 'Monitor 24 polegadas IPS', NOW() - INTERVAL '85 days'),
+    ('77777777-7777-7777-7777-777777777013', '55555555-5555-5555-5555-555555555005', 'Desktop Lenovo Neo 50s',      'INV-DESK-0209','44444444-4444-4444-4444-444444444002', 'CPU i5, 8GB RAM, SSD 512GB', NOW() - INTERVAL '70 days'),
+    ('77777777-7777-7777-7777-777777777014', '55555555-5555-5555-5555-555555555006', 'Monitor LG UltraWide 29pol',  'INV-MON-0210', '44444444-4444-4444-4444-444444444003', 'Monitor ultrawide para analise financeira', NOW() - INTERVAL '55 days');
+
+-- 15 chamados adicionais para aumentar a disputa do Top 5 por solicitante e setor
+INSERT INTO tickets (id, title, description, status, priority, requester_id, assigned_to_id, category_id, sla_deadline, created_at, closed_at) VALUES
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa029', 'Chamado #29 - Financeiro sem acesso ao BI',           'Painel financeiro retorna erro 403 apos troca de senha',     'OPEN',        'HIGH',   '55555555-5555-5555-5555-555555555006', NULL,                                     '22222222-2222-2222-2222-222222222004', NOW() - INTERVAL '9 days'  + INTERVAL '24 hours', NOW() - INTERVAL '9 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa030', 'Chamado #30 - RH com travamento no Outlook',          'Outlook fecha ao anexar curriculos',                         'OPEN',        'NORMAL', '55555555-5555-5555-5555-555555555007', NULL,                                     '22222222-2222-2222-2222-222222222002', NOW() - INTERVAL '8 days'  + INTERVAL '24 hours', NOW() - INTERVAL '8 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa031', 'Chamado #31 - Operacoes com impressora parada',       'Impressora Zebra nao responde para etiquetas',               'OPEN',        'HIGH',   '55555555-5555-5555-5555-555555555008', NULL,                                     '22222222-2222-2222-2222-222222222001', NOW() - INTERVAL '7 days'  + INTERVAL '48 hours', NOW() - INTERVAL '7 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa032', 'Chamado #32 - Financeiro sem VPN',                    'VPN falha ao conectar durante trabalho remoto',              'OPEN',        'URGENT', '55555555-5555-5555-5555-555555555006', NULL,                                     '22222222-2222-2222-2222-222222222003', NOW() - INTERVAL '2 days'  + INTERVAL '12 hours', NOW() - INTERVAL '2 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa033', 'Chamado #33 - RH sem permissao na pasta de beneficios','Acesso negado ao compartilhamento de beneficios',            'OPEN',        'NORMAL', '55555555-5555-5555-5555-555555555007', NULL,                                     '22222222-2222-2222-2222-222222222004', NOW() - INTERVAL '6 days'  + INTERVAL '24 hours', NOW() - INTERVAL '6 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa034', 'Chamado #34 - Operacoes com lente do leitor quebrada', 'Leitor de codigo de barras nao reconhece etiquetas',        'IN_PROGRESS', 'HIGH',   '55555555-5555-5555-5555-555555555008', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222001', NOW() - INTERVAL '5 days'  + INTERVAL '48 hours', NOW() - INTERVAL '5 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa035', 'Chamado #35 - Financeiro com planilha lenta',         'Arquivo macroeconomico demora mais de 10 minutos para abrir','IN_PROGRESS', 'NORMAL', '55555555-5555-5555-5555-555555555006', '55555555-5555-5555-5555-555555555002', '22222222-2222-2222-2222-222222222002', NOW() - INTERVAL '4 days'  + INTERVAL '24 hours', NOW() - INTERVAL '4 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa036', 'Chamado #36 - RH com falha no Teams',                 'Microfone nao funciona em entrevistas online',              'IN_PROGRESS', 'LOW',    '55555555-5555-5555-5555-555555555007', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222002', NOW() - INTERVAL '3 days'  + INTERVAL '24 hours', NOW() - INTERVAL '3 days',  NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa037', 'Chamado #37 - Operacoes sem rede no coletor',         'Coletor de dados perdeu acesso ao Wi-Fi do armazem',        'IN_PROGRESS', 'URGENT', '55555555-5555-5555-5555-555555555008', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222003', NOW() - INTERVAL '1 day'   + INTERVAL '12 hours', NOW() - INTERVAL '1 day',   NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa038', 'Chamado #38 - Financeiro com MFA desalinhado',        'Aplicativo autenticador gera codigo invalido',              'IN_PROGRESS', 'HIGH',   '55555555-5555-5555-5555-555555555006', '55555555-5555-5555-5555-555555555002', '22222222-2222-2222-2222-222222222004', NOW() - INTERVAL '11 hours' + INTERVAL '24 hours', NOW() - INTERVAL '11 hours', NULL),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa039', 'Chamado #39 - RH com desktop reiniciando',            'Desktop reinicia durante admissao de novos colaboradores',  'RESOLVED',    'HIGH',   '55555555-5555-5555-5555-555555555007', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222001', NOW() - INTERVAL '18 days' + INTERVAL '48 hours', NOW() - INTERVAL '18 days', NOW() - INTERVAL '17 days'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa040', 'Chamado #40 - Operacoes com lentidao no ERP',         'ERP demora para salvar pedidos de expedicao',               'RESOLVED',    'NORMAL', '55555555-5555-5555-5555-555555555008', '55555555-5555-5555-5555-555555555002', '22222222-2222-2222-2222-222222222002', NOW() - INTERVAL '16 days' + INTERVAL '24 hours', NOW() - INTERVAL '16 days', NOW() - INTERVAL '15 days'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa041', 'Chamado #41 - Financeiro com impressao cortando',     'Notas fiscais impressas saem truncadas na margem direita',  'RESOLVED',    'LOW',    '55555555-5555-5555-5555-555555555006', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222001', NOW() - INTERVAL '14 days' + INTERVAL '48 hours', NOW() - INTERVAL '14 days', NOW() - INTERVAL '13 days'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa042', 'Chamado #42 - RH com acesso negado ao portal',        'Portal interno nao reconhece perfil de RH apos onboarding', 'RESOLVED',    'NORMAL', '55555555-5555-5555-5555-555555555007', '55555555-5555-5555-5555-555555555002', '22222222-2222-2222-2222-222222222004', NOW() - INTERVAL '12 days' + INTERVAL '24 hours', NOW() - INTERVAL '12 days', NOW() - INTERVAL '11 days'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaa043', 'Chamado #43 - Operacoes sem acesso ao coletor web',   'Tela inicial do coletor retorna timeout apos login',        'RESOLVED',    'URGENT', '55555555-5555-5555-5555-555555555008', '55555555-5555-5555-5555-555555555009', '22222222-2222-2222-2222-222222222003', NOW() - INTERVAL '10 days' + INTERVAL '12 hours', NOW() - INTERVAL '10 days', NOW() - INTERVAL '10 days' + INTERVAL '5 hours');

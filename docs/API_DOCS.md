@@ -174,7 +174,7 @@ Valida o código TOTP informado e retorna um novo JWT com a claim de 2FA verific
 
 ### `POST /api/auth/2fa/reset-request`
 
-Solicita a recuperação do 2FA. A API gera um código temporário, persiste seu hash no banco e envia a instrução de recuperação por DM no Discord ao usuário vinculado.
+Solicita a recuperação do 2FA. A API gera um código temporário, persiste seu hash no banco e envia a instrução de recuperação via **Discord** ao usuário vinculado.
 
 **Resposta de Sucesso — `204 No Content`**
 
@@ -229,6 +229,8 @@ Confirma a recuperação do 2FA validando simultaneamente o código recebido e a
 
 O módulo Vault protege segredos e anexos sensíveis. A leitura de conteúdo secreto e anexos exige JWT autenticado e sessão com `two_factor_verified=true`.
 
+> **Obrigatoriedade de segurança:** sem validação de 2FA, a API responde com **HTTP 403 Forbidden** para visualização de segredos e anexos.
+>
 > **Importante:** a criação de itens aceita `multipart/form-data`, permitindo envio de JSON serializado no campo `payload` e anexo opcional no campo `file`.
 
 ### `GET /api/vault`
@@ -316,7 +318,7 @@ Retorna o conteúdo secreto descriptografado do item. Exige 2FA validado na sess
 
 ### `GET /api/vault/{itemId}/file`
 
-Retorna o anexo do item para visualização inline. Exige 2FA validado.
+Retorna o anexo do item para visualização inline. Exige 2FA validado e claim `two_factor_verified=true` no JWT.
 
 **Resposta de Sucesso — `200 OK`**
 

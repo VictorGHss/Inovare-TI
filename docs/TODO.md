@@ -88,7 +88,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ## 🔲 Fase 8 — Auditoria e Compliance
 
-- [ ] Implementar tabela `audit_logs` para rastrear acessos ao Vault
+- [ ] Implementar rastreabilidade de acessos ao Vault
 - [ ] Registrar resets de 2FA, leituras de segredos e mudanças administrativas críticas
 - [ ] Criar trilha de auditoria com usuário, ação, timestamp, origem e contexto
 
@@ -97,13 +97,13 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 ## 🔲 Fase 9 — Otimização Mobile (PWA)
 
 - [ ] Transformar o frontend em Progressive Web App (PWA)
-- [ ] Melhorar experiência mobile para inventário e ativos
-- [ ] Facilitar escaneamento de QR Code em dispositivos móveis
+- [ ] Implementar instalação como web app
+- [ ] Adicionar suporte nativo a QR Code para fluxos de inventário e ativos
 
 ---
 
 ## 🔲 Fase 10 — Dashboard Premium
 
 - [ ] Criar interface premium com animações e refinamento visual
-- [ ] Aplicar identidade visual da clínica usando `#ffa751` como cor de destaque
+- [ ] Aplicar identidade visual da clínica com as cores oficiais `#ffa751` e `#ffd1a3`
 - [ ] Evoluir dashboard para experiência executiva e analítica

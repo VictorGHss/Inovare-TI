@@ -148,9 +148,7 @@ Todas as páginas do frontend, exceto `Login` e `PrimeiroAcesso`, são carregada
 
 ---
 
-## Segurança de Dados
-
-## Camada de Segurança Avançada
+## Camada de Segurança de Dados
 
 O sistema passou a operar com uma camada dedicada de segurança para dados sensíveis e autenticação reforçada. Essa camada combina criptografia forte, autenticação em dois fatores e recuperação operacional assistida por Discord.
 
@@ -180,9 +178,9 @@ O fluxo de autenticação em dois fatores funciona em duas etapas:
 
 Esse token passa a representar uma sessão autenticada e também validada em segundo fator. Recursos sensíveis, como leitura de segredos e anexos do Vault, exigem essa validação adicional.
 
-### Discord como fator de recuperação operacional
+### Discord como canal oficial de recuperação operacional
 
-Além do TOTP, o sistema utiliza o Discord corporativo como canal seguro de recuperação assistida:
+Além do TOTP, o sistema utiliza o Discord corporativo como canal oficial de recuperação assistida:
 
 1. O usuário autenticado solicita recuperação do 2FA.
 2. A API gera um código temporário, armazena apenas seu hash e envia a DM ao `discordUserId` vinculado.
@@ -199,6 +197,17 @@ Quando o 2FA é resetado, seja pelo próprio usuário via recuperação ou por u
 - o frontend invalida localmente o estado `twoFactorVerified`, forçando nova configuração antes de liberar o cofre.
 
 Isso impede que um token antigo continue acessando dados sensíveis após o reset do segundo fator.
+
+---
+
+## Identidade Visual Oficial
+
+Os tokens visuais de referência da clínica para as próximas fases de interface são:
+
+- **Primary:** `#ffa751`
+- **Secondary:** `#ffd1a3`
+
+Essas cores devem orientar a evolução do dashboard premium, componentes de destaque, estados visuais do Vault e demais superfícies de alto valor perceptivo.
 
 ---
 

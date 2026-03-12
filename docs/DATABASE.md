@@ -38,9 +38,9 @@ Armazena os usuários do sistema. Cada usuário possui um papel (role) e pertenc
 | `sector_id`       | `uuid`         | NOT NULL, FK → sectors| Setor ao qual o usuário pertence                   |
 | `location`        | `varchar(150)` | NOT NULL              | Localização física (sala, andar, unidade)          |
 | `discord_user_id` | `varchar(50)`  | NULLABLE              | ID do usuário no Discord corporativo               |
-| `totp_secret`     | `varchar(500)` | NULLABLE              | Segredo TOTP do 2FA, persistido criptografado em nível de aplicação |
-| `recovery_code_hash` | `varchar(255)` | NULLABLE           | Hash BCrypt do código temporário de recuperação do 2FA |
-| `recovery_code_expires_at` | `timestamp` | NULLABLE        | Data/hora de expiração do código de recuperação do 2FA |
+| `totp_secret`     | `varchar(500)` | NULLABLE              | Segredo TOTP do 2FA, persistido de forma protegida em nível de aplicação |
+| `recovery_code_hash` | `varchar(255)` | NULLABLE           | Hash BCrypt do código temporário de recuperação via Discord |
+| `recovery_code_expires_at` | `timestamp` | NULLABLE        | Data/hora de expiração do código temporário de recuperação |
 
 **Relacionamentos:**
 - `users.sector_id` → `sectors.id` (N:1 — muitos usuários por setor)
@@ -187,7 +187,7 @@ items              (1) ──< tickets           (N)  [requested_item, nullable]
 
 ### Tabela `vault_items`
 
-Armazena os itens do cofre de credenciais e documentos sensíveis. O conteúdo secreto é criptografado em nível de aplicação com AES-256/GCM antes de ser persistido.
+Armazena os itens do cofre de credenciais e documentos sensíveis. O `secret_content`/`secretContent` é criptografado em nível de aplicação com AES-256/GCM antes de ser persistido.
 
 | Coluna           | Tipo           | Restrições                         | Descrição |
 |------------------|----------------|------------------------------------|-----------|

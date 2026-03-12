@@ -11,17 +11,27 @@ import org.springframework.data.repository.query.Param;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
-    @Query("""
-            SELECT a FROM AuditLog a
-            WHERE (:userId    IS NULL OR a.userId = :userId)
-              AND (:action    IS NULL OR a.action = :action)
-              AND (:startDate IS NULL OR a.createdAt >= :startDate)
-              AND (:endDate   IS NULL OR a.createdAt <= :endDate)
-            ORDER BY a.createdAt DESC
-            """)
+        @Query(value = """
+                                                SELECT *
+                                                FROM audit_logs a
+                                                WHERE (cast(:userId as uuid) IS NULL OR a.user_id = :userId)
+                                                        AND (cast(:action as varchar) IS NULL OR a.action = :action)
+                                                        AND (cast(:startDate as timestamp) IS NULL OR a.created_at >= cast(:startDate as timestamp))
+                                                        AND (cast(:endDate as timestamp) IS NULL OR a.created_at <= cast(:endDate as timestamp))
+                                                ORDER BY a.created_at DESC
+                                                """,
+                                                countQuery = """
+                                                SELECT count(*)
+                                                FROM audit_logs a
+                                                WHERE (cast(:userId as uuid) IS NULL OR a.user_id = :userId)
+                                                        AND (cast(:action as varchar) IS NULL OR a.action = :action)
+                                                        AND (cast(:startDate as timestamp) IS NULL OR a.created_at >= cast(:startDate as timestamp))
+                                                        AND (cast(:endDate as timestamp) IS NULL OR a.created_at <= cast(:endDate as timestamp))
+                                                """,
+                                                nativeQuery = true)
     Page<AuditLog> findWithFilters(
             @Param("userId")    UUID userId,
-            @Param("action")    AuditAction action,
+                                                @Param("action")    String action,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate")   LocalDateTime endDate,
             Pageable pageable);

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import axios from 'axios';
 import {
   getAuditLogs,
   getUsers,
@@ -73,8 +74,12 @@ export default function SystemLogs() {
         });
         setPage(data);
         setCurrentPage(pageNum);
-      } catch {
-        setError('Erro ao carregar logs. Verifique sua conexão e tente novamente.');
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 500) {
+          setError('Erro interno no servidor ao consultar a auditoria. Tente novamente em instantes.');
+        } else {
+          setError('Erro ao carregar logs. Verifique sua conexão e tente novamente.');
+        }
       } finally {
         setLoading(false);
       }

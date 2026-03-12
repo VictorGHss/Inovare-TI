@@ -59,9 +59,10 @@ public class AuditLogService {
 
         int safeSize = Math.min(size, 100);
         PageRequest pageable = PageRequest.of(page, safeSize, Sort.by("createdAt").descending());
+        String actionName = action != null ? action.name() : null;
 
         return auditLogRepository
-                .findWithFilters(userId, action, startDate, endDate, pageable)
+            .findWithFilters(userId, actionName, startDate, endDate, pageable)
                 .map(logEntry -> {
                     String name = resolveUserName(logEntry.getUserId());
                     return AuditLogResponseDTO.from(logEntry, name);

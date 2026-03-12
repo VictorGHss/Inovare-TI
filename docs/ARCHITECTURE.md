@@ -101,12 +101,14 @@ br.dev.ctrls.inovareti/
 │   ├── asset/      # Asset, AssetMaintenance, AssetController
 │   ├── user/       # User, UserController, UserRepository
 │   ├── vault/      # VaultController, VaultService, itens sensíveis e compartilhamento
+│   ├── audit/      # AuditLog, AuditLogService, AuditEvent, AuditLogController
 │   ├── notification/ # Notification, NotificationController
 │   ├── knowledge/  # Article, ArticleController
 │   ├── report/     # ReportController (exportação XLSX)
 │   └── settings/   # SystemSettings, SettingsController
 ├── infra/
 │   ├── discord/    # DiscordBotService, DiscordWebhookService
+│   ├── security/   # TwoFactorSessionGuard, EncryptionService
 │   └── storage/    # LocalFileStorageService
 └── InovareTiApplication.java
 ```
@@ -197,6 +199,53 @@ Quando o 2FA é resetado, seja pelo próprio usuário via recuperação ou por u
 - o frontend invalida localmente o estado `twoFactorVerified`, forçando nova configuração antes de liberar o cofre.
 
 Isso impede que um token antigo continue acessando dados sensíveis após o reset do segundo fator.
+
+---
+
+## Módulo de Auditoria e Trilha de Compliance
+
+O sistema implementa uma trilha de auditoria completa para rastrear ações críticas de forma desacoplada do código de negócio, utilizando o mecanismo de eventos do Spring Framework.
+
+### Arquitetura orientada a eventos
+
+Em vez de chamar diretamente um serviço de auditoria nos casos de uso, o sistema usa `ApplicationEventPublisher` para publicar `AuditEvent`. Um listener assíncrono (`@TransactionalEventListener`) persiste o registro na tabela `audit_logs` sem afetar a transação principal.
+
+```
+VaultService  ──publish──►  AuditEvent  ──listen──►  AuditEventListener  ──save──►  audit_logs
+LoginUseCase  ──publish──►  AuditEvent       │
+TwoFactorResetService ──►   AuditEvent       └─ executa após COMMIT (não bloqueia)
+```
+
+### Ações rastreadas
+
+| Ação                      | Gatilho                                      |
+|---------------------------|----------------------------------------------|
+| `VAULT_SECRET_VIEW`       | Leitura do conteúdo secreto de um item       |
+| `VAULT_FILE_VIEW`         | Visualização de anexo do Vault               |
+| `VAULT_ITEM_CREATE`       | Criação de item no cofre                     |
+| `LOGIN_SUCCESS`           | Login autenticado com sucesso                |
+| `LOGIN_FAILURE`           | Tentativa de login com credenciais inválidas |
+| `TWO_FACTOR_RESET`        | Reset do 2FA pelo próprio usuário via Discord|
+| `TWO_FACTOR_ADMIN_RESET`  | Reset administrativo do 2FA por um ADMIN     |
+| `USER_PERMISSION_CHANGE`  | Alteração de role/setor de um usuário        |
+
+### Campos do registro de auditoria
+
+Cada entrada na tabela `audit_logs` armazena: `user_id`, `action`, `resource_type`, `resource_id`, `details` (JSON contextual), `ip_address` e `created_at`.
+
+---
+
+## Identidade Visual e Tokens de Cor
+
+O sistema usa Tailwind CSS com tokens de cor personalizados definidos no `tailwind.config.js`, referenciados como `bg-brand-primary`, `text-brand-primary`, `bg-brand-secondary`, etc.
+
+| Token               | Valor hex   | Uso                                              |
+|---------------------|-------------|--------------------------------------------------|
+| `brand.primary`     | `#ffa751`   | CTA principal, ícones ativos, bordas de foco     |
+| `brand.secondary`   | `#ffd1a3`   | Fundo de itens ativos no menu, badges suaves     |
+| `brand.dark`        | `#e8842a`   | Hover e variante escura do primário              |
+
+Essas cores são aplicadas consistentemente em todos os componentes interativos, badge de status, botões primários e indicadores de seleção na navegação.
 
 ---
 

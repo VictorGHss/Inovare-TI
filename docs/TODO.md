@@ -87,7 +87,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 8 — Auditoria de Qualidade e Compliance
+## � Fase 8 — Auditoria e Compliance (Foco Atual)
 
 - [x] Auditoria de tamanho: varredura de Controllers, UseCases e páginas críticas
 - [x] Correção de `exhaustive-deps` no `Assets/index.tsx` (`useCallback` + deps explícitas)
@@ -95,12 +95,18 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 - [x] Refatoração de `AssetController` (lógica de filtro extraída para `AssetQueryService`)
 - [x] Componentização: `Vault/index.tsx` → 4 sub-componentes em `Vault/components/`
 - [x] Componentização: `Assets/index.tsx` → `AssetTable` + `NewAssetModal`
-- [ ] Implementar rastreabilidade de acessos ao Vault (leituras, resets 2FA, ações admin)
-- [ ] Trilha de auditoria com usuário, ação, timestamp, origem e contexto
+- [x] Tabela `audit_logs` adicionada ao schema (`V1__init.sql`)
+- [x] Entidade `AuditLog`, `AuditLogRepository` e `AuditLogService` criados
+- [x] Sistema de eventos Spring (`AuditEvent` + `AuditEventListener`) desacoplado do core de negócio
+- [x] Rastreabilidade: leituras de segredos no Vault, falhas de login, resets de 2FA e alterações de permissão
+- [x] Endpoint `GET /api/audit-logs` com filtros por data, usuário e ação (acesso ADMIN)
+- [ ] Exportação de logs em CSV/XLSX
+- [ ] Alertas automáticos no Discord para eventos críticos (ex.: tentativas de brute-force)
+- [ ] Política de retenção e expurgo de logs antigos
 
 ---
 
-## 🟡 Fase 9 — Otimização Mobile (PWA) — Em Refinamento
+## ✅ Fase 9 — Otimização Mobile (PWA) (Concluída)
 
 - [x] Configurar `vite-plugin-pwa` no `vite.config.ts`
 - [x] Criar `manifest.json` com nome "Inovare TI", cores `#ffa751`/`#ffffff`, modo `standalone`
@@ -109,9 +115,9 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 - [x] Adicionar `display_override` com `standalone` e `window-controls-overlay`
 - [x] Implementar layout híbrido: navegação horizontal fixa no desktop e sidebar colapsável no mobile/PWA
 - [x] Adicionar motor de leitura de QR Code nativo no app com navegação interna para links do sistema
-- [ ] Adicionar ícones PWA em resolução 192x192 e 512x512
-- [ ] Testar instalação como web app em iOS e Android
-- [ ] Refinar fluxo de QR Code para inventário, ativos e varredura contínua em campo
+- [x] Ícones PWA validados e manifesto completo com `theme_color: #ffa751`
+- [x] Instalação como web app validada em iOS e Android
+- [x] Fluxo de QR Code integrado ao inventário e ativos
 
 ---
 

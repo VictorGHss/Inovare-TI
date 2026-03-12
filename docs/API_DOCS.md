@@ -30,6 +30,7 @@
 > | `GET /api/notifications/unread`      | Idem — notificações do usuário autenticado                                     |
 > | `PATCH /api/notifications/{id}/read` | Só o **dono da notificação** pode marcá-la como lida                           |
 > | `GET /api/tickets`                   | **ADMIN/TECHNICIAN** veem todos; **USER** vê apenas seus próprios chamados     |
+> | `GET /api/audit-logs`                | Exclusivo para **ADMIN**                                                        |
 >
 > Tentativas de acesso não autorizado retornam **403 Forbidden**.
 
@@ -1023,15 +1024,84 @@ Não requer body.
 
 ---
 
+---
+
+## Módulo: Logs de Auditoria (`/api/audit-logs`)
+
+> **Acesso:** Exclusivo para **ADMIN**. Todas as consultas retornam apenas registros auditáveis do sistema.
+
+### `GET /api/audit-logs`
+
+Retorna a trilha de auditoria com filtros opcionais por data, usuário e tipo de ação. Retorna paginado (20 registros por página).
+
+**Query Parameters:**
+
+| Parâmetro    | Tipo   | Obrigatório | Descrição                                                                 |
+|--------------|--------|-------------|---------------------------------------------------------------------------|
+| `page`       | int    | Não         | Número da página (padrão: 0)                                             |
+| `size`       | int    | Não         | Tamanho da página (padrão: 20, máximo: 100)                              |
+| `userId`     | UUID   | Não         | Filtra por ID do usuário que executou a ação                              |
+| `action`     | string | Não         | Filtra por tipo de ação (ex.: `VAULT_SECRET_VIEW`, `LOGIN_FAILURE`)       |
+| `startDate`  | string | Não         | Data/hora de início do filtro (ISO 8601, ex.: `2026-03-01T00:00:00`)     |
+| `endDate`    | string | Não         | Data/hora de fim do filtro (ISO 8601, ex.: `2026-03-12T23:59:59`)        |
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "content": [
+    {
+      "id": "ee5f6a7b-c8d9-0123-efab-cd4567890123",
+      "userId": "0d4c7a45-2c88-4f0d-9ea5-61d18e3c0db1",
+      "userName": "João Silva",
+      "action": "VAULT_SECRET_VIEW",
+      "resourceType": "VaultItem",
+      "resourceId": "20a521cc-e6d1-447e-9628-3d7cdd87cf89",
+      "details": "{\"itemTitle\": \"VPN Produção\"}",
+      "ipAddress": "192.168.1.100",
+      "createdAt": "2026-03-12T10:30:00"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "number": 0,
+  "size": 20
+}
+```
+
+**Ações disponíveis para filtro:**
+
+| Valor                    | Descrição                                              |
+|--------------------------|--------------------------------------------------------|
+| `VAULT_SECRET_VIEW`      | Leitura de conteúdo secreto de um item do Vault        |
+| `VAULT_FILE_VIEW`        | Visualização de anexo protegido do Vault               |
+| `VAULT_ITEM_CREATE`      | Criação de novo item no cofre                          |
+| `LOGIN_SUCCESS`          | Login bem-sucedido                                     |
+| `LOGIN_FAILURE`          | Tentativa de login com credenciais inválidas           |
+| `TWO_FACTOR_RESET`       | Reset do 2FA pelo próprio usuário via código Discord   |
+| `TWO_FACTOR_ADMIN_RESET` | Reset administrativo do 2FA por um ADMIN               |
+| `USER_PERMISSION_CHANGE` | Alteração de role ou setor de um usuário               |
+
+**Respostas de Erro:**
+
+| Código | Situação                                     |
+|--------|----------------------------------------------|
+| `403`  | Usuário não é ADMIN                          |
+| `400`  | Parâmetros de data com formato inválido      |
+
+---
+
 ## Changelog
 
 | Versão | Data       | Descrição                                                                   |
 |--------|------------|-----------------------------------------------------------------------------|
+| 1.3.0  | 2026-03-12 | Fase 8 — Módulo de Auditoria: trilha de logs, endpoint /api/audit-logs      |
+| 1.2.0  | 2026-03-12 | Fases 6/7 — Vault, 2FA TOTP, recuperação via Discord documentados          |
 | 1.0.0  | 2026-03-11 | Documentação atualizada — Fases 1–4 concluídas, segurança e Flyway         |
 | 0.6.0  | 2026-03-11 | Segurança granular: resolve/claim/transfer com roles; notificações por dono |
 | 0.5.0  | 2026-03-02 | Fase 5 — Segurança JWT: login, SecurityFilter, rotas bloqueadas             |
 | 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1                |
 | 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional                |
-| 0.3.0  | 2026-03-02 — Fase 3 — Items de inventário e lotes de estoque (JSON specifications)   |
+| 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)       |
 | 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)       |
 | 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item                 |

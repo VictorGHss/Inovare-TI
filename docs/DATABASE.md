@@ -235,3 +235,55 @@ Representa os compartilhamentos explícitos entre um item do cofre e usuários e
 - O fluxo de recuperação do 2FA utiliza `recovery_code_hash` + `recovery_code_expires_at`, evitando armazenamento do código temporário em texto puro.
 - O campo `specifications` usa `jsonb` (PostgreSQL), que permite indexação GIN para consultas sobre as chaves JSON.
 - As migrações DDL ficam em `api/src/main/resources/db/migration/` seguindo o padrão `V{versão}__{descricao}.sql`.
+
+---
+
+## Domínio: Auditoria (`domain/audit`)
+
+### Tabela `audit_logs`
+
+Registra todas as ações críticas do sistema para fins de rastreabilidade e compliance. Os registros são imutáveis — não há operação de UPDATE ou DELETE programática sobre esta tabela.
+
+| Coluna          | Tipo           | Restrições                         | Descrição |
+|-----------------|----------------|------------------------------------|-----------|
+| `id`            | `uuid`         | PK, NOT NULL                       | Identificador único do registro de auditoria |
+| `user_id`       | `uuid`         | NULLABLE                           | ID do usuário que executou a ação (NULL para eventos de sistema) |
+| `action`        | `varchar(60)`  | NOT NULL                           | Tipo da ação: `VAULT_SECRET_VIEW`, `LOGIN_FAILURE`, `TWO_FACTOR_RESET`, etc. |
+| `resource_type` | `varchar(60)`  | NULLABLE                           | Tipo do recurso afetado (ex.: `VaultItem`, `User`) |
+| `resource_id`   | `uuid`         | NULLABLE                           | ID do recurso afetado |
+| `details`       | `text`         | NULLABLE                           | Contexto adicional em formato JSON (ex.: título do item, e-mail tentado) |
+| `ip_address`    | `varchar(45)`  | NULLABLE                           | Endereço IP de origem da requisição |
+| `created_at`    | `timestamp`    | NOT NULL                           | Data/hora em que o evento ocorreu |
+
+**Observações de segurança:**
+- Não há FK para `users` — o log persiste mesmo se o usuário for removido do sistema.
+- O campo `details` aceita JSON livre para capturar contexto sem alterar o schema.
+- A tabela possui índice em `user_id` e `created_at` para consultas por período e usuário.
+
+**Ações rastreadas:**
+
+| Valor da `action`        | Gatilho                                               |
+|--------------------------|-------------------------------------------------------|
+| `VAULT_SECRET_VIEW`      | Leitura de `secret_content` descriptografado          |
+| `VAULT_FILE_VIEW`        | Download/visualização de anexo do Vault               |
+| `VAULT_ITEM_CREATE`      | Criação de item no cofre                              |
+| `LOGIN_SUCCESS`          | Autenticação bem-sucedida                             |
+| `LOGIN_FAILURE`          | Tentativa com credenciais inválidas                   |
+| `TWO_FACTOR_RESET`       | Reset de 2FA pelo próprio usuário via Discord         |
+| `TWO_FACTOR_ADMIN_RESET` | Reset de 2FA executado por um ADMIN                   |
+| `USER_PERMISSION_CHANGE` | Alteração de `role` ou `sector_id` de um usuário      |
+
+### Atualização do Diagrama de Relacionamentos
+
+```
+sectors            (1) ──< users             (N)
+item_categories    (1) ──< items             (N)
+items              (1) ──< stock_batches     (N)
+ticket_categories  (1) ──< tickets           (N)
+users              (1) ──< tickets           (N)  [requester]
+users              (1) ──< tickets           (N)  [assigned_to, nullable]
+items              (1) ──< tickets           (N)  [requested_item, nullable]
+vault_items        (1) ──< vault_item_shares (N)
+users              (1) ──< vault_items       (N)  [owner]
+audit_logs               (sem FK — registro imutável e independente)
+```

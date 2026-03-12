@@ -75,18 +75,22 @@ public class ArticleController {
     public ResponseEntity<ArticleResponseDTO> getById(@PathVariable UUID id) {
         User user = getAuthenticatedUser();
 
-        return articleRepository.findById(id)
-            .map(article -> {
-                boolean canReadDraft = article.getStatus() != ArticleStatus.DRAFT
-                        || article.getAuthorId().equals(user.getId())
-                        || user.getRole() != br.dev.ctrls.inovareti.domain.user.UserRole.USER;
+            Article article = articleRepository.findById(id)
+                .orElse(null);
 
-                if (!canReadDraft) {
-                    return ResponseEntity.notFound().build();
-                }
-                return ResponseEntity.ok(ArticleResponseDTO.from(article));
-            })
-            .orElse(ResponseEntity.notFound().build());
+            if (article == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            boolean canReadDraft = article.getStatus() != ArticleStatus.DRAFT
+                    || article.getAuthorId().equals(user.getId())
+                    || user.getRole() != br.dev.ctrls.inovareti.domain.user.UserRole.USER;
+
+            if (!canReadDraft) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            return ResponseEntity.ok(ArticleResponseDTO.from(article));
     }
 
     /**

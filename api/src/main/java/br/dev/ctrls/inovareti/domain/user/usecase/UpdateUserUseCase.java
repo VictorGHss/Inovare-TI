@@ -54,7 +54,7 @@ public class UpdateUserUseCase {
 
         UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
 
-        String newRole = request.role() != null ? request.role().name() : null;
+        String newRole = request.role().name();
         boolean roleChanged = !java.util.Objects.equals(oldRole, newRole);
         boolean sectorChanged = !java.util.Objects.equals(oldSectorId, request.sectorId());
 

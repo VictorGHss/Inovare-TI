@@ -87,7 +87,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## � Fase 8 — Auditoria e Compliance (Foco Atual)
+## ✅ Fase 8 — Auditoria e Compliance (Concluída)
 
 - [x] Auditoria de tamanho: varredura de Controllers, UseCases e páginas críticas
 - [x] Correção de `exhaustive-deps` no `Assets/index.tsx` (`useCallback` + deps explícitas)

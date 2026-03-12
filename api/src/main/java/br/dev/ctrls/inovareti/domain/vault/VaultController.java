@@ -127,14 +127,6 @@ public class VaultController {
         }
         return request.getRemoteAddr();
     }
-        }
-
-        try {
-            return UUID.fromString(authentication.getPrincipal().toString());
-        } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuário autenticado inválido.");
-        }
-    }
 
     private VaultCreateItemRequestDTO parseCreatePayload(String payload) {
         try {

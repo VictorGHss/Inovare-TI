@@ -25,7 +25,7 @@ public class AuditEventListener {
     @EventListener
     public void onAuditEvent(AuditEvent event) {
         try {
-            AuditLog log = AuditLog.builder()
+            AuditLog auditLog = AuditLog.builder()
                     .userId(event.getUserId())
                     .action(event.getAction())
                     .resourceType(event.getResourceType())
@@ -35,7 +35,7 @@ public class AuditEventListener {
                     .createdAt(LocalDateTime.now())
                     .build();
 
-            auditLogRepository.save(log);
+            auditLogRepository.save(auditLog);
         } catch (Exception ex) {
             // Falha no log de auditoria nunca deve propagar para o chamador
             log.error("Falha ao persistir registro de auditoria [action={}]: {}",

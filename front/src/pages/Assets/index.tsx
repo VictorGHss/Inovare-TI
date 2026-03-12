@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, X, HardDrive, FileText, Download, Printer } from 'lucide-react';
+import { Download, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
 import {
-  getAssets,
-  createAsset,
-  getUsers,
-  getAssetCategories,
-  uploadAssetInvoice,
   downloadAssetInvoice,
+  getAssetCategories,
+  getAssets,
+  getUsers,
+  uploadAssetInvoice,
   type Asset,
   type AssetCategory,
   type AssetFilterStatus,
   type AssetSortBy,
   type User,
-  type CreateAssetDto,
 } from '../../services/api';
+import AssetTable from './components/AssetTable';
+import NewAssetModal from './components/NewAssetModal';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
@@ -36,33 +36,19 @@ export default function Assets() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedAssetForInvoice, setSelectedAssetForInvoice] = useState<Asset | null>(null);
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState<Asset | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
-  const [assetFileInputId] = useState(`asset-invoice-${Math.random().toString(36).slice(2)}`);
   const [statusFilter, setStatusFilter] = useState<AssetFilterStatus>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
 
-  const [formData, setFormData] = useState<CreateAssetDto>({
-    name: '',
-    patrimonyCode: '',
-    userId: '',
-    categoryId: '',
-    specifications: '',
-    quantity: 1,
-  });
-
   const canManageAssets = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
-  const userNameById = useMemo(() => {
-    return new Map(users.map((currentUser) => [currentUser.id, currentUser.name]));
-  }, [users]);
+  const userNameById = useMemo(
+    () => new Map(users.map((u) => [u.id, u.name])),
+    [users],
+  );
 
   const fetchInitialData = useCallback(async () => {
-    if (!canManageAssets) {
-      return;
-    }
-
+    if (!canManageAssets) return;
     try {
       const [usersData, categoriesData] = await Promise.all([getUsers(), getAssetCategories()]);
       setUsers(usersData);
@@ -79,7 +65,6 @@ export default function Assets() {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     try {
       const filters: { status: AssetFilterStatus; sortBy: AssetSortBy; categoryId: string } = {
@@ -87,13 +72,8 @@ export default function Assets() {
         sortBy: sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt',
         categoryId: categoryFilter !== 'ALL' ? categoryFilter : '',
       };
-
       const assetsData = await getAssets(filters);
-
-      // O backend retorna createdAt DESC; para "Mais Antigos" invertemos localmente.
-      const sortedAssets = sortFilter === 'OLDEST' ? [...assetsData].reverse() : assetsData;
-
-      setAssets(sortedAssets);
+      setAssets(sortFilter === 'OLDEST' ? [...assetsData].reverse() : assetsData);
     } catch {
       toast.error('Erro ao carregar ativos.');
       setAssets([]);
@@ -102,21 +82,15 @@ export default function Assets() {
     }
   }, [canManageAssets, statusFilter, categoryFilter, sortFilter]);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+  useEffect(() => { void fetchInitialData(); }, [fetchInitialData]);
+  useEffect(() => { void fetchAssets(); }, [fetchAssets]);
 
-  useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets]);
-
-  function formatCreatedAt(isoDate: string): string {
+  function formatCreatedAt(isoDate: string) {
     return new Date(isoDate).toLocaleDateString('pt-BR');
   }
 
-  function escapeCsvValue(value: string): string {
-    const sanitized = value.replaceAll('"', '');
-    return `"${sanitized}"`;
+  function escapeCsvValue(value: string) {
+    return `"${value.replaceAll('"', '')}"`;
   }
 
   function handleExportCsv() {
@@ -124,7 +98,6 @@ export default function Assets() {
       toast.info('Nenhum ativo para exportar com os filtros atuais.');
       return;
     }
-
     const headers = ['Nome', 'Patrimônio', 'Categoria', 'Usuário Atual', 'Data de Cadastro'];
     const rows = assets.map((asset) => [
       asset.name,
@@ -133,13 +106,10 @@ export default function Assets() {
       asset.assignedToName ?? 'No estoque (TI)',
       formatCreatedAt(asset.createdAt),
     ]);
-
     const csvContent = [headers, ...rows]
       .map((row) => row.map((cell) => escapeCsvValue(cell)).join(';'))
       .join('\n');
-
-    const csvWithBom = `\uFEFF${csvContent}`;
-    const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -150,40 +120,13 @@ export default function Assets() {
     window.URL.revokeObjectURL(url);
   }
 
-  function resetForm() {
-    setFormData({
-      name: '',
-      patrimonyCode: '',
-      userId: '',
-      categoryId: '',
-      specifications: '',
-      quantity: 1,
-    });
-    setSelectedInvoiceFile(null);
-  }
-
-  function openInvoiceModal(asset: Asset) {
-    setSelectedAssetForInvoice(asset);
-    setShowInvoiceModal(true);
-  }
-
-  function openPrintModal(asset: Asset) {
-    setSelectedAssetForPrint(asset);
-    setShowPrintModal(true);
-  }
-
-  function handleOpenDetails(asset: Asset) {
-    navigate(`/assets/${asset.id}`);
-  }
-
   async function handleInvoiceUpload(file: File) {
     if (!selectedAssetForInvoice) return;
-
     try {
       await uploadAssetInvoice(selectedAssetForInvoice.id, file);
       setShowInvoiceModal(false);
       setSelectedAssetForInvoice(null);
-      fetchAssets(); // Recarrega dados para atualizar a tabela
+      void fetchAssets();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
       throw new Error(message);
@@ -192,12 +135,10 @@ export default function Assets() {
 
   async function handleInvoiceDownload(asset: Asset, e: React.MouseEvent) {
     e.stopPropagation();
-
     if (!asset.invoiceFileName) {
       toast.error('Nenhuma nota fiscal anexada a este ativo.');
       return;
     }
-
     try {
       const blob = await downloadAssetInvoice(asset.id);
       const url = window.URL.createObjectURL(blob);
@@ -210,42 +151,6 @@ export default function Assets() {
       window.URL.revokeObjectURL(url);
     } catch {
       toast.error('Erro ao baixar nota fiscal.');
-    }
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-
-    if (!formData.name.trim() || !formData.patrimonyCode.trim()) {
-      toast.error('Preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const asset = await createAsset({
-        name: formData.name.trim(),
-        patrimonyCode: formData.patrimonyCode.trim(),
-        userId: formData.userId || undefined,
-        categoryId: formData.categoryId || undefined,
-        specifications: formData.specifications?.trim() || undefined,
-        quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,
-      });
-
-      if (selectedInvoiceFile) {
-        await uploadAssetInvoice(asset.id, selectedInvoiceFile);
-        toast.success('Ativo cadastrado e nota fiscal anexada com sucesso!');
-      } else {
-        toast.success('Ativo cadastrado com sucesso!');
-      }
-
-      setShowModal(false);
-      resetForm();
-      fetchAssets();
-    } catch {
-      toast.error('Erro ao cadastrar ativo. Verifique os dados.');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -266,7 +171,6 @@ export default function Assets() {
           <h1 className="text-2xl font-bold text-slate-800">Ativos (CMDB)</h1>
           <p className="text-sm text-slate-400 mt-1">Gestão de equipamentos permanentes vinculados aos usuários</p>
         </div>
-
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportCsv}
@@ -275,7 +179,6 @@ export default function Assets() {
             <Download size={17} />
             Exportar (CSV)
           </button>
-
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
@@ -292,7 +195,7 @@ export default function Assets() {
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Status</label>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as AssetFilterStatus)}
+              onChange={(e) => setStatusFilter(e.target.value as AssetFilterStatus)}
               className={inputClassName}
             >
               <option value="ALL">Todos</option>
@@ -300,28 +203,24 @@ export default function Assets() {
               <option value="IN_STOCK">No Estoque (TI)</option>
             </select>
           </div>
-
           <div className="flex-1 min-w-[220px]">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Categoria</label>
             <select
               value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
+              onChange={(e) => setCategoryFilter(e.target.value)}
               className={inputClassName}
             >
               <option value="ALL">Todas</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
-
           <div className="flex-1 min-w-[220px]">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Ordenar por</label>
             <select
               value={sortFilter}
-              onChange={(event) => setSortFilter(event.target.value as 'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES')}
+              onChange={(e) => setSortFilter(e.target.value as 'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES')}
               className={inputClassName}
             >
               <option value="NEWEST">Mais Recentes</option>
@@ -332,278 +231,38 @@ export default function Assets() {
         </div>
       </section>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-pulse space-y-3">
-              <div className="h-4 bg-slate-200 rounded w-3/4 mx-auto" />
-              <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto" />
-            </div>
-          </div>
-        ) : assets.length === 0 ? (
-          <p className="text-center text-slate-400 py-12 text-sm">Nenhum ativo cadastrado.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">Patrimônio</th>
-                  <th className="px-4 py-3 text-left">Categoria</th>
-                  <th className="px-4 py-3 text-left">Usuário Vinculado</th>
-                  <th className="px-4 py-3 text-center">Nota Fiscal</th>
-                  <th className="px-4 py-3 text-center">Etiqueta</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {assets.map((asset) => (
-                  <tr
-                    key={asset.id}
-                    onClick={() => handleOpenDetails(asset)}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      <div className="flex items-center gap-2">
-                        <HardDrive size={15} className="text-slate-400" />
-                        <span>{asset.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
-                    <td className="px-4 py-3 text-slate-600">{asset.categoryName ?? 'Sem categoria'}</td>
-                    <td className="px-4 py-3 text-slate-600">{asset.assignedToName ?? (asset.userId ? userNameById.get(asset.userId) ?? 'Usuário não encontrado' : 'No estoque (TI)')}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        {asset.invoiceFileName ? (
-                          <button
-                            onClick={(e) => handleInvoiceDownload(asset, e)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
-                            title="Visualizar/baixar nota fiscal"
-                          >
-                            <Download size={14} />
-                            Ver NF
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openInvoiceModal(asset);
-                            }}
-                            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
-                            title="Anexar nota fiscal"
-                          >
-                            <FileText size={14} />
-                            Anexar NF
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openPrintModal(asset);
-                          }}
-                          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
-                          title="Imprimir etiqueta com QR Code"
-                        >
-                          <Printer size={14} />
-                          Imprimir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <AssetTable
+        assets={assets}
+        loading={loading}
+        userNameById={userNameById}
+        onOpenDetails={(asset) => navigate(`/assets/${asset.id}`)}
+        onOpenInvoiceModal={(asset) => { setSelectedAssetForInvoice(asset); setShowInvoiceModal(true); }}
+        onInvoiceDownload={handleInvoiceDownload}
+        onOpenPrintModal={(asset) => { setSelectedAssetForPrint(asset); setShowPrintModal(true); }}
+      />
 
-      {/* Modal de Nota Fiscal */}
+      <NewAssetModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        users={users}
+        categories={categories}
+        onCreated={() => void fetchAssets()}
+      />
+
       <UploadInvoiceModal
         isOpen={showInvoiceModal}
-        onClose={() => {
-          setShowInvoiceModal(false);
-          setSelectedAssetForInvoice(null);
-        }}
+        onClose={() => { setShowInvoiceModal(false); setSelectedAssetForInvoice(null); }}
         onUpload={handleInvoiceUpload}
         entityName="Ativo"
         entityId={selectedAssetForInvoice?.id ?? ''}
       />
 
-      {/* Modal de Impressão de Etiqueta */}
       {selectedAssetForPrint && (
         <PrintLabelModal
           isOpen={showPrintModal}
-          onClose={() => {
-            setShowPrintModal(false);
-            setSelectedAssetForPrint(null);
-          }}
+          onClose={() => { setShowPrintModal(false); setSelectedAssetForPrint(null); }}
           asset={selectedAssetForPrint}
         />
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-800">Novo Ativo</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Nome <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
-                  className={inputClassName}
-                  placeholder="Ex: Desktop Dell OptiPlex 7010"
-                  maxLength={150}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Código do Patrimônio <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.patrimonyCode}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, patrimonyCode: event.target.value }))}
-                  className={inputClassName}
-                  placeholder="Ex: INV-2026-00421"
-                  maxLength={80}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Categoria
-                </label>
-                <select
-                  value={formData.categoryId ?? ''}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, categoryId: event.target.value }))}
-                  className={inputClassName}
-                >
-                  <option value="">Sem categoria</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Quantidade a cadastrar (Lote)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={formData.quantity ?? 1}
-                  onChange={(event) => {
-                    const value = Math.max(1, Number.parseInt(event.target.value, 10) || 1);
-                    setFormData((prev) => ({ ...prev, quantity: value }));
-                  }}
-                  className={inputClassName}
-                />
-                <p className="text-xs text-slate-500">
-                  Se for maior que 1, o código de patrimônio receberá sufixo sequencial (ex.: MON-00-1, MON-00-2).
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Usuário Vinculado
-                </label>
-                <select
-                  value={formData.userId}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, userId: event.target.value }))}
-                  className={inputClassName}
-                >
-                  <option value="">Deixar no Estoque da TI</option>
-                  {users.map((currentUser) => (
-                    <option key={currentUser.id} value={currentUser.id}>
-                      {currentUser.name} ({currentUser.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">Especificações</label>
-                <textarea
-                  value={formData.specifications ?? ''}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, specifications: event.target.value }))}
-                  className={inputClassName}
-                  rows={4}
-                  placeholder="Ex: CPU i5 12ª gen, 16GB RAM, SSD 512GB"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">Nota Fiscal (opcional)</label>
-                <input
-                  id={assetFileInputId}
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg,image/jpg"
-                  onChange={(e) => setSelectedInvoiceFile(e.target.files?.[0] || null)}
-                  className="sr-only"
-                />
-                <div className="flex items-center gap-3">
-                  <label
-                    htmlFor={assetFileInputId}
-                      className="inline-flex items-center px-3 py-2 bg-brand-primary text-white rounded-lg text-sm cursor-pointer hover:opacity-90 transition-opacity"
-                  >
-                    Selecionar Arquivo
-                  </label>
-                  <span className="text-xs text-slate-600 truncate">
-                    {selectedInvoiceFile?.name ?? 'Nenhum arquivo anexado'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
-                >
-                  {submitting 
-                    ? (selectedInvoiceFile ? 'Criando e anexando NF...' : 'Salvando...') 
-                    : 'Cadastrar Ativo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </main>
   );

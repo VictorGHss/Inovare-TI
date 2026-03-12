@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetMaintenanceResponseDTO;
@@ -42,14 +40,9 @@ public class AssetController {
     private final AssetCategoryRepository assetCategoryRepository;
     private final UserRepository userRepository;
     private final AssetService assetService;
+    private final AssetQueryService assetQueryService;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
-    private AssetResponseDTO toResponseDTO(Asset asset) {
-        User assignedUser = asset.getUserId() != null 
-            ? userRepository.findById(asset.getUserId()).orElse(null) 
-            : null;
-        return AssetResponseDTO.from(asset, assignedUser);
-    }
 
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -59,8 +52,8 @@ public class AssetController {
             @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "createdAt") String sortBy
     ) {
-        AssetFilterStatus parsedStatus = parseStatus(status);
-        AssetSortBy parsedSortBy = parseSortBy(sortBy);
+        AssetFilterStatus parsedStatus = assetQueryService.parseFilterStatus(status);
+        AssetSortBy parsedSortBy = assetQueryService.parseSortBy(sortBy);
 
         List<Asset> assets = parsedSortBy == AssetSortBy.MAINTENANCE_COUNT
                 ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name())
@@ -68,36 +61,9 @@ public class AssetController {
 
         List<AssetResponseDTO> response = assets
                 .stream()
-                .map(this::toResponseDTO)
+                .map(assetQueryService::toResponseDTO)
                 .toList();
         return ResponseEntity.ok(response);
-    }
-
-    private AssetFilterStatus parseStatus(String status) {
-        try {
-            return AssetFilterStatus.valueOf(status.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Invalid status. Allowed values: ALL, IN_USE, IN_STOCK.");
-        }
-    }
-
-    private AssetSortBy parseSortBy(String sortBy) {
-        return switch (sortBy) {
-            case "createdAt" -> AssetSortBy.CREATED_AT;
-            case "maintenanceCount" -> AssetSortBy.MAINTENANCE_COUNT;
-            default -> throw new BadRequestException("Invalid sortBy. Allowed values: createdAt, maintenanceCount.");
-        };
-    }
-
-    private enum AssetFilterStatus {
-        ALL,
-        IN_USE,
-        IN_STOCK
-    }
-
-    private enum AssetSortBy {
-        CREATED_AT,
-        MAINTENANCE_COUNT
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
@@ -105,14 +71,14 @@ public class AssetController {
     public ResponseEntity<AssetResponseDTO> findById(@PathVariable UUID id) {
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
-        return ResponseEntity.ok(toResponseDTO(asset));
+        return ResponseEntity.ok(assetQueryService.toResponseDTO(asset));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<AssetResponseDTO>> findByUser(@PathVariable UUID userId) {
         List<AssetResponseDTO> response = assetRepository.findByUserId(userId)
                 .stream()
-                .map(this::toResponseDTO)
+                .map(assetQueryService::toResponseDTO)
                 .toList();
         return ResponseEntity.ok(response);
     }
@@ -121,7 +87,7 @@ public class AssetController {
     @PostMapping
     public ResponseEntity<AssetResponseDTO> create(@Valid @RequestBody AssetRequestDTO request) {
         Asset savedAsset = assetService.createAssets(request).get(0);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDTO(savedAsset));
+        return ResponseEntity.status(HttpStatus.CREATED).body(assetQueryService.toResponseDTO(savedAsset));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -131,7 +97,7 @@ public class AssetController {
             throw new NotFoundException("User not found with id: " + request.userId());
         }
 
-        AssetCategory category = resolveCategory(request.categoryId());
+        AssetCategory category = assetService.resolveCategory(request.categoryId());
 
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
@@ -143,7 +109,7 @@ public class AssetController {
         asset.setSpecifications(request.specifications());
 
         Asset savedAsset = assetRepository.save(asset);
-        return ResponseEntity.ok(toResponseDTO(savedAsset));
+        return ResponseEntity.ok(assetQueryService.toResponseDTO(savedAsset));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -191,16 +157,7 @@ public class AssetController {
         asset.setInvoiceFilePath(metadata.getFilePath());
 
         Asset updatedAsset = assetRepository.save(asset);
-        return ResponseEntity.ok(toResponseDTO(updatedAsset));
-    }
-
-    private AssetCategory resolveCategory(UUID categoryId) {
-        if (categoryId == null) {
-            return null;
-        }
-
-        return assetCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new NotFoundException("Asset category not found with id: " + categoryId));
+        return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));
     }
 
     /**

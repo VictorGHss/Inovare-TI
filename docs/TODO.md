@@ -86,18 +86,26 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 8 — Auditoria e Compliance
+## 🔲 Fase 8 — Auditoria de Qualidade e Compliance
 
-- [ ] Implementar rastreabilidade de acessos ao Vault
-- [ ] Registrar resets de 2FA, leituras de segredos e mudanças administrativas críticas
-- [ ] Criar trilha de auditoria com usuário, ação, timestamp, origem e contexto
+- [x] Auditoria de tamanho: varredura de Controllers, UseCases e páginas críticas
+- [x] Correção de `exhaustive-deps` no `Assets/index.tsx` (`useCallback` + deps explícitas)
+- [x] Refatoração de `CsvImportService` (350 linhas → `CsvRowParser` + `CsvPersistenceService`)
+- [x] Refatoração de `AssetController` (lógica de filtro extraída para `AssetQueryService`)
+- [x] Componentização: `Vault/index.tsx` → 4 sub-componentes em `Vault/components/`
+- [x] Componentização: `Assets/index.tsx` → `AssetTable` + `NewAssetModal`
+- [ ] Implementar rastreabilidade de acessos ao Vault (leituras, resets 2FA, ações admin)
+- [ ] Trilha de auditoria com usuário, ação, timestamp, origem e contexto
 
 ---
 
 ## 🔲 Fase 9 — Otimização Mobile (PWA)
 
-- [ ] Transformar o frontend em Progressive Web App (PWA)
-- [ ] Implementar instalação como web app
+- [x] Configurar `vite-plugin-pwa` no `vite.config.ts`
+- [x] Criar `manifest.json` com nome "Inovare TI", cores `#ffa751`/`#ffffff`, modo `standalone`
+- [x] Adicionar meta tags Apple para comportamento nativo no iPhone (sem barra do Safari)
+- [ ] Adicionar ícones PWA em resolução 192x192 e 512x512
+- [ ] Testar instalação como web app em iOS e Android
 - [ ] Adicionar suporte nativo a QR Code para fluxos de inventário e ativos
 
 ---
@@ -105,5 +113,6 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 ## 🔲 Fase 10 — Dashboard Premium
 
 - [ ] Criar interface premium com animações e refinamento visual
-- [ ] Aplicar identidade visual da clínica com as cores oficiais `#ffa751` e `#ffd1a3`
+- [ ] Aplicar identidade visual com as cores oficiais `#ffa751` e `#ffd1a3`
 - [ ] Evoluir dashboard para experiência executiva e analítica
+- [ ] Gráficos avançados com drill-down e filtros temporais

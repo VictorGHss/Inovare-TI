@@ -54,7 +54,7 @@ public class AssetService {
         return createdAssets;
     }
 
-    private AssetCategory resolveCategory(java.util.UUID categoryId) {
+    public AssetCategory resolveCategory(java.util.UUID categoryId) {
         if (categoryId == null) {
             return null;
         }

@@ -25,6 +25,7 @@ O sistema é dividido em três camadas independentes, cada uma rodando em seu pr
 │           CAMADA 2 — Backend API (Spring Boot)                 │
 │  • Java 21 + Spring Boot 4 + Spring Security                   │
 │  • Autenticação stateless via JWT (auth0 java-jwt 4.4)         │
+│  • 2FA via TOTP com sessão integrada ao JWT                    │
 │  • Arquitetura por domínio: ticket, inventory, asset, user...  │
 │  • Casos de uso isolados (UseCase classes) por operação        │
 │  • Upload de arquivos salvo em volume Docker (/app/uploads)    │
@@ -94,11 +95,12 @@ br.dev.ctrls.inovareti/
 ├── config/         # SecurityConfig, WebMvcConfig, CORS
 ├── core/           # Tratamento global de erros (GlobalExceptionHandler), auth filter
 ├── domain/
-│   ├── auth/       # AuthController, TokenService (JWT)
+│   ├── auth/       # AuthController, TokenService, TOTP/2FA, recovery flow
 │   ├── ticket/     # Ticket, TicketController, usecase/ (ClaimTicket, ResolveTicket...)
 │   ├── inventory/  # Item, StockBatch, StockMovement, ItemController
 │   ├── asset/      # Asset, AssetMaintenance, AssetController
 │   ├── user/       # User, UserController, UserRepository
+│   ├── vault/      # VaultController, VaultService, itens sensíveis e compartilhamento
 │   ├── notification/ # Notification, NotificationController
 │   ├── knowledge/  # Article, ArticleController
 │   ├── report/     # ReportController (exportação XLSX)
@@ -142,7 +144,40 @@ Todas as páginas do frontend, exceto `Login` e `PrimeiroAcesso`, são carregada
 - Autenticação 100% stateless via JWT Bearer Token (expiração: 8h).
 - Autorização granular por `@PreAuthorize` nos endpoints críticos.
 - Senhas armazenadas exclusivamente como hash BCrypt (custo 10).
-- TOTP (dois fatores) preparado no schema (`totp_secret` na tabela `users`).
+- TOTP (dois fatores) ativo para validação de acesso a recursos sensíveis.
+
+---
+
+## Segurança de Dados
+
+### Criptografia de credenciais com AES-256/GCM
+
+O módulo de Vault foi projetado para armazenar dados sensíveis com criptografia em nível de aplicação. O conteúdo secreto (`secret_content`) é protegido com **AES-256/GCM**, garantindo:
+
+- **Confidencialidade**: o conteúdo não é persistido em texto puro no banco.
+- **Integridade autenticada**: o modo GCM detecta adulteração do ciphertext.
+- **Desacoplamento da infraestrutura**: a chave de criptografia é carregada por variável de ambiente (`VAULT_ENCRYPTION_KEY`), sem fallback inseguro em código.
+
+Essa abordagem é utilizada para credenciais, anotações sensíveis e demais dados privados do cofre, reduzindo o impacto de vazamento direto do banco de dados.
+
+### 2FA integrado ao JWT
+
+O fluxo de autenticação em dois fatores funciona em duas etapas:
+
+1. O usuário realiza login com e-mail e senha.
+2. Após validar o código TOTP, a API emite um novo JWT com a claim `two_factor_verified=true`.
+
+Esse token passa a representar uma sessão autenticada e também validada em segundo fator. Recursos sensíveis, como leitura de segredos e anexos do Vault, exigem essa validação adicional.
+
+### Revogação imediata de acesso sensível
+
+Quando o 2FA é resetado, seja pelo próprio usuário via recuperação ou por um administrador, o sistema aplica revogação imediata:
+
+- o backend invalida o estado efetivo de 2FA ao limpar `totp_secret`;
+- o guard de segurança do Vault valida o estado atual do usuário no banco, não apenas a claim do JWT;
+- o frontend invalida localmente o estado `twoFactorVerified`, forçando nova configuração antes de liberar o cofre.
+
+Isso impede que um token antigo continue acessando dados sensíveis após o reset do segundo fator.
 
 ---
 
@@ -158,6 +193,7 @@ Todas as páginas do frontend, exceto `Login` e `PrimeiroAcesso`, são carregada
 | `/users`                    | Gestão de usuários     | ADMIN                        |
 | `/settings`                 | Configurações sistema  | ADMIN                        |
 | `/knowledge-base`           | Base de conhecimento   | Todos os usuários autenticados |
+| `/vault`                    | Cofre seguro           | ADMIN / TECHNICIAN           |
 
 ---
 

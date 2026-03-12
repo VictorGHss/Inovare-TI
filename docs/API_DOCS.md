@@ -110,6 +110,208 @@ Autentica um usuário e retorna um token JWT.
 
 ---
 
+### `POST /api/auth/2fa/generate`
+
+Gera um novo segredo TOTP para o usuário autenticado e retorna os dados necessários para configurar o autenticador.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "qrCodeBase64": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "otpauthUrl": "otpauth://totp/inovare-ti:usuario%40empresa.com?secret=ABC123...&issuer=inovare-ti"
+}
+```
+
+### `POST /api/auth/2fa/verify`
+
+Valida o código TOTP informado e retorna um novo JWT com a claim de 2FA verificado.
+
+**Request Body:**
+
+```json
+{
+  "code": "123456"
+}
+```
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "status": "AUTHENTICATED",
+  "token": "<jwt-com-two-factor-verified>",
+  "tempToken": null,
+  "userId": null,
+  "user": {
+    "id": "0d4c7a45-2c88-4f0d-9ea5-61d18e3c0db1",
+    "name": "João Silva",
+    "email": "joao.silva@empresa.com",
+    "role": "TECHNICIAN"
+  }
+}
+```
+
+### `POST /api/auth/2fa/reset-request`
+
+Solicita a recuperação do 2FA. A API gera um código temporário, persiste seu hash no banco e envia a instrução de recuperação por DM no Discord ao usuário vinculado.
+
+**Resposta de Sucesso — `204 No Content`**
+
+**Respostas de Erro:**
+
+| Código | Situação |
+|--------|----------|
+| `400`  | 2FA não ativado para o usuário |
+| `400`  | Usuário sem `discordUserId` vinculado |
+
+### `POST /api/auth/2fa/reset-confirm`
+
+Confirma a recuperação do 2FA validando simultaneamente o código recebido e a senha atual do usuário.
+
+**Request Body:**
+
+```json
+{
+  "code": "A3BH7KWP",
+  "password": "senhaAtual123"
+}
+```
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "status": "AUTHENTICATED",
+  "token": "<jwt-sem-two-factor-verified>",
+  "tempToken": null,
+  "userId": null,
+  "user": {
+    "id": "0d4c7a45-2c88-4f0d-9ea5-61d18e3c0db1",
+    "name": "João Silva",
+    "email": "joao.silva@empresa.com",
+    "role": "TECHNICIAN"
+  }
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação |
+|--------|----------|
+| `400`  | Código inválido, expirado ou não solicitado |
+| `400`  | Senha atual incorreta |
+| `400`  | 2FA já desativado |
+
+---
+
+## Módulo: Vault (`/api/vault`)
+
+O módulo Vault protege segredos e anexos sensíveis. A leitura de conteúdo secreto e anexos exige JWT autenticado e sessão com `two_factor_verified=true`.
+
+### `GET /api/vault`
+
+Lista os itens visíveis ao usuário autenticado com base em propriedade e regras de compartilhamento.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "20a521cc-e6d1-447e-9628-3d7cdd87cf89",
+    "title": "VPN Produção",
+    "description": "Credencial do firewall principal",
+    "itemType": "CREDENTIAL",
+    "filePath": null,
+    "ownerId": "0d4c7a45-2c88-4f0d-9ea5-61d18e3c0db1",
+    "sharingType": "ALL_TECH_ADMIN",
+    "createdAt": "2026-03-12T09:00:00",
+    "updatedAt": "2026-03-12T09:00:00"
+  }
+]
+```
+
+### `POST /api/vault`
+
+Cria um item no cofre com suporte a `multipart/form-data`.
+
+**Partes esperadas:**
+
+- `payload`: JSON serializado com os dados do item.
+- `file`: anexo opcional.
+
+**Exemplo do campo `payload`:**
+
+```json
+{
+  "title": "Acesso Mikrotik",
+  "description": "Credencial do roteador da recepção",
+  "itemType": "CREDENTIAL",
+  "secretContent": "usuario: admin / senha: ********",
+  "sharingType": "CUSTOM",
+  "sharedWithUserIds": [
+    "f3c37b10-0fb5-438c-bc1f-a82118d011aa"
+  ]
+}
+```
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "20a521cc-e6d1-447e-9628-3d7cdd87cf89",
+  "title": "Acesso Mikrotik",
+  "description": "Credencial do roteador da recepção",
+  "itemType": "CREDENTIAL",
+  "filePath": "vault/2026/03/arquivo.pdf",
+  "ownerId": "0d4c7a45-2c88-4f0d-9ea5-61d18e3c0db1",
+  "sharingType": "CUSTOM",
+  "createdAt": "2026-03-12T09:00:00",
+  "updatedAt": "2026-03-12T09:00:00"
+}
+```
+
+### `GET /api/vault/{itemId}/secret`
+
+Retorna o conteúdo secreto descriptografado do item. Exige 2FA validado na sessão atual.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "itemId": "20a521cc-e6d1-447e-9628-3d7cdd87cf89",
+  "secretContent": "usuario: admin / senha: ********"
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação |
+|--------|----------|
+| `403`  | Sessão sem 2FA validado |
+| `403`  | 2FA resetado e acesso revogado |
+| `404`  | Item não encontrado ou sem acesso |
+
+### `GET /api/vault/{itemId}/file`
+
+Retorna o anexo do item para visualização inline. Exige 2FA validado.
+
+**Resposta de Sucesso — `200 OK`**
+
+- `Content-Type`: inferido pelo backend (`image/png`, `video/mp4`, `application/pdf`, etc.)
+- `Content-Disposition`: `inline`
+
+**Respostas de Erro:**
+
+| Código | Situação |
+|--------|----------|
+| `400`  | Item sem anexo |
+| `403`  | Sessão sem 2FA validado |
+| `403`  | 2FA resetado e acesso revogado |
+| `404`  | Item não encontrado ou sem acesso |
+
+---
+
 ## Módulo: Setores (`/api/sectors`)
 
 ### `POST /api/sectors`

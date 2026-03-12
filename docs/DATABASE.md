@@ -31,11 +31,14 @@ Armazena os usuários do sistema. Cada usuário possui um papel (role) e pertenc
 | `name`            | `varchar(150)` | NOT NULL              | Nome completo                                      |
 | `email`           | `varchar(255)` | NOT NULL, UNIQUE      | E-mail de login                                    |
 | `password_hash`   | `varchar(255)` | NOT NULL              | Hash da senha (bcrypt)                             |
-| `role`            | `varchar(20)`  | NOT NULL              | Papel do usuário: `ADMIN`, `DOCTOR` ou `SECRETARY` |
+| `must_change_password` | `boolean`  | NOT NULL, default `false` | Indica se o usuário deve trocar a senha no próximo login |
+| `role`            | `varchar(20)`  | NOT NULL              | Papel do usuário: `ADMIN`, `TECHNICIAN` ou `USER`  |
 | `sector_id`       | `uuid`         | NOT NULL, FK → sectors| Setor ao qual o usuário pertence                   |
 | `location`        | `varchar(150)` | NOT NULL              | Localização física (sala, andar, unidade)          |
 | `discord_user_id` | `varchar(50)`  | NULLABLE              | ID do usuário no Discord corporativo               |
-| `totp_secret`     | `varchar(255)` | NULLABLE              | Segredo TOTP para 2FA (armazenado criptografado)   |
+| `totp_secret`     | `varchar(500)` | NULLABLE              | Segredo TOTP do 2FA, persistido criptografado em nível de aplicação |
+| `recovery_code_hash` | `varchar(255)` | NULLABLE           | Hash BCrypt do código temporário de recuperação do 2FA |
+| `recovery_code_expires_at` | `timestamp` | NULLABLE        | Data/hora de expiração do código de recuperação do 2FA |
 
 **Relacionamentos:**
 - `users.sector_id` → `sectors.id` (N:1 — muitos usuários por setor)
@@ -45,8 +48,8 @@ Armazena os usuários do sistema. Cada usuário possui um papel (role) e pertenc
 | Valor       | Descrição                                 |
 |-------------|-------------------------------------------|
 | `ADMIN`     | Administrador total do sistema            |
-| `DOCTOR`    | Médico/profissional de saúde              |
-| `SECRETARY` | Secretária / atendimento                  |
+| `TECHNICIAN`| Técnico de TI / operação                  |
+| `USER`      | Usuário final autenticado                 |
 
 ---
 
@@ -178,10 +181,55 @@ items              (1) ──< tickets           (N)  [requested_item, nullable]
 
 ---
 
+## Domínio: Vault Seguro (`domain/vault`)
+
+### Tabela `vault_items`
+
+Armazena os itens do cofre de credenciais e documentos sensíveis. O conteúdo secreto é criptografado em nível de aplicação com AES-256/GCM antes de ser persistido.
+
+| Coluna           | Tipo           | Restrições                         | Descrição |
+|------------------|----------------|------------------------------------|-----------|
+| `id`             | `uuid`         | PK, NOT NULL                       | Identificador único do item do cofre |
+| `title`          | `varchar(150)` | NOT NULL                           | Título de identificação do item |
+| `description`    | `text`         | NULLABLE                           | Descrição funcional do item |
+| `item_type`      | `varchar(20)`  | NOT NULL                           | Tipo do item: `CREDENTIAL`, `DOCUMENT`, `NOTE` |
+| `secret_content` | `text`         | NULLABLE                           | Conteúdo sensível criptografado em nível de aplicação |
+| `file_path`      | `varchar(500)` | NULLABLE                           | Caminho do anexo salvo em storage local |
+| `owner_id`       | `uuid`         | NOT NULL, FK → users               | Usuário proprietário do item |
+| `sharing_type`   | `varchar(20)`  | NOT NULL                           | Regra de compartilhamento: `PRIVATE`, `ALL_TECH_ADMIN`, `CUSTOM` |
+| `created_at`     | `timestamp`    | NOT NULL                           | Data/hora de criação |
+| `updated_at`     | `timestamp`    | NOT NULL                           | Data/hora da última atualização |
+
+**Relacionamentos:**
+- `vault_items.owner_id` → `users.id` (N:1)
+
+### Tabela `vault_item_shares`
+
+Representa os compartilhamentos explícitos entre um item do cofre e usuários específicos quando `sharing_type = CUSTOM`.
+
+| Coluna                | Tipo      | Restrições                    | Descrição |
+|-----------------------|-----------|-------------------------------|-----------|
+| `id`                  | `uuid`    | PK, NOT NULL                  | Identificador único do compartilhamento |
+| `vault_item_id`       | `uuid`    | NOT NULL, FK → vault_items    | Item do cofre compartilhado |
+| `shared_with_user_id` | `uuid`    | NOT NULL, FK → users          | Usuário que recebeu acesso |
+
+**Relacionamentos:**
+- `vault_item_shares.vault_item_id` → `vault_items.id` (N:1)
+- `vault_item_shares.shared_with_user_id` → `users.id` (N:1)
+
+### Considerações de Segurança do Vault
+
+- A posse do JWT autenticado não é suficiente para ler segredos do cofre.
+- A leitura de `secret_content` e de anexos exige sessão com 2FA validado.
+- Após reset de 2FA, o backend revoga imediatamente o acesso sensível validando o estado atual do usuário no banco.
+
+---
+
 ## Observações
 
 - Todas as PKs são `UUID` geradas pelo Hibernate via `GenerationType.UUID` (RFC 4122).
 - O campo `password_hash` **nunca** deve armazenar senha em texto puro.
-- O campo `totp_secret` deve ser criptografado em nível de aplicação antes de ser persistido (a ser implementado com `@Converter` JPA na Fase futura).
+- O campo `totp_secret` é criptografado em nível de aplicação antes da persistência.
+- O fluxo de recuperação do 2FA utiliza `recovery_code_hash` + `recovery_code_expires_at`, evitando armazenamento do código temporário em texto puro.
 - O campo `specifications` usa `jsonb` (PostgreSQL), que permite indexação GIN para consultas sobre as chaves JSON.
 - As migrações DDL ficam em `api/src/main/resources/db/migration/` seguindo o padrão `V{versão}__{descricao}.sql`.

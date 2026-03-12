@@ -309,3 +309,9 @@ CREATE INDEX idx_vault_items_owner_id          ON vault_items       (owner_id);
 CREATE INDEX idx_vault_items_sharing_type      ON vault_items       (sharing_type);
 CREATE INDEX idx_vault_item_shares_vault_item  ON vault_item_shares (vault_item_id);
 CREATE INDEX idx_vault_item_shares_user        ON vault_item_shares (shared_with_user_id);
+
+-- =============================================================================
+-- NOTA DE SINCRONIZACAO DO SCHEMA BASE
+-- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
+-- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.
+-- =============================================================================

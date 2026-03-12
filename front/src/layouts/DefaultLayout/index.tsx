@@ -53,7 +53,14 @@ export default function DefaultLayout() {
     { path: '/sectors', label: 'Setores', icon: Building2, visible: user?.role === 'ADMIN' },
   ]), [user?.role]);
 
-  const navButtonClass = (isActive: boolean) =>
+  const desktopNavButtonClass = (isActive: boolean) =>
+    `inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-brand-secondary text-brand-primary'
+        : 'text-slate-600 hover:bg-slate-100'
+    }`;
+
+  const mobileNavButtonClass = (isActive: boolean) =>
     `w-full px-3 py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center gap-2 ${
       isActive
         ? 'bg-brand-secondary text-brand-primary'
@@ -68,10 +75,10 @@ export default function DefaultLayout() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => setIsMobileSidebarOpen(true)}
-            className="lg:hidden inline-flex items-center justify-center rounded-lg p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+            className="md:hidden inline-flex items-center justify-center rounded-lg p-2 text-slate-600 hover:bg-slate-100 transition-colors"
             aria-label="Abrir menu"
           >
             <Menu size={20} />
@@ -85,6 +92,23 @@ export default function DefaultLayout() {
               navigate('/dashboard');
             }}
           />
+
+          <nav className="hidden md:flex items-center gap-1 overflow-x-auto pl-2">
+            {navItems.filter((item) => item.visible).map((item) => {
+              const Icon = item.icon;
+              const isActive = isPathActive(item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={desktopNavButtonClass(isActive)}
+                >
+                  <Icon size={16} className={navIconClass(isActive)} />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <NotificationBell />
@@ -94,18 +118,18 @@ export default function DefaultLayout() {
 
       <div className="flex flex-1 min-h-0">
         <div
-          className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-300 lg:hidden ${
+          className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-300 md:hidden ${
             isMobileSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
           onClick={() => setIsMobileSidebarOpen(false)}
         />
 
         <aside
-          className={`fixed left-0 top-[65px] z-40 h-[calc(100vh-65px)] w-72 border-r border-slate-200 bg-white px-3 py-3 shadow-lg transition-transform duration-300 ease-in-out lg:static lg:top-0 lg:h-auto lg:min-h-full lg:translate-x-0 lg:shadow-none ${
+          className={`fixed left-0 top-[65px] z-40 h-[calc(100vh-65px)] w-72 border-r border-slate-200 bg-white px-3 py-3 shadow-lg transition-transform duration-300 ease-in-out md:hidden ${
             isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="mb-2 flex items-center justify-between px-2 lg:hidden">
+          <div className="mb-2 flex items-center justify-between px-2 md:hidden">
             <span className="text-sm font-semibold text-slate-700">Menu</span>
             <button
               onClick={() => setIsMobileSidebarOpen(false)}
@@ -127,7 +151,7 @@ export default function DefaultLayout() {
                     setIsMobileSidebarOpen(false);
                     navigate(item.path);
                   }}
-                  className={navButtonClass(isActive)}
+                  className={mobileNavButtonClass(isActive)}
                 >
                   <Icon size={16} className={navIconClass(isActive)} />
                   {item.label}

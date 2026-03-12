@@ -100,17 +100,18 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 9 — Otimização Mobile (PWA)
+## 🟡 Fase 9 — Otimização Mobile (PWA) — Em Refinamento
 
 - [x] Configurar `vite-plugin-pwa` no `vite.config.ts`
 - [x] Criar `manifest.json` com nome "Inovare TI", cores `#ffa751`/`#ffffff`, modo `standalone`
 - [x] Adicionar meta tags Apple para comportamento nativo no iPhone (sem barra do Safari)
 - [x] Ajustar manifesto com `scope: /` e `start_url: /dashboard` para navegação interna no app instalado
 - [x] Adicionar `display_override` com `standalone` e `window-controls-overlay`
-- [x] Implementar sidebar vertical colapsável no layout autenticado (desktop fixo, mobile com Menu/X)
+- [x] Implementar layout híbrido: navegação horizontal fixa no desktop e sidebar colapsável no mobile/PWA
+- [x] Adicionar motor de leitura de QR Code nativo no app com navegação interna para links do sistema
 - [ ] Adicionar ícones PWA em resolução 192x192 e 512x512
 - [ ] Testar instalação como web app em iOS e Android
-- [ ] Adicionar suporte nativo a QR Code para fluxos de inventário e ativos
+- [ ] Refinar fluxo de QR Code para inventário, ativos e varredura contínua em campo
 
 ---
 

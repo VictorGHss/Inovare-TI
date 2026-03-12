@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
+import QrScannerLauncher from '../../components/QrScannerLauncher';
 import {
   downloadAssetInvoice,
   getAssetCategories,
@@ -264,6 +265,8 @@ export default function Assets() {
           asset={selectedAssetForPrint}
         />
       )}
+
+      <QrScannerLauncher buttonLabel="Ler ativo" />
     </main>
   );
 }

@@ -18,6 +18,7 @@ import ChartsBar from '../../components/ChartsBar';
 import InventorySummaryCard from '../../components/InventorySummaryCard';
 import ReceivedItemsCard from '../../components/ReceivedItemsCard';
 import UserTicketHistory from '../../components/UserTicketHistory';
+import QrScannerLauncher from '../../components/QrScannerLauncher';
 import ReportHubModal from '../../components/ReportHubModal';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -237,6 +238,7 @@ export default function Dashboard() {
       )}
 
       <ReportHubModal isOpen={reportHubOpen} onClose={() => setReportHubOpen(false)} />
+      <QrScannerLauncher buttonLabel="Escanear QR" />
     </main>
   );
 }

@@ -15,6 +15,14 @@
 >
 > | Endpoint                             | Quem pode acessar                                                              |
 > |--------------------------------------|--------------------------------------------------------------------------------|
+> | `POST /api/auth/2fa/generate`        | Usuário autenticado                                                            |
+> | `POST /api/auth/2fa/verify`          | Usuário autenticado                                                            |
+> | `POST /api/auth/2fa/reset-request`   | Usuário autenticado com Discord vinculado                                      |
+> | `POST /api/auth/2fa/reset-confirm`   | Usuário autenticado com código de recuperação válido                           |
+> | `GET /api/vault`                     | **ADMIN** e **TECHNICIAN**                                                     |
+> | `POST /api/vault`                    | **ADMIN** e **TECHNICIAN**                                                     |
+> | `GET /api/vault/{itemId}/secret`     | **ADMIN** e **TECHNICIAN** com claim JWT `two_factor_verified=true`            |
+> | `GET /api/vault/{itemId}/file`       | **ADMIN** e **TECHNICIAN** com claim JWT `two_factor_verified=true`            |
 > | `PATCH /api/tickets/{id}/resolve`    | **ADMIN**, **TECHNICIAN** ou o próprio **dono do chamado** (`requesterId`)     |
 > | `PATCH /api/tickets/{id}/claim`      | Exclusivo para **ADMIN** e **TECHNICIAN** (`@PreAuthorize`)                    |
 > | `PATCH /api/tickets/{id}/transfer/{userId}` | Exclusivo para **ADMIN** e **TECHNICIAN** (`@PreAuthorize`)             |
@@ -60,6 +68,18 @@ Erros de validação (400) incluem um campo extra `errors` com os campos inváli
 ## Autenticação
 
 Todas as rotas da API, **exceto** `POST /api/auth/login`, exigem autenticação via JWT.
+
+### Claim adicional para o Vault
+
+Os endpoints sensíveis do Vault não exigem apenas autenticação JWT. Para leitura de segredos e anexos, o token precisa ter a claim abaixo marcada como verdadeira:
+
+```json
+{
+  "two_factor_verified": true
+}
+```
+
+Sem essa claim, ou se o 2FA tiver sido resetado posteriormente, a API retorna `403 Forbidden`.
 
 ### Como enviar o token
 
@@ -208,6 +228,8 @@ Confirma a recuperação do 2FA validando simultaneamente o código recebido e a
 ## Módulo: Vault (`/api/vault`)
 
 O módulo Vault protege segredos e anexos sensíveis. A leitura de conteúdo secreto e anexos exige JWT autenticado e sessão com `two_factor_verified=true`.
+
+> **Importante:** a criação de itens aceita `multipart/form-data`, permitindo envio de JSON serializado no campo `payload` e anexo opcional no campo `file`.
 
 ### `GET /api/vault`
 

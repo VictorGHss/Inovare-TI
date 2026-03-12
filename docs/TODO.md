@@ -56,28 +56,54 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## 🔲 Fase 5 — Autenticação JWT
+## ✅ Fase 5 — Autenticação JWT (Concluída)
 
-- [ ] Criar endpoint `POST /api/auth/login` que retorna `accessToken` (JWT)
-- [ ] Criar `JwtService`: geração e validação de tokens
-- [ ] Criar `JwtAuthenticationFilter`: intercepta requests e valida Bearer token
-- [ ] Atualizar `SecurityConfig` para proteger rotas (exceto `/api/auth/**`)
-- [ ] Implementar `UserDetails` / `UserDetailsService` para integrar com Spring Security
-- [ ] Criar endpoint `POST /api/auth/refresh` (token de renovação)
-
----
-
-## 🔲 Fase 6 — Módulo de Chamados: Funcionalidades Avançadas
-
-- [ ] `AssignTicketUseCase`: atribuir técnico a um chamado
-- [ ] `ResolveTicketUseCase`: mover para status `RESOLVED`
-- [ ] Filtros no `TicketController` por status, prioridade, categoria e técnico
+- [x] Criado endpoint `POST /api/auth/login` com emissão de JWT
+- [x] Implementado serviço de geração e validação de tokens
+- [x] Criado filtro de autenticação Bearer Token
+- [x] `SecurityConfig` atualizado para proteger rotas sensíveis
+- [x] `UserDetails` / `UserDetailsService` integrados ao Spring Security
+- [x] Sessão de autenticação integrada ao fluxo de 2FA via claim no JWT
 
 ---
 
-## 🔲 Fase 7 — Integrações e Extras
+## ✅ Fase 6 — Funcionalidades Avançadas (Concluída)
 
-- [ ] Autenticação 2FA via TOTP (`totpSecret` já modelado na entidade `User`)
-- [ ] Integração com Discord (notificações de chamados via webhook/bot)
-- [ ] Flyway: escrever migrações DDL para todas as tabelas
-- [ ] Testes de integração com `@SpringBootTest` + Testcontainers (PostgreSQL)
+- [x] Fluxo avançado de chamados com claim, transferência e resolução
+- [x] Upload e visualização de anexos
+- [x] Gestão avançada de usuários e redefinição administrativa
+- [x] Cofre seguro com compartilhamento e anexos protegidos por 2FA
+
+---
+
+## ✅ Fase 7 — Extras (Concluída)
+
+- [x] Autenticação 2FA via TOTP com geração de QR Code
+- [x] Recuperação de acesso via Discord com código temporário e senha atual
+- [x] Integração com Discord para notificações operacionais e recuperação de segurança
+- [x] Migrações Flyway consolidadas no schema base (`V1__init.sql`)
+- [x] Revogação imediata de acesso ao Vault após reset do 2FA
+
+---
+
+## 🔲 Fase 8 — Auditoria e Compliance
+
+- [ ] Implementar tabela `audit_logs` para rastrear acessos ao Vault
+- [ ] Registrar resets de 2FA, leituras de segredos e mudanças administrativas críticas
+- [ ] Criar trilha de auditoria com usuário, ação, timestamp, origem e contexto
+
+---
+
+## 🔲 Fase 9 — Otimização Mobile (PWA)
+
+- [ ] Transformar o frontend em Progressive Web App (PWA)
+- [ ] Melhorar experiência mobile para inventário e ativos
+- [ ] Facilitar escaneamento de QR Code em dispositivos móveis
+
+---
+
+## 🔲 Fase 10 — Dashboard Premium
+
+- [ ] Criar interface premium com animações e refinamento visual
+- [ ] Aplicar identidade visual da clínica usando `#ffa751` como cor de destaque
+- [ ] Evoluir dashboard para experiência executiva e analítica

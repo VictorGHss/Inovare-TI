@@ -150,6 +150,17 @@ Todas as páginas do frontend, exceto `Login` e `PrimeiroAcesso`, são carregada
 
 ## Segurança de Dados
 
+## Camada de Segurança Avançada
+
+O sistema passou a operar com uma camada dedicada de segurança para dados sensíveis e autenticação reforçada. Essa camada combina criptografia forte, autenticação em dois fatores e recuperação operacional assistida por Discord.
+
+### Componentes principais
+
+- **Vault seguro** para armazenamento de credenciais, documentos e notas críticas.
+- **Criptografia AES-256/GCM** para proteger conteúdos sensíveis persistidos.
+- **JWT com claim `two_factor_verified`** para diferenciar sessão autenticada de sessão autenticada e validada em 2FA.
+- **Discord Bot / JDA** como canal operacional para recuperação de acesso e notificações de reset administrativo do 2FA.
+
 ### Criptografia de credenciais com AES-256/GCM
 
 O módulo de Vault foi projetado para armazenar dados sensíveis com criptografia em nível de aplicação. O conteúdo secreto (`secret_content`) é protegido com **AES-256/GCM**, garantindo:
@@ -168,6 +179,16 @@ O fluxo de autenticação em dois fatores funciona em duas etapas:
 2. Após validar o código TOTP, a API emite um novo JWT com a claim `two_factor_verified=true`.
 
 Esse token passa a representar uma sessão autenticada e também validada em segundo fator. Recursos sensíveis, como leitura de segredos e anexos do Vault, exigem essa validação adicional.
+
+### Discord como fator de recuperação operacional
+
+Além do TOTP, o sistema utiliza o Discord corporativo como canal seguro de recuperação assistida:
+
+1. O usuário autenticado solicita recuperação do 2FA.
+2. A API gera um código temporário, armazena apenas seu hash e envia a DM ao `discordUserId` vinculado.
+3. O usuário confirma a operação com o código recebido e sua senha atual.
+
+Esse fluxo reduz a dependência exclusiva do dispositivo autenticador e mantém dupla validação para operações de recuperação.
 
 ### Revogação imediata de acesso sensível
 

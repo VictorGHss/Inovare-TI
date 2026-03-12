@@ -4,6 +4,8 @@
 > **Gerenciamento de migrações:** Flyway  
 > **Convenção de nomenclatura:** snake_case para tabelas e colunas; UUIDs como chaves primárias.
 
+> **Estado atual do schema:** as estruturas de Vault e recuperação de 2FA já estão consolidadas no arquivo base `api/src/main/resources/db/migration/V1__init.sql`.
+
 ---
 
 ## Estrutura Inicial de Tabelas (Fase 1)

@@ -68,5 +68,35 @@
     "name": "app.vault.encryption-key",
     "type": "java.lang.String",
     "description": "A description for 'app.vault.encryption-key'"
+  },
+  {
+    "name": "app.financeiro.test-mode",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.test-mode'"
+  },
+  {
+    "name": "app.brevo.sender.email",
+    "type": "java.lang.String",
+    "description": "A description for 'app.brevo.sender.email'"
+  },
+  {
+    "name": "app.financeiro.dev-email",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.dev-email'"
+  },
+  {
+    "name": "app.financeiro.smtp.from-email",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.smtp.from-email'"
+  },
+  {
+    "name": "app.financeiro.smtp.from-name",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.smtp.from-name'"
+  },
+  {
+    "name": "app.brevo.sender.name",
+    "type": "java.lang.String",
+    "description": "A description for 'app.brevo.sender.name'"
   }
 ]}

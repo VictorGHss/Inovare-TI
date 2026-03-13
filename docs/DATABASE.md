@@ -238,6 +238,79 @@ Representa os compartilhamentos explícitos entre um item do cofre e usuários e
 
 ---
 
+## Módulo Financeiro (ContaAzul + Automação de Recibos)
+
+As estruturas financeiras estão no final do `V1__init.sql`, sem criação de nova migração, conforme regra de evolução do projeto.
+
+### Tabela `contaazul_oauth_tokens`
+
+Persistência do ciclo OAuth2 para integração com ContaAzul (acesso e renovação de token).
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK, NOT NULL | Identificador do registro de token |
+| `access_token` | `text` | NOT NULL | Token de acesso atual |
+| `refresh_token` | `text` | NOT NULL | Token de renovação |
+| `token_type` | `varchar(20)` | NOT NULL | Tipo do token (`Bearer`) |
+| `scope` | `varchar(255)` | NULLABLE | Escopo OAuth concedido |
+| `expires_at` | `timestamp` | NOT NULL | Expiração do access token |
+| `refreshed_at` | `timestamp` | NULLABLE | Momento da última renovação |
+| `created_at` | `timestamp` | NOT NULL | Criação do registro |
+| `updated_at` | `timestamp` | NOT NULL | Atualização do registro |
+
+### Tabela `financial_link`
+
+Vínculo entre usuário interno e cliente no ContaAzul.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK, NOT NULL | Identificador do vínculo |
+| `user_id` | `uuid` | NOT NULL, FK → users | Usuário interno vinculado |
+| `contaazul_customer_id` | `varchar(100)` | NOT NULL, UNIQUE | ID do cliente no ContaAzul |
+| `contaazul_customer_name` | `varchar(160)` | NULLABLE | Nome de referência do cliente |
+| `linked_by_user_id` | `uuid` | NULLABLE, FK → users | Usuário que realizou o vínculo |
+| `created_at` | `timestamp` | NOT NULL | Criação do vínculo |
+| `updated_at` | `timestamp` | NOT NULL | Última atualização |
+
+**Índice de performance:** `idx_fl_customer` em `contaazul_customer_id`.
+
+### Tabela `processed_receipts`
+
+Controle de idempotência de recibos processados e enviados.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK, NOT NULL | Identificador do processamento |
+| `financial_link_id` | `uuid` | NOT NULL, FK → financial_link | Vínculo associado ao recibo |
+| `parcela_id` | `varchar(120)` | NOT NULL | Identificador da parcela/origem financeira |
+| `receipt_hash` | `varchar(128)` | NOT NULL | Hash do conteúdo para deduplicação |
+| `original_recipient_email` | `varchar(255)` | NOT NULL | Destinatário original do recibo |
+| `status` | `varchar(20)` | NOT NULL | `SENT`, `SKIPPED_DUPLICATE`, `FAILED` |
+| `brevo_message_id` | `varchar(120)` | NULLABLE | ID externo para rastreabilidade de envio |
+| `payload` | `jsonb` | NOT NULL | Snapshot técnico do envio |
+| `processed_at` | `timestamp` | NOT NULL | Momento do processamento |
+
+**Índice de performance:** `idx_pr_parcela` em `parcela_id`.
+
+### Tabela `system_alerts`
+
+Canal técnico para registrar falhas de envio e suportar fluxo de reenvio manual.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK, NOT NULL | Identificador do alerta |
+| `alert_type` | `varchar(60)` | NOT NULL | Tipo lógico do alerta |
+| `severity` | `varchar(20)` | NOT NULL | `INFO`, `WARN`, `ERROR`, `CRITICAL` |
+| `source` | `varchar(120)` | NOT NULL | Origem técnica do erro |
+| `title` | `varchar(255)` | NOT NULL | Título resumido |
+| `details` | `text` | NULLABLE | Detalhes para diagnóstico |
+| `context` | `jsonb` | NOT NULL | Contexto estruturado para reprocessamento |
+| `resolved` | `boolean` | NOT NULL | Marca de resolução/reenvio |
+| `created_at` | `timestamp` | NOT NULL | Criação do alerta |
+| `resolved_at` | `timestamp` | NULLABLE | Data/hora de resolução |
+
+---
+
 ## Domínio: Auditoria (`domain/audit`)
 
 ### Tabela `audit_logs`

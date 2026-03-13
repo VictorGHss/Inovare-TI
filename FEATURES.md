@@ -38,6 +38,14 @@ Resumo executivo dos modulos principais da plataforma Inovare TI.
 - Rascunhos visiveis apenas para o autor ou para `ADMIN`.
 - Fluxo completo de criacao, publicacao e edicao no frontend e backend.
 
+## Módulo de Automação Financeira Protegida
+
+- Integracao com ContaAzul para vinculacao de clientes e ciclo OAuth2.
+- Gatekeeper 2FA obrigatorio para qualquer rota sob `/financeiro`, com desafio TOTP antes da carga de dados.
+- Motor SMTP dedicado para recibos financeiros via `JavaMailSender`.
+- Modo de teste financeiro com redirecionamento forçado para e-mail do desenvolvedor e assunto rastreavel.
+- Controle de idempotencia de envio e trilha de falhas para reenvio manual via `processed_receipts` e `system_alerts`.
+
 ## PWA e Mobilidade
 
 - Aplicacao instalavel com manifesto, atalhos e comportamento mobile-first.

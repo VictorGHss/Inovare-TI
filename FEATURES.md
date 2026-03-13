@@ -46,6 +46,11 @@ Resumo executivo dos modulos principais da plataforma Inovare TI.
 - Modo de teste financeiro com redirecionamento forçado para e-mail do desenvolvedor e assunto rastreavel.
 - Controle de idempotencia de envio e trilha de falhas para reenvio manual via `processed_receipts` e `system_alerts`.
 
+### Endpoints finais de operacao financeira
+
+- `POST /api/financeiro/backfill`: sincroniza e persiste recibos historicos dos ultimos 30 dias para conferencia.
+- `POST /api/financeiro/alertas/{alertId}/reenviar`: reencaminha manualmente recibos associados a alertas nao resolvidos e marca o alerta como resolvido.
+
 ## PWA e Mobilidade
 
 - Aplicacao instalavel com manifesto, atalhos e comportamento mobile-first.

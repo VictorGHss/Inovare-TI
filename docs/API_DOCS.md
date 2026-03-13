@@ -337,6 +337,173 @@ Retorna o anexo do item para visualização inline. Exige 2FA validado e claim `
 
 ---
 
+## Módulo Financeiro (ContaAzul)
+
+O módulo financeiro consolida integração OAuth2 com a ContaAzul, conferência de recibos processados e operação manual de recuperação (backfill e retry).
+
+> **Controle de acesso:** todos os endpoints abaixo exigem usuário autenticado com perfil **ADMIN**.
+
+### `GET /api/financeiro/contaazul/authorize`
+
+Inicia o fluxo OAuth2 da ContaAzul e redireciona o navegador para a tela de autorização do provedor.
+
+**Request (JSON):**
+
+```json
+{}
+```
+
+**Response de Sucesso — `302 Found` (redirect):**
+
+```json
+{
+  "status": 302,
+  "location": "https://api.contaazul.com/oauth2/authorize?response_type=code&client_id=...&redirect_uri=..."
+}
+```
+
+> Não há body JSON real na resposta HTTP deste endpoint; o backend retorna `Location` para redirecionamento.
+
+---
+
+### `GET /api/financeiro/recibos`
+
+Retorna o histórico de recibos financeiros processados, ordenados por `processedAt` decrescente.
+
+**Paginação/Filtros:** atualmente **não possui** query params de paginação ou filtro no backend.
+
+**Request (JSON):**
+
+```json
+{}
+```
+
+**Response de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "3d5d6209-6ae6-44cb-84d8-130302538b0a",
+    "parcelaId": "PARC-2026-000045",
+    "originalRecipientEmail": "medico@clinica.com",
+    "status": "SENT",
+    "retryCount": 0,
+    "processedAt": "2026-03-13T14:21:10",
+    "payload": {
+      "channel": "EMAIL",
+      "retryCount": 0,
+      "updatedAt": "2026-03-13T14:21:10"
+    }
+  },
+  {
+    "id": "6e0d3190-a2f9-4a54-9f31-4f2f69452dd9",
+    "parcelaId": "PARC-2026-000031",
+    "originalRecipientEmail": "medico2@clinica.com",
+    "status": "HISTORICO",
+    "retryCount": 0,
+    "processedAt": "2026-03-13T10:03:44",
+    "payload": {
+      "source": "backfill",
+      "windowStart": "2026-02-11T00:00:00Z",
+      "windowEnd": "2026-02-18T00:00:00Z",
+      "page": 1,
+      "channel": "EMAIL"
+    }
+  }
+]
+```
+
+---
+
+### `GET /api/financeiro/alertas`
+
+Retorna alertas financeiros ordenados por `createdAt` decrescente.
+
+**Paginação/Filtros:** atualmente **não possui** query params no backend.
+
+> Para listar apenas pendentes, filtre no cliente por `resolved = false`.
+
+**Request (JSON):**
+
+```json
+{}
+```
+
+**Response de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "f1cd5942-52ed-4f76-af4d-4ca6903269d7",
+    "alertType": "FINANCEIRO_RECEIPT_FAILED",
+    "severity": "HIGH",
+    "source": "financeiro",
+    "title": "Falha definitiva no envio de recibo financeiro",
+    "details": "Retry automático esgotado para a parcela PARC-2026-000045.",
+    "resolved": false,
+    "createdAt": "2026-03-13T14:18:30",
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "context": {
+      "parcelaId": "PARC-2026-000045",
+      "retryCount": 3
+    }
+  }
+]
+```
+
+---
+
+### `POST /api/financeiro/backfill`
+
+Executa sincronização manual das parcelas pagas dos últimos 30 dias e registra recibos históricos ainda não processados.
+
+**Request (JSON):**
+
+```json
+{}
+```
+
+**Response de Sucesso — `200 OK`:**
+
+```json
+{
+  "windowsProcessed": 5,
+  "totalFetched": 132,
+  "totalCreated": 28,
+  "skippedAlreadyProcessed": 96,
+  "skippedWithoutLink": 8
+}
+```
+
+---
+
+### `POST /api/financeiro/alertas/{alertId}/reenviar`
+
+Solicita retry manual para o recibo associado ao alerta informado e marca o alerta como resolvido.
+
+**Request (JSON):**
+
+```json
+{}
+```
+
+**Response de Sucesso — `204 No Content`:**
+
+```json
+{}
+```
+
+**Respostas de Erro comuns:**
+
+| Código | Situação |
+|--------|----------|
+| `400`  | Alerta financeiro não encontrado |
+| `400`  | Recibo financeiro não encontrado para a parcela do alerta |
+| `400`  | Contexto do alerta sem `parcelaId` válido |
+
+---
+
 ## Módulo: Setores (`/api/sectors`)
 
 ### `POST /api/sectors`

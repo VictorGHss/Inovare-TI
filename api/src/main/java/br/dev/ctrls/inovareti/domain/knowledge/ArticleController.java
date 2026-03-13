@@ -84,7 +84,7 @@ public class ArticleController {
 
             boolean canReadDraft = article.getStatus() != ArticleStatus.DRAFT
                     || article.getAuthorId().equals(user.getId())
-                    || user.getRole() != br.dev.ctrls.inovareti.domain.user.UserRole.USER;
+                    || user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.ADMIN;
 
             if (!canReadDraft) {
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -135,8 +135,8 @@ public class ArticleController {
 
         Article saved = articleRepository.save(article);
         AuditAction action = status == ArticleStatus.DRAFT
-            ? AuditAction.KB_ARTICLE_DRAFT_CREATE
-            : AuditAction.KB_ARTICLE_PUBLISH;
+            ? AuditAction.ARTICLE_POST_DRAFT
+            : AuditAction.ARTICLE_POST_PUBLIC;
         auditLogService.publish(AuditEvent.of(action)
             .userId(author.getId())
             .resourceType("Article")
@@ -169,7 +169,7 @@ public class ArticleController {
         article.setUpdatedAt(LocalDateTime.now());
 
         Article saved = articleRepository.save(article);
-        auditLogService.publish(AuditEvent.of(AuditAction.KB_ARTICLE_EDIT)
+        auditLogService.publish(AuditEvent.of(AuditAction.ARTICLE_EDIT)
             .userId(editor.getId())
             .resourceType("Article")
             .resourceId(saved.getId())

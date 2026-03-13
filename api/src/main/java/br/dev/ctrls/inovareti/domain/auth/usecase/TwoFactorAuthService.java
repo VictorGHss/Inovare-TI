@@ -76,7 +76,7 @@ public class TwoFactorAuthService {
 
         boolean isValid = googleAuthenticator.authorize(user.getTotpSecret(), codeNumber);
         if (!isValid) {
-            auditLogService.publish(AuditEvent.of(AuditAction.VAULT_LOGIN_FAILURE)
+            auditLogService.publish(AuditEvent.of(AuditAction.VAULT_AUTH_FAIL)
                     .userId(userId)
                     .resourceType("Vault")
                     .details("{\"reason\": \"INVALID_2FA_CODE\"}")
@@ -85,7 +85,7 @@ public class TwoFactorAuthService {
             throw new BadRequestException("Código 2FA inválido.");
         }
 
-        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_LOGIN_SUCCESS)
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_AUTH_SUCCESS)
                 .userId(userId)
                 .resourceType("Vault")
                 .details("{\"result\": \"2FA_VERIFIED\"}")

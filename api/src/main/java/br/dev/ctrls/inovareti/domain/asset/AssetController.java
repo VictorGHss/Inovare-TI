@@ -113,6 +113,13 @@ public class AssetController {
         asset.setSpecifications(request.specifications());
 
         Asset savedAsset = assetRepository.save(asset);
+
+        auditLogService.publish(AuditEvent.of(AuditAction.ASSET_EDIT)
+                .userId(getAuthenticatedUser().getId())
+                .resourceType("Asset")
+                .resourceId(savedAsset.getId())
+                .details("{\"patrimonyCode\": \"" + savedAsset.getPatrimonyCode() + "\"}")
+                .build());
         return ResponseEntity.ok(assetQueryService.toResponseDTO(savedAsset));
     }
 
@@ -193,6 +200,12 @@ public class AssetController {
                 .header("Content-Disposition",
                         "inline; filename=\"" + asset.getInvoiceFileName() + "\"")
                 .body(fileContent);
+    }
+
+    private User getAuthenticatedUser() {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
     }
 
     /**

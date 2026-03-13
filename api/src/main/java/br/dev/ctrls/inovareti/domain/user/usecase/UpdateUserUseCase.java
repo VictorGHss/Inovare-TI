@@ -54,7 +54,7 @@ public class UpdateUserUseCase {
 
         UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
 
-        auditLogService.publish(AuditEvent.of(AuditAction.USER_UPDATE)
+        auditLogService.publish(AuditEvent.of(AuditAction.USER_EDIT)
                 .userId(adminUserId)
                 .resourceType("User")
                 .resourceId(userId)

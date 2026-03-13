@@ -393,3 +393,43 @@ ALTER TABLE audit_logs
         'USER_PASSWORD_RESET',
         'USER_PERMISSION_CHANGE'
     ));
+
+-- =============================================================================
+-- PROTOCOLO DE AUDITORIA TOTAL 360 - Novos valores canonicos de auditoria
+-- Mantidos os antigos para compatibilidade com registros historicos.
+-- =============================================================================
+
+ALTER TABLE audit_logs
+    DROP CONSTRAINT IF EXISTS ck_audit_logs_action;
+
+ALTER TABLE audit_logs
+    ADD CONSTRAINT ck_audit_logs_action CHECK (action IN (
+        -- Vault (legado + canonico)
+        'VAULT_LOGIN_SUCCESS', 'VAULT_LOGIN_FAILURE',
+        'VAULT_SECRET_VIEW',   'VAULT_FILE_VIEW',
+        'VAULT_ITEM_CREATE',   'VAULT_ITEM_EDIT',   'VAULT_ITEM_DELETE',
+        'VAULT_AUTH_SUCCESS',  'VAULT_AUTH_FAIL',   'VAULT_ITEM_VIEW',
+        -- Autenticacao
+        'LOGIN_SUCCESS', 'LOGIN_FAILURE',
+        -- Segundo fator (legado + canonico)
+        'TWO_FACTOR_RESET', 'TWO_FACTOR_ADMIN_RESET', 'USER_2FA_ADMIN_RESET',
+        -- Chamados
+        'TICKET_OPEN', 'TICKET_ASSIGN', 'TICKET_TRANSFER', 'TICKET_RESOLVE',
+        -- Inventario (legado + canonico)
+        'INVENTORY_BATCH_ENTRY', 'INVENTORY_ITEM_CREATE',
+        'STOCK_BATCH_CREATE',    'ITEM_CREATE',
+        -- Ativos (legado + canonico)
+        'ASSET_CREATE', 'ASSET_INVOICE_ATTACH', 'QR_SCAN',
+        'ASSET_EDIT',   'ASSET_QR_SCAN',
+        -- Base de Conhecimento (legado + canonico)
+        'KB_ARTICLE_DRAFT_CREATE', 'KB_ARTICLE_PUBLISH', 'KB_ARTICLE_EDIT',
+        'ARTICLE_POST_PUBLIC',     'ARTICLE_POST_DRAFT',  'ARTICLE_EDIT',
+        -- Usuarios e setores (legado + canonico)
+        'SECTOR_CREATE',
+        'USER_CREATE',
+        'USER_UPDATE',           'USER_EDIT',
+        'USER_PASSWORD_RESET',   'USER_PASSWORD_ADMIN_RESET',
+        'USER_PERMISSION_CHANGE',
+        -- Perfil
+        'PROFILE_PASSWORD_CHANGE'
+    ));

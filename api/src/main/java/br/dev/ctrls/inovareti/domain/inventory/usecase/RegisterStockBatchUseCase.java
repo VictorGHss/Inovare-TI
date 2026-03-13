@@ -77,7 +77,7 @@ public class RegisterStockBatchUseCase {
                 .build();
         stockMovementRepository.save(movement);
 
-        auditLogService.publish(AuditEvent.of(AuditAction.INVENTORY_BATCH_ENTRY)
+        auditLogService.publish(AuditEvent.of(AuditAction.STOCK_BATCH_CREATE)
                 .resourceType("StockBatch")
                 .resourceId(batch.getId())
                 .details("{\"itemId\": \"" + item.getId() + "\", \"quantity\": " + request.quantity() + "}")

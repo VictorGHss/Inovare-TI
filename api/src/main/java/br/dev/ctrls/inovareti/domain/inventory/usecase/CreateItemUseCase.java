@@ -54,7 +54,7 @@ public class CreateItemUseCase {
                 .build();
 
         Item savedItem = itemRepository.save(item);
-        auditLogService.publish(AuditEvent.of(AuditAction.INVENTORY_ITEM_CREATE)
+        auditLogService.publish(AuditEvent.of(AuditAction.ITEM_CREATE)
                 .resourceType("Item")
                 .resourceId(savedItem.getId())
                 .details("{\"name\": \"" + savedItem.getName() + "\"}")

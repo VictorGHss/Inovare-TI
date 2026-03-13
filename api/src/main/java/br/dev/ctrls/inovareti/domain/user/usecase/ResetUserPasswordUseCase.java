@@ -37,7 +37,7 @@ public class ResetUserPasswordUseCase {
         user.setMustChangePassword(true);
         userRepository.save(user);
 
-        auditLogService.publish(AuditEvent.of(AuditAction.USER_PASSWORD_RESET)
+        auditLogService.publish(AuditEvent.of(AuditAction.USER_PASSWORD_ADMIN_RESET)
             .resourceType("User")
             .resourceId(user.getId())
             .details("{\"mode\": \"ADMIN_DEFAULT_RESET\"}")

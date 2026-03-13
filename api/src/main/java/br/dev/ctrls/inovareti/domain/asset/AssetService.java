@@ -54,10 +54,11 @@ public class AssetService {
 
             Asset savedAsset = assetRepository.save(asset);
             auditLogService.publish(AuditEvent.of(AuditAction.ASSET_CREATE)
-                    .resourceType("Asset")
-                    .resourceId(savedAsset.getId())
-                    .details("{\"patrimonyCode\": \"" + savedAsset.getPatrimonyCode() + "\"}")
-                    .build());
+                        .resourceType("Asset")
+                        .resourceId(savedAsset.getId())
+                        .details("{\"patrimonyCode\": \"" + savedAsset.getPatrimonyCode()
+                            + "\", \"hasInvoice\": false}")
+                        .build());
 
             createdAssets.add(savedAsset);
         }

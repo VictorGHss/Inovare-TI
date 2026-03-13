@@ -13,12 +13,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.domain.user.UserRole;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
@@ -125,7 +125,7 @@ public class VaultService {
         }
 
         // Evento crítico: leitura de segredo do Vault
-        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_SECRET_VIEW)
+        auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_VIEW)
                 .userId(authenticatedUserId)
                 .resourceType("VaultItem")
                 .resourceId(item.getId())

@@ -70,6 +70,7 @@ public class AuditLogController {
 
         UUID authenticatedUserId = getAuthenticatedUserId();
         auditLogService.publish(AuditEvent.of(AuditAction.QR_SCAN)
+            auditLogService.publish(AuditEvent.of(AuditAction.ASSET_QR_SCAN)
                 .userId(authenticatedUserId)
                 .resourceType("QR")
                 .details("{\"path\": \"" + request.scannedPath() + "\"}")

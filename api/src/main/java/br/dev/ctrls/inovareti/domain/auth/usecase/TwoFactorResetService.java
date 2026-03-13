@@ -155,7 +155,7 @@ public class TwoFactorResetService {
                     adminUser.getName());
         }
 
-        auditLogService.publish(AuditEvent.of(AuditAction.TWO_FACTOR_ADMIN_RESET)
+        auditLogService.publish(AuditEvent.of(AuditAction.USER_2FA_ADMIN_RESET)
                 .userId(targetUserId)
                 .details("{\"adminUserId\": \"" + adminUserId + "\"}")
                 .ipAddress(ipAddress)

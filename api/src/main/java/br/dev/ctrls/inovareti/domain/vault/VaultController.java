@@ -111,7 +111,7 @@ public class VaultController {
             String contentType = resolveContentType(item.getFilePath());
 
             // Registra visualização de arquivo do Vault na trilha de auditoria
-            auditLogService.publish(AuditEvent.of(AuditAction.VAULT_FILE_VIEW)
+                auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_VIEW)
                     .userId(userId)
                     .resourceType("VaultItem")
                     .resourceId(item.getId())

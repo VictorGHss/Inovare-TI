@@ -8,6 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.audit.AuditAction;
+import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
+import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ public class ChangeMyPasswordUseCase {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public void execute(String authenticatedUserId, ChangePasswordRequestDTO request) {
@@ -36,5 +40,12 @@ public class ChangeMyPasswordUseCase {
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+
+        auditLogService.publish(AuditEvent.of(AuditAction.PROFILE_PASSWORD_CHANGE)
+            .userId(userId)
+            .resourceType("UserProfile")
+            .resourceId(userId)
+            .details("{\"mode\": \"SELF_SERVICE\"}")
+            .build());
     }
 }

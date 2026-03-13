@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -21,20 +20,19 @@ public class ContaAzulController {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    @Value("${contaazul.redirect-uri}")
+    private String contaAzulRedirectUri;
+
     @GetMapping("/authorize")
     @PreAuthorize("hasRole('ADMIN')")
-    public RedirectView startAuthorization(HttpServletRequest request) {
-        String redirectUri = contaAzulTokenService.resolveRedirectUri(request);
-        String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(redirectUri);
+    public RedirectView startAuthorization() {
+        String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(contaAzulRedirectUri);
         return new RedirectView(authorizationUrl);
     }
 
     @GetMapping("/callback")
-    public RedirectView callback(
-            @RequestParam("code") String code,
-            HttpServletRequest request) {
-        String redirectUri = contaAzulTokenService.resolveRedirectUri(request);
-        contaAzulTokenService.exchangeAuthorizationCode(code, redirectUri);
+    public RedirectView callback(@RequestParam("code") String code) {
+        contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
         return new RedirectView(buildFinanceiroSuccessRedirect());
     }
 

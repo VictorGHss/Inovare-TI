@@ -18,7 +18,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,28 +41,18 @@ public class ContaAzulTokenService {
     @Value("${app.contaazul.token-url}")
     private String contaAzulTokenUrl;
 
+    @Value("${contaazul.redirect-uri}")
+    private String contaAzulRedirectUri;
+
     public String buildAuthorizationUrl(String redirectUri) {
+        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
         return UriComponentsBuilder
             .fromUriString(contaAzulAuthorizationUrl)
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
-                .queryParam("redirect_uri", redirectUri)
+                .queryParam("redirect_uri", resolvedRedirectUri)
                 .build(true)
                 .toUriString();
-    }
-
-    public String resolveRedirectUri(HttpServletRequest request) {
-        String forwardedHost = request.getHeader("X-Forwarded-Host");
-        String host = StringUtils.hasText(forwardedHost) ? forwardedHost : request.getServerName();
-
-        boolean isDevelopmentHost = host != null
-                && (host.contains("localhost") || host.contains("127.0.0.1"));
-
-        if (isDevelopmentHost) {
-            return "http://localhost:8085/api/financeiro/contaazul/callback";
-        }
-
-        return "https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/callback";
     }
 
     public void exchangeAuthorizationCode(String code, String redirectUri) {
@@ -116,12 +105,13 @@ public class ContaAzulTokenService {
     }
 
     private ContaAzulTokenResponse requestTokenByAuthorizationCode(String code, String redirectUri) {
+        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
         MultiValueMap<String, String> payload = new LinkedMultiValueMap<>();
         payload.add("grant_type", "authorization_code");
         payload.add("code", code);
         payload.add("client_id", contaAzulClientId);
         payload.add("client_secret", contaAzulClientSecret);
-        payload.add("redirect_uri", redirectUri);
+        payload.add("redirect_uri", resolvedRedirectUri);
 
         return postTokenRequest(payload);
     }

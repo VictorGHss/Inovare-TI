@@ -40,15 +40,25 @@ public class ContaAzulPaymentsClient {
     private String receiptPdfUrlTemplate;
 
     public List<ContaAzulPaymentParcel> fetchPaidParcelsFromLastSixHours() {
-        String accessToken = contaAzulTokenService.getValidAccessToken();
-
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime from = now.minusHours(6);
 
+        return fetchPaidParcelsByWindow(from, now, 50, 1);
+    }
+
+    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
+            OffsetDateTime from,
+            OffsetDateTime to,
+            int pageSize,
+            int page) {
+        String accessToken = contaAzulTokenService.getValidAccessToken();
+
         String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
                 .queryParam("data_pagamento_de", WINDOW_FORMATTER.format(from))
-                .queryParam("data_pagamento_ate", WINDOW_FORMATTER.format(now))
+                .queryParam("data_pagamento_ate", WINDOW_FORMATTER.format(to))
                 .queryParam("status", "PAGO")
+                .queryParam("tamanho_pagina", pageSize)
+                .queryParam("pagina", page)
                 .build(true)
                 .toUriString();
 

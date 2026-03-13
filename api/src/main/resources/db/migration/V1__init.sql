@@ -524,4 +524,10 @@ ALTER TABLE processed_receipts
 
 ALTER TABLE processed_receipts
     ADD CONSTRAINT ck_processed_receipts_status
-    CHECK (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY'));
+    CHECK (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY', 'HISTORICO'));
+
+ALTER TABLE processed_receipts
+    ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
+
+ALTER TABLE system_alerts
+    ADD COLUMN IF NOT EXISTS resolved_by uuid;

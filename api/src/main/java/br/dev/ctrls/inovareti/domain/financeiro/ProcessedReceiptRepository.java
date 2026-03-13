@@ -13,4 +13,6 @@ public interface ProcessedReceiptRepository extends JpaRepository<ProcessedRecei
     Optional<ProcessedReceipt> findByParcelaId(String parcelaId);
 
     List<ProcessedReceipt> findByStatus(ProcessedReceiptStatus status);
+
+    List<ProcessedReceipt> findAllByOrderByProcessedAtDesc();
 }

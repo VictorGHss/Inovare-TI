@@ -4,5 +4,6 @@ public enum ProcessedReceiptStatus {
     SENT,
     SKIPPED_DUPLICATE,
     FAILED,
-    PENDING_RETRY
+    PENDING_RETRY,
+    HISTORICO
 }

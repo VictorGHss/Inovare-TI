@@ -36,72 +36,89 @@ public class ReceiptDispatcher {
         try {
             routeReceipt(parcela, financialLink, receipt, pdfBytes);
             receipt.setStatus(ProcessedReceiptStatus.SENT);
+            receipt.setRetryCount(0);
             receipt.setProcessedAt(LocalDateTime.now());
-            receipt.setPayload(buildPayload(receipt, null, financialLink.getNotificationChannel().name()));
+            receipt.setPayload(buildPayload(receipt, null, financialLink.getNotificationChannel().name(), false));
             processedReceiptRepository.save(receipt);
-                } catch (RuntimeException ex) {
-                        receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
-                        receipt.setProcessedAt(LocalDateTime.now());
-                        receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getNotificationChannel().name()));
-                        processedReceiptRepository.save(receipt);
-                        throw ex;
-                }
+        } catch (RuntimeException ex) {
+            int nextRetryCount = receipt.getRetryCount() + 1;
+            receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
+            receipt.setRetryCount(nextRetryCount);
+            receipt.setProcessedAt(LocalDateTime.now());
+            receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getNotificationChannel().name(), true));
+            processedReceiptRepository.save(receipt);
+            throw ex;
+        }
+    }
+
+    public ProcessedReceipt markRetryFailure(ProcessedReceipt receipt, String errorMessage) {
+        int nextRetryCount = receipt.getRetryCount() + 1;
+        receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
+        receipt.setRetryCount(nextRetryCount);
+        receipt.setProcessedAt(LocalDateTime.now());
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name(), true));
+        return processedReceiptRepository.save(receipt);
+    }
+
+    public ProcessedReceipt markPermanentFailure(ProcessedReceipt receipt, String errorMessage) {
+        receipt.setStatus(ProcessedReceiptStatus.FAILED);
+        receipt.setProcessedAt(LocalDateTime.now());
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name(), false));
+        return processedReceiptRepository.save(receipt);
+    }
+
+    public ProcessedReceipt saveHistoricalReceipt(ProcessedReceipt receipt, String channel) {
+        receipt.setStatus(ProcessedReceiptStatus.HISTORICO);
+        receipt.setRetryCount(0);
+        receipt.setProcessedAt(LocalDateTime.now());
+        receipt.setPayload(buildPayload(receipt, null, channel, false));
+        return processedReceiptRepository.save(receipt);
+    }
+
+    private void routeReceipt(
+            ContaAzulPaymentParcel parcela,
+            FinancialLink financialLink,
+            ProcessedReceipt receipt,
+            byte[] pdfBytes) {
+        if (financialLink.getNotificationChannel() == FinancialNotificationChannel.DISCORD) {
+            discordDirectMessageService.sendFinancialReceiptNotification(
+                    financialLink.getUser().getDiscordUserId(),
+                    parcela.medicoNome(),
+                    parcela.parcelaId());
+            return;
         }
 
-        public ProcessedReceipt markRetryFailure(ProcessedReceipt receipt, String errorMessage) {
-                receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
-                receipt.setProcessedAt(LocalDateTime.now());
-                receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name()));
-                return processedReceiptRepository.save(receipt);
+        financeEmailService.sendReceiptEmailWithPdf(
+                parcela.medicoNome(),
+                receipt.getOriginalRecipientEmail(),
+                "Olá " + parcela.medicoNome() + ", seu recibo financeiro está em anexo.",
+                pdfBytes,
+                "recibo-" + parcela.parcelaId() + ".pdf");
+    }
+
+    private Map<String, Object> buildPayload(
+            ProcessedReceipt receipt,
+            String errorMessage,
+            String channel,
+            boolean includeRetryError) {
+        Map<String, Object> payload = new HashMap<>(receipt.getPayload() != null ? receipt.getPayload() : Map.of());
+
+        payload.put("retryCount", receipt.getRetryCount());
+        payload.put("channel", channel);
+        payload.put("updatedAt", LocalDateTime.now().toString());
+
+        if (includeRetryError && errorMessage != null) {
+            payload.put("lastError", errorMessage);
         }
 
-        public ProcessedReceipt markPermanentFailure(ProcessedReceipt receipt, String errorMessage) {
-                receipt.setStatus(ProcessedReceiptStatus.FAILED);
-                receipt.setProcessedAt(LocalDateTime.now());
-                receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name()));
-                return processedReceiptRepository.save(receipt);
+        return payload;
+    }
+
+    private String resolveRecipientEmail(ContaAzulPaymentParcel parcela, FinancialLink financialLink) {
+        if (StringUtils.hasText(parcela.recipientEmail())) {
+            return parcela.recipientEmail();
         }
 
-        private void routeReceipt(
-                        ContaAzulPaymentParcel parcela,
-                        FinancialLink financialLink,
-                        ProcessedReceipt receipt,
-                        byte[] pdfBytes) {
-                if (financialLink.getNotificationChannel() == FinancialNotificationChannel.DISCORD) {
-                        discordDirectMessageService.sendFinancialReceiptNotification(
-                                        financialLink.getUser().getDiscordUserId(),
-                                        parcela.medicoNome(),
-                                        parcela.parcelaId());
-                        return;
-                }
-
-                financeEmailService.sendReceiptEmailWithPdf(
-                                parcela.medicoNome(),
-                                receipt.getOriginalRecipientEmail(),
-                                "Olá " + parcela.medicoNome() + ", seu recibo financeiro está em anexo.",
-                                pdfBytes,
-                                "recibo-" + parcela.parcelaId() + ".pdf");
-        }
-
-        private Map<String, Object> buildPayload(ProcessedReceipt receipt, String errorMessage, String channel) {
-                Map<String, Object> payload = new HashMap<>(receipt.getPayload() != null ? receipt.getPayload() : Map.of());
-                int retryCount = ((Number) payload.getOrDefault("retryCount", 0)).intValue();
-                if (errorMessage != null) {
-                        retryCount = retryCount + 1;
-                        payload.put("lastError", errorMessage);
-                }
-
-                payload.put("retryCount", retryCount);
-                payload.put("channel", channel);
-                payload.put("updatedAt", LocalDateTime.now().toString());
-                return payload;
-        }
-
-        private String resolveRecipientEmail(ContaAzulPaymentParcel parcela, FinancialLink financialLink) {
-                if (StringUtils.hasText(parcela.recipientEmail())) {
-                        return parcela.recipientEmail();
-                }
-
-                return financialLink.getUser().getEmail();
-        }
+        return financialLink.getUser().getEmail();
+    }
 }

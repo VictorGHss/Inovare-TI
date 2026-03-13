@@ -66,4 +66,8 @@ public class ProcessedReceipt {
     @Column(name = "processed_at", nullable = false)
     @Builder.Default
     private LocalDateTime processedAt = LocalDateTime.now();
+
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
 }

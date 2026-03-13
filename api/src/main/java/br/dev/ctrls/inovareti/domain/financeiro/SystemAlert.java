@@ -63,4 +63,7 @@ public class SystemAlert {
 
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
+
+    @Column(name = "resolved_by")
+    private UUID resolvedBy;
 }

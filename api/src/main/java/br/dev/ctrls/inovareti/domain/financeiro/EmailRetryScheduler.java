@@ -29,7 +29,7 @@ public class EmailRetryScheduler {
     @Scheduled(fixedDelay = 900_000L, initialDelay = 240_000L)
     public void retryPendingReceipts() {
         for (ProcessedReceipt receipt : processedReceiptRepository.findByStatus(ProcessedReceiptStatus.PENDING_RETRY)) {
-            int retries = readRetryCount(receipt);
+            int retries = receipt.getRetryCount();
             if (retries >= MAX_RETRIES) {
                 handlePermanentFailure(receipt, "Limite de tentativas de reenvio excedido.");
                 continue;
@@ -73,18 +73,6 @@ public class EmailRetryScheduler {
                         "parcelaId", receipt.getParcelaId(),
                         "financialLinkId", receipt.getFinancialLink().getId().toString(),
                         "timestamp", LocalDateTime.now().toString()));
-    }
-
-    private int readRetryCount(ProcessedReceipt receipt) {
-        Object retryCountValue = receipt.getPayload() != null
-                ? receipt.getPayload().getOrDefault("retryCount", 0)
-                : 0;
-
-        if (retryCountValue instanceof Number number) {
-            return number.intValue();
-        }
-
-        return 0;
     }
 
     private String sha256(byte[] content) {

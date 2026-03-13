@@ -1,6 +1,6 @@
 // Página de listagem e cadastro de usuários
 import { useEffect, useState } from 'react';
-import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff } from 'lucide-react';
+import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff, CircleHelp } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getUsers,
@@ -41,6 +41,7 @@ export default function Users() {
     password: '',
     role: 'USER',
     sectorId: '',
+    receives_it_notifications: true,
   });
 
   useEffect(() => {
@@ -97,7 +98,14 @@ export default function Users() {
   }
 
   function resetForm() {
-    setFormData({ name: '', email: '', password: '', role: 'USER', sectorId: '' });
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      role: 'USER',
+      sectorId: '',
+      receives_it_notifications: true,
+    });
   }
 
   async function handleConfirmResetPassword() {
@@ -183,6 +191,7 @@ export default function Users() {
                   <th className="px-4 py-3 text-left">E-mail</th>
                   <th className="px-4 py-3 text-left">Setor</th>
                   <th className="px-4 py-3 text-left">Nível de Acesso</th>
+                  <th className="px-4 py-3 text-center">Alertas Discord</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -206,6 +215,22 @@ export default function Users() {
                         }`}
                       >
                         {roleLabels[currentUser.role]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className="inline-flex"
+                        title={
+                          currentUser.receives_it_notifications
+                            ? 'Recebe alertas de chamados e SLA no Discord'
+                            : 'Não recebe alertas de chamados e SLA no Discord'
+                        }
+                      >
+                        {currentUser.receives_it_notifications ? (
+                          <Bell size={16} className="text-[#ffa751]" />
+                        ) : (
+                          <BellOff size={16} className="text-slate-400" />
+                        )}
                       </span>
                     </td>
                   </tr>
@@ -298,6 +323,46 @@ export default function Users() {
                   <option value="TECHNICIAN">Técnico</option>
                   <option value="ADMIN">Administrador</option>
                 </select>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-700">Receber notificações de chamados (Discord)</span>
+                  <span
+                    title="Essa opção controla o envio de alertas de chamados e SLA no Discord."
+                    aria-label="Informação sobre notificações no Discord"
+                    className="inline-flex text-slate-400"
+                  >
+                    <CircleHelp size={15} />
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.receives_it_notifications}
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      receives_it_notifications: !formData.receives_it_notifications,
+                    })
+                  }
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    formData.receives_it_notifications
+                      ? 'focus:ring-[#ffa751]'
+                      : 'bg-slate-300 focus:ring-slate-400'
+                  }`}
+                  style={{
+                    backgroundColor: formData.receives_it_notifications ? '#ffa751' : undefined,
+                  }}
+                  disabled={submitting}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                      formData.receives_it_notifications ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
 
               <button

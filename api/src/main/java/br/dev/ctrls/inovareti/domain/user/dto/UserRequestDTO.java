@@ -2,6 +2,8 @@ package br.dev.ctrls.inovareti.domain.user.dto;
 
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -38,6 +40,9 @@ public record UserRequestDTO(
         String location,
 
         @Size(max = 50, message = "O Discord User ID deve ter no máximo 50 caracteres.")
-        String discordUserId
+        String discordUserId,
+
+        @JsonProperty("receives_it_notifications")
+        Boolean receivesItNotifications
 
 ) {}

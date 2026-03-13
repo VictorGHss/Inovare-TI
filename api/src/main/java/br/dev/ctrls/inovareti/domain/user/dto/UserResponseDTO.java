@@ -1,9 +1,11 @@
 package br.dev.ctrls.inovareti.domain.user.dto;
 
+import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
-
-import java.util.UUID;
 
 /**
  * DTO de saída com os dados públicos de um usuário.
@@ -17,7 +19,9 @@ public record UserResponseDTO(
         UUID sectorId,
         String sectorName,
         String location,
-        String discordUserId
+        String discordUserId,
+        @JsonProperty("receives_it_notifications")
+        boolean receivesItNotifications
 ) {
     /** Converte uma entidade {@link User} para este DTO. */
     public static UserResponseDTO from(User user) {
@@ -29,7 +33,8 @@ public record UserResponseDTO(
                 user.getSector().getId(),
                 user.getSector().getName(),
                 user.getLocation(),
-                user.getDiscordUserId()
+                user.getDiscordUserId(),
+                user.isReceivesItNotifications()
         );
     }
 }

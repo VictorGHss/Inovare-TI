@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { X } from 'lucide-react';
+import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   updateUser,
@@ -26,6 +26,7 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
     email: '',
     role: 'USER',
     sectorId: '',
+    receives_it_notifications: true,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,6 +38,7 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
         email: user.email,
         role: user.role,
         sectorId: user.sectorId ?? '',
+        receives_it_notifications: user.receives_it_notifications,
       });
     }
   }, [user]);
@@ -144,6 +146,46 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
               <option value="TECHNICIAN">Técnico</option>
               <option value="ADMIN">Administrador</option>
             </select>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-700">Receber notificações de chamados (Discord)</span>
+              <span
+                title="Essa opção controla o envio de alertas de chamados e SLA no Discord."
+                aria-label="Informação sobre notificações no Discord"
+                className="inline-flex text-slate-400"
+              >
+                <CircleHelp size={15} />
+              </span>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.receives_it_notifications}
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  receives_it_notifications: !formData.receives_it_notifications,
+                })
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                formData.receives_it_notifications
+                  ? 'focus:ring-[#ffa751]'
+                  : 'bg-slate-300 focus:ring-slate-400'
+              }`}
+              style={{
+                backgroundColor: formData.receives_it_notifications ? '#ffa751' : undefined,
+              }}
+              disabled={submitting}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  formData.receives_it_notifications ? 'translate-x-5' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Actions */}

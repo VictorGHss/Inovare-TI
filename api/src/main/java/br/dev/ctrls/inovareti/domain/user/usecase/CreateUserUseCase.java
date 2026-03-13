@@ -65,6 +65,8 @@ public class CreateUserUseCase {
                         ? request.location() 
                         : "Não especificado")
                 .discordUserId(request.discordUserId())
+                .receivesItNotifications(
+                        request.receivesItNotifications() == null || request.receivesItNotifications())
                 .build();
 
         User savedUser = userRepository.save(user);

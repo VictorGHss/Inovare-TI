@@ -2,6 +2,8 @@ package br.dev.ctrls.inovareti.domain.user.dto;
 
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -27,5 +29,8 @@ public record UpdateUserRequestDTO(
         UserRole role,
 
         @NotNull(message = "Sector is required.")
-        UUID sectorId
+        UUID sectorId,
+
+        @JsonProperty("receives_it_notifications")
+        Boolean receivesItNotifications
 ) {}

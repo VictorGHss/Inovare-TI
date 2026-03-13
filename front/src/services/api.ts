@@ -159,6 +159,7 @@ export interface User {
   sectorName: string;
   location: string;
   discordUserId: string | null;
+  receives_it_notifications: boolean;
 }
 
 export interface Sector {
@@ -183,6 +184,7 @@ export interface CreateUserDto {
   sectorId: string;
   location?: string;
   discordUserId?: string;
+  receives_it_notifications: boolean;
 }
 
 export interface UpdateUserDto {
@@ -190,6 +192,7 @@ export interface UpdateUserDto {
   email: string;
   role: 'ADMIN' | 'TECHNICIAN' | 'USER';
   sectorId: string;
+  receives_it_notifications: boolean;
 }
 
 export interface CreateSectorDto {

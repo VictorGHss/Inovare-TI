@@ -51,6 +51,9 @@ public class UpdateUserUseCase {
         user.setEmail(request.email());
         user.setRole(request.role());
         user.setSector(sector);
+                if (request.receivesItNotifications() != null) {
+                        user.setReceivesItNotifications(request.receivesItNotifications());
+                }
 
         UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
 

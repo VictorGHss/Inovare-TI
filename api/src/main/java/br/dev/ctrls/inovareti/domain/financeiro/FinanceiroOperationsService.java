@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -10,6 +11,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.locks.LockSupport;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -153,12 +155,7 @@ public class FinanceiroOperationsService {
 
             windowStart = windowEnd;
             if (windowStart.isBefore(now)) {
-                try {
-                    Thread.sleep(WINDOW_DELAY_MS);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Backfill interrompido durante rate limit entre janelas.", ex);
-                }
+                pauseBetweenWindows();
             }
         }
 
@@ -176,6 +173,14 @@ public class FinanceiroOperationsService {
         }
 
         return financialLink.getUser().getEmail();
+    }
+
+    private void pauseBetweenWindows() {
+        long nanos = Duration.ofMillis(WINDOW_DELAY_MS).toNanos();
+        LockSupport.parkNanos(nanos);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new IllegalStateException("Backfill interrompido durante rate limit entre janelas.");
+        }
     }
 
     private String readParcelaIdFromAlert(SystemAlert alert) {

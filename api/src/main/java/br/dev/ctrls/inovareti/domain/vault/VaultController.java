@@ -42,7 +42,7 @@ public class VaultController {
 
     private final VaultService vaultService;
     private final TwoFactorSessionGuard twoFactorSessionGuard;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final LocalFileStorageService fileStorageService;
     private final AuditLogService auditLogService;
 

@@ -8,10 +8,13 @@ public enum AuditAction {
 
     // ── Vault ──────────────────────────────────────────────────────────────────
     /** @deprecated use VAULT_AUTH_SUCCESS */
+    @Deprecated
     VAULT_LOGIN_SUCCESS,
     /** @deprecated use VAULT_AUTH_FAIL */
+    @Deprecated
     VAULT_LOGIN_FAILURE,
     /** @deprecated use VAULT_ITEM_VIEW */
+    @Deprecated
     VAULT_SECRET_VIEW,
     VAULT_FILE_VIEW,
     VAULT_ITEM_CREATE,
@@ -31,6 +34,7 @@ public enum AuditAction {
     // ── Segundo fator ──────────────────────────────────────────────────────────
     TWO_FACTOR_RESET,
     /** @deprecated use USER_2FA_ADMIN_RESET */
+    @Deprecated
     TWO_FACTOR_ADMIN_RESET,
     /** Reset de 2FA realizado por um administrador. */
     USER_2FA_ADMIN_RESET,
@@ -43,8 +47,10 @@ public enum AuditAction {
 
     // ── Inventário ─────────────────────────────────────────────────────────────
     /** @deprecated use STOCK_BATCH_CREATE */
+    @Deprecated
     INVENTORY_BATCH_ENTRY,
     /** @deprecated use ITEM_CREATE */
+    @Deprecated
     INVENTORY_ITEM_CREATE,
     /** Criação de lote de estoque. */
     STOCK_BATCH_CREATE,
@@ -55,6 +61,7 @@ public enum AuditAction {
     ASSET_CREATE,
     ASSET_INVOICE_ATTACH,
     /** @deprecated use ASSET_QR_SCAN */
+    @Deprecated
     QR_SCAN,
     /** Edição de ativo (CMDB). */
     ASSET_EDIT,
@@ -63,10 +70,13 @@ public enum AuditAction {
 
     // ── Base de Conhecimento ───────────────────────────────────────────────────
     /** @deprecated use ARTICLE_POST_DRAFT */
+    @Deprecated
     KB_ARTICLE_DRAFT_CREATE,
     /** @deprecated use ARTICLE_POST_PUBLIC */
+    @Deprecated
     KB_ARTICLE_PUBLISH,
     /** @deprecated use ARTICLE_EDIT */
+    @Deprecated
     KB_ARTICLE_EDIT,
     /** Publicação de artigo (status PUBLISHED). */
     ARTICLE_POST_PUBLIC,
@@ -79,10 +89,12 @@ public enum AuditAction {
     SECTOR_CREATE,
     USER_CREATE,
     /** @deprecated use USER_EDIT */
+    @Deprecated
     USER_UPDATE,
     /** Edição de dados de usuário (por admin). */
     USER_EDIT,
     /** @deprecated use USER_PASSWORD_ADMIN_RESET */
+    @Deprecated
     USER_PASSWORD_RESET,
     /** Reset de senha realizado por administrador. */
     USER_PASSWORD_ADMIN_RESET,

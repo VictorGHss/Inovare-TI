@@ -115,6 +115,16 @@
     "description": "A description for 'app.contaazul.token-url'"
   },
   {
+    "name": "app.contaazul.payments-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.payments-url'"
+  },
+  {
+    "name": "app.contaazul.receipt-pdf-url-template",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.receipt-pdf-url-template'"
+  },
+  {
     "name": "app.brevo.sender.name",
     "type": "java.lang.String",
     "description": "A description for 'app.brevo.sender.name'"

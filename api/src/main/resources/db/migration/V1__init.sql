@@ -508,3 +508,20 @@ CREATE TABLE system_alerts (
 
 CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
 CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);
+
+ALTER TABLE financial_link
+    ADD COLUMN IF NOT EXISTS notification_channel varchar(20) NOT NULL DEFAULT 'EMAIL';
+
+ALTER TABLE financial_link
+    DROP CONSTRAINT IF EXISTS ck_financial_link_notification_channel;
+
+ALTER TABLE financial_link
+    ADD CONSTRAINT ck_financial_link_notification_channel
+    CHECK (notification_channel IN ('EMAIL', 'DISCORD'));
+
+ALTER TABLE processed_receipts
+    DROP CONSTRAINT IF EXISTS ck_processed_receipts_status;
+
+ALTER TABLE processed_receipts
+    ADD CONSTRAINT ck_processed_receipts_status
+    CHECK (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY'));

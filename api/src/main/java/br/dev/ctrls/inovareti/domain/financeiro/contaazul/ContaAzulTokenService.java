@@ -72,6 +72,17 @@ public class ContaAzulTokenService {
         log.info("ContaAzul OAuth callback processed and token persisted successfully.");
     }
 
+    public String getValidAccessToken() {
+        ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
+                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+
+        if (isExpiringSoon(token)) {
+            token = refreshAndPersist(token);
+        }
+
+        return token.getAccessToken();
+    }
+
     @Scheduled(fixedDelay = 3_000_000L, initialDelay = 300_000L)
     public void refreshTokenProactively() {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresentOrElse(
@@ -81,24 +92,27 @@ public class ContaAzulTokenService {
 
     private void refreshExistingToken(ContaAzulOAuthToken token) {
         try {
-            ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
-
-            if (!StringUtils.hasText(response.refreshToken())) {
-                throw new IllegalStateException("ContaAzul refresh response did not provide a new refresh_token.");
-            }
-
-            token.setAccessToken(response.accessToken());
-            token.setRefreshToken(response.refreshToken());
-            token.setTokenType(resolveTokenType(response.tokenType()));
-            token.setScope(response.scope());
-            token.setExpiresAt(LocalDateTime.now().plusSeconds(resolveExpiresIn(response.expiresIn())));
-            token.setRefreshedAt(LocalDateTime.now());
-            tokenRepository.save(token);
-
+            refreshAndPersist(token);
             log.info("ContaAzul token refreshed successfully.");
         } catch (RestClientException | IllegalStateException ex) {
             log.error("ContaAzul proactive token refresh failed.", ex);
         }
+    }
+
+    private ContaAzulOAuthToken refreshAndPersist(ContaAzulOAuthToken token) {
+        ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
+
+        if (!StringUtils.hasText(response.refreshToken())) {
+            throw new IllegalStateException("ContaAzul refresh response did not provide a new refresh_token.");
+        }
+
+        token.setAccessToken(response.accessToken());
+        token.setRefreshToken(response.refreshToken());
+        token.setTokenType(resolveTokenType(response.tokenType()));
+        token.setScope(response.scope());
+        token.setExpiresAt(LocalDateTime.now().plusSeconds(resolveExpiresIn(response.expiresIn())));
+        token.setRefreshedAt(LocalDateTime.now());
+        return tokenRepository.save(token);
     }
 
     private ContaAzulTokenResponse requestTokenByAuthorizationCode(String code, String redirectUri) {
@@ -158,6 +172,15 @@ public class ContaAzulTokenService {
 
     private String resolveTokenType(String tokenType) {
         return StringUtils.hasText(tokenType) ? tokenType : "Bearer";
+    }
+
+    private boolean isExpiringSoon(ContaAzulOAuthToken token) {
+        LocalDateTime expiresAt = token.getExpiresAt();
+        if (expiresAt == null) {
+            return true;
+        }
+
+        return expiresAt.isBefore(LocalDateTime.now().plusMinutes(5));
     }
 
     private record ContaAzulTokenResponse(

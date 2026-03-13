@@ -167,4 +167,35 @@ public class DiscordDirectMessageService {
                     ex);
         }
     }
+
+    /**
+     * Envia notificação de recibo financeiro via DM ao médico vinculado.
+     */
+    public void sendFinancialReceiptNotification(String discordUserId, String medicoNome, String parcelaId) {
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            throw new IllegalStateException("JDA indisponível para envio de notificação financeira via Discord.");
+        }
+
+        if (discordUserId == null || discordUserId.isBlank()) {
+            throw new IllegalArgumentException("Usuário não possui Discord vinculado para receber recibo financeiro.");
+        }
+
+        var embed = new EmbedBuilder()
+                .setColor(CLINIC_BRAND_COLOR)
+                .setTitle("📄 Recibo Financeiro Disponível")
+                .setDescription(
+                        "Olá, **" + medicoNome + "**!\n\n"
+                                + "Seu recibo da parcela **" + parcelaId + "** foi processado com sucesso no módulo financeiro.")
+                .build();
+
+        try {
+            jda.retrieveUserById(discordUserId).complete()
+                    .openPrivateChannel().complete()
+                    .sendMessageEmbeds(embed).complete();
+            log.info("Financial receipt Discord notification sent to user {} for parcela {}", discordUserId, parcelaId);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Falha ao enviar notificação de recibo via Discord.", ex);
+        }
+    }
 }

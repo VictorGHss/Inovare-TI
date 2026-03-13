@@ -1,10 +1,14 @@
 package br.dev.ctrls.inovareti.domain.notification;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,15 +33,40 @@ public class FinanceEmailService {
     private String financeiroFromName;
 
     public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText) {
+        sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null);
+    }
+
+    public void sendReceiptEmailWithPdf(
+            String medicoNome,
+            String destinationEmail,
+            String bodyText,
+            byte[] pdfBytes,
+            String attachmentFileName) {
         validateConfiguration();
 
         EmailDispatch dispatch = resolveDispatch(medicoNome, destinationEmail);
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(formatFromAddress());
-        message.setTo(dispatch.to());
-        message.setSubject(dispatch.subject());
-        message.setText(bodyText);
+        MimeMessage message = mailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(formatFromAddress());
+            helper.setTo(dispatch.to());
+            helper.setSubject(dispatch.subject());
+            helper.setText(bodyText, false);
+
+            if (pdfBytes != null && pdfBytes.length > 0) {
+                String resolvedFileName = StringUtils.hasText(attachmentFileName)
+                        ? attachmentFileName
+                        : "recibo.pdf";
+
+                helper.addAttachment(
+                        resolvedFileName,
+                        new ByteArrayResource(pdfBytes),
+                        "application/pdf");
+            }
+        } catch (MessagingException ex) {
+            throw new IllegalStateException("Falha ao montar mensagem SMTP de recibo.", ex);
+        }
 
         mailSender.send(message);
 

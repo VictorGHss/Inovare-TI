@@ -440,3 +440,71 @@ ALTER TABLE audit_logs
 
 ALTER TABLE users
     ADD COLUMN IF NOT EXISTS receives_it_notifications boolean NOT NULL DEFAULT true;
+
+-- =============================================================================
+-- BLOCO 14 - MODULO FINANCEIRO (ContaAzul + Conferencia de Recibos)
+-- =============================================================================
+
+CREATE TABLE contaazul_oauth_tokens (
+    id            uuid         NOT NULL DEFAULT gen_random_uuid(),
+    access_token  text         NOT NULL,
+    refresh_token text         NOT NULL,
+    token_type    varchar(20)  NOT NULL DEFAULT 'Bearer',
+    scope         varchar(255),
+    expires_at    timestamp    NOT NULL,
+    refreshed_at  timestamp,
+    created_at    timestamp    NOT NULL DEFAULT now(),
+    updated_at    timestamp    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_contaazul_oauth_tokens PRIMARY KEY (id)
+);
+
+CREATE TABLE financial_link (
+    id                    uuid         NOT NULL DEFAULT gen_random_uuid(),
+    user_id               uuid         NOT NULL,
+    contaazul_customer_id varchar(100) NOT NULL,
+    contaazul_customer_name varchar(160),
+    linked_by_user_id     uuid,
+    created_at            timestamp    NOT NULL DEFAULT now(),
+    updated_at            timestamp    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_financial_link               PRIMARY KEY (id),
+    CONSTRAINT uq_financial_link_user          UNIQUE      (user_id),
+    CONSTRAINT uq_financial_link_customer      UNIQUE      (contaazul_customer_id),
+    CONSTRAINT fk_financial_link_user          FOREIGN KEY (user_id)           REFERENCES users (id),
+    CONSTRAINT fk_financial_link_linked_by     FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
+);
+
+-- ✨ Tabela de conferência vibrante: rastreia processamento e idempotência de recibos
+CREATE TABLE processed_receipts (
+    id                       uuid          NOT NULL DEFAULT gen_random_uuid(),
+    financial_link_id        uuid          NOT NULL,
+    parcela_id               varchar(120)  NOT NULL,
+    receipt_hash             varchar(128)  NOT NULL,
+    original_recipient_email varchar(255)  NOT NULL,
+    status                   varchar(20)   NOT NULL DEFAULT 'SENT',
+    brevo_message_id         varchar(120),
+    payload                  jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    processed_at             timestamp     NOT NULL DEFAULT now(),
+    CONSTRAINT pk_processed_receipts                 PRIMARY KEY (id),
+    CONSTRAINT uq_processed_receipts_parcela_hash    UNIQUE      (parcela_id, receipt_hash),
+    CONSTRAINT ck_processed_receipts_status          CHECK       (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED')),
+    CONSTRAINT fk_processed_receipts_financial_link  FOREIGN KEY (financial_link_id) REFERENCES financial_link (id)
+);
+
+-- 🚨 Tabela de conferência vibrante: centraliza alertas de falhas de envio (Brevo)
+CREATE TABLE system_alerts (
+    id          uuid         NOT NULL DEFAULT gen_random_uuid(),
+    alert_type  varchar(60)  NOT NULL,
+    severity    varchar(20)  NOT NULL DEFAULT 'ERROR',
+    source      varchar(120) NOT NULL,
+    title       varchar(255) NOT NULL,
+    details     text,
+    context     jsonb        NOT NULL DEFAULT '{}'::jsonb,
+    resolved    boolean      NOT NULL DEFAULT false,
+    created_at  timestamp    NOT NULL DEFAULT now(),
+    resolved_at timestamp,
+    CONSTRAINT pk_system_alerts            PRIMARY KEY (id),
+    CONSTRAINT ck_system_alerts_severity   CHECK       (severity IN ('INFO', 'WARN', 'ERROR', 'CRITICAL'))
+);
+
+CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
+CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);

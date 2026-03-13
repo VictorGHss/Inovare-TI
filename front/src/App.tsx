@@ -1,12 +1,13 @@
 // Configuração de rotas e providers globais da aplicação
 import { lazy, Suspense } from 'react';
 import type { ReactElement } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import DefaultLayout from './layouts/DefaultLayout';
+import FinancialTwoFactorChallenge from './components/FinancialTwoFactorChallenge';
 
 // Login e PrimeiroAcesso carregados de forma eager — são rotas de entrada leves
 import Login from './pages/Login';
@@ -32,6 +33,7 @@ const EditArticle = lazy(() => import('./pages/KnowledgeBase/EditArticle'));
 const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails'));
 const Vault = lazy(() => import('./pages/Vault'));
 const SystemLogs = lazy(() => import('./pages/SystemLogs'));
+const Financeiro = lazy(() => import('./pages/Financeiro'));
 
 function PageLoader() {
   return (
@@ -81,6 +83,20 @@ function RoleRoute({
   return children;
 }
 
+function FinancialGuardRoute() {
+  const { user, isTwoFactorVerified } = useAuth();
+
+  if (!user || user.role !== 'ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!isTwoFactorVerified) {
+    return <FinancialTwoFactorChallenge />;
+  }
+
+  return <Outlet />;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -128,6 +144,9 @@ function AppRoutes() {
               </RoleRoute>
             )}
           />
+          <Route path="/financeiro/*" element={<FinancialGuardRoute />}>
+            <Route index element={<Financeiro />} />
+          </Route>
         </Route>
         {/* Redireciona a raiz para /login */}
         <Route path="*" element={<Navigate to="/login" replace />} />

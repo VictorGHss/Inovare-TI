@@ -25,10 +25,8 @@ import br.dev.ctrls.inovareti.domain.vault.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.domain.vault.dto.VaultUpdateItemRequestDTO;
 import br.dev.ctrls.inovareti.infra.security.EncryptionService;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
-import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
 public class VaultService {
 
     private static final Set<String> ALLOWED_FILE_CONTENT_TYPES = Set.of(
@@ -56,6 +54,21 @@ public class VaultService {
     private final EncryptionService encryptionService;
     private final LocalFileStorageService fileStorageService;
     private final AuditLogService auditLogService;
+
+    public VaultService(
+            VaultItemRepository vaultItemRepository,
+            VaultItemShareRepository vaultItemShareRepository,
+            UserRepository userRepository,
+            EncryptionService encryptionService,
+            LocalFileStorageService fileStorageService,
+            AuditLogService auditLogService) {
+        this.vaultItemRepository = vaultItemRepository;
+        this.vaultItemShareRepository = vaultItemShareRepository;
+        this.userRepository = userRepository;
+        this.encryptionService = encryptionService;
+        this.fileStorageService = fileStorageService;
+        this.auditLogService = auditLogService;
+    }
 
     @Transactional
     public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file, String ipAddress) {

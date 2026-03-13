@@ -2,7 +2,6 @@
 # Secrets e Configurações Locais
 # ========================
 .env
-.env.example
 
 # ========================
 # Java / Maven

@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.notification.discord;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.scheduling.annotation.Async;
@@ -73,8 +74,13 @@ public class DiscordWebhookService {
             return List.of(assignee);
         }
 
+        UUID requesterId = ticket.getRequester().getId();
+
         return userRepository.findAllByRoleInAndReceivesItNotificationsTrue(
-                List.of(UserRole.ADMIN, UserRole.TECHNICIAN));
+            List.of(UserRole.ADMIN, UserRole.TECHNICIAN))
+            .stream()
+            .filter(user -> !Objects.equals(user.getId(), requesterId))
+            .toList();
     }
 
     /**

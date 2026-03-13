@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-initial-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/attachments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

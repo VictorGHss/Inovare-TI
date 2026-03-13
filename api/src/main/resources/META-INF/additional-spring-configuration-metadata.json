@@ -95,6 +95,26 @@
     "description": "A description for 'app.financeiro.smtp.from-name'"
   },
   {
+    "name": "app.contaazul.client-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.client-id'"
+  },
+  {
+    "name": "app.contaazul.client-secret",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.client-secret'"
+  },
+  {
+    "name": "app.contaazul.authorization-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.authorization-url'"
+  },
+  {
+    "name": "app.contaazul.token-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.token-url'"
+  },
+  {
     "name": "app.brevo.sender.name",
     "type": "java.lang.String",
     "description": "A description for 'app.brevo.sender.name'"

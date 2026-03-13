@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
+import java.util.UUID;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -31,18 +33,28 @@ public class DiscordDirectMessageService {
         }
 
         String discordUserId = ticket.getRequester().getDiscordUserId();
+        sendTicketUpdateDMToUser(discordUserId, ticket.getId(), title, description);
+    }
+
+    @Async
+    public void sendTicketUpdateDMToUser(String discordUserId, UUID ticketId, String title, String description) {
+        if (ticketId == null) {
+            log.warn("Skipping Discord DM: ticket id is null");
+            return;
+        }
+
         if (discordUserId == null || discordUserId.isBlank()) {
-            log.info("Skipping Discord DM for ticket {}: requester has no Discord user id", ticket.getId());
+            log.info("Skipping Discord DM for ticket {}: target user has no Discord user id", ticketId);
             return;
         }
 
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
-            log.warn("Skipping Discord DM for ticket {}: JDA is not available", ticket.getId());
+            log.warn("Skipping Discord DM for ticket {}: JDA is not available", ticketId);
             return;
         }
 
-        String ticketUrl = buildTicketUrl(ticket);
+        String ticketUrl = buildTicketUrl(ticketId);
         String content = description + "\n\n[Ver Chamado](" + ticketUrl + ")";
 
         var embed = new EmbedBuilder()
@@ -54,22 +66,22 @@ public class DiscordDirectMessageService {
         jda.retrieveUserById(discordUserId).queue(
                 user -> user.openPrivateChannel().queue(
                         channel -> channel.sendMessageEmbeds(embed).queue(
-                                success -> log.info("Discord DM sent for ticket {} to user {}", ticket.getId(), discordUserId),
-                                error -> log.warn("Failed to send Discord DM message for ticket {} to user {}", ticket.getId(), discordUserId, error)
+                    success -> log.info("Discord DM sent for ticket {} to user {}", ticketId, discordUserId),
+                    error -> log.warn("Failed to send Discord DM message for ticket {} to user {}", ticketId, discordUserId, error)
                         ),
-                        error -> log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticket.getId(), discordUserId, error)
+                error -> log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticketId, discordUserId, error)
                 ),
-                error -> log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticket.getId(), error)
+            error -> log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticketId, error)
         );
     }
 
-    private String buildTicketUrl(Ticket ticket) {
+        private String buildTicketUrl(UUID ticketId) {
         String normalizedBaseUrl = frontendUrl != null ? frontendUrl.trim() : "http://localhost:5173";
         if (normalizedBaseUrl.endsWith("/")) {
             normalizedBaseUrl = normalizedBaseUrl.substring(0, normalizedBaseUrl.length() - 1);
         }
 
-        return normalizedBaseUrl + "/tickets/" + ticket.getId();
+        return normalizedBaseUrl + "/tickets/" + ticketId;
     }
 
     /**

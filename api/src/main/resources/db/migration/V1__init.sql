@@ -433,3 +433,10 @@ ALTER TABLE audit_logs
         -- Perfil
         'PROFILE_PASSWORD_CHANGE'
     ));
+
+-- =============================================================================
+-- AJUSTES INCREMENTAIS NO SCHEMA BASE (manter sempre ao final do V1__init.sql)
+-- =============================================================================
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS receives_it_notifications boolean NOT NULL DEFAULT true;

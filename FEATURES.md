@@ -22,6 +22,7 @@ Resumo executivo dos modulos principais da plataforma Inovare TI.
 - Priorizacao por severidade e categorizacao por dominio tecnico.
 - Rankings por setores e solicitantes para analise de demanda.
 - Suporte a solicitacoes de itens com integracao ao estoque.
+- Notificacoes inteligentes por perfil (`ADMIN`/`TECHNICIAN`) com preferencia individual de recebimento.
 
 ## Inventario e Ativos
 

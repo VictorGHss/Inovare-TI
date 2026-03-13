@@ -14,36 +14,75 @@ import {
 } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
 
-const ACTION_LABELS: Record<AuditAction, string> = {
+const ACTION_LABEL_OVERRIDES: Partial<Record<AuditAction, string>> = {
   VAULT_LOGIN_SUCCESS: 'Cofre: Login 2FA com Sucesso',
   VAULT_LOGIN_FAILURE: 'Cofre: Falha de Login 2FA',
   VAULT_SECRET_VIEW: 'Visualizou Segredo',
   VAULT_FILE_VIEW: 'Visualizou Arquivo',
   VAULT_ITEM_CREATE: 'Criou Item no Cofre',
+  VAULT_ITEM_VIEW: 'Visualizou Item no Cofre',
   VAULT_ITEM_EDIT: 'Editou Item no Cofre',
   VAULT_ITEM_DELETE: 'Removeu Item no Cofre',
+  VAULT_AUTH_SUCCESS: 'Autenticação 2FA Bem-sucedida',
+  VAULT_AUTH_FAIL: 'Falha na Autenticação 2FA',
   LOGIN_SUCCESS: 'Login com Sucesso',
   LOGIN_FAILURE: 'Falha de Login',
   TWO_FACTOR_RESET: 'Reset 2FA (próprio)',
   TWO_FACTOR_ADMIN_RESET: 'Reset 2FA (Admin)',
+  USER_2FA_ADMIN_RESET: 'Reset 2FA (Admin)',
   TICKET_OPEN: 'Chamado Aberto',
   TICKET_ASSIGN: 'Chamado Atribuído',
   TICKET_TRANSFER: 'Chamado Transferido',
   TICKET_RESOLVE: 'Chamado Resolvido',
   INVENTORY_BATCH_ENTRY: 'Inventário: Entrada de Lote',
   INVENTORY_ITEM_CREATE: 'Inventário: Criação de Item',
+  STOCK_BATCH_CREATE: 'Inventário: Entrada de Lote',
+  ITEM_CREATE: 'Inventário: Criação de Item',
   ASSET_CREATE: 'Ativo Criado',
+  ASSET_EDIT: 'Ativo Editado',
   ASSET_INVOICE_ATTACH: 'NF Anexada ao Ativo',
   QR_SCAN: 'Leitura de QR Code',
+  ASSET_QR_SCAN: 'Escaneou QR Code de Ativo',
   KB_ARTICLE_DRAFT_CREATE: 'Base de Conhecimento: Rascunho',
   KB_ARTICLE_PUBLISH: 'Base de Conhecimento: Publicação',
   KB_ARTICLE_EDIT: 'Base de Conhecimento: Edição',
+  ARTICLE_POST_PUBLIC: 'Base de Conhecimento: Publicação',
+  ARTICLE_POST_DRAFT: 'Base de Conhecimento: Rascunho',
+  ARTICLE_EDIT: 'Base de Conhecimento: Edição',
   SECTOR_CREATE: 'Gestão: Criação de Setor',
   USER_CREATE: 'Gestão: Criação de Usuário',
   USER_UPDATE: 'Gestão: Edição de Usuário',
+  USER_EDIT: 'Gestão: Edição de Usuário',
   USER_PASSWORD_RESET: 'Gestão: Reset de Senha',
+  USER_PASSWORD_ADMIN_RESET: 'Gestão: Reset de Senha',
   USER_PERMISSION_CHANGE: 'Alteração de Permissão',
+  PROFILE_PASSWORD_CHANGE: 'Alterou a própria senha',
 };
+
+function toFriendlyAuditAction(action: AuditAction): string {
+  const override = ACTION_LABEL_OVERRIDES[action];
+  if (override) {
+    return override;
+  }
+
+  if (action.startsWith('TICKET_')) {
+    return `Chamado: ${action.replace('TICKET_', '').replaceAll('_', ' ')}`;
+  }
+
+  if (
+    action.startsWith('INVENTORY_')
+    || action === 'STOCK_BATCH_CREATE'
+    || action === 'ITEM_CREATE'
+  ) {
+    return `Inventário: ${action
+      .replace('INVENTORY_', '')
+      .replace('STOCK_BATCH_CREATE', 'ENTRADA DE LOTE')
+      .replace('ITEM_CREATE', 'CRIAÇÃO DE ITEM')
+      .replaceAll('_', ' ')}`;
+  }
+
+  return action.replaceAll('_', ' ');
+}
 
 const ACTION_BADGE_CLASS: Record<AuditAction, string> = {
   VAULT_LOGIN_SUCCESS: 'bg-indigo-100 text-indigo-700',
@@ -51,29 +90,43 @@ const ACTION_BADGE_CLASS: Record<AuditAction, string> = {
   VAULT_SECRET_VIEW: 'bg-blue-100 text-blue-700',
   VAULT_FILE_VIEW: 'bg-blue-100 text-blue-700',
   VAULT_ITEM_CREATE: 'bg-emerald-100 text-emerald-700',
+  VAULT_ITEM_VIEW: 'bg-blue-100 text-blue-700',
   VAULT_ITEM_EDIT: 'bg-indigo-100 text-indigo-700',
   VAULT_ITEM_DELETE: 'bg-rose-100 text-rose-700',
+  VAULT_AUTH_SUCCESS: 'bg-indigo-100 text-indigo-700',
+  VAULT_AUTH_FAIL: 'bg-rose-100 text-rose-700',
   LOGIN_SUCCESS: 'bg-green-100 text-green-700',
   LOGIN_FAILURE: 'bg-red-100 text-red-700',
   TWO_FACTOR_RESET: 'bg-yellow-100 text-yellow-700',
   TWO_FACTOR_ADMIN_RESET: 'bg-orange-100 text-orange-700',
+  USER_2FA_ADMIN_RESET: 'bg-orange-100 text-orange-700',
   TICKET_OPEN: 'bg-orange-100 text-orange-700',
   TICKET_ASSIGN: 'bg-indigo-100 text-indigo-700',
   TICKET_TRANSFER: 'bg-slate-200 text-slate-700',
   TICKET_RESOLVE: 'bg-emerald-100 text-emerald-700',
   INVENTORY_BATCH_ENTRY: 'bg-amber-100 text-amber-700',
   INVENTORY_ITEM_CREATE: 'bg-teal-100 text-teal-700',
+  STOCK_BATCH_CREATE: 'bg-amber-100 text-amber-700',
+  ITEM_CREATE: 'bg-teal-100 text-teal-700',
   ASSET_CREATE: 'bg-cyan-100 text-cyan-700',
+  ASSET_EDIT: 'bg-cyan-100 text-cyan-700',
   ASSET_INVOICE_ATTACH: 'bg-lime-100 text-lime-700',
   QR_SCAN: 'bg-violet-100 text-violet-700',
+  ASSET_QR_SCAN: 'bg-violet-100 text-violet-700',
   KB_ARTICLE_DRAFT_CREATE: 'bg-slate-200 text-slate-700',
   KB_ARTICLE_PUBLISH: 'bg-emerald-100 text-emerald-700',
   KB_ARTICLE_EDIT: 'bg-indigo-100 text-indigo-700',
+  ARTICLE_POST_PUBLIC: 'bg-emerald-100 text-emerald-700',
+  ARTICLE_POST_DRAFT: 'bg-slate-200 text-slate-700',
+  ARTICLE_EDIT: 'bg-indigo-100 text-indigo-700',
   SECTOR_CREATE: 'bg-blue-100 text-blue-700',
   USER_CREATE: 'bg-sky-100 text-sky-700',
   USER_UPDATE: 'bg-purple-100 text-purple-700',
+  USER_EDIT: 'bg-purple-100 text-purple-700',
   USER_PASSWORD_RESET: 'bg-red-100 text-red-700',
   USER_PERMISSION_CHANGE: 'bg-purple-100 text-purple-700',
+  USER_PASSWORD_ADMIN_RESET: 'bg-red-100 text-red-700',
+  PROFILE_PASSWORD_CHANGE: 'bg-yellow-100 text-yellow-700',
 };
 
 const ALL_ACTIONS: AuditAction[] = [
@@ -82,29 +135,43 @@ const ALL_ACTIONS: AuditAction[] = [
   'VAULT_SECRET_VIEW',
   'VAULT_FILE_VIEW',
   'VAULT_ITEM_CREATE',
+  'VAULT_ITEM_VIEW',
   'VAULT_ITEM_EDIT',
   'VAULT_ITEM_DELETE',
+  'VAULT_AUTH_SUCCESS',
+  'VAULT_AUTH_FAIL',
   'LOGIN_SUCCESS',
   'LOGIN_FAILURE',
   'TWO_FACTOR_RESET',
   'TWO_FACTOR_ADMIN_RESET',
+  'USER_2FA_ADMIN_RESET',
   'TICKET_OPEN',
   'TICKET_ASSIGN',
   'TICKET_TRANSFER',
   'TICKET_RESOLVE',
   'INVENTORY_BATCH_ENTRY',
   'INVENTORY_ITEM_CREATE',
+  'STOCK_BATCH_CREATE',
+  'ITEM_CREATE',
   'ASSET_CREATE',
+  'ASSET_EDIT',
   'ASSET_INVOICE_ATTACH',
   'QR_SCAN',
+  'ASSET_QR_SCAN',
   'KB_ARTICLE_DRAFT_CREATE',
   'KB_ARTICLE_PUBLISH',
   'KB_ARTICLE_EDIT',
+  'ARTICLE_POST_PUBLIC',
+  'ARTICLE_POST_DRAFT',
+  'ARTICLE_EDIT',
   'SECTOR_CREATE',
   'USER_CREATE',
   'USER_UPDATE',
+  'USER_EDIT',
   'USER_PASSWORD_RESET',
   'USER_PERMISSION_CHANGE',
+  'USER_PASSWORD_ADMIN_RESET',
+  'PROFILE_PASSWORD_CHANGE',
 ];
 
 export default function SystemLogs() {
@@ -210,7 +277,7 @@ export default function SystemLogs() {
             <option value="">Todas</option>
             {ALL_ACTIONS.map((a) => (
               <option key={a} value={a}>
-                {ACTION_LABELS[a]}
+                {toFriendlyAuditAction(a)}
               </option>
             ))}
           </select>
@@ -287,7 +354,7 @@ export default function SystemLogs() {
                           ACTION_BADGE_CLASS[log.action] ?? 'bg-slate-100 text-slate-600'
                         }`}
                       >
-                        {ACTION_LABELS[log.action] ?? log.action}
+                        {toFriendlyAuditAction(log.action)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500 font-mono text-xs whitespace-nowrap">

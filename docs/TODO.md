@@ -67,7 +67,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## ✅ Fase 6 — Funcionalidades Avançadas (Concluída)
+## ✅ Fase 6 — Módulo de Chamados: Funcionalidades Avançadas (Concluída)
 
 - [x] Fluxo avançado de chamados com claim, transferência e resolução
 - [x] Upload e visualização de anexos
@@ -76,7 +76,7 @@ Acompanhamento das tarefas de desenvolvimento por fase.
 
 ---
 
-## ✅ Fase 7 — Extras (Concluída)
+## ✅ Fase 7 — Integrações e Extras (Concluída - 2FA e Discord ativos)
 
 - [x] Autenticação 2FA via TOTP com geração de QR Code
 - [x] Recuperação de acesso via Discord com código temporário e senha atual

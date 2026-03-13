@@ -90,6 +90,11 @@ public class User implements UserDetails {
     @Column(name = "discord_user_id", length = 50)
     private String discordUserId;
 
+    /** Controla se o usuário recebe notificações operacionais de TI. */
+    @Column(name = "receives_it_notifications", nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private boolean receivesItNotifications = true;
+
     /** Segredo TOTP para autenticação 2FA. Armazenado criptografado. */
     @Convert(converter = CryptoConverter.class)
     @Column(name = "totp_secret", length = 500)

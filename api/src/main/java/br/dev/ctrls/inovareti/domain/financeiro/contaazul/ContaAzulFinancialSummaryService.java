@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpClientErrorException.Unauthorized;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -102,28 +101,25 @@ public class ContaAzulFinancialSummaryService {
         LocalDateTime agora = LocalDateTime.now();
         String dataAlteracaoDe = agora.minusDays(30).format(DATETIME_FORMATTER);
         String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
-
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(paymentsUrl)
-                .queryParam("data_vencimento_de", janelaVencimentoDe.format(DATE_FORMATTER))
-                .queryParam("data_vencimento_ate", janelaVencimentoAte.format(DATE_FORMATTER))
-                .queryParam("data_alteracao_de", dataAlteracaoDe)
-                .queryParam("data_alteracao_ate", dataAlteracaoAte)
-                .queryParam("status", status)
-                .queryParam("tamanho_pagina", 100)
-                .queryParam("pagina", 1);
+        String dataVencimentoDe = janelaVencimentoDe.format(DATE_FORMATTER);
+        String dataVencimentoAte = janelaVencimentoAte.format(DATE_FORMATTER);
 
         log.debug(
             "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, alteracao_de={}, alteracao_ate={}, status={}",
-            janelaVencimentoDe,
-            janelaVencimentoAte,
+            dataVencimentoDe,
+            dataVencimentoAte,
             dataAlteracaoDe,
             dataAlteracaoAte,
             status);
 
-        String uri = uriBuilder
-                .build()
-                .encode()
-                .toUriString();
+        String uri = paymentsUrl
+                + "?pagina=1"
+                + "&tamanho_pagina=100"
+                + "&data_vencimento_de=" + dataVencimentoDe
+                + "&data_vencimento_ate=" + dataVencimentoAte
+                + "&data_alteracao_de=" + dataAlteracaoDe
+                + "&data_alteracao_ate=" + dataAlteracaoAte
+                + "&status=" + status;
 
         log.debug("Chamando ContaAzul: {}", uri);
 

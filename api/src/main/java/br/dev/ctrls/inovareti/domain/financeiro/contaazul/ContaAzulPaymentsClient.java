@@ -17,7 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,26 +67,25 @@ public class ContaAzulPaymentsClient {
         LocalDateTime agora = LocalDateTime.now();
         String dataAlteracaoDe = agora.minusHours(6).format(DATETIME_FORMATTER);
         String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
+        String dataVencimentoDe = DATE_FORMATTER.format(janelaVencimentoDe);
+        String dataVencimentoAte = DATE_FORMATTER.format(janelaVencimentoAte);
 
         log.debug(
                 "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, alteracao_de={}, alteracao_ate={}, status={}",
-                janelaVencimentoDe,
-                janelaVencimentoAte,
+                dataVencimentoDe,
+                dataVencimentoAte,
                 dataAlteracaoDe,
                 dataAlteracaoAte,
             ContaAzulStatus.QUITADO);
 
-        String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
-            .queryParam("data_vencimento_de", DATE_FORMATTER.format(janelaVencimentoDe))
-            .queryParam("data_vencimento_ate", DATE_FORMATTER.format(janelaVencimentoAte))
-                .queryParam("data_alteracao_de", dataAlteracaoDe)
-                .queryParam("data_alteracao_ate", dataAlteracaoAte)
-                .queryParam("status", ContaAzulStatus.QUITADO)
-                .queryParam("tamanho_pagina", pageSize)
-                .queryParam("pagina", page)
-                .build()
-                .encode()
-                .toUriString();
+        String uri = paymentsUrl
+                + "?pagina=" + page
+                + "&tamanho_pagina=" + pageSize
+                + "&data_vencimento_de=" + dataVencimentoDe
+                + "&data_vencimento_ate=" + dataVencimentoAte
+                + "&data_alteracao_de=" + dataAlteracaoDe
+                + "&data_alteracao_ate=" + dataAlteracaoAte
+                + "&status=" + ContaAzulStatus.QUITADO;
 
         log.debug("Chamando ContaAzul: {}", uri);
 

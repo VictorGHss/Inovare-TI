@@ -43,8 +43,8 @@ public class ContaAzulFinancialSummaryService {
     public FinancialSummary fetchSummary() {
         String accessToken = contaAzulTokenService.getValidAccessToken();
 
-        long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.QUITADO);
-        long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.PENDENTE);
+        long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
+        long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
         long balanceCents = totalPaidCents - totalPendingCents;
 
         return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL");

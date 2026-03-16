@@ -76,7 +76,7 @@ public class ContaAzulPaymentsClient {
                 dataVencimentoAte,
                 dataAlteracaoDe,
                 dataAlteracaoAte,
-            ContaAzulStatus.QUITADO);
+            ContaAzulStatus.RECEBIDO);
 
         String uri = paymentsUrl
                 + "?pagina=" + page
@@ -85,7 +85,7 @@ public class ContaAzulPaymentsClient {
                 + "&data_vencimento_ate=" + dataVencimentoAte
                 + "&data_alteracao_de=" + dataAlteracaoDe
                 + "&data_alteracao_ate=" + dataAlteracaoAte
-                + "&status=" + ContaAzulStatus.QUITADO;
+            + "&status=" + ContaAzulStatus.RECEBIDO;
 
         log.debug("Chamando ContaAzul: {}", uri);
 

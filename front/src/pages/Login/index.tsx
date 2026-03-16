@@ -5,7 +5,7 @@ import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoginField from './LoginField';
 
-const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
+const LOGO_URL = 'https://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 
 export default function Login() {
   const { signIn } = useAuth();

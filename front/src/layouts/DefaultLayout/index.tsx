@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import UserDropdown from '../../components/UserDropdown';
 
-const LOGO_URL = 'http://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
+const LOGO_URL = 'https://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 
 export default function DefaultLayout() {
   const { user } = useAuth();

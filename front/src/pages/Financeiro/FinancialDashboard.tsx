@@ -167,23 +167,23 @@ export default function FinancialDashboard() {
 
   const metricCards = [
     {
-      title: 'Saldo Disponível',
+      title: 'Saldo',
       value: formatCurrency(summary?.balanceCents, currency),
-      helper: 'Posição consolidada da integração financeira.',
+      helper: 'Posição consolidada do financeiro na Conta Azul.',
       icon: Wallet,
       tone: 'bg-emerald-50 text-emerald-700',
     },
     {
-      title: 'Contas a Receber',
-      value: formatCurrency(summary?.accountsReceivableCents, currency),
-      helper: 'Valores pendentes aguardando liquidação.',
+      title: 'Total Pendente',
+      value: formatCurrency(summary?.totalPendingCents, currency),
+      helper: 'Valores ainda pendentes de quitação.',
       icon: DollarSign,
       tone: 'bg-sky-50 text-sky-700',
     },
     {
-      title: 'Recibos Processados',
-      value: String(receipts.length),
-      helper: 'Recibos sincronizados a partir da Conta Azul.',
+      title: 'Total Pago',
+      value: formatCurrency(summary?.totalPaidCents, currency),
+      helper: 'Valores já recebidos e conciliados.',
       icon: Landmark,
       tone: 'bg-violet-50 text-violet-700',
     },
@@ -248,26 +248,18 @@ export default function FinancialDashboard() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Próximo recebimento</p>
-              <strong className="mt-3 block text-lg font-semibold text-slate-900">{formatDate(summary?.nextSettlementAt)}</strong>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Recebíveis vencidos</p>
-              <strong className="mt-3 block text-lg font-semibold text-slate-900">
-                {formatCurrency(summary?.overdueReceivablesCents, currency)}
-              </strong>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Integração</p>
               <strong className="mt-3 block text-lg font-semibold text-emerald-700">Ativa</strong>
             </div>
-          </div>
-
-          {summary === null ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
-              Os cards monetários já estão preparados para consumir o endpoint de resumo financeiro. Assim que a API expor os indicadores da Conta Azul, esta tela passa a mostrar os valores reais automaticamente.
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Última renovação</p>
+              <strong className="mt-3 block text-lg font-semibold text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
             </div>
-          ) : null}
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Moeda</p>
+              <strong className="mt-3 block text-lg font-semibold text-slate-900">{currency}</strong>
+            </div>
+          </div>
         </article>
 
         <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

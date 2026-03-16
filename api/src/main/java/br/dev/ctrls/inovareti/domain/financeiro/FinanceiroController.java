@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
+    private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/recibos")
@@ -58,6 +60,17 @@ public class FinanceiroController {
     @PostMapping("/backfill")
     public ResponseEntity<FinanceiroOperationsService.BackfillResult> runBackfill() {
         return ResponseEntity.ok(financeiroOperationsService.runBackfillLast30Days());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/resumo")
+    public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
+        ContaAzulFinancialSummaryService.FinancialSummary summary = contaAzulFinancialSummaryService.fetchSummary();
+        return ResponseEntity.ok(new FinanceSummaryResponseDTO(
+                summary.balanceCents(),
+                summary.totalPendingCents(),
+                summary.totalPaidCents(),
+                summary.currency()));
     }
 
     private FinanceReceiptResponseDTO mapReceipt(ProcessedReceipt receipt) {
@@ -121,5 +134,12 @@ public class FinanceiroController {
             LocalDateTime resolvedAt,
             UUID resolvedBy,
             Map<String, Object> context) {
+    }
+
+    public record FinanceSummaryResponseDTO(
+            long balanceCents,
+            long totalPendingCents,
+            long totalPaidCents,
+            String currency) {
     }
 }

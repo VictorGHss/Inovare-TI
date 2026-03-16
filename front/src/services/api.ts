@@ -537,10 +537,9 @@ export interface FinanceConnectionStatus {
 }
 
 export interface FinancialSummaryDTO {
-  balanceCents: number | null;
-  accountsReceivableCents: number | null;
-  overdueReceivablesCents: number | null;
-  nextSettlementAt: string | null;
+  balanceCents: number;
+  totalPendingCents: number;
+  totalPaidCents: number;
   currency: string;
 }
 

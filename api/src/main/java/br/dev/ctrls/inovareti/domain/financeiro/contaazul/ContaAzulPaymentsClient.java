@@ -3,8 +3,6 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ContaAzulPaymentsClient {
 
-    private static final DateTimeFormatter WINDOW_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -43,15 +41,13 @@ public class ContaAzulPaymentsClient {
     private String receiptPdfUrlTemplate;
 
     public List<ContaAzulPaymentParcel> fetchPaidParcelsFromLastSixHours() {
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        OffsetDateTime from = now.minusHours(6);
-
-        return fetchPaidParcelsByWindow(from, now, 50, 1);
+        LocalDate hoje = LocalDate.now();
+        return fetchPaidParcelsByWindow(hoje.minusDays(30), hoje, 50, 1);
     }
 
     public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
-            OffsetDateTime from,
-            OffsetDateTime to,
+            LocalDate from,
+            LocalDate to,
             int pageSize,
             int page) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
@@ -59,11 +55,19 @@ public class ContaAzulPaymentsClient {
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
 
+        log.debug(
+                "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, pagamento_de={}, pagamento_ate={}, status={}",
+                janelaVencimentoDe,
+                janelaVencimentoAte,
+                from,
+                to,
+                "PAGO");
+
         String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
-            .queryParam("data_vencimento_de", DateTimeFormatter.ISO_LOCAL_DATE.format(janelaVencimentoDe))
-            .queryParam("data_vencimento_ate", DateTimeFormatter.ISO_LOCAL_DATE.format(janelaVencimentoAte))
-                .queryParam("data_pagamento_de", WINDOW_FORMATTER.format(from))
-                .queryParam("data_pagamento_ate", WINDOW_FORMATTER.format(to))
+            .queryParam("data_vencimento_de", DATE_FORMATTER.format(janelaVencimentoDe))
+            .queryParam("data_vencimento_ate", DATE_FORMATTER.format(janelaVencimentoAte))
+                .queryParam("data_pagamento_de", DATE_FORMATTER.format(from))
+                .queryParam("data_pagamento_ate", DATE_FORMATTER.format(to))
                 .queryParam("status", "PAGO")
                 .queryParam("tamanho_pagina", pageSize)
                 .queryParam("pagina", page)

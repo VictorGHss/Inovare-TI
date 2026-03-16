@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -22,7 +23,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContaAzulPaymentsClient {
@@ -52,8 +55,13 @@ public class ContaAzulPaymentsClient {
             int pageSize,
             int page) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
+        LocalDate hoje = LocalDate.now();
+        LocalDate janelaVencimentoDe = hoje.minusDays(90);
+        LocalDate janelaVencimentoAte = hoje.plusDays(30);
 
         String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
+            .queryParam("data_vencimento_de", DateTimeFormatter.ISO_LOCAL_DATE.format(janelaVencimentoDe))
+            .queryParam("data_vencimento_ate", DateTimeFormatter.ISO_LOCAL_DATE.format(janelaVencimentoAte))
                 .queryParam("data_pagamento_de", WINDOW_FORMATTER.format(from))
                 .queryParam("data_pagamento_ate", WINDOW_FORMATTER.format(to))
                 .queryParam("status", "PAGO")
@@ -62,6 +70,8 @@ public class ContaAzulPaymentsClient {
                 .build()
                 .encode()
                 .toUriString();
+
+        log.debug("Chamando ContaAzul: {}", uri);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);

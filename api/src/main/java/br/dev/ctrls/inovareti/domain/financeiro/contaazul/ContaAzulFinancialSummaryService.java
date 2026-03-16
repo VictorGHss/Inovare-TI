@@ -3,6 +3,8 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ContaAzulFinancialSummaryService {
 
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -46,16 +50,10 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private long fetchTotalByStatus(String accessToken, String status) {
-        String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
-                .queryParam("status", status)
-                .queryParam("tamanho_pagina", 100)
-                .queryParam("pagina", 1)
-                .build()
-                .encode()
-                .toUriString();
+        boolean includePaymentWindow = "PAGO".equalsIgnoreCase(status);
 
         try {
-            ResponseEntity<String> response = executePaymentsRequest(uri, accessToken);
+            ResponseEntity<String> response = executePaymentsRequest(status, accessToken, includePaymentWindow);
 
             return sumAmountCents(response.getBody());
         } catch (Unauthorized ex) {
@@ -67,7 +65,7 @@ public class ContaAzulFinancialSummaryService {
 
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
-                ResponseEntity<String> retryResponse = executePaymentsRequest(uri, newToken);
+                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken, includePaymentWindow);
                 return sumAmountCents(retryResponse.getBody());
             } catch (Exception refreshEx) {
                 log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
@@ -97,7 +95,31 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
-    private ResponseEntity<String> executePaymentsRequest(String uri, String accessToken) {
+    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken, boolean includePaymentWindow) {
+        LocalDate hoje = LocalDate.now();
+        LocalDate janelaVencimentoDe = hoje.minusDays(90);
+        LocalDate janelaVencimentoAte = hoje.plusDays(30);
+
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(paymentsUrl)
+                .queryParam("data_vencimento_de", janelaVencimentoDe.format(DATE_FORMATTER))
+                .queryParam("data_vencimento_ate", janelaVencimentoAte.format(DATE_FORMATTER))
+                .queryParam("status", status)
+                .queryParam("tamanho_pagina", 100)
+                .queryParam("pagina", 1);
+
+        if (includePaymentWindow) {
+            uriBuilder
+                    .queryParam("data_pagamento_de", janelaVencimentoDe.format(DATE_FORMATTER))
+                    .queryParam("data_pagamento_ate", janelaVencimentoAte.format(DATE_FORMATTER));
+        }
+
+        String uri = uriBuilder
+                .build()
+                .encode()
+                .toUriString();
+
+        log.debug("Chamando ContaAzul: {}", uri);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));

@@ -99,8 +99,8 @@ public class ContaAzulFinancialSummaryService {
         LocalDate hoje = LocalDate.now();
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
-        LocalDate dataPagamentoDe = includePaymentWindow ? hoje.minusDays(30) : null;
-        LocalDate dataPagamentoAte = includePaymentWindow ? hoje : null;
+        String dataPagamentoDe = null;
+        String dataPagamentoAte = null;
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(paymentsUrl)
                 .queryParam("data_vencimento_de", janelaVencimentoDe.format(DATE_FORMATTER))
@@ -110,9 +110,11 @@ public class ContaAzulFinancialSummaryService {
                 .queryParam("pagina", 1);
 
         if (includePaymentWindow) {
+            dataPagamentoDe = hoje.minusDays(30).format(DATE_FORMATTER);
+            dataPagamentoAte = hoje.format(DATE_FORMATTER);
             uriBuilder
-                .queryParam("data_pagamento_de", dataPagamentoDe.format(DATE_FORMATTER))
-                .queryParam("data_pagamento_ate", dataPagamentoAte.format(DATE_FORMATTER));
+                .queryParam("data_pagamento_de", dataPagamentoDe)
+                .queryParam("data_pagamento_ate", dataPagamentoAte);
         }
 
         log.debug(

@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,14 @@ public class ContaAzulPaymentsClient {
     public List<ContaAzulPaymentParcel> fetchPaidParcelsFromLastSixHours() {
         LocalDate hoje = LocalDate.now();
         return fetchPaidParcelsByWindow(hoje.minusDays(30), hoje, 50, 1);
+    }
+
+    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
+            OffsetDateTime from,
+            OffsetDateTime to,
+            int pageSize,
+            int page) {
+        return fetchPaidParcelsByWindow(from.toLocalDate(), to.toLocalDate(), pageSize, page);
     }
 
     public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(

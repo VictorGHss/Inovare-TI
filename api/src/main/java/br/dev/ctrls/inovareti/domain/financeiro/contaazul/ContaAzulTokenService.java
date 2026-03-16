@@ -1,7 +1,9 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -46,6 +48,7 @@ public class ContaAzulTokenService {
 
     public String buildAuthorizationUrl(String redirectUri) {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
+        String state = UUID.randomUUID().toString();
         
         log.debug("Construindo URL de autorização da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
         
@@ -54,6 +57,7 @@ public class ContaAzulTokenService {
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
+                .queryParam("state", state)
                 .build()
                 .encode()
                 .toUriString();
@@ -76,7 +80,21 @@ public class ContaAzulTokenService {
             token = refreshAndPersist(token);
         }
 
+        long minutesLeft = Duration.between(LocalDateTime.now(), token.getExpiresAt()).toMinutes();
+        log.info("Token válido por mais {} minutos", minutesLeft);
+
         return token.getAccessToken();
+    }
+
+    public String forceRefresh() {
+        ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
+                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+
+        ContaAzulOAuthToken refreshed = refreshAndPersist(token);
+        long minutesLeft = Duration.between(LocalDateTime.now(), refreshed.getExpiresAt()).toMinutes();
+        log.info("Token renovado manualmente. Token válido por mais {} minutos", minutesLeft);
+
+        return refreshed.getAccessToken();
     }
 
     public boolean hasAuthorizedToken() {
@@ -123,7 +141,12 @@ public class ContaAzulTokenService {
         token.setScope(response.scope());
         token.setExpiresAt(LocalDateTime.now().plusSeconds(resolveExpiresIn(response.expiresIn())));
         token.setRefreshedAt(LocalDateTime.now());
-        return tokenRepository.save(token);
+        ContaAzulOAuthToken saved = tokenRepository.save(token);
+        log.info(
+            "Token salvo. expires_at={}, access_token_preview={}",
+            saved.getExpiresAt(),
+            previewToken(saved.getAccessToken()));
+        return saved;
     }
 
     private ContaAzulTokenResponse requestTokenByAuthorizationCode(String code, String redirectUri) {
@@ -138,7 +161,7 @@ public class ContaAzulTokenService {
         try {
             return postTokenRequest(payload);
         } catch (IllegalStateException ex) {
-            log.error("Erro ao obter token de acesso da Conta Azul. Verifique se a requisição de autorização incluiu escopos válidos (sales, financial) e se o code ainda é válido.", ex);
+            log.error("Erro ao obter token de acesso da Conta Azul. Verifique se o code está válido e se o app está corretamente configurado no portal do desenvolvedor.", ex);
             throw ex;
         }
     }
@@ -180,11 +203,27 @@ public class ContaAzulTokenService {
         token.setExpiresAt(LocalDateTime.now().plusSeconds(resolveExpiresIn(response.expiresIn())));
         token.setRefreshedAt(LocalDateTime.now());
 
-        tokenRepository.save(token);
+        ContaAzulOAuthToken saved = tokenRepository.save(token);
+        log.info(
+            "Token salvo. expires_at={}, access_token_preview={}",
+            saved.getExpiresAt(),
+            previewToken(saved.getAccessToken()));
     }
 
     private long resolveExpiresIn(Long expiresIn) {
+        if (expiresIn == null || expiresIn <= 0) {
+            log.warn("ContaAzul token response returned expires_in inválido ({}). Aplicando fallback de 3600 segundos.",
+                    expiresIn);
+        }
         return expiresIn != null && expiresIn > 0 ? expiresIn : 3600L;
+    }
+
+    private String previewToken(String accessToken) {
+        if (!StringUtils.hasText(accessToken)) {
+            return "n/a";
+        }
+
+        return accessToken.length() <= 10 ? accessToken + "..." : accessToken.substring(0, 10) + "...";
     }
 
     private String resolveTokenType(String tokenType) {

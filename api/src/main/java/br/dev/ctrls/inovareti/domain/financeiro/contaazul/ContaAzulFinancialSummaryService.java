@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpClientErrorException.Unauthorized;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -53,25 +54,34 @@ public class ContaAzulFinancialSummaryService {
                 .encode()
                 .toUriString();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    String.class);
+            ResponseEntity<String> response = executePaymentsRequest(uri, accessToken);
 
             return sumAmountCents(response.getBody());
+        } catch (Unauthorized ex) {
+            String errorBody = ex.getResponseBodyAsString();
+            log.warn(
+                    "Token expirado ou inválido ao buscar pagamentos com status='{}'. Tentando refresh automático. Resposta: {}",
+                    status,
+                    errorBody);
+
+            try {
+                String newToken = contaAzulTokenService.forceRefresh();
+                ResponseEntity<String> retryResponse = executePaymentsRequest(uri, newToken);
+                return sumAmountCents(retryResponse.getBody());
+            } catch (Exception refreshEx) {
+                log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
+                throw new ContaAzulAuthException(
+                        "Token inválido e refresh falhou. Refaça o login na Conta Azul.",
+                        refreshEx);
+            }
         } catch (HttpClientErrorException ex) {
             String errorBody = ex.getResponseBodyAsString();
             
             if (ex.getStatusCode().value() == 401) {
                 log.error(
                         "ContaAzul API retornou 401 (Unauthorized) ao buscar pagamentos com status='{}'. " +
-                        "Possíveis causas: token expirado, escopos insuficientes (financial/sales), ou token revogado. " +
+                        "Possíveis causas: token expirado, token revogado ou app sem permissões configuradas no portal Conta Azul. " +
                         "Resposta da API: {}",
                         status, errorBody, ex);
             } else {
@@ -83,8 +93,20 @@ public class ContaAzulFinancialSummaryService {
             
             throw new IllegalStateException(
                     "Falha ao recuperar resumo financeiro da Conta Azul [status=" + status + ", http=" + ex.getStatusCode() + "]. " +
-                    "Verifique se o token tem escopos 'financial' e 'sales'.", ex);
+                    "Verifique token OAuth e permissões do aplicativo no portal da Conta Azul.", ex);
         }
+    }
+
+    private ResponseEntity<String> executePaymentsRequest(String uri, String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        return restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
     }
 
     private long sumAmountCents(String jsonPayload) {

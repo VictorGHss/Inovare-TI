@@ -358,7 +358,7 @@ Inicia o fluxo OAuth2 da ContaAzul e redireciona o navegador para a tela de auto
 ```json
 {
   "status": 302,
-  "location": "https://api.contaazul.com/oauth2/authorize?response_type=code&client_id=...&redirect_uri=..."
+  "location": "https://auth.contaazul.com/oauth2/authorize?response_type=code&client_id=...&redirect_uri=...&state=..."
 }
 ```
 

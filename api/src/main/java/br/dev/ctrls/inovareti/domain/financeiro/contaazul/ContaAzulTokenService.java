@@ -46,16 +46,14 @@ public class ContaAzulTokenService {
 
     public String buildAuthorizationUrl(String redirectUri) {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
-        String scopes = "sales financial";
         
-        log.debug("Iniciando fluxo OAuth2 com escopos: {}", scopes);
+        log.debug("Construindo URL de autorização da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
         
         String authorizationUrl = UriComponentsBuilder
             .fromUriString(contaAzulAuthorizationUrl)
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
-                .queryParam("scope", scopes)
                 .build()
                 .encode()
                 .toUriString();
@@ -67,7 +65,7 @@ public class ContaAzulTokenService {
     public void exchangeAuthorizationCode(String code, String redirectUri) {
         ContaAzulTokenResponse response = requestTokenByAuthorizationCode(code, redirectUri);
         persistToken(response);
-        log.info("ContaAzul OAuth callback processed successfully. Scope granted: {}", response.scope());
+        log.info("ContaAzul OAuth callback processed successfully. Token type: {}", response.tokenType());
     }
 
     public String getValidAccessToken() {

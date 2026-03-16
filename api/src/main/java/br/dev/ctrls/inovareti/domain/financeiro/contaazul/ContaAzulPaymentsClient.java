@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulPaymentsClient {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -63,20 +65,23 @@ public class ContaAzulPaymentsClient {
         LocalDate hoje = LocalDate.now();
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
+        LocalDateTime agora = LocalDateTime.now();
+        String dataAlteracaoDe = agora.minusHours(6).format(DATETIME_FORMATTER);
+        String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
 
         log.debug(
-                "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, pagamento_de={}, pagamento_ate={}, status={}",
+                "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, alteracao_de={}, alteracao_ate={}, status={}",
                 janelaVencimentoDe,
                 janelaVencimentoAte,
-                from,
-                to,
+                dataAlteracaoDe,
+                dataAlteracaoAte,
             ContaAzulStatus.QUITADO);
 
         String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
             .queryParam("data_vencimento_de", DATE_FORMATTER.format(janelaVencimentoDe))
             .queryParam("data_vencimento_ate", DATE_FORMATTER.format(janelaVencimentoAte))
-                .queryParam("data_pagamento_de", DATE_FORMATTER.format(from))
-                .queryParam("data_pagamento_ate", DATE_FORMATTER.format(to))
+                .queryParam("data_alteracao_de", dataAlteracaoDe)
+                .queryParam("data_alteracao_ate", dataAlteracaoAte)
                 .queryParam("status", ContaAzulStatus.QUITADO)
                 .queryParam("tamanho_pagina", pageSize)
                 .queryParam("pagina", page)

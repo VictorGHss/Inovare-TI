@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -31,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulFinancialSummaryService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
@@ -50,10 +52,8 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private long fetchTotalByStatus(String accessToken, String status) {
-        boolean includePaymentWindow = ContaAzulStatus.QUITADO.equalsIgnoreCase(status);
-
         try {
-            ResponseEntity<String> response = executePaymentsRequest(status, accessToken, includePaymentWindow);
+            ResponseEntity<String> response = executePaymentsRequest(status, accessToken);
 
             return sumAmountCents(response.getBody());
         } catch (Unauthorized ex) {
@@ -65,7 +65,7 @@ public class ContaAzulFinancialSummaryService {
 
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
-                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken, includePaymentWindow);
+                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken);
                 return sumAmountCents(retryResponse.getBody());
             } catch (Exception refreshEx) {
                 log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
@@ -95,34 +95,29 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
-    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken, boolean includePaymentWindow) {
+    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken) {
         LocalDate hoje = LocalDate.now();
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
-        String dataPagamentoDe = null;
-        String dataPagamentoAte = null;
+        LocalDateTime agora = LocalDateTime.now();
+        String dataAlteracaoDe = agora.minusDays(30).format(DATETIME_FORMATTER);
+        String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(paymentsUrl)
                 .queryParam("data_vencimento_de", janelaVencimentoDe.format(DATE_FORMATTER))
                 .queryParam("data_vencimento_ate", janelaVencimentoAte.format(DATE_FORMATTER))
+                .queryParam("data_alteracao_de", dataAlteracaoDe)
+                .queryParam("data_alteracao_ate", dataAlteracaoAte)
                 .queryParam("status", status)
                 .queryParam("tamanho_pagina", 100)
                 .queryParam("pagina", 1);
 
-        if (includePaymentWindow) {
-            dataPagamentoDe = hoje.minusDays(30).format(DATE_FORMATTER);
-            dataPagamentoAte = hoje.format(DATE_FORMATTER);
-            uriBuilder
-                .queryParam("data_pagamento_de", dataPagamentoDe)
-                .queryParam("data_pagamento_ate", dataPagamentoAte);
-        }
-
         log.debug(
-            "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, pagamento_de={}, pagamento_ate={}, status={}",
+            "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, alteracao_de={}, alteracao_ate={}, status={}",
             janelaVencimentoDe,
             janelaVencimentoAte,
-            dataPagamentoDe,
-            dataPagamentoAte,
+            dataAlteracaoDe,
+            dataAlteracaoAte,
             status);
 
         String uri = uriBuilder

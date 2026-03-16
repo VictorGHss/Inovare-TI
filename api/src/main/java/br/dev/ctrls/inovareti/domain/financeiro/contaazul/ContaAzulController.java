@@ -11,7 +11,7 @@ import org.springframework.web.servlet.view.RedirectView;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/financeiro/contaazul")
+@RequestMapping("/financeiro/contaazul")
 @RequiredArgsConstructor
 public class ContaAzulController {
 

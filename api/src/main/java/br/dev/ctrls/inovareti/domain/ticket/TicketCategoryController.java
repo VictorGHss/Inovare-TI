@@ -21,7 +21,7 @@ import java.util.List;
  * Base path: /api/ticket-categories
  */
 @RestController
-@RequestMapping("/api/ticket-categories")
+@RequestMapping("/ticket-categories")
 @RequiredArgsConstructor
 public class TicketCategoryController {
 

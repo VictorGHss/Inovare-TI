@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
  * Caminho base: /api/auth
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

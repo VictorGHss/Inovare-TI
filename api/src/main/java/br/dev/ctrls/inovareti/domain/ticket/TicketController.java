@@ -46,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/tickets")
+@RequestMapping("/tickets")
 @RequiredArgsConstructor
 public class TicketController {
 

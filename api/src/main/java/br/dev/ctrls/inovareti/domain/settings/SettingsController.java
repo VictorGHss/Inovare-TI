@@ -15,7 +15,7 @@ import br.dev.ctrls.inovareti.domain.settings.dto.SystemSettingResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/admin/settings")
+@RequestMapping("/admin/settings")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class SettingsController {

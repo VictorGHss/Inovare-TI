@@ -36,7 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/vault")
+@RequestMapping("/vault")
 @RequiredArgsConstructor
 public class VaultController {
 

@@ -72,6 +72,12 @@ public class ContaAzulTokenService {
         return token.getAccessToken();
     }
 
+    public boolean hasAuthorizedToken() {
+        return tokenRepository.findTopByOrderByUpdatedAtDesc()
+                .map(token -> StringUtils.hasText(token.getAccessToken()))
+                .orElse(false);
+    }
+
     @Scheduled(fixedDelay = 3_000_000L, initialDelay = 300_000L)
     public void refreshTokenProactively() {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresentOrElse(

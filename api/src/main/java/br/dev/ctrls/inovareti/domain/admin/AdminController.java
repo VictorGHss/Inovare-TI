@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
  * Caminho base: /api/admin
  */
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/admin")
 @RequiredArgsConstructor
 @Slf4j
 public class AdminController {

@@ -19,7 +19,7 @@ import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/financeiro")
+@RequestMapping("/financeiro")
 @RequiredArgsConstructor
 public class FinanceiroController {
 

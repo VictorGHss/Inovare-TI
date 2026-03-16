@@ -37,7 +37,7 @@ import lombok.RequiredArgsConstructor;
  * Base path: /api/users
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 @RequiredArgsConstructor
 public class UserController {
 

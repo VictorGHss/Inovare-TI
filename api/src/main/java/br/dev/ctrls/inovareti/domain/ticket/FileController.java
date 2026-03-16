@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
  * Caminho base: /api/attachments
  */
 @RestController
-@RequestMapping("/api/attachments")
+@RequestMapping("/attachments")
 @RequiredArgsConstructor
 public class FileController {
 

@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
  * Exclusivo para administradores: GET /api/audit-logs
  */
 @RestController
-@RequestMapping("/api/audit-logs")
+@RequestMapping("/audit-logs")
 @RequiredArgsConstructor
 public class AuditLogController {
 

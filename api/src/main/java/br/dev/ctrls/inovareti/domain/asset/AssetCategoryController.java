@@ -18,7 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/asset-categories")
+@RequestMapping("/asset-categories")
 @RequiredArgsConstructor
 public class AssetCategoryController {
 

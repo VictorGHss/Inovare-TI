@@ -52,10 +52,10 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/reset-initial-password").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/attachments/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/financeiro/contaazul/callback").permitAll()
+                .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/auth/reset-initial-password").permitAll()
+                .requestMatchers(HttpMethod.GET, "/attachments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

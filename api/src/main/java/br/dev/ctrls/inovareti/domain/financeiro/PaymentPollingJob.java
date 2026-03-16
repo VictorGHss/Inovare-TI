@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentsClient;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -18,12 +19,18 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PaymentPollingJob {
 
+    private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulPaymentsClient paymentsClient;
     private final ProcessedReceiptRepository processedReceiptRepository;
     private final ReceiptDispatcher receiptDispatcher;
 
     @Scheduled(fixedDelay = 300_000L, initialDelay = 120_000L)
     public void pollPaidParcels() {
+        if (!contaAzulTokenService.hasAuthorizedToken()) {
+            log.info("ContaAzul não autorizado, pulando polling.");
+            return;
+        }
+
         List<ContaAzulPaymentParcel> paidParcels;
         try {
             paidParcels = paymentsClient.fetchPaidParcelsFromLastSixHours();

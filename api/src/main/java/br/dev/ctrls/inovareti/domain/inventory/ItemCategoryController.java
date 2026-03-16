@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
  * Base path: /api/item-categories
  */
 @RestController
-@RequestMapping("/api/item-categories")
+@RequestMapping("/item-categories")
 @RequiredArgsConstructor
 public class ItemCategoryController {
 

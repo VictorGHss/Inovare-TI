@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/reports")
+@RequestMapping("/reports")
 public class ReportController {
 
     private final ReportService reportService;

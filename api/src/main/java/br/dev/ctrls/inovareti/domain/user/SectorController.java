@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
  * Base path: /api/sectors
  */
 @RestController
-@RequestMapping("/api/sectors")
+@RequestMapping("/sectors")
 @RequiredArgsConstructor
 public class SectorController {
 

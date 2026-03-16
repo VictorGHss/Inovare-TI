@@ -51,6 +51,7 @@ public class ContaAzulTokenService {
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
+                .queryParam("scope", "financial sales")
                 .build(true)
                 .toUriString();
     }

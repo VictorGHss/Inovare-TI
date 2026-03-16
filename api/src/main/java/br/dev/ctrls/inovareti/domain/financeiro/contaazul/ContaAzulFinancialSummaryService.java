@@ -12,6 +12,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -19,7 +20,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContaAzulFinancialSummaryService {
@@ -53,13 +56,34 @@ public class ContaAzulFinancialSummaryService {
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class);
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class);
 
-        return sumAmountCents(response.getBody());
+            return sumAmountCents(response.getBody());
+        } catch (HttpClientErrorException ex) {
+            String errorBody = ex.getResponseBodyAsString();
+            
+            if (ex.getStatusCode().value() == 401) {
+                log.error(
+                        "ContaAzul API retornou 401 (Unauthorized) ao buscar pagamentos com status='{}'. " +
+                        "Possíveis causas: token expirado, escopos insuficientes (financial/sales), ou token revogado. " +
+                        "Resposta da API: {}",
+                        status, errorBody, ex);
+            } else {
+                log.error(
+                        "ContaAzul API retornou erro {} ao buscar pagamentos com status='{}'. " +
+                        "Resposta: {}",
+                        ex.getStatusCode(), status, errorBody, ex);
+            }
+            
+            throw new IllegalStateException(
+                    "Falha ao recuperar resumo financeiro da Conta Azul [status=" + status + ", http=" + ex.getStatusCode() + "]. " +
+                    "Verifique se o token tem escopos 'financial' e 'sales'.", ex);
+        }
     }
 
     private long sumAmountCents(String jsonPayload) {

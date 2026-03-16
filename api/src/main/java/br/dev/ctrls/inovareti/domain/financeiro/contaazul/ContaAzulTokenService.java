@@ -50,14 +50,18 @@ public class ContaAzulTokenService {
         
         log.debug("Iniciando fluxo OAuth2 com escopos: {}", scopes);
         
-        return UriComponentsBuilder
+        String authorizationUrl = UriComponentsBuilder
             .fromUriString(contaAzulAuthorizationUrl)
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
                 .queryParam("scope", scopes)
-                .build(true)
+                .build()
+                .encode()
                 .toUriString();
+        
+        log.debug("Authorization URL constructed: {}", authorizationUrl);
+        return authorizationUrl;
     }
 
     public void exchangeAuthorizationCode(String code, String redirectUri) {

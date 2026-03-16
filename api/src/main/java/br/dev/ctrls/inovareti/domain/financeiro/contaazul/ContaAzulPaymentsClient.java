@@ -59,7 +59,8 @@ public class ContaAzulPaymentsClient {
                 .queryParam("status", "PAGO")
                 .queryParam("tamanho_pagina", pageSize)
                 .queryParam("pagina", page)
-                .build(true)
+                .build()
+                .encode()
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();

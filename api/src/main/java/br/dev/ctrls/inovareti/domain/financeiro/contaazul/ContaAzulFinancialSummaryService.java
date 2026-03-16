@@ -49,7 +49,8 @@ public class ContaAzulFinancialSummaryService {
                 .queryParam("status", status)
                 .queryParam("tamanho_pagina", 100)
                 .queryParam("pagina", 1)
-                .build(true)
+                .build()
+                .encode()
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();

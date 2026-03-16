@@ -510,6 +510,40 @@ export interface DashboardAnalyticsDTO {
   assetsInStock: number;
 }
 
+export type FinanceReceiptStatus = 'SENT' | 'HISTORICO' | 'PENDING_RETRY' | 'FAILED' | 'SKIPPED_DUPLICATE';
+
+export interface FinanceReceipt {
+  id: string;
+  parcelaId: string;
+  originalRecipientEmail: string;
+  status: FinanceReceiptStatus;
+  processedAt: string;
+  payload: Record<string, unknown> | null;
+}
+
+export interface FinanceAlert {
+  id: string;
+  title: string;
+  details: string;
+  resolved: boolean;
+  createdAt: string;
+  context: Record<string, unknown> | null;
+}
+
+export interface FinanceConnectionStatus {
+  authorized: boolean;
+  expiresAt: string | null;
+  refreshedAt: string | null;
+}
+
+export interface FinancialSummaryDTO {
+  balanceCents: number | null;
+  accountsReceivableCents: number | null;
+  overdueReceivablesCents: number | null;
+  nextSettlementAt: string | null;
+  currency: string;
+}
+
 export interface AuthResponseDTO {
   status: 'AUTHENTICATED' | 'PASSWORD_RESET_REQUIRED';
   token: string | null;
@@ -596,6 +630,34 @@ export interface Notification {
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
   const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
   return data;
+}
+
+export async function getFinanceConnectionStatus(): Promise<FinanceConnectionStatus> {
+  const { data } = await api.get<FinanceConnectionStatus>('/api/financeiro/contaazul/status');
+  return data;
+}
+
+export async function getFinanceReceipts(): Promise<FinanceReceipt[]> {
+  const { data } = await api.get<FinanceReceipt[]>('/api/financeiro/recibos');
+  return data;
+}
+
+export async function getFinanceAlerts(): Promise<FinanceAlert[]> {
+  const { data } = await api.get<FinanceAlert[]>('/api/financeiro/alertas');
+  return data;
+}
+
+export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null> {
+  try {
+    const { data } = await api.get<FinancialSummaryDTO>('/api/financeiro/resumo');
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function resetInitialPassword(

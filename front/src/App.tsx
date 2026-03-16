@@ -83,7 +83,7 @@ function RoleRoute({
   return children;
 }
 
-function FinancialGuardRoute() {
+function FinancialGuardRoute({ children }: { children?: ReactElement }) {
   const { user, isTwoFactorVerified } = useAuth();
 
   if (!user || user.role !== 'ADMIN') {
@@ -94,7 +94,7 @@ function FinancialGuardRoute() {
     return <FinancialTwoFactorChallenge />;
   }
 
-  return <Outlet />;
+  return children ?? <Outlet />;
 }
 
 function AppRoutes() {
@@ -144,9 +144,14 @@ function AppRoutes() {
               </RoleRoute>
             )}
           />
-          <Route path="/financeiro/*" element={<FinancialGuardRoute />}>
-            <Route index element={<Financeiro />} />
-          </Route>
+          <Route
+            path="/financeiro"
+            element={(
+              <FinancialGuardRoute>
+                <Financeiro />
+              </FinancialGuardRoute>
+            )}
+          />
         </Route>
         {/* Redireciona a raiz para /login */}
         <Route path="*" element={<Navigate to="/login" replace />} />

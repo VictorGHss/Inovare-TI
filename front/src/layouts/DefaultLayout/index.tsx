@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   BookOpen,
   Building2,
+  DollarSign,
   FileLock,
   Github,
-  Landmark,
   Menu,
   Monitor,
   Package,
@@ -51,7 +51,7 @@ export default function DefaultLayout() {
       icon: FileLock,
       visible: user?.role === 'ADMIN' || user?.role === 'TECHNICIAN',
     },
-    { path: '/financeiro', label: 'Financeiro', icon: Landmark, visible: user?.role === 'ADMIN' },
+    { path: '/financeiro', label: 'Financeiro', icon: DollarSign, visible: user?.role === 'ADMIN' },
     { path: '/users', label: 'Equipe', icon: Users, visible: user?.role === 'ADMIN' },
     { path: '/sectors', label: 'Setores', icon: Building2, visible: user?.role === 'ADMIN' },
   ]), [user?.role]);

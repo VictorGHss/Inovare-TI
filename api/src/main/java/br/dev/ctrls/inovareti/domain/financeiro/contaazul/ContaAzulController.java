@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,10 +25,15 @@ public class ContaAzulController {
     private String contaAzulRedirectUri;
 
     @GetMapping("/authorize")
-    @PreAuthorize("hasRole('ADMIN')")
     public RedirectView startAuthorization() {
         String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(contaAzulRedirectUri);
         return new RedirectView(authorizationUrl);
+    }
+
+    @GetMapping("/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ContaAzulTokenService.AuthorizationStatus> getAuthorizationStatus() {
+        return ResponseEntity.ok(contaAzulTokenService.getAuthorizationStatus());
     }
 
     @GetMapping("/callback")
@@ -41,6 +47,6 @@ public class ContaAzulController {
                 ? frontendUrl.substring(0, frontendUrl.length() - 1)
                 : frontendUrl;
 
-        return base + "/financeiro?contaazul=success";
+        return base + "/financeiro?success=true";
     }
 }

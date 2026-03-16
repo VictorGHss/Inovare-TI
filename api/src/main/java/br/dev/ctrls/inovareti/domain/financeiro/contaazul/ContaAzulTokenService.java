@@ -78,6 +78,15 @@ public class ContaAzulTokenService {
                 .orElse(false);
     }
 
+    public AuthorizationStatus getAuthorizationStatus() {
+        return tokenRepository.findTopByOrderByUpdatedAtDesc()
+                .map(token -> new AuthorizationStatus(
+                        StringUtils.hasText(token.getAccessToken()),
+                        token.getExpiresAt(),
+                        token.getRefreshedAt()))
+                .orElseGet(() -> new AuthorizationStatus(false, null, null));
+    }
+
     @Scheduled(fixedDelay = 3_000_000L, initialDelay = 300_000L)
     public void refreshTokenProactively() {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresentOrElse(
@@ -185,5 +194,11 @@ public class ContaAzulTokenService {
             @JsonProperty("token_type") String tokenType,
             @JsonProperty("scope") String scope,
             @JsonProperty("expires_in") Long expiresIn) {
+    }
+
+    public record AuthorizationStatus(
+            boolean authorized,
+            LocalDateTime expiresAt,
+            LocalDateTime refreshedAt) {
     }
 }

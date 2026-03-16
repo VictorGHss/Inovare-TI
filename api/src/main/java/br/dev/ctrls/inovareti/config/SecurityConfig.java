@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/auth/reset-initial-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/attachments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize").permitAll()
                 .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()
             )

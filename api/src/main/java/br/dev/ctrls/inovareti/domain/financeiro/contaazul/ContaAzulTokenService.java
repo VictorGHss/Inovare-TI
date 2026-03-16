@@ -46,20 +46,24 @@ public class ContaAzulTokenService {
 
     public String buildAuthorizationUrl(String redirectUri) {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
+        String scopes = "sales financial";
+        
+        log.debug("Iniciando fluxo OAuth2 com escopos: {}", scopes);
+        
         return UriComponentsBuilder
             .fromUriString(contaAzulAuthorizationUrl)
                 .queryParam("response_type", "code")
                 .queryParam("client_id", contaAzulClientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
-                .queryParam("scope", "financial%20sales")
-                .build(false)
+                .queryParam("scope", scopes)
+                .build(true)
                 .toUriString();
     }
 
     public void exchangeAuthorizationCode(String code, String redirectUri) {
         ContaAzulTokenResponse response = requestTokenByAuthorizationCode(code, redirectUri);
         persistToken(response);
-        log.info("ContaAzul OAuth callback processed and token persisted successfully.");
+        log.info("ContaAzul OAuth callback processed successfully. Scope granted: {}", response.scope());
     }
 
     public String getValidAccessToken() {
@@ -129,7 +133,12 @@ public class ContaAzulTokenService {
         payload.add("client_secret", contaAzulClientSecret);
         payload.add("redirect_uri", resolvedRedirectUri);
 
-        return postTokenRequest(payload);
+        try {
+            return postTokenRequest(payload);
+        } catch (IllegalStateException ex) {
+            log.error("Erro ao obter token de acesso da Conta Azul. Verifique se a requisição de autorização incluiu escopos válidos (sales, financial) e se o code ainda é válido.", ex);
+            throw ex;
+        }
     }
 
     private ContaAzulTokenResponse requestTokenByRefreshToken(String refreshToken) {

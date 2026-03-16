@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.view.RedirectView;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -25,9 +25,9 @@ public class ContaAzulController {
     private String contaAzulRedirectUri;
 
     @GetMapping("/authorize")
-    public RedirectView startAuthorization() {
+    public void startAuthorization(HttpServletResponse response) throws java.io.IOException {
         String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(contaAzulRedirectUri);
-        return new RedirectView(authorizationUrl);
+        response.sendRedirect(authorizationUrl);
     }
 
     @GetMapping("/status")
@@ -37,9 +37,9 @@ public class ContaAzulController {
     }
 
     @GetMapping("/callback")
-    public RedirectView callback(@RequestParam("code") String code) {
+    public void callback(@RequestParam("code") String code, HttpServletResponse response) throws java.io.IOException {
         contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
-        return new RedirectView(buildFinanceiroSuccessRedirect());
+        response.sendRedirect(buildFinanceiroSuccessRedirect());
     }
 
     private String buildFinanceiroSuccessRedirect() {

@@ -42,15 +42,15 @@ public class ContaAzulFinancialSummaryService {
     public FinancialSummary fetchSummary() {
         String accessToken = contaAzulTokenService.getValidAccessToken();
 
-        long totalPaidCents = fetchTotalByStatus(accessToken, "PAGO");
-        long totalPendingCents = fetchTotalByStatus(accessToken, "PENDENTE");
+        long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.QUITADO);
+        long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.PENDENTE);
         long balanceCents = totalPaidCents - totalPendingCents;
 
         return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL");
     }
 
     private long fetchTotalByStatus(String accessToken, String status) {
-        boolean includePaymentWindow = "PAGO".equalsIgnoreCase(status);
+        boolean includePaymentWindow = ContaAzulStatus.QUITADO.equalsIgnoreCase(status);
 
         try {
             ResponseEntity<String> response = executePaymentsRequest(status, accessToken, includePaymentWindow);

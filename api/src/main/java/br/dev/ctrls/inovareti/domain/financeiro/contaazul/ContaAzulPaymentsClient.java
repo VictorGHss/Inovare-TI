@@ -70,14 +70,14 @@ public class ContaAzulPaymentsClient {
                 janelaVencimentoAte,
                 from,
                 to,
-                "PAGO");
+            ContaAzulStatus.QUITADO);
 
         String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
             .queryParam("data_vencimento_de", DATE_FORMATTER.format(janelaVencimentoDe))
             .queryParam("data_vencimento_ate", DATE_FORMATTER.format(janelaVencimentoAte))
                 .queryParam("data_pagamento_de", DATE_FORMATTER.format(from))
                 .queryParam("data_pagamento_ate", DATE_FORMATTER.format(to))
-                .queryParam("status", "PAGO")
+                .queryParam("status", ContaAzulStatus.QUITADO)
                 .queryParam("tamanho_pagina", pageSize)
                 .queryParam("pagina", page)
                 .build()

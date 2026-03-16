@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,15 @@ public class PaymentPollingJob {
 
     @Scheduled(fixedDelay = 300_000L, initialDelay = 120_000L)
     public void pollPaidParcels() {
-        for (ContaAzulPaymentParcel parcela : paymentsClient.fetchPaidParcelsFromLastSixHours()) {
+        List<ContaAzulPaymentParcel> paidParcels;
+        try {
+            paidParcels = paymentsClient.fetchPaidParcelsFromLastSixHours();
+        } catch (IllegalStateException ex) {
+            log.info("ContaAzul não autorizado, pulando polling.");
+            return;
+        }
+
+        for (ContaAzulPaymentParcel parcela : paidParcels) {
             if (processedReceiptRepository.existsByParcelaId(parcela.parcelaId())) {
                 continue;
             }

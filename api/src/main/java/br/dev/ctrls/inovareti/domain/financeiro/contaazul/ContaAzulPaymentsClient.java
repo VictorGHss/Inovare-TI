@@ -33,6 +33,8 @@ public class ContaAzulPaymentsClient {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final int SEARCH_PAGE_SIZE = 100;
+    private static final int SEARCH_MAX_PAGES = 20;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -163,7 +165,15 @@ public class ContaAzulPaymentsClient {
                             + ", status=" + parcelLookup.status() + ", eventoId=" + parcelLookup.eventId() + "]");
         }
 
-        return parcelLookup.parcel();
+        ContaAzulPaymentParcel resolvedParcel = parcelLookup.parcel();
+        if (isMissingLinkIdentity(resolvedParcel)) {
+            ContaAzulPaymentParcel enrichedParcel = searchParcelIdentityInReceivables(parcelaId, accessToken);
+            if (enrichedParcel != null) {
+                resolvedParcel = enrichedParcel;
+            }
+        }
+
+        return resolvedParcel;
     }
 
     private List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
@@ -298,6 +308,67 @@ public class ContaAzulPaymentsClient {
                 "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
     }
 
+    private ContaAzulPaymentParcel searchParcelIdentityInReceivables(String parcelaId, String accessToken) {
+        LocalDate today = LocalDate.now();
+        LocalDate fromDueDate = today.minusMonths(12);
+        LocalDate toDueDate = today.plusMonths(1);
+
+        for (int page = 1; page <= SEARCH_MAX_PAGES; page++) {
+            String uri = paymentsUrl
+                    + "?pagina=" + page
+                    + "&tamanho_pagina=" + SEARCH_PAGE_SIZE
+                    + "&data_vencimento_de=" + fromDueDate.format(DATE_FORMATTER)
+                    + "&data_vencimento_ate=" + toDueDate.format(DATE_FORMATTER)
+                    + "&status=" + ContaAzulStatus.RECEBIDO;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            JsonNode entries = readEntries(response.getBody());
+            if (entries == null || !entries.isArray() || entries.isEmpty()) {
+                return null;
+            }
+
+            for (JsonNode node : entries) {
+                String currentParcelId = readText(node, "parcela_id", "id", "parcela.id");
+                if (!parcelaId.equals(currentParcelId)) {
+                    continue;
+                }
+
+                String customerId = readText(node, "contaazul_customer_id", "customer.id", "cliente.id", "paciente.id");
+                String doctorName = readText(node, "customer.name", "cliente.nome", "paciente.nome", "medico.nome", "nome");
+                String recipientEmail = readText(node, "customer.email", "cliente.email", "paciente.email", "email");
+
+                if (!StringUtils.hasText(doctorName)) {
+                    doctorName = "Profissional";
+                }
+
+                return new ContaAzulPaymentParcel(parcelaId, customerId, doctorName, recipientEmail);
+            }
+
+            if (entries.size() < SEARCH_PAGE_SIZE) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private JsonNode readEntries(String jsonPayload) {
+        if (jsonPayload == null || jsonPayload.isBlank()) {
+            return objectMapper.createArrayNode();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            return resolveArrayNode(root);
+        } catch (IOException ex) {
+            return objectMapper.createArrayNode();
+        }
+    }
+
     private String resolveReceiptPdfFallbackUrl(String parcelaId) {
         String basePath = "/contas-a-receber/buscar";
         int suffixStart = paymentsUrl.indexOf(basePath);
@@ -358,6 +429,12 @@ public class ContaAzulPaymentsClient {
 
     private boolean isPaidParcelStatus(String status) {
         return "QUITADO".equalsIgnoreCase(status) || ContaAzulStatus.RECEBIDO.equalsIgnoreCase(status);
+    }
+
+    private boolean isMissingLinkIdentity(ContaAzulPaymentParcel parcel) {
+        boolean missingCustomerId = !StringUtils.hasText(parcel.customerId());
+        boolean missingDoctorName = !StringUtils.hasText(parcel.medicoNome()) || "Profissional".equalsIgnoreCase(parcel.medicoNome());
+        return missingCustomerId && missingDoctorName;
     }
 
     private record ParcelLookup(

@@ -34,6 +34,9 @@ public class DoctorEmailMapping {
     @Column(name = "contaazul_customer_uuid", nullable = false, length = 64, unique = true)
     private String contaAzulCustomerUuid;
 
+    @Column(name = "doctor_name", nullable = false, length = 160)
+    private String doctorName;
+
     @Column(name = "doctor_email", nullable = false, length = 255)
     private String doctorEmail;
 

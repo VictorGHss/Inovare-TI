@@ -33,7 +33,7 @@ public class DoctorMappingController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<DoctorMappingResponseDTO>> listMappings() {
-        List<DoctorMappingResponseDTO> response = doctorEmailMappingRepository.findAll()
+        List<DoctorMappingResponseDTO> response = doctorEmailMappingRepository.findAllByOrderByDoctorNameAsc()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -44,6 +44,7 @@ public class DoctorMappingController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<DoctorMappingResponseDTO> createMapping(@RequestBody @Valid UpsertDoctorMappingRequest request) {
+        String doctorName = request.doctorName().trim();
         String customerUuid = request.contaAzulCustomerUuid().trim();
         String doctorEmail = request.doctorEmail().trim();
 
@@ -52,6 +53,7 @@ public class DoctorMappingController {
         }
 
         DoctorEmailMapping saved = doctorEmailMappingRepository.save(DoctorEmailMapping.builder()
+            .doctorName(doctorName)
                 .contaAzulCustomerUuid(customerUuid)
                 .doctorEmail(doctorEmail)
                 .build());
@@ -75,6 +77,7 @@ public class DoctorMappingController {
     private DoctorMappingResponseDTO toResponse(DoctorEmailMapping mapping) {
         return new DoctorMappingResponseDTO(
                 mapping.getId(),
+            mapping.getDoctorName(),
                 mapping.getContaAzulCustomerUuid(),
                 mapping.getDoctorEmail(),
                 mapping.getCreatedAt(),
@@ -82,6 +85,8 @@ public class DoctorMappingController {
     }
 
     public record UpsertDoctorMappingRequest(
+            @NotBlank(message = "O nome do médico é obrigatório.")
+            String doctorName,
             @NotBlank(message = "O UUID do cliente da Conta Azul é obrigatório.")
             String contaAzulCustomerUuid,
             @NotBlank(message = "O e-mail do médico é obrigatório.")
@@ -91,6 +96,7 @@ public class DoctorMappingController {
 
     public record DoctorMappingResponseDTO(
             UUID id,
+            String doctorName,
             String contaAzulCustomerUuid,
             String doctorEmail,
             LocalDateTime createdAt,

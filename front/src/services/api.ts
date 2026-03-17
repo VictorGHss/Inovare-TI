@@ -538,6 +538,7 @@ export interface FinanceConnectionStatus {
 
 export interface DoctorMapping {
   id: string;
+  doctorName: string;
   contaAzulCustomerUuid: string;
   doctorEmail: string;
   createdAt: string;
@@ -545,6 +546,7 @@ export interface DoctorMapping {
 }
 
 export interface CreateDoctorMappingDTO {
+  doctorName: string;
   contaAzulCustomerUuid: string;
   doctorEmail: string;
 }

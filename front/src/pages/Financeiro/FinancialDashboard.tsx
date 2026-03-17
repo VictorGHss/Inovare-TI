@@ -22,8 +22,7 @@ import api, {
   type FinanceReceipt,
   type FinancialSummaryDTO,
 } from '../../services/api';
-import DoctorMappingPanel from './DoctorMappingPanel';
-import ReceiptReprocessPanel from '../ReceiptReprocess';
+import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
 
@@ -328,19 +327,13 @@ export default function FinancialDashboard() {
       </section>
 
       {hasContaAzulLinked && (
-        <>
-          <section className="mt-8">
-            <DoctorMappingPanel
-              mapeamentos={doctorMappings}
-              carregando={loadingDoctorMappings}
-              onAtualizar={reloadDoctorMappings}
-            />
-          </section>
-
-          <section className="mt-8">
-            <ReceiptReprocessPanel />
-          </section>
-        </>
+        <section className="mt-8">
+          <DoctorMappingPanel
+            mapeamentos={doctorMappings}
+            carregando={loadingDoctorMappings}
+            onAtualizar={reloadDoctorMappings}
+          />
+        </section>
       )}
     </main>
   );

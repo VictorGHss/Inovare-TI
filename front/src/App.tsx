@@ -34,7 +34,6 @@ const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails')
 const Vault = lazy(() => import('./pages/Vault'));
 const SystemLogs = lazy(() => import('./pages/SystemLogs'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
-const ReceiptReprocess = lazy(() => import('./pages/ReceiptReprocess'));
 
 function PageLoader() {
   return (
@@ -150,14 +149,6 @@ function AppRoutes() {
             element={(
               <FinancialGuardRoute>
                 <Financeiro />
-              </FinancialGuardRoute>
-            )}
-          />
-          <Route
-            path="/financeiro/reprocessamento"
-            element={(
-              <FinancialGuardRoute>
-                <ReceiptReprocess />
               </FinancialGuardRoute>
             )}
           />

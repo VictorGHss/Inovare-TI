@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DoctorEmailMappingRepository extends JpaRepository<DoctorEmailMapping, UUID> {
 
     Optional<DoctorEmailMapping> findByContaAzulCustomerUuid(String contaAzulCustomerUuid);
+
+    java.util.List<DoctorEmailMapping> findAllByOrderByDoctorNameAsc();
 }

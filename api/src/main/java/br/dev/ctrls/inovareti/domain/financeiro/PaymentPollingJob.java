@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PaymentPollingJob {
 
     private static final String LAST_SUCCESSFUL_POLLING_AT_KEY = "financeiro.polling.last_successful_at";
+    private static final int PAGE_SIZE = 50;
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulPaymentsClient paymentsClient;
@@ -34,6 +36,9 @@ public class PaymentPollingJob {
 
     @Value("${app.financeiro.polling.fallback-hours:24}")
     private long pollingFallbackHours;
+
+    @Value("${app.financeiro.polling.minimum-lookback-minutes:30}")
+    private long minimumLookbackMinutes;
 
     @Scheduled(fixedDelay = 300_000L, initialDelay = 120_000L)
     public void pollPaidParcels() {
@@ -45,33 +50,96 @@ public class PaymentPollingJob {
         LocalDateTime pollingAte = LocalDateTime.now();
         LocalDateTime pollingDe = resolvePollingStart(pollingAte);
 
-        List<ContaAzulPaymentParcel> paidParcels;
         try {
-            paidParcels = paymentsClient.fetchPaidParcelsSinceLastRun(pollingDe, pollingAte, 50, 1);
+            PollingProcessingResult result = processPaidParcelsWindow(pollingDe, pollingAte, "scheduled");
+            log.info(
+                    "Polling financeiro concluído: fetched={}, processed={}, skippedAlreadyProcessed={}, failures={}, janela=[{} -> {}]",
+                    result.totalFetched(),
+                    result.totalProcessed(),
+                    result.skippedAlreadyProcessed(),
+                    result.failures(),
+                    pollingDe,
+                    pollingAte);
         } catch (IllegalStateException ex) {
             log.info("ContaAzul não autorizado, pulando polling.");
             return;
         }
 
-        for (ContaAzulPaymentParcel parcela : paidParcels) {
-            if (processedReceiptRepository.existsByParcelaId(parcela.parcelaId())) {
-                continue;
-            }
-
-            try {
-                byte[] pdfBytes = paymentsClient.downloadReceiptPdf(parcela.parcelaId());
-                String receiptHash = sha256(pdfBytes);
-                receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
-            } catch (RuntimeException ex) {
-                log.error("Falha no processamento da parcela {} durante polling financeiro.", parcela.parcelaId(), ex);
-            }
-        }
-
         markLastSuccessfulPollingAt(pollingAte);
     }
 
+    public PollingProcessingResult reprocessWindow(LocalDateTime from, LocalDateTime to) {
+        if (!contaAzulTokenService.hasAuthorizedToken()) {
+            throw new IllegalStateException("ContaAzul não autorizado para reprocessamento manual.");
+        }
+
+        if (from == null || to == null || !from.isBefore(to)) {
+            throw new IllegalArgumentException("Janela de reprocessamento inválida. Informe from < to.");
+        }
+
+        PollingProcessingResult result = processPaidParcelsWindow(from, to, "manual-reprocess");
+        log.info(
+                "Reprocessamento manual concluído: fetched={}, processed={}, skippedAlreadyProcessed={}, failures={}, janela=[{} -> {}]",
+                result.totalFetched(),
+                result.totalProcessed(),
+                result.skippedAlreadyProcessed(),
+                result.failures(),
+                from,
+                to);
+        return result;
+    }
+
+    private PollingProcessingResult processPaidParcelsWindow(LocalDateTime from, LocalDateTime to, String source) {
+        int totalFetched = 0;
+        int totalProcessed = 0;
+        int skippedAlreadyProcessed = 0;
+        int failures = 0;
+        int page = 1;
+        List<String> processedParcelIds = new ArrayList<>();
+
+        while (true) {
+            List<ContaAzulPaymentParcel> paidParcels = paymentsClient.fetchPaidParcelsSinceLastRun(from, to, PAGE_SIZE, page);
+            if (paidParcels.isEmpty()) {
+                break;
+            }
+
+            totalFetched += paidParcels.size();
+
+            for (ContaAzulPaymentParcel parcela : paidParcels) {
+                if (processedReceiptRepository.existsByParcelaId(parcela.parcelaId())) {
+                    skippedAlreadyProcessed++;
+                    continue;
+                }
+
+                try {
+                    byte[] pdfBytes = paymentsClient.downloadReceiptPdf(parcela.parcelaId());
+                    String receiptHash = sha256(pdfBytes);
+                    receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
+                    totalProcessed++;
+                    processedParcelIds.add(parcela.parcelaId());
+                } catch (RuntimeException ex) {
+                    failures++;
+                    log.error("Falha no processamento da parcela {} durante {}.", parcela.parcelaId(), source, ex);
+                }
+            }
+
+            if (paidParcels.size() < PAGE_SIZE) {
+                break;
+            }
+
+            page++;
+        }
+
+        return new PollingProcessingResult(totalFetched, totalProcessed, skippedAlreadyProcessed, failures, processedParcelIds);
+    }
+
     private LocalDateTime resolvePollingStart(LocalDateTime pollingAte) {
+        LocalDateTime minimumWindowStart = pollingAte.minusMinutes(minimumLookbackMinutes);
+
         return readLastSuccessfulPollingAt()
+                .map(lastSuccessfulPollingAt -> lastSuccessfulPollingAt.isBefore(minimumWindowStart)
+                        ? lastSuccessfulPollingAt
+                        : minimumWindowStart)
                 .orElseGet(() -> pollingAte.minusHours(pollingFallbackHours));
     }
 
@@ -116,5 +184,13 @@ public class PaymentPollingJob {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("Falha ao calcular hash do recibo.", ex);
         }
+    }
+
+    public record PollingProcessingResult(
+            int totalFetched,
+            int totalProcessed,
+            int skippedAlreadyProcessed,
+            int failures,
+            List<String> processedParcelIds) {
     }
 }

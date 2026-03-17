@@ -38,6 +38,7 @@ public class FinanceiroOperationsService {
     private final FinancialLinkRepository financialLinkRepository;
     private final ContaAzulPaymentsClient contaAzulPaymentsClient;
     private final ReceiptDispatcher receiptDispatcher;
+    private final PaymentPollingJob paymentPollingJob;
 
     @Transactional(readOnly = true)
     public List<ProcessedReceipt> listReceipts() {
@@ -47,6 +48,14 @@ public class FinanceiroOperationsService {
     @Transactional(readOnly = true)
     public List<SystemAlert> listAlerts() {
         return systemAlertRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    public PaymentPollingJob.PollingProcessingResult reprocessPollingWindow(LocalDateTime from, LocalDateTime to) {
+        if (from == null || to == null || !from.isBefore(to)) {
+            throw new BadRequestException("Janela de reprocessamento inválida. Informe from < to.");
+        }
+
+        return paymentPollingJob.reprocessWindow(from, to);
     }
 
     @Transactional

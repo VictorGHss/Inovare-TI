@@ -43,7 +43,7 @@ public class ContaAzulFinancialSummaryService {
 
         long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
         long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
-        long balanceCents = totalPaidCents - totalPendingCents;
+        long balanceCents = totalPaidCents;
 
         return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL");
     }

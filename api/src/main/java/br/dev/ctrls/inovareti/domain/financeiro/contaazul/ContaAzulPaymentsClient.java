@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -108,14 +109,36 @@ public class ContaAzulPaymentsClient {
 
     public byte[] downloadReceiptPdf(String parcelaId) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
-        String pdfUrl = receiptPdfUrlTemplate.replace("{parcelaId}", parcelaId);
+        String primaryPdfUrl = receiptPdfUrlTemplate.replace("{parcelaId}", parcelaId);
+        String fallbackPdfUrl = resolveReceiptPdfFallbackUrl(parcelaId);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM));
 
-        ResponseEntity<byte[]> response = restTemplate.exchange(pdfUrl, HttpMethod.GET, new HttpEntity<>(headers), byte[].class);
-        return response.getBody() != null ? response.getBody() : new byte[0];
+        List<String> candidateUrls = new ArrayList<>();
+        candidateUrls.add(primaryPdfUrl);
+
+        if (StringUtils.hasText(fallbackPdfUrl) && !fallbackPdfUrl.equals(primaryPdfUrl)) {
+            candidateUrls.add(fallbackPdfUrl);
+        }
+
+        HttpClientErrorException.NotFound lastNotFound = null;
+        for (String url : candidateUrls) {
+            try {
+                ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), byte[].class);
+                return response.getBody() != null ? response.getBody() : new byte[0];
+            } catch (HttpClientErrorException.NotFound ex) {
+                lastNotFound = ex;
+                log.warn("PDF de recibo não encontrado na ContaAzul para parcela {} na URL {}", parcelaId, url);
+            }
+        }
+
+        if (lastNotFound != null) {
+            throw lastNotFound;
+        }
+
+        return new byte[0];
     }
 
     public ContaAzulPaymentParcel fetchParcelById(String parcelaId) {
@@ -273,6 +296,17 @@ public class ContaAzulPaymentsClient {
 
         throw new IllegalStateException(
                 "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
+    }
+
+    private String resolveReceiptPdfFallbackUrl(String parcelaId) {
+        String basePath = "/contas-a-receber/buscar";
+        int suffixStart = paymentsUrl.indexOf(basePath);
+        if (suffixStart > 0) {
+            String prefix = paymentsUrl.substring(0, suffixStart);
+            return prefix + "/parcelas/" + parcelaId + "/recibo.pdf";
+        }
+
+        return null;
     }
 
     private JsonNode resolveArrayNode(JsonNode root) {

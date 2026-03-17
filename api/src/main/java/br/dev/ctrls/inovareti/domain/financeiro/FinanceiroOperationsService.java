@@ -16,6 +16,7 @@ import java.util.concurrent.locks.LockSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
@@ -68,9 +69,17 @@ public class FinanceiroOperationsService {
         }
 
         ContaAzulPaymentParcel parcela = contaAzulPaymentsClient.fetchParcelById(parcelaId);
-        byte[] pdfBytes = contaAzulPaymentsClient.downloadReceiptPdf(parcela.parcelaId());
-        String receiptHash = sha256(pdfBytes);
-        receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
+        try {
+            byte[] pdfBytes = contaAzulPaymentsClient.downloadReceiptPdf(parcela.parcelaId());
+            String receiptHash = sha256(pdfBytes);
+            receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn(
+                    "Recibo PDF não encontrado na ContaAzul para parcela {}. Processando sem anexo.",
+                    parcela.parcelaId());
+            String receiptHash = sha256("manual-no-pdf:" + parcela.parcelaId());
+            receiptDispatcher.dispatchReceiptWithoutPdf(parcela, receiptHash);
+        }
 
         return new ParcelProcessingResult(parcela.parcelaId(), true, false, "Parcela processada e recibo despachado com sucesso.");
     }

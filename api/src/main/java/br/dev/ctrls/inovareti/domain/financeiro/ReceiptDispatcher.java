@@ -22,6 +22,18 @@ public class ReceiptDispatcher {
     private final DiscordDirectMessageService discordDirectMessageService;
 
     public void dispatchReceipt(ContaAzulPaymentParcel parcela, byte[] pdfBytes, String receiptHash) {
+        dispatchReceiptInternal(parcela, pdfBytes, receiptHash, true);
+    }
+
+    public void dispatchReceiptWithoutPdf(ContaAzulPaymentParcel parcela, String receiptHash) {
+        dispatchReceiptInternal(parcela, null, receiptHash, false);
+    }
+
+    private void dispatchReceiptInternal(
+            ContaAzulPaymentParcel parcela,
+            byte[] pdfBytes,
+            String receiptHash,
+            boolean includePdfAttachment) {
         FinancialLink financialLink = resolveFinancialLink(parcela);
 
         ProcessedReceipt receipt = processedReceiptRepository.findByParcelaId(parcela.parcelaId())
@@ -33,7 +45,7 @@ public class ReceiptDispatcher {
         receipt.setOriginalRecipientEmail(resolveRecipientEmail(parcela, financialLink));
 
         try {
-            routeReceipt(parcela, financialLink, receipt, pdfBytes);
+            routeReceipt(parcela, financialLink, receipt, pdfBytes, includePdfAttachment);
             receipt.setStatus(ProcessedReceiptStatus.SENT);
             receipt.setRetryCount(0);
             receipt.setProcessedAt(LocalDateTime.now());
@@ -78,7 +90,8 @@ public class ReceiptDispatcher {
             ContaAzulPaymentParcel parcela,
             FinancialLink financialLink,
             ProcessedReceipt receipt,
-            byte[] pdfBytes) {
+            byte[] pdfBytes,
+            boolean includePdfAttachment) {
         if (financialLink.getNotificationChannel() == FinancialNotificationChannel.DISCORD) {
             discordDirectMessageService.sendFinancialReceiptNotification(
                     financialLink.getUser().getDiscordUserId(),
@@ -87,12 +100,21 @@ public class ReceiptDispatcher {
             return;
         }
 
-        financeEmailService.sendReceiptEmailWithPdf(
+        if (includePdfAttachment && pdfBytes != null && pdfBytes.length > 0) {
+            financeEmailService.sendReceiptEmailWithPdf(
                 parcela.medicoNome(),
                 receipt.getOriginalRecipientEmail(),
                 "Olá " + parcela.medicoNome() + ", seu recibo financeiro está em anexo.",
                 pdfBytes,
                 "recibo-" + parcela.parcelaId() + ".pdf");
+            return;
+        }
+
+        financeEmailService.sendReceiptEmail(
+            parcela.medicoNome(),
+            receipt.getOriginalRecipientEmail(),
+            "Olá " + parcela.medicoNome() + ", registramos o recebimento financeiro da parcela "
+                + parcela.parcelaId() + ".");
     }
 
     private Map<String, Object> buildPayload(

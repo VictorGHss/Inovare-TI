@@ -78,7 +78,6 @@ public class FinanceiroController {
                 summary.currency()));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/trigger-test-receipt")
     public ResponseEntity<Map<String, String>> triggerTestReceipt() {
         log.info("Iniciando envio de e-mail de teste (MODO TESTE ATIVO)");

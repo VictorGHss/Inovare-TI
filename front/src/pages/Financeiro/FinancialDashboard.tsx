@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import {
+import api, {
   getFinanceAlerts,
   getFinanceConnectionStatus,
   getFinanceReceipts,
@@ -57,6 +57,7 @@ export default function FinancialDashboard() {
   const [summary, setSummary] = useState<FinancialSummaryDTO | null>(null);
   const [receipts, setReceipts] = useState<FinanceReceipt[]>([]);
   const [alerts, setAlerts] = useState<FinanceAlert[]>([]);
+  const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
   const unresolvedAlerts = useMemo(
@@ -105,6 +106,18 @@ export default function FinancialDashboard() {
 
     void loadDashboard();
   }, []);
+
+  async function handleTriggerTestReceipt() {
+    try {
+      setTriggeringTestReceipt(true);
+      await api.get('/financeiro/trigger-test-receipt');
+      toast.success('Recibo de teste enviado com sucesso.');
+    } catch {
+      toast.error('Falha ao enviar recibo de teste.');
+    } finally {
+      setTriggeringTestReceipt(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -212,6 +225,17 @@ export default function FinancialDashboard() {
         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
           Última atualização do token: <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            void handleTriggerTestReceipt();
+          }}
+          disabled={triggeringTestReceipt}
+          className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {triggeringTestReceipt ? 'Enviando...' : 'Enviar Recibo de Teste (Dev)'}
+        </button>
       </section>
 
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">

@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/reset-initial-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/attachments/**").permitAll()
                 .requestMatchers("/financeiro/contaazul/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/financeiro/trigger-test-receipt").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

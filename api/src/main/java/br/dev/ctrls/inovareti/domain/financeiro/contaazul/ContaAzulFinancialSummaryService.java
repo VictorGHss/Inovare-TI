@@ -117,11 +117,14 @@ public class ContaAzulFinancialSummaryService {
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        return restTemplate.exchange(
+        ResponseEntity<String> responseEntity = restTemplate.exchange(
                 uri,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class);
+
+        log.debug("ContaAzul response body (resumo, status={}): {}", status, responseEntity.getBody());
+        return responseEntity;
     }
 
     private long sumAmountCents(String jsonPayload) {

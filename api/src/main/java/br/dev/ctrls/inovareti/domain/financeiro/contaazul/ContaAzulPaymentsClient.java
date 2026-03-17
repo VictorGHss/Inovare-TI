@@ -80,6 +80,7 @@ public class ContaAzulPaymentsClient {
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
         ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        log.debug("ContaAzul response body (polling): {}", response.getBody());
         return parseParcels(response.getBody());
     }
 

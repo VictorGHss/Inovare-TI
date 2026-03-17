@@ -9,7 +9,6 @@ import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
-import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -18,8 +17,8 @@ public class ReceiptDispatcher {
 
     private final FinancialLinkRepository financialLinkRepository;
     private final ProcessedReceiptRepository processedReceiptRepository;
+    private final CustomerEmailSyncService emailSyncService;
     private final FinanceEmailService financeEmailService;
-    private final DiscordDirectMessageService discordDirectMessageService;
 
     public void dispatchReceipt(ContaAzulPaymentParcel parcela, byte[] pdfBytes, String receiptHash) {
         dispatchReceiptInternal(parcela, pdfBytes, receiptHash, true);
@@ -42,21 +41,21 @@ public class ReceiptDispatcher {
         receipt.setFinancialLink(financialLink);
         receipt.setParcelaId(parcela.parcelaId());
         receipt.setReceiptHash(receiptHash);
-        receipt.setOriginalRecipientEmail(resolveRecipientEmail(parcela, financialLink));
+        receipt.setOriginalRecipientEmail(resolveRecipientEmail(parcela));
 
         try {
             routeReceipt(parcela, financialLink, receipt, pdfBytes, includePdfAttachment);
             receipt.setStatus(ProcessedReceiptStatus.SENT);
             receipt.setRetryCount(0);
             receipt.setProcessedAt(LocalDateTime.now());
-            receipt.setPayload(buildPayload(receipt, null, financialLink.getNotificationChannel().name(), false));
+            receipt.setPayload(buildPayload(receipt, null, financialLink.getCanal().name(), false));
             processedReceiptRepository.save(receipt);
         } catch (RuntimeException ex) {
             int nextRetryCount = receipt.getRetryCount() + 1;
             receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
             receipt.setRetryCount(nextRetryCount);
             receipt.setProcessedAt(LocalDateTime.now());
-            receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getNotificationChannel().name(), true));
+            receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getCanal().name(), true));
             processedReceiptRepository.save(receipt);
             throw ex;
         }
@@ -67,14 +66,14 @@ public class ReceiptDispatcher {
         receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
         receipt.setRetryCount(nextRetryCount);
         receipt.setProcessedAt(LocalDateTime.now());
-        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name(), true));
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), true));
         return processedReceiptRepository.save(receipt);
     }
 
     public ProcessedReceipt markPermanentFailure(ProcessedReceipt receipt, String errorMessage) {
         receipt.setStatus(ProcessedReceiptStatus.FAILED);
         receipt.setProcessedAt(LocalDateTime.now());
-        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getNotificationChannel().name(), false));
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), false));
         return processedReceiptRepository.save(receipt);
     }
 
@@ -92,12 +91,10 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             byte[] pdfBytes,
             boolean includePdfAttachment) {
-        if (financialLink.getNotificationChannel() == FinancialNotificationChannel.DISCORD) {
-            discordDirectMessageService.sendFinancialReceiptNotification(
-                    financialLink.getUser().getDiscordUserId(),
-                    parcela.medicoNome(),
-                    parcela.parcelaId());
-            return;
+            if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
+                throw new IllegalStateException(
+                    "Canal DISCORD não possui destinatário vinculado no financial_link para customerId="
+                        + parcela.customerId());
         }
 
         if (includePdfAttachment && pdfBytes != null && pdfBytes.length > 0) {
@@ -155,11 +152,16 @@ public class ReceiptDispatcher {
         throw new IllegalStateException("FinancialLink not found for ContaAzul parcel without customerId and medicoNome.");
     }
 
-    private String resolveRecipientEmail(ContaAzulPaymentParcel parcela, FinancialLink financialLink) {
+    private String resolveRecipientEmail(ContaAzulPaymentParcel parcela) {
         if (StringUtils.hasText(parcela.recipientEmail())) {
             return parcela.recipientEmail();
         }
 
-        return financialLink.getUser().getEmail();
+        FinancialLink link = financialLinkRepository
+                .findByContaAzulCustomerIdAndCanal(parcela.customerId(), FinancialLink.Canal.EMAIL)
+                .orElseThrow(() -> new IllegalStateException(
+                        "FinancialLink não encontrado para customerId=" + parcela.customerId()));
+
+        return emailSyncService.resolveEmail(link);
     }
 }

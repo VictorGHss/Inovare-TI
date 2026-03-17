@@ -38,6 +38,7 @@ public class FinanceiroOperationsService {
     private final SystemAlertRepository systemAlertRepository;
     private final FinancialLinkRepository financialLinkRepository;
     private final ContaAzulPaymentsClient contaAzulPaymentsClient;
+    private final CustomerEmailSyncService emailSyncService;
     private final ReceiptDispatcher receiptDispatcher;
     private final PaymentPollingJob paymentPollingJob;
 
@@ -177,7 +178,7 @@ public class FinanceiroOperationsService {
 
                     receiptDispatcher.saveHistoricalReceipt(
                             historicalReceipt,
-                            financialLink.getNotificationChannel().name());
+                            financialLink.getCanal().name());
                     totalCreated++;
                 }
 
@@ -207,7 +208,7 @@ public class FinanceiroOperationsService {
             return parcel.recipientEmail();
         }
 
-        return financialLink.getUser().getEmail();
+        return emailSyncService.resolveEmail(financialLink);
     }
 
     private void pauseBetweenWindows() {

@@ -460,16 +460,18 @@ CREATE TABLE contaazul_oauth_tokens (
 
 CREATE TABLE financial_link (
     id                    uuid         NOT NULL DEFAULT gen_random_uuid(),
-    user_id               uuid         NOT NULL,
     contaazul_customer_id varchar(100) NOT NULL,
     contaazul_customer_name varchar(160),
+    email                 varchar(255),
+    nome_cliente          varchar(255),
+    email_synced_at       timestamp with time zone,
+    contaazul_pessoa_uuid varchar(36),
+    canal                 varchar(20)  NOT NULL DEFAULT 'EMAIL',
     linked_by_user_id     uuid,
     created_at            timestamp    NOT NULL DEFAULT now(),
     updated_at            timestamp    NOT NULL DEFAULT now(),
     CONSTRAINT pk_financial_link               PRIMARY KEY (id),
-    CONSTRAINT uq_financial_link_user          UNIQUE      (user_id),
-    CONSTRAINT uq_financial_link_customer      UNIQUE      (contaazul_customer_id),
-    CONSTRAINT fk_financial_link_user          FOREIGN KEY (user_id)           REFERENCES users (id),
+    CONSTRAINT uq_financial_link_customer_canal UNIQUE      (contaazul_customer_id, canal),
     CONSTRAINT fk_financial_link_linked_by     FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
 );
 
@@ -510,14 +512,14 @@ CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
 CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);
 
 ALTER TABLE financial_link
-    ADD COLUMN IF NOT EXISTS notification_channel varchar(20) NOT NULL DEFAULT 'EMAIL';
+    ADD COLUMN IF NOT EXISTS canal varchar(20) NOT NULL DEFAULT 'EMAIL';
 
 ALTER TABLE financial_link
-    DROP CONSTRAINT IF EXISTS ck_financial_link_notification_channel;
+    DROP CONSTRAINT IF EXISTS ck_financial_link_canal;
 
 ALTER TABLE financial_link
-    ADD CONSTRAINT ck_financial_link_notification_channel
-    CHECK (notification_channel IN ('EMAIL', 'DISCORD'));
+    ADD CONSTRAINT ck_financial_link_canal
+    CHECK (canal IN ('EMAIL', 'DISCORD'));
 
 ALTER TABLE processed_receipts
     DROP CONSTRAINT IF EXISTS ck_processed_receipts_status;

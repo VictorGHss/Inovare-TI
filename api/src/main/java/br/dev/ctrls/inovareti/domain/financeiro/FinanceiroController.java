@@ -17,8 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
+import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/financeiro")
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
     private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
+    private final FinanceEmailService receiptService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/recibos")
@@ -71,6 +76,25 @@ public class FinanceiroController {
                 summary.totalPendingCents(),
                 summary.totalPaidCents(),
                 summary.currency()));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/trigger-test-receipt")
+    public ResponseEntity<Map<String, String>> triggerTestReceipt() {
+        log.info("Iniciando envio de e-mail de teste (MODO TESTE ATIVO)");
+
+        ContaAzulPaymentParcel parcelaTeste = new ContaAzulPaymentParcel(
+                "TESTE-PARCELA-202603",
+                "TESTE-CUSTOMER-DR-VICTOR",
+                "Dr. Victor",
+                "destinatario.original@inovareti.local");
+
+        receiptService.sendReceiptEmail(parcelaTeste);
+
+        String resultado = "E-mail de teste disparado para parcela " + parcelaTeste.parcelaId();
+        log.info("{}", resultado);
+
+        return ResponseEntity.ok(Map.of("status", "ok", "message", resultado));
     }
 
     private FinanceReceiptResponseDTO mapReceipt(ProcessedReceipt receipt) {

@@ -7,6 +7,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
@@ -34,6 +35,12 @@ public class FinanceEmailService {
 
     public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText) {
         sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null);
+    }
+
+    public void sendReceiptEmail(ContaAzulPaymentParcel parcela) {
+        String bodyText = "Olá " + parcela.medicoNome()
+                + ", este é um disparo de teste de recibo financeiro. Valor: R$ 100,00. Referente a Março/2026.";
+        sendReceiptEmail(parcela.medicoNome(), parcela.recipientEmail(), bodyText);
     }
 
     public void sendReceiptEmailWithPdf(

@@ -58,6 +58,23 @@ public class FinanceiroOperationsService {
         return paymentPollingJob.reprocessWindow(from, to);
     }
 
+    public ParcelProcessingResult processParcelById(String parcelaId) {
+        if (!StringUtils.hasText(parcelaId)) {
+            throw new BadRequestException("Parcela inválida para processamento manual.");
+        }
+
+        if (processedReceiptRepository.existsByParcelaId(parcelaId)) {
+            return new ParcelProcessingResult(parcelaId, false, true, "Parcela já processada anteriormente.");
+        }
+
+        ContaAzulPaymentParcel parcela = contaAzulPaymentsClient.fetchParcelById(parcelaId);
+        byte[] pdfBytes = contaAzulPaymentsClient.downloadReceiptPdf(parcela.parcelaId());
+        String receiptHash = sha256(pdfBytes);
+        receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
+
+        return new ParcelProcessingResult(parcela.parcelaId(), true, false, "Parcela processada e recibo despachado com sucesso.");
+    }
+
     @Transactional
     public void requeueAlertReceipt(UUID alertId, UUID resolvedBy) {
         SystemAlert alert = systemAlertRepository.findById(alertId)
@@ -215,6 +232,16 @@ public class FinanceiroOperationsService {
         }
     }
 
+    private String sha256(byte[] content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(content != null ? content : new byte[0]);
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("Falha ao calcular hash do recibo.", ex);
+        }
+    }
+
     public record BackfillResult(
             int windowsProcessed,
             int totalFetched,
@@ -222,4 +249,11 @@ public class FinanceiroOperationsService {
             int skippedAlreadyProcessed,
             int skippedWithoutLink) {
     }
+
+        public record ParcelProcessingResult(
+            String parcelaId,
+            boolean processed,
+            boolean alreadyProcessed,
+            String message) {
+        }
 }

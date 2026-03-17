@@ -80,6 +80,13 @@ public class FinanceiroController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/parcelas/{id}/processar")
+    public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
+            @PathVariable("id") String parcelaId) {
+        return ResponseEntity.ok(financeiroOperationsService.processParcelById(parcelaId));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/resumo")
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
         ContaAzulFinancialSummaryService.FinancialSummary summary = contaAzulFinancialSummaryService.fetchSummary();

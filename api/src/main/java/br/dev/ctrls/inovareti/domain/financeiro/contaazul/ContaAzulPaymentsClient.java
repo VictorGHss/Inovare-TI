@@ -17,7 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,9 +45,6 @@ public class ContaAzulPaymentsClient {
 
     @Value("${app.contaazul.parcela-by-id-url-template:}")
     private String parcelaByIdUrlTemplate;
-
-    @Value("${app.contaazul.evento-parcelas-url-template:}")
-    private String eventoParcelasUrlTemplate;
 
     public List<ContaAzulPaymentParcel> fetchPaidParcelsSinceLastRun(
             LocalDateTime from,
@@ -133,35 +129,18 @@ public class ContaAzulPaymentsClient {
         ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
         log.debug("ContaAzul response body (parcela_id={}): {}", parcelaId, response.getBody());
 
-        ContaAzulPaymentParcel parcel = parseSingleParcel(response.getBody());
-        if (parcel == null) {
+        ParcelLookup parcelLookup = parseSingleParcel(response.getBody());
+        if (parcelLookup == null || parcelLookup.parcel() == null) {
             throw new IllegalStateException("Parcela não encontrada ou payload inválido na ContaAzul [parcelaId=" + parcelaId + "]");
         }
 
-        return parcel;
-    }
-
-    public List<EventParcelReference> fetchParcelReferencesByEventId(String eventId) {
-        String accessToken = contaAzulTokenService.getValidAccessToken();
-        String uri = resolveEventParcelasUrl(eventId);
-
-        log.debug("Chamando ContaAzul parcelas do evento {}: {}", eventId, uri);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-            log.debug("ContaAzul status parcelas evento_id={}: {}", eventId, response.getStatusCode());
-            log.debug("Parcelas evento response: {}", response.getBody());
-
-            return parseEventParcelReferences(response.getBody());
-        } catch (HttpStatusCodeException ex) {
-            log.debug("ContaAzul status parcelas evento_id={} (erro): {}", eventId, ex.getStatusCode());
-            log.debug("Parcelas evento response (erro): {}", ex.getResponseBodyAsString());
-            throw ex;
+        if (!isPaidParcelStatus(parcelLookup.status())) {
+            throw new IllegalStateException(
+                    "Parcela retornada pela ContaAzul ainda não está quitada/recebida [parcelaId=" + parcelaId
+                            + ", status=" + parcelLookup.status() + ", eventoId=" + parcelLookup.eventId() + "]");
         }
+
+        return parcelLookup.parcel();
     }
 
     private List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
@@ -197,7 +176,7 @@ public class ContaAzulPaymentsClient {
         }
     }
 
-    private ContaAzulPaymentParcel parseSingleParcel(String jsonPayload) {
+    private ParcelLookup parseSingleParcel(String jsonPayload) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return null;
         }
@@ -209,12 +188,43 @@ public class ContaAzulPaymentsClient {
                 return null;
             }
 
-            String parcelaId = readText(node, "parcela_id", "id", "parcela.id");
-            String customerId = readText(node, "contaazul_customer_id", "customer.id", "cliente.id", "paciente.id");
-            String doctorName = readText(node, "customer.name", "cliente.nome", "paciente.nome", "medico.nome", "nome");
-            String recipientEmail = readText(node, "customer.email", "cliente.email", "paciente.email", "email");
+            String resolvedParcelaId = readText(node, "id", "parcela_id", "parcela.id");
+            String eventId = readText(node, "evento.id");
+            String status = readText(node, "status");
+            String customerId = readText(
+                    node,
+                    "contaazul_customer_id",
+                    "customer.id",
+                    "cliente.id",
+                    "paciente.id",
+                    "contato.id",
+                    "pessoa.id",
+                    "cliente.contaazul_id",
+                    "contato.contaazul_id",
+                    "pessoa.contaazul_id",
+                    "baixas.0.contaazul_customer_id",
+                    "baixas.0.customer.id",
+                    "baixas.0.cliente.id",
+                    "baixas.0.paciente.id");
+            String doctorName = readText(
+                    node,
+                    "customer.name",
+                    "cliente.nome",
+                    "paciente.nome",
+                    "medico.nome",
+                    "contato.nome",
+                    "pessoa.nome",
+                    "nome");
+            String recipientEmail = readText(
+                    node,
+                    "customer.email",
+                    "cliente.email",
+                    "paciente.email",
+                    "contato.email",
+                    "pessoa.email",
+                    "email");
 
-            if (parcelaId == null || customerId == null) {
+            if (!StringUtils.hasText(resolvedParcelaId)) {
                 return null;
             }
 
@@ -222,36 +232,12 @@ public class ContaAzulPaymentsClient {
                 doctorName = "Profissional";
             }
 
-            return new ContaAzulPaymentParcel(parcelaId, customerId, doctorName, recipientEmail);
+            return new ParcelLookup(
+                    new ContaAzulPaymentParcel(resolvedParcelaId, customerId, doctorName, recipientEmail),
+                    eventId,
+                    status);
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear parcela da ContaAzul.", ex);
-        }
-    }
-
-    private List<EventParcelReference> parseEventParcelReferences(String jsonPayload) {
-        if (jsonPayload == null || jsonPayload.isBlank()) {
-            return List.of();
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = resolveEventParcelArrayNode(root);
-
-            List<EventParcelReference> references = new ArrayList<>();
-            for (JsonNode node : entries) {
-                String parcelaId = readText(node, "parcela_id", "id", "parcela.id");
-                String status = readText(node, "status", "situacao", "parcela.status");
-
-                if (parcelaId == null) {
-                    continue;
-                }
-
-                references.add(new EventParcelReference(parcelaId, status));
-            }
-
-            return references;
-        } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao parsear parcelas do evento financeiro da ContaAzul.", ex);
         }
     }
 
@@ -273,37 +259,6 @@ public class ContaAzulPaymentsClient {
         return null;
     }
 
-    private JsonNode resolveEventParcelArrayNode(JsonNode root) {
-        if (root == null || root.isNull()) {
-            return objectMapper.createArrayNode();
-        }
-
-        if (root.isArray()) {
-            return root;
-        }
-
-        if (root.has("data") && root.get("data").isArray()) {
-            return root.get("data");
-        }
-
-        if (root.has("data") && root.get("data").isObject()) {
-            JsonNode data = root.get("data");
-            if (data.has("parcelas") && data.get("parcelas").isArray()) {
-                return data.get("parcelas");
-            }
-        }
-
-        if (root.has("parcelas") && root.get("parcelas").isArray()) {
-            return root.get("parcelas");
-        }
-
-        if (root.has("items") && root.get("items").isArray()) {
-            return root.get("items");
-        }
-
-        return objectMapper.createArrayNode();
-    }
-
     private String resolveParcelByIdUrl(String parcelaId) {
         if (StringUtils.hasText(parcelaByIdUrlTemplate)) {
             return parcelaByIdUrlTemplate.replace("{parcelaId}", parcelaId);
@@ -318,22 +273,6 @@ public class ContaAzulPaymentsClient {
 
         throw new IllegalStateException(
                 "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
-    }
-
-    private String resolveEventParcelasUrl(String eventId) {
-        if (StringUtils.hasText(eventoParcelasUrlTemplate)) {
-            return eventoParcelasUrlTemplate.replace("{id_evento}", eventId).replace("{eventId}", eventId);
-        }
-
-        String basePath = "/contas-a-receber/buscar";
-        int suffixStart = paymentsUrl.indexOf(basePath);
-        if (suffixStart > 0) {
-            String prefix = paymentsUrl.substring(0, suffixStart);
-            return prefix + "/" + eventId + "/parcelas";
-        }
-
-        throw new IllegalStateException(
-                "Não foi possível resolver URL de parcelas por evento. Defina app.contaazul.evento-parcelas-url-template.");
     }
 
     private JsonNode resolveArrayNode(JsonNode root) {
@@ -360,6 +299,18 @@ public class ContaAzulPaymentsClient {
                 if (current == null) {
                     break;
                 }
+                if (current.isArray()) {
+                    int index;
+                    try {
+                        index = Integer.parseInt(segment);
+                    } catch (NumberFormatException ex) {
+                        current = null;
+                        break;
+                    }
+
+                    current = index >= 0 && index < current.size() ? current.get(index) : null;
+                    continue;
+                }
                 current = current.get(segment);
             }
 
@@ -371,8 +322,13 @@ public class ContaAzulPaymentsClient {
         return null;
     }
 
-    public record EventParcelReference(
-            String parcelaId,
+    private boolean isPaidParcelStatus(String status) {
+        return "QUITADO".equalsIgnoreCase(status) || ContaAzulStatus.RECEBIDO.equalsIgnoreCase(status);
+    }
+
+    private record ParcelLookup(
+            ContaAzulPaymentParcel parcel,
+            String eventId,
             String status) {
     }
 }

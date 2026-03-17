@@ -10,7 +10,6 @@ import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.locks.LockSupport;
 
@@ -59,40 +58,21 @@ public class FinanceiroOperationsService {
         return paymentPollingJob.reprocessWindow(from, to);
     }
 
-    public EventProcessingResult processEventById(String eventId) {
-        if (!StringUtils.hasText(eventId)) {
-            throw new BadRequestException("Evento financeiro inválido para processamento manual.");
+    public ParcelProcessingResult processParcelById(String parcelaId) {
+        if (!StringUtils.hasText(parcelaId)) {
+            throw new BadRequestException("Parcela inválida para processamento manual.");
         }
 
-        List<ContaAzulPaymentsClient.EventParcelReference> references = contaAzulPaymentsClient.fetchParcelReferencesByEventId(eventId);
-        List<String> processedParcelIds = new ArrayList<>();
-        List<String> skippedAlreadyProcessedParcelIds = new ArrayList<>();
-        List<String> ignoredParcelIds = new ArrayList<>();
-
-        for (ContaAzulPaymentsClient.EventParcelReference reference : references) {
-            if (!isPaidEventParcelStatus(reference.status())) {
-                ignoredParcelIds.add(reference.parcelaId());
-                continue;
-            }
-
-            if (processedReceiptRepository.existsByParcelaId(reference.parcelaId())) {
-                skippedAlreadyProcessedParcelIds.add(reference.parcelaId());
-                continue;
-            }
-
-            ContaAzulPaymentParcel parcela = contaAzulPaymentsClient.fetchParcelById(reference.parcelaId());
-            byte[] pdfBytes = contaAzulPaymentsClient.downloadReceiptPdf(parcela.parcelaId());
-            String receiptHash = sha256(pdfBytes);
-            receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
-            processedParcelIds.add(parcela.parcelaId());
+        if (processedReceiptRepository.existsByParcelaId(parcelaId)) {
+            return new ParcelProcessingResult(parcelaId, false, true, "Parcela já processada anteriormente.");
         }
 
-        return new EventProcessingResult(
-                eventId,
-                references.size(),
-                processedParcelIds,
-                skippedAlreadyProcessedParcelIds,
-                ignoredParcelIds);
+        ContaAzulPaymentParcel parcela = contaAzulPaymentsClient.fetchParcelById(parcelaId);
+        byte[] pdfBytes = contaAzulPaymentsClient.downloadReceiptPdf(parcela.parcelaId());
+        String receiptHash = sha256(pdfBytes);
+        receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
+
+        return new ParcelProcessingResult(parcela.parcelaId(), true, false, "Parcela processada e recibo despachado com sucesso.");
     }
 
     @Transactional
@@ -262,10 +242,6 @@ public class FinanceiroOperationsService {
         }
     }
 
-    private boolean isPaidEventParcelStatus(String status) {
-        return "QUITADO".equalsIgnoreCase(status) || "RECEBIDO".equalsIgnoreCase(status);
-    }
-
     public record BackfillResult(
             int windowsProcessed,
             int totalFetched,
@@ -274,11 +250,10 @@ public class FinanceiroOperationsService {
             int skippedWithoutLink) {
     }
 
-    public record EventProcessingResult(
-            String eventId,
-            int totalParcelasEncontradas,
-            List<String> processedParcelIds,
-            List<String> skippedAlreadyProcessedParcelIds,
-            List<String> ignoredParcelIds) {
+        public record ParcelProcessingResult(
+            String parcelaId,
+            boolean processed,
+            boolean alreadyProcessed,
+            String message) {
     }
 }

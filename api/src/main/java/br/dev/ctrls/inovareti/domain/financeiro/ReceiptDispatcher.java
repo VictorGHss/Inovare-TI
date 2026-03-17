@@ -22,8 +22,7 @@ public class ReceiptDispatcher {
     private final DiscordDirectMessageService discordDirectMessageService;
 
     public void dispatchReceipt(ContaAzulPaymentParcel parcela, byte[] pdfBytes, String receiptHash) {
-        FinancialLink financialLink = financialLinkRepository.findByContaAzulCustomerId(parcela.customerId())
-                .orElseThrow(() -> new IllegalStateException("FinancialLink not found for ContaAzul customer: " + parcela.customerId()));
+        FinancialLink financialLink = resolveFinancialLink(parcela);
 
         ProcessedReceipt receipt = processedReceiptRepository.findByParcelaId(parcela.parcelaId())
                 .orElseGet(ProcessedReceipt::new);
@@ -112,6 +111,26 @@ public class ReceiptDispatcher {
         }
 
         return payload;
+    }
+
+    private FinancialLink resolveFinancialLink(ContaAzulPaymentParcel parcela) {
+        if (StringUtils.hasText(parcela.customerId())) {
+            return financialLinkRepository.findByContaAzulCustomerId(parcela.customerId())
+                    .orElseGet(() -> resolveFinancialLinkByName(parcela));
+        }
+
+        return resolveFinancialLinkByName(parcela);
+    }
+
+    private FinancialLink resolveFinancialLinkByName(ContaAzulPaymentParcel parcela) {
+        if (StringUtils.hasText(parcela.medicoNome())) {
+            return financialLinkRepository.findByContaAzulCustomerNameIgnoreCase(parcela.medicoNome())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "FinancialLink not found for ContaAzul parcel [customerId=" + parcela.customerId()
+                                    + ", medicoNome=" + parcela.medicoNome() + "]"));
+        }
+
+        throw new IllegalStateException("FinancialLink not found for ContaAzul parcel without customerId and medicoNome.");
     }
 
     private String resolveRecipientEmail(ContaAzulPaymentParcel parcela, FinancialLink financialLink) {

@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface FinancialLinkRepository extends JpaRepository<FinancialLink, UUID> {
 
     Optional<FinancialLink> findByContaAzulCustomerId(String contaAzulCustomerId);
+
+    Optional<FinancialLink> findByContaAzulCustomerNameIgnoreCase(String contaAzulCustomerName);
 }

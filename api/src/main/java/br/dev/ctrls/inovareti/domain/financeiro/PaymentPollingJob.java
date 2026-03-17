@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -40,8 +41,31 @@ public class PaymentPollingJob {
     @Value("${app.financeiro.polling.minimum-lookback-minutes:30}")
     private long minimumLookbackMinutes;
 
+    @Value("${app.financeiro.polling.enabled:true}")
+    private boolean pollingEnabled;
+
+    @Value("${app.financeiro.polling.pause-when-sales-automation-enabled:true}")
+    private boolean pauseWhenSalesAutomationEnabled;
+
+    @Value("${app.contaazul.automation.enabled:true}")
+    private boolean salesAutomationEnabled;
+
+    /**
+     * Executa o polling legado de parcelas pagas (contas a receber).
+     * O agendamento pode ser pausado automaticamente quando a nova automação de vendas estiver ativa.
+     */
     @Scheduled(fixedDelay = 300_000L, initialDelay = 120_000L)
     public void pollPaidParcels() {
+        if (!pollingEnabled) {
+            log.info("Polling legado de parcelas desativado por configuração.");
+            return;
+        }
+
+        if (pauseWhenSalesAutomationEnabled && salesAutomationEnabled) {
+            log.info("Polling legado de parcelas pausado para evitar concorrência com a automação de vendas.");
+            return;
+        }
+
         if (!contaAzulTokenService.hasAuthorizedToken()) {
             log.info("ContaAzul não autorizado, pulando polling.");
             return;
@@ -51,7 +75,7 @@ public class PaymentPollingJob {
         LocalDateTime pollingDe = resolvePollingStart(pollingAte);
 
         try {
-            PollingProcessingResult result = processPaidParcelsWindow(pollingDe, pollingAte, "scheduled");
+            PollingProcessingResult result = processPaidParcelsWindow(pollingDe, pollingAte, "scheduled", null);
             log.info(
                     "Polling financeiro concluído: fetched={}, processed={}, skippedAlreadyProcessed={}, failures={}, janela=[{} -> {}]",
                     result.totalFetched(),
@@ -69,15 +93,22 @@ public class PaymentPollingJob {
     }
 
     public PollingProcessingResult reprocessWindow(LocalDateTime from, LocalDateTime to) {
+        return reprocessWindow(from, to, null);
+    }
+
+    public PollingProcessingResult reprocessWindow(
+            LocalDateTime from,
+            LocalDateTime to,
+            Consumer<String> progressCallback) {
         if (!contaAzulTokenService.hasAuthorizedToken()) {
-            throw new IllegalStateException("ContaAzul não autorizado para reprocessamento manual.");
+            throw new IllegalStateException("ContaAzul não autorizado.");
         }
 
         if (from == null || to == null || !from.isBefore(to)) {
-            throw new IllegalArgumentException("Janela de reprocessamento inválida. Informe from < to.");
+            throw new IllegalArgumentException("Janela inválida. Informe from < to.");
         }
 
-        PollingProcessingResult result = processPaidParcelsWindow(from, to, "manual-reprocess");
+        PollingProcessingResult result = processPaidParcelsWindow(from, to, "manual-reprocess", progressCallback);
         log.info(
                 "Reprocessamento manual concluído: fetched={}, processed={}, skippedAlreadyProcessed={}, failures={}, janela=[{} -> {}]",
                 result.totalFetched(),
@@ -89,7 +120,14 @@ public class PaymentPollingJob {
         return result;
     }
 
-    private PollingProcessingResult processPaidParcelsWindow(LocalDateTime from, LocalDateTime to, String source) {
+    /**
+     * Processa uma janela de parcelas pagas e executa envio idempotente dos recibos.
+     */
+    private PollingProcessingResult processPaidParcelsWindow(
+            LocalDateTime from,
+            LocalDateTime to,
+            String source,
+            Consumer<String> progressCallback) {
         int totalFetched = 0;
         int totalProcessed = 0;
         int skippedAlreadyProcessed = 0;
@@ -117,9 +155,19 @@ public class PaymentPollingJob {
                     receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
                     totalProcessed++;
                     processedParcelIds.add(parcela.parcelaId());
+
+                    if (progressCallback != null) {
+                        progressCallback.accept("Parcela " + parcela.parcelaId()
+                                + " (" + parcela.medicoNome() + ") enviada.");
+                    }
                 } catch (RuntimeException ex) {
                     failures++;
                     log.error("Falha no processamento da parcela {} durante {}.", parcela.parcelaId(), source, ex);
+
+                    if (progressCallback != null) {
+                        progressCallback.accept("ERRO na parcela " + parcela.parcelaId()
+                                + ": " + ex.getMessage());
+                    }
                 }
             }
 

@@ -44,6 +44,9 @@ public class ContaAzulClient {
         return StringUtils.hasText(salesV2Url) && StringUtils.hasText(salePdfV1UrlTemplate);
     }
 
+    /**
+     * Consulta a API v2 de vendas da Conta Azul e retorna apenas vendas com status ACQUITTED.
+     */
     public List<SaleItem> fetchAcquittedSales() {
         List<SaleItem> sales = new ArrayList<>();
 
@@ -72,6 +75,9 @@ public class ContaAzulClient {
         return sales;
     }
 
+    /**
+     * Baixa o PDF do recibo da venda usando o endpoint v1 da Conta Azul.
+     */
     public byte[] downloadSalePdf(String saleId) {
         String uri = salePdfV1UrlTemplate.replace("{id}", saleId).replace("{saleId}", saleId);
         String token = contaAzulTokenService.getValidAccessToken();

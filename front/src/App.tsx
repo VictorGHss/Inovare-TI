@@ -9,11 +9,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import DefaultLayout from './layouts/DefaultLayout';
 import FinancialTwoFactorChallenge from './components/FinancialTwoFactorChallenge';
 
-// Login e PrimeiroAcesso carregados de forma eager — são rotas de entrada leves
+// Login e PrimeiroAcesso carregados de forma imediata — são rotas de entrada leves
 import Login from './pages/Login';
 import PrimeiroAcesso from './pages/PrimeiroAcesso';
 
-// Lazy-loaded: cada página gera um chunk separado, reduzindo o bundle inicial
+// Carregamento sob demanda: cada página gera um chunk separado, reduzindo o bundle inicial
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Tickets = lazy(() => import('./pages/Tickets'));
 const NewTicket = lazy(() => import('./pages/NewTicket'));
@@ -34,6 +34,7 @@ const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails')
 const Vault = lazy(() => import('./pages/Vault'));
 const SystemLogs = lazy(() => import('./pages/SystemLogs'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
+const ReceiptReprocess = lazy(() => import('./pages/ReceiptReprocess'));
 
 function PageLoader() {
   return (
@@ -55,7 +56,7 @@ function PageTransition({ children }: { children: ReactElement }) {
   );
 }
 
-// Rota de layout: protege e fornece o header/footer para páginas autenticadas
+// Rota de layout: protege e fornece o cabeçalho/estrutura para páginas autenticadas
 function PrivateLayoutRoute() {
   const { token } = useAuth();
   const location = useLocation();
@@ -149,6 +150,14 @@ function AppRoutes() {
             element={(
               <FinancialGuardRoute>
                 <Financeiro />
+              </FinancialGuardRoute>
+            )}
+          />
+          <Route
+            path="/financeiro/reprocessamento"
+            element={(
+              <FinancialGuardRoute>
+                <ReceiptReprocess />
               </FinancialGuardRoute>
             )}
           />

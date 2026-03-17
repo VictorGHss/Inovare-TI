@@ -11,15 +11,19 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api, {
+  getDoctorMappings,
   getFinanceAlerts,
   getFinanceConnectionStatus,
   getFinanceReceipts,
   getFinancialSummary,
+  type DoctorMapping,
   type FinanceAlert,
   type FinanceConnectionStatus,
   type FinanceReceipt,
   type FinancialSummaryDTO,
 } from '../../services/api';
+import DoctorMappingPanel from './DoctorMappingPanel';
+import ReceiptReprocessPanel from '../ReceiptReprocess';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
 
@@ -57,6 +61,8 @@ export default function FinancialDashboard() {
   const [summary, setSummary] = useState<FinancialSummaryDTO | null>(null);
   const [receipts, setReceipts] = useState<FinanceReceipt[]>([]);
   const [alerts, setAlerts] = useState<FinanceAlert[]>([]);
+  const [doctorMappings, setDoctorMappings] = useState<DoctorMapping[]>([]);
+  const [loadingDoctorMappings, setLoadingDoctorMappings] = useState(false);
   const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
@@ -85,6 +91,7 @@ export default function FinancialDashboard() {
           setSummary(null);
           setReceipts([]);
           setAlerts([]);
+          setDoctorMappings([]);
           return;
         }
 
@@ -97,6 +104,7 @@ export default function FinancialDashboard() {
         setSummary(summaryData);
         setReceipts(receiptsData);
         setAlerts(alertsData);
+        await reloadDoctorMappings();
       } catch {
         toast.error('Não foi possível carregar o módulo financeiro.');
       } finally {
@@ -116,6 +124,19 @@ export default function FinancialDashboard() {
       toast.error('Falha ao enviar recibo de teste.');
     } finally {
       setTriggeringTestReceipt(false);
+    }
+  }
+
+  // Carrega mapeamentos usados pelo backend para envio automático dos recibos.
+  async function reloadDoctorMappings() {
+    try {
+      setLoadingDoctorMappings(true);
+      const dados = await getDoctorMappings();
+      setDoctorMappings(dados);
+    } catch {
+      toast.error('Não foi possível carregar os mapeamentos de médicos.');
+    } finally {
+      setLoadingDoctorMappings(false);
     }
   }
 
@@ -305,6 +326,22 @@ export default function FinancialDashboard() {
           </div>
         </aside>
       </section>
+
+      {hasContaAzulLinked && (
+        <>
+          <section className="mt-8">
+            <DoctorMappingPanel
+              mapeamentos={doctorMappings}
+              carregando={loadingDoctorMappings}
+              onAtualizar={reloadDoctorMappings}
+            />
+          </section>
+
+          <section className="mt-8">
+            <ReceiptReprocessPanel />
+          </section>
+        </>
+      )}
     </main>
   );
 }

@@ -138,5 +138,40 @@
     "name": "app.contaazul.parcela-by-id-url-template",
     "type": "java.lang.String",
     "description": "A description for 'app.contaazul.parcela-by-id-url-template'"
+  },
+  {
+    "name": "app.contaazul.sales-v2-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.sales-v2-url'"
+  },
+  {
+    "name": "app.contaazul.sales-pdf-v1-url-template",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.sales-pdf-v1-url-template'"
+  },
+  {
+    "name": "app.contaazul.automation.initial-delay-ms",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.automation.initial-delay-ms'"
+  },
+  {
+    "name": "app.contaazul.automation.fixed-delay-ms",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.automation.fixed-delay-ms'"
+  },
+  {
+    "name": "app.contaazul.automation.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.automation.enabled'"
+  },
+  {
+    "name": "app.financeiro.polling.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.polling.enabled'"
+  },
+  {
+    "name": "app.financeiro.polling.pause-when-sales-automation-enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'app.financeiro.polling.pause-when-sales-automation-enabled'"
   }
 ]}

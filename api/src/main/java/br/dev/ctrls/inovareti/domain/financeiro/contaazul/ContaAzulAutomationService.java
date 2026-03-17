@@ -30,7 +30,11 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
 
-    @Scheduled(
+        /**
+         * Orquestra o fluxo de automação de vendas liquidadas:
+         * consulta, valida mapeamento do médico, envia e-mail e marca idempotência.
+         */
+        @Scheduled(
             fixedDelayString = "${app.contaazul.automation.fixed-delay-ms:300000}",
             initialDelayString = "${app.contaazul.automation.initial-delay-ms:180000}")
     public void processAcquittedSales() {

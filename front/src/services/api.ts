@@ -536,6 +536,19 @@ export interface FinanceConnectionStatus {
   refreshedAt: string | null;
 }
 
+export interface DoctorMapping {
+  id: string;
+  contaAzulCustomerUuid: string;
+  doctorEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDoctorMappingDTO {
+  contaAzulCustomerUuid: string;
+  doctorEmail: string;
+}
+
 export interface FinancialSummaryDTO {
   balanceCents: number;
   totalPendingCents: number;
@@ -657,6 +670,20 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
 
     throw error;
   }
+}
+
+export async function getDoctorMappings(): Promise<DoctorMapping[]> {
+  const { data } = await api.get<DoctorMapping[]>('/api/financeiro/doctor-mappings');
+  return data;
+}
+
+export async function createDoctorMapping(payload: CreateDoctorMappingDTO): Promise<DoctorMapping> {
+  const { data } = await api.post<DoctorMapping>('/api/financeiro/doctor-mappings', payload);
+  return data;
+}
+
+export async function deleteDoctorMapping(id: string): Promise<void> {
+  await api.delete(`/api/financeiro/doctor-mappings/${id}`);
 }
 
 export async function resetInitialPassword(

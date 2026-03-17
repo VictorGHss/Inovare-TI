@@ -10,9 +10,11 @@ import org.springframework.util.StringUtils;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReceiptDispatcher {
 
     private final FinancialLinkRepository financialLinkRepository;
@@ -41,7 +43,7 @@ public class ReceiptDispatcher {
         receipt.setFinancialLink(financialLink);
         receipt.setParcelaId(parcela.parcelaId());
         receipt.setReceiptHash(receiptHash);
-        receipt.setOriginalRecipientEmail(resolveRecipientEmail(parcela));
+        receipt.setOriginalRecipientEmail(resolveRecipientEmail(parcela, financialLink));
 
         try {
             routeReceipt(parcela, financialLink, receipt, pdfBytes, includePdfAttachment);
@@ -91,10 +93,10 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             byte[] pdfBytes,
             boolean includePdfAttachment) {
-            if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
-                throw new IllegalStateException(
+        if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
+            throw new IllegalStateException(
                     "Canal DISCORD não possui destinatário vinculado no financial_link para customerId="
-                        + parcela.customerId());
+                            + parcela.customerId());
         }
 
         if (includePdfAttachment && pdfBytes != null && pdfBytes.length > 0) {
@@ -134,34 +136,43 @@ public class ReceiptDispatcher {
 
     private FinancialLink resolveFinancialLink(ContaAzulPaymentParcel parcela) {
         if (StringUtils.hasText(parcela.customerId())) {
-            return financialLinkRepository.findByContaAzulCustomerId(parcela.customerId())
-                    .orElseGet(() -> resolveFinancialLinkByName(parcela));
+            return financialLinkRepository
+                    .findByContaAzulCustomerId(parcela.customerId())
+                    .orElseGet(() -> autoCreateFinancialLink(parcela));
         }
 
-        return resolveFinancialLinkByName(parcela);
+        return financialLinkRepository
+                .findByContaAzulCustomerNameIgnoreCase(parcela.medicoNome())
+                .orElseThrow(() -> new IllegalStateException(
+                        "FinancialLink não encontrado e customerId ausente para: "
+                                + parcela.medicoNome()));
     }
 
-    private FinancialLink resolveFinancialLinkByName(ContaAzulPaymentParcel parcela) {
-        if (StringUtils.hasText(parcela.medicoNome())) {
-            return financialLinkRepository.findByContaAzulCustomerNameIgnoreCase(parcela.medicoNome())
-                    .orElseThrow(() -> new IllegalStateException(
-                            "FinancialLink not found for ContaAzul parcel [customerId=" + parcela.customerId()
-                                    + ", medicoNome=" + parcela.medicoNome() + "]"));
+    private FinancialLink autoCreateFinancialLink(ContaAzulPaymentParcel parcela) {
+        if (financialLinkRepository.existsByContaAzulCustomerIdAndCanal(
+                parcela.customerId(), FinancialLink.Canal.EMAIL)) {
+            return financialLinkRepository
+                    .findByContaAzulCustomerIdAndCanal(
+                            parcela.customerId(), FinancialLink.Canal.EMAIL)
+                    .orElseThrow();
         }
 
-        throw new IllegalStateException("FinancialLink not found for ContaAzul parcel without customerId and medicoNome.");
+        log.info("FinancialLink não encontrado — criando automaticamente. customerId={}, nome={}",
+                parcela.customerId(), parcela.medicoNome());
+
+        FinancialLink link = FinancialLink.builder()
+                .contaAzulCustomerId(parcela.customerId())
+                .contaAzulCustomerName(parcela.medicoNome())
+                .canal(FinancialLink.Canal.EMAIL)
+                .build();
+
+        return financialLinkRepository.save(link);
     }
 
-    private String resolveRecipientEmail(ContaAzulPaymentParcel parcela) {
+    private String resolveRecipientEmail(ContaAzulPaymentParcel parcela, FinancialLink financialLink) {
         if (StringUtils.hasText(parcela.recipientEmail())) {
             return parcela.recipientEmail();
         }
-
-        FinancialLink link = financialLinkRepository
-                .findByContaAzulCustomerIdAndCanal(parcela.customerId(), FinancialLink.Canal.EMAIL)
-                .orElseThrow(() -> new IllegalStateException(
-                        "FinancialLink não encontrado para customerId=" + parcela.customerId()));
-
-        return emailSyncService.resolveEmail(link);
+        return emailSyncService.resolveEmail(financialLink);
     }
 }

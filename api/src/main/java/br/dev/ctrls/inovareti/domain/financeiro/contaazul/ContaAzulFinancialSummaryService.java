@@ -52,7 +52,7 @@ public class ContaAzulFinancialSummaryService {
         try {
             ResponseEntity<String> response = executePaymentsRequest(status, accessToken);
 
-            return sumAmountCents(response.getBody());
+            return extractTotalCents(response.getBody(), status);
         } catch (Unauthorized ex) {
             String errorBody = ex.getResponseBodyAsString();
             log.warn(
@@ -63,7 +63,7 @@ public class ContaAzulFinancialSummaryService {
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
                 ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken);
-                return sumAmountCents(retryResponse.getBody());
+                return extractTotalCents(retryResponse.getBody(), status);
             } catch (Exception refreshEx) {
                 log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
                 throw new ContaAzulAuthException(
@@ -127,58 +127,28 @@ public class ContaAzulFinancialSummaryService {
         return responseEntity;
     }
 
-    private long sumAmountCents(String jsonPayload) {
+    private long extractTotalCents(String jsonPayload, String status) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return 0L;
         }
 
         try {
             JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = resolveArrayNode(root);
 
-            long total = 0L;
-            for (JsonNode node : entries) {
-                total += toCents(resolveAmount(node));
+            String totalPath;
+            if (null == status) {
+                throw new IllegalStateException("Status não suportado para cálculo do resumo: " + status);
+            } else switch (status) {
+                case ContaAzulStatus.RECEBIDO -> totalPath = "totais.pago.valor";
+                case ContaAzulStatus.EM_ABERTO -> totalPath = "totais.aberto.valor";
+                default -> throw new IllegalStateException("Status não suportado para cálculo do resumo: " + status);
             }
-            return total;
+
+            BigDecimal total = readDecimal(root, totalPath);
+            return total != null ? toCents(total) : 0L;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao calcular resumo financeiro da Conta Azul.", ex);
         }
-    }
-
-    private JsonNode resolveArrayNode(JsonNode root) {
-        if (root.isArray()) {
-            return root;
-        }
-
-        if (root.has("data") && root.get("data").isArray()) {
-            return root.get("data");
-        }
-
-        if (root.has("items") && root.get("items").isArray()) {
-            return root.get("items");
-        }
-
-        return objectMapper.createArrayNode();
-    }
-
-    private BigDecimal resolveAmount(JsonNode node) {
-        for (String path : List.of(
-                "valor",
-                "valor_total",
-                "amount",
-                "total",
-                "parcela.valor",
-                "parcela.valor_total",
-                "payment.amount",
-                "payment.total")) {
-            BigDecimal value = readDecimal(node, path);
-            if (value != null) {
-                return value;
-            }
-        }
-
-        return BigDecimal.ZERO;
     }
 
     private BigDecimal readDecimal(JsonNode node, String path) {

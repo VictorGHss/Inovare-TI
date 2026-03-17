@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -144,14 +145,23 @@ public class ContaAzulPaymentsClient {
         String accessToken = contaAzulTokenService.getValidAccessToken();
         String uri = resolveEventParcelasUrl(eventId);
 
+        log.debug("Chamando ContaAzul parcelas do evento {}: {}", eventId, uri);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-        log.debug("ContaAzul response body (evento_id={} parcelas): {}", eventId, response.getBody());
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            log.debug("ContaAzul status parcelas evento_id={}: {}", eventId, response.getStatusCode());
+            log.debug("Parcelas evento response: {}", response.getBody());
 
-        return parseEventParcelReferences(response.getBody());
+            return parseEventParcelReferences(response.getBody());
+        } catch (HttpStatusCodeException ex) {
+            log.debug("ContaAzul status parcelas evento_id={} (erro): {}", eventId, ex.getStatusCode());
+            log.debug("Parcelas evento response (erro): {}", ex.getResponseBodyAsString());
+            throw ex;
+        }
     }
 
     private List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {

@@ -42,31 +42,17 @@ public class ContaAzulPaymentsClient {
     @Value("${app.contaazul.receipt-pdf-url-template}")
     private String receiptPdfUrlTemplate;
 
-    public List<ContaAzulPaymentParcel> fetchPaidParcelsFromLastSixHours() {
-        LocalDate hoje = LocalDate.now();
-        return fetchPaidParcelsByWindow(hoje.minusDays(30), hoje, 50, 1);
-    }
-
-    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
-            OffsetDateTime from,
-            OffsetDateTime to,
-            int pageSize,
-            int page) {
-        return fetchPaidParcelsByWindow(from.toLocalDate(), to.toLocalDate(), pageSize, page);
-    }
-
-    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
-            LocalDate from,
-            LocalDate to,
+    public List<ContaAzulPaymentParcel> fetchPaidParcelsSinceLastRun(
+            LocalDateTime from,
+            LocalDateTime to,
             int pageSize,
             int page) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
         LocalDate hoje = LocalDate.now();
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
-        LocalDateTime agora = LocalDateTime.now();
-        String dataAlteracaoDe = agora.minusHours(6).format(DATETIME_FORMATTER);
-        String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
+        String dataAlteracaoDe = from.format(DATETIME_FORMATTER);
+        String dataAlteracaoAte = to.format(DATETIME_FORMATTER);
         String dataVencimentoDe = DATE_FORMATTER.format(janelaVencimentoDe);
         String dataVencimentoAte = DATE_FORMATTER.format(janelaVencimentoAte);
 
@@ -76,7 +62,7 @@ public class ContaAzulPaymentsClient {
                 dataVencimentoAte,
                 dataAlteracaoDe,
                 dataAlteracaoAte,
-            ContaAzulStatus.RECEBIDO);
+                ContaAzulStatus.RECEBIDO);
 
         String uri = paymentsUrl
                 + "?pagina=" + page
@@ -85,7 +71,7 @@ public class ContaAzulPaymentsClient {
                 + "&data_vencimento_ate=" + dataVencimentoAte
                 + "&data_alteracao_de=" + dataAlteracaoDe
                 + "&data_alteracao_ate=" + dataAlteracaoAte
-            + "&status=" + ContaAzulStatus.RECEBIDO;
+                + "&status=" + ContaAzulStatus.RECEBIDO;
 
         log.debug("Chamando ContaAzul: {}", uri);
 
@@ -95,6 +81,24 @@ public class ContaAzulPaymentsClient {
 
         ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
         return parseParcels(response.getBody());
+    }
+
+    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
+            OffsetDateTime from,
+            OffsetDateTime to,
+            int pageSize,
+            int page) {
+        return fetchPaidParcelsSinceLastRun(from.toLocalDateTime(), to.toLocalDateTime(), pageSize, page);
+    }
+
+    public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
+            LocalDate from,
+            LocalDate to,
+            int pageSize,
+            int page) {
+        LocalDateTime dataAlteracaoDe = from.atStartOfDay();
+        LocalDateTime dataAlteracaoAte = to.atTime(23, 59, 59);
+        return fetchPaidParcelsSinceLastRun(dataAlteracaoDe, dataAlteracaoAte, pageSize, page);
     }
 
     public byte[] downloadReceiptPdf(String parcelaId) {

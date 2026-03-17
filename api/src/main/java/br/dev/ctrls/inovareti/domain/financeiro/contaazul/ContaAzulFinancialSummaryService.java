@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -31,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulFinancialSummaryService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
@@ -96,20 +94,14 @@ public class ContaAzulFinancialSummaryService {
 
     private ResponseEntity<String> executePaymentsRequest(String status, String accessToken) {
         LocalDate hoje = LocalDate.now();
-        LocalDate janelaVencimentoDe = hoje.minusDays(90);
-        LocalDate janelaVencimentoAte = hoje.plusDays(30);
-        LocalDateTime agora = LocalDateTime.now();
-        String dataAlteracaoDe = agora.minusDays(30).format(DATETIME_FORMATTER);
-        String dataAlteracaoAte = agora.format(DATETIME_FORMATTER);
-        String dataVencimentoDe = janelaVencimentoDe.format(DATE_FORMATTER);
-        String dataVencimentoAte = janelaVencimentoAte.format(DATE_FORMATTER);
+        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        String dataVencimentoDe = inicioMesAtual.format(DATE_FORMATTER);
+        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
 
         log.debug(
-            "Parâmetros ContaAzul: vencimento_de={}, vencimento_ate={}, alteracao_de={}, alteracao_ate={}, status={}",
+            "Parâmetros ContaAzul (resumo mensal): vencimento_de={}, vencimento_ate={}, status={}",
             dataVencimentoDe,
             dataVencimentoAte,
-            dataAlteracaoDe,
-            dataAlteracaoAte,
             status);
 
         String uri = paymentsUrl
@@ -117,8 +109,6 @@ public class ContaAzulFinancialSummaryService {
                 + "&tamanho_pagina=100"
                 + "&data_vencimento_de=" + dataVencimentoDe
                 + "&data_vencimento_ate=" + dataVencimentoAte
-                + "&data_alteracao_de=" + dataAlteracaoDe
-                + "&data_alteracao_ate=" + dataAlteracaoAte
                 + "&status=" + status;
 
         log.debug("Chamando ContaAzul: {}", uri);

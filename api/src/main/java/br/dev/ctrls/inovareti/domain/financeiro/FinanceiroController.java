@@ -80,10 +80,10 @@ public class FinanceiroController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/parcelas/{id}/processar")
-    public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
-            @PathVariable("id") String parcelaId) {
-        return ResponseEntity.ok(financeiroOperationsService.processParcelById(parcelaId));
+    @GetMapping("/eventos/{id_evento}/processar")
+    public ResponseEntity<FinanceiroOperationsService.EventProcessingResult> processEventById(
+            @PathVariable("id_evento") String idEvento) {
+        return ResponseEntity.ok(financeiroOperationsService.processEventById(idEvento));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

@@ -46,6 +46,9 @@ public class ContaAzulPaymentsClient {
     @Value("${app.contaazul.parcela-by-id-url-template:}")
     private String parcelaByIdUrlTemplate;
 
+    @Value("${app.contaazul.evento-parcelas-url-template:}")
+    private String eventoParcelasUrlTemplate;
+
     public List<ContaAzulPaymentParcel> fetchPaidParcelsSinceLastRun(
             LocalDateTime from,
             LocalDateTime to,
@@ -137,6 +140,20 @@ public class ContaAzulPaymentsClient {
         return parcel;
     }
 
+    public List<EventParcelReference> fetchParcelReferencesByEventId(String eventId) {
+        String accessToken = contaAzulTokenService.getValidAccessToken();
+        String uri = resolveEventParcelasUrl(eventId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        log.debug("ContaAzul response body (evento_id={} parcelas): {}", eventId, response.getBody());
+
+        return parseEventParcelReferences(response.getBody());
+    }
+
     private List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return List.of();
@@ -201,6 +218,33 @@ public class ContaAzulPaymentsClient {
         }
     }
 
+    private List<EventParcelReference> parseEventParcelReferences(String jsonPayload) {
+        if (jsonPayload == null || jsonPayload.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            JsonNode entries = resolveEventParcelArrayNode(root);
+
+            List<EventParcelReference> references = new ArrayList<>();
+            for (JsonNode node : entries) {
+                String parcelaId = readText(node, "parcela_id", "id", "parcela.id");
+                String status = readText(node, "status", "situacao", "parcela.status");
+
+                if (parcelaId == null) {
+                    continue;
+                }
+
+                references.add(new EventParcelReference(parcelaId, status));
+            }
+
+            return references;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear parcelas do evento financeiro da ContaAzul.", ex);
+        }
+    }
+
     private JsonNode resolveObjectNode(JsonNode root) {
         if (root == null || root.isNull()) {
             return null;
@@ -219,6 +263,37 @@ public class ContaAzulPaymentsClient {
         return null;
     }
 
+    private JsonNode resolveEventParcelArrayNode(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return objectMapper.createArrayNode();
+        }
+
+        if (root.isArray()) {
+            return root;
+        }
+
+        if (root.has("data") && root.get("data").isArray()) {
+            return root.get("data");
+        }
+
+        if (root.has("data") && root.get("data").isObject()) {
+            JsonNode data = root.get("data");
+            if (data.has("parcelas") && data.get("parcelas").isArray()) {
+                return data.get("parcelas");
+            }
+        }
+
+        if (root.has("parcelas") && root.get("parcelas").isArray()) {
+            return root.get("parcelas");
+        }
+
+        if (root.has("items") && root.get("items").isArray()) {
+            return root.get("items");
+        }
+
+        return objectMapper.createArrayNode();
+    }
+
     private String resolveParcelByIdUrl(String parcelaId) {
         if (StringUtils.hasText(parcelaByIdUrlTemplate)) {
             return parcelaByIdUrlTemplate.replace("{parcelaId}", parcelaId);
@@ -233,6 +308,22 @@ public class ContaAzulPaymentsClient {
 
         throw new IllegalStateException(
                 "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
+    }
+
+    private String resolveEventParcelasUrl(String eventId) {
+        if (StringUtils.hasText(eventoParcelasUrlTemplate)) {
+            return eventoParcelasUrlTemplate.replace("{id_evento}", eventId).replace("{eventId}", eventId);
+        }
+
+        String basePath = "/contas-a-receber/buscar";
+        int suffixStart = paymentsUrl.indexOf(basePath);
+        if (suffixStart > 0) {
+            String prefix = paymentsUrl.substring(0, suffixStart);
+            return prefix + "/" + eventId + "/parcelas";
+        }
+
+        throw new IllegalStateException(
+                "Não foi possível resolver URL de parcelas por evento. Defina app.contaazul.evento-parcelas-url-template.");
     }
 
     private JsonNode resolveArrayNode(JsonNode root) {
@@ -268,5 +359,10 @@ public class ContaAzulPaymentsClient {
         }
 
         return null;
+    }
+
+    public record EventParcelReference(
+            String parcelaId,
+            String status) {
     }
 }

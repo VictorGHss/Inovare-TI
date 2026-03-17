@@ -133,5 +133,15 @@
     "name": "contaazul.redirect-uri",
     "type": "java.lang.String",
     "description": "A description for 'contaazul.redirect-uri'"
+  },
+  {
+    "name": "app.contaazul.parcela-by-id-url-template",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.parcela-by-id-url-template'"
+  },
+  {
+    "name": "app.contaazul.evento-parcelas-url-template",
+    "type": "java.lang.String",
+    "description": "A description for 'app.contaazul.evento-parcelas-url-template'"
   }
 ]}

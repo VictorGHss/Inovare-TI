@@ -2,6 +2,12 @@ import { CircleHelp, Loader2, SearchCheck, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { checkContaAzulCustomerByEmail, type CreateUserDto, type Sector } from '../../services/api';
 
+const customerNotFoundMessage =
+  'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';
+
+const inputClassName =
+  'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary';
+
 interface NewUserModalProps {
   isOpen: boolean;
   submitting: boolean;
@@ -49,7 +55,7 @@ export default function NewUserModal({
         return;
       }
 
-      toast.info('Nenhum cliente encontrado na Conta Azul para este e-mail.');
+      toast.warn(customerNotFoundMessage);
     } catch {
       toast.error('Não foi possível verificar o vínculo na Conta Azul.');
     } finally {
@@ -78,7 +84,7 @@ export default function NewUserModal({
               type="text"
               value={formData.name}
               onChange={(event) => onChange({ ...formData, name: event.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={inputClassName}
               disabled={submitting}
             />
           </div>
@@ -89,7 +95,7 @@ export default function NewUserModal({
               type="email"
               value={formData.email}
               onChange={(event) => onChange({ ...formData, email: event.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={inputClassName}
               disabled={submitting || checkingContaAzul}
             />
           </div>
@@ -100,7 +106,7 @@ export default function NewUserModal({
               type="password"
               value={formData.password}
               onChange={(event) => onChange({ ...formData, password: event.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={inputClassName}
               disabled={submitting}
               placeholder="Mínimo 8 caracteres"
             />
@@ -111,7 +117,7 @@ export default function NewUserModal({
             <select
               value={formData.sectorId}
               onChange={(event) => onChange({ ...formData, sectorId: event.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={inputClassName}
               disabled={submitting}
             >
               <option value="">Selecione...</option>
@@ -130,7 +136,7 @@ export default function NewUserModal({
               onChange={(event) =>
                 onChange({ ...formData, role: event.target.value as CreateUserDto['role'] })
               }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={inputClassName}
               disabled={submitting}
             >
               <option value="USER">Usuário</option>
@@ -146,7 +152,7 @@ export default function NewUserModal({
                 type="text"
                 value={formData.contaAzulId ?? ''}
                 onChange={(event) => onChange({ ...formData, contaAzulId: event.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputClassName}
                 disabled={submitting}
                 placeholder="UUID/ID do cliente na Conta Azul"
                 maxLength={120}
@@ -157,10 +163,10 @@ export default function NewUserModal({
                   void handleCheckContaAzul();
                 }}
                 disabled={submitting || checkingContaAzul}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {checkingContaAzul ? <Loader2 size={14} className="animate-spin" /> : <SearchCheck size={14} />}
-                Verificar Vínculo
+                {checkingContaAzul ? 'Buscando...' : 'Verificar'}
               </button>
             </div>
           </div>

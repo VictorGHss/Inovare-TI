@@ -560,6 +560,7 @@ export interface CreateDoctorMappingDTO {
 export interface ContaAzulCustomerCheckResponse {
   email: string;
   customerId: string | null;
+  message?: string;
 }
 
 export interface ContaAzulCustomerEmailResponse {
@@ -705,8 +706,32 @@ export async function deleteDoctorMapping(id: string): Promise<void> {
 }
 
 export async function checkContaAzulCustomerByEmail(email: string): Promise<ContaAzulCustomerCheckResponse> {
-  const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/api/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
-  return data;
+  try {
+    const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/api/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
+
+    if (!data?.customerId) {
+      return {
+        email,
+        customerId: null,
+        message: 'Médico não localizado',
+      };
+    }
+
+    return {
+      ...data,
+      message: data.message ?? undefined,
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return {
+        email,
+        customerId: null,
+        message: 'Médico não localizado',
+      };
+    }
+
+    throw error;
+  }
 }
 
 export async function getContaAzulCustomerEmailById(customerId: string): Promise<ContaAzulCustomerEmailResponse> {

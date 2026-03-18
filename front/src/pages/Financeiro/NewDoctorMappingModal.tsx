@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Stethoscope, UserPlus2, X, RefreshCw } from 'lucide-react';
+import { Loader2, Stethoscope, UserPlus2, X, RefreshCw, SearchCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createDoctorMapping, getContaAzulCustomerEmailById, getUsers, type User } from '../../services/api';
+import {
+  checkContaAzulCustomerByEmail,
+  createDoctorMapping,
+  getContaAzulCustomerEmailById,
+  getUsers,
+  type User,
+} from '../../services/api';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
+
+const customerNotFoundMessage =
+  'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';
 
 interface NewDoctorMappingModalProps {
   isOpen: boolean;
@@ -37,6 +46,7 @@ export default function NewDoctorMappingModal({
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pullingContaAzulEmail, setPullingContaAzulEmail] = useState(false);
+  const [checkingContaAzulCustomer, setCheckingContaAzulCustomer] = useState(false);
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === formState.userId) ?? null,
@@ -149,6 +159,31 @@ export default function NewDoctorMappingModal({
     }
   }
 
+  async function handleCheckContaAzulCustomerByEmail() {
+    const email = formState.doctorEmail.trim();
+    if (!email) {
+      toast.warn('Informe o e-mail do médico para verificar no Conta Azul.');
+      return;
+    }
+
+    try {
+      setCheckingContaAzulCustomer(true);
+      const response = await checkContaAzulCustomerByEmail(email);
+
+      if (response.customerId) {
+        setFormState((prev) => ({ ...prev, contaAzulCustomerUuid: response.customerId ?? prev.contaAzulCustomerUuid }));
+        toast.success('Médico localizado na Conta Azul e UUID preenchido no formulário.');
+        return;
+      }
+
+      toast.warn(customerNotFoundMessage);
+    } catch {
+      toast.error('Não foi possível verificar o médico na Conta Azul.');
+    } finally {
+      setCheckingContaAzulCustomer(false);
+    }
+  }
+
   if (!isOpen) {
     return null;
   }
@@ -232,16 +267,29 @@ export default function NewDoctorMappingModal({
 
           <label className="block text-sm font-medium text-slate-500">
             E-mail de Destino
-            <div className="mt-1.5 flex items-center gap-2">
-              <input
-                type="email"
-                value={formState.doctorEmail}
-                onChange={(event) => setFormState((prev) => ({ ...prev, doctorEmail: event.target.value }))}
-                className={inputClassName}
-                placeholder="medico@clinica.com"
-                maxLength={255}
-                disabled={submitting || Boolean(selectedUser)}
-              />
+            <div className="mt-1.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={formState.doctorEmail}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, doctorEmail: event.target.value }))}
+                  className={inputClassName}
+                  placeholder="medico@clinica.com"
+                  maxLength={255}
+                  disabled={submitting || Boolean(selectedUser)}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleCheckContaAzulCustomerByEmail();
+                  }}
+                  disabled={submitting || Boolean(selectedUser) || checkingContaAzulCustomer}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {checkingContaAzulCustomer ? <Loader2 size={14} className="animate-spin" /> : <SearchCheck size={14} />}
+                  {checkingContaAzulCustomer ? 'Buscando...' : 'Verificar'}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => {

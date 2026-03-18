@@ -1,6 +1,9 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import jakarta.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,8 +34,7 @@ public class ContaAzulAutomationService {
         log.info("Iniciando teste real para venda {}...", saleId);
 
         if (!contaAzulClient.hasSalesConfiguration()) {
-            throw new IllegalStateException(
-                    "Configuração da Conta Azul incompleta para consulta de vendas e download de PDF.");
+            throw new IllegalStateException(buildSalesConfigurationErrorMessage());
         }
 
         if (!contaAzulTokenService.hasAuthorizedToken()) {
@@ -75,6 +77,25 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
 
+    @Value("${app.contaazul.sales-v2-url}")
+    private String salesV2Url;
+
+    @Value("${app.contaazul.sales-pdf-v1-url-template}")
+    private String salesPdfV1UrlTemplate;
+
+    @PostConstruct
+    public void logContaAzulAutomationConfigOnBoot() {
+        String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
+        String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
+
+        log.info(
+                "Diagnóstico Conta Azul no boot: app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
+                StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia",
+                StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia",
+                StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia",
+                StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
+    }
+
         /**
          * Orquestra o fluxo de automação de vendas liquidadas:
          * consulta, valida mapeamento do médico, envia e-mail e marca idempotência.
@@ -91,7 +112,7 @@ public class ContaAzulAutomationService {
         }
 
         if (!contaAzulClient.hasSalesConfiguration()) {
-            log.warn("Automação ContaAzul desabilitada: propriedades app.contaazul.sales-v2-url e app.contaazul.sales-pdf-v1-url-template são obrigatórias.");
+            log.warn("Automação ContaAzul desabilitada: {}", buildSalesConfigurationErrorMessage());
             return;
         }
 
@@ -219,6 +240,32 @@ public class ContaAzulAutomationService {
                 + sale.saleId()
                 + " foi liquidado na Conta Azul e segue em anexo.\n\n"
                 + "Atenciosamente,\nInovare TI";
+    }
+
+    private String buildSalesConfigurationErrorMessage() {
+        List<String> missingProperties = new ArrayList<>();
+
+        if (!StringUtils.hasText(salesV2Url)) {
+            missingProperties.add("app.contaazul.sales-v2-url");
+        }
+
+        if (!StringUtils.hasText(salesPdfV1UrlTemplate)) {
+            missingProperties.add("app.contaazul.sales-pdf-v1-url-template");
+        }
+
+        String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
+        String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
+
+        return "Configuração da Conta Azul incompleta. Propriedades vazias: "
+                + (missingProperties.isEmpty() ? "nenhuma" : String.join(", ", missingProperties))
+                + ". Estado atual -> app.contaazul.sales-v2-url="
+                + (StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia")
+                + ", app.contaazul.sales-pdf-v1-url-template="
+                + (StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia")
+                + ", CONTAAZUL_SALES_V2_URL="
+                + (StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia")
+                + ", CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE="
+                + (StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
     }
 
     public record TesteEnvioRealResult(

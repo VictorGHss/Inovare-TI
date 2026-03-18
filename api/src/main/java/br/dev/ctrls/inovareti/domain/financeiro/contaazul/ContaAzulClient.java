@@ -107,13 +107,17 @@ public class ContaAzulClient {
             return Optional.empty();
         }
 
+        String normalizedEmail = email.trim();
+        log.info("Buscando cliente no Conta Azul pelo e-mail: {}", normalizedEmail);
+
         String uri = UriComponentsBuilder.fromUriString(customersV1Url)
-                .queryParam("email", email.trim())
+                .queryParam("email", normalizedEmail)
                 .toUriString();
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
-            return parseCustomerIdByEmail(payload, email);
+            log.debug("Resposta da API Conta Azul: {}", payload);
+            return parseCustomerIdByEmail(payload, normalizedEmail);
         } catch (RuntimeException ex) {
             log.warn("Falha ao consultar cliente Conta Azul por e-mail {}: {}", email, ex.getMessage());
             return Optional.empty();
@@ -297,6 +301,11 @@ public class ContaAzulClient {
 
             JsonNode entries = resolveArrayNode(root);
             if (entries == null || !entries.isArray()) {
+                return Optional.empty();
+            }
+
+            if (entries.isEmpty()) {
+                log.info("Nenhum cliente encontrado para o e-mail informado.");
                 return Optional.empty();
             }
 

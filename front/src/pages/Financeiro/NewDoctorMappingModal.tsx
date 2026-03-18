@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Stethoscope, UserPlus2, X } from 'lucide-react';
+import { Loader2, Stethoscope, UserPlus2, X, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createDoctorMapping, getUsers, type User } from '../../services/api';
+import { createDoctorMapping, getContaAzulCustomerEmailById, getUsers, type User } from '../../services/api';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
@@ -36,6 +36,7 @@ export default function NewDoctorMappingModal({
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pullingContaAzulEmail, setPullingContaAzulEmail] = useState(false);
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === formState.userId) ?? null,
@@ -123,6 +124,31 @@ export default function NewDoctorMappingModal({
     }
   }
 
+  async function handlePullContaAzulEmail() {
+    const customerId = formState.contaAzulCustomerUuid.trim();
+    if (!customerId) {
+      toast.warn('Informe o UUID do cliente Conta Azul para puxar o e-mail.');
+      return;
+    }
+
+    try {
+      setPullingContaAzulEmail(true);
+      const response = await getContaAzulCustomerEmailById(customerId);
+
+      if (response.email) {
+        setFormState((prev) => ({ ...prev, doctorEmail: response.email ?? prev.doctorEmail }));
+        toast.success('E-mail do cliente puxado com sucesso da Conta Azul.');
+        return;
+      }
+
+      toast.info('A Conta Azul não retornou e-mail para este cliente.');
+    } catch {
+      toast.error('Não foi possível puxar o e-mail na Conta Azul.');
+    } finally {
+      setPullingContaAzulEmail(false);
+    }
+  }
+
   if (!isOpen) {
     return null;
   }
@@ -206,15 +232,28 @@ export default function NewDoctorMappingModal({
 
           <label className="block text-sm font-medium text-slate-500">
             E-mail de Destino
-            <input
-              type="email"
-              value={formState.doctorEmail}
-              onChange={(event) => setFormState((prev) => ({ ...prev, doctorEmail: event.target.value }))}
-              className={`${inputClassName} mt-1.5`}
-              placeholder="medico@clinica.com"
-              maxLength={255}
-              disabled={submitting || Boolean(selectedUser)}
-            />
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                type="email"
+                value={formState.doctorEmail}
+                onChange={(event) => setFormState((prev) => ({ ...prev, doctorEmail: event.target.value }))}
+                className={inputClassName}
+                placeholder="medico@clinica.com"
+                maxLength={255}
+                disabled={submitting || Boolean(selectedUser)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void handlePullContaAzulEmail();
+                }}
+                disabled={submitting || Boolean(selectedUser) || pullingContaAzulEmail}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pullingContaAzulEmail ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                Puxar do Conta Azul
+              </button>
+            </div>
           </label>
 
           <footer className="flex items-center justify-end gap-3 pt-1">

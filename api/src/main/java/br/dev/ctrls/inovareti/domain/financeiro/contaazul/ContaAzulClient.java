@@ -45,6 +45,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
     private String customersV1Url;
 
+    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/customers/{id}}")
+    private String customerByIdV1UrlTemplate;
+
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(salesV2Url) && StringUtils.hasText(salePdfV1UrlTemplate);
     }
@@ -113,6 +116,62 @@ public class ContaAzulClient {
             return parseCustomerIdByEmail(payload, email);
         } catch (RuntimeException ex) {
             log.warn("Falha ao consultar cliente Conta Azul por e-mail {}: {}", email, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Busca uma venda liquidada específica pelo seu ID.
+     */
+    public Optional<SaleItem> findAcquittedSaleById(String saleId) {
+        if (!StringUtils.hasText(saleId)) {
+            return Optional.empty();
+        }
+
+        String normalizedSaleId = saleId.trim();
+
+        for (int page = 1; page <= MAX_PAGES; page++) {
+            String uri = salesV2Url
+                    + "?page=" + page
+                    + "&size=" + PAGE_SIZE
+                    + "&status=ACQUITTED";
+
+            String payload = executeJsonGetWithRefresh(uri);
+            List<SaleItem> pageItems = parseAcquittedSales(payload);
+
+            Optional<SaleItem> match = pageItems.stream()
+                    .filter(item -> normalizedSaleId.equals(item.saleId()))
+                    .findFirst();
+
+            if (match.isPresent()) {
+                return match;
+            }
+
+            if (pageItems.isEmpty() || pageItems.size() < PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Busca o e-mail do cliente pelo ID na Conta Azul usando /v1/customers/{id}.
+     */
+    public Optional<String> findCustomerEmailById(String customerId) {
+        if (!StringUtils.hasText(customerId)) {
+            return Optional.empty();
+        }
+
+        String uri = customerByIdV1UrlTemplate
+                .replace("{id}", customerId.trim())
+                .replace("{customerId}", customerId.trim());
+
+        try {
+            String payload = executeJsonGetWithRefresh(uri);
+            return parseCustomerEmailById(payload);
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao consultar e-mail do cliente Conta Azul (id={}): {}", customerId, ex.getMessage());
             return Optional.empty();
         }
     }
@@ -255,6 +314,30 @@ public class ContaAzulClient {
         }
 
         return Optional.empty();
+    }
+
+    private Optional<String> parseCustomerEmailById(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return Optional.empty();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            String email = readText(
+                    root,
+                    "email",
+                    "data.email",
+                    "customer.email",
+                    "person.email",
+                    "emails.0.address",
+                    "emails.0.email",
+                    "contacts.0.email");
+
+            return StringUtils.hasText(email) ? Optional.of(email) : Optional.empty();
+        } catch (IOException ex) {
+            log.warn("Falha ao parsear retorno de e-mail do cliente na Conta Azul.", ex);
+            return Optional.empty();
+        }
     }
 
     private String readText(JsonNode node, String... paths) {

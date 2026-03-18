@@ -27,6 +27,51 @@ public class ContaAzulAutomationService {
     private final ProcessedSaleRepository processedSaleRepository;
     private final FinanceEmailService financeEmailService;
 
+    public TesteEnvioRealResult processRealSaleTest(String saleId) {
+        log.info("Iniciando teste real para venda {}...", saleId);
+
+        if (!contaAzulClient.hasSalesConfiguration()) {
+            throw new IllegalStateException(
+                    "Configuração da Conta Azul incompleta para consulta de vendas e download de PDF.");
+        }
+
+        if (!contaAzulTokenService.hasAuthorizedToken()) {
+            throw new IllegalStateException("Token da Conta Azul ainda não autorizado para execução do teste real.");
+        }
+
+        ContaAzulClient.SaleItem sale = contaAzulClient.findAcquittedSaleById(saleId)
+                .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada com status ACQUITTED: " + saleId));
+
+        if (!StringUtils.hasText(sale.customerUuid())) {
+            throw new IllegalStateException("A venda informada não possui customer UUID para localizar mapeamento.");
+        }
+
+        DoctorEmailMapping mapping = doctorEmailMappingRepository
+                .findByContaAzulCustomerUuid(sale.customerUuid())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Não existe mapeamento para o customer UUID informado: " + sale.customerUuid()));
+
+        String recipientEmail = resolveRecipientEmail(mapping);
+        if (!StringUtils.hasText(recipientEmail)) {
+            throw new IllegalStateException("Mapeamento encontrado, mas sem e-mail de destino para envio.");
+        }
+
+        String doctorName = resolveDoctorName(mapping, sale.customerName());
+        byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
+        log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
+
+        log.info("Enviando para {}", recipientEmail);
+        financeEmailService.sendReceiptEmailWithPdf(
+                doctorName,
+                recipientEmail,
+                buildEmailBody(sale, doctorName),
+                pdfBytes,
+                "recibo-venda-" + sale.saleId() + ".pdf");
+
+        log.info("Teste real finalizado com sucesso para a venda {}.", sale.saleId());
+        return new TesteEnvioRealResult(sale.saleId(), doctorName, recipientEmail, pdfBytes.length);
+    }
+
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
 
@@ -174,5 +219,12 @@ public class ContaAzulAutomationService {
                 + sale.saleId()
                 + " foi liquidado na Conta Azul e segue em anexo.\n\n"
                 + "Atenciosamente,\nInovare TI";
+    }
+
+    public record TesteEnvioRealResult(
+            String saleId,
+            String doctorName,
+            String recipientEmail,
+            int pdfBytes) {
     }
 }

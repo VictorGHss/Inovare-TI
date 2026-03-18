@@ -562,6 +562,11 @@ export interface ContaAzulCustomerCheckResponse {
   customerId: string | null;
 }
 
+export interface ContaAzulCustomerEmailResponse {
+  customerId: string;
+  email: string | null;
+}
+
 export interface FinancialSummaryDTO {
   balanceCents: number;
   totalPendingCents: number;
@@ -701,6 +706,11 @@ export async function deleteDoctorMapping(id: string): Promise<void> {
 
 export async function checkContaAzulCustomerByEmail(email: string): Promise<ContaAzulCustomerCheckResponse> {
   const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/api/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
+  return data;
+}
+
+export async function getContaAzulCustomerEmailById(customerId: string): Promise<ContaAzulCustomerEmailResponse> {
+  const { data } = await api.get<ContaAzulCustomerEmailResponse>(`/api/financeiro/contaazul/customer-email/${encodeURIComponent(customerId)}`);
   return data;
 }
 

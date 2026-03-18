@@ -64,6 +64,7 @@ public class ContaAzulClient {
                     + "&size=" + PAGE_SIZE
                     + "&status=ACQUITTED";
 
+            log.info("Solicitando lista de vendas ao Conta Azul: {}", uri);
             log.debug("Consultando vendas na Conta Azul. pagina={}, uri={}", page, uri);
 
             String payload = executeJsonGetWithRefresh(uri);
@@ -112,7 +113,9 @@ public class ContaAzulClient {
 
         String uri = UriComponentsBuilder.fromUriString(customersV1Url)
                 .queryParam("email", normalizedEmail)
-                .toUriString();
+            .build()
+            .encode(StandardCharsets.UTF_8)
+            .toUriString();
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -197,13 +200,22 @@ public class ContaAzulClient {
         headers.setBearerAuth(token);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class);
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class);
 
-        return response.getBody();
+            return response.getBody();
+        } catch (HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
+            log.error(
+                    "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
+                    ex.getStatusCode(),
+                    uri,
+                    ex.getResponseBodyAsString());
+            throw ex;
+        }
     }
 
     private byte[] executePdfGet(String uri, String token) {
@@ -291,10 +303,14 @@ public class ContaAzulClient {
 
         try {
             JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            String normalizedEmail = email.trim();
 
             if (root.isObject()) {
+                String directEmail = readText(root, "email", "data.email", "emails.0.address", "emails.0.email");
                 String directId = readText(root, "id", "uuid", "data.id", "data.uuid");
-                if (StringUtils.hasText(directId)) {
+                if (StringUtils.hasText(directEmail)
+                        && StringUtils.hasText(directId)
+                        && normalizedEmail.equalsIgnoreCase(directEmail.trim())) {
                     return Optional.of(directId);
                 }
             }
@@ -311,7 +327,7 @@ public class ContaAzulClient {
 
             for (JsonNode node : entries) {
                 String nodeEmail = readText(node, "email", "emails.0.address", "emails.0.email");
-                if (StringUtils.hasText(nodeEmail) && email.equalsIgnoreCase(nodeEmail)) {
+                if (StringUtils.hasText(nodeEmail) && normalizedEmail.equalsIgnoreCase(nodeEmail.trim())) {
                     String customerId = readText(node, "id", "uuid", "customer.id", "customer.uuid");
                     if (StringUtils.hasText(customerId)) {
                         return Optional.of(customerId);

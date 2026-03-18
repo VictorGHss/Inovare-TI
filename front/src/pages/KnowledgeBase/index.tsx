@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, User, Loader2 } from 'lucide-react';
+import { Plus, Calendar, User, Loader2, BookOpenText, FileText, ArrowRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Article } from '../../services/api';
 import { getArticles } from '../../services/api';
@@ -31,12 +31,23 @@ export default function KnowledgeBase() {
   const canCreateArticle =
     user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
+  const publishedCount = articles.filter((article) => article.status === 'PUBLISHED').length;
+  const draftCount = articles.filter((article) => article.status === 'DRAFT').length;
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 size={40} className="text-brand-primary animate-spin" />
-          <p className="text-slate-600">Carregando artigos...</p>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 h-40 animate-pulse rounded-3xl border border-slate-200 bg-white" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-48 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+            ))}
+          </div>
+          <div className="mt-8 flex items-center justify-center gap-2 text-slate-600">
+            <Loader2 size={20} className="animate-spin text-brand-primary" />
+            <p>Carregando artigos...</p>
+          </div>
         </div>
       </div>
     );
@@ -45,46 +56,70 @@ export default function KnowledgeBase() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8">
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Base de Conhecimento
-            </h1>
-            <p className="text-slate-600 text-sm mt-1">
-              Explore tutoriais e artigos úteis
-            </p>
+        <section className="relative mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="absolute -top-16 right-0 h-44 w-44 rounded-full bg-brand-secondary/50 blur-2xl" />
+          <div className="absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-sky-100 blur-2xl" />
+
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <BookOpenText size={14} />
+                Knowledge Hub
+              </span>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">Base de Conhecimento</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Consulte artigos, tutoriais e documentações para acelerar o atendimento e padronizar soluções.
+              </p>
+            </div>
+
+            {canCreateArticle && (
+              <button
+                onClick={() => navigate('/knowledge-base/new')}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
+              >
+                <Plus size={18} />
+                Novo Artigo
+              </button>
+            )}
           </div>
 
-          {/* Botão Novo Artigo (visível apenas para Admin/Technician) */}
-          {canCreateArticle && (
-            <button
-              onClick={() => navigate('/knowledge-base/new')}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary-dark transition-colors font-medium"
-            >
-              <Plus size={18} />
-              Novo Artigo
-            </button>
-          )}
-        </div>
+          <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Total de artigos</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{articles.length}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Publicados</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{publishedCount}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Rascunhos</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{draftCount}</p>
+            </div>
+          </div>
+        </section>
 
-        {/* Lista de Artigos */}
         {articles.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-600 mb-4">
-              Nenhum artigo disponível no momento
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+              <FileText size={24} />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-800">Nenhum artigo disponível</h2>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600">
+              Quando novos conteúdos forem publicados, eles aparecerão aqui para consulta rápida de toda equipe.
             </p>
             {canCreateArticle && (
               <button
                 onClick={() => navigate('/knowledge-base/new')}
-                className="text-brand-primary hover:text-brand-primary-dark font-medium"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
               >
-                Crie o primeiro artigo
+                <Plus size={16} />
+                Criar primeiro artigo
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {articles.map((article) => {
               const createdAtDate = new Date(article.createdAt);
               const formattedDate = createdAtDate.toLocaleDateString('pt-BR', {
@@ -93,45 +128,52 @@ export default function KnowledgeBase() {
                 day: 'numeric',
               });
 
-              // Extrai um resumo do conteúdo (primeiras 120 caracteres)
               const summary = article.content
-                .substring(0, 120)
+                .substring(0, 140)
                 .replace(/!\[.*?\]\(.*?\)/g, '[imagem]')
-                .trim() + (article.content.length > 120 ? '...' : '');
+                .replace(/[#>*_`-]/g, '')
+                .trim() + (article.content.length > 140 ? '...' : '');
 
               return (
                 <button
                   key={article.id}
                   onClick={() => navigate(`/knowledge-base/${article.id}`)}
-                  className="p-5 bg-white rounded-lg shadow-sm border border-slate-200 hover:shadow-md hover:border-brand-primary transition-all text-left"
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-md"
                 >
-                  {/* Badge de rascunho (visível apenas para quem pode gerenciar) */}
-                  {article.status === 'DRAFT' && canCreateArticle && (
-                    <span className="inline-block mb-2 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                      Rascunho
+                  <div className="mb-4 flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <FileText size={12} />
+                      Artigo
                     </span>
-                  )}
+                    {article.status === 'DRAFT' && canCreateArticle && (
+                      <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                        Rascunho
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Título */}
-                  <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 hover:text-brand-primary">
+                  <h3 className="line-clamp-2 text-base font-semibold text-slate-900 transition-colors group-hover:text-brand-primary">
                     {article.title}
                   </h3>
 
-                  {/* Resumo */}
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
                     {summary}
                   </p>
 
-                  {/* Metadados */}
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 border-t border-slate-100 pt-3">
-                    <div className="flex items-center gap-1">
+                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                    <div className="inline-flex items-center gap-1">
                       <User size={14} />
                       <span>{article.authorName}</span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="inline-flex items-center gap-1">
                       <Calendar size={14} />
                       <span>{formattedDate}</span>
                     </div>
+                  </div>
+
+                  <div className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-primary">
+                    Ler artigo
+                    <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </button>
               );

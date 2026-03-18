@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Lock, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, ShieldCheck, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +11,7 @@ const inputClassName =
 
 export default function FinancialTwoFactorChallenge() {
   const { updateAuthToken } = useAuth();
+  const navigate = useNavigate();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,6 +42,17 @@ export default function FinancialTwoFactorChallenge() {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <div className="flex justify-end">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="text-slate-400 hover:text-slate-600"
+            aria-label="Voltar para o dashboard"
+            title="Voltar"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck className="text-brand-primary" size={20} />
           <h2 className="text-lg font-semibold text-slate-800">Validação 2FA do Financeiro</h2>

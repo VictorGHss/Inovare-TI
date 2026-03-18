@@ -151,14 +151,6 @@ export default function VaultSecurityGuard({ revealingItemId, onUnlocked }: Prop
               Perdi meu acesso ao autenticador
             </button>
           </div>
-          <div className="mt-2 text-center">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              Voltar ao dashboard
-            </button>
-          </div>
         </div>
       </div>
 

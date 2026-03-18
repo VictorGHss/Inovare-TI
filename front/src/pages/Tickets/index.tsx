@@ -4,6 +4,7 @@ import { PlusCircle, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getTickets, type Ticket } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
+import PageHero from '../../components/PageHero';
 import TicketsTable from '../Dashboard/TicketsTable';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -85,19 +86,20 @@ export default function Tickets() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">
-          {isAdmin ? 'Todos os Chamados' : 'Meus Chamados'}
-        </h1>
-        <button
-          onClick={() => navigate('/tickets/new')}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          Novo Chamado
-        </button>
-      </div>
+      <PageHero
+        eyebrow="Atendimento"
+        title={isAdmin ? 'Todos os Chamados' : 'Meus Chamados'}
+        description="Gerencie solicitações, refine a busca com filtros avançados e acompanhe o andamento dos tickets."
+        actions={(
+          <button
+            onClick={() => navigate('/tickets/new')}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            Novo Chamado
+          </button>
+        )}
+      />
 
       {/* Tabs de filtro por status */}
       <div className="mb-6 flex flex-wrap gap-2">

@@ -21,6 +21,7 @@ import ReceivedItemsCard from '../../components/ReceivedItemsCard';
 import UserTicketHistory from '../../components/UserTicketHistory';
 import QrScannerLauncher from '../../components/QrScannerLauncher';
 import ReportHubModal from '../../components/ReportHubModal';
+import PageHero from '../../components/PageHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { VIBRANT_CHART_COLORS } from '../../lib/chartPalette';
 
@@ -93,31 +94,32 @@ export default function Dashboard() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">
-          {isAdmin ? 'Visão Geral de Chamados' : 'Dashboard'}
-        </h1>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate('/tickets/new')}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <PlusCircle size={17} />
-            Novo Chamado
-          </button>
-
-          {isAdmin && (
+      <PageHero
+        eyebrow="Painel"
+        title={isAdmin ? 'Visão Geral de Chamados' : 'Dashboard'}
+        description="Acompanhe métricas operacionais, tickets e indicadores para tomada de decisão mais rápida."
+        actions={(
+          <>
             <button
-              onClick={() => setReportHubOpen(true)}
-              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              onClick={() => navigate('/tickets/new')}
+              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
-              <Download size={17} />
-              Central de Relatórios
+              <PlusCircle size={17} />
+              Novo Chamado
             </button>
-          )}
-        </div>
-      </div>
+
+            {isAdmin && (
+              <button
+                onClick={() => setReportHubOpen(true)}
+                className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              >
+                <Download size={17} />
+                Central de Relatórios
+              </button>
+            )}
+          </>
+        )}
+      />
 
       <div className="mb-8">
         {loading ? (

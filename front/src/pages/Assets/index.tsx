@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
 import QrScannerLauncher from '../../components/QrScannerLauncher';
+import PageHero from '../../components/PageHero';
 import {
   downloadAssetInvoice,
   getAssetCategories,
@@ -167,28 +168,29 @@ export default function Assets() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-6 gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Ativos (CMDB)</h1>
-          <p className="text-sm text-slate-400 mt-1">Gestão de equipamentos permanentes vinculados aos usuários</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCsv}
-            className="flex items-center gap-2 border border-brand-primary/20 bg-brand-secondary text-brand-primary hover:bg-brand-secondary/70 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <Download size={17} />
-            Exportar (CSV)
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <PlusCircle size={17} />
-            Novo Equipamento
-          </button>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="CMDB"
+        title="Ativos (CMDB)"
+        description="Gestão de equipamentos permanentes, vínculos por usuário e rastreabilidade patrimonial da operação."
+        actions={(
+          <>
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 border border-brand-primary/20 bg-brand-secondary text-brand-primary hover:bg-brand-secondary/70 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <Download size={17} />
+              Exportar (CSV)
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <PlusCircle size={17} />
+              Novo Equipamento
+            </button>
+          </>
+        )}
+      />
 
       <section className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex flex-col lg:flex-row lg:items-end gap-3">

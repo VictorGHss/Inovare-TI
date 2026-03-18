@@ -13,6 +13,7 @@ import {
   type User,
 } from '../../services/api';
 import SkeletonTable from '../../components/SkeletonTable';
+import PageHero from '../../components/PageHero';
 
 const ACTION_LABEL_OVERRIDES: Partial<Record<AuditAction, string>> = {
   VAULT_LOGIN_SUCCESS: 'Cofre: Login 2FA com Sucesso',
@@ -235,16 +236,12 @@ export default function SystemLogs() {
 
   return (
     <div className="p-4 sm:p-6 w-full max-w-full">
-      {/* Cabeçalho */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-brand-secondary rounded-xl">
-          <Shield size={24} className="text-brand-primary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Logs do Sistema</h1>
-          <p className="text-sm text-slate-500">Trilha de auditoria — ações sensíveis registradas</p>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Auditoria"
+        icon={<Shield size={14} />}
+        title="Logs do Sistema"
+        description="Trilha de auditoria com eventos sensíveis do sistema para governança, rastreabilidade e segurança operacional."
+      />
 
       {/* Filtros */}
       <form

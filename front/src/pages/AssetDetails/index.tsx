@@ -13,6 +13,7 @@ import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
+import PageHero from '../../components/PageHero';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
@@ -108,22 +109,21 @@ export default function AssetDetails() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Navegação de retorno */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate('/assets')}
-          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
-          aria-label="Voltar"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <p className="text-xs text-slate-400">Detalhes do Ativo</p>
-          <h1 className="text-base font-bold text-slate-800 leading-tight">
-            {asset.name}
-          </h1>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="CMDB"
+        title={asset.name}
+        description="Consulte informações do ativo, histórico de manutenção, transferência e anexos fiscais."
+        actions={(
+          <button
+            onClick={() => navigate('/assets')}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </button>
+        )}
+      />
 
       {/* Header do ativo */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">

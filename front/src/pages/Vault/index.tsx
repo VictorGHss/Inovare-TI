@@ -19,6 +19,7 @@ import VaultCreateModal from './components/VaultCreateModal';
 import VaultEditModal from './components/VaultEditModal';
 import VaultItemCard from './components/VaultItemCard';
 import VaultSecurityGuard from './components/VaultSecurityGuard';
+import PageHero from '../../components/PageHero';
 
 type AttachmentPreviewState = {
   itemId: string;
@@ -202,21 +203,20 @@ export default function Vault() {
 
   return (
     <main className="relative w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <section className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Cofre de Senhas e Documentos</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Gerencie credenciais, documentos e notas sensíveis com proteção 2FA.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          Novo Item
-        </button>
-      </section>
+      <PageHero
+        eyebrow="Segurança"
+        title="Cofre de Senhas e Documentos"
+        description="Gerencie credenciais, documentos e notas sensíveis com proteção de acesso e validação 2FA."
+        actions={(
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            Novo Item
+          </button>
+        )}
+      />
 
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         {loading ? (

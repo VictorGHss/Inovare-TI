@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Key, Lock, ShieldCheck, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { changePassword, generate2FA, verify2FA } from '../../services/api';
+import PageHero from '../../components/PageHero';
 
 export default function Profile() {
   const { user, isTwoFactorVerified, updateAuthToken } = useAuth();
@@ -101,10 +102,11 @@ export default function Profile() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Meu Perfil</h1>
-        <p className="text-sm text-slate-500 mt-1">Gerencie suas informações e segurança da conta.</p>
-      </div>
+      <PageHero
+        eyebrow="Conta"
+        title="Meu Perfil"
+        description="Gerencie suas informações pessoais, senha e autenticação em dois fatores da sua conta."
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">

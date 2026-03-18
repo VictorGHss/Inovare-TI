@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { PlusCircle, Building2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSectors, createSector, type Sector } from '../../services/api';
+import PageHero from '../../components/PageHero';
 
 export default function Sectors() {
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -51,17 +52,20 @@ export default function Sectors() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Setores</h1>
-        <button
-          onClick={() => setShowForm((prev) => !prev)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          <PlusCircle size={17} />
-          {showForm ? 'Cancelar' : 'Novo Setor'}
-        </button>
-      </div>
+      <PageHero
+        eyebrow="Organização"
+        title="Setores"
+        description="Estruture departamentos e mantenha a segmentação organizacional usada em chamados e permissões."
+        actions={(
+          <button
+            onClick={() => setShowForm((prev) => !prev)}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+          >
+            <PlusCircle size={17} />
+            {showForm ? 'Cancelar' : 'Novo Setor'}
+          </button>
+        )}
+      />
 
       {/* Formulário de cadastro */}
       {showForm && (

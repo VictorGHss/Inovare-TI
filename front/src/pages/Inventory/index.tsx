@@ -5,6 +5,7 @@ import { PlusCircle, Package, PackagePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItems, type Item } from '../../services/api';
 import AddBatchModal from './AddBatchModal';
+import PageHero from '../../components/PageHero';
 
 export default function Inventory() {
   const navigate = useNavigate();
@@ -49,26 +50,29 @@ export default function Inventory() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cabeçalho da seção */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Inventário</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={openBatchModal}
-            className="flex items-center gap-2 bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <Package size={17} />
-            Entrada de Lote
-          </button>
-          <button
-            onClick={() => navigate('/inventory/new')}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <PlusCircle size={17} />
-            Novo Item
-          </button>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Suprimentos"
+        title="Inventário"
+        description="Controle de estoque, entradas de lote e disponibilidade de itens para atendimento dos chamados."
+        actions={(
+          <>
+            <button
+              onClick={openBatchModal}
+              className="flex items-center gap-2 bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <Package size={17} />
+              Entrada de Lote
+            </button>
+            <button
+              onClick={() => navigate('/inventory/new')}
+              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            >
+              <PlusCircle size={17} />
+              Novo Item
+            </button>
+          </>
+        )}
+      />
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">

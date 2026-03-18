@@ -19,6 +19,7 @@ import {
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
 import TicketComments from '../../components/TicketComments';
+import PageHero from '../../components/PageHero';
 import ResolveTicketModal from './ResolveTicketModal';
 
 function formatDate(iso: string | null | undefined): string {
@@ -175,21 +176,21 @@ export default function TicketDetails() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate('/tickets')}
-          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
-          aria-label="Voltar"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <p className="text-xs text-slate-400">Detalhes do Chamado</p>
-          <h1 className="text-base font-bold text-slate-800 leading-tight">
-            #{ticket.id.slice(0, 8).toUpperCase()}
-          </h1>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Atendimento"
+        title={`Chamado #${ticket.id.slice(0, 8).toUpperCase()}`}
+        description="Visualize detalhes completos, histórico, comentários e ações disponíveis para este atendimento."
+        actions={(
+          <button
+            onClick={() => navigate('/tickets')}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </button>
+        )}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 flex flex-col gap-5">

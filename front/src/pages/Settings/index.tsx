@@ -15,6 +15,7 @@ import {
   type SystemSetting,
   type UpdateSystemSettingsPayload,
 } from '../../services/api';
+import PageHero from '../../components/PageHero';
 
 type TabType = 'global' | 'preferences';
 
@@ -217,10 +218,11 @@ export default function Settings() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      <section className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Configurações</h1>
-        <p className="text-sm text-slate-400 mt-1">Customize suas preferências e configurações do sistema.</p>
-      </section>
+      <PageHero
+        eyebrow="Sistema"
+        title="Configurações"
+        description="Ajuste parâmetros globais e personalize preferências para adaptar o ambiente ao fluxo da equipe."
+      />
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

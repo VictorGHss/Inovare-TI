@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import TicketForm from './TicketForm';
 import TutorialAside from './TutorialAside';
 import type { TicketType } from './TicketTypeToggle';
+import PageHero from '../../components/PageHero';
 
 export default function NewTicket() {
   const navigate = useNavigate();
@@ -13,22 +14,21 @@ export default function NewTicket() {
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Navegação de retorno */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
-          aria-label="Voltar"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h1 className="text-base font-bold text-slate-800">Novo Chamado</h1>
-          <p className="text-xs text-slate-400">
-            Preencha os campos abaixo para abrir um chamado
-          </p>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Atendimento"
+        title="Novo Chamado"
+        description="Preencha os campos abaixo para registrar o chamado e iniciar o fluxo de atendimento."
+        actions={(
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </button>
+        )}
+      />
 
       {/* Grid 12 colunas: formulário + tutorial */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

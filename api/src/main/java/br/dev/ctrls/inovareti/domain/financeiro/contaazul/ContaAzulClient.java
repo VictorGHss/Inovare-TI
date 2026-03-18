@@ -184,21 +184,26 @@ public class ContaAzulClient {
     }
 
     private String executeJsonGetWithRefresh(String uri) {
-        String token = contaAzulTokenService.getValidAccessToken();
+        ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
         try {
             return executeJsonGet(uri, token);
         } catch (HttpClientErrorException.Unauthorized ex) {
             log.warn("Token expirado ao consultar vendas. Tentando refresh.");
-            String refreshedToken = contaAzulTokenService.forceRefresh();
+            ContaAzulOAuthToken refreshedToken = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             return executeJsonGet(uri, refreshedToken);
         }
     }
 
-    private String executeJsonGet(String uri, String token) {
+    private String executeJsonGet(String uri, ContaAzulOAuthToken token) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
+        headers.add("Authorization", "Bearer " + token.getAccessToken());
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        log.debug(
+                "Enviando requisição para {} com Token iniciado em {}...",
+                uri,
+                sanitizeTokenPrefix(token.getAccessToken()));
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(
@@ -293,7 +298,28 @@ public class ContaAzulClient {
             return root.get("content");
         }
 
+        if (root.has("content") && root.get("content").isObject()) {
+            JsonNode content = root.get("content");
+
+            if (content.has("items") && content.get("items").isArray()) {
+                return content.get("items");
+            }
+
+            if (content.has("data") && content.get("data").isArray()) {
+                return content.get("data");
+            }
+        }
+
         return objectMapper.createArrayNode();
+    }
+
+    private String sanitizeTokenPrefix(String accessToken) {
+        if (!StringUtils.hasText(accessToken)) {
+            return "n/a";
+        }
+
+        String normalized = accessToken.trim();
+        return normalized.length() <= 4 ? normalized : normalized.substring(0, 4);
     }
 
     private Optional<String> parseCustomerIdByEmail(String jsonPayload, String email) {

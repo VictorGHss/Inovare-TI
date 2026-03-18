@@ -73,17 +73,23 @@ public class ContaAzulTokenService {
     }
 
     public String getValidAccessToken() {
+        ContaAzulOAuthToken token = getValidTokenFromDatabase();
+        return token.getAccessToken();
+    }
+
+    public ContaAzulOAuthToken getValidTokenFromDatabase() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
                 .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
 
         if (isExpiringSoon(token)) {
             token = refreshAndPersist(token);
+            token = reloadTokenFromDatabase(token.getId());
         }
 
         long minutesLeft = Duration.between(LocalDateTime.now(), token.getExpiresAt()).toMinutes();
         log.info("Token válido por mais {} minutos", minutesLeft);
 
-        return token.getAccessToken();
+        return token;
     }
 
     public String forceRefresh() {
@@ -95,6 +101,18 @@ public class ContaAzulTokenService {
         log.info("Token renovado manualmente. Token válido por mais {} minutos", minutesLeft);
 
         return refreshed.getAccessToken();
+    }
+
+    public ContaAzulOAuthToken forceRefreshAndReloadFromDatabase() {
+        ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
+                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+
+        ContaAzulOAuthToken refreshed = refreshAndPersist(token);
+        ContaAzulOAuthToken reloaded = reloadTokenFromDatabase(refreshed.getId());
+        long minutesLeft = Duration.between(LocalDateTime.now(), reloaded.getExpiresAt()).toMinutes();
+        log.info("Token renovado manualmente com recarga no banco. Token válido por mais {} minutos", minutesLeft);
+
+        return reloaded;
     }
 
     public boolean hasAuthorizedToken() {
@@ -237,6 +255,12 @@ public class ContaAzulTokenService {
         }
 
         return expiresAt.isBefore(LocalDateTime.now().plusMinutes(5));
+    }
+
+    private ContaAzulOAuthToken reloadTokenFromDatabase(UUID tokenId) {
+        return tokenRepository.findById(tokenId)
+                .or(() -> tokenRepository.findTopByOrderByUpdatedAtDesc())
+                .orElseThrow(() -> new IllegalStateException("ContaAzul token not found after refresh operation."));
     }
 
     private record ContaAzulTokenResponse(

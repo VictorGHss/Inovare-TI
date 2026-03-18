@@ -92,10 +92,15 @@ public class FinanceiroController {
     @PostMapping("/automacao/executar-agora")
     public ResponseEntity<Map<String, String>> executeAutomationNow() {
         log.info("Executando automação financeira manualmente via endpoint.");
+        long start = System.currentTimeMillis();
         contaAzulAutomationService.processAcquittedSales();
+        long durationMs = System.currentTimeMillis() - start;
+        log.info("Automação financeira manual concluída em {} ms.", durationMs);
+
         return ResponseEntity.ok(Map.of(
                 "status", "ok",
-                "message", "Automação executada manualmente com sucesso."));
+            "message", "Automação executada manualmente com sucesso após conclusão do processamento.",
+            "durationMs", String.valueOf(durationMs)));
     }
 
     @GetMapping("/trigger-test-receipt")

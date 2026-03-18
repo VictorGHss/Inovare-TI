@@ -21,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,6 +35,7 @@ public class ContaAzulFinancialSummaryService {
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final ProcessedSaleRepository processedSaleRepository;
 
     @Value("${app.contaazul.payments-url}")
     private String paymentsUrl;
@@ -44,8 +46,9 @@ public class ContaAzulFinancialSummaryService {
         long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
         long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
         long balanceCents = totalPaidCents;
+        long syncedReceiptsCount = processedSaleRepository.count();
 
-        return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL");
+        return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount);
     }
 
     private long fetchTotalByStatus(String accessToken, String status) {
@@ -202,6 +205,7 @@ public class ContaAzulFinancialSummaryService {
             long balanceCents,
             long totalPendingCents,
             long totalPaidCents,
-            String currency) {
+            String currency,
+            long syncedReceiptsCount) {
     }
 }

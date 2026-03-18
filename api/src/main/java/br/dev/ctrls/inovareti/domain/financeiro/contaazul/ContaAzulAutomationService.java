@@ -121,6 +121,8 @@ public class ContaAzulAutomationService {
             return;
         }
 
+        log.info("Automação ContaAzul: consultando endpoint de vendas para obter saleId e baixar PDF (não usa endpoint de resumo financeiro).");
+
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales();

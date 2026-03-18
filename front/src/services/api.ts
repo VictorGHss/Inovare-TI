@@ -573,6 +573,7 @@ export interface FinancialSummaryDTO {
   totalPendingCents: number;
   totalPaidCents: number;
   currency: string;
+  syncedReceiptsCount: number;
 }
 
 export interface AuthResponseDTO {
@@ -689,6 +690,10 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
 
     throw error;
   }
+}
+
+export async function executeFinanceAutomationNow(): Promise<void> {
+  await api.post('/api/financeiro/automacao/executar-agora');
 }
 
 export async function getDoctorMappings(): Promise<DoctorMapping[]> {

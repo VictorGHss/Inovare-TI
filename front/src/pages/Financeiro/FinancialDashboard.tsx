@@ -6,12 +6,14 @@ import {
   DollarSign,
   Landmark,
   Link2,
+  RefreshCw,
   Wallet,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api, {
   getDoctorMappings,
+  executeFinanceAutomationNow,
   getFinanceAlerts,
   getFinanceConnectionStatus,
   getFinanceReceipts,
@@ -63,6 +65,7 @@ export default function FinancialDashboard() {
   const [doctorMappings, setDoctorMappings] = useState<DoctorMapping[]>([]);
   const [loadingDoctorMappings, setLoadingDoctorMappings] = useState(false);
   const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
+  const [syncingReceipts, setSyncingReceipts] = useState(false);
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
   const unresolvedAlerts = useMemo(
@@ -79,31 +82,35 @@ export default function FinancialDashboard() {
     }
   }, [searchParams, setSearchParams]);
 
+  async function reloadDashboardData() {
+    const status = await getFinanceConnectionStatus();
+    setConnectionStatus(status);
+
+    if (!status.authorized) {
+      setSummary(null);
+      setReceipts([]);
+      setAlerts([]);
+      setDoctorMappings([]);
+      return;
+    }
+
+    const [summaryData, receiptsData, alertsData] = await Promise.all([
+      getFinancialSummary(),
+      getFinanceReceipts(),
+      getFinanceAlerts(),
+    ]);
+
+    setSummary(summaryData);
+    setReceipts(receiptsData);
+    setAlerts(alertsData);
+    await reloadDoctorMappings();
+  }
+
   useEffect(() => {
     async function loadDashboard() {
       try {
         setLoading(true);
-        const status = await getFinanceConnectionStatus();
-        setConnectionStatus(status);
-
-        if (!status.authorized) {
-          setSummary(null);
-          setReceipts([]);
-          setAlerts([]);
-          setDoctorMappings([]);
-          return;
-        }
-
-        const [summaryData, receiptsData, alertsData] = await Promise.all([
-          getFinancialSummary(),
-          getFinanceReceipts(),
-          getFinanceAlerts(),
-        ]);
-
-        setSummary(summaryData);
-        setReceipts(receiptsData);
-        setAlerts(alertsData);
-        await reloadDoctorMappings();
+        await reloadDashboardData();
       } catch {
         toast.error('Não foi possível carregar o módulo financeiro.');
       } finally {
@@ -123,6 +130,19 @@ export default function FinancialDashboard() {
       toast.error('Falha ao enviar recibo de teste.');
     } finally {
       setTriggeringTestReceipt(false);
+    }
+  }
+
+  async function handleSyncReceiptsNow() {
+    try {
+      setSyncingReceipts(true);
+      await executeFinanceAutomationNow();
+      await reloadDashboardData();
+      toast.success('Sincronização executada com sucesso.');
+    } catch {
+      toast.error('Falha ao executar sincronização manual de recibos.');
+    } finally {
+      setSyncingReceipts(false);
     }
   }
 
@@ -249,6 +269,18 @@ export default function FinancialDashboard() {
         <button
           type="button"
           onClick={() => {
+            void handleSyncReceiptsNow();
+          }}
+          disabled={syncingReceipts}
+          className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {syncingReceipts ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+          {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
             void handleTriggerTestReceipt();
           }}
           disabled={triggeringTestReceipt}
@@ -316,7 +348,7 @@ export default function FinancialDashboard() {
             </div>
             <div className="rounded-2xl border border-slate-200 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Recibos sincronizados</p>
-              <strong className="mt-2 block text-lg font-semibold text-slate-900">{receipts.length}</strong>
+              <strong className="mt-2 block text-lg font-semibold text-slate-900">{summary?.syncedReceiptsCount ?? receipts.length}</strong>
             </div>
             <div className="rounded-2xl border border-slate-200 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Alertas em aberto</p>

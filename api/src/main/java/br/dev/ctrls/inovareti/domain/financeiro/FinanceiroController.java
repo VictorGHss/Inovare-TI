@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
@@ -30,6 +31,7 @@ public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
     private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
+    private final ContaAzulAutomationService contaAzulAutomationService;
     private final FinanceEmailService receiptService;
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -82,7 +84,18 @@ public class FinanceiroController {
                 summary.balanceCents(),
                 summary.totalPendingCents(),
                 summary.totalPaidCents(),
-                summary.currency()));
+                summary.currency(),
+                summary.syncedReceiptsCount()));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/automacao/executar-agora")
+    public ResponseEntity<Map<String, String>> executeAutomationNow() {
+        log.info("Executando automação financeira manualmente via endpoint.");
+        contaAzulAutomationService.processAcquittedSales();
+        return ResponseEntity.ok(Map.of(
+                "status", "ok",
+                "message", "Automação executada manualmente com sucesso."));
     }
 
     @GetMapping("/trigger-test-receipt")
@@ -170,6 +183,7 @@ public class FinanceiroController {
             long balanceCents,
             long totalPendingCents,
             long totalPaidCents,
-            String currency) {
+            String currency,
+            long syncedReceiptsCount) {
     }
 }

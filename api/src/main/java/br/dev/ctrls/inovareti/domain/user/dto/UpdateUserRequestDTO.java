@@ -31,6 +31,9 @@ public record UpdateUserRequestDTO(
         @NotNull(message = "Sector is required.")
         UUID sectorId,
 
+        @Size(max = 120, message = "Conta Azul ID must have at most 120 characters.")
+        String contaAzulId,
+
         @JsonProperty("receives_it_notifications")
         Boolean receivesItNotifications
 ) {}

@@ -13,9 +13,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -29,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DoctorMappingController {
 
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
+    private final UserRepository userRepository;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
@@ -44,21 +48,30 @@ public class DoctorMappingController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<DoctorMappingResponseDTO> createMapping(@RequestBody @Valid UpsertDoctorMappingRequest request) {
-        String doctorName = request.doctorName().trim();
         String customerUuid = request.contaAzulCustomerUuid().trim();
-        String doctorEmail = request.doctorEmail().trim();
+        String doctorName = normalizeNullable(request.doctorName());
+        String doctorEmail = normalizeNullable(request.doctorEmail());
 
         if (doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuid).isPresent()) {
             throw new BadRequestException("Já existe mapeamento para o UUID informado.");
         }
 
+        User linkedUser = resolveLinkedUser(request.userId());
+        if (linkedUser == null && !StringUtils.hasText(doctorEmail)) {
+            throw new BadRequestException("Informe um usuário vinculado ou um e-mail de fallback.");
+        }
+
         DoctorEmailMapping saved = doctorEmailMappingRepository.save(DoctorEmailMapping.builder()
-            .doctorName(doctorName)
+                .user(linkedUser)
+                .doctorName(doctorName)
                 .contaAzulCustomerUuid(customerUuid)
                 .doctorEmail(doctorEmail)
                 .build());
 
-        log.info("Mapeamento de médico criado com sucesso. customerUuid={}, email={}", customerUuid, doctorEmail);
+        log.info("Mapeamento de médico criado com sucesso. customerUuid={}, userId={}, emailFallback={}",
+                customerUuid,
+                linkedUser != null ? linkedUser.getId() : null,
+                doctorEmail);
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -75,27 +88,55 @@ public class DoctorMappingController {
     }
 
     private DoctorMappingResponseDTO toResponse(DoctorEmailMapping mapping) {
+        String resolvedDoctorName = StringUtils.hasText(mapping.getDoctorName())
+                ? mapping.getDoctorName()
+                : mapping.getUser() != null ? mapping.getUser().getName() : null;
+
+        String resolvedDoctorEmail = StringUtils.hasText(mapping.getDoctorEmail())
+                ? mapping.getDoctorEmail()
+                : mapping.getUser() != null ? mapping.getUser().getEmail() : null;
+
         return new DoctorMappingResponseDTO(
                 mapping.getId(),
-            mapping.getDoctorName(),
+                mapping.getUser() != null ? mapping.getUser().getId() : null,
+                mapping.getUser() != null ? mapping.getUser().getContaAzulId() : null,
+                resolvedDoctorName,
                 mapping.getContaAzulCustomerUuid(),
-                mapping.getDoctorEmail(),
+                resolvedDoctorEmail,
                 mapping.getCreatedAt(),
                 mapping.getUpdatedAt());
     }
 
+    private User resolveLinkedUser(UUID userId) {
+        if (userId == null) {
+            return null;
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado para o userId informado."));
+    }
+
+    private String normalizeNullable(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return value.trim();
+    }
+
     public record UpsertDoctorMappingRequest(
-            @NotBlank(message = "O nome do médico é obrigatório.")
+            UUID userId,
             String doctorName,
             @NotBlank(message = "O UUID do cliente da Conta Azul é obrigatório.")
             String contaAzulCustomerUuid,
-            @NotBlank(message = "O e-mail do médico é obrigatório.")
             @Email(message = "Informe um e-mail válido para o médico.")
             String doctorEmail) {
     }
 
     public record DoctorMappingResponseDTO(
             UUID id,
+            UUID userId,
+            String userContaAzulId,
             String doctorName,
             String contaAzulCustomerUuid,
             String doctorEmail,

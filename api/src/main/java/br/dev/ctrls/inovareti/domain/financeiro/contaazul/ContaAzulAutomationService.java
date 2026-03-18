@@ -92,19 +92,30 @@ public class ContaAzulAutomationService {
                         .findByContaAzulCustomerUuid(sale.customerUuid())
                         .orElse(null);
 
-                if (mapping == null || !StringUtils.hasText(mapping.getDoctorEmail())) {
+                if (mapping == null) {
                     skippedMapping++;
-                    log.warn("Sem mapeamento de e-mail para customer UUID {}. Venda {} ignorada.",
+                    log.warn("Sem mapeamento para customer UUID {}. Venda {} ignorada.",
                             sale.customerUuid(),
                             sale.saleId());
                     continue;
                 }
 
+                String recipientEmail = resolveRecipientEmail(mapping);
+                if (!StringUtils.hasText(recipientEmail)) {
+                    skippedMapping++;
+                    log.warn("Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Venda {} ignorada.",
+                        sale.customerUuid(),
+                        sale.saleId());
+                    continue;
+                }
+
+                String doctorName = resolveDoctorName(mapping, sale.customerName());
+
                 byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
                 financeEmailService.sendReceiptEmailWithPdf(
-                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional",
-                        mapping.getDoctorEmail(),
-                        buildEmailBody(sale),
+                    doctorName,
+                    recipientEmail,
+                    buildEmailBody(sale, doctorName),
                         pdfBytes,
                         "recibo-venda-" + sale.saleId() + ".pdf");
 
@@ -137,8 +148,27 @@ public class ContaAzulAutomationService {
                 failures);
     }
 
-    private String buildEmailBody(ContaAzulClient.SaleItem sale) {
-        String doctorName = StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional";
+    private String resolveRecipientEmail(DoctorEmailMapping mapping) {
+        if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getEmail())) {
+            return mapping.getUser().getEmail();
+        }
+
+        return mapping.getDoctorEmail();
+    }
+
+    private String resolveDoctorName(DoctorEmailMapping mapping, String customerName) {
+        if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getName())) {
+            return mapping.getUser().getName();
+        }
+
+        if (StringUtils.hasText(mapping.getDoctorName())) {
+            return mapping.getDoctorName();
+        }
+
+        return StringUtils.hasText(customerName) ? customerName : "Profissional";
+    }
+
+    private String buildEmailBody(ContaAzulClient.SaleItem sale, String doctorName) {
         return "Olá " + doctorName
                 + ",\n\nSeu recibo financeiro referente à venda "
                 + sale.saleId()

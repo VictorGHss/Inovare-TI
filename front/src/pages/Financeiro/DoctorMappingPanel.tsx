@@ -11,7 +11,9 @@ interface DoctorMappingPanelProps {
 }
 
 function ordenarPorNomeMedico(mapeamentos: DoctorMapping[]): DoctorMapping[] {
-  return [...mapeamentos].sort((a, b) => a.doctorName.localeCompare(b.doctorName, 'pt-BR'));
+  return [...mapeamentos].sort((a, b) =>
+    (a.doctorName ?? 'Sem nome').localeCompare(b.doctorName ?? 'Sem nome', 'pt-BR'),
+  );
 }
 
 /**
@@ -90,7 +92,7 @@ export default function DoctorMappingPanel({
                   <td className="px-4 py-3 text-slate-800">
                     <div className="flex items-center gap-2">
                       <UserRound size={15} className="text-slate-400" />
-                      <span className="font-medium">{mapeamento.doctorName}</span>
+                      <span className="font-medium">{mapeamento.doctorName ?? 'Sem nome informado'}</span>
                     </div>
                   </td>
 
@@ -103,7 +105,7 @@ export default function DoctorMappingPanel({
                   <td className="px-4 py-3 text-slate-800">
                     <div className="flex items-center gap-2">
                       <Mail size={15} className="text-slate-400" />
-                      <span>{mapeamento.doctorEmail}</span>
+                      <span>{mapeamento.doctorEmail ?? 'Sem e-mail de fallback'}</span>
                     </div>
                   </td>
 

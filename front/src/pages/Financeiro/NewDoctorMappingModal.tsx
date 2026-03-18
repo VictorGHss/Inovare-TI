@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Stethoscope, UserPlus2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createDoctorMapping } from '../../services/api';
+import { createDoctorMapping, getUsers, type User } from '../../services/api';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
@@ -13,6 +13,7 @@ interface NewDoctorMappingModalProps {
 }
 
 interface FormState {
+  userId: string;
   doctorName: string;
   contaAzulCustomerUuid: string;
   doctorEmail: string;
@@ -27,14 +28,44 @@ export default function NewDoctorMappingModal({
   onCreated,
 }: NewDoctorMappingModalProps) {
   const [formState, setFormState] = useState<FormState>({
+    userId: '',
     doctorName: '',
     contaAzulCustomerUuid: '',
     doctorEmail: '',
   });
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedUser = useMemo(
+    () => users.find((user) => user.id === formState.userId) ?? null,
+    [users, formState.userId],
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    void loadUsers();
+  }, [isOpen]);
+
+  async function loadUsers() {
+    try {
+      setLoadingUsers(true);
+      const data = await getUsers();
+      setUsers(data);
+    } catch {
+      toast.error('Não foi possível carregar os usuários para vínculo.');
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
 
   function resetForm() {
     setFormState({
+      userId: '',
       doctorName: '',
       contaAzulCustomerUuid: '',
       doctorEmail: '',
@@ -53,16 +84,22 @@ export default function NewDoctorMappingModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const userId = formState.userId.trim();
     const doctorName = formState.doctorName.trim();
     const contaAzulCustomerUuid = formState.contaAzulCustomerUuid.trim();
     const doctorEmail = formState.doctorEmail.trim();
 
-    if (!doctorName || !contaAzulCustomerUuid || !doctorEmail) {
-      toast.warn('Preencha todos os campos obrigatórios do mapeamento.');
+    if (!contaAzulCustomerUuid) {
+      toast.warn('Informe o UUID do cliente da Conta Azul.');
       return;
     }
 
-    if (!isValidEmail(doctorEmail)) {
+    if (!userId && !doctorEmail) {
+      toast.warn('Selecione um usuário ou informe um e-mail de destino no fallback.');
+      return;
+    }
+
+    if (doctorEmail && !isValidEmail(doctorEmail)) {
       toast.warn('Informe um e-mail válido para o médico.');
       return;
     }
@@ -70,9 +107,10 @@ export default function NewDoctorMappingModal({
     try {
       setSubmitting(true);
       await createDoctorMapping({
-        doctorName,
+        userId: userId || undefined,
+        doctorName: doctorName || undefined,
         contaAzulCustomerUuid,
-        doctorEmail,
+        doctorEmail: doctorEmail || undefined,
       });
 
       await onCreated();
@@ -111,6 +149,33 @@ export default function NewDoctorMappingModal({
         {/* Formulário de integração com o endpoint POST /api/financeiro/doctor-mappings */}
         <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4 p-6">
           <label className="block text-sm font-medium text-slate-500">
+            Usuário Vinculado (opcional)
+            <select
+              value={formState.userId}
+              onChange={(event) => {
+                const nextUserId = event.target.value;
+                const user = users.find((candidate) => candidate.id === nextUserId);
+
+                setFormState((prev) => ({
+                  ...prev,
+                  userId: nextUserId,
+                  doctorName: user?.name ?? prev.doctorName,
+                  doctorEmail: user?.email ?? prev.doctorEmail,
+                }));
+              }}
+              className={`${inputClassName} mt-1.5`}
+              disabled={submitting || loadingUsers}
+            >
+              <option value="">Sem vínculo (usar fallback manual)</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm font-medium text-slate-500">
             Nome do Médico
             <div className="relative mt-1.5">
               <Stethoscope size={16} className="pointer-events-none absolute left-3 top-3 text-slate-400" />
@@ -121,7 +186,7 @@ export default function NewDoctorMappingModal({
                 className={`${inputClassName} pl-9`}
                 placeholder="Ex.: Dr. João Silva"
                 maxLength={160}
-                required
+                disabled={submitting || Boolean(selectedUser)}
               />
             </div>
           </label>
@@ -148,7 +213,7 @@ export default function NewDoctorMappingModal({
               className={`${inputClassName} mt-1.5`}
               placeholder="medico@clinica.com"
               maxLength={255}
-              required
+              disabled={submitting || Boolean(selectedUser)}
             />
           </label>
 

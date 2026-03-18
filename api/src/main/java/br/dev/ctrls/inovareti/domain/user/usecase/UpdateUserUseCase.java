@@ -35,10 +35,21 @@ public class UpdateUserUseCase {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
 
+        String contaAzulId = request.contaAzulId() != null && !request.contaAzulId().isBlank()
+                ? request.contaAzulId().trim()
+                : null;
+
         // Verifica conflito de e-mail apenas em relação a outros usuários
         if (!user.getEmail().equalsIgnoreCase(request.email())
                 && userRepository.existsByEmail(request.email())) {
             throw new ConflictException("Email already in use: " + request.email());
+        }
+
+        if (contaAzulId != null) {
+            boolean contaAzulIdChanged = !contaAzulId.equals(user.getContaAzulId());
+            if (contaAzulIdChanged && userRepository.existsByContaAzulId(contaAzulId)) {
+                throw new ConflictException("Conta Azul ID already in use: " + contaAzulId);
+            }
         }
 
         Sector sector = sectorRepository.findById(request.sectorId())
@@ -51,9 +62,10 @@ public class UpdateUserUseCase {
         user.setEmail(request.email());
         user.setRole(request.role());
         user.setSector(sector);
-                if (request.receivesItNotifications() != null) {
-                        user.setReceivesItNotifications(request.receivesItNotifications());
-                }
+        user.setContaAzulId(contaAzulId);
+        if (request.receivesItNotifications() != null) {
+            user.setReceivesItNotifications(request.receivesItNotifications());
+        }
 
         UserResponseDTO result = UserResponseDTO.from(userRepository.save(user));
 

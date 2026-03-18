@@ -90,6 +90,10 @@ public class User implements UserDetails {
     @Column(name = "discord_user_id", length = 50)
     private String discordUserId;
 
+    /** ID do cliente correspondente na Conta Azul. Pode ser nulo. */
+    @Column(name = "contaazul_id", length = 120, unique = true)
+    private String contaAzulId;
+
     /** Controla se o usuário recebe notificações operacionais de TI. */
     @Column(name = "receives_it_notifications", nullable = false, columnDefinition = "boolean default true")
     @Builder.Default

@@ -1,6 +1,6 @@
 // Página de listagem e cadastro de usuários
 import { useEffect, useState } from 'react';
-import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff, CircleHelp } from 'lucide-react';
+import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   getUsers,
@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import BulkImportModal from './BulkImportModal';
 import EditUserModal from './EditUserModal';
+import NewUserModal from './NewUserModal';
 
 export default function Users() {
   const { user: authenticatedUser, invalidateTwoFactorVerification } = useAuth();
@@ -25,6 +26,7 @@ export default function Users() {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingContaAzul, setCheckingContaAzul] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -41,6 +43,7 @@ export default function Users() {
     password: '',
     role: 'USER',
     sectorId: '',
+    contaAzulId: '',
     receives_it_notifications: true,
   });
 
@@ -85,7 +88,10 @@ export default function Users() {
 
     setSubmitting(true);
     try {
-      await createUser(formData);
+      await createUser({
+        ...formData,
+        contaAzulId: formData.contaAzulId?.trim() || undefined,
+      });
       toast.success('Usuário cadastrado com sucesso!');
       setShowModal(false);
       resetForm();
@@ -104,6 +110,7 @@ export default function Users() {
       password: '',
       role: 'USER',
       sectorId: '',
+      contaAzulId: '',
       receives_it_notifications: true,
     });
   }
@@ -241,141 +248,20 @@ export default function Users() {
         )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-800">Novo Usuário</h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
-                className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <X size={18} className="text-slate-500" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome Completo</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={submitting}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">E-mail</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={submitting}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Senha</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={submitting}
-                  placeholder="Mínimo 8 caracteres"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Setor</label>
-                <select
-                  value={formData.sectorId}
-                  onChange={(e) => setFormData({ ...formData, sectorId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={submitting}
-                >
-                  <option value="">Selecione...</option>
-                  {sectors.map((sector) => (
-                    <option key={sector.id} value={sector.id}>
-                      {sector.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nível de Acesso</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value as CreateUserDto['role'] })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  disabled={submitting}
-                >
-                  <option value="USER">Usuário</option>
-                  <option value="TECHNICIAN">Técnico</option>
-                  <option value="ADMIN">Administrador</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-700">Receber notificações de chamados (Discord)</span>
-                  <span
-                    title="Essa opção controla o envio de alertas de chamados e SLA no Discord."
-                    aria-label="Informação sobre notificações no Discord"
-                    className="inline-flex text-slate-400"
-                  >
-                    <CircleHelp size={15} />
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={formData.receives_it_notifications}
-                  onClick={() =>
-                    setFormData({
-                      ...formData,
-                      receives_it_notifications: !formData.receives_it_notifications,
-                    })
-                  }
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                    formData.receives_it_notifications
-                      ? 'focus:ring-[#ffa751]'
-                      : 'bg-slate-300 focus:ring-slate-400'
-                  }`}
-                  style={{
-                    backgroundColor: formData.receives_it_notifications ? '#ffa751' : undefined,
-                  }}
-                  disabled={submitting}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                      formData.receives_it_notifications ? 'translate-x-5' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {submitting ? 'Salvando...' : 'Cadastrar Usuário'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <NewUserModal
+        isOpen={showModal}
+        submitting={submitting}
+        formData={formData}
+        sectors={sectors}
+        checkingContaAzul={checkingContaAzul}
+        onClose={() => {
+          setShowModal(false);
+          resetForm();
+        }}
+        onSubmit={handleSubmit}
+        onChange={setFormData}
+        onCheckContaAzul={setCheckingContaAzul}
+      />
 
       {selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">

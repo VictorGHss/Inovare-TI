@@ -42,6 +42,9 @@ public record UserRequestDTO(
         @Size(max = 50, message = "O Discord User ID deve ter no máximo 50 caracteres.")
         String discordUserId,
 
+        @Size(max = 120, message = "O ID da Conta Azul deve ter no máximo 120 caracteres.")
+        String contaAzulId,
+
         @JsonProperty("receives_it_notifications")
         Boolean receivesItNotifications
 

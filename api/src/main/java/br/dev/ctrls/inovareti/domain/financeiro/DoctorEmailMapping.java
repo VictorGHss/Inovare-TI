@@ -6,11 +6,15 @@ import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import br.dev.ctrls.inovareti.domain.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,10 +38,14 @@ public class DoctorEmailMapping {
     @Column(name = "contaazul_customer_uuid", nullable = false, length = 64, unique = true)
     private String contaAzulCustomerUuid;
 
-    @Column(name = "doctor_name", nullable = false, length = 160)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @Column(name = "doctor_name", length = 160)
     private String doctorName;
 
-    @Column(name = "doctor_email", nullable = false, length = 255)
+    @Column(name = "doctor_email", length = 255)
     private String doctorEmail;
 
     @CreationTimestamp

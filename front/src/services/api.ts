@@ -159,6 +159,7 @@ export interface User {
   sectorName: string;
   location: string;
   discordUserId: string | null;
+  contaAzulId: string | null;
   receives_it_notifications: boolean;
 }
 
@@ -184,6 +185,7 @@ export interface CreateUserDto {
   sectorId: string;
   location?: string;
   discordUserId?: string;
+  contaAzulId?: string;
   receives_it_notifications: boolean;
 }
 
@@ -192,6 +194,7 @@ export interface UpdateUserDto {
   email: string;
   role: 'ADMIN' | 'TECHNICIAN' | 'USER';
   sectorId: string;
+  contaAzulId?: string;
   receives_it_notifications: boolean;
 }
 
@@ -538,17 +541,25 @@ export interface FinanceConnectionStatus {
 
 export interface DoctorMapping {
   id: string;
-  doctorName: string;
+  userId: string | null;
+  userContaAzulId: string | null;
+  doctorName: string | null;
   contaAzulCustomerUuid: string;
-  doctorEmail: string;
+  doctorEmail: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateDoctorMappingDTO {
-  doctorName: string;
+  userId?: string;
+  doctorName?: string;
   contaAzulCustomerUuid: string;
-  doctorEmail: string;
+  doctorEmail?: string;
+}
+
+export interface ContaAzulCustomerCheckResponse {
+  email: string;
+  customerId: string | null;
 }
 
 export interface FinancialSummaryDTO {
@@ -686,6 +697,11 @@ export async function createDoctorMapping(payload: CreateDoctorMappingDTO): Prom
 
 export async function deleteDoctorMapping(id: string): Promise<void> {
   await api.delete(`/api/financeiro/doctor-mappings/${id}`);
+}
+
+export async function checkContaAzulCustomerByEmail(email: string): Promise<ContaAzulCustomerCheckResponse> {
+  const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/api/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
+  return data;
 }
 
 export async function resetInitialPassword(

@@ -44,9 +44,19 @@ public class CreateUserUseCase {
      */
     @Transactional
     public UserResponseDTO execute(UserRequestDTO request) {
+        String contaAzulId = request.contaAzulId() != null && !request.contaAzulId().isBlank()
+                ? request.contaAzulId().trim()
+                : null;
+
         if (userRepository.existsByEmail(request.email())) {
             throw new ConflictException(
                     "Já existe um usuário com o e-mail: " + request.email()
+            );
+        }
+
+        if (contaAzulId != null && userRepository.existsByContaAzulId(contaAzulId)) {
+            throw new ConflictException(
+                    "Já existe um usuário com o ID Conta Azul: " + contaAzulId
             );
         }
 
@@ -65,6 +75,7 @@ public class CreateUserUseCase {
                         ? request.location() 
                         : "Não especificado")
                 .discordUserId(request.discordUserId())
+                .contaAzulId(contaAzulId)
                 .receivesItNotifications(
                         request.receivesItNotifications() == null || request.receivesItNotifications())
                 .build();

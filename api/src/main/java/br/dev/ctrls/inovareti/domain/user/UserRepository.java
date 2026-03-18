@@ -20,6 +20,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByContaAzulId(String contaAzulId);
+
     List<User> findAllBySector(Sector sector);
 
     List<User> findAllByRole(UserRole role);

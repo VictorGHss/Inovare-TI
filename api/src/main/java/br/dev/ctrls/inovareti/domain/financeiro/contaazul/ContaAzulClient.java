@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +41,9 @@ public class ContaAzulClient {
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:}")
     private String salePdfV1UrlTemplate;
+
+    @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
+    private String customersV1Url;
 
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(salesV2Url) && StringUtils.hasText(salePdfV1UrlTemplate);
@@ -88,6 +93,27 @@ public class ContaAzulClient {
             log.warn("Token expirado ao baixar PDF da venda {}. Tentando refresh.", saleId);
             String refreshedToken = contaAzulTokenService.forceRefresh();
             return executePdfGet(uri, refreshedToken);
+        }
+    }
+
+    /**
+     * Busca o ID do cliente na Conta Azul por e-mail.
+     */
+    public Optional<String> findCustomerIdByEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return Optional.empty();
+        }
+
+        String uri = UriComponentsBuilder.fromUriString(customersV1Url)
+                .queryParam("email", email.trim())
+                .toUriString();
+
+        try {
+            String payload = executeJsonGetWithRefresh(uri);
+            return parseCustomerIdByEmail(payload, email);
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao consultar cliente Conta Azul por e-mail {}: {}", email, ex.getMessage());
+            return Optional.empty();
         }
     }
 
@@ -193,6 +219,42 @@ public class ContaAzulClient {
         }
 
         return objectMapper.createArrayNode();
+    }
+
+    private Optional<String> parseCustomerIdByEmail(String jsonPayload, String email) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return Optional.empty();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+
+            if (root.isObject()) {
+                String directId = readText(root, "id", "uuid", "data.id", "data.uuid");
+                if (StringUtils.hasText(directId)) {
+                    return Optional.of(directId);
+                }
+            }
+
+            JsonNode entries = resolveArrayNode(root);
+            if (entries == null || !entries.isArray()) {
+                return Optional.empty();
+            }
+
+            for (JsonNode node : entries) {
+                String nodeEmail = readText(node, "email", "emails.0.address", "emails.0.email");
+                if (StringUtils.hasText(nodeEmail) && email.equalsIgnoreCase(nodeEmail)) {
+                    String customerId = readText(node, "id", "uuid", "customer.id", "customer.uuid");
+                    if (StringUtils.hasText(customerId)) {
+                        return Optional.of(customerId);
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            log.warn("Falha ao parsear retorno de cliente Conta Azul por e-mail {}.", email, ex);
+        }
+
+        return Optional.empty();
     }
 
     private String readText(JsonNode node, String... paths) {

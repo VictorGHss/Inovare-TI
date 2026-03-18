@@ -75,11 +75,13 @@ CREATE TABLE users (
     sector_id            uuid         NOT NULL,
     location             varchar(150) NOT NULL,
     discord_user_id      varchar(50),
+    contaazul_id         varchar(120),
     totp_secret          varchar(500),
     recovery_code_hash   varchar(255),
     recovery_code_expires_at timestamp,
     CONSTRAINT pk_users        PRIMARY KEY (id),
     CONSTRAINT uq_users_email  UNIQUE      (email),
+    CONSTRAINT uq_users_contaazul_id UNIQUE (contaazul_id),
     CONSTRAINT ck_users_role   CHECK       (role IN ('ADMIN', 'TECHNICIAN', 'USER')),
     CONSTRAINT fk_users_sector FOREIGN KEY (sector_id) REFERENCES sectors (id)
 );
@@ -479,12 +481,14 @@ CREATE TABLE financial_link (
 CREATE TABLE doctor_email_mapping (
     id                      uuid         NOT NULL DEFAULT gen_random_uuid(),
     contaazul_customer_uuid varchar(64)  NOT NULL,
-    doctor_name             varchar(160) NOT NULL,
-    doctor_email            varchar(255) NOT NULL,
+    user_id                 uuid,
+    doctor_name             varchar(160),
+    doctor_email            varchar(255),
     created_at              timestamp    NOT NULL DEFAULT now(),
     updated_at              timestamp    NOT NULL DEFAULT now(),
     CONSTRAINT pk_doctor_email_mapping                   PRIMARY KEY (id),
-    CONSTRAINT uq_doctor_email_mapping_customer_uuid     UNIQUE      (contaazul_customer_uuid)
+    CONSTRAINT uq_doctor_email_mapping_customer_uuid     UNIQUE      (contaazul_customer_uuid),
+    CONSTRAINT fk_doctor_email_mapping_user              FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 -- 🧾 Controle de idempotência para vendas liquidadas já enviadas por e-mail

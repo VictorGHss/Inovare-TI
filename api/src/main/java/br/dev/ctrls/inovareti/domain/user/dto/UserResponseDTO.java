@@ -20,6 +20,7 @@ public record UserResponseDTO(
         String sectorName,
         String location,
         String discordUserId,
+        String contaAzulId,
         @JsonProperty("receives_it_notifications")
         boolean receivesItNotifications
 ) {
@@ -34,6 +35,7 @@ public record UserResponseDTO(
                 user.getSector().getName(),
                 user.getLocation(),
                 user.getDiscordUserId(),
+                user.getContaAzulId(),
                 user.isReceivesItNotifications()
         );
     }

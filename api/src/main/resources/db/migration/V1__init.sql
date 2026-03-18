@@ -475,6 +475,27 @@ CREATE TABLE financial_link (
     CONSTRAINT fk_financial_link_linked_by     FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
 );
 
+-- 📇 Mapeamento de cliente Conta Azul para o médico (nome + e-mail real de destino)
+CREATE TABLE doctor_email_mapping (
+    id                      uuid         NOT NULL DEFAULT gen_random_uuid(),
+    contaazul_customer_uuid varchar(64)  NOT NULL,
+    doctor_name             varchar(160) NOT NULL,
+    doctor_email            varchar(255) NOT NULL,
+    created_at              timestamp    NOT NULL DEFAULT now(),
+    updated_at              timestamp    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_doctor_email_mapping                   PRIMARY KEY (id),
+    CONSTRAINT uq_doctor_email_mapping_customer_uuid     UNIQUE      (contaazul_customer_uuid)
+);
+
+-- 🧾 Controle de idempotência para vendas liquidadas já enviadas por e-mail
+CREATE TABLE processed_sales (
+    id           uuid         NOT NULL DEFAULT gen_random_uuid(),
+    sale_id      varchar(120) NOT NULL,
+    processed_at timestamp    NOT NULL DEFAULT now(),
+    CONSTRAINT pk_processed_sales         PRIMARY KEY (id),
+    CONSTRAINT uq_processed_sales_sale_id UNIQUE      (sale_id)
+);
+
 -- ✨ Tabela de conferência vibrante: rastreia processamento e idempotência de recibos
 CREATE TABLE processed_receipts (
     id                       uuid          NOT NULL DEFAULT gen_random_uuid(),
@@ -509,6 +530,7 @@ CREATE TABLE system_alerts (
 );
 
 CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
+CREATE INDEX idx_ps_sale_id  ON processed_sales (sale_id);
 CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);
 
 ALTER TABLE financial_link

@@ -244,11 +244,10 @@ public class ContaAzulAutomationService {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
-                if (!"VENDA".equalsIgnoreCase(sale.origem())) {
-                    continue;
-                }
-
                 log.info("!!! [INICIO PROCESSAMENTO] Parcela: " + (StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)"));
+                log.info("!!! [ORIGEM] origem={} | parcelaId={}",
+                        StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)",
+                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
                 log.info("Parcela ID: {} | Cliente UUID: {}",

@@ -370,7 +370,7 @@ public class ContaAzulAutomationService {
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
-                    buildEmailBody(doctorName, saleNumberForInfo),
+                    buildEmailBody(doctorName, saleNumberFromDescription),
                         pdfBytes,
                         "recibo-venda-" + saleIdToProcess + ".pdf");
 
@@ -453,13 +453,10 @@ public class ContaAzulAutomationService {
     }
 
     private String buildEmailBody(String doctorName, String saleNumber) {
-        String saleNumberSafe = StringUtils.hasText(saleNumber) ? saleNumber.trim() : "N/D";
-
         return "Olá " + doctorName
-                + ",\n\nSegue em anexo o seu recibo referente à Venda #"
-                + saleNumberSafe
-                + ".\n\nEste é um envio automático do sistema de gestão Inovare TI. Caso tenha qualquer dúvida, estamos à sua disposição.\n\n"
-                + "Atenciosamente,\nEquipe Inovare TI";
+                + ",\n\nSegue em anexo o seu recibo.\n\n"
+                + "Este é um envio automático do sistema de gestão Inovare TI.\n\n"
+                + "Atenciosamente,\nAdministrativo Inovare.";
     }
 
     private String extractSaleNumberFromDescription(String descricao) {

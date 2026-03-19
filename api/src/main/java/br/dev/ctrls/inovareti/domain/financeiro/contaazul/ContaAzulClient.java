@@ -281,14 +281,16 @@ public class ContaAzulClient {
                 .build()
                 .toUriString();
 
-        String payload = executeJsonGetWithRefresh(uri);
+        ResponseEntity<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
+        String responseBody = responseEntity.getBody();
+
         try {
             SaleByNumberResponseDTO response = objectMapper.readValue(
-                    payload.getBytes(StandardCharsets.UTF_8),
+                    (responseBody != null ? responseBody : "").getBytes(StandardCharsets.UTF_8),
                     SaleByNumberResponseDTO.class);
 
             int resultados = response != null && response.itens() != null ? response.itens().size() : 0;
-            log.info("!!! [SNIPER DEBUG] Venda [{}] retornou [{}] resultados da API", normalizedNumber, resultados);
+            log.info("!!! [SNIPER DEBUG] Venda #" + numero + " | Itens: " + resultados + " | Payload: " + responseBody);
 
             if (response == null || response.itens() == null || response.itens().isEmpty()) {
                 return Optional.empty();
@@ -380,18 +382,26 @@ public class ContaAzulClient {
     }
 
     private String executeJsonGetWithRefresh(String uri) {
+        return executeJsonGetResponseWithRefresh(uri).getBody();
+    }
+
+    private ResponseEntity<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
         try {
-            return executeJsonGet(uri, token);
+            return executeJsonGetResponse(uri, token);
         } catch (HttpClientErrorException.Unauthorized ex) {
             log.warn("Token expirado ao consultar vendas. Tentando refresh.");
             token = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            return executeJsonGet(uri, token);
+            return executeJsonGetResponse(uri, token);
         }
     }
 
     private String executeJsonGet(String uri, ContaAzulOAuthToken token) {
+        return executeJsonGetResponse(uri, token).getBody();
+    }
+
+    private ResponseEntity<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
         String authorizationHeader = "Bearer " + token.getAccessToken();
         String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
 
@@ -410,7 +420,7 @@ public class ContaAzulClient {
         try {
             ResponseEntity<String> response = restTemplate.exchange(requestEntity, String.class);
 
-            return response.getBody();
+            return response;
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
             log.error(
                     "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",

@@ -196,6 +196,42 @@ public class ContaAzulClient {
         }
     }
 
+    public List<PessoaItem> fetchAllPessoas() {
+        List<PessoaItem> pessoas = new ArrayList<>();
+        Long totalExpected = null;
+
+        for (int page = 1; page <= MAX_PAGES; page++) {
+            String uri = UriComponentsBuilder.fromUriString(customersV1Url)
+                    .queryParam("pagina", page)
+                    .queryParam("tamanho_pagina", PAGE_SIZE)
+                    .build()
+                    .toUriString();
+
+            String payload = executeJsonGetWithRefresh(uri);
+            PessoasPage pageResult = parsePessoasPage(payload);
+
+            if (pageResult.total() != null && pageResult.total() > 0) {
+                totalExpected = pageResult.total();
+            }
+
+            if (pageResult.itens().isEmpty()) {
+                break;
+            }
+
+            pessoas.addAll(pageResult.itens());
+
+            if (totalExpected != null && pessoas.size() >= totalExpected) {
+                break;
+            }
+
+            if (pageResult.itens().size() < PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return pessoas;
+    }
+
     private String executeJsonGetWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
@@ -273,6 +309,20 @@ public class ContaAzulClient {
                         "parcela.id",
                         "titulo.id");
 
+                String origem = readText(
+                    node,
+                    "origem",
+                    "source");
+
+                String vendaNestedId = readText(
+                    node,
+                    "venda.id",
+                    "sale.id");
+
+                VendaRef venda = StringUtils.hasText(vendaNestedId)
+                    ? new VendaRef(vendaNestedId)
+                    : null;
+
                 String origemSaleId = readText(
                         node,
                         "origem.venda_id",
@@ -287,9 +337,11 @@ public class ContaAzulClient {
                         "sale.id",
                         "venda.id");
 
-                String saleId = StringUtils.hasText(origemSaleId)
+                String saleId = venda != null && StringUtils.hasText(venda.id())
+                    ? venda.id()
+                    : (StringUtils.hasText(origemSaleId)
                         ? origemSaleId
-                        : (StringUtils.hasText(vendaId) ? vendaId : null);
+                        : (StringUtils.hasText(vendaId) ? vendaId : null));
 
                 String status = readText(node, "status", "sale.status", "situacao", "estado");
 
@@ -317,7 +369,7 @@ public class ContaAzulClient {
                         "contato.nome",
                         "pessoa.nome");
 
-                    sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origemSaleId, vendaId));
+                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId));
             }
 
             return sales;
@@ -508,6 +560,39 @@ public class ContaAzulClient {
         }
     }
 
+    private PessoasPage parsePessoasPage(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return new PessoasPage(List.of(), null);
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            Long total = readLong(root, "total", "content.total", "paginacao.total", "meta.total");
+
+            JsonNode entries = resolveArrayNode(root);
+            if (entries == null || !entries.isArray() || entries.isEmpty()) {
+                return new PessoasPage(List.of(), total);
+            }
+
+            List<PessoaItem> itens = new ArrayList<>();
+            for (JsonNode node : entries) {
+                String id = readText(node, "id", "uuid", "pessoa.id");
+                String nome = readText(node, "nome", "name", "razao_social", "fantasia");
+                String email = readText(node, "email", "emails.0.address", "emails.0.email");
+
+                if (!StringUtils.hasText(id)) {
+                    continue;
+                }
+
+                itens.add(new PessoaItem(id, nome, email));
+            }
+
+            return new PessoasPage(itens, total);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de pessoas da Conta Azul.", ex);
+        }
+    }
+
     private String readText(JsonNode node, String... paths) {
         for (String path : paths) {
             JsonNode current = node;
@@ -543,6 +628,19 @@ public class ContaAzulClient {
         return null;
     }
 
+    private Long readLong(JsonNode node, String... paths) {
+        String value = readText(node, paths);
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
         @JsonIgnoreProperties(ignoreUnknown = true)
         private record ReceivablesSearchResponseDTO(
             @JsonProperty("itens") List<JsonNode> itens,
@@ -554,12 +652,26 @@ public class ContaAzulClient {
             @JsonProperty("itens") List<JsonNode> itens) {
         }
 
+        public record VendaRef(String id) {
+        }
+
         public record SaleItem(
             String saleId,
             String customerUuid,
             String customerName,
             String parcelaId,
+            String origem,
+            VendaRef venda,
             String origemSaleId,
             String vendaId) {
+    }
+
+    private record PessoasPage(List<PessoaItem> itens, Long total) {
+    }
+
+    public record PessoaItem(
+            String id,
+            String nome,
+            String email) {
     }
 }

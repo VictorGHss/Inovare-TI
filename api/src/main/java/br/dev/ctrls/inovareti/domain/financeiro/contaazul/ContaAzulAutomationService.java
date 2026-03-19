@@ -18,6 +18,8 @@ import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMappingRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,6 +36,55 @@ public class ContaAzulAutomationService {
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
     private final ProcessedSaleRepository processedSaleRepository;
     private final FinanceEmailService financeEmailService;
+    private final UserRepository userRepository;
+
+    public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
+        List<ContaAzulClient.PessoaItem> pessoas = contaAzulClient.fetchAllPessoas();
+
+        int created = 0;
+        int updated = 0;
+
+        for (ContaAzulClient.PessoaItem pessoa : pessoas) {
+            if (!StringUtils.hasText(pessoa.id()) || !StringUtils.hasText(pessoa.email())) {
+                continue;
+            }
+
+            String customerUuid = pessoa.id().trim();
+            String doctorEmail = pessoa.email().trim();
+            String doctorName = StringUtils.hasText(pessoa.nome()) ? pessoa.nome().trim() : null;
+
+            User matchedUser = userRepository.findByEmail(doctorEmail).orElse(null);
+
+            DoctorEmailMapping mapping = doctorEmailMappingRepository
+                    .findByContaAzulCustomerUuid(customerUuid)
+                    .orElse(null);
+
+            if (mapping == null) {
+                DoctorEmailMapping newMapping = DoctorEmailMapping.builder()
+                        .contaAzulCustomerUuid(customerUuid)
+                        .doctorName(doctorName)
+                        .doctorEmail(doctorEmail)
+                        .user(matchedUser)
+                        .build();
+
+                doctorEmailMappingRepository.save(newMapping);
+                created++;
+                continue;
+            }
+
+            mapping.setDoctorName(doctorName);
+            mapping.setDoctorEmail(doctorEmail);
+
+            if (matchedUser != null) {
+                mapping.setUser(matchedUser);
+            }
+
+            doctorEmailMappingRepository.save(mapping);
+            updated++;
+        }
+
+        return new SyncDoctorsResult(created, updated);
+    }
 
     public TesteEnvioRealResult processRealSaleTest(String saleId) {
         log.info("Iniciando teste real para venda {}...", saleId);
@@ -160,7 +211,18 @@ public class ContaAzulAutomationService {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
-                String saleIdToProcess = resolveSaleIdForProcessing(sale);
+                if (!"VENDA".equalsIgnoreCase(sale.origem())) {
+                    continue;
+                }
+
+                if (sale.venda() == null || !StringUtils.hasText(sale.venda().id())) {
+                    log.warn("Atenção: Parcela {} tem origem VENDA mas o objeto venda está nulo", sale.parcelaId());
+                    continue;
+                }
+
+                String saleIdToProcess = sale.venda().id();
+
+                log.debug("Parcela {} vinculada à Venda {} identificada com sucesso.", sale.parcelaId(), saleIdToProcess);
 
                 log.debug(
                         "Analisando parcela {}. Venda vinculada: {}. Cliente: {}",
@@ -272,18 +334,6 @@ public class ContaAzulAutomationService {
         return StringUtils.hasText(customerName) ? customerName : "Profissional";
     }
 
-    private String resolveSaleIdForProcessing(ContaAzulClient.SaleItem sale) {
-        if (StringUtils.hasText(sale.origemSaleId())) {
-            return sale.origemSaleId();
-        }
-
-        if (StringUtils.hasText(sale.vendaId())) {
-            return sale.vendaId();
-        }
-
-        return sale.saleId();
-    }
-
     private String buildEmailBody(ContaAzulClient.SaleItem sale, String doctorName) {
         return "Olá " + doctorName
                 + ",\n\nSeu recibo financeiro referente à venda "
@@ -330,4 +380,9 @@ public class ContaAzulAutomationService {
             String recipientEmail,
             int pdfBytes) {
     }
+
+        public record SyncDoctorsResult(
+            int novos,
+            int atualizados) {
+        }
 }

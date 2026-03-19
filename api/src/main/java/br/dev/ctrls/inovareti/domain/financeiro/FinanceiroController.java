@@ -111,6 +111,16 @@ public class FinanceiroController {
         }
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/medicos/sincronizar-base")
+    public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
+        ContaAzulAutomationService.SyncDoctorsResult result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
+
+        return ResponseEntity.ok(new SyncDoctorsResponseDTO(
+                result.novos(),
+                result.atualizados()));
+    }
+
     @GetMapping("/trigger-test-receipt")
     public ResponseEntity<Map<String, String>> triggerTestReceipt() {
         log.info("Iniciando envio de e-mail de teste (MODO TESTE ATIVO)");
@@ -199,4 +209,9 @@ public class FinanceiroController {
             String currency,
             long syncedReceiptsCount) {
     }
+
+        public record SyncDoctorsResponseDTO(
+            int novos,
+            int atualizados) {
+        }
 }

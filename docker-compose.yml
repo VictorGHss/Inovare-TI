@@ -25,10 +25,10 @@ services:
       dockerfile: Dockerfile
     container_name: inovareti_api
     restart: always
-    # Carrega todas as variáveis do .env
+    # 1. Carrega todas as definições do arquivo .env
     env_file:
       - .env
-    # Sobrescreve apenas a URL do banco para a rede interna do Docker
+    # 2. Sobrescreve a URL do banco para apontar para o host interno 'db'
     environment:
       - DB_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
     ports:

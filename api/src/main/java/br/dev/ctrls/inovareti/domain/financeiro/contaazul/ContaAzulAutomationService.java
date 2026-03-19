@@ -122,15 +122,11 @@ public class ContaAzulAutomationService {
         byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
-        String saleNumberForEmail = StringUtils.hasText(sale.saleNumber())
-            ? sale.saleNumber().trim()
-            : sale.saleId();
-
         log.info("Enviando para {}", recipientEmail);
         financeEmailService.sendReceiptEmailWithPdf(
                 doctorName,
                 recipientEmail,
-            buildEmailBody(doctorName, saleNumberForEmail),
+            buildEmailBody(doctorName),
                 pdfBytes,
                 "recibo-venda-" + sale.saleId() + ".pdf");
 
@@ -370,7 +366,7 @@ public class ContaAzulAutomationService {
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
-                    buildEmailBody(doctorName, saleNumberFromDescription),
+                    buildEmailBody(doctorName),
                         pdfBytes,
                         "recibo-venda-" + saleIdToProcess + ".pdf");
 
@@ -452,7 +448,7 @@ public class ContaAzulAutomationService {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
     }
 
-    private String buildEmailBody(String doctorName, String saleNumber) {
+    private String buildEmailBody(String doctorName) {
         return "Olá " + doctorName
                 + ",\n\nSegue em anexo o seu recibo.\n\n"
                 + "Este é um envio automático do sistema de gestão Inovare TI.\n\n"

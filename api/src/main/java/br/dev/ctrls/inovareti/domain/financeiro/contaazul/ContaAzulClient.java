@@ -397,10 +397,6 @@ public class ContaAzulClient {
         }
     }
 
-    private String executeJsonGet(String uri, ContaAzulOAuthToken token) {
-        return executeJsonGetResponse(uri, token).getBody();
-    }
-
     private ResponseEntity<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
         String authorizationHeader = "Bearer " + token.getAccessToken();
         String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);

@@ -51,6 +51,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/sales}")
     private String salesV2Url;
 
+    @Value("${app.contaazul.sales-v2-stable-url:https://api.contaazul.com/v2/sales}")
+    private String salesV2StableUrl;
+
     @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
     private String customersV1Url;
 
@@ -239,14 +242,7 @@ public class ContaAzulClient {
         List<SaleItem> sales = new ArrayList<>();
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = UriComponentsBuilder.fromUriString(salesV2Url)
-                    .queryParam("status", "COMMITTED")
-                    .queryParam("pagina", page)
-                    .queryParam("tamanho_pagina", PAGE_SIZE)
-                    .build()
-                    .toUriString();
-
-            String payload = executeJsonGetWithRefresh(uri);
+            String payload = fetchCommittedSalesPagePayload(page);
             List<SaleItem> pageItems = parseCommittedSalesWithAcquittedParcels(payload);
 
             if (pageItems.isEmpty()) {
@@ -261,6 +257,29 @@ public class ContaAzulClient {
         }
 
         return sales;
+    }
+
+    private String fetchCommittedSalesPagePayload(int page) {
+        String primaryUri = UriComponentsBuilder.fromUriString(salesV2Url)
+                .queryParam("status", "COMMITTED")
+                .queryParam("pagina", page)
+                .queryParam("tamanho_pagina", PAGE_SIZE)
+                .build()
+                .toUriString();
+
+        try {
+            return executeJsonGetWithRefresh(primaryUri);
+        } catch (HttpClientErrorException.NotFound ex) {
+            String stableUri = UriComponentsBuilder.fromUriString(salesV2StableUrl)
+                    .queryParam("status", "COMMITTED")
+                    .queryParam("pagina", page)
+                    .queryParam("tamanho_pagina", PAGE_SIZE)
+                    .build()
+                    .toUriString();
+
+            log.warn("Endpoint de vendas não encontrado em {}. Tentando fallback estável em {}.", primaryUri, stableUri);
+            return executeJsonGetWithRefresh(stableUri);
+        }
     }
 
     private String executeJsonGetWithRefresh(String uri) {
@@ -368,6 +387,13 @@ public class ContaAzulClient {
                         "sale.id",
                         "venda.id");
 
+                String descricao = readText(
+                    node,
+                    "descricao",
+                    "description",
+                    "historico",
+                    "observacao");
+
                 String saleId = venda != null && StringUtils.hasText(venda.id())
                     ? venda.id()
                     : (StringUtils.hasText(origemSaleId)
@@ -400,7 +426,7 @@ public class ContaAzulClient {
                         "contato.nome",
                         "pessoa.nome");
 
-                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId));
+                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId, descricao, null));
             }
 
             return sales;
@@ -663,6 +689,13 @@ public class ContaAzulClient {
                         "person.nome",
                         "person.name");
 
+                String saleNumber = readText(
+                    saleNode,
+                    "number",
+                    "numero",
+                    "sale.number",
+                    "venda.numero");
+
                 sales.add(new SaleItem(
                         saleId,
                         customerUuid,
@@ -671,7 +704,9 @@ public class ContaAzulClient {
                         "VENDA",
                         new VendaRef(saleId),
                         saleId,
-                        saleId));
+                    saleId,
+                    null,
+                    saleNumber));
             }
 
             return sales;
@@ -786,7 +821,9 @@ public class ContaAzulClient {
             String origem,
             VendaRef venda,
             String origemSaleId,
-            String vendaId) {
+            String vendaId,
+            String descricao,
+            String saleNumber) {
     }
 
     private record PessoasPage(List<PessoaItem> itens, Long total) {

@@ -3,7 +3,11 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jakarta.annotation.PostConstruct;
 
@@ -30,6 +34,7 @@ public class ContaAzulAutomationService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String EDUARDO_BISINELLA_CUSTOMER_ID = "a4d63616-f502-4232-91a6-5c7e07e467b8";
+    private static final Pattern SALE_NUMBER_FROM_DESCRIPTION_PATTERN = Pattern.compile("^Venda\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -216,6 +221,7 @@ public class ContaAzulAutomationService {
         int skippedProcessed = 0;
         int skippedMapping = 0;
         int failures = 0;
+        Map<String, String> saleNumberToUuid = new HashMap<>();
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
@@ -223,12 +229,29 @@ public class ContaAzulAutomationService {
                     continue;
                 }
 
-                if (sale.venda() == null || !StringUtils.hasText(sale.venda().id())) {
+                String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
+                        ? sale.venda().id()
+                        : null;
+
+                if (!StringUtils.hasText(saleIdToProcess)) {
+                    String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+
+                    if (StringUtils.hasText(saleNumberFromDescription)) {
+                        log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
+
+                        if (saleNumberToUuid.isEmpty()) {
+                            List<ContaAzulClient.SaleItem> committedSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
+                            saleNumberToUuid = buildSaleNumberToUuidIndex(committedSales);
+                        }
+
+                        saleIdToProcess = saleNumberToUuid.get(saleNumberFromDescription);
+                    }
+                }
+
+                if (!StringUtils.hasText(saleIdToProcess)) {
                     log.warn("Atenção: Parcela {} tem origem VENDA mas o objeto venda está nulo", sale.parcelaId());
                     continue;
                 }
-
-                String saleIdToProcess = sale.venda().id();
 
                 log.debug("Parcela {} vinculada à Venda {} identificada com sucesso.", sale.parcelaId(), saleIdToProcess);
 
@@ -348,6 +371,33 @@ public class ContaAzulAutomationService {
                 + sale.saleId()
                 + " foi liquidado na Conta Azul e segue em anexo.\n\n"
                 + "Atenciosamente,\nInovare TI";
+    }
+
+    private String extractSaleNumberFromDescription(String descricao) {
+        if (!StringUtils.hasText(descricao)) {
+            return null;
+        }
+
+        Matcher matcher = SALE_NUMBER_FROM_DESCRIPTION_PATTERN.matcher(descricao.trim());
+        if (!matcher.find()) {
+            return null;
+        }
+
+        return matcher.group(1);
+    }
+
+    private Map<String, String> buildSaleNumberToUuidIndex(List<ContaAzulClient.SaleItem> sales) {
+        Map<String, String> index = new HashMap<>();
+
+        for (ContaAzulClient.SaleItem sale : sales) {
+            if (!StringUtils.hasText(sale.saleNumber()) || !StringUtils.hasText(sale.saleId())) {
+                continue;
+            }
+
+            index.put(sale.saleNumber().trim(), sale.saleId().trim());
+        }
+
+        return index;
     }
 
     private String buildSalesConfigurationErrorMessage() {

@@ -256,6 +256,7 @@ public class ContaAzulAutomationService {
                             if (directSale.isPresent()
                                     && StringUtils.hasText(directSale.get().saleId())
                                     && StringUtils.hasText(directSale.get().saleNumber())
+                                    && directSale.get().hasAcquittedInstallment()
                                     && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
                                 saleNumberToUuid.put(saleNumberFromDescription, directSale.get().saleId());
                             }
@@ -269,6 +270,7 @@ public class ContaAzulAutomationService {
 
                                 Optional<String> uuidByNumber = fallbackSales.stream()
                                         .filter(item -> StringUtils.hasText(item.saleNumber()))
+                                    .filter(ContaAzulClient.SaleItem::hasAcquittedInstallment)
                                         .filter(item -> extractedSaleNumber.equals(item.saleNumber().trim()))
                                         .map(ContaAzulClient.SaleItem::saleId)
                                         .filter(StringUtils::hasText)

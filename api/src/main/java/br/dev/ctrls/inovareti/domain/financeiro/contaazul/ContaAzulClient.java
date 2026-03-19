@@ -473,7 +473,7 @@ public class ContaAzulClient {
                         "contato.nome",
                         "pessoa.nome");
 
-                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId, descricao, null));
+                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId, descricao, null, true));
             }
 
             return sales;
@@ -779,7 +779,8 @@ public class ContaAzulClient {
                         saleId,
                     saleId,
                     null,
-                    saleNumber));
+                    saleNumber,
+                    hasAcquittedInstallmentInSaleNode(saleNode)));
             }
 
             return sales;
@@ -830,6 +831,8 @@ public class ContaAzulClient {
                         "sale.number",
                         "venda.numero");
 
+                boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleNode(saleNode);
+
                 sales.add(new SaleItem(
                         saleId,
                         customerUuid,
@@ -840,13 +843,42 @@ public class ContaAzulClient {
                         saleId,
                         saleId,
                         null,
-                        resolvedSaleNumber));
+                        resolvedSaleNumber,
+                        hasAcquittedInstallment));
             }
 
             return sales;
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de vendas por número da Conta Azul.", ex);
         }
+    }
+
+    private boolean hasAcquittedInstallmentInSaleNode(JsonNode saleNode) {
+        if (saleNode == null || saleNode.isNull()) {
+            return false;
+        }
+
+        JsonNode installments = saleNode.get("installments");
+        if (installments != null && installments.isArray()) {
+            for (JsonNode installment : installments) {
+                String installmentStatus = readText(installment, "status", "situacao", "estado");
+                if ("ACQUITTED".equalsIgnoreCase(installmentStatus)) {
+                    return true;
+                }
+            }
+        }
+
+        JsonNode parcelas = saleNode.get("parcelas");
+        if (parcelas != null && parcelas.isArray()) {
+            for (JsonNode parcela : parcelas) {
+                String parcelaStatus = readText(parcela, "status", "situacao", "estado");
+                if ("ACQUITTED".equalsIgnoreCase(parcelaStatus)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private String readText(JsonNode node, String... paths) {
@@ -921,7 +953,8 @@ public class ContaAzulClient {
             String origemSaleId,
             String vendaId,
             String descricao,
-            String saleNumber) {
+            String saleNumber,
+            boolean hasAcquittedInstallment) {
     }
 
     private record PessoasPage(List<PessoaItem> itens, Long total) {

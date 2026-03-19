@@ -248,27 +248,12 @@ public class ContaAzulAutomationService {
                     continue;
                 }
 
+                log.info("!!! [INICIO PROCESSAMENTO] Parcela: " + (StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)"));
+
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
-                log.info("-> Analisando Parcela ID: {} | Descrição: {}",
+                log.info("Parcela ID: {} | Cliente UUID: {}",
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
-                        StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)");
-
-                log.info("Verificando mapeamento para o médico...");
-
-                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
-                        .orElse(null);
-
-                if (mapping == null) {
-                    skippedMapping++;
-                    log.info("Médico não mapeado no banco");
-                    log.info("Mapeamento NÃO encontrado. Pulando item.");
-                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
-                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
-                    }
-                    continue;
-                }
-
-                log.info("-> Médico no banco: {} (E-mail: {})", mapping.getDoctorName(), mapping.getDoctorEmail());
+                        StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
 
                 String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
                         ? sale.venda().id().trim()
@@ -279,16 +264,20 @@ public class ContaAzulAutomationService {
                     saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
                     if (StringUtils.hasText(saleNumberFromDescription)) {
-                        String numeroExtraido = saleNumberFromDescription;
-                        log.info("-> Disparando Sniper Search para a venda número: {}", numeroExtraido);
+                        log.info("!!! [SNIPER] Buscando UUID para a venda: " + saleNumberFromDescription);
                     }
 
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
                     if (StringUtils.hasText(saleNumberFromDescription)) {
                         try {
                             directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
+                            if (directSale.isPresent()) {
+                                log.info("!!! [SNIPER SUCCESS] UUID encontrado: " + directSale.get().saleId());
+                            } else {
+                                log.info("!!! [SNIPER FAIL] Nenhum UUID retornado para a venda: " + saleNumberFromDescription);
+                            }
                         } catch (NumberFormatException ex) {
-                            log.info("Número de venda inválido para busca Sniper: {}", saleNumberFromDescription);
+                            log.info("!!! [SNIPER ERROR] Número inválido: " + saleNumberFromDescription);
                         }
                     }
 
@@ -326,6 +315,28 @@ public class ContaAzulAutomationService {
                     log.info("Venda {} já processada anteriormente. Ignorando.", saleIdToProcess);
                     continue;
                 }
+
+                if (!StringUtils.hasText(customerUuidFromParcel)) {
+                    skippedMapping++;
+                    log.warn("Venda {} sem customer UUID. Pulando.", saleIdToProcess);
+                    continue;
+                }
+
+                log.info("Verificando mapeamento para o médico...");
+
+                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
+                        .orElse(null);
+
+                if (mapping == null) {
+                    skippedMapping++;
+                    log.info("Mapeamento NÃO encontrado. Pulando item.");
+                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
+                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
+                    }
+                    continue;
+                }
+
+                log.info("-> Médico no banco: {} (E-mail: {})", mapping.getDoctorName(), mapping.getDoctorEmail());
 
                 String recipientEmail = resolveRecipientEmail(mapping);
                 if (!StringUtils.hasText(recipientEmail)) {

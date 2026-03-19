@@ -37,9 +37,6 @@ public class ContaAzulClient {
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
 
-    @Value("${app.contaazul.sales-v2-url:}")
-    private String salesV2Url;
-
     @Value("${app.contaazul.payments-url:}")
     private String receivableEventsSearchUrl;
 

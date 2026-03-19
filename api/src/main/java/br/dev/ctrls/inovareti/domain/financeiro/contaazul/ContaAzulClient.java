@@ -51,7 +51,7 @@ public class ContaAzulClient {
     @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
     private String customersV1Url;
 
-    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/customers/{id}}")
+    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
     private String customerByIdV1UrlTemplate;
 
     public boolean hasSalesConfiguration() {
@@ -173,7 +173,7 @@ public class ContaAzulClient {
     }
 
     /**
-     * Busca o e-mail do cliente pelo ID na Conta Azul usando /v1/customers/{id}.
+     * Busca o e-mail do cliente pelo ID na Conta Azul usando /v1/pessoas/{id}.
      */
     public Optional<String> findCustomerEmailById(String customerId) {
         if (!StringUtils.hasText(customerId)) {
@@ -183,6 +183,8 @@ public class ContaAzulClient {
         String uri = customerByIdV1UrlTemplate
                 .replace("{id}", customerId.trim())
                 .replace("{customerId}", customerId.trim());
+
+        log.debug("Solicitando detalhes do médico em: /v1/pessoas/{}", customerId.trim());
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -371,7 +373,7 @@ public class ContaAzulClient {
                     return objectMapper.valueToTree(dto.content().itens());
                 }
             }
-        } catch (IllegalArgumentException ex) {
+        } catch (IOException | IllegalArgumentException ex) {
             log.debug("Falha ao mapear DTO de parcelas (itens). Aplicando fallback por JsonNode.", ex);
         }
 

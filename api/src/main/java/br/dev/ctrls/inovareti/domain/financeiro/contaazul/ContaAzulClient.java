@@ -113,7 +113,7 @@ public class ContaAzulClient {
         log.info("Buscando cliente no Conta Azul pelo e-mail: {}", normalizedEmail);
 
         String uri = UriComponentsBuilder.fromUriString(customersV1Url)
-                .queryParam("email", normalizedEmail)
+            .queryParam("emails", normalizedEmail)
             .build()
             .encode(StandardCharsets.UTF_8)
             .toUriString();

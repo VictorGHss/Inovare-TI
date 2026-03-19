@@ -286,26 +286,39 @@ public class ContaAzulClient {
                 return Optional.empty();
             }
 
-            SaleByNumberItemDTO firstItem = response.itens().get(0);
-            if (firstItem == null || !StringUtils.hasText(firstItem.id())) {
+                SaleByNumberItemDTO matchedItem = response.itens().stream()
+                    .filter(item -> item != null && StringUtils.hasText(item.id()))
+                    .filter(item -> {
+                    String itemNumber = StringUtils.hasText(item.numero())
+                        ? item.numero().trim()
+                        : (StringUtils.hasText(item.number()) ? item.number().trim() : null);
+                    return normalizedNumber.equals(itemNumber);
+                    })
+                    .findFirst()
+                    .orElseGet(() -> response.itens().stream()
+                        .filter(item -> item != null && StringUtils.hasText(item.id()))
+                        .findFirst()
+                        .orElse(null));
+
+                if (matchedItem == null || !StringUtils.hasText(matchedItem.id())) {
                 return Optional.empty();
             }
 
-            String resolvedNumber = StringUtils.hasText(firstItem.numero())
-                    ? firstItem.numero().trim()
-                    : (StringUtils.hasText(firstItem.number()) ? firstItem.number().trim() : normalizedNumber);
+                String resolvedNumber = StringUtils.hasText(matchedItem.numero())
+                    ? matchedItem.numero().trim()
+                    : (StringUtils.hasText(matchedItem.number()) ? matchedItem.number().trim() : normalizedNumber);
 
-            boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(firstItem);
+                boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(matchedItem);
 
             return Optional.of(new SaleItem(
-                    firstItem.id().trim(),
+                    matchedItem.id().trim(),
                     null,
                     null,
                     null,
                     "VENDA",
-                    new VendaRef(firstItem.id().trim()),
-                    firstItem.id().trim(),
-                    firstItem.id().trim(),
+                    new VendaRef(matchedItem.id().trim()),
+                    matchedItem.id().trim(),
+                    matchedItem.id().trim(),
                     null,
                     resolvedNumber,
                     hasAcquittedInstallment));

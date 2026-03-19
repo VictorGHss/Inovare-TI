@@ -280,15 +280,15 @@ public class ContaAzulAutomationService {
                         }
                     }
 
-                    if (directSale.isPresent()
-                            && StringUtils.hasText(directSale.get().saleId())
-                            && StringUtils.hasText(directSale.get().saleNumber())
-                            && directSale.get().hasAcquittedInstallment()
-                            && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
+                    if (directSale.isPresent() && StringUtils.hasText(directSale.get().saleId())) {
                         saleIdToProcess = directSale.get().saleId().trim();
-                        log.info("Sniper: Parcela vinculada à Venda #{} identificada. UUID extraído: {}. Iniciando download do recibo...",
+                        log.info("Sniper: Venda #{} localizada. UUID extraído: {}.",
                                 saleNumberFromDescription,
                                 saleIdToProcess);
+
+                        if (!directSale.get().hasAcquittedInstallment()) {
+                            log.warn("Sniper retornou UUID para venda {}, mas sem parcela ACQUITTED na venda retornada.", saleNumberFromDescription);
+                        }
                     }
                 }
 
@@ -320,6 +320,8 @@ public class ContaAzulAutomationService {
                     log.warn("Venda {} sem customer UUID. Pulando.", saleIdToProcess);
                     continue;
                 }
+
+                log.info("!!! [FLOW] Venda ID definido como: " + saleIdToProcess);
 
                 log.info("Verificando mapeamento para o médico...");
 

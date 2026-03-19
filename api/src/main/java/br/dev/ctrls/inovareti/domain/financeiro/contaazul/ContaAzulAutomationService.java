@@ -80,6 +80,9 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.sales-v2-url}")
     private String salesV2Url;
 
+    @Value("${app.contaazul.payments-url}")
+    private String receivableEventsSearchUrl;
+
     @Value("${app.contaazul.sales-pdf-v1-url-template}")
     private String salesPdfV1UrlTemplate;
 
@@ -92,8 +95,9 @@ public class ContaAzulAutomationService {
         String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
 
         log.info(
-            "Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}, app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
+            "Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}, app.contaazul.payments-url={}, app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
             contaAzulApiV2BaseUrl,
+                receivableEventsSearchUrl,
                 StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia",
                 StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia",
                 StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia",
@@ -125,7 +129,7 @@ public class ContaAzulAutomationService {
             return;
         }
 
-        log.info("Automação ContaAzul: consultando endpoint de vendas para obter saleId e baixar PDF (não usa endpoint de resumo financeiro).");
+        log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
 
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
@@ -135,7 +139,7 @@ public class ContaAzulAutomationService {
             return;
         }
 
-        log.info("Pooling Conta Azul: {} venda(s) com status ACQUITTED encontrada(s).", acquittedSales.size());
+        log.info("Pooling Conta Azul: {} venda(s) mapeadas a partir de parcelas recebidas.", acquittedSales.size());
 
         int sent = 0;
         int skippedProcessed = 0;
@@ -255,6 +259,10 @@ public class ContaAzulAutomationService {
             missingProperties.add("app.contaazul.sales-v2-url");
         }
 
+        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
+            missingProperties.add("app.contaazul.payments-url");
+        }
+
         if (!StringUtils.hasText(salesPdfV1UrlTemplate)) {
             missingProperties.add("app.contaazul.sales-pdf-v1-url-template");
         }
@@ -266,6 +274,8 @@ public class ContaAzulAutomationService {
                 + (missingProperties.isEmpty() ? "nenhuma" : String.join(", ", missingProperties))
                 + ". Estado atual -> app.contaazul.sales-v2-url="
                 + (StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia")
+                + ", app.contaazul.payments-url="
+                + (StringUtils.hasText(receivableEventsSearchUrl) ? "preenchida" : "vazia")
                 + ", app.contaazul.sales-pdf-v1-url-template="
                 + (StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia")
                 + ", CONTAAZUL_SALES_V2_URL="

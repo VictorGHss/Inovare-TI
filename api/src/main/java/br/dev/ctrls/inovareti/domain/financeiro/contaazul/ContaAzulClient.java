@@ -40,6 +40,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.sales-v2-url:}")
     private String salesV2Url;
 
+    @Value("${app.contaazul.payments-url:}")
+    private String receivableEventsSearchUrl;
+
     @Value("${app.contaazul.sales-pdf-v1-url-template:}")
     private String salePdfV1UrlTemplate;
 
@@ -50,20 +53,20 @@ public class ContaAzulClient {
     private String customerByIdV1UrlTemplate;
 
     public boolean hasSalesConfiguration() {
-        return StringUtils.hasText(salesV2Url) && StringUtils.hasText(salePdfV1UrlTemplate);
+        return StringUtils.hasText(receivableEventsSearchUrl) && StringUtils.hasText(salePdfV1UrlTemplate);
     }
 
     /**
-     * Consulta a API v2 de vendas da Conta Azul e retorna apenas vendas com status ACQUITTED.
+     * Consulta eventos financeiros (contas a receber) e extrai o sale_id (venda_id) para download de PDF.
      */
     public List<SaleItem> fetchAcquittedSales() {
         List<SaleItem> sales = new ArrayList<>();
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = salesV2Url
-                    + "?page=" + page
-                    + "&size=" + PAGE_SIZE
-                    + "&status=ACQUITTED";
+            String uri = receivableEventsSearchUrl
+                    + "?pagina=" + page
+                    + "&tamanho_pagina=" + PAGE_SIZE
+                    + "&status=RECEBIDO";
 
             log.info("Solicitando lista de vendas ao Conta Azul: {}", uri);
             log.debug("Consultando vendas na Conta Azul. pagina={}, uri={}", page, uri);
@@ -139,10 +142,10 @@ public class ContaAzulClient {
         String normalizedSaleId = saleId.trim();
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = salesV2Url
-                    + "?page=" + page
-                    + "&size=" + PAGE_SIZE
-                    + "&status=ACQUITTED";
+            String uri = receivableEventsSearchUrl
+                + "?pagina=" + page
+                + "&tamanho_pagina=" + PAGE_SIZE
+                + "&status=RECEBIDO";
 
             String payload = executeJsonGetWithRefresh(uri);
             List<SaleItem> pageItems = parseAcquittedSales(payload);
@@ -228,8 +231,8 @@ public class ContaAzulClient {
 
     private byte[] executePdfGet(String uri, String token) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
-        headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM));
+        headers.add("Authorization", "Bearer " + token);
+        headers.setAccept(List.of(MediaType.APPLICATION_PDF));
 
         ResponseEntity<byte[]> response = restTemplate.exchange(
                 uri,
@@ -254,10 +257,19 @@ public class ContaAzulClient {
 
             List<SaleItem> sales = new ArrayList<>();
             for (JsonNode node : entries) {
-                String saleId = readText(node, "id", "sale_id", "venda_id", "sale.id");
-                String status = readText(node, "status", "sale.status");
+                String saleId = readText(
+                        node,
+                        "venda_id",
+                        "sale_id",
+                        "sale.id",
+                        "venda.id",
+                        "origem.venda_id",
+                        "origem.sale_id",
+                        "origem.venda.id",
+                        "origem.id");
+                String status = readText(node, "status", "sale.status", "situacao", "estado");
 
-                if (!StringUtils.hasText(saleId) || !"ACQUITTED".equalsIgnoreCase(status)) {
+                if (!StringUtils.hasText(saleId) || !isReceivableItemPaid(status)) {
                     continue;
                 }
 
@@ -268,8 +280,18 @@ public class ContaAzulClient {
                         "customerId",
                         "customer_uuid",
                         "cliente.id",
-                        "cliente.uuid");
-                String customerName = readText(node, "customer.name", "customer_name", "cliente.nome", "nome");
+                        "cliente.uuid",
+                        "contato.id",
+                        "pessoa.id",
+                        "origem.cliente.id");
+                    String customerName = readText(
+                        node,
+                        "customer.name",
+                        "customer_name",
+                        "cliente.nome",
+                        "nome",
+                        "contato.nome",
+                        "pessoa.nome");
 
                 sales.add(new SaleItem(saleId, customerUuid, customerName));
             }
@@ -314,6 +336,19 @@ public class ContaAzulClient {
         }
 
         return objectMapper.createArrayNode();
+    }
+
+    private boolean isReceivableItemPaid(String status) {
+        if (!StringUtils.hasText(status)) {
+            return true;
+        }
+
+        String normalizedStatus = status.trim();
+        return "ACQUITTED".equalsIgnoreCase(normalizedStatus)
+                || "RECEBIDO".equalsIgnoreCase(normalizedStatus)
+                || "PAGO".equalsIgnoreCase(normalizedStatus)
+                || "PAID".equalsIgnoreCase(normalizedStatus)
+                || "LIQUIDADO".equalsIgnoreCase(normalizedStatus);
     }
 
     private String sanitizeTokenPrefix(String accessToken) {

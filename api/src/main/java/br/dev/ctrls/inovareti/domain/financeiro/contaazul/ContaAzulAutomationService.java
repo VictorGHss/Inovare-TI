@@ -249,21 +249,29 @@ public class ContaAzulAutomationService {
                 }
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
-
-                String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+                log.info("Processando parcela: {}. Cliente UUID: {}",
+                        StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)",
+                        StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
 
                 String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
                         ? sale.venda().id().trim()
                         : (StringUtils.hasText(sale.vendaId()) ? sale.vendaId().trim() : null);
 
-                if (StringUtils.hasText(saleNumberFromDescription)) {
-                    log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
+                String saleNumberFromDescription = null;
+                if (!StringUtils.hasText(saleIdToProcess)) {
+                    saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+
+                    if (StringUtils.hasText(saleNumberFromDescription)) {
+                        log.info("Venda ID nulo. Disparando Sniper para o número {}...", saleNumberFromDescription);
+                    }
 
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
-                    try {
-                        directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
-                    } catch (NumberFormatException ex) {
-                        log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
+                    if (StringUtils.hasText(saleNumberFromDescription)) {
+                        try {
+                            directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
+                        } catch (NumberFormatException ex) {
+                            log.info("Número de venda inválido para busca Sniper: {}", saleNumberFromDescription);
+                        }
                     }
 
                     if (directSale.isPresent()
@@ -279,7 +287,7 @@ public class ContaAzulAutomationService {
                 }
 
                 if (!StringUtils.hasText(saleIdToProcess)) {
-                    log.warn("Atenção: Parcela {} tem origem VENDA mas o objeto venda está nulo", sale.parcelaId());
+                    log.warn("Atenção: Parcela {} sem venda_id e sem retorno válido do Sniper. Pulando item.", sale.parcelaId());
                     continue;
                 }
 
@@ -307,16 +315,14 @@ public class ContaAzulAutomationService {
                     continue;
                 }
 
-                log.trace(
-                    "Verificando parcela ID {}. Cliente ID: {}. Existe mapeamento para este médico?",
-                    sale.parcelaId(),
-                    customerUuidFromParcel);
+                log.info("Verificando mapeamento para o médico...");
 
                 DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
                         .orElse(null);
 
                 if (mapping == null) {
                     skippedMapping++;
+                    log.info("Mapeamento NÃO encontrado. Pulando item.");
                     if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
                         log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
                     }
@@ -325,6 +331,9 @@ public class ContaAzulAutomationService {
                             saleIdToProcess);
                     continue;
                 }
+
+                log.info("Mapeamento encontrado: {}.",
+                        StringUtils.hasText(mapping.getDoctorEmail()) ? mapping.getDoctorEmail().trim() : "(sem e-mail)");
 
                 String recipientEmail = resolveRecipientEmail(mapping);
                 if (!StringUtils.hasText(recipientEmail)) {
@@ -409,19 +418,21 @@ public class ContaAzulAutomationService {
             return Optional.empty();
         }
 
-        Optional<DoctorEmailMapping> direct = doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuidFromParcel);
+        String normalizedParcelCustomerUuid = normalizeUuid(customerUuidFromParcel);
+
+        Optional<DoctorEmailMapping> direct = doctorEmailMappingRepository.findByContaAzulCustomerUuid(normalizedParcelCustomerUuid);
         if (direct.isPresent()) {
             return direct;
         }
 
         return doctorEmailMappingRepository.findAllByOrderByDoctorNameAsc().stream()
                 .filter(mapping -> StringUtils.hasText(mapping.getContaAzulCustomerUuid()))
-                .filter(mapping -> customerUuidFromParcel.equalsIgnoreCase(mapping.getContaAzulCustomerUuid().trim()))
+                .filter(mapping -> normalizedParcelCustomerUuid.equals(normalizeUuid(mapping.getContaAzulCustomerUuid())))
                 .findFirst();
     }
 
     private String normalizeUuid(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
+        return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
     }
 
     private String buildEmailBody(ContaAzulClient.SaleItem sale, String doctorName) {

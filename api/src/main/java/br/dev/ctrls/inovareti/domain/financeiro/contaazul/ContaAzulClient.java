@@ -45,10 +45,10 @@ public class ContaAzulClient {
     @Value("${app.contaazul.payments-url:}")
     private String receivableEventsSearchUrl;
 
-    @Value("${app.contaazul.sales-pdf-v1-url-template:}")
+    @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
 
-    @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/sales}")
+    @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/venda/busca}")
     private String salesV2Url;
 
     @Value("${app.contaazul.sales-v2-stable-url:https://api.contaazul.com/v2/sales}")
@@ -105,8 +105,11 @@ public class ContaAzulClient {
      * Baixa o PDF do recibo da venda usando o endpoint v1 da Conta Azul.
      */
     public byte[] downloadSalePdf(String saleId) {
-        String uri = salePdfV1UrlTemplate.replace("{id}", saleId).replace("{saleId}", saleId);
+        String normalizedTemplate = normalizeSalePrintTemplate(salePdfV1UrlTemplate);
+        String uri = normalizedTemplate.replace("{id}", saleId).replace("{saleId}", saleId);
         String token = contaAzulTokenService.getValidAccessToken();
+
+        log.info("Sincronizando recibos via endpoint de impressão: /v1/venda/{}/imprimir", saleId);
 
         try {
             return executePdfGet(uri, token);
@@ -260,10 +263,13 @@ public class ContaAzulClient {
     }
 
     private String fetchCommittedSalesPagePayload(int page) {
-        String primaryUri = UriComponentsBuilder.fromUriString(salesV2Url)
+        LocalDate today = LocalDate.now();
+
+        String primaryUri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
                 .queryParam("status", "COMMITTED")
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
+            .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
                 .build()
                 .toUriString();
 
@@ -274,6 +280,7 @@ public class ContaAzulClient {
                     .queryParam("status", "COMMITTED")
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
+                    .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
                     .build()
                     .toUriString();
 
@@ -402,7 +409,7 @@ public class ContaAzulClient {
 
                 String status = readText(node, "status", "sale.status", "situacao", "estado");
 
-                if (!StringUtils.hasText(saleId) || !isReceivableItemPaid(status)) {
+                if (!isReceivableItemPaid(status)) {
                     continue;
                 }
 
@@ -512,6 +519,36 @@ public class ContaAzulClient {
                 .queryParam("data_vencimento_ate", dataVencimentoAte)
                 .build()
                 .toUriString();
+    }
+
+    private String normalizeSaleSearchBaseUrl(String rawUrl) {
+        if (!StringUtils.hasText(rawUrl)) {
+            return "https://api-v2.contaazul.com/v1/venda/busca";
+        }
+
+        String normalized = rawUrl.trim();
+        if (normalized.contains("/v1/sales")) {
+            return normalized.replace("/v1/sales", "/v1/venda/busca");
+        }
+
+        return normalized;
+    }
+
+    private String normalizeSalePrintTemplate(String rawTemplate) {
+        if (!StringUtils.hasText(rawTemplate)) {
+            return "https://api-v2.contaazul.com/v1/venda/{id}/imprimir";
+        }
+
+        String normalized = rawTemplate.trim();
+        if (normalized.contains("/v1/sales/")) {
+            normalized = normalized.replace("/v1/sales/", "/v1/venda/");
+        }
+
+        if (normalized.endsWith("/pdf")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "/imprimir";
+        }
+
+        return normalized;
     }
 
     private String sanitizeTokenPrefix(String accessToken) {

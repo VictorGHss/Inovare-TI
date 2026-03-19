@@ -197,6 +197,14 @@ public class ContaAzulAutomationService {
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
+
+            boolean hasVendaMappedFromFinancial = acquittedSales.stream()
+                    .anyMatch(item -> item.venda() != null && StringUtils.hasText(item.venda().id()));
+
+            if (!hasVendaMappedFromFinancial) {
+                log.warn("Endpoint financeiro não retornou venda.id nas parcelas. Aplicando fallback via /v1/sales (COMMITTED).");
+                acquittedSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
+            }
         } catch (RuntimeException ex) {
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
             return;

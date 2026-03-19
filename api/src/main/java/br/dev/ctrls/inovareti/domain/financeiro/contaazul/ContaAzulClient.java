@@ -48,6 +48,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.sales-pdf-v1-url-template:}")
     private String salePdfV1UrlTemplate;
 
+    @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/sales}")
+    private String salesV2Url;
+
     @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
     private String customersV1Url;
 
@@ -230,6 +233,34 @@ public class ContaAzulClient {
         }
 
         return pessoas;
+    }
+
+    public List<SaleItem> fetchCommittedSalesWithAcquittedParcels() {
+        List<SaleItem> sales = new ArrayList<>();
+
+        for (int page = 1; page <= MAX_PAGES; page++) {
+            String uri = UriComponentsBuilder.fromUriString(salesV2Url)
+                    .queryParam("status", "COMMITTED")
+                    .queryParam("pagina", page)
+                    .queryParam("tamanho_pagina", PAGE_SIZE)
+                    .build()
+                    .toUriString();
+
+            String payload = executeJsonGetWithRefresh(uri);
+            List<SaleItem> pageItems = parseCommittedSalesWithAcquittedParcels(payload);
+
+            if (pageItems.isEmpty()) {
+                break;
+            }
+
+            sales.addAll(pageItems);
+
+            if (pageItems.size() < PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return sales;
     }
 
     private String executeJsonGetWithRefresh(String uri) {
@@ -591,6 +622,98 @@ public class ContaAzulClient {
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de pessoas da Conta Azul.", ex);
         }
+    }
+
+    private List<SaleItem> parseCommittedSalesWithAcquittedParcels(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return List.of();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            JsonNode entries = resolveArrayNode(root);
+            if (entries == null || !entries.isArray() || entries.isEmpty()) {
+                return List.of();
+            }
+
+            List<SaleItem> sales = new ArrayList<>();
+            for (JsonNode saleNode : entries) {
+                String saleId = readText(saleNode, "id", "sale_id", "venda.id");
+                if (!StringUtils.hasText(saleId)) {
+                    continue;
+                }
+
+                if (!hasAcquittedParcelInSale(saleNode)) {
+                    continue;
+                }
+
+                String customerUuid = readText(
+                        saleNode,
+                        "customer.id",
+                        "customer.uuid",
+                        "cliente.id",
+                        "cliente.uuid",
+                        "person.id",
+                        "pessoa.id");
+
+                String customerName = readText(
+                        saleNode,
+                        "customer.name",
+                        "cliente.nome",
+                        "person.nome",
+                        "person.name");
+
+                sales.add(new SaleItem(
+                        saleId,
+                        customerUuid,
+                        customerName,
+                        null,
+                        "VENDA",
+                        new VendaRef(saleId),
+                        saleId,
+                        saleId));
+            }
+
+            return sales;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de vendas COMMITTED da Conta Azul.", ex);
+        }
+    }
+
+    private boolean hasAcquittedParcelInSale(JsonNode saleNode) {
+        String saleStatus = readText(saleNode, "status", "situacao");
+        if (isReceivableItemPaid(saleStatus)) {
+            return true;
+        }
+
+        JsonNode parcelas = saleNode.get("parcelas");
+        if (parcelas != null && parcelas.isArray()) {
+            for (JsonNode parcela : parcelas) {
+                String parcelaStatus = readText(parcela, "status", "situacao", "estado");
+                if (isReceivableItemPaid(parcelaStatus)) {
+                    return true;
+                }
+            }
+        }
+
+        JsonNode itens = saleNode.get("itens");
+        if (itens != null && itens.isArray()) {
+            for (JsonNode item : itens) {
+                JsonNode itemParcelas = item.get("parcelas");
+                if (itemParcelas == null || !itemParcelas.isArray()) {
+                    continue;
+                }
+
+                for (JsonNode parcela : itemParcelas) {
+                    String parcelaStatus = readText(parcela, "status", "situacao", "estado");
+                    if (isReceivableItemPaid(parcelaStatus)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private String readText(JsonNode node, String... paths) {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Mail, PlusCircle, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { deleteDoctorMapping, type DoctorMapping } from '../../services/api';
+import { deleteDoctorMapping, syncDoctorsBaseFromContaAzul, type DoctorMapping } from '../../services/api';
 import NewDoctorMappingModal from './NewDoctorMappingModal';
 
 interface DoctorMappingPanelProps {
@@ -26,6 +26,7 @@ export default function DoctorMappingPanel({
 }: DoctorMappingPanelProps) {
   const [idRemovendo, setIdRemovendo] = useState<string | null>(null);
   const [showNovoMapeamentoModal, setShowNovoMapeamentoModal] = useState(false);
+  const [syncingBase, setSyncingBase] = useState(false);
 
   const mapeamentosOrdenados = useMemo(() => ordenarPorNomeMedico(mapeamentos), [mapeamentos]);
 
@@ -42,6 +43,19 @@ export default function DoctorMappingPanel({
     }
   }
 
+  async function handleSyncBase() {
+    try {
+      setSyncingBase(true);
+      const result = await syncDoctorsBaseFromContaAzul();
+      await onAtualizar();
+      toast.success(`Sincronização concluída. Novos: ${result.novos}. Atualizados: ${result.atualizados}.`);
+    } catch {
+      toast.error('Não foi possível sincronizar a base de médicos do Conta Azul.');
+    } finally {
+      setSyncingBase(false);
+    }
+  }
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <header className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -52,14 +66,28 @@ export default function DoctorMappingPanel({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowNovoMapeamentoModal(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
-        >
-          <PlusCircle size={16} />
-          Novo Mapeamento
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void handleSyncBase();
+            }}
+            disabled={syncingBase}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {syncingBase ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+            {syncingBase ? 'Sincronizando...' : 'Sincronizar Base do Conta Azul'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowNovoMapeamentoModal(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
+          >
+            <PlusCircle size={16} />
+            Novo Mapeamento
+          </button>
+        </div>
       </header>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200">

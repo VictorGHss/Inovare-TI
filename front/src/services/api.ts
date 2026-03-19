@@ -568,6 +568,11 @@ export interface ContaAzulCustomerEmailResponse {
   email: string | null;
 }
 
+export interface SyncDoctorsResponse {
+  novos: number;
+  atualizados: number;
+}
+
 export interface FinancialSummaryDTO {
   balanceCents: number;
   totalPendingCents: number;
@@ -708,6 +713,11 @@ export async function createDoctorMapping(payload: CreateDoctorMappingDTO): Prom
 
 export async function deleteDoctorMapping(id: string): Promise<void> {
   await api.delete(`/api/financeiro/doctor-mappings/${id}`);
+}
+
+export async function syncDoctorsBaseFromContaAzul(): Promise<SyncDoctorsResponse> {
+  const { data } = await api.post<SyncDoctorsResponse>('/api/financeiro/medicos/sincronizar-base');
+  return data;
 }
 
 export async function checkContaAzulCustomerByEmail(email: string): Promise<ContaAzulCustomerCheckResponse> {

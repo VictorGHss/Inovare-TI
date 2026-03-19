@@ -271,8 +271,13 @@ public class ContaAzulClient {
         }
 
         String normalizedNumber = String.valueOf(numero);
+        String dataInicio = "2024-01-01";
+        String dataFim = "2026-12-31";
+
         String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
                 .queryParam("numero", normalizedNumber)
+            .queryParam("data_inicio", dataInicio)
+            .queryParam("data_fim", dataFim)
                 .build()
                 .toUriString();
 
@@ -281,6 +286,9 @@ public class ContaAzulClient {
             SaleByNumberResponseDTO response = objectMapper.readValue(
                     payload.getBytes(StandardCharsets.UTF_8),
                     SaleByNumberResponseDTO.class);
+
+            int resultados = response != null && response.itens() != null ? response.itens().size() : 0;
+            log.info("!!! [SNIPER DEBUG] Venda [{}] retornou [{}] resultados da API", normalizedNumber, resultados);
 
             if (response == null || response.itens() == null || response.itens().isEmpty()) {
                 return Optional.empty();

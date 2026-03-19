@@ -42,7 +42,7 @@ public class ContaAzulFinancialSummaryService {
     @Value("${app.contaazul.payments-url}")
     private String paymentsUrl;
 
-    @Value("${app.contaazul.api-v2-base-url:https://api.contaazul.com/v2}")
+    @Value("${app.contaazul.api-v2-base-url:https://api-v2.contaazul.com}")
     private String contaAzulApiV2BaseUrl;
 
     @PostConstruct

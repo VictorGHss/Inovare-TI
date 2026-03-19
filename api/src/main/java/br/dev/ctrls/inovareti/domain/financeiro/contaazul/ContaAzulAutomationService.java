@@ -86,7 +86,7 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.sales-pdf-v1-url-template}")
     private String salesPdfV1UrlTemplate;
 
-    @Value("${app.contaazul.api-v2-base-url:https://api.contaazul.com/v2}")
+    @Value("${app.contaazul.api-v2-base-url:https://api-v2.contaazul.com}")
     private String contaAzulApiV2BaseUrl;
 
     @PostConstruct

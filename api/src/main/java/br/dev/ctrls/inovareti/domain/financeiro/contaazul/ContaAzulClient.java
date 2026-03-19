@@ -286,29 +286,29 @@ public class ContaAzulClient {
                 return Optional.empty();
             }
 
-                SaleByNumberItemDTO matchedItem = response.itens().stream()
+            SaleByNumberItemDTO matchedItem = response.itens().stream()
                     .filter(item -> item != null && StringUtils.hasText(item.id()))
                     .filter(item -> {
-                    String itemNumber = StringUtils.hasText(item.numero())
-                        ? item.numero().trim()
-                        : (StringUtils.hasText(item.number()) ? item.number().trim() : null);
-                    return normalizedNumber.equals(itemNumber);
+                        String itemNumber = StringUtils.hasText(item.numero())
+                                ? item.numero().trim()
+                                : (StringUtils.hasText(item.number()) ? item.number().trim() : null);
+                        return normalizedNumber.equals(itemNumber);
                     })
                     .findFirst()
-                    .orElseGet(() -> response.itens().stream()
-                        .filter(item -> item != null && StringUtils.hasText(item.id()))
-                        .findFirst()
-                        .orElse(null));
+                    .orElse(null);
 
-                if (matchedItem == null || !StringUtils.hasText(matchedItem.id())) {
+            if (matchedItem == null || !StringUtils.hasText(matchedItem.id())) {
+                log.warn("Sniper: Nenhuma venda com número exato {} foi encontrada no retorno de /v1/venda/busca.", normalizedNumber);
                 return Optional.empty();
             }
 
-                String resolvedNumber = StringUtils.hasText(matchedItem.numero())
+            String resolvedNumber = StringUtils.hasText(matchedItem.numero())
                     ? matchedItem.numero().trim()
                     : (StringUtils.hasText(matchedItem.number()) ? matchedItem.number().trim() : normalizedNumber);
 
-                boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(matchedItem);
+            boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(matchedItem);
+
+            log.info("!!! [SNIPER DEBUG] JSON recebido para a venda [{}]: [{}]", resolvedNumber, matchedItem.id().trim());
 
             return Optional.of(new SaleItem(
                     matchedItem.id().trim(),

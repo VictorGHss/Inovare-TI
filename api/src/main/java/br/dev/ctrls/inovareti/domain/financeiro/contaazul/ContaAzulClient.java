@@ -277,12 +277,41 @@ public class ContaAzulClient {
                 .toUriString();
 
         String payload = executeJsonGetWithRefresh(uri);
-        List<SaleItem> items = parseSalesByNumber(payload);
+        try {
+            SaleByNumberResponseDTO response = objectMapper.readValue(
+                    payload.getBytes(StandardCharsets.UTF_8),
+                    SaleByNumberResponseDTO.class);
 
-        return items.stream()
-                .filter(item -> normalizedNumber.equals(item.saleNumber()))
-                .findFirst()
-                .or(() -> items.stream().findFirst());
+            if (response == null || response.itens() == null || response.itens().isEmpty()) {
+                return Optional.empty();
+            }
+
+            SaleByNumberItemDTO firstItem = response.itens().get(0);
+            if (firstItem == null || !StringUtils.hasText(firstItem.id())) {
+                return Optional.empty();
+            }
+
+            String resolvedNumber = StringUtils.hasText(firstItem.numero())
+                    ? firstItem.numero().trim()
+                    : (StringUtils.hasText(firstItem.number()) ? firstItem.number().trim() : normalizedNumber);
+
+            boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(firstItem);
+
+            return Optional.of(new SaleItem(
+                    firstItem.id().trim(),
+                    null,
+                    null,
+                    null,
+                    "VENDA",
+                    new VendaRef(firstItem.id().trim()),
+                    firstItem.id().trim(),
+                    firstItem.id().trim(),
+                    null,
+                    resolvedNumber,
+                    hasAcquittedInstallment));
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de venda por número da Conta Azul.", ex);
+        }
     }
 
     public Optional<SaleItem> findSaleByNumber(String saleNumber) {
@@ -789,68 +818,28 @@ public class ContaAzulClient {
         }
     }
 
-    private List<SaleItem> parseSalesByNumber(String jsonPayload) {
-        if (!StringUtils.hasText(jsonPayload)) {
-            return List.of();
+    private boolean hasAcquittedInstallmentInSaleByNumberItem(SaleByNumberItemDTO saleItem) {
+        if (saleItem == null) {
+            return false;
         }
 
-        try {
-            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = resolveArrayNode(root);
-            if (entries == null || !entries.isArray() || entries.isEmpty()) {
-                return List.of();
-            }
-
-            List<SaleItem> sales = new ArrayList<>();
-            for (JsonNode saleNode : entries) {
-                String saleId = readText(saleNode, "id", "sale_id", "venda.id");
-                if (!StringUtils.hasText(saleId)) {
-                    continue;
+        if (saleItem.installments() != null) {
+            for (SaleInstallmentDTO installment : saleItem.installments()) {
+                if (installment != null && "ACQUITTED".equalsIgnoreCase(installment.status())) {
+                    return true;
                 }
-
-                String customerUuid = readText(
-                        saleNode,
-                        "customer.id",
-                        "customer.uuid",
-                        "cliente.id",
-                        "cliente.uuid",
-                        "person.id",
-                        "pessoa.id");
-
-                String customerName = readText(
-                        saleNode,
-                        "customer.name",
-                        "cliente.nome",
-                        "person.nome",
-                        "person.name");
-
-                String resolvedSaleNumber = readText(
-                        saleNode,
-                        "number",
-                        "numero",
-                        "sale.number",
-                        "venda.numero");
-
-                boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleNode(saleNode);
-
-                sales.add(new SaleItem(
-                        saleId,
-                        customerUuid,
-                        customerName,
-                        null,
-                        "VENDA",
-                        new VendaRef(saleId),
-                        saleId,
-                        saleId,
-                        null,
-                        resolvedSaleNumber,
-                        hasAcquittedInstallment));
             }
-
-            return sales;
-        } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao parsear payload de vendas por número da Conta Azul.", ex);
         }
+
+        if (saleItem.parcelas() != null) {
+            for (SaleInstallmentDTO parcela : saleItem.parcelas()) {
+                if (parcela != null && "ACQUITTED".equalsIgnoreCase(parcela.status())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private boolean hasAcquittedInstallmentInSaleNode(JsonNode saleNode) {
@@ -956,6 +945,25 @@ public class ContaAzulClient {
             String saleNumber,
             boolean hasAcquittedInstallment) {
     }
+
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            private record SaleByNumberResponseDTO(
+                @JsonProperty("itens") List<SaleByNumberItemDTO> itens) {
+            }
+
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            private record SaleByNumberItemDTO(
+                @JsonProperty("id") String id,
+                @JsonProperty("numero") String numero,
+                @JsonProperty("number") String number,
+                @JsonProperty("installments") List<SaleInstallmentDTO> installments,
+                @JsonProperty("parcelas") List<SaleInstallmentDTO> parcelas) {
+            }
+
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            private record SaleInstallmentDTO(
+                @JsonProperty("status") String status) {
+            }
 
     private record PessoasPage(List<PessoaItem> itens, Long total) {
     }

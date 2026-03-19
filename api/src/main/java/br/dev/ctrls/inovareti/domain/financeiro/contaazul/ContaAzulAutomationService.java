@@ -3,9 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -222,8 +220,6 @@ public class ContaAzulAutomationService {
         int skippedProcessed = 0;
         int skippedMapping = 0;
         int failures = 0;
-        Map<String, String> saleNumberToUuid = new HashMap<>();
-        List<ContaAzulClient.SaleItem> fallbackSales = new ArrayList<>();
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
@@ -234,8 +230,8 @@ public class ContaAzulAutomationService {
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
 
                 String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
-                        ? sale.venda().id()
-                        : null;
+                        ? sale.venda().id().trim()
+                        : (StringUtils.hasText(sale.vendaId()) ? sale.vendaId().trim() : null);
 
                 String saleNumberFromDescription = null;
 
@@ -245,44 +241,23 @@ public class ContaAzulAutomationService {
                     if (StringUtils.hasText(saleNumberFromDescription)) {
                         log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
 
-                        if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
-                            Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
-                            try {
-                                directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
-                            } catch (NumberFormatException ex) {
-                                log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
-                            }
-
-                            if (directSale.isPresent()
-                                    && StringUtils.hasText(directSale.get().saleId())
-                                    && StringUtils.hasText(directSale.get().saleNumber())
-                                    && directSale.get().hasAcquittedInstallment()
-                                    && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
-                                saleNumberToUuid.put(saleNumberFromDescription, directSale.get().saleId());
-                            }
-
-                            if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
-                                if (fallbackSales.isEmpty()) {
-                                    fallbackSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
-                                }
-
-                                final String extractedSaleNumber = saleNumberFromDescription;
-
-                                Optional<String> uuidByNumber = fallbackSales.stream()
-                                        .filter(item -> StringUtils.hasText(item.saleNumber()))
-                                    .filter(ContaAzulClient.SaleItem::hasAcquittedInstallment)
-                                        .filter(item -> extractedSaleNumber.equals(item.saleNumber().trim()))
-                                        .map(ContaAzulClient.SaleItem::saleId)
-                                        .filter(StringUtils::hasText)
-                                        .findFirst();
-
-                                if (uuidByNumber.isPresent()) {
-                                    saleNumberToUuid.put(saleNumberFromDescription, uuidByNumber.get());
-                                }
-                            }
+                        Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
+                        try {
+                            directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
+                        } catch (NumberFormatException ex) {
+                            log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
                         }
 
-                        saleIdToProcess = saleNumberToUuid.get(saleNumberFromDescription);
+                        if (directSale.isPresent()
+                                && StringUtils.hasText(directSale.get().saleId())
+                                && StringUtils.hasText(directSale.get().saleNumber())
+                                && directSale.get().hasAcquittedInstallment()
+                                && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
+                            saleIdToProcess = directSale.get().saleId().trim();
+                            log.info("Sniper: Parcela vinculada à Venda #{} identificada. UUID extraído: {}. Iniciando download do recibo...",
+                                    saleNumberFromDescription,
+                                    saleIdToProcess);
+                        }
                     }
                 }
 

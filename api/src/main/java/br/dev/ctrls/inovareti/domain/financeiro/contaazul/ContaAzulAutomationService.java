@@ -246,7 +246,13 @@ public class ContaAzulAutomationService {
                         log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
 
                         if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
-                            Optional<ContaAzulClient.SaleItem> directSale = contaAzulClient.findSaleByNumber(saleNumberFromDescription);
+                            Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
+                            try {
+                                directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
+                            } catch (NumberFormatException ex) {
+                                log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
+                            }
+
                             if (directSale.isPresent()
                                     && StringUtils.hasText(directSale.get().saleId())
                                     && StringUtils.hasText(directSale.get().saleNumber())

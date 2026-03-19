@@ -265,13 +265,13 @@ public class ContaAzulClient {
         return sales;
     }
 
-    public Optional<SaleItem> findSaleByNumber(String saleNumber) {
-        if (!StringUtils.hasText(saleNumber)) {
+    public Optional<SaleItem> fetchSaleByNumber(Integer numero) {
+        if (numero == null) {
             return Optional.empty();
         }
 
-        String normalizedNumber = saleNumber.trim();
-        String uri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
+        String normalizedNumber = String.valueOf(numero);
+        String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
                 .queryParam("numero", normalizedNumber)
                 .build()
                 .toUriString();
@@ -283,6 +283,18 @@ public class ContaAzulClient {
                 .filter(item -> normalizedNumber.equals(item.saleNumber()))
                 .findFirst()
                 .or(() -> items.stream().findFirst());
+    }
+
+    public Optional<SaleItem> findSaleByNumber(String saleNumber) {
+        if (!StringUtils.hasText(saleNumber)) {
+            return Optional.empty();
+        }
+
+        try {
+            return fetchSaleByNumber(Integer.valueOf(saleNumber.trim()));
+        } catch (NumberFormatException ex) {
+            return Optional.empty();
+        }
     }
 
     private String fetchCommittedSalesPagePayload(int page) {

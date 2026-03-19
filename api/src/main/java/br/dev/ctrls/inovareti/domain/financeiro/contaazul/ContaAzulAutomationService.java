@@ -249,9 +249,26 @@ public class ContaAzulAutomationService {
                 }
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
-                log.info("Processando parcela: {}. Cliente UUID: {}",
-                        StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)",
-                        StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
+                log.info("-> Analisando Parcela ID: {} | Descrição: {}",
+                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
+                        StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)");
+
+                log.info("Verificando mapeamento para o médico...");
+
+                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
+                        .orElse(null);
+
+                if (mapping == null) {
+                    skippedMapping++;
+                    log.info("Médico não mapeado no banco");
+                    log.info("Mapeamento NÃO encontrado. Pulando item.");
+                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
+                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
+                    }
+                    continue;
+                }
+
+                log.info("-> Médico no banco: {} (E-mail: {})", mapping.getDoctorName(), mapping.getDoctorEmail());
 
                 String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
                         ? sale.venda().id().trim()
@@ -262,7 +279,8 @@ public class ContaAzulAutomationService {
                     saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
                     if (StringUtils.hasText(saleNumberFromDescription)) {
-                        log.info("Venda ID nulo. Disparando Sniper para o número {}...", saleNumberFromDescription);
+                        String numeroExtraido = saleNumberFromDescription;
+                        log.info("-> Disparando Sniper Search para a venda número: {}", numeroExtraido);
                     }
 
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
@@ -308,32 +326,6 @@ public class ContaAzulAutomationService {
                     log.info("Venda {} já processada anteriormente. Ignorando.", saleIdToProcess);
                     continue;
                 }
-
-                if (!StringUtils.hasText(customerUuidFromParcel)) {
-                    skippedMapping++;
-                    log.warn("Venda {} sem customer UUID. Pulando.", saleIdToProcess);
-                    continue;
-                }
-
-                log.info("Verificando mapeamento para o médico...");
-
-                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
-                        .orElse(null);
-
-                if (mapping == null) {
-                    skippedMapping++;
-                    log.info("Mapeamento NÃO encontrado. Pulando item.");
-                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
-                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
-                    }
-                    log.warn("Sem mapeamento para customer UUID {}. Venda {} ignorada.",
-                            customerUuidFromParcel,
-                            saleIdToProcess);
-                    continue;
-                }
-
-                log.info("Mapeamento encontrado: {}.",
-                        StringUtils.hasText(mapping.getDoctorEmail()) ? mapping.getDoctorEmail().trim() : "(sem e-mail)");
 
                 String recipientEmail = resolveRecipientEmail(mapping);
                 if (!StringUtils.hasText(recipientEmail)) {
@@ -420,7 +412,14 @@ public class ContaAzulAutomationService {
 
         String normalizedParcelCustomerUuid = normalizeUuid(customerUuidFromParcel);
 
-        Optional<DoctorEmailMapping> direct = doctorEmailMappingRepository.findByContaAzulCustomerUuid(normalizedParcelCustomerUuid);
+        Optional<DoctorEmailMapping> normalizedMatch = doctorEmailMappingRepository
+                .findByContaAzulCustomerUuidNormalized(normalizedParcelCustomerUuid);
+        if (normalizedMatch.isPresent()) {
+            return normalizedMatch;
+        }
+
+        Optional<DoctorEmailMapping> direct = doctorEmailMappingRepository
+                .findByContaAzulCustomerUuid(normalizedParcelCustomerUuid);
         if (direct.isPresent()) {
             return direct;
         }

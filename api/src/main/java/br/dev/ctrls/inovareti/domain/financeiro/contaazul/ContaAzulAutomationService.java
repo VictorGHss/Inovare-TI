@@ -208,7 +208,7 @@ public class ContaAzulAutomationService {
                     .anyMatch(item -> item.venda() != null && StringUtils.hasText(item.venda().id()));
 
             if (!hasVendaMappedFromFinancial) {
-                log.warn("Endpoint financeiro não retornou venda.id nas parcelas. Aplicando fallback via /v1/sales (COMMITTED).");
+                log.warn("Endpoint financeiro não retornou venda.id nas parcelas. Aplicando fallback via /v1/venda/busca.");
                 acquittedSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
             }
         } catch (RuntimeException ex) {
@@ -244,9 +244,11 @@ public class ContaAzulAutomationService {
                     if (StringUtils.hasText(saleNumberFromDescription)) {
                         log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
 
-                        if (saleNumberToUuid.isEmpty()) {
-                            List<ContaAzulClient.SaleItem> committedSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
-                            saleNumberToUuid = buildSaleNumberToUuidIndex(committedSales);
+                        if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
+                            Optional<ContaAzulClient.SaleItem> directSale = contaAzulClient.findSaleByNumber(saleNumberFromDescription);
+                            if (directSale.isPresent() && StringUtils.hasText(directSale.get().saleId())) {
+                                saleNumberToUuid.put(saleNumberFromDescription, directSale.get().saleId());
+                            }
                         }
 
                         saleIdToProcess = saleNumberToUuid.get(saleNumberFromDescription);
@@ -314,6 +316,9 @@ public class ContaAzulAutomationService {
                 String saleNumberForInfo = StringUtils.hasText(saleNumberFromDescription)
                         ? saleNumberFromDescription
                         : (StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : saleIdToProcess);
+                log.info("Localizando venda {} via busca direta. UUID encontrado: {}. Baixando PDF via /imprimir...",
+                    saleNumberForInfo,
+                    saleIdToProcess);
                 log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF da Venda {}",
                         sale.parcelaId(),
                         doctorName,
@@ -417,20 +422,6 @@ public class ContaAzulAutomationService {
         log.debug("Número da venda extraído da descrição '{}': {}", descricao, matcher.group(1));
 
         return matcher.group(1);
-    }
-
-    private Map<String, String> buildSaleNumberToUuidIndex(List<ContaAzulClient.SaleItem> sales) {
-        Map<String, String> index = new HashMap<>();
-
-        for (ContaAzulClient.SaleItem sale : sales) {
-            if (!StringUtils.hasText(sale.saleNumber()) || !StringUtils.hasText(sale.saleId())) {
-                continue;
-            }
-
-            index.put(sale.saleNumber().trim(), sale.saleId().trim());
-        }
-
-        return index;
     }
 
     private String buildSalesConfigurationErrorMessage() {

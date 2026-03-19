@@ -264,6 +264,26 @@ public class ContaAzulClient {
         return sales;
     }
 
+    public Optional<SaleItem> findSaleByNumber(String saleNumber) {
+        if (!StringUtils.hasText(saleNumber)) {
+            return Optional.empty();
+        }
+
+        String normalizedNumber = saleNumber.trim();
+        String uri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
+                .queryParam("numero", normalizedNumber)
+                .build()
+                .toUriString();
+
+        String payload = executeJsonGetWithRefresh(uri);
+        List<SaleItem> items = parseSalesByNumber(payload);
+
+        return items.stream()
+                .filter(item -> normalizedNumber.equals(item.saleNumber()))
+                .findFirst()
+                .or(() -> items.stream().findFirst());
+    }
+
     private String fetchCommittedSalesPagePayload(int page) {
         LocalDate today = LocalDate.now();
         String dataAlteracaoDe = LocalDateTime.of(today, java.time.LocalTime.MIDNIGHT).format(DATE_TIME_FORMATTER);
@@ -757,6 +777,67 @@ public class ContaAzulClient {
             return sales;
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de vendas COMMITTED da Conta Azul.", ex);
+        }
+    }
+
+    private List<SaleItem> parseSalesByNumber(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return List.of();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            JsonNode entries = resolveArrayNode(root);
+            if (entries == null || !entries.isArray() || entries.isEmpty()) {
+                return List.of();
+            }
+
+            List<SaleItem> sales = new ArrayList<>();
+            for (JsonNode saleNode : entries) {
+                String saleId = readText(saleNode, "id", "sale_id", "venda.id");
+                if (!StringUtils.hasText(saleId)) {
+                    continue;
+                }
+
+                String customerUuid = readText(
+                        saleNode,
+                        "customer.id",
+                        "customer.uuid",
+                        "cliente.id",
+                        "cliente.uuid",
+                        "person.id",
+                        "pessoa.id");
+
+                String customerName = readText(
+                        saleNode,
+                        "customer.name",
+                        "cliente.nome",
+                        "person.nome",
+                        "person.name");
+
+                String resolvedSaleNumber = readText(
+                        saleNode,
+                        "number",
+                        "numero",
+                        "sale.number",
+                        "venda.numero");
+
+                sales.add(new SaleItem(
+                        saleId,
+                        customerUuid,
+                        customerName,
+                        null,
+                        "VENDA",
+                        new VendaRef(saleId),
+                        saleId,
+                        saleId,
+                        null,
+                        resolvedSaleNumber));
+            }
+
+            return sales;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de vendas por número da Conta Azul.", ex);
         }
     }
 

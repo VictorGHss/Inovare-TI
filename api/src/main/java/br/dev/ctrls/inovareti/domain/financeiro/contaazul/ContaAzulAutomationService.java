@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class ContaAzulAutomationService {
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -131,9 +135,16 @@ public class ContaAzulAutomationService {
 
         log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
 
+        LocalDate hoje = LocalDate.now();
+        LocalDate primeiroDiaMesAtual = hoje.withDayOfMonth(1);
+        String dataVencimentoDe = primeiroDiaMesAtual.format(DATE_FORMATTER);
+        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
+
+        log.info("Iniciando busca de parcelas recebidas no período: {} a {}", dataVencimentoDe, dataVencimentoAte);
+
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
-            acquittedSales = contaAzulClient.fetchAcquittedSales();
+            acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
         } catch (RuntimeException ex) {
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
             return;

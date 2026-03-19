@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,7 @@ public class ContaAzulClient {
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -57,13 +60,17 @@ public class ContaAzulClient {
      * Consulta eventos financeiros (contas a receber) e extrai o sale_id (venda_id) para download de PDF.
      */
     public List<SaleItem> fetchAcquittedSales() {
+        LocalDate hoje = LocalDate.now();
+        String dataVencimentoDe = hoje.withDayOfMonth(1).format(DATE_FORMATTER);
+        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
+        return fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
+        }
+
+        public List<SaleItem> fetchAcquittedSales(String dataVencimentoDe, String dataVencimentoAte) {
         List<SaleItem> sales = new ArrayList<>();
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = receivableEventsSearchUrl
-                    + "?pagina=" + page
-                    + "&tamanho_pagina=" + PAGE_SIZE
-                    + "&status=RECEBIDO";
+            String uri = buildReceivableSearchUri(page, dataVencimentoDe, dataVencimentoAte);
 
             log.info("Solicitando lista de vendas ao Conta Azul: {}", uri);
             log.debug("Consultando vendas na Conta Azul. pagina={}, uri={}", page, uri);
@@ -137,12 +144,12 @@ public class ContaAzulClient {
         }
 
         String normalizedSaleId = saleId.trim();
+        LocalDate hoje = LocalDate.now();
+        String dataVencimentoDe = hoje.withDayOfMonth(1).format(DATE_FORMATTER);
+        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = receivableEventsSearchUrl
-                + "?pagina=" + page
-                + "&tamanho_pagina=" + PAGE_SIZE
-                + "&status=RECEBIDO";
+            String uri = buildReceivableSearchUri(page, dataVencimentoDe, dataVencimentoAte);
 
             String payload = executeJsonGetWithRefresh(uri);
             List<SaleItem> pageItems = parseAcquittedSales(payload);
@@ -346,6 +353,17 @@ public class ContaAzulClient {
                 || "PAGO".equalsIgnoreCase(normalizedStatus)
                 || "PAID".equalsIgnoreCase(normalizedStatus)
                 || "LIQUIDADO".equalsIgnoreCase(normalizedStatus);
+    }
+
+    private String buildReceivableSearchUri(int page, String dataVencimentoDe, String dataVencimentoAte) {
+        return UriComponentsBuilder.fromUriString(receivableEventsSearchUrl)
+                .queryParam("pagina", page)
+                .queryParam("tamanho_pagina", PAGE_SIZE)
+                .queryParam("status", "RECEBIDO")
+                .queryParam("data_vencimento_de", dataVencimentoDe)
+                .queryParam("data_vencimento_ate", dataVencimentoAte)
+                .build()
+                .toUriString();
     }
 
     private String sanitizeTokenPrefix(String accessToken) {

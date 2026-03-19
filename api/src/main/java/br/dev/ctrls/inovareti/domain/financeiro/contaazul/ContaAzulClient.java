@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ public class ContaAzulClient {
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -264,13 +266,17 @@ public class ContaAzulClient {
 
     private String fetchCommittedSalesPagePayload(int page) {
         LocalDate today = LocalDate.now();
+        String dataAlteracaoDe = LocalDateTime.of(today, java.time.LocalTime.MIDNIGHT).format(DATE_TIME_FORMATTER);
+        String dataAlteracaoAte = LocalDateTime.of(today, java.time.LocalTime.of(23, 59, 59)).format(DATE_TIME_FORMATTER);
+
+        log.debug("Buscando vendas alteradas no período completo: {} até {}", dataAlteracaoDe, dataAlteracaoAte);
 
         String primaryUri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
                 .queryParam("status", "COMMITTED")
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
-                .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
-                .queryParam("data_alteracao_ate", today.format(DATE_FORMATTER))
+            .queryParam("data_alteracao_de", dataAlteracaoDe)
+            .queryParam("data_alteracao_ate", dataAlteracaoAte)
                 .build()
                 .toUriString();
 
@@ -281,8 +287,8 @@ public class ContaAzulClient {
                     .queryParam("status", "COMMITTED")
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
-                    .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
-                    .queryParam("data_alteracao_ate", today.format(DATE_FORMATTER))
+                    .queryParam("data_alteracao_de", dataAlteracaoDe)
+                    .queryParam("data_alteracao_ate", dataAlteracaoAte)
                     .build()
                     .toUriString();
 

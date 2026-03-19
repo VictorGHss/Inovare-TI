@@ -35,7 +35,7 @@ public class ContaAzulAutomationService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String EDUARDO_BISINELLA_CUSTOMER_ID = "a4d63616-f502-4232-91a6-5c7e07e467b8";
-    private static final Pattern SALE_NUMBER_FROM_DESCRIPTION_PATTERN = Pattern.compile("^Venda\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SALE_NUMBER_FROM_DESCRIPTION_PATTERN = Pattern.compile("^Venda\\s+(\\d+)\\b.*$", Pattern.CASE_INSENSITIVE);
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -413,6 +413,8 @@ public class ContaAzulAutomationService {
         if (!matcher.find()) {
             return null;
         }
+
+        log.debug("Número da venda extraído da descrição '{}': {}", descricao, matcher.group(1));
 
         return matcher.group(1);
     }

@@ -248,6 +248,7 @@ public class ContaAzulClient {
 
         for (int page = 1; page <= MAX_PAGES; page++) {
             String payload = fetchCommittedSalesPagePayload(page);
+            log.debug("JSON de Vendas (Fallback): {}", payload);
             List<SaleItem> pageItems = parseCommittedSalesWithAcquittedParcels(payload);
 
             if (pageItems.isEmpty()) {
@@ -286,17 +287,17 @@ public class ContaAzulClient {
 
     private String fetchCommittedSalesPagePayload(int page) {
         LocalDate today = LocalDate.now();
-        String dataAlteracaoDe = LocalDateTime.of(today, java.time.LocalTime.MIDNIGHT).format(DATE_TIME_FORMATTER);
+        LocalDate yesterday = today.minusDays(1);
+        String dataAlteracaoDe = LocalDateTime.of(yesterday, java.time.LocalTime.MIDNIGHT).format(DATE_TIME_FORMATTER);
         String dataAlteracaoAte = LocalDateTime.of(today, java.time.LocalTime.of(23, 59, 59)).format(DATE_TIME_FORMATTER);
 
         log.debug("Buscando vendas alteradas no período completo: {} até {}", dataAlteracaoDe, dataAlteracaoAte);
 
         String primaryUri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
-                .queryParam("status", "COMMITTED")
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
-            .queryParam("data_alteracao_de", dataAlteracaoDe)
-            .queryParam("data_alteracao_ate", dataAlteracaoAte)
+                .queryParam("data_alteracao_de", dataAlteracaoDe)
+                .queryParam("data_alteracao_ate", dataAlteracaoAte)
                 .build()
                 .toUriString();
 
@@ -304,7 +305,6 @@ public class ContaAzulClient {
             return executeJsonGetWithRefresh(primaryUri);
         } catch (HttpClientErrorException.NotFound ex) {
             String stableUri = UriComponentsBuilder.fromUriString(salesV2StableUrl)
-                    .queryParam("status", "COMMITTED")
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
                     .queryParam("data_alteracao_de", dataAlteracaoDe)
@@ -734,10 +734,6 @@ public class ContaAzulClient {
                     continue;
                 }
 
-                if (!hasAcquittedParcelInSale(saleNode)) {
-                    continue;
-                }
-
                 String customerUuid = readText(
                         saleNode,
                         "customer.id",
@@ -839,42 +835,6 @@ public class ContaAzulClient {
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de vendas por número da Conta Azul.", ex);
         }
-    }
-
-    private boolean hasAcquittedParcelInSale(JsonNode saleNode) {
-        String saleStatus = readText(saleNode, "status", "situacao");
-        if (isReceivableItemPaid(saleStatus)) {
-            return true;
-        }
-
-        JsonNode parcelas = saleNode.get("parcelas");
-        if (parcelas != null && parcelas.isArray()) {
-            for (JsonNode parcela : parcelas) {
-                String parcelaStatus = readText(parcela, "status", "situacao", "estado");
-                if (isReceivableItemPaid(parcelaStatus)) {
-                    return true;
-                }
-            }
-        }
-
-        JsonNode itens = saleNode.get("itens");
-        if (itens != null && itens.isArray()) {
-            for (JsonNode item : itens) {
-                JsonNode itemParcelas = item.get("parcelas");
-                if (itemParcelas == null || !itemParcelas.isArray()) {
-                    continue;
-                }
-
-                for (JsonNode parcela : itemParcelas) {
-                    String parcelaStatus = readText(parcela, "status", "situacao", "estado");
-                    if (isReceivableItemPaid(parcelaStatus)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     private String readText(JsonNode node, String... paths) {

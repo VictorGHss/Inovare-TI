@@ -223,6 +223,7 @@ public class ContaAzulAutomationService {
         int skippedMapping = 0;
         int failures = 0;
         Map<String, String> saleNumberToUuid = new HashMap<>();
+        List<ContaAzulClient.SaleItem> fallbackSales = new ArrayList<>();
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
@@ -246,8 +247,30 @@ public class ContaAzulAutomationService {
 
                         if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
                             Optional<ContaAzulClient.SaleItem> directSale = contaAzulClient.findSaleByNumber(saleNumberFromDescription);
-                            if (directSale.isPresent() && StringUtils.hasText(directSale.get().saleId())) {
+                            if (directSale.isPresent()
+                                    && StringUtils.hasText(directSale.get().saleId())
+                                    && StringUtils.hasText(directSale.get().saleNumber())
+                                    && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
                                 saleNumberToUuid.put(saleNumberFromDescription, directSale.get().saleId());
+                            }
+
+                            if (!saleNumberToUuid.containsKey(saleNumberFromDescription)) {
+                                if (fallbackSales.isEmpty()) {
+                                    fallbackSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
+                                }
+
+                                final String extractedSaleNumber = saleNumberFromDescription;
+
+                                Optional<String> uuidByNumber = fallbackSales.stream()
+                                        .filter(item -> StringUtils.hasText(item.saleNumber()))
+                                        .filter(item -> extractedSaleNumber.equals(item.saleNumber().trim()))
+                                        .map(ContaAzulClient.SaleItem::saleId)
+                                        .filter(StringUtils::hasText)
+                                        .findFirst();
+
+                                if (uuidByNumber.isPresent()) {
+                                    saleNumberToUuid.put(saleNumberFromDescription, uuidByNumber.get());
+                                }
                             }
                         }
 

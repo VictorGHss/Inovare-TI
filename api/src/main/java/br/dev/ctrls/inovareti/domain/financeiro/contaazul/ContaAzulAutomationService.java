@@ -122,11 +122,15 @@ public class ContaAzulAutomationService {
         byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
+        String saleNumberForEmail = StringUtils.hasText(sale.saleNumber())
+            ? sale.saleNumber().trim()
+            : sale.saleId();
+
         log.info("Enviando para {}", recipientEmail);
         financeEmailService.sendReceiptEmailWithPdf(
                 doctorName,
                 recipientEmail,
-                buildEmailBody(sale, doctorName),
+            buildEmailBody(doctorName, saleNumberForEmail),
                 pdfBytes,
                 "recibo-venda-" + sale.saleId() + ".pdf");
 
@@ -271,7 +275,9 @@ public class ContaAzulAutomationService {
                         try {
                             directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
                             if (directSale.isPresent()) {
-                                log.info("!!! [SNIPER SUCCESS] UUID encontrado: " + directSale.get().saleId());
+                                log.info("!!! [SNIPER SUCCESS] Venda #{} | UUID encontrado: {}",
+                                        saleNumberFromDescription,
+                                        directSale.get().saleId());
                             } else {
                                 log.info("!!! [SNIPER FAIL] Nenhum UUID retornado para a venda: " + saleNumberFromDescription);
                             }
@@ -364,7 +370,7 @@ public class ContaAzulAutomationService {
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
-                    buildEmailBody(sale, doctorName),
+                    buildEmailBody(doctorName, saleNumberForInfo),
                         pdfBytes,
                         "recibo-venda-" + saleIdToProcess + ".pdf");
 
@@ -446,12 +452,14 @@ public class ContaAzulAutomationService {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
     }
 
-    private String buildEmailBody(ContaAzulClient.SaleItem sale, String doctorName) {
+    private String buildEmailBody(String doctorName, String saleNumber) {
+        String saleNumberSafe = StringUtils.hasText(saleNumber) ? saleNumber.trim() : "N/D";
+
         return "Olá " + doctorName
-                + ",\n\nSeu recibo financeiro referente à venda "
-                + sale.saleId()
-                + " foi liquidado na Conta Azul e segue em anexo.\n\n"
-                + "Atenciosamente,\nInovare TI";
+                + ",\n\nSegue em anexo o seu recibo referente à Venda #"
+                + saleNumberSafe
+                + ".\n\nEste é um envio automático do sistema de gestão Inovare TI. Caso tenha qualquer dúvida, estamos à sua disposição.\n\n"
+                + "Atenciosamente,\nEquipe Inovare TI";
     }
 
     private String extractSaleNumberFromDescription(String descricao) {

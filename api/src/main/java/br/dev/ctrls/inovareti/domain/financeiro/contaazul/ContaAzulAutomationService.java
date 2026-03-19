@@ -184,6 +184,11 @@ public class ContaAzulAutomationService {
                     continue;
                 }
 
+                log.trace(
+                    "Verificando parcela ID {}. Cliente ID: {}. Existe mapeamento para este médico?",
+                    sale.parcelaId(),
+                    sale.customerUuid());
+
                 DoctorEmailMapping mapping = doctorEmailMappingRepository
                         .findByContaAzulCustomerUuid(sale.customerUuid())
                         .orElse(null);

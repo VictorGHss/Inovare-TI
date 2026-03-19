@@ -78,6 +78,7 @@ public class ContaAzulClient {
             log.debug("Consultando vendas na Conta Azul. pagina={}, uri={}", page, uri);
 
             String payload = executeJsonGetWithRefresh(uri);
+            log.debug("JSON bruto retornado pela Conta Azul (pagina {}): {}", page, payload);
             List<SaleItem> pageItems = parseAcquittedSales(payload);
 
             if (pageItems.isEmpty()) {

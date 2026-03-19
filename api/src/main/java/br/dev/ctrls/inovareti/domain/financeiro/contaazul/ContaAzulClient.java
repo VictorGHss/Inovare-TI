@@ -269,7 +269,8 @@ public class ContaAzulClient {
                 .queryParam("status", "COMMITTED")
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
-            .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
+                .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
+                .queryParam("data_alteracao_ate", today.format(DATE_FORMATTER))
                 .build()
                 .toUriString();
 
@@ -281,6 +282,7 @@ public class ContaAzulClient {
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
                     .queryParam("data_alteracao_de", today.format(DATE_FORMATTER))
+                    .queryParam("data_alteracao_ate", today.format(DATE_FORMATTER))
                     .build()
                     .toUriString();
 

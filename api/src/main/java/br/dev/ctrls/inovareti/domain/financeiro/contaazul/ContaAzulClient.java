@@ -21,6 +21,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -254,23 +256,38 @@ public class ContaAzulClient {
 
         try {
             JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = resolveArrayNode(root);
+            JsonNode entries = resolveArrayNodeFromDtoOrFallback(root);
             if (entries == null || !entries.isArray() || entries.isEmpty()) {
                 return List.of();
             }
 
             List<SaleItem> sales = new ArrayList<>();
             for (JsonNode node : entries) {
-                String saleId = readText(
+                String parcelaId = readText(
                         node,
-                        "venda_id",
-                        "sale_id",
-                        "sale.id",
-                        "venda.id",
+                        "id",
+                        "parcela_id",
+                        "parcela.id",
+                        "titulo.id");
+
+                String origemSaleId = readText(
+                        node,
                         "origem.venda_id",
                         "origem.sale_id",
                         "origem.venda.id",
                         "origem.id");
+
+                String vendaId = readText(
+                        node,
+                        "venda_id",
+                        "sale_id",
+                        "sale.id",
+                        "venda.id");
+
+                String saleId = StringUtils.hasText(origemSaleId)
+                        ? origemSaleId
+                        : (StringUtils.hasText(vendaId) ? vendaId : null);
+
                 String status = readText(node, "status", "sale.status", "situacao", "estado");
 
                 if (!StringUtils.hasText(saleId) || !isReceivableItemPaid(status)) {
@@ -297,7 +314,7 @@ public class ContaAzulClient {
                         "contato.nome",
                         "pessoa.nome");
 
-                sales.add(new SaleItem(saleId, customerUuid, customerName));
+                    sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origemSaleId, vendaId));
             }
 
             return sales;
@@ -340,6 +357,25 @@ public class ContaAzulClient {
         }
 
         return objectMapper.createArrayNode();
+    }
+
+    private JsonNode resolveArrayNodeFromDtoOrFallback(JsonNode root) {
+        try {
+            ReceivablesSearchResponseDTO dto = objectMapper.treeToValue(root, ReceivablesSearchResponseDTO.class);
+            if (dto != null) {
+                if (dto.itens() != null && !dto.itens().isEmpty()) {
+                    return objectMapper.valueToTree(dto.itens());
+                }
+
+                if (dto.content() != null && dto.content().itens() != null && !dto.content().itens().isEmpty()) {
+                    return objectMapper.valueToTree(dto.content().itens());
+                }
+            }
+        } catch (IllegalArgumentException ex) {
+            log.debug("Falha ao mapear DTO de parcelas (itens). Aplicando fallback por JsonNode.", ex);
+        }
+
+        return resolveArrayNode(root);
     }
 
     private boolean isReceivableItemPaid(String status) {
@@ -504,9 +540,23 @@ public class ContaAzulClient {
         return null;
     }
 
-    public record SaleItem(
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private record ReceivablesSearchResponseDTO(
+            @JsonProperty("itens") List<JsonNode> itens,
+            @JsonProperty("content") ReceivablesContentDTO content) {
+        }
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private record ReceivablesContentDTO(
+            @JsonProperty("itens") List<JsonNode> itens) {
+        }
+
+        public record SaleItem(
             String saleId,
             String customerUuid,
-            String customerName) {
+            String customerName,
+            String parcelaId,
+            String origemSaleId,
+            String vendaId) {
     }
 }

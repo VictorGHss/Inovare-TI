@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulAutomationService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final String EDUARDO_BISINELLA_CUSTOMER_ID = "a4d63616-f502-4232-91a6-5c7e07e467b8";
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -159,19 +160,27 @@ public class ContaAzulAutomationService {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
+                String saleIdToProcess = resolveSaleIdForProcessing(sale);
+
+                log.debug(
+                        "Analisando parcela {}. Venda vinculada: {}. Cliente: {}",
+                        sale.parcelaId(),
+                        saleIdToProcess,
+                        sale.customerUuid());
+
                 log.info("Processando venda {} do médico {}.",
-                        sale.saleId(),
+                        saleIdToProcess,
                         StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
 
-                if (processedSaleRepository.existsBySaleId(sale.saleId())) {
+                if (processedSaleRepository.existsBySaleId(saleIdToProcess)) {
                     skippedProcessed++;
-                    log.info("Venda {} já processada anteriormente. Ignorando.", sale.saleId());
+                    log.info("Venda {} já processada anteriormente. Ignorando.", saleIdToProcess);
                     continue;
                 }
 
                 if (!StringUtils.hasText(sale.customerUuid())) {
                     skippedMapping++;
-                    log.warn("Venda {} sem customer UUID. Pulando.", sale.saleId());
+                    log.warn("Venda {} sem customer UUID. Pulando.", saleIdToProcess);
                     continue;
                 }
 
@@ -181,9 +190,12 @@ public class ContaAzulAutomationService {
 
                 if (mapping == null) {
                     skippedMapping++;
+                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(sale.customerUuid())) {
+                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", sale.customerUuid());
+                    }
                     log.warn("Sem mapeamento para customer UUID {}. Venda {} ignorada.",
                             sale.customerUuid(),
-                            sale.saleId());
+                            saleIdToProcess);
                     continue;
                 }
 
@@ -192,29 +204,29 @@ public class ContaAzulAutomationService {
                     skippedMapping++;
                     log.warn("Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Venda {} ignorada.",
                         sale.customerUuid(),
-                        sale.saleId());
+                        saleIdToProcess);
                     continue;
                 }
 
                 String doctorName = resolveDoctorName(mapping, sale.customerName());
 
-                byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
+                byte[] pdfBytes = contaAzulClient.downloadSalePdf(saleIdToProcess);
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
                     buildEmailBody(sale, doctorName),
                         pdfBytes,
-                        "recibo-venda-" + sale.saleId() + ".pdf");
+                        "recibo-venda-" + saleIdToProcess + ".pdf");
 
                 log.info("E-mail enviado com sucesso para venda {} (médico: {}).",
-                    sale.saleId(),
+                    saleIdToProcess,
                     StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
 
                 processedSaleRepository.save(ProcessedSale.builder()
-                        .saleId(sale.saleId())
+                        .saleId(saleIdToProcess)
                         .build());
 
-                log.info("Venda {} registrada como processada com sucesso.", sale.saleId());
+                log.info("Venda {} registrada como processada com sucesso.", saleIdToProcess);
 
                 sent++;
             } catch (DataIntegrityViolationException ex) {
@@ -253,6 +265,18 @@ public class ContaAzulAutomationService {
         }
 
         return StringUtils.hasText(customerName) ? customerName : "Profissional";
+    }
+
+    private String resolveSaleIdForProcessing(ContaAzulClient.SaleItem sale) {
+        if (StringUtils.hasText(sale.origemSaleId())) {
+            return sale.origemSaleId();
+        }
+
+        if (StringUtils.hasText(sale.vendaId())) {
+            return sale.vendaId();
+        }
+
+        return sale.saleId();
     }
 
     private String buildEmailBody(ContaAzulClient.SaleItem sale, String doctorName) {

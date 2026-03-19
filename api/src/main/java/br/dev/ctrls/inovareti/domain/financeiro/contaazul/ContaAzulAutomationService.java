@@ -83,13 +83,17 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.sales-pdf-v1-url-template}")
     private String salesPdfV1UrlTemplate;
 
+    @Value("${app.contaazul.api-v2-base-url:https://api.contaazul.com/v2}")
+    private String contaAzulApiV2BaseUrl;
+
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
         String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
         String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
 
         log.info(
-                "Diagnóstico Conta Azul no boot: app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
+            "Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}, app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
+            contaAzulApiV2BaseUrl,
                 StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia",
                 StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia",
                 StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia",

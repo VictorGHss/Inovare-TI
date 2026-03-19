@@ -11,6 +11,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -190,30 +191,32 @@ public class ContaAzulClient {
             return executeJsonGet(uri, token);
         } catch (HttpClientErrorException.Unauthorized ex) {
             log.warn("Token expirado ao consultar vendas. Tentando refresh.");
-            ContaAzulOAuthToken refreshedToken = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            return executeJsonGet(uri, refreshedToken);
+            token = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
+            return executeJsonGet(uri, token);
         }
     }
 
     private String executeJsonGet(String uri, ContaAzulOAuthToken token) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Authorization", "Bearer " + token.getAccessToken());
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        String authorizationHeader = "Bearer " + token.getAccessToken();
+        String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
 
         log.debug(
                 "Enviando requisição para {} com Token iniciado em {}...",
                 uri,
                 sanitizeTokenPrefix(token.getAccessToken()));
+        log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
+
+        RequestEntity<Void> requestEntity = RequestEntity
+            .get(java.net.URI.create(uri))
+            .header("Authorization", authorizationHeader)
+            .accept(MediaType.APPLICATION_JSON)
+            .build();
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    uri,
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    String.class);
+            ResponseEntity<String> response = restTemplate.exchange(requestEntity, String.class);
 
             return response.getBody();
-        } catch (HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
+        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
             log.error(
                     "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
                     ex.getStatusCode(),
@@ -320,6 +323,31 @@ public class ContaAzulClient {
 
         String normalized = accessToken.trim();
         return normalized.length() <= 4 ? normalized : normalized.substring(0, 4);
+    }
+
+    private String sanitizeAuthorizationHeader(String authorizationHeader) {
+        if (!StringUtils.hasText(authorizationHeader)) {
+            return "Authorization: n/a";
+        }
+
+        String value = authorizationHeader.trim();
+        if (!value.startsWith("Bearer ")) {
+            return "Authorization: [formato inválido]";
+        }
+
+        String token = value.substring("Bearer ".length());
+        if (!StringUtils.hasText(token)) {
+            return "Authorization: Bearer [vazio]";
+        }
+
+        String normalizedToken = token.trim();
+        if (normalizedToken.length() <= 8) {
+            return "Authorization: Bearer " + normalizedToken;
+        }
+
+        String start = normalizedToken.substring(0, 4);
+        String end = normalizedToken.substring(normalizedToken.length() - 4);
+        return "Authorization: Bearer " + start + "..." + end;
     }
 
     private Optional<String> parseCustomerIdByEmail(String jsonPayload, String email) {

@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -39,6 +41,14 @@ public class ContaAzulFinancialSummaryService {
 
     @Value("${app.contaazul.payments-url}")
     private String paymentsUrl;
+
+    @Value("${app.contaazul.api-v2-base-url:https://api.contaazul.com/v2}")
+    private String contaAzulApiV2BaseUrl;
+
+    @PostConstruct
+    public void logV2BaseConfiguration() {
+        log.info("ContaAzulFinancialSummaryService configurado com base URL v2: {}", contaAzulApiV2BaseUrl);
+    }
 
     public FinancialSummary fetchSummary() {
         String accessToken = contaAzulTokenService.getValidAccessToken();

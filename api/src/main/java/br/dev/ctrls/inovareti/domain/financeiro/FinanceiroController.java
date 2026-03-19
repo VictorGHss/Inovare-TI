@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -92,15 +93,22 @@ public class FinanceiroController {
     @PostMapping("/automacao/executar-agora")
     public ResponseEntity<Map<String, String>> executeAutomationNow() {
         log.info("Executando automação financeira manualmente via endpoint.");
-        long start = System.currentTimeMillis();
-        contaAzulAutomationService.processAcquittedSales();
-        long durationMs = System.currentTimeMillis() - start;
-        log.info("Automação financeira manual concluída em {} ms.", durationMs);
+        try {
+            long start = System.currentTimeMillis();
+            contaAzulAutomationService.processAcquittedSales();
+            long durationMs = System.currentTimeMillis() - start;
+            log.info("Automação financeira manual concluída em {} ms.", durationMs);
 
-        return ResponseEntity.ok(Map.of(
-                "status", "ok",
-            "message", "Automação executada manualmente com sucesso após conclusão do processamento.",
-            "durationMs", String.valueOf(durationMs)));
+            return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "message", "Automação executada manualmente com sucesso após conclusão do processamento.",
+                    "durationMs", String.valueOf(durationMs)));
+        } catch (RuntimeException ex) {
+            log.error("Falha ao executar automação financeira manual.", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", "erro",
+                    "message", "Falha ao executar automação manual. Verifique os logs para detalhes."));
+        }
     }
 
     @GetMapping("/trigger-test-receipt")

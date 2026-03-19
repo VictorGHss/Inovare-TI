@@ -189,26 +189,47 @@ public class ContaAzulAutomationService {
             return;
         }
 
-        log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
-
         LocalDate hoje = LocalDate.now();
         LocalDate primeiroDiaMesAtual = hoje.withDayOfMonth(1);
-        String dataVencimentoDe = primeiroDiaMesAtual.format(DATE_FORMATTER);
-        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
+        processAcquittedSales(primeiroDiaMesAtual, hoje);
+    }
+
+    public void processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
+        if (!automationEnabled) {
+            log.info("Pooling Conta Azul desativado por configuração.");
+            return;
+        }
+
+        if (!contaAzulClient.hasSalesConfiguration()) {
+            log.warn("Automação ContaAzul desabilitada: {}", buildSalesConfigurationErrorMessage());
+            return;
+        }
+
+        if (!contaAzulTokenService.hasAuthorizedToken()) {
+            log.info("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
+            return;
+        }
+
+        if (dataInicio == null || dataFim == null) {
+            log.warn("Período inválido para sincronização: dataInicio={} dataFim={}", dataInicio, dataFim);
+            return;
+        }
+
+        if (dataInicio.isAfter(dataFim)) {
+            log.warn("Período inválido para sincronização: dataInicio ({}) maior que dataFim ({})", dataInicio, dataFim);
+            return;
+        }
+
+        log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
+
+        String dataVencimentoDe = dataInicio.format(DATE_FORMATTER);
+        String dataVencimentoAte = dataFim.format(DATE_FORMATTER);
 
         log.info("Iniciando busca de parcelas recebidas no período: {} a {}", dataVencimentoDe, dataVencimentoAte);
 
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
-
-            boolean hasVendaMappedFromFinancial = acquittedSales.stream()
-                    .anyMatch(item -> item.venda() != null && StringUtils.hasText(item.venda().id()));
-
-            if (!hasVendaMappedFromFinancial) {
-                log.warn("Endpoint financeiro não retornou venda.id nas parcelas. Aplicando fallback via /v1/venda/busca.");
-                acquittedSales = contaAzulClient.fetchCommittedSalesWithAcquittedParcels();
-            }
         } catch (RuntimeException ex) {
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
             return;
@@ -229,35 +250,31 @@ public class ContaAzulAutomationService {
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
 
+                String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+
                 String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
                         ? sale.venda().id().trim()
                         : (StringUtils.hasText(sale.vendaId()) ? sale.vendaId().trim() : null);
 
-                String saleNumberFromDescription = null;
+                if (StringUtils.hasText(saleNumberFromDescription)) {
+                    log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
 
-                if (!StringUtils.hasText(saleIdToProcess)) {
-                    saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+                    Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
+                    try {
+                        directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
+                    } catch (NumberFormatException ex) {
+                        log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
+                    }
 
-                    if (StringUtils.hasText(saleNumberFromDescription)) {
-                        log.debug("Tentando encontrar UUID da venda para o número {} extraído da descrição.", saleNumberFromDescription);
-
-                        Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
-                        try {
-                            directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
-                        } catch (NumberFormatException ex) {
-                            log.debug("Número de venda extraído inválido para busca direta: {}", saleNumberFromDescription);
-                        }
-
-                        if (directSale.isPresent()
-                                && StringUtils.hasText(directSale.get().saleId())
-                                && StringUtils.hasText(directSale.get().saleNumber())
-                                && directSale.get().hasAcquittedInstallment()
-                                && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
-                            saleIdToProcess = directSale.get().saleId().trim();
-                            log.info("Sniper: Parcela vinculada à Venda #{} identificada. UUID extraído: {}. Iniciando download do recibo...",
-                                    saleNumberFromDescription,
-                                    saleIdToProcess);
-                        }
+                    if (directSale.isPresent()
+                            && StringUtils.hasText(directSale.get().saleId())
+                            && StringUtils.hasText(directSale.get().saleNumber())
+                            && directSale.get().hasAcquittedInstallment()
+                            && saleNumberFromDescription.equals(directSale.get().saleNumber().trim())) {
+                        saleIdToProcess = directSale.get().saleId().trim();
+                        log.info("Sniper: Parcela vinculada à Venda #{} identificada. UUID extraído: {}. Iniciando download do recibo...",
+                                saleNumberFromDescription,
+                                saleIdToProcess);
                     }
                 }
 

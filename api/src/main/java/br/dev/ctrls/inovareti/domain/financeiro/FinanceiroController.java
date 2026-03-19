@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.financeiro;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -90,12 +92,14 @@ public class FinanceiroController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/automacao/executar-agora")
-    public ResponseEntity<Map<String, String>> executeAutomationNow() {
-        log.info("Executando automação financeira manualmente via endpoint.");
+    @PostMapping("/autonacao/executar")
+    public ResponseEntity<Map<String, String>> executeAutomationNow(
+            @RequestParam LocalDate dataInicio,
+            @RequestParam LocalDate dataFim) {
+        log.info("Iniciando sincronização solicitada pelo usuário: Período [{}] a [{}]", dataInicio, dataFim);
         try {
             long start = System.currentTimeMillis();
-            contaAzulAutomationService.processAcquittedSales();
+            contaAzulAutomationService.processAcquittedSales(dataInicio, dataFim);
             long durationMs = System.currentTimeMillis() - start;
             log.info("Automação financeira manual concluída em {} ms.", durationMs);
 

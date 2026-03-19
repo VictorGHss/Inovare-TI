@@ -55,7 +55,17 @@ function formatDate(value?: string | null): string {
   }).format(date);
 }
 
+function formatDateForInput(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function FinancialDashboard() {
+  const hoje = new Date();
+  const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<FinanceConnectionStatus | null>(null);
@@ -66,6 +76,8 @@ export default function FinancialDashboard() {
   const [loadingDoctorMappings, setLoadingDoctorMappings] = useState(false);
   const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
   const [syncingReceipts, setSyncingReceipts] = useState(false);
+  const [dataInicio, setDataInicio] = useState(formatDateForInput(primeiroDiaMesAtual));
+  const [dataFim, setDataFim] = useState(formatDateForInput(hoje));
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
   const unresolvedAlerts = useMemo(
@@ -134,9 +146,17 @@ export default function FinancialDashboard() {
   }
 
   async function handleSyncReceiptsNow() {
+    if (dataInicio > dataFim) {
+      toast.error('Data Início não pode ser maior que Data Fim.');
+      return;
+    }
+
     try {
       setSyncingReceipts(true);
-      await executeFinanceAutomationNow();
+      await executeFinanceAutomationNow({
+        dataInicio,
+        dataFim,
+      });
       await reloadDashboardData();
       toast.success('Sincronização executada com sucesso.');
     } catch {
@@ -266,17 +286,43 @@ export default function FinancialDashboard() {
           Última atualização do token: <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            void handleSyncReceiptsNow();
-          }}
-          disabled={syncingReceipts}
-          className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {syncingReceipts ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
-        </button>
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+            Data Início
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(event) => {
+                setDataInicio(event.target.value);
+              }}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+            Data Fim
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(event) => {
+                setDataFim(event.target.value);
+              }}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              void handleSyncReceiptsNow();
+            }}
+            disabled={syncingReceipts}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {syncingReceipts ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
+          </button>
+        </div>
 
         <button
           type="button"

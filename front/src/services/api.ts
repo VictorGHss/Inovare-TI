@@ -697,8 +697,15 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
   }
 }
 
-export async function executeFinanceAutomationNow(): Promise<void> {
-  await api.post('/api/financeiro/automacao/executar-agora');
+export interface ExecuteFinanceAutomationNowParams {
+  dataInicio: string;
+  dataFim: string;
+}
+
+export async function executeFinanceAutomationNow(params: ExecuteFinanceAutomationNowParams): Promise<void> {
+  await api.post('/api/financeiro/autonacao/executar', null, {
+    params,
+  });
 }
 
 export async function getDoctorMappings(): Promise<DoctorMapping[]> {

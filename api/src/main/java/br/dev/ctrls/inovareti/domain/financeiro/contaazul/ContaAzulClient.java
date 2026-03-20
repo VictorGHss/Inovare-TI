@@ -37,18 +37,14 @@ public class ContaAzulClient {
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
+    private static final String RECEIVABLES_OFFICIAL_URL = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+    private static final String BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
-
-    @Value("${app.contaazul.payments-url}")
-    private String receivableEventsSearchUrl;
-
-    @Value("${app.contaazul.baixa-details-url}")
-    private String baixaDetailsUrl;
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
@@ -66,7 +62,7 @@ public class ContaAzulClient {
     private String customerByIdV1UrlTemplate;
 
     public boolean hasSalesConfiguration() {
-        return StringUtils.hasText(receivableEventsSearchUrl) && StringUtils.hasText(salePdfV1UrlTemplate);
+        return StringUtils.hasText(salePdfV1UrlTemplate);
     }
 
     /**
@@ -794,19 +790,11 @@ public class ContaAzulClient {
     }
 
     private String normalizeReceivablesBaseUrl() {
-        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
-            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
-        }
-
-        return receivableEventsSearchUrl.trim();
+        return RECEIVABLES_OFFICIAL_URL;
     }
 
     private String normalizeBaixaBaseUrl() {
-        if (!StringUtils.hasText(baixaDetailsUrl)) {
-            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
-        }
-
-        return baixaDetailsUrl.trim();
+        return BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE;
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {

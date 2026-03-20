@@ -44,7 +44,7 @@ public class ContaAzulClient {
 
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
-    private final RestTemplate contaAzulExternalRestTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
@@ -390,7 +390,7 @@ public class ContaAzulClient {
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
         log.info("ContaAzul external request URI (downloadFile): {}", sanitizedUri);
-        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+        ResponseEntity<byte[]> response = restTemplate.exchange(
                 sanitizedUri,
                 HttpMethod.GET,
                 new HttpEntity<>(new HttpHeaders()),
@@ -406,7 +406,7 @@ public class ContaAzulClient {
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
         log.info("ContaAzul external request URI (downloadPublicFile): {}", sanitizedUri);
-        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+        ResponseEntity<byte[]> response = restTemplate.exchange(
                 sanitizedUri,
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
@@ -571,7 +571,8 @@ public class ContaAzulClient {
         log.debug("URI Real: {}", requestEntity.getUrl());
 
         try {
-            ResponseEntity<String> response = contaAzulExternalRestTemplate.exchange(requestEntity, String.class);
+            log.debug("URL ABSOLUTA SENDO ENVIADA: " + uri);
+            ResponseEntity<String> response = restTemplate.exchange(requestEntity, String.class);
 
             return response;
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
@@ -592,7 +593,7 @@ public class ContaAzulClient {
         headers.setAccept(List.of(MediaType.APPLICATION_PDF));
         log.info("ContaAzul external request URI (PDF): {}", sanitizedUri);
 
-        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+        ResponseEntity<byte[]> response = restTemplate.exchange(
             sanitizedUri,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),

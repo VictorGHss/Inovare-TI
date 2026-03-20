@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -268,8 +269,11 @@ public class ContaAzulAutomationService {
 
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
                     if (StringUtils.hasText(saleNumberFromDescription)) {
+                        if (!applySniperThrottle(saleNumberFromDescription)) {
+                            continue;
+                        }
+
                         try {
-                            Thread.sleep(250);
                             directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
                             if (directSale.isPresent()) {
                                 log.info("!!! [SNIPER SUCCESS] Venda #{} | UUID encontrado: {}",
@@ -278,10 +282,6 @@ public class ContaAzulAutomationService {
                             } else {
                                 log.info("!!! [SNIPER FAIL] Nenhum UUID retornado para a venda: " + saleNumberFromDescription);
                             }
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                            log.warn("Thread interrompida durante delay anti-429 antes do Sniper para venda {}.", saleNumberFromDescription);
-                            continue;
                         } catch (NumberFormatException ex) {
                             log.info("!!! [SNIPER ERROR] Número inválido: " + saleNumberFromDescription);
                         }
@@ -453,6 +453,17 @@ public class ContaAzulAutomationService {
 
     private String normalizeUuid(String value) {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
+    }
+
+    private boolean applySniperThrottle(String saleNumberFromDescription) {
+        LockSupport.parkNanos(250_000_000L);
+
+        if (Thread.currentThread().isInterrupted()) {
+            log.warn("Thread interrompida durante delay anti-429 antes do Sniper para venda {}.", saleNumberFromDescription);
+            return false;
+        }
+
+        return true;
     }
 
     private String buildEmailBody(String doctorName, String saleNumber) {

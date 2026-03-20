@@ -313,14 +313,14 @@ public class ContaAzulClient {
         }
 
         String normalizedNumber = String.valueOf(numero);
-        LocalDate dataFim = LocalDate.now();
-        LocalDate dataInicio = dataFim.minusDays(365);
+        String dataInicio = "2024-01-01";
+        String dataFim = "2026-12-31";
 
         String salesSearchBaseUrl = normalizeSaleSearchBaseUrl(salesV2Url);
         String uri = UriComponentsBuilder.fromUriString(salesSearchBaseUrl)
-            .queryParam("numero", normalizedNumber)
-            .queryParam("data_inicio", dataInicio.format(DATE_FORMATTER))
-            .queryParam("data_fim", dataFim.format(DATE_FORMATTER))
+            .queryParam("numeros", normalizedNumber)
+            .queryParam("data_inicio", dataInicio)
+            .queryParam("data_fim", dataFim)
             .build()
             .toUriString();
 
@@ -508,6 +508,8 @@ public class ContaAzulClient {
 
                 String origem = readText(
                     node,
+                    "evento_financeiro.referencia.origem",
+                    "referencia.origem",
                     "origem",
                     "source");
 
@@ -522,6 +524,8 @@ public class ContaAzulClient {
 
                 String origemSaleId = readText(
                         node,
+                    "evento_financeiro.referencia.id",
+                    "referencia.id",
                         "origem.venda_id",
                         "origem.sale_id",
                         "origem.venda.id",
@@ -529,6 +533,8 @@ public class ContaAzulClient {
 
                 String vendaId = readText(
                         node,
+                    "evento_financeiro.referencia.id",
+                    "referencia.id",
                         "venda_id",
                         "sale_id",
                         "sale.id",

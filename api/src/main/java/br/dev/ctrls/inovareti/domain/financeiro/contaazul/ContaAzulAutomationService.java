@@ -245,7 +245,7 @@ public class ContaAzulAutomationService {
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
                 try {
-                    Thread.sleep(250);
+                    Thread.sleep(300);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
@@ -262,20 +262,23 @@ public class ContaAzulAutomationService {
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
                         StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
 
+                String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
+
                 String saleIdToProcess = null;
-                try {
-                    saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
+                if ("VENDA".equalsIgnoreCase(sale.origem())) {
+                    saleIdToProcess = StringUtils.hasText(sale.vendaId())
+                            ? sale.vendaId().trim()
+                            : (StringUtils.hasText(sale.origemSaleId())
+                                    ? sale.origemSaleId().trim()
+                                    : (sale.venda() != null && StringUtils.hasText(sale.venda().id())
+                                            ? sale.venda().id().trim()
+                                            : null));
                     if (StringUtils.hasText(saleIdToProcess)) {
-                        log.info("!!! [FLOW] Parcela {} identificada via Detalhe. Venda ID: {}", sale.parcelaId(), saleIdToProcess);
+                        log.info("!!! [MAP_SUCCESS] Venda identificada via referência direta: " + saleIdToProcess);
                     }
-                } catch (RuntimeException ex) {
-                    log.warn("Falha ao buscar detalhe da parcela {}. Aplicando fallback Sniper por número.", sale.parcelaId(), ex);
                 }
 
-                String saleNumberFromDescription = null;
                 if (!StringUtils.hasText(saleIdToProcess)) {
-                    saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
-
                     if (StringUtils.hasText(saleNumberFromDescription)) {
                         log.info("!!! [SNIPER] Buscando UUID para a venda: " + saleNumberFromDescription);
                     }

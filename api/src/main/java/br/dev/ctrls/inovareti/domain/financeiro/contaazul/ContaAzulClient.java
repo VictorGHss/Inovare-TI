@@ -62,6 +62,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
     private String customerByIdV1UrlTemplate;
 
+    @Value("${app.contaazul.parcela-by-id-url-template:https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcelaId}}")
+    private String parcelaByIdUrlTemplate;
+
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(receivableEventsSearchUrl) && StringUtils.hasText(salePdfV1UrlTemplate);
     }
@@ -271,7 +274,12 @@ public class ContaAzulClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/" + normalizedParcelaUuid;
+        String template = StringUtils.hasText(parcelaByIdUrlTemplate)
+            ? parcelaByIdUrlTemplate
+            : "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcelaId}";
+        String uri = template
+            .replace("{parcelaId}", normalizedParcelaUuid)
+            .replace("{id}", normalizedParcelaUuid);
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -308,7 +316,8 @@ public class ContaAzulClient {
         LocalDate dataFim = LocalDate.now();
         LocalDate dataInicio = dataFim.minusDays(365);
 
-        String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
+        String salesSearchBaseUrl = normalizeSaleSearchBaseUrl(salesV2Url);
+        String uri = UriComponentsBuilder.fromUriString(salesSearchBaseUrl)
             .queryParam("numero", normalizedNumber)
             .queryParam("data_inicio", dataInicio.format(DATE_FORMATTER))
             .queryParam("data_fim", dataFim.format(DATE_FORMATTER))

@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -274,14 +276,12 @@ public class ContaAzulClient {
         String dataInicio = "2024-01-01";
         String dataFim = "2026-12-31";
 
-        String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
-                .queryParam("numero", normalizedNumber)
-            .queryParam("data_inicio", dataInicio)
-            .queryParam("data_fim", dataFim)
-                .build()
-                .toUriString();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("numero", normalizedNumber);
+        payload.put("data_inicio", dataInicio);
+        payload.put("data_fim", dataFim);
 
-        ResponseEntity<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
+        ResponseEntity<String> responseEntity = executeJsonPostResponseWithRefresh("https://api-v2.contaazul.com/v1/venda/busca", payload);
         String responseBody = responseEntity.getBody();
 
         try {
@@ -385,6 +385,18 @@ public class ContaAzulClient {
         return executeJsonGetResponseWithRefresh(uri).getBody();
     }
 
+    private ResponseEntity<String> executeJsonPostResponseWithRefresh(String uri, Object body) {
+        ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
+
+        try {
+            return executeJsonPostResponse(uri, body, token);
+        } catch (HttpClientErrorException.Unauthorized ex) {
+            log.warn("Token expirado ao consultar vendas via POST. Tentando refresh.");
+            token = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
+            return executeJsonPostResponse(uri, body, token);
+        }
+    }
+
     private ResponseEntity<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
@@ -420,6 +432,35 @@ public class ContaAzulClient {
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
             log.error(
                     "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
+                    ex.getStatusCode(),
+                    uri,
+                    ex.getResponseBodyAsString());
+            throw ex;
+        }
+    }
+
+    private ResponseEntity<String> executeJsonPostResponse(String uri, Object body, ContaAzulOAuthToken token) {
+        String authorizationHeader = "Bearer " + token.getAccessToken();
+        String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
+
+        log.debug(
+                "Enviando requisição POST para {} com Token iniciado em {}...",
+                uri,
+                sanitizeTokenPrefix(token.getAccessToken()));
+        log.trace("Header Authorization sanitizado enviado (POST): {}", sanitizedAuthorizationHeader);
+
+        RequestEntity<Object> requestEntity = RequestEntity
+            .post(java.net.URI.create(uri))
+            .header("Authorization", authorizationHeader)
+            .contentType(MediaType.APPLICATION_JSON)
+            .accept(MediaType.APPLICATION_JSON)
+            .body(body);
+
+        try {
+            return restTemplate.exchange(requestEntity, String.class);
+        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
+            log.error(
+                    "Conta Azul retornou {} ao consultar URI {} via POST. Corpo do erro: {}",
                     ex.getStatusCode(),
                     uri,
                     ex.getResponseBodyAsString());

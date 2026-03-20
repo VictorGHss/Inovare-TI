@@ -42,9 +42,9 @@ public class ContaAzulClient {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
+    private final RestTemplate contaAzulExternalRestTemplate = new RestTemplate();
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
@@ -388,8 +388,10 @@ public class ContaAzulClient {
             return new byte[0];
         }
 
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-                url.trim(),
+        String sanitizedUri = sanitizeContaAzulUri(url.trim());
+        log.info("ContaAzul external request URI (downloadFile): {}", sanitizedUri);
+        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+                sanitizedUri,
                 HttpMethod.GET,
                 new HttpEntity<>(new HttpHeaders()),
                 byte[].class);
@@ -402,9 +404,10 @@ public class ContaAzulClient {
             return new byte[0];
         }
 
-        RestTemplate cleanRestTemplate = new RestTemplate();
-        ResponseEntity<byte[]> response = cleanRestTemplate.exchange(
-                url.trim(),
+        String sanitizedUri = sanitizeContaAzulUri(url.trim());
+        log.info("ContaAzul external request URI (downloadPublicFile): {}", sanitizedUri);
+        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+                sanitizedUri,
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
                 byte[].class);
@@ -548,30 +551,32 @@ public class ContaAzulClient {
     }
 
     private ResponseEntity<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
+        String sanitizedUri = sanitizeContaAzulUri(uri);
         String authorizationHeader = "Bearer " + token.getAccessToken();
         String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
 
+        log.info("ContaAzul external request URI (JSON): {}", sanitizedUri);
         log.debug(
                 "Enviando requisição para {} com Token iniciado em {}...",
-                uri,
+                sanitizedUri,
                 sanitizeTokenPrefix(token.getAccessToken()));
         log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
 
         RequestEntity<Void> requestEntity = RequestEntity
-            .get(java.net.URI.create(uri))
+            .get(java.net.URI.create(sanitizedUri))
             .header("Authorization", authorizationHeader)
             .accept(MediaType.APPLICATION_JSON)
             .build();
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(requestEntity, String.class);
+            ResponseEntity<String> response = contaAzulExternalRestTemplate.exchange(requestEntity, String.class);
 
             return response;
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
             log.error(
                     "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
                     ex.getStatusCode(),
-                    uri,
+                    sanitizedUri,
                     ex.getResponseBodyAsString());
             throw ex;
         }
@@ -579,12 +584,14 @@ public class ContaAzulClient {
 
 
     private byte[] executePdfGet(String uri, String token) {
+        String sanitizedUri = sanitizeContaAzulUri(uri);
         HttpHeaders headers = new HttpHeaders();
         headers.add("Authorization", "Bearer " + token);
         headers.setAccept(List.of(MediaType.APPLICATION_PDF));
+        log.info("ContaAzul external request URI (PDF): {}", sanitizedUri);
 
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-                uri,
+        ResponseEntity<byte[]> response = contaAzulExternalRestTemplate.exchange(
+            sanitizedUri,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 byte[].class);
@@ -859,6 +866,15 @@ public class ContaAzulClient {
         String start = normalizedToken.substring(0, 4);
         String end = normalizedToken.substring(normalizedToken.length() - 4);
         return "Authorization: Bearer " + start + "..." + end;
+    }
+
+    private String sanitizeContaAzulUri(String uri) {
+        if (!StringUtils.hasText(uri)) {
+            return uri;
+        }
+
+        String sanitized = uri.trim().replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
+        return sanitized.replace("https://api.contaazul.com/api/v1/", "https://api.contaazul.com/v1/");
     }
 
     private Optional<String> parseCustomerIdByEmail(String jsonPayload, String email) {

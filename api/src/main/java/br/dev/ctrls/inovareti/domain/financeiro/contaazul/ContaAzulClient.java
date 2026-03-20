@@ -288,17 +288,36 @@ public class ContaAzulClient {
             }
 
             JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
-            String saleId = readText(
+            String origem = readText(
                     root,
-                    "venda_id",
-                    "sale_id",
-                    "venda.id",
-                    "sale.id",
-                    "origem.venda_id",
-                    "origem.sale_id",
-                    "origem.venda.id");
+                    "evento.referencia.origem",
+                    "evento_financeiro.referencia.origem",
+                    "referencia.origem");
 
-            return StringUtils.hasText(saleId) ? Optional.of(saleId.trim()) : Optional.empty();
+            String saleId = null;
+            if ("VENDA".equalsIgnoreCase(origem)) {
+                saleId = readText(
+                        root,
+                        "evento.referencia.id",
+                        "evento_financeiro.referencia.id",
+                        "referencia.id");
+            }
+
+            if (!StringUtils.hasText(saleId)) {
+                saleId = readText(
+                        root,
+                        "venda_id",
+                        "sale_id",
+                        "venda.id",
+                        "sale.id",
+                        "origem.venda_id",
+                        "origem.sale_id",
+                        "origem.venda.id");
+            }
+
+            return Optional.ofNullable(saleId)
+                    .map(String::trim)
+                    .filter(StringUtils::hasText);
         } catch (HttpClientErrorException.NotFound ex) {
             log.warn("Detalhe da parcela {} não encontrado no Conta Azul.", normalizedParcelaUuid);
             return Optional.empty();

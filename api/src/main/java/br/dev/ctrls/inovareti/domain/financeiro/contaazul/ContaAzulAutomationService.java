@@ -245,7 +245,7 @@ public class ContaAzulAutomationService {
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
                 try {
-                    Thread.sleep(300);
+                    Thread.sleep(350);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
@@ -265,17 +265,13 @@ public class ContaAzulAutomationService {
                 String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
                 String saleIdToProcess = null;
-                if ("VENDA".equalsIgnoreCase(sale.origem())) {
-                    saleIdToProcess = StringUtils.hasText(sale.vendaId())
-                            ? sale.vendaId().trim()
-                            : (StringUtils.hasText(sale.origemSaleId())
-                                    ? sale.origemSaleId().trim()
-                                    : (sale.venda() != null && StringUtils.hasText(sale.venda().id())
-                                            ? sale.venda().id().trim()
-                                            : null));
+                try {
+                    saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
                     if (StringUtils.hasText(saleIdToProcess)) {
                         log.info("!!! [MAP_SUCCESS] Venda identificada via referência direta: " + saleIdToProcess);
                     }
+                } catch (RuntimeException ex) {
+                    log.warn("Falha ao buscar detalhe da parcela {}. Aplicando fallback Sniper por número.", sale.parcelaId(), ex);
                 }
 
                 if (!StringUtils.hasText(saleIdToProcess)) {
@@ -385,7 +381,7 @@ public class ContaAzulAutomationService {
                     recipientEmail,
                     buildEmailBody(doctorName, StringUtils.hasText(saleNumberFromDescription)
                             ? saleNumberFromDescription
-                            : (StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D")),
+                            : "N/D"),
                         pdfBytes,
                         "recibo-venda-" + saleIdToProcess + ".pdf");
 

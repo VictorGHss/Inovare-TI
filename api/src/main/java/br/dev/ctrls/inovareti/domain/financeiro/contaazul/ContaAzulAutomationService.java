@@ -262,9 +262,14 @@ public class ContaAzulAutomationService {
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
                         StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
 
-                String saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
-                if (StringUtils.hasText(saleIdToProcess)) {
-                    log.info("!!! [FLOW] Parcela {} identificada via Detalhe. Venda ID: {}", sale.parcelaId(), saleIdToProcess);
+                String saleIdToProcess = null;
+                try {
+                    saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
+                    if (StringUtils.hasText(saleIdToProcess)) {
+                        log.info("!!! [FLOW] Parcela {} identificada via Detalhe. Venda ID: {}", sale.parcelaId(), saleIdToProcess);
+                    }
+                } catch (RuntimeException ex) {
+                    log.warn("Falha ao buscar detalhe da parcela {}. Aplicando fallback Sniper por número.", sale.parcelaId(), ex);
                 }
 
                 String saleNumberFromDescription = null;

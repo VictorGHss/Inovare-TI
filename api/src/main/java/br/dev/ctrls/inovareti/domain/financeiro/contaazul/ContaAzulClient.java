@@ -2,6 +2,9 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,15 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -42,7 +38,7 @@ public class ContaAzulClient {
 
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     @Value("${app.contaazul.payments-url}")
     private String receivableEventsSearchUrl;
@@ -118,7 +114,10 @@ public class ContaAzulClient {
 
         try {
             return executePdfGet(uri, token);
-        } catch (HttpClientErrorException.Unauthorized ex) {
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(401)) {
+                throw ex;
+            }
             log.warn("Token expirado ao baixar PDF da venda {}. Tentando refresh.", saleId);
             String refreshedToken = contaAzulTokenService.forceRefresh();
             return executePdfGet(uri, refreshedToken);
@@ -341,7 +340,10 @@ public class ContaAzulClient {
             }
 
             return Optional.of(new ParcelaDetailDTO(normalizedSaleId, normalizedBaixaId));
-        } catch (HttpClientErrorException.NotFound ex) {
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(404)) {
+                throw ex;
+            }
             log.warn("Detalhe da parcela {} não encontrado no Conta Azul.", normalizedParcelaUuid);
             return Optional.empty();
         } catch (IOException ex) {
@@ -363,6 +365,8 @@ public class ContaAzulClient {
                 return Optional.empty();
             }
 
+            log.debug("JSON bruto retornado pela Conta Azul (baixa {}): {}", normalizedBaixaId, payload);
+
             JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
             JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
 
@@ -379,7 +383,10 @@ public class ContaAzulClient {
             }
 
             return Optional.of(new BaixaDetailDTO(anexos));
-        } catch (HttpClientErrorException.NotFound ex) {
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(404)) {
+                throw ex;
+            }
             log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedBaixaId);
             return Optional.empty();
         } catch (IOException ex) {
@@ -393,15 +400,26 @@ public class ContaAzulClient {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        URI uri = URI.create(sanitizedUri);
-        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + uri.toString());
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(new HttpHeaders()),
-                byte[].class);
+        URI externalUri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: {}", externalUri);
 
-        return response.getBody() != null ? response.getBody() : new byte[0];
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(externalUri)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+            }
+            return response.body() != null ? response.body() : new byte[0];
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao baixar arquivo da Conta Azul.", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Thread interrompida ao baixar arquivo da Conta Azul.", ex);
+        }
     }
 
     public byte[] downloadPublicFile(String url) {
@@ -410,15 +428,26 @@ public class ContaAzulClient {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        URI uri = URI.create(sanitizedUri);
-        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + uri.toString());
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                HttpEntity.EMPTY,
-                byte[].class);
+        URI externalUri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: {}", externalUri);
 
-        return response.getBody() != null ? response.getBody() : new byte[0];
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(externalUri)
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+            }
+            return response.body() != null ? response.body() : new byte[0];
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao baixar arquivo público da Conta Azul.", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Thread interrompida ao baixar arquivo público da Conta Azul.", ex);
+        }
     }
 
     public Optional<SaleItem> fetchSaleByNumber(Integer numero) {
@@ -438,8 +467,8 @@ public class ContaAzulClient {
             .build()
             .toUriString();
 
-        ResponseEntity<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
-        String responseBody = responseEntity.getBody();
+        HttpResponse<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
+        String responseBody = responseEntity.body();
 
         try {
             SaleByNumberResponseDTO response = objectMapper.readValue(
@@ -526,7 +555,10 @@ public class ContaAzulClient {
 
         try {
             return executeJsonGetWithRefresh(primaryUri);
-        } catch (HttpClientErrorException.NotFound ex) {
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(404)) {
+                throw ex;
+            }
             String stableUri = UriComponentsBuilder.fromUriString(salesV2StableUrl)
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
@@ -541,22 +573,25 @@ public class ContaAzulClient {
     }
 
     private String executeJsonGetWithRefresh(String uri) {
-        return executeJsonGetResponseWithRefresh(uri).getBody();
+        return executeJsonGetResponseWithRefresh(uri).body();
     }
 
-    private ResponseEntity<String> executeJsonGetResponseWithRefresh(String uri) {
+    private HttpResponse<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
         try {
             return executeJsonGetResponse(uri, token);
-        } catch (HttpClientErrorException.Unauthorized ex) {
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(401)) {
+                throw ex;
+            }
             log.warn("Token expirado ao consultar vendas. Tentando refresh.");
             token = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             return executeJsonGetResponse(uri, token);
         }
     }
 
-    private ResponseEntity<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
+    private HttpResponse<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
         String url = sanitizeContaAzulUri(uri);
         String authorizationHeader = "Bearer " + token.getAccessToken();
         String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
@@ -567,46 +602,70 @@ public class ContaAzulClient {
                 url,
                 sanitizeTokenPrefix(token.getAccessToken()));
         log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Authorization", authorizationHeader);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
         URI externalUri = URI.create(url);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(externalUri)
+                .header("Authorization", authorizationHeader)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
 
         try {
             log.debug("URL ABSOLUTA SENDO ENVIADA: " + url);
             log.debug("ENVIANDO REQUISIÇÃO PARA HOST EXTERNO: " + externalUri.getHost());
             log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
-            ResponseEntity<String> response = restTemplate.exchange(externalUri, HttpMethod.GET, requestEntity, String.class);
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.error(
+                        "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
+                        response.statusCode(),
+                        url,
+                        response.body());
+                throw new ContaAzulHttpException(response.statusCode(), response.body());
+            }
             return response;
-        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
-            log.error(
-                    "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
-                    ex.getStatusCode(),
-                    url,
-                    ex.getResponseBodyAsString());
-            throw ex;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao consultar endpoint JSON da Conta Azul.", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Thread interrompida ao consultar endpoint JSON da Conta Azul.", ex);
         }
     }
 
 
     private byte[] executePdfGet(String uri, String token) {
         String sanitizedUri = sanitizeContaAzulUri(uri);
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Authorization", "Bearer " + token);
-        headers.setAccept(List.of(MediaType.APPLICATION_PDF));
         URI externalUri = URI.create(sanitizedUri);
         log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
 
-        ResponseEntity<byte[]> response = restTemplate.exchange(
-            externalUri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                byte[].class);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(externalUri)
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/pdf")
+                .GET()
+                .build();
 
-        return response.getBody() != null ? response.getBody() : new byte[0];
+        try {
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+            }
+            return response.body() != null ? response.body() : new byte[0];
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao baixar PDF da venda na Conta Azul.", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Thread interrompida ao baixar PDF da venda na Conta Azul.", ex);
+        }
+    }
+
+    private String toUtf8String(byte[] body) {
+        if (body == null || body.length == 0) {
+            return "";
+        }
+        return new String(body, StandardCharsets.UTF_8);
     }
 
     private List<SaleItem> parseAcquittedSales(String jsonPayload) {
@@ -1272,5 +1331,25 @@ public class ContaAzulClient {
             String id,
             String tipo,
             String url) {
+        }
+
+        private static final class ContaAzulHttpException extends RuntimeException {
+            private final int statusCode;
+            private final String responseBody;
+
+            private ContaAzulHttpException(int statusCode, String responseBody) {
+                super("Conta Azul retornou erro HTTP " + statusCode);
+                this.statusCode = statusCode;
+                this.responseBody = responseBody;
+            }
+
+            private boolean isStatus(int expectedStatus) {
+                return this.statusCode == expectedStatus;
+            }
+
+            @SuppressWarnings("unused")
+            private String responseBody() {
+                return responseBody;
+            }
         }
 }

@@ -464,8 +464,8 @@ public class ContaAzulAutomationService {
 
     private String buildEmailBody(String doctorName, String saleNumber) {
         return "Olá " + doctorName
-                + ",\n\nSegue em anexo o seu recibo referente à venda #" + saleNumber + ".\n\n"
-                + "Este é um envio automático do sistema de gestão Inovare TI.\n\n"
+                + ",\n\nSegue em anexo o seu recibo #" + saleNumber + ".\n\n"
+                + "Este é um envio automático do sistema Inovare TI.\n\n"
                 + "Atenciosamente,\nAdministrativo Inovare.";
     }
 

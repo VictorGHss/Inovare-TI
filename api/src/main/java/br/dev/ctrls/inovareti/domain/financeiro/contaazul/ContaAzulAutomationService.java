@@ -269,6 +269,7 @@ public class ContaAzulAutomationService {
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
                     if (StringUtils.hasText(saleNumberFromDescription)) {
                         try {
+                            Thread.sleep(250);
                             directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
                             if (directSale.isPresent()) {
                                 log.info("!!! [SNIPER SUCCESS] Venda #{} | UUID encontrado: {}",
@@ -277,6 +278,10 @@ public class ContaAzulAutomationService {
                             } else {
                                 log.info("!!! [SNIPER FAIL] Nenhum UUID retornado para a venda: " + saleNumberFromDescription);
                             }
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            log.warn("Thread interrompida durante delay anti-429 antes do Sniper para venda {}.", saleNumberFromDescription);
+                            continue;
                         } catch (NumberFormatException ex) {
                             log.info("!!! [SNIPER ERROR] Número inválido: " + saleNumberFromDescription);
                         }

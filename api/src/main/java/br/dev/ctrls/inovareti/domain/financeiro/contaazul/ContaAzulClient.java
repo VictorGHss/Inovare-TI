@@ -6,9 +6,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -276,12 +274,14 @@ public class ContaAzulClient {
         String dataInicio = "2024-01-01";
         String dataFim = "2026-12-31";
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("numero", normalizedNumber);
-        payload.put("data_inicio", dataInicio);
-        payload.put("data_fim", dataFim);
+        String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
+            .queryParam("busca", normalizedNumber)
+            .queryParam("data_inicio", dataInicio)
+            .queryParam("data_fim", dataFim)
+            .build()
+            .toUriString();
 
-        ResponseEntity<String> responseEntity = executeJsonPostResponseWithRefresh("https://api-v2.contaazul.com/v1/venda/busca", payload);
+        ResponseEntity<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
         String responseBody = responseEntity.getBody();
 
         try {
@@ -289,8 +289,8 @@ public class ContaAzulClient {
                     (responseBody != null ? responseBody : "").getBytes(StandardCharsets.UTF_8),
                     SaleByNumberResponseDTO.class);
 
-            int resultados = response != null && response.itens() != null ? response.itens().size() : 0;
-            log.info("!!! [SNIPER DEBUG] Venda #" + numero + " | Itens: " + resultados + " | Payload: " + responseBody);
+                log.info("!!! [SNIPER RESULT] Venda #" + numero + " | Itens encontrados: " + (response != null ? response.getTotal_itens() : 0));
+                log.info("!!! [SNIPER DEBUG] Venda #" + numero + " | Payload: " + responseBody);
 
             if (response == null || response.itens() == null || response.itens().isEmpty()) {
                 return Optional.empty();
@@ -385,18 +385,6 @@ public class ContaAzulClient {
         return executeJsonGetResponseWithRefresh(uri).getBody();
     }
 
-    private ResponseEntity<String> executeJsonPostResponseWithRefresh(String uri, Object body) {
-        ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
-
-        try {
-            return executeJsonPostResponse(uri, body, token);
-        } catch (HttpClientErrorException.Unauthorized ex) {
-            log.warn("Token expirado ao consultar vendas via POST. Tentando refresh.");
-            token = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            return executeJsonPostResponse(uri, body, token);
-        }
-    }
-
     private ResponseEntity<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
@@ -439,34 +427,6 @@ public class ContaAzulClient {
         }
     }
 
-    private ResponseEntity<String> executeJsonPostResponse(String uri, Object body, ContaAzulOAuthToken token) {
-        String authorizationHeader = "Bearer " + token.getAccessToken();
-        String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
-
-        log.debug(
-                "Enviando requisição POST para {} com Token iniciado em {}...",
-                uri,
-                sanitizeTokenPrefix(token.getAccessToken()));
-        log.trace("Header Authorization sanitizado enviado (POST): {}", sanitizedAuthorizationHeader);
-
-        RequestEntity<Object> requestEntity = RequestEntity
-            .post(java.net.URI.create(uri))
-            .header("Authorization", authorizationHeader)
-            .contentType(MediaType.APPLICATION_JSON)
-            .accept(MediaType.APPLICATION_JSON)
-            .body(body);
-
-        try {
-            return restTemplate.exchange(requestEntity, String.class);
-        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
-            log.error(
-                    "Conta Azul retornou {} ao consultar URI {} via POST. Corpo do erro: {}",
-                    ex.getStatusCode(),
-                    uri,
-                    ex.getResponseBodyAsString());
-            throw ex;
-        }
-    }
 
     private byte[] executePdfGet(String uri, String token) {
         HttpHeaders headers = new HttpHeaders();
@@ -1016,7 +976,16 @@ public class ContaAzulClient {
 
             @JsonIgnoreProperties(ignoreUnknown = true)
             private record SaleByNumberResponseDTO(
-                @JsonProperty("itens") List<SaleByNumberItemDTO> itens) {
+                @JsonProperty("itens") List<SaleByNumberItemDTO> itens,
+                @JsonProperty("total_itens") Integer totalItens) {
+
+                public int getTotal_itens() {
+                    if (totalItens != null) {
+                        return totalItens;
+                    }
+
+                    return itens != null ? itens.size() : 0;
+                }
             }
 
             @JsonIgnoreProperties(ignoreUnknown = true)

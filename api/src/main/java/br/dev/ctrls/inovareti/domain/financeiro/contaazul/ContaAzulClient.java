@@ -37,6 +37,8 @@ public class ContaAzulClient {
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
+    private static final String RECEIVABLES_OFFICIAL_URL = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+    private static final String BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -355,7 +357,7 @@ public class ContaAzulClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = normalizeBaixaBaseUrl(baixaDetailsUrl) + "/" + normalizedBaixaId;
+        String uri = BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE.replace("{id}", normalizedBaixaId);
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -755,11 +757,11 @@ public class ContaAzulClient {
             ReceivablesSearchResponseDTO dto = objectMapper.treeToValue(root, ReceivablesSearchResponseDTO.class);
             if (dto != null) {
                 if (dto.itens() != null && !dto.itens().isEmpty()) {
-                    return objectMapper.valueToTree(dto.itens());
+                    return resolveArrayNode(root);
                 }
 
                 if (dto.content() != null && dto.content().itens() != null && !dto.content().itens().isEmpty()) {
-                    return objectMapper.valueToTree(dto.content().itens());
+                    return resolveArrayNode(root);
                 }
             }
         } catch (IOException | IllegalArgumentException ex) {
@@ -783,7 +785,7 @@ public class ContaAzulClient {
     }
 
     private String buildReceivableSearchUri(int page, String dataVencimentoDe, String dataVencimentoAte) {
-        return UriComponentsBuilder.fromUriString(normalizeReceivablesBaseUrl(receivableEventsSearchUrl))
+        return UriComponentsBuilder.fromUriString(RECEIVABLES_OFFICIAL_URL)
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
                 .queryParam("status", "RECEBIDO")
@@ -794,29 +796,11 @@ public class ContaAzulClient {
     }
 
     private String normalizeReceivablesBaseUrl(String rawUrl) {
-        if (!StringUtils.hasText(rawUrl)) {
-            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
-        }
-
-        String normalized = rawUrl.trim();
-        if (normalized.endsWith("/buscar")) {
-            return normalized.substring(0, normalized.length() - "/buscar".length());
-        }
-
-        return normalized;
+        return RECEIVABLES_OFFICIAL_URL;
     }
 
     private String normalizeBaixaBaseUrl(String rawUrl) {
-        if (!StringUtils.hasText(rawUrl)) {
-            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
-        }
-
-        String normalized = rawUrl.trim();
-        if (normalized.endsWith("/")) {
-            return normalized.substring(0, normalized.length() - 1);
-        }
-
-        return normalized;
+        return BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE;
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {
@@ -1170,13 +1154,25 @@ public class ContaAzulClient {
 
         @JsonIgnoreProperties(ignoreUnknown = true)
         private record ReceivablesSearchResponseDTO(
-            @JsonProperty("itens") List<JsonNode> itens,
+            @JsonProperty("itens") List<ReceivableItemDTO> itens,
             @JsonProperty("content") ReceivablesContentDTO content) {
         }
 
         @JsonIgnoreProperties(ignoreUnknown = true)
         private record ReceivablesContentDTO(
-            @JsonProperty("itens") List<JsonNode> itens) {
+            @JsonProperty("itens") List<ReceivableItemDTO> itens) {
+        }
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private record ReceivableItemDTO(
+            @JsonProperty("id") String id,
+            @JsonProperty("baixas") List<ReceivableBaixaDTO> baixas) {
+        }
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private record ReceivableBaixaDTO(
+            @JsonProperty("id") String id,
+            @JsonProperty("id_recibo_digital") String idReciboDigital) {
         }
 
         public record VendaRef(String id) {

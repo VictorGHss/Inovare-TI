@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -245,6 +244,14 @@ public class ContaAzulAutomationService {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
+                try {
+                    Thread.sleep(250);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
+                    continue;
+                }
+
                 log.info("!!! [INICIO PROCESSAMENTO] Parcela: " + (StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)"));
                 log.info("!!! [ORIGEM] origem={} | parcelaId={}",
                         StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)",
@@ -255,9 +262,10 @@ public class ContaAzulAutomationService {
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
                         StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
 
-                String saleIdToProcess = sale.venda() != null && StringUtils.hasText(sale.venda().id())
-                        ? sale.venda().id().trim()
-                        : (StringUtils.hasText(sale.vendaId()) ? sale.vendaId().trim() : null);
+                String saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
+                if (StringUtils.hasText(saleIdToProcess)) {
+                    log.info("!!! [FLOW] Parcela {} identificada via Detalhe. Venda ID: {}", sale.parcelaId(), saleIdToProcess);
+                }
 
                 String saleNumberFromDescription = null;
                 if (!StringUtils.hasText(saleIdToProcess)) {
@@ -269,10 +277,6 @@ public class ContaAzulAutomationService {
 
                     Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
                     if (StringUtils.hasText(saleNumberFromDescription)) {
-                        if (!applySniperThrottle(saleNumberFromDescription)) {
-                            continue;
-                        }
-
                         try {
                             directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
                             if (directSale.isPresent()) {
@@ -453,17 +457,6 @@ public class ContaAzulAutomationService {
 
     private String normalizeUuid(String value) {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
-    }
-
-    private boolean applySniperThrottle(String saleNumberFromDescription) {
-        LockSupport.parkNanos(250_000_000L);
-
-        if (Thread.currentThread().isInterrupted()) {
-            log.warn("Thread interrompida durante delay anti-429 antes do Sniper para venda {}.", saleNumberFromDescription);
-            return false;
-        }
-
-        return true;
     }
 
     private String buildEmailBody(String doctorName, String saleNumber) {

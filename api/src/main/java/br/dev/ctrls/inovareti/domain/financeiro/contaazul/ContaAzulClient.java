@@ -265,19 +265,53 @@ public class ContaAzulClient {
         return sales;
     }
 
+    public Optional<String> fetchParcelaDetail(String uuidParcela) {
+        if (!StringUtils.hasText(uuidParcela)) {
+            return Optional.empty();
+        }
+
+        String normalizedParcelaUuid = uuidParcela.trim();
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/" + normalizedParcelaUuid;
+
+        try {
+            String payload = executeJsonGetWithRefresh(uri);
+            if (!StringUtils.hasText(payload)) {
+                return Optional.empty();
+            }
+
+            JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+            String saleId = readText(
+                    root,
+                    "venda_id",
+                    "sale_id",
+                    "venda.id",
+                    "sale.id",
+                    "origem.venda_id",
+                    "origem.sale_id",
+                    "origem.venda.id");
+
+            return StringUtils.hasText(saleId) ? Optional.of(saleId.trim()) : Optional.empty();
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn("Detalhe da parcela {} não encontrado no Conta Azul.", normalizedParcelaUuid);
+            return Optional.empty();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de detalhe da parcela da Conta Azul.", ex);
+        }
+    }
+
     public Optional<SaleItem> fetchSaleByNumber(Integer numero) {
         if (numero == null) {
             return Optional.empty();
         }
 
         String normalizedNumber = String.valueOf(numero);
-        String dataInicio = "2024-01-01";
-        String dataFim = "2026-12-31";
+        LocalDate dataFim = LocalDate.now();
+        LocalDate dataInicio = dataFim.minusDays(365);
 
         String uri = UriComponentsBuilder.fromUriString("https://api-v2.contaazul.com/v1/venda/busca")
-            .queryParam("busca", normalizedNumber)
-            .queryParam("data_inicio", dataInicio)
-            .queryParam("data_fim", dataFim)
+            .queryParam("numero", normalizedNumber)
+            .queryParam("data_inicio", dataInicio.format(DATE_FORMATTER))
+            .queryParam("data_fim", dataFim.format(DATE_FORMATTER))
             .build()
             .toUriString();
 

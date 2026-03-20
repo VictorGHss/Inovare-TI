@@ -14,7 +14,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -551,35 +550,33 @@ public class ContaAzulClient {
     }
 
     private ResponseEntity<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
-        String sanitizedUri = sanitizeContaAzulUri(uri);
+        String url = sanitizeContaAzulUri(uri);
         String authorizationHeader = "Bearer " + token.getAccessToken();
         String sanitizedAuthorizationHeader = sanitizeAuthorizationHeader(authorizationHeader);
 
-        log.info("ContaAzul external request URI (JSON): {}", sanitizedUri);
+        log.info("ContaAzul external request URI (JSON): {}", url);
         log.debug(
                 "Enviando requisição para {} com Token iniciado em {}...",
-                sanitizedUri,
+                url,
                 sanitizeTokenPrefix(token.getAccessToken()));
         log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
 
-        RequestEntity<Void> requestEntity = RequestEntity
-            .get(java.net.URI.create(sanitizedUri))
-            .header("Authorization", authorizationHeader)
-            .accept(MediaType.APPLICATION_JSON)
-            .build();
-
-        log.debug("URI Real: {}", requestEntity.getUrl());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Authorization", authorizationHeader);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
         try {
-            log.debug("URL ABSOLUTA SENDO ENVIADA: " + uri);
-            ResponseEntity<String> response = restTemplate.exchange(requestEntity, String.class);
+            log.debug("URL ABSOLUTA SENDO ENVIADA: " + url);
+            log.debug("ENVIANDO REQUISIÇÃO PARA HOST EXTERNO: " + java.net.URI.create(url).getHost());
+            ResponseEntity<String> response = restTemplate.exchange(java.net.URI.create(url), HttpMethod.GET, requestEntity, String.class);
 
             return response;
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
             log.error(
                     "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
                     ex.getStatusCode(),
-                    sanitizedUri,
+                    url,
                     ex.getResponseBodyAsString());
             throw ex;
         }

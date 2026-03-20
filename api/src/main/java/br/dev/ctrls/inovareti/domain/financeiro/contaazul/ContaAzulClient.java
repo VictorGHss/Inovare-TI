@@ -568,6 +568,8 @@ public class ContaAzulClient {
             .accept(MediaType.APPLICATION_JSON)
             .build();
 
+        log.debug("URI Real: {}", requestEntity.getUrl());
+
         try {
             ResponseEntity<String> response = contaAzulExternalRestTemplate.exchange(requestEntity, String.class);
 

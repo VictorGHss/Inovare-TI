@@ -3,7 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 public final class ContaAzulStatus {
 
     /**
-     * Status válidos para GET /v1/financeiro/eventos-financeiros/contas-a-receber/buscar
+     * Status válidos para GET /v1/receitas
      * conforme a spec oficial da Conta Azul consultada em 16/03/2026.
      */
     public static final String RECEBIDO = "RECEBIDO";

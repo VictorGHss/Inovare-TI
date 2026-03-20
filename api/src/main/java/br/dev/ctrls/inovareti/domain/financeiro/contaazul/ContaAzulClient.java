@@ -1,10 +1,10 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -44,10 +44,10 @@ public class ContaAzulClient {
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
 
-    @Value("${app.contaazul.payments-url:}")
+    @Value("${app.contaazul.payments-url}")
     private String receivableEventsSearchUrl;
 
-    @Value("${app.contaazul.baixa-details-url:https://api-v2.contaazul.com/v1/baixas}")
+    @Value("${app.contaazul.baixa-details-url}")
     private String baixaDetailsUrl;
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
@@ -795,7 +795,7 @@ public class ContaAzulClient {
 
     private String normalizeReceivablesBaseUrl(String rawUrl) {
         if (!StringUtils.hasText(rawUrl)) {
-            return "https://api-v2.contaazul.com/v1/receitas";
+            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
         }
 
         String normalized = rawUrl.trim();
@@ -808,7 +808,7 @@ public class ContaAzulClient {
 
     private String normalizeBaixaBaseUrl(String rawUrl) {
         if (!StringUtils.hasText(rawUrl)) {
-            return "https://api-v2.contaazul.com/v1/baixas";
+            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
         }
 
         String normalized = rawUrl.trim();

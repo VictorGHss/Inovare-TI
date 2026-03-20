@@ -381,26 +381,37 @@ public class ContaAzulAutomationService {
                         doctorName,
                         saleNumberForInfo);
 
-                ContaAzulClient.BaixaDetailDTO baixaDetail = contaAzulClient.fetchBaixaDetail(baixaIdToProcess)
-                    .orElse(null);
-                if (baixaDetail == null) {
-                    throw new IllegalStateException(
-                        "Baixa não encontrada para a parcela " + sale.parcelaId() + " (baixaId=" + baixaIdToProcess + ")");
+                byte[] pdfBytes = new byte[0];
+
+                if (StringUtils.hasText(baixaIdToProcess)) {
+                    ContaAzulClient.BaixaDetailDTO baixaDetail = contaAzulClient.fetchBaixaDetail(baixaIdToProcess)
+                        .orElse(null);
+
+                    if (baixaDetail == null) {
+                        log.warn("Baixa não encontrada para a parcela {} (baixaId={}). Aplicando fallback via venda.", sale.parcelaId(), baixaIdToProcess);
+                    } else {
+                        String receiptUrl = baixaDetail.anexos().stream()
+                            .filter(anexo -> anexo != null && StringUtils.hasText(anexo.tipo()) && StringUtils.hasText(anexo.url()))
+                            .filter(anexo -> "RECIBO_DIGITAL".equalsIgnoreCase(anexo.tipo()) || "RECIBO".equalsIgnoreCase(anexo.tipo()))
+                            .map(ContaAzulClient.BaixaAttachmentDTO::url)
+                            .findFirst()
+                            .orElse(null);
+
+                        if (!StringUtils.hasText(receiptUrl)) {
+                            log.warn("Recibo de quitação não encontrado nos anexos da baixa {}. Aplicando fallback via venda.", baixaIdToProcess);
+                        } else {
+                            pdfBytes = contaAzulClient.downloadFile(receiptUrl);
+                            if (pdfBytes.length == 0) {
+                                log.warn("Download do recibo de quitação retornou vazio para a baixa {}. Aplicando fallback via venda.", baixaIdToProcess);
+                            }
+                        }
+                    }
+                } else {
+                    log.warn("Parcela {} sem baixa_id no detalhe. Aplicando fallback via venda.", sale.parcelaId());
                 }
 
-                String receiptUrl = baixaDetail.anexos().stream()
-                    .filter(anexo -> anexo != null && StringUtils.hasText(anexo.tipo()) && StringUtils.hasText(anexo.url()))
-                    .filter(anexo -> "RECIBO_DIGITAL".equalsIgnoreCase(anexo.tipo()) || "RECIBO".equalsIgnoreCase(anexo.tipo()))
-                    .map(ContaAzulClient.BaixaAttachmentDTO::url)
-                    .findFirst()
-                    .orElse(null);
-                if (!StringUtils.hasText(receiptUrl)) {
-                    throw new IllegalStateException("Recibo de quitação não encontrado nos anexos da baixa " + baixaIdToProcess);
-                }
-
-                byte[] pdfBytes = contaAzulClient.downloadFile(receiptUrl);
                 if (pdfBytes.length == 0) {
-                    throw new IllegalStateException("Download do recibo de quitação retornou vazio para a baixa " + baixaIdToProcess);
+                    pdfBytes = contaAzulClient.downloadSalePdf(saleIdToProcess);
                 }
 
                 financeEmailService.sendReceiptEmailWithPdf(

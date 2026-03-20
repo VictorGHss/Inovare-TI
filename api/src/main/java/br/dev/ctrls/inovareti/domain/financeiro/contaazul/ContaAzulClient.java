@@ -279,6 +279,8 @@ public class ContaAzulClient {
                 return Optional.empty();
             }
 
+            log.info("!!! [PARCELA DEBUG] JSON recebido: {}", payload);
+
             JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
             String origem = readText(
                     root,
@@ -311,8 +313,15 @@ public class ContaAzulClient {
                     root,
                     "evento.baixa.id",
                     "evento.baixa_id",
+                    "evento.id_baixa",
                     "baixa.id",
-                    "baixa_id");
+                    "baixa_id",
+                    "id_baixa",
+                    "baixas.0.id",
+                    "evento.baixas.0.id",
+                    "itens.0.id_baixa",
+                    "itens.0.baixa.id",
+                    "itens.0.baixado_em");
 
                 String normalizedSaleId = Optional.ofNullable(saleId)
                     .map(String::trim)

@@ -63,7 +63,7 @@ public class ContaAzulController {
     @PostMapping("/teste-envio-real/{saleId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TesteEnvioRealResponseDTO> triggerRealSaleTest(@PathVariable String saleId) {
-        ContaAzulAutomationService.TesteEnvioRealResult result = contaAzulAutomationService.processRealSaleTest(saleId);
+        TesteEnvioRealResult result = contaAzulAutomationService.processRealSaleTest(saleId);
         return ResponseEntity.ok(new TesteEnvioRealResponseDTO(
                 result.saleId(),
                 result.doctorName(),

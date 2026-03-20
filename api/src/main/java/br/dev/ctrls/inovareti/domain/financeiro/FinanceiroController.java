@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -118,7 +119,7 @@ public class FinanceiroController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/medicos/sincronizar-base")
     public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
-        ContaAzulAutomationService.SyncDoctorsResult result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
+        SyncDoctorsResult result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
 
         return ResponseEntity.ok(new SyncDoctorsResponseDTO(
                 result.novos(),

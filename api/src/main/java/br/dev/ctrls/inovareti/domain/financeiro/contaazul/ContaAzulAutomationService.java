@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -244,11 +245,7 @@ public class ContaAzulAutomationService {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
-                try {
-                    Thread.sleep(350);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
+                if (!applyThrottle()) {
                     continue;
                 }
 
@@ -501,6 +498,17 @@ public class ContaAzulAutomationService {
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
     }
 
+    private boolean applyThrottle() {
+        LockSupport.parkNanos(350_000_000L);
+
+        if (Thread.currentThread().isInterrupted()) {
+            log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
+            return false;
+        }
+
+        return true;
+    }
+
     private String buildEmailBody(String doctorName, String saleNumber) {
         return "Olá " + doctorName
                 + ",\n\nSegue em anexo o seu recibo #" + saleNumber + ".\n\n"
@@ -555,15 +563,4 @@ public class ContaAzulAutomationService {
                 + (StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
     }
 
-    public record TesteEnvioRealResult(
-            String saleId,
-            String doctorName,
-            String recipientEmail,
-            int pdfBytes) {
-    }
-
-        public record SyncDoctorsResult(
-            int novos,
-            int atualizados) {
-        }
 }

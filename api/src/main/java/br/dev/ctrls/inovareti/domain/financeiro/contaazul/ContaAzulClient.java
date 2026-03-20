@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,14 +37,18 @@ public class ContaAzulClient {
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
-    private static final String RECEIVABLES_OFFICIAL_URL = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
-    private static final String BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${app.contaazul.payments-url}")
+    private String receivableEventsSearchUrl;
+
+    @Value("${app.contaazul.baixa-details-url}")
+    private String baixaDetailsUrl;
 
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
@@ -388,9 +393,10 @@ public class ContaAzulClient {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        log.info("ContaAzul external request URI (downloadFile): {}", sanitizedUri);
+        URI uri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + uri.toString());
         ResponseEntity<byte[]> response = restTemplate.exchange(
-                sanitizedUri,
+                uri,
                 HttpMethod.GET,
                 new HttpEntity<>(new HttpHeaders()),
                 byte[].class);
@@ -404,9 +410,10 @@ public class ContaAzulClient {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        log.info("ContaAzul external request URI (downloadPublicFile): {}", sanitizedUri);
+        URI uri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + uri.toString());
         ResponseEntity<byte[]> response = restTemplate.exchange(
-                sanitizedUri,
+                uri,
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
                 byte[].class);
@@ -565,11 +572,13 @@ public class ContaAzulClient {
         headers.add("Authorization", authorizationHeader);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        URI externalUri = URI.create(url);
 
         try {
             log.debug("URL ABSOLUTA SENDO ENVIADA: " + url);
-            log.debug("ENVIANDO REQUISIÇÃO PARA HOST EXTERNO: " + java.net.URI.create(url).getHost());
-            ResponseEntity<String> response = restTemplate.exchange(java.net.URI.create(url), HttpMethod.GET, requestEntity, String.class);
+            log.debug("ENVIANDO REQUISIÇÃO PARA HOST EXTERNO: " + externalUri.getHost());
+            log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
+            ResponseEntity<String> response = restTemplate.exchange(externalUri, HttpMethod.GET, requestEntity, String.class);
 
             return response;
         } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest | HttpClientErrorException.NotFound ex) {
@@ -588,10 +597,11 @@ public class ContaAzulClient {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Authorization", "Bearer " + token);
         headers.setAccept(List.of(MediaType.APPLICATION_PDF));
-        log.info("ContaAzul external request URI (PDF): {}", sanitizedUri);
+        URI externalUri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
 
         ResponseEntity<byte[]> response = restTemplate.exchange(
-            sanitizedUri,
+            externalUri,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 byte[].class);
@@ -797,11 +807,19 @@ public class ContaAzulClient {
     }
 
     private String normalizeReceivablesBaseUrl() {
-        return RECEIVABLES_OFFICIAL_URL;
+        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
+            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
+        }
+
+        return receivableEventsSearchUrl.trim();
     }
 
     private String normalizeBaixaBaseUrl() {
-        return BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE;
+        if (!StringUtils.hasText(baixaDetailsUrl)) {
+            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
+        }
+
+        return baixaDetailsUrl.trim();
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {

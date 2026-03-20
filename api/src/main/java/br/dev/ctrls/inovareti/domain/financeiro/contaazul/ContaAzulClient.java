@@ -47,6 +47,9 @@ public class ContaAzulClient {
     @Value("${app.contaazul.payments-url:}")
     private String receivableEventsSearchUrl;
 
+    @Value("${app.contaazul.baixa-details-url:https://api-v2.contaazul.com/v1/baixas}")
+    private String baixaDetailsUrl;
+
     @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
     private String salePdfV1UrlTemplate;
 
@@ -271,7 +274,7 @@ public class ContaAzulClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/" + normalizedParcelaUuid;
+        String uri = normalizeReceivablesBaseUrl(receivableEventsSearchUrl) + "/" + normalizedParcelaUuid;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -352,7 +355,7 @@ public class ContaAzulClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/baixas/" + normalizedBaixaId;
+        String uri = normalizeBaixaBaseUrl(baixaDetailsUrl) + "/" + normalizedBaixaId;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -792,12 +795,25 @@ public class ContaAzulClient {
 
     private String normalizeReceivablesBaseUrl(String rawUrl) {
         if (!StringUtils.hasText(rawUrl)) {
-            return "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+            return "https://api-v2.contaazul.com/v1/receitas";
         }
 
         String normalized = rawUrl.trim();
         if (normalized.endsWith("/buscar")) {
             return normalized.substring(0, normalized.length() - "/buscar".length());
+        }
+
+        return normalized;
+    }
+
+    private String normalizeBaixaBaseUrl(String rawUrl) {
+        if (!StringUtils.hasText(rawUrl)) {
+            return "https://api-v2.contaazul.com/v1/baixas";
+        }
+
+        String normalized = rawUrl.trim();
+        if (normalized.endsWith("/")) {
+            return normalized.substring(0, normalized.length() - 1);
         }
 
         return normalized;

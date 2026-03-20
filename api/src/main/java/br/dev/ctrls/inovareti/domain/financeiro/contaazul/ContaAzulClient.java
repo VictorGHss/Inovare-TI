@@ -37,8 +37,6 @@ public class ContaAzulClient {
 
     private static final int PAGE_SIZE = 100;
     private static final int MAX_PAGES = 30;
-    private static final String RECEIVABLES_OFFICIAL_URL = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
-    private static final String BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -276,7 +274,7 @@ public class ContaAzulClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String uri = normalizeReceivablesBaseUrl(receivableEventsSearchUrl) + "/" + normalizedParcelaUuid;
+        String uri = normalizeReceivablesBaseUrl() + "/" + normalizedParcelaUuid;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -357,7 +355,7 @@ public class ContaAzulClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE.replace("{id}", normalizedBaixaId);
+        String uri = normalizeBaixaBaseUrl().replace("{id}", normalizedBaixaId);
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -785,7 +783,7 @@ public class ContaAzulClient {
     }
 
     private String buildReceivableSearchUri(int page, String dataVencimentoDe, String dataVencimentoAte) {
-        return UriComponentsBuilder.fromUriString(RECEIVABLES_OFFICIAL_URL)
+        return UriComponentsBuilder.fromUriString(normalizeReceivablesBaseUrl())
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
                 .queryParam("status", "RECEBIDO")
@@ -795,12 +793,20 @@ public class ContaAzulClient {
                 .toUriString();
     }
 
-    private String normalizeReceivablesBaseUrl(String rawUrl) {
-        return RECEIVABLES_OFFICIAL_URL;
+    private String normalizeReceivablesBaseUrl() {
+        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
+            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
+        }
+
+        return receivableEventsSearchUrl.trim();
     }
 
-    private String normalizeBaixaBaseUrl(String rawUrl) {
-        return BAIXA_DETAILS_OFFICIAL_URL_TEMPLATE;
+    private String normalizeBaixaBaseUrl() {
+        if (!StringUtils.hasText(baixaDetailsUrl)) {
+            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
+        }
+
+        return baixaDetailsUrl.trim();
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {

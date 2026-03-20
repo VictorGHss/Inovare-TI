@@ -300,10 +300,6 @@ public class ContaAzulAutomationService {
                         log.info("Sniper: Venda #{} localizada. UUID extraído: {}.",
                                 saleNumberFromDescription,
                                 saleIdToProcess);
-
-                        if (!directSale.get().hasAcquittedInstallment()) {
-                            log.warn("Sniper retornou UUID para venda {}, mas sem parcela ACQUITTED na venda retornada.", saleNumberFromDescription);
-                        }
                     }
                 }
 
@@ -346,6 +342,9 @@ public class ContaAzulAutomationService {
                 if (mapping == null) {
                     skippedMapping++;
                     log.info("Mapeamento NÃO encontrado. Pulando item.");
+                    log.warn("!!! [MAP_FAIL] Cadastro faltando para o médico: {} | UUID Cliente CA: {}",
+                            StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)",
+                            StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(uuid indisponível)");
                     if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
                         log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
                     }

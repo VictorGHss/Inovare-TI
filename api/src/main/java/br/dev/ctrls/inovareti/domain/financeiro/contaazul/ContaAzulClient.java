@@ -62,9 +62,6 @@ public class ContaAzulClient {
     @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
     private String customerByIdV1UrlTemplate;
 
-    @Value("${app.contaazul.parcela-by-id-url-template:https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcelaId}}")
-    private String parcelaByIdUrlTemplate;
-
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(receivableEventsSearchUrl) && StringUtils.hasText(salePdfV1UrlTemplate);
     }
@@ -274,12 +271,7 @@ public class ContaAzulClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String template = StringUtils.hasText(parcelaByIdUrlTemplate)
-            ? parcelaByIdUrlTemplate
-            : "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcelaId}";
-        String uri = template
-            .replace("{parcelaId}", normalizedParcelaUuid)
-            .replace("{id}", normalizedParcelaUuid);
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/" + normalizedParcelaUuid;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);

@@ -262,20 +262,36 @@ public class ContaAzulAutomationService {
                 String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
                 String saleIdToProcess = null;
-                String baixaIdToProcess = null;
-                try {
-                    ContaAzulClient.ParcelaDetailDTO parcelaDetail = contaAzulClient.fetchParcelaDetail(sale.parcelaId())
-                            .orElse(null);
-                    if (parcelaDetail != null) {
-                        saleIdToProcess = parcelaDetail.vendaId();
-                        baixaIdToProcess = parcelaDetail.baixaId();
-                    }
+                String baixaIdToProcess = sale.baixaId();
+                String idReciboDigitalToProcess = sale.idReciboDigital();
+
+                if ("VENDA".equalsIgnoreCase(sale.origem())) {
+                    saleIdToProcess = StringUtils.hasText(sale.vendaId())
+                            ? sale.vendaId().trim()
+                            : (StringUtils.hasText(sale.origemSaleId())
+                                    ? sale.origemSaleId().trim()
+                                    : (sale.venda() != null && StringUtils.hasText(sale.venda().id())
+                                            ? sale.venda().id().trim()
+                                            : null));
 
                     if (StringUtils.hasText(saleIdToProcess)) {
                         log.info("!!! [MAP_SUCCESS] Venda identificada via referência direta: " + saleIdToProcess);
                     }
-                } catch (RuntimeException ex) {
-                    log.warn("Falha ao buscar detalhe da parcela {}. Aplicando fallback Sniper por número.", sale.parcelaId(), ex);
+                }
+
+                if (!StringUtils.hasText(baixaIdToProcess)) {
+                    try {
+                        ContaAzulClient.ParcelaDetailDTO parcelaDetail = contaAzulClient.fetchParcelaDetail(sale.parcelaId())
+                                .orElse(null);
+                        if (parcelaDetail != null) {
+                            baixaIdToProcess = parcelaDetail.baixaId();
+                            if (!StringUtils.hasText(saleIdToProcess)) {
+                                saleIdToProcess = parcelaDetail.vendaId();
+                            }
+                        }
+                    } catch (RuntimeException ex) {
+                        log.warn("Falha ao buscar detalhe da parcela {}. Seguindo com fallback Sniper por número.", sale.parcelaId(), ex);
+                    }
                 }
 
                 if (!StringUtils.hasText(saleIdToProcess)) {
@@ -380,7 +396,7 @@ public class ContaAzulAutomationService {
 
                 byte[] pdfBytes = new byte[0];
 
-                if (StringUtils.hasText(baixaIdToProcess)) {
+                if (StringUtils.hasText(baixaIdToProcess) && StringUtils.hasText(idReciboDigitalToProcess)) {
                     ContaAzulClient.BaixaDetailDTO baixaDetail = contaAzulClient.fetchBaixaDetail(baixaIdToProcess)
                         .orElse(null);
 
@@ -388,23 +404,23 @@ public class ContaAzulAutomationService {
                         log.warn("Baixa não encontrada para a parcela {} (baixaId={}). Aplicando fallback via venda.", sale.parcelaId(), baixaIdToProcess);
                     } else {
                         String receiptUrl = baixaDetail.anexos().stream()
-                            .filter(anexo -> anexo != null && StringUtils.hasText(anexo.tipo()) && StringUtils.hasText(anexo.url()))
-                            .filter(anexo -> "RECIBO_DIGITAL".equalsIgnoreCase(anexo.tipo()) || "RECIBO".equalsIgnoreCase(anexo.tipo()))
+                            .filter(anexo -> anexo != null && StringUtils.hasText(anexo.id()) && StringUtils.hasText(anexo.url()))
+                            .filter(anexo -> idReciboDigitalToProcess.equalsIgnoreCase(anexo.id().trim()))
                             .map(ContaAzulClient.BaixaAttachmentDTO::url)
                             .findFirst()
                             .orElse(null);
 
                         if (!StringUtils.hasText(receiptUrl)) {
-                            log.warn("Recibo de quitação não encontrado nos anexos da baixa {}. Aplicando fallback via venda.", baixaIdToProcess);
+                            log.warn("Recibo digital {} não encontrado nos anexos da baixa {}. Aplicando fallback via venda.", idReciboDigitalToProcess, baixaIdToProcess);
                         } else {
-                            pdfBytes = contaAzulClient.downloadFile(receiptUrl);
+                            pdfBytes = contaAzulClient.downloadPublicFile(receiptUrl);
                             if (pdfBytes.length == 0) {
                                 log.warn("Download do recibo de quitação retornou vazio para a baixa {}. Aplicando fallback via venda.", baixaIdToProcess);
                             }
                         }
                     }
                 } else {
-                    log.warn("Parcela {} sem baixa_id no detalhe. Aplicando fallback via venda.", sale.parcelaId());
+                    log.warn("Parcela {} sem baixa_id ou id_recibo_digital. Aplicando fallback via venda.", sale.parcelaId());
                 }
 
                 if (pdfBytes.length == 0) {

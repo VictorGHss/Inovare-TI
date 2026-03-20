@@ -352,7 +352,7 @@ public class ContaAzulClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + normalizedBaixaId;
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/baixas/" + normalizedBaixaId;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -369,9 +369,10 @@ public class ContaAzulClient {
 
             List<BaixaAttachmentDTO> anexos = new ArrayList<>();
             for (JsonNode anexoNode : anexosNode) {
+                String id = readText(anexoNode, "id", "anexo_id");
                 String tipo = readText(anexoNode, "tipo", "type", "categoria");
                 String url = readText(anexoNode, "url", "link", "download_url", "arquivo.url");
-                anexos.add(new BaixaAttachmentDTO(tipo, url));
+                anexos.add(new BaixaAttachmentDTO(id, tipo, url));
             }
 
             return Optional.of(new BaixaDetailDTO(anexos));
@@ -392,6 +393,21 @@ public class ContaAzulClient {
                 url.trim(),
                 HttpMethod.GET,
                 new HttpEntity<>(new HttpHeaders()),
+                byte[].class);
+
+        return response.getBody() != null ? response.getBody() : new byte[0];
+    }
+
+    public byte[] downloadPublicFile(String url) {
+        if (!StringUtils.hasText(url)) {
+            return new byte[0];
+        }
+
+        RestTemplate cleanRestTemplate = new RestTemplate();
+        ResponseEntity<byte[]> response = cleanRestTemplate.exchange(
+                url.trim(),
+                HttpMethod.GET,
+                HttpEntity.EMPTY,
                 byte[].class);
 
         return response.getBody() != null ? response.getBody() : new byte[0];
@@ -464,7 +480,9 @@ public class ContaAzulClient {
                     matchedItem.id().trim(),
                     null,
                     resolvedNumber,
-                    hasAcquittedInstallment));
+                    hasAcquittedInstallment,
+                    null,
+                    null));
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de venda por número da Conta Azul.", ex);
         }
@@ -637,6 +655,21 @@ public class ContaAzulClient {
                     "historico",
                     "observacao");
 
+                String baixaId = readText(
+                    node,
+                    "baixas.0.id",
+                    "evento_financeiro.baixas.0.id",
+                    "evento.baixas.0.id",
+                    "id_baixa",
+                    "baixa_id");
+
+                String idReciboDigital = readText(
+                    node,
+                    "baixas.0.id_recibo_digital",
+                    "evento_financeiro.baixas.0.id_recibo_digital",
+                    "evento.baixas.0.id_recibo_digital",
+                    "id_recibo_digital");
+
                 String saleId = venda != null && StringUtils.hasText(venda.id())
                     ? venda.id()
                     : (StringUtils.hasText(origemSaleId)
@@ -669,7 +702,7 @@ public class ContaAzulClient {
                         "contato.nome",
                         "pessoa.nome");
 
-                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId, descricao, null, true));
+                        sales.add(new SaleItem(saleId, customerUuid, customerName, parcelaId, origem, venda, origemSaleId, vendaId, descricao, null, true, baixaId, idReciboDigital));
             }
 
             return sales;
@@ -747,7 +780,7 @@ public class ContaAzulClient {
     }
 
     private String buildReceivableSearchUri(int page, String dataVencimentoDe, String dataVencimentoAte) {
-        return UriComponentsBuilder.fromUriString(receivableEventsSearchUrl)
+        return UriComponentsBuilder.fromUriString(normalizeReceivablesBaseUrl(receivableEventsSearchUrl))
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
                 .queryParam("status", "RECEBIDO")
@@ -755,6 +788,19 @@ public class ContaAzulClient {
                 .queryParam("data_vencimento_ate", dataVencimentoAte)
                 .build()
                 .toUriString();
+    }
+
+    private String normalizeReceivablesBaseUrl(String rawUrl) {
+        if (!StringUtils.hasText(rawUrl)) {
+            return "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+        }
+
+        String normalized = rawUrl.trim();
+        if (normalized.endsWith("/buscar")) {
+            return normalized.substring(0, normalized.length() - "/buscar".length());
+        }
+
+        return normalized;
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {
@@ -976,7 +1022,9 @@ public class ContaAzulClient {
                     saleId,
                     null,
                     saleNumber,
-                    hasAcquittedInstallmentInSaleNode(saleNode)));
+                    hasAcquittedInstallmentInSaleNode(saleNode),
+                    null,
+                    null));
             }
 
             return sales;
@@ -1129,7 +1177,9 @@ public class ContaAzulClient {
             String vendaId,
             String descricao,
             String saleNumber,
-            boolean hasAcquittedInstallment) {
+            boolean hasAcquittedInstallment,
+            String baixaId,
+            String idReciboDigital) {
     }
 
             @JsonIgnoreProperties(ignoreUnknown = true)
@@ -1179,6 +1229,7 @@ public class ContaAzulClient {
         }
 
         public record BaixaAttachmentDTO(
+            String id,
             String tipo,
             String url) {
         }

@@ -265,8 +265,15 @@ public class ContaAzulAutomationService {
                 String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
                 String saleIdToProcess = null;
+                String baixaIdToProcess = null;
                 try {
-                    saleIdToProcess = contaAzulClient.fetchParcelaDetail(sale.parcelaId()).orElse(null);
+                    ContaAzulClient.ParcelaDetailDTO parcelaDetail = contaAzulClient.fetchParcelaDetail(sale.parcelaId())
+                            .orElse(null);
+                    if (parcelaDetail != null) {
+                        saleIdToProcess = parcelaDetail.vendaId();
+                        baixaIdToProcess = parcelaDetail.baixaId();
+                    }
+
                     if (StringUtils.hasText(saleIdToProcess)) {
                         log.info("!!! [MAP_SUCCESS] Venda identificada via referência direta: " + saleIdToProcess);
                     }
@@ -366,7 +373,7 @@ public class ContaAzulAutomationService {
                 String saleNumberForInfo = StringUtils.hasText(saleNumberFromDescription)
                         ? saleNumberFromDescription
                         : (StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : saleIdToProcess);
-                log.info("Localizando venda {} via busca direta. UUID encontrado: {}. Baixando PDF via /imprimir...",
+                log.info("Localizando venda {} via busca direta. UUID encontrado: {}. Baixando Recibo de Quitação via baixa...",
                     saleNumberForInfo,
                     saleIdToProcess);
                 log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF da Venda {}",
@@ -374,7 +381,28 @@ public class ContaAzulAutomationService {
                         doctorName,
                         saleNumberForInfo);
 
-                byte[] pdfBytes = contaAzulClient.downloadSalePdf(saleIdToProcess);
+                ContaAzulClient.BaixaDetailDTO baixaDetail = contaAzulClient.fetchBaixaDetail(baixaIdToProcess)
+                    .orElse(null);
+                if (baixaDetail == null) {
+                    throw new IllegalStateException(
+                        "Baixa não encontrada para a parcela " + sale.parcelaId() + " (baixaId=" + baixaIdToProcess + ")");
+                }
+
+                String receiptUrl = baixaDetail.anexos().stream()
+                    .filter(anexo -> anexo != null && StringUtils.hasText(anexo.tipo()) && StringUtils.hasText(anexo.url()))
+                    .filter(anexo -> "RECIBO_DIGITAL".equalsIgnoreCase(anexo.tipo()) || "RECIBO".equalsIgnoreCase(anexo.tipo()))
+                    .map(ContaAzulClient.BaixaAttachmentDTO::url)
+                    .findFirst()
+                    .orElse(null);
+                if (!StringUtils.hasText(receiptUrl)) {
+                    throw new IllegalStateException("Recibo de quitação não encontrado nos anexos da baixa " + baixaIdToProcess);
+                }
+
+                byte[] pdfBytes = contaAzulClient.downloadFile(receiptUrl);
+                if (pdfBytes.length == 0) {
+                    throw new IllegalStateException("Download do recibo de quitação retornou vazio para a baixa " + baixaIdToProcess);
+                }
+
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
@@ -382,7 +410,7 @@ public class ContaAzulAutomationService {
                             ? saleNumberFromDescription
                             : "N/D"),
                         pdfBytes,
-                        "recibo-venda-" + saleIdToProcess + ".pdf");
+                    "recibo-quitacao-venda-" + saleIdToProcess + ".pdf");
 
                 log.info("E-mail enviado com sucesso para venda {} (médico: {}).",
                     saleIdToProcess,

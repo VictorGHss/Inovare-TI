@@ -265,7 +265,7 @@ public class ContaAzulClient {
         return sales;
     }
 
-    public Optional<String> fetchParcelaDetail(String uuidParcela) {
+    public Optional<ParcelaDetailDTO> fetchParcelaDetail(String uuidParcela) {
         if (!StringUtils.hasText(uuidParcela)) {
             return Optional.empty();
         }
@@ -307,15 +307,85 @@ public class ContaAzulClient {
                         "origem.venda.id");
             }
 
-            return Optional.ofNullable(saleId)
+            String baixaId = readText(
+                    root,
+                    "evento.baixa.id",
+                    "evento.baixa_id",
+                    "baixa.id",
+                    "baixa_id");
+
+                String normalizedSaleId = Optional.ofNullable(saleId)
                     .map(String::trim)
-                    .filter(StringUtils::hasText);
+                    .filter(StringUtils::hasText)
+                    .orElse(null);
+
+                String normalizedBaixaId = Optional.ofNullable(baixaId)
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .orElse(null);
+
+            if (!StringUtils.hasText(normalizedSaleId) && !StringUtils.hasText(normalizedBaixaId)) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new ParcelaDetailDTO(normalizedSaleId, normalizedBaixaId));
         } catch (HttpClientErrorException.NotFound ex) {
             log.warn("Detalhe da parcela {} não encontrado no Conta Azul.", normalizedParcelaUuid);
             return Optional.empty();
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de detalhe da parcela da Conta Azul.", ex);
         }
+    }
+
+    public Optional<BaixaDetailDTO> fetchBaixaDetail(String baixaId) {
+        if (!StringUtils.hasText(baixaId)) {
+            return Optional.empty();
+        }
+
+        String normalizedBaixaId = baixaId.trim();
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + normalizedBaixaId;
+
+        try {
+            String payload = executeJsonGetWithRefresh(uri);
+            if (!StringUtils.hasText(payload)) {
+                return Optional.empty();
+            }
+
+            JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+            JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
+
+            if (anexosNode == null || !anexosNode.isArray() || anexosNode.isEmpty()) {
+                return Optional.of(new BaixaDetailDTO(List.of()));
+            }
+
+            List<BaixaAttachmentDTO> anexos = new ArrayList<>();
+            for (JsonNode anexoNode : anexosNode) {
+                String tipo = readText(anexoNode, "tipo", "type", "categoria");
+                String url = readText(anexoNode, "url", "link", "download_url", "arquivo.url");
+                anexos.add(new BaixaAttachmentDTO(tipo, url));
+            }
+
+            return Optional.of(new BaixaDetailDTO(anexos));
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedBaixaId);
+            return Optional.empty();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de detalhe da baixa da Conta Azul.", ex);
+        }
+    }
+
+    public byte[] downloadFile(String url) {
+        if (!StringUtils.hasText(url)) {
+            return new byte[0];
+        }
+
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+                url.trim(),
+                HttpMethod.GET,
+                new HttpEntity<>(new HttpHeaders()),
+                byte[].class);
+
+        return response.getBody() != null ? response.getBody() : new byte[0];
     }
 
     public Optional<SaleItem> fetchSaleByNumber(Integer numero) {
@@ -1006,6 +1076,25 @@ public class ContaAzulClient {
         }
     }
 
+    private JsonNode readArrayNode(JsonNode node, String... paths) {
+        for (String path : paths) {
+            JsonNode current = node;
+            for (String segment : path.split("\\.")) {
+                if (current == null) {
+                    break;
+                }
+
+                current = current.get(segment);
+            }
+
+            if (current != null && current.isArray()) {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
         @JsonIgnoreProperties(ignoreUnknown = true)
         private record ReceivablesSearchResponseDTO(
             @JsonProperty("itens") List<JsonNode> itens,
@@ -1070,4 +1159,18 @@ public class ContaAzulClient {
             String nome,
             String email) {
     }
+
+        public record ParcelaDetailDTO(
+            String vendaId,
+            String baixaId) {
+        }
+
+        public record BaixaDetailDTO(
+            List<BaixaAttachmentDTO> anexos) {
+        }
+
+        public record BaixaAttachmentDTO(
+            String tipo,
+            String url) {
+        }
 }

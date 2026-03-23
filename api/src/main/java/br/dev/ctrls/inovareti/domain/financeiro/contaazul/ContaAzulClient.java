@@ -150,10 +150,7 @@ public class ContaAzulClient {
                         }
                     }
                 }
-            } catch (IOException | InterruptedException e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+            } catch (IOException e) {
                 log.warn("Falha ao parsear payload de anexo após refresh do token para baixa {}.", baixaId, e);
             }
             return new byte[0];

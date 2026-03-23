@@ -112,7 +112,6 @@ public class ContaAzulClient {
             throw new IllegalArgumentException("baixaId não pode ser vazio para download do recibo");
         }
         String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + baixaId.trim();
-        String token = contaAzulTokenService.getValidAccessToken();
         log.info("Baixando recibo via endpoint oficial de baixas: {}", uri);
         try {
             String payload = executeJsonGetWithRefresh(uri);
@@ -480,11 +479,11 @@ public class ContaAzulClient {
                 throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
             }
             return response.body() != null ? response.body() : new byte[0];
-        } catch (IOException ex) {
+        } catch (IOException | InterruptedException ex) {
+            if (ex instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new IllegalStateException("Falha ao baixar arquivo da Conta Azul.", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Thread interrompida ao baixar arquivo da Conta Azul.", ex);
         }
     }
 
@@ -509,11 +508,11 @@ public class ContaAzulClient {
                 throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
             }
             return response.body() != null ? response.body() : new byte[0];
-        } catch (IOException ex) {
+        } catch (IOException | InterruptedException ex) {
+            if (ex instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new IllegalStateException("Falha ao baixar arquivo público da Conta Azul.", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Thread interrompida ao baixar arquivo público da Conta Azul.", ex);
         }
     }
 
@@ -609,38 +608,11 @@ public class ContaAzulClient {
                 throw new ContaAzulHttpException(response.statusCode(), response.body());
             }
             return response;
-        } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao consultar endpoint JSON da Conta Azul.", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Thread interrompida ao consultar endpoint JSON da Conta Azul.", ex);
-        }
-    }
-
-
-    private byte[] executePdfGet(String uri, String token) {
-        String sanitizedUri = sanitizeContaAzulUri(uri);
-        URI externalUri = URI.create(sanitizedUri);
-        log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(externalUri)
-                .header("Authorization", "Bearer " + token)
-                .header("Accept", "application/pdf")
-                .GET()
-                .build();
-
-        try {
-            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+        } catch (IOException | InterruptedException ex) {
+            if (ex instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
             }
-            return response.body() != null ? response.body() : new byte[0];
-        } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao baixar PDF da venda na Conta Azul.", ex);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Thread interrompida ao baixar PDF da venda na Conta Azul.", ex);
+            throw new IllegalStateException("Falha ao consultar endpoint JSON da Conta Azul.", ex);
         }
     }
 
@@ -887,22 +859,7 @@ public class ContaAzulClient {
         return normalized;
     }
 
-    private String normalizeSalePrintTemplate(String rawTemplate) {
-        if (!StringUtils.hasText(rawTemplate)) {
-            return "https://api-v2.contaazul.com/v1/venda/{id}/imprimir";
-        }
-
-        String normalized = rawTemplate.trim();
-        if (normalized.contains("/v1/sales/")) {
-            normalized = normalized.replace("/v1/sales/", "/v1/venda/");
-        }
-
-        if (normalized.endsWith("/pdf")) {
-            normalized = normalized.substring(0, normalized.length() - 4) + "/imprimir";
-        }
-
-        return normalized;
-    }
+    // normalizeSalePrintTemplate removed — printing via sale endpoint is no longer used
 
     private String sanitizeTokenPrefix(String accessToken) {
         if (!StringUtils.hasText(accessToken)) {
@@ -1118,29 +1075,7 @@ public class ContaAzulClient {
         }
     }
 
-    private boolean hasAcquittedInstallmentInSaleByNumberItem(SaleByNumberItemDTO saleItem) {
-        if (saleItem == null) {
-            return false;
-        }
-
-        if (saleItem.installments() != null) {
-            for (SaleInstallmentDTO installment : saleItem.installments()) {
-                if (installment != null && "ACQUITTED".equalsIgnoreCase(installment.status())) {
-                    return true;
-                }
-            }
-        }
-
-        if (saleItem.parcelas() != null) {
-            for (SaleInstallmentDTO parcela : saleItem.parcelas()) {
-                if (parcela != null && "ACQUITTED".equalsIgnoreCase(parcela.status())) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    // hasAcquittedInstallmentInSaleByNumberItem removed — Sniper flow not used anymore
 
     private boolean hasAcquittedInstallmentInSaleNode(JsonNode saleNode) {
         if (saleNode == null || saleNode.isNull()) {
@@ -1279,33 +1214,7 @@ public class ContaAzulClient {
             String idReciboDigital) {
     }
 
-            @JsonIgnoreProperties(ignoreUnknown = true)
-            private record SaleByNumberResponseDTO(
-                @JsonProperty("itens") List<SaleByNumberItemDTO> itens,
-                @JsonProperty("total_itens") Integer totalItens) {
-
-                public int getTotal_itens() {
-                    if (totalItens != null) {
-                        return totalItens;
-                    }
-
-                    return itens != null ? itens.size() : 0;
-                }
-            }
-
-            @JsonIgnoreProperties(ignoreUnknown = true)
-            private record SaleByNumberItemDTO(
-                @JsonProperty("id") String id,
-                @JsonProperty("numero") String numero,
-                @JsonProperty("number") String number,
-                @JsonProperty("installments") List<SaleInstallmentDTO> installments,
-                @JsonProperty("parcelas") List<SaleInstallmentDTO> parcelas) {
-            }
-
-            @JsonIgnoreProperties(ignoreUnknown = true)
-            private record SaleInstallmentDTO(
-                @JsonProperty("status") String status) {
-            }
+            // SaleByNumber DTOs removed — Sniper flow retired
 
     private record PessoasPage(List<PessoaItem> itens, Long total) {
     }

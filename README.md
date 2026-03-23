@@ -118,3 +118,19 @@ Inovare-TI/
 - [Documentação da API REST](docs/API_DOCS.md)
 - [Banco de Dados — Schema](docs/DATABASE.md)
 - [TODO e Roadmap](docs/TODO.md)
+
+---
+
+## OpenAPI (Especificação da API)
+
+A especificação OpenAPI para o backend está disponível em `docs/openapi.yaml` e `docs/openapi.json`. Use esses arquivos para importar a API em clientes ou servir via Swagger UI.
+
+Comando rápido para servir a spec com o Swagger UI via Docker:
+
+```bash
+docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json -v "%CD%/docs":/usr/share/nginx/html:ro swaggerapi/swagger-ui
+```
+
+Abra http://localhost:8080 e a UI carregará `openapi.json`.
+
+Coloque o arquivo `.env` na raiz conforme `.env.example` antes de iniciar os serviços.

@@ -1,5 +1,7 @@
 # Documentação do Banco de Dados — Inovare TI
 
+> **Atualização:** 2026-03-23 — Confirmação de migrações V1/V2; tabelas de integração ContaAzul e controle de recibos (`processed_receipts`) presentes.
+
 > **SGBD:** PostgreSQL  
 > **Gerenciamento de migrações:** Flyway  
 > **Convenção de nomenclatura:** snake_case para tabelas e colunas; UUIDs como chaves primárias.

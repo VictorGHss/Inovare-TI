@@ -1,5 +1,7 @@
 # Documentação da API — Inovare TI
 
+> **Atualização:** 2026-03-23 — Backend: Fase 10 concluída; integrações Conta Azul e envio de emails (SMTP / Brevo) implementadas.
+
 > **Base URL:** `http://localhost:8085`  
 > **Formato:** JSON (`Content-Type: application/json`)  
 > **Erros:** Padrão RFC 7807 (Problem Details)  
@@ -1196,6 +1198,121 @@ Não requer body.
 ## Módulo: Logs de Auditoria (`/api/audit-logs`)
 
 > **Acesso:** Exclusivo para **ADMIN**. Todas as consultas retornam apenas registros auditáveis do sistema.
+
+---
+
+## Referência de Endpoints (extraído automaticamente)
+
+Abaixo um resumo dos endpoints disponíveis no backend (método + rota) com observação breve de autorização quando aplicável.
+
+- **Autenticação (`/api/auth`)**
+  - POST `/api/auth/login` — autenticação (público)
+  - POST `/api/auth/reset-initial-password` — reset inicial de senha
+  - POST `/api/auth/2fa/generate` — gerar TOTP (autenticado)
+  - POST `/api/auth/2fa/verify` — verificar TOTP (autenticado)
+  - POST `/api/auth/2fa/reset-request` — solicitar recuperação 2FA (autenticado)
+  - POST `/api/auth/2fa/reset-confirm` — confirmar recuperação 2FA (autenticado)
+
+- **Vault (`/api/vault`)**
+  - POST `/api/vault` — criar item (multipart/form-data)
+  - GET `/api/vault` — listar itens visíveis
+  - PATCH `/api/vault/{itemId}` — atualizar item (multipart/form-data)
+  - DELETE `/api/vault/{itemId}` — excluir item
+  - GET `/api/vault/{itemId}/secret` — ler segredo (exige 2FA verificado)
+  - GET `/api/vault/{itemId}/file` — visualizar anexo (exige 2FA verificado)
+
+- **Financeiro (`/api/financeiro`)**
+  - GET `/api/financeiro/recibos` — listar recibos (ADMIN)
+  - GET `/api/financeiro/alertas` — listar alertas (ADMIN)
+  - POST `/api/financeiro/alertas/{alertId}/reenviar` — reenviar recibo (ADMIN)
+  - POST `/api/financeiro/backfill` — executar backfill 30 dias (ADMIN)
+  - GET `/api/financeiro/parcelas/{id}/processar` — processar parcela (ADMIN)
+  - GET `/api/financeiro/resumo` — resumo financeiro (ADMIN)
+  - POST `/api/financeiro/autonacao/executar` — executar automação manual (ADMIN)
+  - POST `/api/financeiro/medicos/sincronizar-base` — sincronizar médicos ContaAzul (ADMIN)
+  - GET `/api/financeiro/trigger-test-receipt` — disparar e-mail de teste (dev/test)
+
+- **ContaAzul (submódulo) (`/api/financeiro/contaazul`)**
+  - GET `/api/financeiro/contaazul/authorize` — iniciar OAuth2 (redirect)
+  - GET `/api/financeiro/contaazul/status` — status autorização (ADMIN)
+  - GET `/api/financeiro/contaazul/callback` — callback OAuth2 (redirect to frontend)
+  - GET `/api/financeiro/contaazul/check-customer/{email}` — checar cliente por e-mail (ADMIN)
+  - GET `/api/financeiro/contaazul/customer-email/{customerId}` — obter e-mail do cliente (ADMIN)
+  - POST `/api/financeiro/contaazul/teste-envio-real/{saleId}` — teste real de envio (ADMIN)
+
+- **Chamados / Tickets (`/api/tickets`)**
+  - GET `/api/tickets` — listar (ADMIN/TECH veem todos; USER vê próprios)
+  - GET `/api/tickets/{id}` — detalhes do chamado
+  - POST `/api/tickets` — criar chamado (autenticado)
+  - PATCH `/api/tickets/{id}/resolve` — resolver chamado (dono ou ADMIN/TECH)
+  - PATCH `/api/tickets/{id}/claim` — assumir chamado (ADMIN/TECH)
+  - PATCH `/api/tickets/{id}/transfer/{userId}` — transferir chamado (ADMIN/TECH)
+  - POST `/api/tickets/{id}/attachments` — upload de anexo (multipart/form-data)
+  - GET `/api/tickets/{id}/attachments` — listar anexos
+  - POST `/api/tickets/{id}/comments` — adicionar comentário
+  - GET `/api/tickets/{id}/comments` — listar comentários
+
+- **Usuários (`/api/users`)**
+  - POST `/api/users` — criar usuário (ADMIN)
+  - GET `/api/users` — listar usuários
+  - PUT `/api/users/me/password` — alterar própria senha
+  - PUT `/api/users/{id}` — atualizar usuário (ADMIN)
+  - POST `/api/users/{id}/reset-password` — forçar reset de senha (ADMIN)
+  - PATCH `/api/users/{id}/2fa/reset` — reset 2FA administrativo (ADMIN)
+
+- **Setores (`/api/sectors`)**
+  - POST `/api/sectors` — criar setor (ADMIN)
+  - GET `/api/sectors` — listar setores
+
+- **Itens e Inventário (`/api/items`)**
+  - GET `/api/items` — listar itens
+  - GET `/api/items/{id}` — obter item
+  - GET `/api/items/{id}/batches` — listar lotes do item
+  - GET `/api/items/{id}/movements/out` — movimentos OUT do item
+  - POST `/api/items` — criar item (ADMIN/TECH)
+  - POST `/api/items/{id}/batches` — registrar lote (ADMIN/TECH)
+  - POST `/api/items/{itemId}/batches/{batchId}/invoice` — enviar NF (multipart)
+  - GET `/api/items/{itemId}/batches/{batchId}/invoice` — baixar NF
+
+- **Categorias de Item (`/api/item-categories`)**
+  - POST `/api/item-categories` — criar categoria (ADMIN)
+  - GET `/api/item-categories` — listar categorias
+
+- **Categorias de Chamado (`/api/ticket-categories`)**
+  - POST `/api/ticket-categories` — criar categoria
+  - GET `/api/ticket-categories` — listar categorias
+
+- **Relatórios (`/api/reports`)**
+  - GET `/api/reports/tickets` — export XLSX (ADMIN/TECH)
+  - GET `/api/reports/tickets/export` — export com isolamento por usuário
+  - GET `/api/reports/inventory/entries` — export entradas estoque (ADMIN/TECH)
+  - GET `/api/reports/inventory/exits` — export saidas estoque (ADMIN/TECH)
+
+- **Notificações (`/api/notifications`)**
+  - GET `/api/notifications` — listar notificações do usuário
+  - GET `/api/notifications/unread` — listar não lidas
+  - PATCH `/api/notifications/{id}/read` — marcar como lida (somente dono)
+
+- **Auditoria (`/api/audit-logs`)**
+  - GET `/api/audit-logs` — consultar logs (ADMIN) — suporta filtros `userId`, `action`, `startDate`, `endDate`, `page`, `size`
+  - POST `/api/audit-logs/qr-scan` — registrar leitura de QR (autenticado)
+
+- **Ativos / Patrimônio (`/api/assets`)**
+  - GET `/api/assets` — listar ativos (ADMIN/TECH)
+  - GET `/api/assets/{id}` — obter ativo
+  - GET `/api/assets/user/{userId}` — ativos de um usuário
+  - POST `/api/assets` — criar ativo (ADMIN/TECH)
+  - PATCH `/api/assets/{id}` — atualizar ativo (ADMIN/TECH)
+  - DELETE `/api/assets/{id}` — excluir ativo (ADMIN/TECH)
+  - POST `/api/assets/{id}/invoice` — upload de NF (multipart)
+  - GET `/api/assets/{id}/invoice` — baixar NF
+  - POST `/api/assets/{id}/maintenances` — registrar manutenção (ADMIN/TECH)
+  - GET `/api/assets/{id}/maintenances` — listar manutenções
+  - PATCH `/api/assets/{id}/transfer` — transferir ativo (ADMIN/TECH)
+
+---
+
+Observação: esta lista foi extraída automaticamente do código-fonte. Alguns endpoints possuem restrições adicionais implementadas via `@PreAuthorize` ou verificações de propriedade no controller. Para documentos mais detalhados (payloads, exemplos e respostas), consulte as seções específicas acima neste arquivo.
 
 ### `GET /api/audit-logs`
 

@@ -115,6 +115,23 @@ br.dev.ctrls.inovareti/
 
 Cada operação de negócio relevante é encapsulada em uma classe **UseCase** dedicada (ex: `ClaimTicketUseCase`, `ResolveTicketUseCase`, `TransferTicketUseCase`), mantendo o controller fino e o serviço testável de forma isolada.
 
+## Integrações Externas (Backend)
+
+O backend possui integrações oficiais com provedores externos para serviços financeiros e envio de emails. Principais pontos:
+
+- **Conta Azul (Financeiro)**
+  - Implementado via módulo `domain.financeiro.contaazul` com classes: `ContaAzulClient`, `ContaAzulTokenService`, `ContaAzulAutomationService`.
+  - Fluxo OAuth2 para autorização e persistência de tokens em `contaazul_oauth_tokens`.
+  - Automação de processamento de recibos e download de PDFs; cópias persistidas em `processed_receipts` para idempotência.
+  - Variáveis de configuração (exemplos em `application.properties`): `CONTAAZUL_CLIENT_ID`, `CONTAAZUL_CLIENT_SECRET`, `CONTAAZUL_AUTHORIZATION_URL`, `CONTAAZUL_TOKEN_URL`, `CONTAAZUL_API_V2_BASE_URL`, templates de URL para PDFs e vendas.
+
+- **Envio de Emails / Brevo**
+  - Serviço de email baseado em `spring-boot-starter-mail` e integração com provedores externos como Brevo quando configurado.
+  - Serviço financeiro `FinanceEmailService` encapsula envio de recibos com anexos (PDFs) e registro do `brevo_message_id` em `processed_receipts`.
+  - Variáveis de configuração: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH`, `SMTP_STARTTLS_ENABLE`, além de `APP_FINANCEIRO_SMTP_FROM_EMAIL` e `APP_FINANCEIRO_SMTP_FROM_NAME`.
+
+Essas integrações são isoladas em clientes de infra (`infra/contaazul`, `infra/mail`) para possibilitar testes de integração e mocks em ambiente de CI.
+
 ---
 
 ## Decisões Técnicas Recentes (Fases 1–4)

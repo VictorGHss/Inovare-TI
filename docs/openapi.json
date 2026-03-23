@@ -1,0 +1,283 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Inovare TI API",
+    "version": "1.0.0",
+    "description": "OpenAPI specification gerada automaticamente — resumo dos endpoints do backend Inovare TI."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8085"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuthRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" }
+        }
+      },
+      "TicketRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "string" },
+          "requesterId": { "type": "string" },
+          "categoryId": { "type": "string" }
+        }
+      },
+      "TicketResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "VaultCreatePayload": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "itemType": { "type": "string" },
+          "secretContent": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Autenticação (login)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token JWT",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "summary": "Verificar TOTP (2FA)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "code": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "security": [],
+        "responses": { "200": { "description": "JWT com claim two_factor_verified" } }
+      }
+    },
+    "/vault": {
+      "post": {
+        "summary": "Criar item no Vault (multipart)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payload": { "type": "string" },
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Item criado" } }
+      },
+      "get": { "summary": "Listar itens visíveis", "responses": { "200": { "description": "Lista de itens" } } }
+    },
+    "/vault/{itemId}/secret": {
+      "get": {
+        "summary": "Ler segredo do Vault (exige 2FA verificado)",
+        "parameters": [ { "name": "itemId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Conteúdo secreto descriptografado" },
+          "403": { "description": "Requer 2FA verificado" }
+        }
+      }
+    },
+    "/tickets": {
+      "get": { "summary": "Listar tickets", "responses": { "200": { "description": "Lista de tickets" } } },
+      "post": {
+        "summary": "Criar ticket",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TicketRequest" } }
+          }
+        },
+        "responses": { "201": { "description": "Ticket criado" } }
+      }
+    },
+    "/tickets/{id}": {
+      "get": {
+        "summary": "Obter detalhes do ticket",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Ticket" } }
+      }
+    },
+    "/tickets/{id}/resolve": {
+      "patch": {
+        "summary": "Resolver ticket",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Ticket resolvido" } }
+      }
+    },
+    "/items": {
+      "get": { "summary": "Listar itens", "responses": { "200": { "description": "Lista de itens" } } },
+      "post": { "summary": "Criar item (ADMIN/TECH)", "requestBody": { "content": { "application/json": { "schema": { "type": "object" } } } }, "responses": { "201": { "description": "Item criado" } } }
+    },
+    "/items/{id}/batches": {
+      "post": {
+        "summary": "Registrar lote de estoque",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": { "type": "integer" },
+                  "unitPrice": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Lote registrado" } }
+      }
+    },
+    "/items/{itemId}/batches/{batchId}/invoice": {
+      "post": {
+        "summary": "Upload de nota fiscal (multipart)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "file": { "type": "string", "format": "binary" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Lote atualizado com metadados da NF" } }
+      }
+    },
+    "/financeiro/recibos": {
+      "get": { "summary": "Listar recibos processados (ADMIN)", "responses": { "200": { "description": "Lista de recibos" } } }
+    },
+    "/financeiro/alertas/{alertId}/reenviar": {
+      "post": {
+        "summary": "Reenviar recibo associado ao alerta (ADMIN)",
+        "parameters": [ { "name": "alertId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "204": { "description": "Reenvio solicitado" } }
+      }
+    },
+    "/financeiro/backfill": {
+      "post": { "summary": "Executar backfill das parcelas dos últimos 30 dias (ADMIN)", "responses": { "200": { "description": "Resultado do backfill" } } }
+    },
+    "/financeiro/contaazul/authorize": { "get": { "summary": "Iniciar OAuth2 ContaAzul (redirect)", "responses": { "302": { "description": "Redirect para ContaAzul" } } } },
+    "/financeiro/contaazul/callback": {
+      "get": {
+        "summary": "Callback OAuth2 ContaAzul (redirect para frontend)",
+        "parameters": [ { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "302": { "description": "Redirect para frontend com sucesso" } }
+      }
+    },
+    "/users": {
+      "post": { "summary": "Criar usuário (ADMIN)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object" } } } }, "responses": { "201": { "description": "Usuário criado" } } },
+      "get": { "summary": "Listar usuários", "responses": { "200": { "description": "Lista de usuários" } } }
+    },
+    "/sectors": {
+      "post": { "summary": "Criar setor (ADMIN)", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object" } } } }, "responses": { "201": { "description": "Setor criado" } } },
+      "get": { "summary": "Listar setores", "responses": { "200": { "description": "Lista de setores" } } }
+    },
+    "/notifications": { "get": { "summary": "Listar notificações do usuário autenticado", "responses": { "200": { "description": "Lista de notificações" } } } },
+    "/reports/tickets/export": { "get": { "summary": "Exportar relatório de chamados (XLSX)", "responses": { "200": { "description": "Arquivo XLSX" } } } },
+    "/audit-logs": {
+      "get": {
+        "summary": "Consultar logs de auditoria (ADMIN)",
+        "parameters": [
+          { "name": "userId", "in": "query", "schema": { "type": "string" } },
+          { "name": "action", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Página de logs" } }
+      }
+    }
+  },
+  "tags": [
+    { "name": "auth" },
+    { "name": "vault" },
+    { "name": "financeiro" },
+    { "name": "tickets" },
+    { "name": "items" },
+    { "name": "users" }
+  ]
+}

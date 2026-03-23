@@ -581,8 +581,6 @@ public class ContaAzulAutomationService {
                 + (StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
     }
 
-}
-
     private List<ContaAzulClient.SaleItem> enrichParcelsWithDetails(List<ContaAzulClient.SaleItem> parcels) {
         List<ContaAzulClient.SaleItem> result = new ArrayList<>();
         for (ContaAzulClient.SaleItem parcel : parcels) {

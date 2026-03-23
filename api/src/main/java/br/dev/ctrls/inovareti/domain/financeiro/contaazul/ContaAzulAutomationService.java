@@ -299,7 +299,13 @@ public class ContaAzulAutomationService {
 
                 byte[] pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
                 if (pdfBytes.length == 0) {
-                    log.warn("Download do recibo retornou vazio para a baixa {}.", baixaId);
+                    log.error("Download do recibo retornou vazio para a baixa {}. Marcando como processado para evitar loop infinito.", baixaId);
+                    try {
+                        processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+                        log.info("Recibo {} registrado como processado (falha no download).", baixaId);
+                    } catch (DataIntegrityViolationException ex) {
+                        log.debug("Recibo {} já registrado por concorrência ao tentar marcar como processado após falha de download.", baixaId);
+                    }
                     continue;
                 }
 

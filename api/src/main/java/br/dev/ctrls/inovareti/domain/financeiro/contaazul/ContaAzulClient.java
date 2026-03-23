@@ -344,6 +344,7 @@ public class ContaAzulClient {
 
         try {
             String payload = executeJsonGetWithRefresh(uri);
+            log.info("DEBUG BAIXA JSON: " + payload);
             if (!StringUtils.hasText(payload)) {
                 return Optional.empty();
             }
@@ -435,10 +436,11 @@ public class ContaAzulClient {
             log.debug("JSON bruto retornado pela Conta Azul (baixa {}): {}", normalizedBaixaId, payload);
 
             JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+            String idReciboDigitalGlobal = readText(root, "id_recibo_digital", "evento.id_recibo_digital", "idReciboDigital", "recibo.id_recibo_digital", "recibo.id");
             JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
 
             if (anexosNode == null || !anexosNode.isArray() || anexosNode.isEmpty()) {
-                return Optional.of(new BaixaDetailDTO(List.of()));
+                return Optional.of(new BaixaDetailDTO(List.of(), idReciboDigitalGlobal));
             }
 
             List<BaixaAttachmentDTO> anexos = new ArrayList<>();
@@ -449,7 +451,7 @@ public class ContaAzulClient {
                 anexos.add(new BaixaAttachmentDTO(id, tipo, url));
             }
 
-            return Optional.of(new BaixaDetailDTO(anexos));
+            return Optional.of(new BaixaDetailDTO(anexos, idReciboDigitalGlobal));
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(404)) {
                 throw ex;
@@ -1268,7 +1270,8 @@ public class ContaAzulClient {
         }
 
         public record BaixaDetailDTO(
-            List<BaixaAttachmentDTO> anexos) {
+            List<BaixaAttachmentDTO> anexos,
+            String idReciboDigital) {
         }
 
         public record BaixaAttachmentDTO(

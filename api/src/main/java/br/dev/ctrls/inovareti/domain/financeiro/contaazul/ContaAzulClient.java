@@ -154,7 +154,7 @@ public class ContaAzulClient {
                 log.warn("Falha ao parsear payload de anexo após refresh do token para baixa {}.", baixaId, e);
             }
             return new byte[0];
-        } catch (Exception e) {
+        } catch (IOException | IllegalStateException e) {
             log.warn("Falha ao baixar recibo da baixa {}.", baixaId, e);
             return new byte[0];
         }
@@ -182,8 +182,10 @@ public class ContaAzulClient {
                 String baixaId = readText(root, "id", "baixa_id");
                 return StringUtils.hasText(baixaId) ? Optional.of(baixaId) : Optional.empty();
             }
-        } catch (Exception e) {
-            log.warn("Falha ao buscar baixa para parcela {}.", parcelaId, e);
+        } catch (ContaAzulHttpException ex) {
+            log.warn("Falha ao buscar baixa para parcela {}: erro HTTP ContaAzul.", parcelaId, ex);
+        } catch (IOException ex) {
+            log.warn("Falha ao parsear resposta de baixa para parcela {}.", parcelaId, ex);
         }
         return Optional.empty();
     }

@@ -1,9 +1,9 @@
 -- 1. TICKET CATEGORIES (Categorias de Chamados com SLA)
 INSERT INTO ticket_categories (id, name, base_sla_hours) VALUES
-    ('22222222-2222-2222-2222-222222222001', 'Hardware', 48),
-    ('22222222-2222-2222-2222-222222222002', 'Software', 24),
-    ('22222222-2222-2222-2222-222222222003', 'Rede', 12),
-    ('22222222-2222-2222-2222-222222222004', 'Acessos', 24)
+    (gen_random_uuid(), 'Hardware', 48),
+    (gen_random_uuid(), 'Software', 24),
+    (gen_random_uuid(), 'Rede', 12),
+    (gen_random_uuid(), 'Acessos', 24)
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. ITEM CATEGORIES (Estoque/Inventário)
@@ -22,9 +22,9 @@ ON CONFLICT DO NOTHING;
 
 -- 3. ASSET CATEGORIES (Patrimônio)
 INSERT INTO asset_categories (id, name) VALUES
-    ('44444444-4444-4444-4444-444444444001', 'Laptops'),
-    ('44444444-4444-4444-4444-444444444002', 'Desktops'),
-    ('44444444-4444-4444-4444-444444444003', 'Acessorios'),
+    (gen_random_uuid(), 'Laptops'),
+    (gen_random_uuid(), 'Desktops'),
+    (gen_random_uuid(), 'Acessorios'),
     (gen_random_uuid(), 'Monitores'),
     (gen_random_uuid(), 'Impressoras'),
     (gen_random_uuid(), 'Telefonia')
@@ -32,16 +32,16 @@ ON CONFLICT DO NOTHING;
 
 -- 4. SECTORS (Lista Completa Inovare)
 INSERT INTO sectors (id, name) VALUES
-    ('11111111-1111-1111-1111-111111111001', 'TI'),
-    ('11111111-1111-1111-1111-111111111002', 'Financeiro'),
-    ('11111111-1111-1111-1111-111111111003', 'Recursos Humanos'),
-    ('11111111-1111-1111-1111-111111111004', 'Operacoes'),
+    (gen_random_uuid(), 'TI'),
+    (gen_random_uuid(), 'Financeiro'),
+    (gen_random_uuid(), 'Recursos Humanos'),
+    (gen_random_uuid(), 'Operacoes'),
     (gen_random_uuid(), 'Clinipon'),
     (gen_random_uuid(), 'Clinica da Imagem'),
     (gen_random_uuid(), 'Endoscopia'),
     (gen_random_uuid(), 'Anesthemed'),
     (gen_random_uuid(), 'Clinica Geral'),
-    (gen_random_uuid(), 'Oftalmologia Cenovicz'),
+    (gen_random_uuid(), 'Oftalmologia'),
     (gen_random_uuid(), 'Cardiologia'),
     (gen_random_uuid(), 'Ginecologia'),
     (gen_random_uuid(), 'Ortopedia'),

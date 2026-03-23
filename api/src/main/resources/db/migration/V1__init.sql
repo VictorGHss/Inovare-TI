@@ -61,6 +61,16 @@ CREATE TABLE articles (
     CONSTRAINT pk_articles PRIMARY KEY (id)
 );
 
+-- Tabela para rastrear tentativas de processamento/baixas (controle de retries)
+CREATE TABLE processing_attempts (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    sale_id varchar(120) NOT NULL,
+    attempts integer NOT NULL DEFAULT 0,
+    last_attempt_at timestamp NOT NULL DEFAULT now(),
+    CONSTRAINT pk_processing_attempts PRIMARY KEY (id),
+    CONSTRAINT uq_processing_attempts_sale_id UNIQUE (sale_id)
+);
+
 -- =============================================================================
 -- BLOCO 2 - users: depende de sectors
 -- =============================================================================

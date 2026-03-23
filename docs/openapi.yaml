@@ -305,6 +305,40 @@ paths:
         '302':
           description: Redirect para frontend com sucesso
 
+  /financeiro/contaazul/force-refresh:
+    post:
+      summary: Forçar refresh do token ContaAzul (ADMIN)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token renovado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorized:
+                    type: boolean
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  refreshedAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
   /users:
     post:
       summary: Criar usuário (ADMIN)

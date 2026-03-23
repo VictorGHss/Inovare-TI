@@ -2,6 +2,8 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import java.util.Map;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -69,6 +71,23 @@ public class ContaAzulController {
                 result.doctorName(),
                 result.recipientEmail(),
                 result.pdfBytes()));
+    }
+
+    @PostMapping("/force-refresh")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> forceRefresh() {
+        try {
+            var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
+            return ResponseEntity.ok(Map.of(
+                    "authorized", true,
+                    "expiresAt", reloaded.getExpiresAt(),
+                    "refreshedAt", reloaded.getRefreshedAt()
+            ));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+        }
     }
 
     private String buildFinanceiroSuccessRedirect() {

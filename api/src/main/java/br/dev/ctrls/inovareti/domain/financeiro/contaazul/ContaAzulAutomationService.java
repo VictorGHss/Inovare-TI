@@ -257,7 +257,18 @@ public class ContaAzulAutomationService {
                 // Busca a baixa oficial da parcela
                 Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
                 if (baixaIdOpt.isEmpty()) {
-                    log.warn("Nenhuma baixa encontrada para a parcela {}. Pulando item.", sale.parcelaId());
+                    log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.", sale.parcelaId());
+                    String markId = StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : (StringUtils.hasText(sale.saleId()) ? sale.saleId() : null);
+                    if (markId != null) {
+                        try {
+                            processedSaleRepository.save(ProcessedSale.builder().saleId(markId).build());
+                            log.info("Recibo {} registrado como processado (nenhuma baixa encontrada).", markId);
+                        } catch (DataIntegrityViolationException ex) {
+                            log.debug("Recibo {} já registrado por concorrência ao marcar como processado quando nenhuma baixa encontrada.", markId);
+                        }
+                    } else {
+                        log.warn("Nenhum identificador disponível para marcar como processado (parcela sem id e sem saleId). Parcela descrição: {}", sale.descricao());
+                    }
                     continue;
                 }
                 String baixaId = baixaIdOpt.get();

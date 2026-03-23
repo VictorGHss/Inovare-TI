@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulAutomationService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final String EDUARDO_BISINELLA_CUSTOMER_ID = "a4d63616-f502-4232-91a6-5c7e07e467b8";
     private static final Pattern SALE_NUMBER_FROM_DESCRIPTION_PATTERN = Pattern.compile("^Venda\\s+(\\d+)\\b.*$", Pattern.CASE_INSENSITIVE);
 
     private final ContaAzulClient contaAzulClient;
@@ -257,9 +256,8 @@ public class ContaAzulAutomationService {
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
-                log.info("Parcela ID: {} | Cliente UUID: {}",
-                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)",
-                        StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(sem UUID)");
+                log.info("Parcela recebida para processamento: parcelaId={}",
+                    StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
                 String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
 
@@ -364,12 +362,8 @@ public class ContaAzulAutomationService {
                 if (mapping == null) {
                     skippedMapping++;
                     log.info("Mapeamento NÃO encontrado. Pulando item.");
-                    log.warn("!!! [MAP_FAIL] Cadastro faltando para o médico: {} | UUID Cliente CA: {}",
-                            StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)",
-                            StringUtils.hasText(customerUuidFromParcel) ? customerUuidFromParcel : "(uuid indisponível)");
-                    if (EDUARDO_BISINELLA_CUSTOMER_ID.equals(customerUuidFromParcel)) {
-                        log.warn("Médico não encontrado na tabela doctor_email_mapping para o cliente {} (Eduardo Bisinella).", customerUuidFromParcel);
-                    }
+                        log.warn("!!! [MAP_FAIL] Cadastro faltando para o médico: {}",
+                            StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)");
                     continue;
                 }
 
@@ -590,6 +584,7 @@ public class ContaAzulAutomationService {
 
             String parcelaId = parcel.parcelaId().trim();
             try {
+                log.info("Enriquecendo detalhes para a parcela {}", parcelaId);
                 ContaAzulClient.ParcelaDetailDTO detail = contaAzulClient.fetchParcelaDetail(parcelaId).orElse(null);
                 if (detail != null) {
                     ContaAzulClient.SaleItem enriched = new ContaAzulClient.SaleItem(
@@ -610,7 +605,8 @@ public class ContaAzulAutomationService {
                     continue;
                 }
             } catch (RuntimeException ex) {
-                log.warn("Falha ao enriquecer parcela {} com detalhe. Continuando com dados originais.", parcelaId, ex);
+                log.warn("Falha ao enriquecer parcela {}. Continuando com dados originais.", parcelaId);
+                log.debug("Detalhe da exceção ao enriquecer parcela {}: {}", parcelaId, ex.toString());
             }
 
             result.add(parcel);

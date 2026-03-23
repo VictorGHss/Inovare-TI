@@ -21,7 +21,7 @@ Passo-a-passo (recomendado, seguro):
    - Autentique e obtenha JWT (login):
 
 ```bash
-curl -s -X POST http://localhost:8085/auth/login \
+  curl -s -X POST http://localhost:8085/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@inovare.med.br","password":"admin123"}'
 ```
@@ -29,7 +29,7 @@ curl -s -X POST http://localhost:8085/auth/login \
    - Use o JWT obtido (substitua $TOKEN) para checar status:
 
 ```bash
-curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8085/financeiro/contaazul/status
+  curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8085/api/financeiro/contaazul/status
 ```
 
    - Resposta: `{ "authorized": true|false, "expiresAt": "...", "refreshedAt": "..." }`.
@@ -84,7 +84,7 @@ A) Verificações imediatas que você pode executar agora:
 - Status via API (requer ADMIN token):
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8085/financeiro/contaazul/status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8085/api/financeiro/contaazul/status
 ```
 
 - Verificar entradas na tabela `contaazul_oauth_tokens` (ver SQL acima).

@@ -1,7 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.PostConstruct;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -20,7 +20,8 @@ public class ContaAzulMetrics {
     private final AtomicLong expiresAtGauge = new AtomicLong(0L);
     private final AtomicLong lastRefreshGauge = new AtomicLong(0L);
 
-    {
+    @PostConstruct
+    public void registerGauges() {
         Gauge.builder("contaazul_token_expires_at", expiresAtGauge, AtomicLong::get)
                 .description("Unix epoch seconds when the ContaAzul token expires")
                 .register(registry);

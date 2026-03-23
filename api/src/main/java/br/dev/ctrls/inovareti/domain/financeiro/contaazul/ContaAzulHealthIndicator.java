@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;

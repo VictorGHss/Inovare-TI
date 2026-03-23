@@ -1239,6 +1239,8 @@ Abaixo um resumo dos endpoints disponíveis no backend (método + rota) com obse
   - GET `/api/financeiro/contaazul/check-customer/{email}` — checar cliente por e-mail (ADMIN)
   - GET `/api/financeiro/contaazul/customer-email/{customerId}` — obter e-mail do cliente (ADMIN)
   - POST `/api/financeiro/contaazul/teste-envio-real/{saleId}` — teste real de envio (ADMIN)
+    - POST `/api/financeiro/contaazul/force-refresh` — forçar refresh do token ContaAzul (ADMIN)
+  - POST `/api/financeiro/contaazul/force-refresh` — forçar refresh do token ContaAzul (ADMIN)
 
 - **Chamados / Tickets (`/api/tickets`)**
   - GET `/api/tickets` — listar (ADMIN/TECH veem todos; USER vê próprios)
@@ -1375,17 +1377,4 @@ Retorna a trilha de auditoria com filtros opcionais por data, usuário e tipo de
 
 ---
 
-## Changelog
 
-| Versão | Data       | Descrição                                                                   |
-|--------|------------|-----------------------------------------------------------------------------|
-| 1.3.0  | 2026-03-12 | Fase 8 — Módulo de Auditoria: trilha de logs, endpoint /api/audit-logs      |
-| 1.2.0  | 2026-03-12 | Fases 6/7 — Vault, 2FA TOTP, recuperação via Discord documentados          |
-| 1.0.0  | 2026-03-11 | Documentação atualizada — Fases 1–4 concluídas, segurança e Flyway         |
-| 0.6.0  | 2026-03-11 | Segurança granular: resolve/claim/transfer com roles; notificações por dono |
-| 0.5.0  | 2026-03-02 | Fase 5 — Segurança JWT: login, SecurityFilter, rotas bloqueadas             |
-| 0.4.1  | 2026-03-02 | Adiciona endpoint GET /api/items com JOIN FETCH evitando N+1                |
-| 0.4.0  | 2026-03-02 | Fase 4 — Motor de chamados com baixa de estoque transacional                |
-| 0.3.0  | 2026-03-02 | Fase 3 — Items de inventário e lotes de estoque (JSON specifications)       |
-| 0.2.0  | 2026-03-02 | Fase 2 Parte 2 — Endpoint de Usuários + Segurança inicial (permitAll)       |
-| 0.1.0  | 2026-03-02 | Fase 2 — Endpoints de Setores, Categorias de Ticket e Item                 |

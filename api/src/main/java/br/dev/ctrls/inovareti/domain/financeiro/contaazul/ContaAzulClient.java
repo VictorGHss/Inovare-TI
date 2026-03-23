@@ -126,8 +126,8 @@ public class ContaAzulClient {
                     }
                 }
             }
-            log.warn("Nenhum anexo do tipo RECIBO_DIGITAL ou RECIBO encontrado para baixa {}.", baixaId);
-            return new byte[0];
+            // Nenhum anexo de recibo encontrado — sinaliza que o recibo ainda não foi gerado
+            throw new NoReceiptAvailableException("Nenhum anexo de recibo encontrado para baixa " + baixaId);
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(401)) {
                 throw ex;
@@ -150,13 +150,13 @@ public class ContaAzulClient {
                         }
                     }
                 }
+                // Nenhum anexo de recibo encontrado — sinaliza que o recibo ainda não foi gerado
+                throw new NoReceiptAvailableException("Nenhum anexo de recibo encontrado para baixa " + baixaId);
             } catch (IOException e) {
-                log.warn("Falha ao parsear payload de anexo após refresh do token para baixa {}.", baixaId, e);
+                throw new IllegalStateException("Falha ao parsear payload de anexo após refresh do token para baixa " + baixaId, e);
             }
-            return new byte[0];
         } catch (IOException | IllegalStateException e) {
-            log.warn("Falha ao baixar recibo da baixa {}.", baixaId, e);
-            return new byte[0];
+            throw e instanceof IOException ? new IllegalStateException("Falha ao baixar recibo da baixa " + baixaId, e) : (IllegalStateException) e;
         }
     }
 

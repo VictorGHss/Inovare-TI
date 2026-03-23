@@ -19,6 +19,8 @@ import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMapping;
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMappingRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
+import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttempt;
+import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttemptRepository;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
@@ -36,6 +38,7 @@ public class ContaAzulAutomationService {
     private final ContaAzulTokenService contaAzulTokenService;
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
     private final ProcessedSaleRepository processedSaleRepository;
+    private final ProcessingAttemptRepository processingAttemptRepository;
     private final FinanceEmailService financeEmailService;
     private final UserRepository userRepository;
 
@@ -171,7 +174,7 @@ public class ContaAzulAutomationService {
          * consulta, valida mapeamento do médico, envia e-mail e marca idempotência.
          */
         @Scheduled(
-            fixedDelayString = "${app.contaazul.automation.fixed-delay-ms:300000}",
+            fixedDelayString = "${app.contaazul.automation.fixed-delay-ms:30000}",
             initialDelayString = "${app.contaazul.automation.initial-delay-ms:180000}")
     public void processAcquittedSales() {
         log.info("Iniciando pooling de vendas liquidadas na Conta Azul.");
@@ -308,17 +311,82 @@ public class ContaAzulAutomationService {
                 String doctorName = resolveDoctorName(mapping, sale.customerName());
                 log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF do Recibo da Baixa {}", sale.parcelaId(), doctorName, baixaId);
 
-                byte[] pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
-                if (pdfBytes.length == 0) {
-                    log.error("Download do recibo retornou vazio para a baixa {}. Marcando como processado para evitar loop infinito.", baixaId);
-                    try {
-                        processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-                        log.info("Recibo {} registrado como processado (falha no download).", baixaId);
-                    } catch (DataIntegrityViolationException ex) {
-                        log.debug("Recibo {} já registrado por concorrência ao tentar marcar como processado após falha de download.", baixaId);
+                byte[] pdfBytes = null;
+                try {
+                    pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
+                } catch (br.dev.ctrls.inovareti.domain.financeiro.contaazul.NoReceiptAvailableException nr) {
+                    // Recibo ainda não gerado pelo ERP — contabiliza tentativa e tenta novamente depois
+                    ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
+                    if (attempt == null) {
+                        processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
+                        log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução.", baixaId);
+                    } else {
+                        int attempts = attempt.getAttempts() + 1;
+                        attempt.setAttempts(attempts);
+                        processingAttemptRepository.save(attempt);
+                        if (attempts >= 5) {
+                            try {
+                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+                                processingAttemptRepository.deleteBySaleId(baixaId);
+                                log.error("Recibo da baixa {} não gerado após {} tentativas. Marcado como processado.", baixaId, attempts);
+                            } catch (DataIntegrityViolationException dex) {
+                                log.debug("Recibo {} já registrado por concorrência ao marcar como processado após tentativas.", baixaId);
+                            }
+                        } else {
+                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/5", baixaId, attempts);
+                        }
+                    }
+                    continue;
+                } catch (RuntimeException ex) {
+                    // Outros erros — contabiliza tentativa similarmente
+                    ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
+                    if (attempt == null) {
+                        processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
+                    } else {
+                        int attempts = attempt.getAttempts() + 1;
+                        attempt.setAttempts(attempts);
+                        processingAttemptRepository.save(attempt);
+                        if (attempts >= 5) {
+                            try {
+                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+                                processingAttemptRepository.deleteBySaleId(baixaId);
+                                log.error("Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado.", baixaId, attempts);
+                            } catch (DataIntegrityViolationException dex) {
+                                log.debug("Recibo {} já registrado por concorrência ao marcar como processado após falhas.", baixaId);
+                            }
+                        }
+                    }
+                    failures++;
+                    log.error("Falha ao baixar recibo para baixa {}.", baixaId, ex);
+                    continue;
+                }
+
+                if (pdfBytes == null || pdfBytes.length == 0) {
+                    // Sem bytes — conta como não gerado ainda
+                    ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
+                    if (attempt == null) {
+                        processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
+                    } else {
+                        int attempts = attempt.getAttempts() + 1;
+                        attempt.setAttempts(attempts);
+                        processingAttemptRepository.save(attempt);
+                        if (attempts >= 5) {
+                            try {
+                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+                                processingAttemptRepository.deleteBySaleId(baixaId);
+                                log.error("Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado.", baixaId, attempts);
+                            } catch (DataIntegrityViolationException dex) {
+                                log.debug("Recibo {} já registrado por concorrência ao marcar como processado após tentativas.", baixaId);
+                            }
+                        } else {
+                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/5", baixaId, attempt.getAttempts());
+                        }
                     }
                     continue;
                 }
+
+                // Sucesso: limpa tentativas e envia email
+                processingAttemptRepository.deleteBySaleId(baixaId);
 
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,

@@ -5,7 +5,7 @@ info:
   description: |
     OpenAPI specification gerada automaticamente — resumo dos endpoints do backend Inovare TI.
 servers:
-  - url: http://localhost:8085
+  - url: http://localhost:8085/api
 security:
   - bearerAuth: []
 components:

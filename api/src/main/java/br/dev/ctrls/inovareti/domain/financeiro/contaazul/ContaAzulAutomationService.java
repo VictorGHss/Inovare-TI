@@ -190,7 +190,7 @@ public class ContaAzulAutomationService {
         }
 
         if (!contaAzulTokenService.hasAuthorizedToken()) {
-            log.info("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
+            log.debug("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
             return;
         }
 
@@ -211,7 +211,7 @@ public class ContaAzulAutomationService {
         }
 
         if (!contaAzulTokenService.hasAuthorizedToken()) {
-            log.info("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
+            log.debug("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
             return;
         }
 

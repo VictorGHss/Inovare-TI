@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import jakarta.annotation.PostConstruct;
 
@@ -33,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulAutomationService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final Pattern SALE_NUMBER_FROM_DESCRIPTION_PATTERN = Pattern.compile("^Venda\\s+(\\d+)\\b.*$", Pattern.CASE_INSENSITIVE);
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -390,17 +387,14 @@ public class ContaAzulAutomationService {
         return true;
     }
 
-    private String buildEmailBody(String doctorName, String saleNumber) {
+
+    private String buildEmailBody(String doctorName, String receiptNumber) {
         return "Olá " + doctorName
-                + ",\n\nSegue em anexo o seu recibo #" + saleNumber + ".\n\n"
+                + ",\n\nSegue em anexo o seu recibo de quitação (baixa) número: " + receiptNumber + ".\n\n"
                 + "Este é um envio automático do sistema Inovare TI.\n\n"
                 + "Atenciosamente,\nAdministrativo Inovare.";
     }
 
-    // Método legado, não utilizado mais para recibo
-    private String extractSaleNumberFromDescription(String descricao) {
-        return null;
-    }
 
     private String buildSalesConfigurationErrorMessage() {
         List<String> missingProperties = new ArrayList<>();

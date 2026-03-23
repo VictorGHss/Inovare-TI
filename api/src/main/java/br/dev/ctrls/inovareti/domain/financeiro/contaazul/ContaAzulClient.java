@@ -133,11 +133,12 @@ public class ContaAzulClient {
                 throw ex;
             }
             log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh.", baixaId);
-            String refreshedToken = contaAzulTokenService.forceRefresh();
-            // Tenta novamente com token renovado
+            // Renova token e recarrega do banco para obter o objeto com metadata
+            ContaAzulOAuthToken refreshed = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
+            // Tenta novamente usando explicitamente o token renovado
             String uriRetry = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + baixaId.trim();
-            String payload = executeJsonGetWithRefresh(uriRetry);
             try {
+                String payload = executeJsonGetResponse(uriRetry, refreshed).body();
                 JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
                 JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
                 if (anexosNode != null && anexosNode.isArray()) {
@@ -145,11 +146,14 @@ public class ContaAzulClient {
                         String tipo = readText(anexoNode, "tipo", "type", "categoria");
                         String url = readText(anexoNode, "url", "link", "download_url", "arquivo.url");
                         if (StringUtils.hasText(tipo) && ("RECIBO_DIGITAL".equalsIgnoreCase(tipo) || "RECIBO".equalsIgnoreCase(tipo)) && StringUtils.hasText(url)) {
-                            return downloadFile(url);
+                            return downloadFile(url, refreshed.getAccessToken());
                         }
                     }
                 }
-            } catch (Exception e) {
+            } catch (IOException | InterruptedException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
                 log.warn("Falha ao parsear payload de anexo após refresh do token para baixa {}.", baixaId, e);
             }
             return new byte[0];
@@ -471,6 +475,40 @@ public class ContaAzulClient {
                 .uri(externalUri)
                 .GET()
                 .build();
+
+        try {
+            log.info("CUIDADO: Enviando para: " + externalUri.toString());
+            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+            }
+            return response.body() != null ? response.body() : new byte[0];
+        } catch (IOException | InterruptedException ex) {
+            if (ex instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new IllegalStateException("Falha ao baixar arquivo da Conta Azul.", ex);
+        }
+    }
+
+    public byte[] downloadFile(String url, String bearerToken) {
+        if (!StringUtils.hasText(url)) {
+            return new byte[0];
+        }
+
+        String sanitizedUri = sanitizeContaAzulUri(url.trim());
+        URI externalUri = URI.create(sanitizedUri);
+        log.debug("MANDANDO PARA O MUNDO EXTERNO: {}", externalUri);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(externalUri)
+                .GET();
+
+        if (StringUtils.hasText(bearerToken)) {
+            builder.header("Authorization", "Bearer " + bearerToken.trim());
+        }
+
+        HttpRequest request = builder.build();
 
         try {
             log.info("CUIDADO: Enviando para: " + externalUri.toString());

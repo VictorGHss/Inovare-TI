@@ -802,6 +802,11 @@ public class ContaAzulClient {
             return root.get("data");
         }
 
+        // suporte para chave em português 'itens' no nível raiz
+        if (root.has("itens") && root.get("itens").isArray()) {
+            return root.get("itens");
+        }
+
         if (root.has("items") && root.get("items").isArray()) {
             return root.get("items");
         }
@@ -819,6 +824,11 @@ public class ContaAzulClient {
 
             if (content.has("data") && content.get("data").isArray()) {
                 return content.get("data");
+            }
+
+            // suporte para chave em português 'itens' dentro de content
+            if (content.has("itens") && content.get("itens").isArray()) {
+                return content.get("itens");
             }
         }
 

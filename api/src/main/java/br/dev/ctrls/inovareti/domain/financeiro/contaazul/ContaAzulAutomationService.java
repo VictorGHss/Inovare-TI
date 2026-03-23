@@ -236,14 +236,16 @@ public class ContaAzulAutomationService {
             return;
         }
 
-        log.info("Pooling Conta Azul: {} venda(s) mapeadas a partir de parcelas recebidas.", acquittedSales.size());
+        // Enriquecer a lista de parcelas com detalhes (busca por ID de parcela) quando necessário
+        List<ContaAzulClient.SaleItem> enrichedAcquitted = enrichParcelsWithDetails(acquittedSales);
+
+        log.info("Pooling Conta Azul: {} parcela(s) recebidas, {} itens enriquecidos para processamento.", acquittedSales.size(), enrichedAcquitted.size());
 
         int sent = 0;
         int skippedProcessed = 0;
         int skippedMapping = 0;
         int failures = 0;
-
-        for (ContaAzulClient.SaleItem sale : acquittedSales) {
+        for (ContaAzulClient.SaleItem sale : enrichedAcquitted) {
             try {
                 if (!applyThrottle()) {
                     continue;
@@ -580,3 +582,40 @@ public class ContaAzulAutomationService {
     }
 
 }
+
+    private List<ContaAzulClient.SaleItem> enrichParcelsWithDetails(List<ContaAzulClient.SaleItem> parcels) {
+        List<ContaAzulClient.SaleItem> result = new ArrayList<>();
+        for (ContaAzulClient.SaleItem parcel : parcels) {
+            if (parcel == null || !StringUtils.hasText(parcel.parcelaId())) {
+                continue;
+            }
+
+            String parcelaId = parcel.parcelaId().trim();
+            try {
+                ContaAzulClient.ParcelaDetailDTO detail = contaAzulClient.fetchParcelaDetail(parcelaId).orElse(null);
+                if (detail != null) {
+                    ContaAzulClient.SaleItem enriched = new ContaAzulClient.SaleItem(
+                            detail.vendaId(),
+                            parcel.customerUuid(),
+                            parcel.customerName(),
+                            parcelaId,
+                            parcel.origem(),
+                            parcel.venda(),
+                            parcel.origemSaleId(),
+                            detail.vendaId(),
+                            parcel.descricao(),
+                            parcel.saleNumber(),
+                            parcel.hasAcquittedInstallment(),
+                            detail.baixaId(),
+                            parcel.idReciboDigital());
+                    result.add(enriched);
+                    continue;
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Falha ao enriquecer parcela {} com detalhe. Continuando com dados originais.", parcelaId, ex);
+            }
+
+            result.add(parcel);
+        }
+        return result;
+    }

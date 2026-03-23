@@ -103,25 +103,89 @@ public class ContaAzulClient {
     }
 
     /**
-     * Baixa o PDF do recibo da venda usando o endpoint v1 da Conta Azul.
+     * Baixa o PDF do recibo da baixa financeira usando o endpoint oficial de baixas.
+     * Novo fluxo: https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{baixa_id}
+     * Busca o anexo do tipo RECIBO_DIGITAL ou RECIBO e faz o download.
      */
-    public byte[] downloadSalePdf(String saleId) {
-        String normalizedTemplate = normalizeSalePrintTemplate(salePdfV1UrlTemplate);
-        String uri = normalizedTemplate.replace("{id}", saleId).replace("{saleId}", saleId);
+    public byte[] downloadReceiptPdf(String baixaId) {
+        if (!StringUtils.hasText(baixaId)) {
+            throw new IllegalArgumentException("baixaId não pode ser vazio para download do recibo");
+        }
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + baixaId.trim();
         String token = contaAzulTokenService.getValidAccessToken();
-
-        log.info("Sincronizando recibos via endpoint de impressão: /v1/venda/{}/imprimir", saleId);
-
+        log.info("Baixando recibo via endpoint oficial de baixas: {}", uri);
         try {
-            return executePdfGet(uri, token);
+            String payload = executeJsonGetWithRefresh(uri);
+            JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+            JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
+            if (anexosNode != null && anexosNode.isArray()) {
+                for (JsonNode anexoNode : anexosNode) {
+                    String tipo = readText(anexoNode, "tipo", "type", "categoria");
+                    String url = readText(anexoNode, "url", "link", "download_url", "arquivo.url");
+                    if (StringUtils.hasText(tipo) && ("RECIBO_DIGITAL".equalsIgnoreCase(tipo) || "RECIBO".equalsIgnoreCase(tipo)) && StringUtils.hasText(url)) {
+                        return downloadFile(url);
+                    }
+                }
+            }
+            log.warn("Nenhum anexo do tipo RECIBO_DIGITAL ou RECIBO encontrado para baixa {}.", baixaId);
+            return new byte[0];
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(401)) {
                 throw ex;
             }
-            log.warn("Token expirado ao baixar PDF da venda {}. Tentando refresh.", saleId);
+            log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh.", baixaId);
             String refreshedToken = contaAzulTokenService.forceRefresh();
-            return executePdfGet(uri, refreshedToken);
+            // Tenta novamente com token renovado
+            String uriRetry = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + baixaId.trim();
+            String payload = executeJsonGetWithRefresh(uriRetry);
+            try {
+                JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+                JsonNode anexosNode = readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
+                if (anexosNode != null && anexosNode.isArray()) {
+                    for (JsonNode anexoNode : anexosNode) {
+                        String tipo = readText(anexoNode, "tipo", "type", "categoria");
+                        String url = readText(anexoNode, "url", "link", "download_url", "arquivo.url");
+                        if (StringUtils.hasText(tipo) && ("RECIBO_DIGITAL".equalsIgnoreCase(tipo) || "RECIBO".equalsIgnoreCase(tipo)) && StringUtils.hasText(url)) {
+                            return downloadFile(url);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Falha ao parsear payload de anexo após refresh do token para baixa {}.", baixaId, e);
+            }
+            return new byte[0];
+        } catch (Exception e) {
+            log.warn("Falha ao baixar recibo da baixa {}.", baixaId, e);
+            return new byte[0];
         }
+    }
+
+    /**
+     * Busca a baixa financeira de uma parcela pelo ID da parcela.
+     * Endpoint: GET https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcela_id}/baixa
+     * Retorna o id da primeira baixa encontrada.
+     */
+    public Optional<String> fetchBaixaIdByParcelaId(String parcelaId) {
+        if (!StringUtils.hasText(parcelaId)) {
+            return Optional.empty();
+        }
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/" + parcelaId.trim() + "/baixa";
+        try {
+            String payload = executeJsonGetWithRefresh(uri);
+            JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
+            // O endpoint pode retornar um array de baixas ou um objeto único
+            if (root.isArray() && root.size() > 0) {
+                JsonNode first = root.get(0);
+                String baixaId = readText(first, "id", "baixa_id");
+                return StringUtils.hasText(baixaId) ? Optional.of(baixaId) : Optional.empty();
+            } else if (root.isObject()) {
+                String baixaId = readText(root, "id", "baixa_id");
+                return StringUtils.hasText(baixaId) ? Optional.of(baixaId) : Optional.empty();
+            }
+        } catch (Exception e) {
+            log.warn("Falha ao buscar baixa para parcela {}.", parcelaId, e);
+        }
+        return Optional.empty();
     }
 
     /**
@@ -453,92 +517,7 @@ public class ContaAzulClient {
         }
     }
 
-    public Optional<SaleItem> fetchSaleByNumber(Integer numero) {
-        if (numero == null) {
-            return Optional.empty();
-        }
-
-        String normalizedNumber = String.valueOf(numero);
-        String dataInicio = "2024-01-01";
-        String dataFim = "2026-12-31";
-
-        String salesSearchBaseUrl = normalizeSaleSearchBaseUrl(salesV2Url);
-        String uri = UriComponentsBuilder.fromUriString(salesSearchBaseUrl)
-            .queryParam("numeros", normalizedNumber)
-            .queryParam("data_inicio", dataInicio)
-            .queryParam("data_fim", dataFim)
-            .build()
-            .toUriString();
-
-        HttpResponse<String> responseEntity = executeJsonGetResponseWithRefresh(uri);
-        String responseBody = responseEntity.body();
-
-        try {
-            SaleByNumberResponseDTO response = objectMapper.readValue(
-                    (responseBody != null ? responseBody : "").getBytes(StandardCharsets.UTF_8),
-                    SaleByNumberResponseDTO.class);
-
-                log.info("!!! [SNIPER RESULT] Venda #" + numero + " | Itens encontrados: " + (response != null ? response.getTotal_itens() : 0));
-                log.info("!!! [SNIPER DEBUG] Venda #" + numero + " | Payload: " + responseBody);
-
-            if (response == null || response.itens() == null || response.itens().isEmpty()) {
-                return Optional.empty();
-            }
-
-            SaleByNumberItemDTO matchedItem = response.itens().stream()
-                    .filter(item -> item != null && StringUtils.hasText(item.id()))
-                    .filter(item -> {
-                        String itemNumber = StringUtils.hasText(item.numero())
-                                ? item.numero().trim()
-                                : (StringUtils.hasText(item.number()) ? item.number().trim() : null);
-                        return normalizedNumber.equals(itemNumber);
-                    })
-                    .findFirst()
-                    .orElse(null);
-
-            if (matchedItem == null || !StringUtils.hasText(matchedItem.id())) {
-                log.warn("Sniper: Nenhuma venda com número exato {} foi encontrada no retorno de /v1/venda/busca.", normalizedNumber);
-                return Optional.empty();
-            }
-
-            String resolvedNumber = StringUtils.hasText(matchedItem.numero())
-                    ? matchedItem.numero().trim()
-                    : (StringUtils.hasText(matchedItem.number()) ? matchedItem.number().trim() : normalizedNumber);
-
-            boolean hasAcquittedInstallment = hasAcquittedInstallmentInSaleByNumberItem(matchedItem);
-
-            log.info("!!! [SNIPER DEBUG] JSON recebido para a venda [{}]: [{}]", resolvedNumber, matchedItem.id().trim());
-
-            return Optional.of(new SaleItem(
-                    matchedItem.id().trim(),
-                    null,
-                    null,
-                    null,
-                    "VENDA",
-                    new VendaRef(matchedItem.id().trim()),
-                    matchedItem.id().trim(),
-                    matchedItem.id().trim(),
-                    null,
-                    resolvedNumber,
-                    hasAcquittedInstallment,
-                    null,
-                    null));
-        } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao parsear payload de venda por número da Conta Azul.", ex);
-        }
-    }
-
-    public Optional<SaleItem> findSaleByNumber(String saleNumber) {
-        if (!StringUtils.hasText(saleNumber)) {
-            return Optional.empty();
-        }
-
-        try {
-            return fetchSaleByNumber(Integer.valueOf(saleNumber.trim()));
-        } catch (NumberFormatException ex) {
-            return Optional.empty();
-        }
-    }
+    // Lógica Sniper removida: busca por número de venda não é mais utilizada para recibo
 
     private String fetchCommittedSalesPagePayload(int page) {
         LocalDate today = LocalDate.now();

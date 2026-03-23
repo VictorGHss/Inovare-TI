@@ -119,7 +119,12 @@ public class ContaAzulAutomationService {
         }
 
         String doctorName = resolveDoctorName(mapping, sale.customerName());
-        byte[] pdfBytes = contaAzulClient.downloadSalePdf(sale.saleId());
+        // Para o teste real, buscar baixa da parcela e baixar recibo oficial
+        Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
+        if (baixaIdOpt.isEmpty()) {
+            throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
+        }
+        byte[] pdfBytes = contaAzulClient.downloadReceiptPdf(baixaIdOpt.get());
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
         log.info("Enviando para {}", recipientEmail);
@@ -235,135 +240,51 @@ public class ContaAzulAutomationService {
             return;
         }
 
-        // Enriquecer a lista de parcelas com detalhes (busca por ID de parcela) quando necessário
-        List<ContaAzulClient.SaleItem> enrichedAcquitted = enrichParcelsWithDetails(acquittedSales);
-
-        log.info("Pooling Conta Azul: {} parcela(s) recebidas, {} itens enriquecidos para processamento.", acquittedSales.size(), enrichedAcquitted.size());
-
+        // Novo fluxo: para cada parcela, buscar baixa e recibo via endpoint oficial
         int sent = 0;
         int skippedProcessed = 0;
         int skippedMapping = 0;
         int failures = 0;
-        for (ContaAzulClient.SaleItem sale : enrichedAcquitted) {
+        for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
                 if (!applyThrottle()) {
                     continue;
                 }
 
-                log.info("!!! [INICIO PROCESSAMENTO] Parcela: " + (StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)"));
-                log.info("!!! [ORIGEM] origem={} | parcelaId={}",
-                        StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)",
-                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
+                log.info("[INICIO PROCESSAMENTO] Parcela: {}", StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)");
+                log.info("[ORIGEM] origem={} | parcelaId={}", StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)", StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
                 String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
-                log.info("Parcela recebida para processamento: parcelaId={}",
-                    StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
+                log.info("Parcela recebida para processamento: parcelaId={}", StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
-                String saleNumberFromDescription = extractSaleNumberFromDescription(sale.descricao());
-
-                String saleIdToProcess = null;
-                String baixaIdToProcess = sale.baixaId();
-                String idReciboDigitalToProcess = sale.idReciboDigital();
-
-                if ("VENDA".equalsIgnoreCase(sale.origem())) {
-                    saleIdToProcess = StringUtils.hasText(sale.vendaId())
-                            ? sale.vendaId().trim()
-                            : (StringUtils.hasText(sale.origemSaleId())
-                                    ? sale.origemSaleId().trim()
-                                    : (sale.venda() != null && StringUtils.hasText(sale.venda().id())
-                                            ? sale.venda().id().trim()
-                                            : null));
-
-                    if (StringUtils.hasText(saleIdToProcess)) {
-                        log.info("!!! [MAP_SUCCESS] Venda identificada via referência direta: " + saleIdToProcess);
-                    }
-                }
-
-                if (!StringUtils.hasText(baixaIdToProcess)) {
-                    try {
-                        ContaAzulClient.ParcelaDetailDTO parcelaDetail = contaAzulClient.fetchParcelaDetail(sale.parcelaId())
-                                .orElse(null);
-                        if (parcelaDetail != null) {
-                            baixaIdToProcess = parcelaDetail.baixaId();
-                            if (!StringUtils.hasText(saleIdToProcess)) {
-                                saleIdToProcess = parcelaDetail.vendaId();
-                            }
-                        }
-                    } catch (RuntimeException ex) {
-                        log.warn("Falha ao buscar detalhe da parcela {}. Seguindo com fallback Sniper por número.", sale.parcelaId(), ex);
-                    }
-                }
-
-                if (!StringUtils.hasText(saleIdToProcess)) {
-                    if (StringUtils.hasText(saleNumberFromDescription)) {
-                        log.info("!!! [SNIPER] Buscando UUID para a venda: " + saleNumberFromDescription);
-                    }
-
-                    Optional<ContaAzulClient.SaleItem> directSale = Optional.empty();
-                    if (StringUtils.hasText(saleNumberFromDescription)) {
-                        try {
-                            directSale = contaAzulClient.fetchSaleByNumber(Integer.valueOf(saleNumberFromDescription));
-                            if (directSale.isPresent()) {
-                                log.info("!!! [SNIPER SUCCESS] Venda #{} | UUID encontrado: {}",
-                                        saleNumberFromDescription,
-                                        directSale.get().saleId());
-                            } else {
-                                log.info("!!! [SNIPER FAIL] Nenhum UUID retornado para a venda: " + saleNumberFromDescription);
-                            }
-                        } catch (NumberFormatException ex) {
-                            log.info("!!! [SNIPER ERROR] Número inválido: " + saleNumberFromDescription);
-                        }
-                    }
-
-                    if (directSale.isPresent() && StringUtils.hasText(directSale.get().saleId())) {
-                        saleIdToProcess = directSale.get().saleId().trim();
-                        log.info("Sniper: Venda #{} localizada. UUID extraído: {}.",
-                                saleNumberFromDescription,
-                                saleIdToProcess);
-                    }
-                }
-
-                if (!StringUtils.hasText(saleIdToProcess)) {
-                    log.warn("Atenção: Parcela {} sem venda_id e sem retorno válido do Sniper. Pulando item.", sale.parcelaId());
+                // Busca a baixa oficial da parcela
+                Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
+                if (baixaIdOpt.isEmpty()) {
+                    log.warn("Nenhuma baixa encontrada para a parcela {}. Pulando item.", sale.parcelaId());
                     continue;
                 }
+                String baixaId = baixaIdOpt.get();
 
-                log.debug("Parcela {} vinculada à Venda {} identificada com sucesso.", sale.parcelaId(), saleIdToProcess);
-
-                log.debug(
-                        "Analisando parcela {}. Venda vinculada: {}. Cliente: {}",
-                        sale.parcelaId(),
-                        saleIdToProcess,
-                    customerUuidFromParcel);
-
-                log.info("Processando venda {} do médico {}.",
-                        saleIdToProcess,
-                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
-
-                if (processedSaleRepository.existsBySaleId(saleIdToProcess)) {
+                if (processedSaleRepository.existsBySaleId(baixaId)) {
                     skippedProcessed++;
-                    log.info("Venda {} já processada anteriormente. Ignorando.", saleIdToProcess);
+                    log.info("Recibo/baixa {} já processado anteriormente. Ignorando.", baixaId);
                     continue;
                 }
 
                 if (!StringUtils.hasText(customerUuidFromParcel)) {
                     skippedMapping++;
-                    log.warn("Venda {} sem customer UUID. Pulando.", saleIdToProcess);
+                    log.warn("Recibo {} sem customer UUID. Pulando.", baixaId);
                     continue;
                 }
 
-                log.info("!!! [FLOW] Venda ID definido como: " + saleIdToProcess);
-
+                log.info("[FLOW] Baixa ID definido como: {}", baixaId);
                 log.info("Verificando mapeamento para o médico...");
 
-                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel)
-                        .orElse(null);
-
+                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel).orElse(null);
                 if (mapping == null) {
                     skippedMapping++;
                     log.info("Mapeamento NÃO encontrado. Pulando item.");
-                        log.warn("!!! [MAP_FAIL] Cadastro faltando para o médico: {}",
-                            StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)");
+                    log.warn("[MAP_FAIL] Cadastro faltando para o médico: {}", StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)");
                     continue;
                 }
 
@@ -372,93 +293,41 @@ public class ContaAzulAutomationService {
                 String recipientEmail = resolveRecipientEmail(mapping);
                 if (!StringUtils.hasText(recipientEmail)) {
                     skippedMapping++;
-                    log.warn("Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Venda {} ignorada.",
-                        customerUuidFromParcel,
-                        saleIdToProcess);
+                    log.warn("Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Recibo {} ignorado.", customerUuidFromParcel, baixaId);
                     continue;
                 }
 
                 String doctorName = resolveDoctorName(mapping, sale.customerName());
-                String saleNumberForInfo = StringUtils.hasText(saleNumberFromDescription)
-                        ? saleNumberFromDescription
-                        : (StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : saleIdToProcess);
-                log.info("Localizando venda {} via busca direta. UUID encontrado: {}. Baixando Recibo de Quitação via baixa...",
-                    saleNumberForInfo,
-                    saleIdToProcess);
-                log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF da Venda {}",
-                        sale.parcelaId(),
-                        doctorName,
-                        saleNumberForInfo);
+                log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF do Recibo da Baixa {}", sale.parcelaId(), doctorName, baixaId);
 
-                byte[] pdfBytes = new byte[0];
-
-                if (StringUtils.hasText(baixaIdToProcess) && StringUtils.hasText(idReciboDigitalToProcess)) {
-                    ContaAzulClient.BaixaDetailDTO baixaDetail = contaAzulClient.fetchBaixaDetail(baixaIdToProcess)
-                        .orElse(null);
-
-                    if (baixaDetail == null) {
-                        log.warn("Baixa não encontrada para a parcela {} (baixaId={}). Aplicando fallback via venda.", sale.parcelaId(), baixaIdToProcess);
-                    } else {
-                        String receiptUrl = baixaDetail.anexos().stream()
-                            .filter(anexo -> anexo != null && StringUtils.hasText(anexo.id()) && StringUtils.hasText(anexo.url()))
-                            .filter(anexo -> idReciboDigitalToProcess.equalsIgnoreCase(anexo.id().trim()))
-                            .map(ContaAzulClient.BaixaAttachmentDTO::url)
-                            .findFirst()
-                            .orElse(null);
-
-                        if (!StringUtils.hasText(receiptUrl)) {
-                            log.warn("Recibo digital {} não encontrado nos anexos da baixa {}. Aplicando fallback via venda.", idReciboDigitalToProcess, baixaIdToProcess);
-                        } else {
-                            pdfBytes = contaAzulClient.downloadPublicFile(receiptUrl);
-                            if (pdfBytes.length == 0) {
-                                log.warn("Download do recibo de quitação retornou vazio para a baixa {}. Aplicando fallback via venda.", baixaIdToProcess);
-                            }
-                        }
-                    }
-                } else {
-                    log.warn("Parcela {} sem baixa_id ou id_recibo_digital. Aplicando fallback via venda.", sale.parcelaId());
-                }
-
+                byte[] pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
                 if (pdfBytes.length == 0) {
-                    pdfBytes = contaAzulClient.downloadSalePdf(saleIdToProcess);
+                    log.warn("Download do recibo retornou vazio para a baixa {}.", baixaId);
+                    continue;
                 }
 
                 financeEmailService.sendReceiptEmailWithPdf(
                     doctorName,
                     recipientEmail,
-                    buildEmailBody(doctorName, StringUtils.hasText(saleNumberFromDescription)
-                            ? saleNumberFromDescription
-                            : "N/D"),
-                        pdfBytes,
-                    "recibo-quitacao-venda-" + saleIdToProcess + ".pdf");
+                    buildEmailBody(doctorName, StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D"),
+                    pdfBytes,
+                    "recibo-quitacao-baixa-" + baixaId + ".pdf");
 
-                log.info("E-mail enviado com sucesso para venda {} (médico: {}).",
-                    saleIdToProcess,
-                    StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
+                log.info("E-mail enviado com sucesso para recibo {} (médico: {}).", baixaId, StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
 
-                processedSaleRepository.save(ProcessedSale.builder()
-                        .saleId(saleIdToProcess)
-                        .build());
-
-                log.info("Venda {} registrada como processada com sucesso.", saleIdToProcess);
-
+                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+                log.info("Recibo {} registrado como processado com sucesso.", baixaId);
                 sent++;
             } catch (DataIntegrityViolationException ex) {
                 skippedProcessed++;
-                log.debug("Venda {} já registrada como processada em execução concorrente.", sale.saleId());
+                log.debug("Recibo {} já registrado como processado em execução concorrente.", ex.getMessage());
             } catch (RuntimeException ex) {
                 failures++;
-                log.error("Falha ao processar venda {}.", sale.saleId(), ex);
+                log.error("Falha ao processar recibo.", ex);
             }
         }
 
-        log.info(
-                "Automação ContaAzul finalizada: acquitted={}, sent={}, skippedProcessed={}, skippedMapping={}, failures={}",
-                acquittedSales.size(),
-                sent,
-                skippedProcessed,
-                skippedMapping,
-                failures);
+        log.info("Automação ContaAzul finalizada: acquitted={}, sent={}, skippedProcessed={}, skippedMapping={}, failures={}", acquittedSales.size(), sent, skippedProcessed, skippedMapping, failures);
     }
 
     private String resolveRecipientEmail(DoctorEmailMapping mapping) {
@@ -528,19 +397,9 @@ public class ContaAzulAutomationService {
                 + "Atenciosamente,\nAdministrativo Inovare.";
     }
 
+    // Método legado, não utilizado mais para recibo
     private String extractSaleNumberFromDescription(String descricao) {
-        if (!StringUtils.hasText(descricao)) {
-            return null;
-        }
-
-        Matcher matcher = SALE_NUMBER_FROM_DESCRIPTION_PATTERN.matcher(descricao.trim());
-        if (!matcher.find()) {
-            return null;
-        }
-
-        log.debug("Número da venda extraído da descrição '{}': {}", descricao, matcher.group(1));
-
-        return matcher.group(1);
+        return null;
     }
 
     private String buildSalesConfigurationErrorMessage() {
@@ -575,42 +434,5 @@ public class ContaAzulAutomationService {
                 + (StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
     }
 
-    private List<ContaAzulClient.SaleItem> enrichParcelsWithDetails(List<ContaAzulClient.SaleItem> parcels) {
-        List<ContaAzulClient.SaleItem> result = new ArrayList<>();
-        for (ContaAzulClient.SaleItem parcel : parcels) {
-            if (parcel == null || !StringUtils.hasText(parcel.parcelaId())) {
-                continue;
-            }
-
-            String parcelaId = parcel.parcelaId().trim();
-            try {
-                log.info("Enriquecendo detalhes para a parcela {}", parcelaId);
-                ContaAzulClient.ParcelaDetailDTO detail = contaAzulClient.fetchParcelaDetail(parcelaId).orElse(null);
-                if (detail != null) {
-                    ContaAzulClient.SaleItem enriched = new ContaAzulClient.SaleItem(
-                            detail.vendaId(),
-                            parcel.customerUuid(),
-                            parcel.customerName(),
-                            parcelaId,
-                            parcel.origem(),
-                            parcel.venda(),
-                            parcel.origemSaleId(),
-                            detail.vendaId(),
-                            parcel.descricao(),
-                            parcel.saleNumber(),
-                            parcel.hasAcquittedInstallment(),
-                            detail.baixaId(),
-                            parcel.idReciboDigital());
-                    result.add(enriched);
-                    continue;
-                }
-            } catch (RuntimeException ex) {
-                log.warn("Falha ao enriquecer parcela {}. Continuando com dados originais.", parcelaId);
-                log.debug("Detalhe da exceção ao enriquecer parcela {}: {}", parcelaId, ex.toString());
-            }
-
-            result.add(parcel);
-        }
-        return result;
-    }
+    // Novo fluxo: enriquecimento não é mais necessário, pois recibo é obtido via baixa financeira
 }

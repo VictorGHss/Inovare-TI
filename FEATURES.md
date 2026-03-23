@@ -64,3 +64,4 @@ Resumo executivo dos modulos principais da plataforma Inovare TI.
 - Consulta administrativa de logs com filtros por usuario, acao e periodo.
 - Captura de IP com suporte a `X-Forwarded-For` para ambientes atras de proxy.
 - Mapeamento expandido com eventos canonicos para: `TICKET_OPEN`, `TICKET_ASSIGN`, `TICKET_TRANSFER`, `TICKET_RESOLVE`, `STOCK_BATCH_CREATE`, `ITEM_CREATE`, `ASSET_CREATE`, `ASSET_EDIT`, `ASSET_QR_SCAN`, `ARTICLE_POST_PUBLIC`, `ARTICLE_POST_DRAFT`, `ARTICLE_EDIT`, `VAULT_AUTH_SUCCESS`, `VAULT_AUTH_FAIL`, `VAULT_ITEM_CREATE`, `VAULT_ITEM_VIEW`, `VAULT_ITEM_EDIT`, `VAULT_ITEM_DELETE`, `USER_CREATE`, `USER_EDIT`, `USER_PASSWORD_ADMIN_RESET`, `USER_2FA_ADMIN_RESET`, `SECTOR_CREATE` e `PROFILE_PASSWORD_CHANGE`.
+'

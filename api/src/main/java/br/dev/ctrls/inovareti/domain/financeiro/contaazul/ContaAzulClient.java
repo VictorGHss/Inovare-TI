@@ -870,7 +870,7 @@ public class ContaAzulClient {
 
     private String normalizeReceivablesBaseUrl() {
         if (!StringUtils.hasText(receivableEventsSearchUrl)) {
-            return "https://api.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
+            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }
 
         return receivableEventsSearchUrl.trim();
@@ -878,7 +878,7 @@ public class ContaAzulClient {
 
     private String normalizeBaixaBaseUrl() {
         if (!StringUtils.hasText(baixaDetailsUrl)) {
-            return "https://api.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
+            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
         }
 
         return baixaDetailsUrl.trim();
@@ -953,8 +953,13 @@ public class ContaAzulClient {
             return uri;
         }
 
-        String sanitized = uri.trim().replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
-        return sanitized.replace("https://api.contaazul.com/api/v1/", "https://api.contaazul.com/v1/");
+        String sanitized = uri.trim();
+        // Normalize old /api/v1/ patterns to /v1/ on the v2 host
+        sanitized = sanitized.replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
+        sanitized = sanitized.replace("https://api.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
+        // Ensure any reference to the legacy host uses the api-v2 host
+        sanitized = sanitized.replace("api.contaazul.com", "api-v2.contaazul.com");
+        return sanitized;
     }
 
     private Optional<String> parseCustomerIdByEmail(String jsonPayload, String email) {

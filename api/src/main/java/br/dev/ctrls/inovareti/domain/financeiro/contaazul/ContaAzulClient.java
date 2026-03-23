@@ -273,7 +273,8 @@ public class ContaAzulClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String uri = normalizeReceivablesBaseUrl() + "/" + normalizedParcelaUuid;
+        // Detalhe da parcela utiliza endpoint específico (não o /buscar de lista resumida)
+        String uri = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber/" + normalizedParcelaUuid;
 
         try {
             String payload = executeJsonGetWithRefresh(uri);

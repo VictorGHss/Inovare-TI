@@ -409,6 +409,7 @@ public class ContaAzulClient {
                 .build();
 
         try {
+            log.info("CUIDADO: Enviando para: " + externalUri.toString());
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
@@ -437,6 +438,7 @@ public class ContaAzulClient {
                 .build();
 
         try {
+            log.info("CUIDADO: Enviando para: " + externalUri.toString());
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
@@ -614,6 +616,7 @@ public class ContaAzulClient {
         try {
             log.debug("URL ABSOLUTA SENDO ENVIADA: " + url);
             log.debug("ENVIANDO REQUISIÇÃO PARA HOST EXTERNO: " + externalUri.getHost());
+            log.info("CUIDADO: Enviando para: " + url);
             log.debug("MANDANDO PARA O MUNDO EXTERNO: " + externalUri.toString());
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
@@ -867,7 +870,7 @@ public class ContaAzulClient {
 
     private String normalizeReceivablesBaseUrl() {
         if (!StringUtils.hasText(receivableEventsSearchUrl)) {
-            throw new IllegalStateException("app.contaazul.payments-url não configurado.");
+            return "https://api.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }
 
         return receivableEventsSearchUrl.trim();
@@ -875,7 +878,7 @@ public class ContaAzulClient {
 
     private String normalizeBaixaBaseUrl() {
         if (!StringUtils.hasText(baixaDetailsUrl)) {
-            throw new IllegalStateException("app.contaazul.baixa-details-url não configurado.");
+            return "https://api.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
         }
 
         return baixaDetailsUrl.trim();

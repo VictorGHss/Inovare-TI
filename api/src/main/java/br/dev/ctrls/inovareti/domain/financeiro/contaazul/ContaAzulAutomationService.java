@@ -617,3 +617,4 @@ public class ContaAzulAutomationService {
         }
         return result;
     }
+}

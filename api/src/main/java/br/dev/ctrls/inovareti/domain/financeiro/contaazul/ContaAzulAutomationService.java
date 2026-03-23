@@ -311,7 +311,7 @@ public class ContaAzulAutomationService {
                 String doctorName = resolveDoctorName(mapping, sale.customerName());
                 log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF do Recibo da Baixa {}", sale.parcelaId(), doctorName, baixaId);
 
-                byte[] pdfBytes = null;
+                byte[] pdfBytes;
                 try {
                     pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
                 } catch (br.dev.ctrls.inovareti.domain.financeiro.contaazul.NoReceiptAvailableException nr) {

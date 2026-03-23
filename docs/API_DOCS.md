@@ -2,7 +2,7 @@
 
 > **Atualização:** 2026-03-23 — Backend: Fase 10 concluída; integrações Conta Azul e envio de emails (SMTP / Brevo) implementadas.
 
-> **Base URL:** `http://localhost:8085`  
+> **Base URL:** `http://localhost:8085/api`  
 > **Formato:** JSON (`Content-Type: application/json`)  
 > **Erros:** Padrão RFC 7807 (Problem Details)  
 > **Autenticação:** JWT Bearer Token — envie `Authorization: Bearer <token>` em todas as rotas protegidas.

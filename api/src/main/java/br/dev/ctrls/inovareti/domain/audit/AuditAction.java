@@ -7,13 +7,13 @@ package br.dev.ctrls.inovareti.domain.audit;
 public enum AuditAction {
 
     // ── Vault ──────────────────────────────────────────────────────────────────
-    /** @deprecated use VAULT_AUTH_SUCCESS */
+    /** @deprecated usar VAULT_AUTH_SUCCESS */
     @Deprecated
     VAULT_LOGIN_SUCCESS,
-    /** @deprecated use VAULT_AUTH_FAIL */
+    /** @deprecated usar VAULT_AUTH_FAIL */
     @Deprecated
     VAULT_LOGIN_FAILURE,
-    /** @deprecated use VAULT_ITEM_VIEW */
+    /** @deprecated usar VAULT_ITEM_VIEW */
     @Deprecated
     VAULT_SECRET_VIEW,
     VAULT_FILE_VIEW,
@@ -33,7 +33,7 @@ public enum AuditAction {
 
     // ── Segundo fator ──────────────────────────────────────────────────────────
     TWO_FACTOR_RESET,
-    /** @deprecated use USER_2FA_ADMIN_RESET */
+    /** @deprecated usar USER_2FA_ADMIN_RESET */
     @Deprecated
     TWO_FACTOR_ADMIN_RESET,
     /** Reset de 2FA realizado por um administrador. */
@@ -46,10 +46,10 @@ public enum AuditAction {
     TICKET_RESOLVE,
 
     // ── Inventário ─────────────────────────────────────────────────────────────
-    /** @deprecated use STOCK_BATCH_CREATE */
+    /** @deprecated usar STOCK_BATCH_CREATE */
     @Deprecated
     INVENTORY_BATCH_ENTRY,
-    /** @deprecated use ITEM_CREATE */
+    /** @deprecated usar ITEM_CREATE */
     @Deprecated
     INVENTORY_ITEM_CREATE,
     /** Criação de lote de estoque. */
@@ -60,7 +60,7 @@ public enum AuditAction {
     // ── Ativos ─────────────────────────────────────────────────────────────────
     ASSET_CREATE,
     ASSET_INVOICE_ATTACH,
-    /** @deprecated use ASSET_QR_SCAN */
+    /** @deprecated usar ASSET_QR_SCAN */
     @Deprecated
     QR_SCAN,
     /** Edição de ativo (CMDB). */
@@ -69,13 +69,13 @@ public enum AuditAction {
     ASSET_QR_SCAN,
 
     // ── Base de Conhecimento ───────────────────────────────────────────────────
-    /** @deprecated use ARTICLE_POST_DRAFT */
+    /** @deprecated usar ARTICLE_POST_DRAFT */
     @Deprecated
     KB_ARTICLE_DRAFT_CREATE,
-    /** @deprecated use ARTICLE_POST_PUBLIC */
+    /** @deprecated usar ARTICLE_POST_PUBLIC */
     @Deprecated
     KB_ARTICLE_PUBLISH,
-    /** @deprecated use ARTICLE_EDIT */
+    /** @deprecated usar ARTICLE_EDIT */
     @Deprecated
     KB_ARTICLE_EDIT,
     /** Publicação de artigo (status PUBLISHED). */
@@ -88,12 +88,12 @@ public enum AuditAction {
     // ── Gestão de usuários e setores ───────────────────────────────────────────
     SECTOR_CREATE,
     USER_CREATE,
-    /** @deprecated use USER_EDIT */
+    /** @deprecated usar USER_EDIT */
     @Deprecated
     USER_UPDATE,
     /** Edição de dados de usuário (por admin). */
     USER_EDIT,
-    /** @deprecated use USER_PASSWORD_ADMIN_RESET */
+    /** @deprecated usar USER_PASSWORD_ADMIN_RESET */
     @Deprecated
     USER_PASSWORD_RESET,
     /** Reset de senha realizado por administrador. */

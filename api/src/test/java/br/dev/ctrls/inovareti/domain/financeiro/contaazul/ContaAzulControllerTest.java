@@ -5,31 +5,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.Mockito.when;
 
-@SpringBootTest
-@AutoConfigureMockMvc
 class ContaAzulControllerTest {
 
-    @Autowired
     private MockMvc mvc;
 
-    @MockBean
     private ContaAzulTokenService tokenService;
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void forceRefreshReturnsOk() throws Exception {
         ContaAzulOAuthToken token = new ContaAzulOAuthToken();
         token.setId(UUID.randomUUID());
@@ -41,8 +35,20 @@ class ContaAzulControllerTest {
         when(tokenService.forceRefreshAndReloadFromDatabase()).thenReturn(token);
 
         mvc.perform(post("/financeiro/contaazul/force-refresh")
+                .with(user("admin").roles("ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authorized").value(true));
+    }
+
+    @BeforeEach
+    @SuppressWarnings("unused")
+    void setup() {
+        this.tokenService = Mockito.mock(ContaAzulTokenService.class);
+        var client = Mockito.mock(ContaAzulClient.class);
+        var automation = Mockito.mock(ContaAzulAutomationService.class);
+        var controller = new ContaAzulController(this.tokenService, client, automation);
+        this.mvc = MockMvcBuilders.standaloneSetup(controller)
+            .build();
     }
 }

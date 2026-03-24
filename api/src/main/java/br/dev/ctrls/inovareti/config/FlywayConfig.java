@@ -7,8 +7,10 @@ import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Configuration
+@ConditionalOnProperty(prefix = "flyway", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class FlywayConfig {
 
     @Bean

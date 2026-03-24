@@ -55,7 +55,7 @@ public record TicketResponseDTO(
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),
-                List.of() // Empty list by default, can be populated by use case
+                List.of() // Lista vazia por padrão, pode ser populada pelo caso de uso
         );
     }
 

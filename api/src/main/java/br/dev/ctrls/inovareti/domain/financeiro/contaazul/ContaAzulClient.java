@@ -898,7 +898,7 @@ public class ContaAzulClient {
         return normalized;
     }
 
-    // normalizeSalePrintTemplate removed — printing via sale endpoint is no longer used
+    // normalizeSalePrintTemplate removido — impressão via endpoint de venda não é mais utilizada
 
     private String sanitizeTokenPrefix(String accessToken) {
         if (!StringUtils.hasText(accessToken)) {
@@ -940,10 +940,10 @@ public class ContaAzulClient {
         }
 
         String sanitized = uri.trim();
-        // Normalize old /api/v1/ patterns to /v1/ on the v2 host
+        // Normaliza padrões antigos /api/v1/ para /v1/ no host v2
         sanitized = sanitized.replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
         sanitized = sanitized.replace("https://api.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
-        // Ensure any reference to the legacy host uses the api-v2 host
+        // Garante que qualquer referência ao host legado utilize o host api-v2
         sanitized = sanitized.replace("api.contaazul.com", "api-v2.contaazul.com");
         return sanitized;
     }
@@ -1114,7 +1114,7 @@ public class ContaAzulClient {
         }
     }
 
-    // hasAcquittedInstallmentInSaleByNumberItem removed — Sniper flow not used anymore
+    // hasAcquittedInstallmentInSaleByNumberItem removido — fluxo Sniper não é mais utilizado
 
     private boolean hasAcquittedInstallmentInSaleNode(JsonNode saleNode) {
         if (saleNode == null || saleNode.isNull()) {
@@ -1253,7 +1253,7 @@ public class ContaAzulClient {
             String idReciboDigital) {
     }
 
-            // SaleByNumber DTOs removed — Sniper flow retired
+            // DTOs SaleByNumber removidos — fluxo Sniper desativado
 
     private record PessoasPage(List<PessoaItem> itens, Long total) {
     }

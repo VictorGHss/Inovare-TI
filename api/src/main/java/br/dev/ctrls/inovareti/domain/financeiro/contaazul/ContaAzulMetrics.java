@@ -1,16 +1,18 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 
 @Component
+@ConditionalOnProperty(name = "app.contaazul.metrics.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 public class ContaAzulMetrics {
 

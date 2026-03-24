@@ -41,13 +41,19 @@ public class ContaAzulController {
     private final ContaAzulAutomationService contaAzulAutomationService;
 
     private static final Logger logger = LoggerFactory.getLogger(ContaAzulController.class);
-        // Limite simples (por principal+IP) para evitar abuso do endpoint administrativo.
-        private static final java.util.concurrent.ConcurrentMap<String, Long> LAST_FORCE_REFRESH =
+        // Limite simples em memória (por principal+IP) como fallback quando Redis não estiver disponível.
+        private static final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.atomic.AtomicInteger> FORCE_REFRESH_COUNT =
             new java.util.concurrent.ConcurrentHashMap<>();
-        private static final long FORCE_REFRESH_COOLDOWN_MS = 60_000L; // 1 minuto
+        private static final java.util.concurrent.ConcurrentMap<String, Long> FORCE_REFRESH_WINDOW_START =
+            new java.util.concurrent.ConcurrentHashMap<>();
+        private static final long FORCE_REFRESH_WINDOW_MS = 60_000L; // 1 minuto
+        private static final int FORCE_REFRESH_MAX = 3; // máximo 3 requisições por janela por usuário+IP
 
         @Autowired(required = false)
         private ContaAzulMetrics contaAzulMetrics;
+
+        @Autowired(required = false)
+        private RedisRateLimiter redisRateLimiter;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -107,20 +113,44 @@ public class ContaAzulController {
         logger.info("ContaAzul force-refresh requested by {} from {}", who, ip);
 
         String key = who + ":" + ip;
-        Long last = LAST_FORCE_REFRESH.get(key);
         long now = System.currentTimeMillis();
-        if (last != null && (now - last) < FORCE_REFRESH_COOLDOWN_MS) {
-            logger.warn("ContaAzul force-refresh throttled for {} from {}", who, ip);
-            if (contaAzulMetrics != null) {
-                contaAzulMetrics.incrementForceRefreshThrottled();
+        if (redisRateLimiter != null) {
+            // chave distribuída no Redis; janela de 1 minuto e máximo de 3 requisições
+            var redisKey = "contaazul:force_refresh:" + key;
+            boolean acquired = redisRateLimiter.tryAcquire(redisKey, FORCE_REFRESH_MAX, java.time.Duration.ofMillis(FORCE_REFRESH_WINDOW_MS));
+            if (!acquired) {
+                logger.warn("ContaAzul force-refresh throttled for {} from {}", who, ip);
+                if (contaAzulMetrics != null) {
+                    contaAzulMetrics.incrementForceRefreshThrottled();
+                }
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
             }
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
+        } else {
+            // fallback em memória: contador + janela deslizante simples
+            Long windowStart = FORCE_REFRESH_WINDOW_START.getOrDefault(key, 0L);
+            java.util.concurrent.atomic.AtomicInteger counter = FORCE_REFRESH_COUNT.computeIfAbsent(key, k -> new java.util.concurrent.atomic.AtomicInteger(0));
+            if ((now - windowStart) >= FORCE_REFRESH_WINDOW_MS) {
+                // iniciar nova janela
+                FORCE_REFRESH_WINDOW_START.put(key, now);
+                counter.set(0);
+                windowStart = now;
+            }
+
+            int current = counter.incrementAndGet();
+            if (current > FORCE_REFRESH_MAX) {
+                logger.warn("ContaAzul force-refresh throttled for {} from {}", who, ip);
+                if (contaAzulMetrics != null) {
+                    contaAzulMetrics.incrementForceRefreshThrottled();
+                }
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
+            }
         }
 
         try {
             var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            LAST_FORCE_REFRESH.put(key, now);
+            // no fallback em memória já mantemos contadores; nada a fazer quando Redis presente
             return ResponseEntity.ok(Map.of(
                     "autorizado", true,
                     "expiraEm", reloaded.getExpiresAt(),

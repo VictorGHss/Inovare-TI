@@ -19,18 +19,28 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:alpine
+    container_name: inovareti_redis
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - inovare_network
+
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: inovareti_api
     restart: always
-    # 1. Carrega todas as definições do arquivo .env
     env_file:
       - .env
-    # 2. Sobrescreve a URL do banco para apontar para o host interno 'db'
     environment:
       - DB_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
     ports:
       - "8085:8085"
     volumes:
@@ -38,6 +48,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - inovare_network
 
@@ -46,7 +58,7 @@ services:
       context: ./front
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://itsm-inovare.ctrls.dev.br
+        - VITE_API_URL=https://itsm-inovare.ctrls.dev.br
     container_name: inovareti_front
     restart: always
     ports:
@@ -62,3 +74,4 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:

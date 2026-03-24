@@ -12,6 +12,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.client.RestClientResponseException;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
@@ -120,6 +123,39 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problem.setTitle("Internal Server Error");
         problem.setDetail("An unexpected error occurred. Please contact support.");
+        return problem;
+    }
+
+    /**
+     * Trata erros originados de chamadas HTTP a serviços externos (ex.: ContaAzul).
+     * Garante que corpo/HTTP status e `X-Request-Id` (quando presente) sejam logados
+     * para facilitar rastreio das requisições externas.
+     */
+    @ExceptionHandler(RestClientResponseException.class)
+    public ProblemDetail handleExternalServiceError(RestClientResponseException ex, HttpServletRequest request) {
+        String requestId = request != null ? request.getHeader("X-Request-Id") : null;
+        if (requestId == null || requestId.isBlank()) {
+            requestId = "-";
+        }
+
+        int status = ex.getRawStatusCode();
+        String body = "";
+        try {
+            body = ex.getResponseBodyAsString();
+        } catch (Exception ignore) {
+            // ignore
+        }
+
+        if (status >= 500) {
+            log.error("External service error (ContaAzul) request_id={} status={} body={}", requestId, status, body, ex);
+        } else {
+            log.warn("External service client error (ContaAzul) request_id={} status={} body={}", requestId, status, body);
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatusValue(status);
+        problem.setTitle("External service error");
+        problem.setDetail(ex.getMessage());
+        problem.setProperty("request_id", requestId);
         return problem;
     }
 }

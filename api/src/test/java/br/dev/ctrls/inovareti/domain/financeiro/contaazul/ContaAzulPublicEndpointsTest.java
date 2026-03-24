@@ -18,7 +18,7 @@ class ContaAzulPublicEndpointsTest {
     private ContaAzulTokenService tokenService;
 
     @BeforeEach
-    void setup() {
+    void setUp() {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
@@ -32,7 +32,7 @@ class ContaAzulPublicEndpointsTest {
             var f2 = controller.getClass().getDeclaredField("frontendUrl");
             f2.setAccessible(true);
             f2.set(controller, "http://localhost:5173/");
-        } catch (Exception e) {
+        } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
 

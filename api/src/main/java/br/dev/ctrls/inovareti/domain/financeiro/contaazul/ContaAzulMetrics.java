@@ -35,6 +35,9 @@ public class ContaAzulMetrics {
     /** Valor do Gauge que armazena epoch seconds da expiração do token. */
     private final AtomicLong expiresAtGauge = new AtomicLong(0L);
 
+    /** Valor do Gauge que armazena segundos restantes até a expiração do token. */
+    private final AtomicLong expiresInSecondsGauge = new AtomicLong(0L);
+
     /** Valor do Gauge que armazena epoch seconds do último refresh bem-sucedido. */
     private final AtomicLong lastRefreshGauge = new AtomicLong(0L);
 
@@ -51,6 +54,10 @@ public class ContaAzulMetrics {
     public void registerGauges() {
         Gauge.builder("contaazul_token_expires_at", expiresAtGauge, AtomicLong::get)
             .description("Unix epoch seconds when the ContaAzul token expires")
+            .register(registry);
+
+        Gauge.builder("contaazul_token_expires_seconds", expiresInSecondsGauge, AtomicLong::get)
+            .description("Seconds until ContaAzul token expiration (0 if expired)")
             .register(registry);
 
         Gauge.builder("contaazul_last_refresh_timestamp", lastRefreshGauge, AtomicLong::get)
@@ -73,6 +80,10 @@ public class ContaAzulMetrics {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresent(token -> {
             if (token.getExpiresAt() != null) {
                 expiresAtGauge.set(token.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
+                long now = java.time.Instant.now().getEpochSecond();
+                long expiresAt = token.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond();
+                long diff = Math.max(0L, expiresAt - now);
+                expiresInSecondsGauge.set(diff);
             }
             if (token.getRefreshedAt() != null) {
                 lastRefreshGauge.set(token.getRefreshedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond());

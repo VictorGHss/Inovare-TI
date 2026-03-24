@@ -59,6 +59,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize").permitAll()
                 .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(HttpMethod.GET, "/financeiro/trigger-test-receipt").permitAll()
+                // Todas rotas sob /financeiro/** exigem role ADMIN (exceto os endpoints permitidos acima)
+                .requestMatchers("/financeiro/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

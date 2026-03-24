@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service responsible for linking Discord users to clinic accounts.
+ * Serviço responsável por vincular contas do Discord a usuários da clínica.
  */
 @Slf4j
 @Service
@@ -25,7 +25,7 @@ public class DiscordUserLinkingService {
     }
 
     /**
-     * Links a Discord account to a clinic user and returns a final response message.
+     * Vincula uma conta do Discord a um usuário da clínica e retorna a mensagem final de resposta.
      */
     @Transactional
     public String linkDiscordToUserAndBuildMessage(String email, String discordUserId) {
@@ -40,7 +40,7 @@ public class DiscordUserLinkingService {
         user.setDiscordUserId(discordUserId);
         userRepository.save(user);
 
-        // Build the final message inside transaction to safely access lazy relations.
+        // Monta a mensagem final dentro da transação para acessar relações lazy com segurança.
         String sectorName = user.getSector().getName();
         String successMessage = "✅ Conta vinculada com sucesso ao e-mail "
                 + user.getEmail()

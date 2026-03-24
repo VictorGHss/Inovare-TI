@@ -178,5 +178,90 @@
     "name": "app.contaazul.customer-by-id-v1-url-template",
     "type": "java.lang.String",
     "description": "A description for 'app.contaazul.customer-by-id-v1-url-template'"
+  },
+  {
+    "name": "flyway.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'flyway.enabled'"
+  },
+  {
+    "name": "APP_FRONTEND_URL",
+    "type": "java.lang.String",
+    "description": "A description for 'APP_FRONTEND_URL'"
+  },
+  {
+    "name": "DISCORD_BOT_ENABLED",
+    "type": "java.lang.String",
+    "description": "A description for 'DISCORD_BOT_ENABLED'"
+  },
+  {
+    "name": "SMTP_HOST",
+    "type": "java.lang.String",
+    "description": "A description for 'SMTP_HOST'"
+  },
+  {
+    "name": "SMTP_HOST",
+    "type": "java.lang.String",
+    "description": "A description for 'SMTP_HOST'"
+  },
+  {
+    "name": "APP_FRONTEND_URL",
+    "type": "java.lang.String",
+    "description": "A description for 'APP_FRONTEND_URL'"
+  },
+  {
+    "name": "DISCORD_BOT_ENABLED",
+    "type": "java.lang.String",
+    "description": "A description for 'DISCORD_BOT_ENABLED'"
+  },
+  {
+    "name": "APP_FRONTEND_URL",
+    "type": "java.lang.String",
+    "description": "A description for 'APP_FRONTEND_URL'"
+  },
+  {
+    "name": "DISCORD_BOT_ENABLED",
+    "type": "java.lang.String",
+    "description": "A description for 'DISCORD_BOT_ENABLED'"
+  },
+  {
+    "name": "SMTP_HOST",
+    "type": "java.lang.String",
+    "description": "A description for 'SMTP_HOST'"
+  },
+  {
+    "name": "CONTAAZUL_CLIENT_ID",
+    "type": "java.lang.String",
+    "description": "A description for 'CONTAAZUL_CLIENT_ID'"
+  },
+  {
+    "name": "CONTAAZUL_CLIENT_SECRET",
+    "type": "java.lang.String",
+    "description": "A description for 'CONTAAZUL_CLIENT_SECRET'"
+  },
+  {
+    "name": "spring.scheduling.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.scheduling.enabled'"
+  },
+  {
+    "name": "API_PORT",
+    "type": "java.lang.String",
+    "description": "A description for 'API_PORT'"
+  },
+  {
+    "name": "CONTAAZUL_CLIENT_ID",
+    "type": "java.lang.String",
+    "description": "A description for 'CONTAAZUL_CLIENT_ID'"
+  },
+  {
+    "name": "API_PORT",
+    "type": "java.lang.String",
+    "description": "A description for 'API_PORT'"
+  },
+  {
+    "name": "CONTAAZUL_CLIENT_SECRET",
+    "type": "java.lang.String",
+    "description": "A description for 'CONTAAZUL_CLIENT_SECRET'"
   }
 ]}

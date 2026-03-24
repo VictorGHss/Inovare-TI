@@ -50,7 +50,7 @@ public class TransferTicketUseCase {
             .resourceId(savedTicket.getId())
             .details("{\"newAssignee\": \"" + newAssignee.getEmail() + "\"}")
             .build());
-        // Notify new assignee about the transfer
+        // Notifica o novo responsável sobre a transferência
         createNotificationService.create(
                 newAssignee.getId(),
                 "Chamado Transferido",

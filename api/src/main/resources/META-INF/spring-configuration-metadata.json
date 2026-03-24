@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "DISCORD_BOT_ENABLED",
+      "type": "java.lang.Boolean",
+      "description": "Enable the Discord bot (test override)"
+    },
+    {
+      "name": "SMTP_HOST",
+      "type": "java.lang.String",
+      "description": "SMTP host used in tests"
+    },
+    {
+      "name": "APP_FRONTEND_URL",
+      "type": "java.lang.String",
+      "description": "Frontend URL used by tests"
+    },
+    {
+      "name": "contaazul.redirect-uri",
+      "type": "java.lang.String",
+      "description": "ContaAzul redirect URI for local tests"
+    }
+  ]
+}

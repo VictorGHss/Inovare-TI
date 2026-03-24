@@ -113,7 +113,7 @@ public class User implements UserDetails {
     private LocalDateTime recoveryCodeExpiresAt;
 
     // -------------------------------------------------------------------------
-    // UserDetails contract
+    // Contrato do UserDetails
     // -------------------------------------------------------------------------
 
     @Override

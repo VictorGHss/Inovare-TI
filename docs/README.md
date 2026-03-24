@@ -121,20 +121,6 @@ Inovare-TI/
 
 ---
 
-## Backend updates
-
-- **OpenAPI:** a especificação OpenAPI foi atualizada em `docs/openapi.yaml` e `docs/openapi.json` (inclui o endpoint `POST /api/financeiro/contaazul/force-refresh`). Use a Swagger UI local conforme a seção OpenAPI abaixo.
-- **SMTP (envio de e-mails):** o envio usa `spring-boot-starter-mail` via SMTP — veja `docs/SMTP_EMAIL.md` para configuração, exemplos e recomendações (não usamos Brevo por padrão).
-- **Observability / Actuator:** endpoints expostos: `health`, `metrics`, `prometheus`. Como a API roda com contexto `/api`, o Actuator fica em `/api/actuator` e o Prometheus em `/api/actuator/prometheus`.
-- **Testes:** há ajustes para permitir testes rápidos:
-	- Arquivo de propriedades de teste: `api/src/test/resources/application.properties` (H2 como dependência de teste e `spring.flyway.enabled=false` para evitar migrações PostgreSQL durante testes).
-	- Tests de controller usam `MockMvc` em modo standalone quando possível; para executar um único teste localmente:
-
-```bash
-mvn -f api -Dtest=ContaAzulControllerTest test
-```
-
-
 ## OpenAPI (Especificação da API)
 
 A especificação OpenAPI para o backend está disponível em `docs/openapi.yaml` e `docs/openapi.json`. Use esses arquivos para importar a API em clientes ou servir via Swagger UI.

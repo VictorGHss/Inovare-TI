@@ -1,0 +1,12 @@
+groups:
+  - name: contaazul.rules
+    rules:
+      - alert: ContaAzulForceRefreshThrottled
+        expr: increase(contaazul_force_refresh_throttled_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: plataform
+        annotations:
+          summary: "Throttle de force-refresh detectado para ContaAzul"
+          description: "Foram registrados tentativas de 'force-refresh' bloqueadas (429) nos últimos 5 minutos. Verifique possíveis automações abusivas ou problemas de integração."

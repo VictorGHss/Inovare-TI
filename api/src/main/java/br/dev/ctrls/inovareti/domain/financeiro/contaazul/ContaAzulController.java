@@ -134,7 +134,6 @@ public class ContaAzulController {
                 // iniciar nova janela
                 FORCE_REFRESH_WINDOW_START.put(key, now);
                 counter.set(0);
-                windowStart = now;
             }
 
             int current = counter.incrementAndGet();

@@ -138,7 +138,7 @@ public class GlobalExceptionHandler {
             requestId = "-";
         }
 
-        int status = ex.getRawStatusCode();
+        int status = ex.getStatusCode().value();
         String body = "";
         try {
             body = ex.getResponseBodyAsString();
@@ -152,7 +152,7 @@ public class GlobalExceptionHandler {
             log.warn("External service client error (ContaAzul) request_id={} status={} body={}", requestId, status, body);
         }
 
-        ProblemDetail problem = ProblemDetail.forStatusValue(status);
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
         problem.setTitle("External service error");
         problem.setDetail(ex.getMessage());
         problem.setProperty("request_id", requestId);

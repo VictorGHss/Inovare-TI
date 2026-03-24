@@ -35,15 +35,10 @@ public class RedisRateLimiter {
      * Retorna true se o número de requisições ainda está dentro do limite.
      */
     public boolean tryAcquire(String key, int maxRequests, Duration window) {
-        Long value = redis.execute(connection -> {
-            byte[] rawKey = redis.getStringSerializer().serialize(key);
-            Long v = connection.incr(rawKey);
-            if (v != null && v == 1L) {
-                connection.pExpire(rawKey, window.toMillis());
-            }
-            return v;
-        });
-
-        return value != null && value <= (long) maxRequests;
+        Long count = redis.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            redis.expire(key, window);
+        }
+        return count != null && count <= (long) maxRequests;
     }
 }

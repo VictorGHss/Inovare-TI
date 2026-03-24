@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,6 +45,9 @@ public class ContaAzulController {
         private static final java.util.concurrent.ConcurrentMap<String, Long> LAST_FORCE_REFRESH =
             new java.util.concurrent.ConcurrentHashMap<>();
         private static final long FORCE_REFRESH_COOLDOWN_MS = 60_000L; // 1 minuto
+
+        @Autowired(required = false)
+        private ContaAzulMetrics contaAzulMetrics;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -107,6 +111,9 @@ public class ContaAzulController {
         long now = System.currentTimeMillis();
         if (last != null && (now - last) < FORCE_REFRESH_COOLDOWN_MS) {
             logger.warn("ContaAzul force-refresh throttled for {} from {}", who, ip);
+            if (contaAzulMetrics != null) {
+                contaAzulMetrics.incrementForceRefreshThrottled();
+            }
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
         }

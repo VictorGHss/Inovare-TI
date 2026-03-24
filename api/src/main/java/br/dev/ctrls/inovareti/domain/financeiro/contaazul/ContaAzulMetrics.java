@@ -38,6 +38,9 @@ public class ContaAzulMetrics {
     /** Valor do Gauge que armazena epoch seconds do último refresh bem-sucedido. */
     private final AtomicLong lastRefreshGauge = new AtomicLong(0L);
 
+    /** Contador de throttles ocorridos no endpoint force-refresh. */
+    private io.micrometer.core.instrument.Counter forceRefreshThrottledCounter;
+
     /**
      * Registra os Gauges no `MeterRegistry`.
      *
@@ -52,6 +55,12 @@ public class ContaAzulMetrics {
 
         Gauge.builder("contaazul_last_refresh_timestamp", lastRefreshGauge, AtomicLong::get)
             .description("Unix epoch seconds of last successful token refresh")
+            .register(registry);
+
+        // contador para eventos de throttling no endpoint administrativo
+        this.forceRefreshThrottledCounter = io.micrometer.core.instrument.Counter
+            .builder("contaazul_force_refresh_throttled_total")
+            .description("Total de requisições force-refresh que foram throttled")
             .register(registry);
     }
 
@@ -69,6 +78,13 @@ public class ContaAzulMetrics {
                 lastRefreshGauge.set(token.getRefreshedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond());
             }
         });
+    }
+
+    /** Incrementa o contador de throttles. Chamado pelo controller quando uma requisição é bloqueada. */
+    public void incrementForceRefreshThrottled() {
+        if (this.forceRefreshThrottledCounter != null) {
+            this.forceRefreshThrottledCounter.increment();
+        }
     }
 
 }

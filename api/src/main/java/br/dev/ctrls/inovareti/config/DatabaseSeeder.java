@@ -68,7 +68,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("Starting database seeding...");
+        log.info("Iniciando seed do banco de dados...");
 
         // Insere categorias de chamados
         if (ticketCategoryRepository.count() == 0) {

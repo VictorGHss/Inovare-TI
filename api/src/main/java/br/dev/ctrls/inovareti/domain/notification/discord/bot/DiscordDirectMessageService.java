@@ -67,11 +67,11 @@ public class DiscordDirectMessageService {
                 user -> user.openPrivateChannel().queue(
                         channel -> channel.sendMessageEmbeds(embed).queue(
                     success -> log.info("Discord DM sent for ticket {} to user {}", ticketId, discordUserId),
-                    error -> log.warn("Failed to send Discord DM message for ticket {} to user {}", ticketId, discordUserId, error)
+                    error -> log.warn("Falha ao enviar mensagem DM no Discord para o chamado {} ao usuário {}", ticketId, discordUserId, error)
                         ),
-                error -> log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticketId, discordUserId, error)
+                error -> log.warn("Falha ao abrir canal DM no Discord para o chamado {} ao usuário {}", ticketId, discordUserId, error)
                 ),
-            error -> log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticketId, error)
+            error -> log.warn("Falha ao recuperar usuário do Discord {} para o chamado {}", discordUserId, ticketId, error)
         );
     }
 
@@ -100,7 +100,7 @@ public class DiscordDirectMessageService {
         }
 
         if (discordUserId == null || discordUserId.isBlank()) {
-            log.error("Failed to send 2FA reset DM: invalid Discord user id '{}'.", discordUserId);
+            log.error("Falha ao enviar DM de reset de 2FA: id de usuário Discord inválido '{}'.", discordUserId);
             return;
         }
 
@@ -140,7 +140,7 @@ public class DiscordDirectMessageService {
         }
 
         if (discordUserId == null || discordUserId.isBlank()) {
-            log.error("Failed to send admin 2FA reset notification: invalid Discord user id '{}'.", discordUserId);
+            log.error("Falha ao enviar notificação de reset 2FA para admin: id de usuário Discord inválido '{}'.", discordUserId);
             return;
         }
 

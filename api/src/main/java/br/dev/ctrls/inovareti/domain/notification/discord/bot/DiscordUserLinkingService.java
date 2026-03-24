@@ -29,7 +29,7 @@ public class DiscordUserLinkingService {
      */
     @Transactional
     public String linkDiscordToUserAndBuildMessage(String email, String discordUserId) {
-        log.info("Attempting to link Discord user ID {} to email {}", discordUserId, email);
+        log.info("Tentando vincular Discord user ID {} ao e-mail {}", discordUserId, email);
 
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {

@@ -67,7 +67,7 @@ public class LoginUseCase {
                     .details("{\"email\": \"" + request.email() + "\"}")
                     .ipAddress(ipAddress)
                     .build());
-            log.warn("Failed login attempt for email: {}", request.email());
+            log.warn("Tentativa de login falhada para o e-mail: {}", request.email());
             throw ex;
         }
     }

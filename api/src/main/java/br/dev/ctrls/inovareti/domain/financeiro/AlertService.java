@@ -56,7 +56,7 @@ public class AlertService {
         try {
             restTemplate.postForEntity(discordWebhookUrl, new HttpEntity<>(Map.of("content", message), headers), Void.class);
         } catch (RestClientException ex) {
-            log.error("Failed to send Discord financial alert for parcela {}", parcelaId, ex);
+            log.error("Falha ao enviar alerta financeiro no Discord para parcela {}", parcelaId, ex);
         }
     }
 }

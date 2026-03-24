@@ -59,7 +59,7 @@ public class TransferTicketUseCase {
         );
 
         
-        log.info("Ticket {} transferred to user {} ({})", savedTicket.getId(), newAssignee.getName(), newAssignee.getEmail());
+        log.info("Chamado {} transferido para o usuário {} ({})", savedTicket.getId(), newAssignee.getName(), newAssignee.getEmail());
 
         return TicketResponseDTO.from(savedTicket);
     }

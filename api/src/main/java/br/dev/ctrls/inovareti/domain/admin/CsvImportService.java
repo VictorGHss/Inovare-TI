@@ -34,7 +34,7 @@ public class CsvImportService {
 
     @Transactional
     public ImportResultDTO importCsv(MultipartFile file) {
-        log.info("Starting CSV import from file: {}", file.getOriginalFilename());
+        log.info("Iniciando importação CSV do arquivo: {}", file.getOriginalFilename());
 
         ImportResultDTO result = new ImportResultDTO();
         List<String> errors = new ArrayList<>();

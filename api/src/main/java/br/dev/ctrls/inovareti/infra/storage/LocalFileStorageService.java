@@ -53,11 +53,11 @@ public class LocalFileStorageService {
     public String store(MultipartFile file) throws IOException {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isBlank()) {
-            throw new IllegalArgumentException("File must have a valid filename");
+            throw new IllegalArgumentException("File must have a valid name");
         }
 
         if (file.getSize() > maxFileSizeBytes) {
-            throw new FileSizeLimitExceededException("O arquivo excede o limite máximo de 5MB");
+            throw new FileSizeLimitExceededException("The file exceeds the maximum allowed size");
         }
 
         // Extrai a extensão do arquivo
@@ -73,7 +73,7 @@ public class LocalFileStorageService {
 
         // Verificação de segurança: garante que o arquivo seja armazenado dentro do diretório de upload
         if (!destinationFile.getParent().equals(uploadPath)) {
-            throw new SecurityException("Cannot store file outside upload directory");
+            throw new SecurityException("Storing files outside the upload directory is not allowed");
         }
 
         // Copia o arquivo para o destino
@@ -94,14 +94,14 @@ public class LocalFileStorageService {
         
         // Verificação de segurança
         if (!file.getParent().equals(uploadPath)) {
-            throw new SecurityException("Cannot access file outside upload directory");
+            throw new SecurityException("Accessing files outside the upload directory is not allowed");
         }
 
         Resource resource = new UrlResource(file.toUri());
         if (resource.exists() && resource.isReadable()) {
             return resource;
         } else {
-            throw new IOException("File not found or not readable: " + storedFilename);
+            throw new IOException("File not found or inaccessible: " + storedFilename);
         }
     }
 
@@ -115,7 +115,7 @@ public class LocalFileStorageService {
         
         // Verificação de segurança
         if (!file.getParent().equals(uploadPath)) {
-            throw new SecurityException("Cannot delete file outside upload directory");
+            throw new SecurityException("Não é permitido excluir arquivo fora do diretório de upload");
         }
 
         Files.deleteIfExists(file);

@@ -49,7 +49,7 @@ public class EncryptionService {
             buffer.put(encryptedBytes);
             return Base64.getEncoder().encodeToString(buffer.array());
         } catch (GeneralSecurityException ex) {
-            throw new IllegalStateException("Falha ao criptografar o conteúdo sensível do cofre.", ex);
+            throw new IllegalStateException("Failed to encrypt vault sensitive content.", ex);
         }
     }
 
@@ -75,20 +75,20 @@ public class EncryptionService {
             byte[] plainBytes = cipher.doFinal(encryptedPayload);
             return new String(plainBytes, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException | GeneralSecurityException ex) {
-            throw new IllegalStateException("Falha ao descriptografar o conteúdo sensível do cofre.", ex);
+            throw new IllegalStateException("Failed to decrypt vault sensitive content.", ex);
         }
     }
 
     private byte[] deriveKey(String encryptionKey) {
         if (encryptionKey == null || encryptionKey.isBlank()) {
-            throw new IllegalStateException("A chave de criptografia do cofre não foi configurada.");
+            throw new IllegalStateException("Vault encryption key is not configured.");
         }
 
         try {
             return MessageDigest.getInstance("SHA-256")
                     .digest(encryptionKey.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("Falha ao derivar a chave de criptografia do cofre.", ex);
+            throw new IllegalStateException("Failed to derive vault encryption key.", ex);
         }
     }
 }

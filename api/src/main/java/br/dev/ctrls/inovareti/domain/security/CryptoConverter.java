@@ -56,7 +56,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             cipher.init(Cipher.ENCRYPT_MODE, key);
             byte[] encryptedBytes = cipher.doFinal(attribute.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encryptedBytes);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | 
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
                  IllegalBlockSizeException | BadPaddingException e) {
             log.error("Error encrypting attribute", e);
             throw new RuntimeException("Failed to encrypt attribute", e);
@@ -80,7 +80,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             byte[] decodedBytes = Base64.getDecoder().decode(dbData);
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | 
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
                  IllegalBlockSizeException | BadPaddingException | IllegalArgumentException e) {
             log.error("Error decrypting attribute", e);
             throw new RuntimeException("Failed to decrypt attribute", e);

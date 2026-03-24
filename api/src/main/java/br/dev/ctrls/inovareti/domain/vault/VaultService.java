@@ -29,6 +29,16 @@ import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 @Service
 public class VaultService {
 
+    /**
+     * Serviço que gerencia itens sensíveis no cofre do sistema (Vault).
+     *
+     * Responsabilidades principais:
+     * - Criar/editar/excluir itens do tipo secreto (credenciais, documentos);
+     * - Armazenar anexos usando o provedor de armazenamento local;
+     * - Controlar acesso e compartilhamento entre usuários;
+     * - Registrar eventos relevantes na trilha de auditoria.
+     */
+
     private static final Set<String> ALLOWED_FILE_CONTENT_TYPES = Set.of(
             "application/pdf",
             "text/plain",
@@ -72,8 +82,19 @@ public class VaultService {
 
     @Transactional
     public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file, String ipAddress) {
+        /**
+         * Cria um novo item no cofre para o usuário autenticado.
+         * Se for do tipo CREDENTIAL, o conteúdo secreto é criptografado antes
+         * de ser persistido.
+         *
+         * @param authenticatedUserId id do usuário autenticado
+         * @param request payload de criação
+         * @param file anexo opcional
+         * @param ipAddress IP do requisitante para auditoria
+         * @return dados do item criado
+         */
         User owner = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found."));
 
         validateCreateRequest(request);
 
@@ -115,7 +136,7 @@ public class VaultService {
     @Transactional(readOnly = true)
     public List<VaultItemResponseDTO> listVisibleItems(UUID authenticatedUserId) {
         User user = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Authenticated user not found."));
 
         boolean isTechAdmin = user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.TECHNICIAN;
         return vaultItemRepository.findVisibleItems(authenticatedUserId, isTechAdmin)
@@ -160,10 +181,10 @@ public class VaultService {
                 .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Vault item not found."));
 
         if (!canUserManageItem(authenticatedUser, item)) {
-            throw new AccessDeniedException("Apenas o proprietário do item ou ADMIN podem editar este registro.");
+            throw new AccessDeniedException("Only the item owner or ADMIN can edit this record.");
         }
 
         validateUpdateRequest(request, item);
@@ -184,7 +205,7 @@ public class VaultService {
                 try {
                     fileStorageService.delete(item.getFilePath());
                 } catch (IOException ex) {
-                    throw new IllegalStateException("Falha ao remover o anexo anterior do cofre.", ex);
+                    throw new IllegalStateException("Failed to remove previous vault attachment.", ex);
                 }
             }
             item.setFilePath(storeVaultFileIfPresent(file));
@@ -213,17 +234,17 @@ public class VaultService {
                 .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Vault item not found."));
 
         if (!canUserManageItem(authenticatedUser, item)) {
-            throw new AccessDeniedException("Apenas o proprietário do item ou ADMIN podem excluir este registro.");
+            throw new AccessDeniedException("Only the item owner or ADMIN can delete this record.");
         }
 
         if (item.getFilePath() != null && !item.getFilePath().isBlank()) {
             try {
                 fileStorageService.delete(item.getFilePath());
             } catch (IOException ex) {
-                throw new IllegalStateException("Falha ao remover o anexo do cofre.", ex);
+                throw new IllegalStateException("Failed to remove vault attachment.", ex);
             }
         }
 
@@ -245,7 +266,7 @@ public class VaultService {
                 .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Item do cofre não encontrado."));
+                .orElseThrow(() -> new NotFoundException("Vault item not found."));
 
         if (!canUserAccessItem(user, item)) {
             throw new AccessDeniedException("Você não possui permissão para acessar este item do cofre.");
@@ -294,7 +315,7 @@ public class VaultService {
         try {
             return fileStorageService.store(file);
         } catch (IOException ex) {
-            throw new IllegalStateException("Falha ao armazenar o anexo do cofre.", ex);
+            throw new IllegalStateException("Failed to store vault attachment.", ex);
         }
     }
 

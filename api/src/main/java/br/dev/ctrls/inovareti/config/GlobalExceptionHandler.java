@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
                 ));
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
-        problem.setTitle("Erro de validação");
+        problem.setTitle("Validation Error");
         problem.setProperty("errors", fieldErrors);
         return problem;
     }
@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-        problem.setTitle("Conflito de dados");
+        problem.setTitle("Data conflict");
         problem.setDetail(ex.getMessage());
         return problem;
     }
@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ProblemDetail handleNotFound(NotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
-        problem.setTitle("Recurso não encontrado");
+        problem.setTitle("Resource not found");
         problem.setDetail(ex.getMessage());
         return problem;
     }
@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(422));
-        problem.setTitle("Regra de negócio violada");
+        problem.setTitle("Business rule violated");
         problem.setDetail(ex.getMessage());
         return problem;
     }
@@ -86,7 +86,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileSizeLimitExceededException.class)
     public ProblemDetail handleFileSizeLimitExceeded(FileSizeLimitExceededException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
-        problem.setTitle("Arquivo excede limite de tamanho");
+        problem.setTitle("File exceeds size limit");
         problem.setDetail(ex.getMessage());
         return problem;
     }
@@ -94,18 +94,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
-        problem.setTitle("Arquivo excede limite de tamanho");
-        problem.setDetail("O arquivo excede o limite máximo de 5MB");
+        problem.setTitle("File exceeds size limit");
+        problem.setDetail("The file exceeds the maximum allowed size of 5MB");
         return problem;
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
     public ProblemDetail handleAccessDenied(Exception ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
-        problem.setTitle("Acesso Negado");
+        problem.setTitle("Access Denied");
         problem.setDetail(ex.getMessage() != null && !ex.getMessage().isBlank()
-                ? ex.getMessage()
-                : "Você não possui permissão para acessar este recurso.");
+            ? ex.getMessage()
+            : "You do not have permission to access this resource.");
         return problem;
     }
 
@@ -116,10 +116,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGenericException(Exception ex) {
-        log.error("Unexpected system error: ", ex);
+        log.error("Unexpected system error:", ex);
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-        problem.setTitle("Erro interno do servidor");
-        problem.setDetail("Ocorreu um erro inesperado. Por favor, contate o suporte.");
+        problem.setTitle("Internal Server Error");
+        problem.setDetail("An unexpected error occurred. Please contact support.");
         return problem;
     }
 }

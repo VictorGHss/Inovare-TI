@@ -33,7 +33,7 @@ public class DiscordUserLinkingService {
 
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            log.warn("⚠️ User with email {} not found. Discord linking failed.", email);
+            log.warn("⚠️ Usuário com e-mail {} não encontrado. Falha ao vincular Discord.", email);
             return USER_NOT_FOUND_MESSAGE;
         }
 
@@ -48,7 +48,7 @@ public class DiscordUserLinkingService {
                 + sectorName
                 + ").";
 
-        log.info("✅ Discord user {} successfully linked to user {}", discordUserId, user.getId());
+        log.info("✅ Discord user {} vinculado com sucesso ao usuário {}", discordUserId, user.getId());
         return successMessage;
     }
 }

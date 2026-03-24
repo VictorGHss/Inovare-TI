@@ -24,7 +24,7 @@ public class GetTicketCommentsUseCase {
     @Transactional(readOnly = true)
     public List<TicketCommentResponseDTO> execute(UUID ticketId) {
         if (!ticketRepository.existsById(ticketId)) {
-            throw new NotFoundException("Ticket not found with id: " + ticketId);
+            throw new NotFoundException("Chamado não encontrado com id: " + ticketId);
         }
 
         var comments = commentRepository.findByTicketIdWithAuthor(ticketId)

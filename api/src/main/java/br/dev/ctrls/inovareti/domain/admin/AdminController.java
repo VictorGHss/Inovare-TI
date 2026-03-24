@@ -36,17 +36,17 @@ public class AdminController {
     public ResponseEntity<ImportResultDTO> importCsv(
             @RequestParam("file") MultipartFile file) {
         
-        log.info("Received CSV import request. File: {}, Size: {} bytes", 
-                file.getOriginalFilename(), file.getSize());
+        log.info("CSV import request received. File: {}, Size: {} bytes", 
+            file.getOriginalFilename(), file.getSize());
         
         if (file.isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(createErrorResult("Arquivo CSV está vazio"));
+                .body(createErrorResult("CSV file is empty"));
         }
         
         if (!file.getOriginalFilename().toLowerCase().endsWith(".csv")) {
             return ResponseEntity.badRequest()
-                    .body(createErrorResult("Apenas arquivos CSV são aceitos"));
+                .body(createErrorResult("Only CSV files are accepted"));
         }
         
         try {
@@ -61,7 +61,7 @@ public class AdminController {
         } catch (Exception e) {
             log.error("Error processing CSV import", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorResult("Erro ao processar arquivo: " + e.getMessage()));
+                .body(createErrorResult("Error processing file: " + e.getMessage()));
         }
     }
     

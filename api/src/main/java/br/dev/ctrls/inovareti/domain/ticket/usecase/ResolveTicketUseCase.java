@@ -70,11 +70,11 @@ public class ResolveTicketUseCase {
     public TicketResponseDTO execute(UUID ticketId, ResolveTicketDTO request, UUID authenticatedUserId) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Ticket not found with id: " + ticketId));
+                        "Chamado não encontrado com id: " + ticketId));
 
         User authenticatedUser = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Authenticated user not found with id: " + authenticatedUserId));
+                        "Usuário autenticado não encontrado com id: " + authenticatedUserId));
 
         boolean isAdminOrTechnician = authenticatedUser.getRole() == UserRole.ADMIN
                 || authenticatedUser.getRole() == UserRole.TECHNICIAN;
@@ -104,13 +104,13 @@ public class ResolveTicketUseCase {
         if (request.assetIdToDeliver() != null) {
             Asset asset = assetRepository.findById(request.assetIdToDeliver())
                     .orElseThrow(() -> new NotFoundException(
-                            "Asset not found with id: " + request.assetIdToDeliver()));
+                            "Ativo não encontrado com id: " + request.assetIdToDeliver()));
 
-            if (asset.getUserId() != null && !asset.getUserId().equals(ticket.getRequester().getId())) {
-                throw new IllegalStateException(
-                        "Asset '" + asset.getName() + "' is already assigned to another user. "
-                        + "Cannot deliver asset that is already in use.");
-            }
+                        if (asset.getUserId() != null && !asset.getUserId().equals(ticket.getRequester().getId())) {
+                                throw new IllegalStateException(
+                                                "Ativo '" + asset.getName() + "' já está atribuído a outro usuário. "
+                                                + "Não é possível entregar um ativo que já está em uso.");
+                        }
 
             // Transfere a propriedade do equipamento para o solicitante
             asset.setUserId(ticket.getRequester().getId());

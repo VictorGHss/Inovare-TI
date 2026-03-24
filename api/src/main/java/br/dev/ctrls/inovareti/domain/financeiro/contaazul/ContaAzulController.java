@@ -1,9 +1,10 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +20,15 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/financeiro/contaazul")
 @RequiredArgsConstructor
 public class ContaAzulController {
+    /**
+     * Controller administrativo para integração com Conta Azul.
+     * Expõe endpoints para iniciar autorização OAuth, verificar status,
+     * realizar callback, consultar clientes por e-mail, obter e-mails de cliente,
+     * disparar testes de envio real e forçar refresh de token.
+     *
+     * Observação: endpoints anotados com `@PreAuthorize("hasRole('ADMIN')")`
+     * devem ser acessados apenas por usuários administrativos.
+     */
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulClient contaAzulClient;
@@ -79,14 +89,14 @@ public class ContaAzulController {
         try {
             var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             return ResponseEntity.ok(Map.of(
-                    "authorized", true,
-                    "expiresAt", reloaded.getExpiresAt(),
-                    "refreshedAt", reloaded.getRefreshedAt()
+                    "autorizado", true,
+                    "expiraEm", reloaded.getExpiresAt(),
+                    "atualizadoEm", reloaded.getRefreshedAt()
             ));
         } catch (IllegalStateException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("erro", ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("erro", ex.getMessage()));
         }
     }
 
@@ -98,20 +108,26 @@ public class ContaAzulController {
         return base + "/financeiro?success=true";
     }
 
-    public record ContaAzulCustomerCheckResponseDTO(
+        public record ContaAzulCustomerCheckResponseDTO(
             String email,
-            String customerId) {
+            String clienteId) {
     }
-
+        /**
+         * Resposta simples para verificação de existência de cliente por e-mail.
+         */
         public record ContaAzulCustomerEmailResponseDTO(
-            String customerId,
+            String clienteId,
             String email) {
         }
 
+        /**
+         * DTO de resposta do endpoint de teste real contendo identificadores
+         * básicos e tamanho do PDF enviado.
+         */
         public record TesteEnvioRealResponseDTO(
-            String saleId,
-            String doctorName,
-            String recipientEmail,
-            int pdfBytes) {
+            String vendaId,
+            String nomeMedico,
+            String emailDestinatario,
+            int tamanhoPdf) {
         }
 }

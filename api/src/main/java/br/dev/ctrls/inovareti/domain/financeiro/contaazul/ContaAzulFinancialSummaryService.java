@@ -7,8 +7,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import jakarta.annotation.PostConstruct;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,9 +22,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Serviço que recupera um resumo financeiro mensal a partir da API da Conta Azul.
+ *
+ * O resumo agrega valores pagos e em aberto no mês atual, converte para centavos
+ * e fornece um contador de recibos já sincronizados localmente. O serviço trata
+ * automaticamente refresh de token quando necessário e normaliza formatos numéricos
+ * retornados pela API.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,6 +57,14 @@ public class ContaAzulFinancialSummaryService {
         log.info("ContaAzulFinancialSummaryService configurado com base URL v2: {}", contaAzulApiV2BaseUrl);
     }
 
+    /**
+     * Recupera o resumo financeiro do mês atual.
+     *
+     * - `balanceCents`: saldo (representado aqui como total pago em centavos);
+     * - `totalPendingCents`: total em aberto em centavos;
+     * - `totalPaidCents`: total pago em centavos;
+     * - `syncedReceiptsCount`: quantidade de recibos já registrados localmente.
+     */
     public FinancialSummary fetchSummary() {
         String accessToken = contaAzulTokenService.getValidAccessToken();
 
@@ -61,6 +76,8 @@ public class ContaAzulFinancialSummaryService {
         return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount);
     }
 
+    // Recupera o total agregado (em centavos) para o `status` informado usando o accessToken.
+    // Trata 401 autorizando refresh automático do token quando aplicável.
     private long fetchTotalByStatus(String accessToken, String status) {
         try {
             ResponseEntity<String> response = executePaymentsRequest(status, accessToken);
@@ -105,6 +122,8 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
+    // Executa a requisição para o endpoint de pagamentos da Conta Azul com o status
+    // e o token fornecidos. Retorna o corpo da resposta encapsulado em `ResponseEntity<String>`.
     private ResponseEntity<String> executePaymentsRequest(String status, String accessToken) {
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
@@ -140,6 +159,7 @@ public class ContaAzulFinancialSummaryService {
         return responseEntity;
     }
 
+    // Extrai do JSON retornado o total (campo em path configurado) e converte para centavos.
     private long extractTotalCents(String jsonPayload, String status) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return 0L;
@@ -164,6 +184,8 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
+    // Lê um valor decimal a partir do `JsonNode` navegando pelo `path` (pontos como separador).
+    // Suporta números e strings com formatação localizada (R$ 1.234,56).
     private BigDecimal readDecimal(JsonNode node, String path) {
         JsonNode current = node;
         for (String segment : path.split("\\.")) {
@@ -204,6 +226,7 @@ public class ContaAzulFinancialSummaryService {
         return null;
     }
 
+    // Converte `BigDecimal` em centavos (long) arredondando HALF_UP.
     private long toCents(BigDecimal value) {
         return value
                 .movePointRight(2)
@@ -211,11 +234,16 @@ public class ContaAzulFinancialSummaryService {
                 .longValue();
     }
 
-    public record FinancialSummary(
+        /**
+         * Resumo financeiro retornado pela API.
+         *
+         * Campos em centavos para evitar problemas de ponto flutuante em somas e comparações.
+         */
+        public record FinancialSummary(
             long balanceCents,
             long totalPendingCents,
             long totalPaidCents,
             String currency,
             long syncedReceiptsCount) {
-    }
+        }
 }

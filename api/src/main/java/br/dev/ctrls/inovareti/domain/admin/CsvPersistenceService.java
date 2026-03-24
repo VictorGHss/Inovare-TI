@@ -104,7 +104,7 @@ public class CsvPersistenceService {
     private void processAsset(String assetName, String assetCategoryName, String patrimonyCode,
                                String assetSpecs, User user, ImportResultDTO result) {
         if (assetRepository.existsByPatrimonyCode(patrimonyCode)) {
-            log.debug("Asset with patrimony code {} already exists, skipping", patrimonyCode);
+            log.debug("Ativo com código de patrimônio {} já existe — ignorando", patrimonyCode);
             return;
         }
 
@@ -132,7 +132,7 @@ public class CsvPersistenceService {
         try {
             savedAsset = assetRepository.save(asset);
         } catch (DataIntegrityViolationException ex) {
-            log.warn("Asset with patrimony code {} was created concurrently. Skipping.", patrimonyCode);
+            log.warn("Ativo com código de patrimônio {} criado concorrentemente. Ignorando.", patrimonyCode);
             return;
         }
         result.incrementAssetsCreated();

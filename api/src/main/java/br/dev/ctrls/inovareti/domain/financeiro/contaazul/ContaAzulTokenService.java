@@ -23,6 +23,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Serviço de gerenciamento do token OAuth2 da integração com Conta Azul.
+ *
+ * Fornece helpers para construir a URL de autorização, trocar o código de
+ * autorização por token, recuperar token válido do banco, forçar refresh
+ * manual e expor status de autorização. Possui um agendador que tenta
+ * renovar o token proativamente.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -46,6 +54,14 @@ public class ContaAzulTokenService {
     @Value("${contaazul.redirect-uri}")
     private String contaAzulRedirectUri;
 
+    /**
+     * Constrói a URL de autorização onde o usuário deve ser redirecionado
+     * para conceder permissões ao aplicativo Conta Azul.
+     *
+     * @param redirectUri URL de redirecionamento opcional; se vazia, usa a
+     *                    configuração padrão {@code contaAzulRedirectUri}
+     * @return URL completa de autorização
+     */
     public String buildAuthorizationUrl(String redirectUri) {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
         String state = UUID.randomUUID().toString();
@@ -62,24 +78,44 @@ public class ContaAzulTokenService {
                 .encode()
                 .toUriString();
         
-        log.debug("Authorization URL constructed: {}", authorizationUrl);
+        log.debug("URL de autorização construída: {}", authorizationUrl);
         return authorizationUrl;
     }
 
+    /**
+     * Troca o authorization code recebido no callback OAuth por tokens e
+     * persiste o resultado no repositório.
+     *
+     * @param code código de autorização recebido do provedor
+     * @param redirectUri redirect URI utilizado na autorização
+     */
     public void exchangeAuthorizationCode(String code, String redirectUri) {
         ContaAzulTokenResponse response = requestTokenByAuthorizationCode(code, redirectUri);
         persistToken(response);
-        log.info("ContaAzul OAuth callback processed successfully. Token type: {}", response.tokenType());
+        log.info("Callback OAuth da ContaAzul processado com sucesso. Tipo de token: {}", response.tokenType());
     }
 
+    /**
+     * Recupera um access token válido do banco (faz refresh se necessário).
+     *
+     * @return access token pronto para uso em chamadas à API externa
+     */
     public String getValidAccessToken() {
         ContaAzulOAuthToken token = getValidTokenFromDatabase();
         return token.getAccessToken();
     }
 
+    /**
+     * Obtém do repositório o registro de token mais recente e garante que
+     * seu valor esteja válido para uso. Se o token estiver expirando em breve
+     * será executado um refresh e o token recarregado do banco.
+     *
+     * @return entidade {@link ContaAzulOAuthToken} atualizada e válida
+     * @throws IllegalStateException quando nenhum token estiver persistido
+     */
     public ContaAzulOAuthToken getValidTokenFromDatabase() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
 
         if (isExpiringSoon(token)) {
             token = refreshAndPersist(token);
@@ -91,10 +127,15 @@ public class ContaAzulTokenService {
 
         return token;
     }
-
+    /**
+     * Força a renovação do token armazenado e retorna o novo access token.
+     * Utilizado por endpoints administrativos para refresh manual.
+     *
+     * @return novo access token
+     */
     public String forceRefresh() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
 
         ContaAzulOAuthToken refreshed = refreshAndPersist(token);
         long minutesLeft = Duration.between(LocalDateTime.now(), refreshed.getExpiresAt()).toMinutes();
@@ -102,10 +143,16 @@ public class ContaAzulTokenService {
 
         return refreshed.getAccessToken();
     }
-
+    /**
+     * Força renovação do token e recarrega a entidade atualizada do banco.
+     * Útil quando o chamador precisa do objeto persistido atualizado (com
+     * campos calculados) em vez de apenas do valor do token.
+     *
+     * @return token reloaded do banco após operação de refresh
+     */
     public ContaAzulOAuthToken forceRefreshAndReloadFromDatabase() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-                .orElseThrow(() -> new IllegalStateException("ContaAzul token not initialized. Complete OAuth2 authorization first."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
 
         ContaAzulOAuthToken refreshed = refreshAndPersist(token);
         ContaAzulOAuthToken reloaded = reloadTokenFromDatabase(refreshed.getId());
@@ -114,13 +161,23 @@ public class ContaAzulTokenService {
 
         return reloaded;
     }
-
+    /**
+     * Verifica se já existe um token autorizado persistido e com access token
+     * não vazio.
+     *
+     * @return {@code true} se existir token autorizado armazenado, {@code false} caso contrário
+     */
     public boolean hasAuthorizedToken() {
         return tokenRepository.findTopByOrderByUpdatedAtDesc()
                 .map(token -> StringUtils.hasText(token.getAccessToken()))
                 .orElse(false);
     }
-
+    /**
+     * Retorna o status de autorização atual contendo indicador se existe um
+     * access token, data de expiração e data do último refresh.
+     *
+     * @return {@link AuthorizationStatus} descrevendo o estado atual da autorização
+     */
     public AuthorizationStatus getAuthorizationStatus() {
         return tokenRepository.findTopByOrderByUpdatedAtDesc()
                 .map(token -> new AuthorizationStatus(
@@ -129,28 +186,42 @@ public class ContaAzulTokenService {
                         token.getRefreshedAt()))
                 .orElseGet(() -> new AuthorizationStatus(false, null, null));
     }
-
+    /**
+     * Agendador que executa periodicamente uma verificação para renovar o
+     * token caso necessário. Executado em intervalo configurado para evitar
+     * expiração inesperada.
+     */
     @Scheduled(fixedDelay = 3_000_000L, initialDelay = 300_000L)
     public void refreshTokenProactively() {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresentOrElse(
                 this::refreshExistingToken,
-                () -> log.debug("ContaAzul token refresh skipped: no token available yet."));
+                () -> log.debug("Refresh de token ContaAzul ignorado: nenhum token disponível ainda."));
     }
-
+    /**
+     * Tenta renovar o token fornecido e registra logs em caso de falha.
+     *
+     * @param token token atual a ser renovado
+     */
     private void refreshExistingToken(ContaAzulOAuthToken token) {
         try {
             refreshAndPersist(token);
-            log.info("ContaAzul token refreshed successfully.");
+            log.info("Token da ContaAzul renovado com sucesso.");
         } catch (RestClientException | IllegalStateException ex) {
-            log.error("ContaAzul proactive token refresh failed.", ex);
+            log.error("Falha ao renovar proativamente token da ContaAzul.", ex);
         }
     }
-
+    /**
+     * Executa o fluxo de refresh usando o refresh_token atual, atualiza os
+     * campos da entidade e persiste no repositório.
+     *
+     * @param token entidade contendo o refresh token atual
+     * @return entidade salva atualizada
+     */
     private ContaAzulOAuthToken refreshAndPersist(ContaAzulOAuthToken token) {
         ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
 
         if (!StringUtils.hasText(response.refreshToken())) {
-            throw new IllegalStateException("ContaAzul refresh response did not provide a new refresh_token.");
+            throw new IllegalStateException("Resposta de refresh da ContaAzul não forneceu um novo refresh_token.");
         }
 
         token.setAccessToken(response.accessToken());
@@ -204,7 +275,7 @@ public class ContaAzulTokenService {
                 ContaAzulTokenResponse.class);
 
         if (response == null || !StringUtils.hasText(response.accessToken()) || !StringUtils.hasText(response.refreshToken())) {
-            throw new IllegalStateException("Invalid ContaAzul token response.");
+            throw new IllegalStateException("Resposta de token da ContaAzul inválida.");
         }
 
         return response;
@@ -260,7 +331,7 @@ public class ContaAzulTokenService {
     private ContaAzulOAuthToken reloadTokenFromDatabase(UUID tokenId) {
         return tokenRepository.findById(tokenId)
                 .or(() -> tokenRepository.findTopByOrderByUpdatedAtDesc())
-                .orElseThrow(() -> new IllegalStateException("ContaAzul token not found after refresh operation."));
+                .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não encontrado após operação de refresh."));
     }
 
     private record ContaAzulTokenResponse(

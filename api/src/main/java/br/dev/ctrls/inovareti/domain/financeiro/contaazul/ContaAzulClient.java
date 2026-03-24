@@ -26,6 +26,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Cliente leve para consumir a API pública da Conta Azul.
+ *
+ * Contém utilitários de consulta para eventos financeiros, vendas e pessoas
+ * e implementa lógica de tolerância a variações no formato do payload
+ * retornado pela Conta Azul (chaves em inglês/português, arrays/objetos, etc.).
+ *
+ * Os métodos deste cliente fazem refresh automático de token quando necessário
+ * e convertem os responses em DTOs simples usados pela aplicação.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -61,6 +71,12 @@ public class ContaAzulClient {
     @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
     private String customerByIdV1UrlTemplate;
 
+    /**
+     * Indica se existe configuração de template/endpoint para obter PDFs de venda.
+     *
+     * Útil para alternar comportamento quando a integração de vendas não estiver
+     * configurada no ambiente.
+     */
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(salePdfV1UrlTemplate);
     }
@@ -275,6 +291,10 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Retorna a lista completa de pessoas (clientes/médicos) consultando a API de clientes
+     * e aplicando paginação até que não haja mais itens.
+     */
     public List<PessoaItem> fetchAllPessoas() {
         List<PessoaItem> pessoas = new ArrayList<>();
         Long totalExpected = null;
@@ -311,6 +331,11 @@ public class ContaAzulClient {
         return pessoas;
     }
 
+    /**
+     * Recupera vendas do endpoint "committed" aplicando fallback para identificar
+     * parcelas já liquidadas (útil quando o endpoint principal de parcelas não
+     * fornece todas as informações necessárias).
+     */
     public List<SaleItem> fetchCommittedSalesWithAcquittedParcels() {
         List<SaleItem> sales = new ArrayList<>();
 
@@ -333,6 +358,11 @@ public class ContaAzulClient {
         return sales;
     }
 
+    /**
+     * Recupera detalhes da parcela identificado por `uuidParcela`, buscando campos
+     * que possam conter referência à venda e à baixa associada.
+     * Retorna `ParcelaDetailDTO` com `vendaId` e `baixaId` quando disponíveis.
+     */
     public Optional<ParcelaDetailDTO> fetchParcelaDetail(String uuidParcela) {
         if (!StringUtils.hasText(uuidParcela)) {
             return Optional.empty();
@@ -352,7 +382,10 @@ public class ContaAzulClient {
             log.info("!!! [PARCELA DEBUG] JSON recebido: {}", payload);
 
             JsonNode root = objectMapper.readTree(payload.getBytes(StandardCharsets.UTF_8));
-            String origem = readText(
+                // Heurística: o campo de origem pode estar em caminhos diferentes
+                // dependendo da versão do payload; tentamos os caminhos mais
+                // comuns primeiro para identificar se a parcela pertence a uma VENDA.
+                String origem = readText(
                     root,
                     "evento.referencia.origem",
                     "evento_financeiro.referencia.origem",
@@ -367,6 +400,9 @@ public class ContaAzulClient {
                         "referencia.id");
             }
 
+            // Caso a origem indique uma venda, tentamos extrair o id da venda
+            // a partir de vários caminhos possíveis, priorizando campos
+            // explicitamente vinculados à referência do evento.
             if (!StringUtils.hasText(saleId)) {
                 saleId = readText(
                         root,
@@ -393,6 +429,7 @@ public class ContaAzulClient {
                     "itens.0.baixa.id",
                     "itens.0.baixado_em");
 
+                // Normaliza IDs retornando null quando vazios
                 String normalizedSaleId = Optional.ofNullable(saleId)
                     .map(String::trim)
                     .filter(StringUtils::hasText)
@@ -419,6 +456,17 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Recupera o detalhe de uma "baixa" (evento financeiro) no Conta Azul.
+     *
+     * <p>O método faz chamada HTTP ao endpoint de baixa, parseia o payload JSON
+     * e extrai anexos e identificador de recibo digital quando disponíveis.</p>
+     *
+     * @param baixaId Identificador da baixa no Conta Azul. Se nulo ou vazio, retorna {@link Optional#empty()}.
+     * @return {@link Optional} contendo {@link BaixaDetailDTO} quando encontrado, caso contrário vazio.
+     * @throws IllegalStateException em caso de falha ao parsear o payload retornado.
+     * @throws ContaAzulHttpException em caso de erro HTTP diferente de 404.
+     */
     public Optional<BaixaDetailDTO> fetchBaixaDetail(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
             return Optional.empty();
@@ -463,6 +511,17 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Baixa o conteúdo binário disponível em uma URL externa via HTTP GET.
+     *
+     * <p>Usado para obter anexos/recibos que estão acessíveis por URL retornada
+     * pela API do Conta Azul. Retorna um array vazio quando a URL é nula ou vazia.</p>
+     *
+     * @param url URL absoluta para download do arquivo.
+     * @return conteúdo do arquivo como array de bytes; array vazio quando a URL não for informada.
+     * @throws IllegalStateException em caso de falha de IO ou interrupção durante o download.
+     * @throws ContaAzulHttpException quando o servidor retornar código de status não-2xx.
+     */
     public byte[] downloadFile(String url) {
         if (!StringUtils.hasText(url)) {
             return new byte[0];
@@ -492,6 +551,18 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Baixa o conteúdo binário de uma URL protegida, fornecendo um token Bearer.
+     *
+     * <p>Semelhante a {@link #downloadFile(String)}, porém adiciona o cabeçalho
+     * Authorization quando {@code bearerToken} for informado.</p>
+     *
+     * @param url URL absoluta para download do arquivo.
+     * @param bearerToken token Bearer a ser usado no cabeçalho Authorization; pode ser nulo.
+     * @return conteúdo do arquivo como array de bytes; array vazio quando a URL não for informada.
+     * @throws IllegalStateException em caso de falha de IO ou interrupção durante o download.
+     * @throws ContaAzulHttpException quando o servidor retornar código de status não-2xx.
+     */
     public byte[] downloadFile(String url, String bearerToken) {
         if (!StringUtils.hasText(url)) {
             return new byte[0];
@@ -526,6 +597,17 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Baixa um arquivo público disponível em uma URL sem autenticação.
+     *
+     * <p>Comportamento idêntico a {@link #downloadFile(String)}, mas sem adicionar
+     * logs ou cabeçalhos de autenticação específicos — adequado para recursos públicos.</p>
+     *
+     * @param url URL absoluta do arquivo público.
+     * @return conteúdo do arquivo como array de bytes; array vazio quando a URL não for informada.
+     * @throws IllegalStateException em caso de falha de IO ou interrupção durante o download.
+     * @throws ContaAzulHttpException quando o servidor retornar código de status não-2xx.
+     */
     public byte[] downloadPublicFile(String url) {
         if (!StringUtils.hasText(url)) {
             return new byte[0];
@@ -557,6 +639,15 @@ public class ContaAzulClient {
 
     // Lógica Sniper removida: busca por número de venda não é mais utilizada para recibo
 
+    /**
+     * Busca a página de vendas comprometidas (vendas alteradas) no período de
+     * ontem até hoje e retorna o payload JSON bruto.
+     *
+     * <p>Usado internamente para paginação ao sincronizar vendas modificadas.</p>
+     *
+     * @param page número da página a ser recuperada (base 1).
+     * @return payload JSON bruto retornado pelo endpoint de busca de vendas.
+     */
     private String fetchCommittedSalesPagePayload(int page) {
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
@@ -592,10 +683,24 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Executa uma requisição HTTP GET que espera receber JSON e gerencia
+     * automaticamente o refresh de token quando necessário.
+     *
+     * @param uri URL a ser consultada
+     * @return corpo da resposta como {@link String}
+     */
     private String executeJsonGetWithRefresh(String uri) {
         return executeJsonGetResponseWithRefresh(uri).body();
     }
 
+    /**
+     * Variante que retorna o {@link HttpResponse} completo e realiza refresh
+     * do token quando a API remota sinaliza 401 Unauthorized.
+     *
+     * @param uri URL a ser consultada
+     * @return {@link HttpResponse} contendo o corpo da resposta
+     */
     private HttpResponse<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
 
@@ -611,6 +716,14 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Executa o HTTP GET assinando a requisição com o access token fornecido e
+     * valida o status da resposta convertendo erros em {@link ContaAzulHttpException}.
+     *
+     * @param uri URL a ser consultada
+     * @param token token que será usado no cabeçalho Authorization
+     * @return {@link HttpResponse} contendo o corpo da resposta
+     */
     private HttpResponse<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
         String url = sanitizeContaAzulUri(uri);
         String authorizationHeader = "Bearer " + token.getAccessToken();
@@ -655,6 +768,13 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Converte um array de bytes para {@link String} usando UTF-8.
+     * Retorna string vazia quando o corpo for nulo ou vazio.
+     *
+     * @param body array de bytes a ser convertido
+     * @return string UTF-8 correspondente ou string vazia
+     */
     private String toUtf8String(byte[] body) {
         if (body == null || body.length == 0) {
             return "";
@@ -662,6 +782,14 @@ public class ContaAzulClient {
         return new String(body, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Faz o parse do payload JSON retornado pelo endpoint de contas a receber
+     * e retorna apenas as parcelas que estejam com status de pagamento
+     * (liquidadas/recebidas).
+     *
+     * @param jsonPayload payload JSON bruto
+     * @return lista de {@link SaleItem} representando vendas/parcelas liquidadas
+     */
     private List<SaleItem> parseAcquittedSales(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
             return List.of();
@@ -690,6 +818,9 @@ public class ContaAzulClient {
                     "origem",
                     "source");
 
+                // A venda pode aparecer aninhada sob diferentes chaves;
+                // primeiro tentamos extrair um objeto `venda` com id, depois
+                // procuramos referências diretas em campos comuns.
                 String vendaNestedId = readText(
                     node,
                     "venda.id",
@@ -700,7 +831,7 @@ public class ContaAzulClient {
                     : null;
 
                 String origemSaleId = readText(
-                        node,
+                    node,
                     "evento_financeiro.referencia.id",
                     "referencia.id",
                         "origem.venda_id",
@@ -709,7 +840,7 @@ public class ContaAzulClient {
                         "origem.id");
 
                 String vendaId = readText(
-                        node,
+                    node,
                     "evento_financeiro.referencia.id",
                     "referencia.id",
                         "venda_id",
@@ -780,6 +911,14 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Tenta localizar um nó de array dentro do JSON retornado pela Conta Azul.
+     * Procura por chaves comuns utilizadas pela API (`data`, `items`, `itens`, `content`) e
+     * também aceita o nó raiz quando já for um array.
+     *
+     * @param root nó JSON raiz retornado pelo serviço remoto
+     * @return {@link JsonNode} representando o array de itens ou um array vazio quando nenhum for encontrado
+     */
     private JsonNode resolveArrayNode(JsonNode root) {
         if (root == null || root.isNull()) {
             return objectMapper.createArrayNode();
@@ -826,6 +965,14 @@ public class ContaAzulClient {
         return objectMapper.createArrayNode();
     }
 
+    /**
+     * Tenta identificar o array de itens a partir do mapeamento para o DTO
+     * cognitivo (`ReceivablesSearchResponseDTO`) e, caso o mapeamento falhe,
+     * aplica um fallback genérico que procura por chaves conhecidas no JSON.
+     *
+     * @param root nó JSON raiz recebido da API
+     * @return {@link JsonNode} contendo o array de itens encontrado
+     */
     private JsonNode resolveArrayNodeFromDtoOrFallback(JsonNode root) {
         try {
             ReceivablesSearchResponseDTO dto = objectMapper.treeToValue(root, ReceivablesSearchResponseDTO.class);
@@ -845,6 +992,14 @@ public class ContaAzulClient {
         return resolveArrayNode(root);
     }
 
+    /**
+     * Verifica se o status informado indica que o item foi pago/liquidado.
+     * Suporta variações em inglês e português e considera nulo/vazio como pago
+     * por compatibilidade com payloads legados que podem omitir o campo.
+     *
+     * @param status texto de status retornado pela API
+     * @return {@code true} quando o status indica pagamento, {@code false} caso contrário
+     */
     private boolean isReceivableItemPaid(String status) {
         if (!StringUtils.hasText(status)) {
             return true;
@@ -858,6 +1013,13 @@ public class ContaAzulClient {
                 || "LIQUIDADO".equalsIgnoreCase(normalizedStatus);
     }
 
+    /**
+     * Constói a URI de busca de contas a receber com paginação e filtros de data.
+     * @param page página (base 1)
+     * @param dataVencimentoDe data inicial no formato ISO (yyyy-MM-dd)
+     * @param dataVencimentoAte data final no formato ISO (yyyy-MM-dd)
+     * @return URI completa como {@link String}
+     */
     private String buildReceivableSearchUri(int page, String dataVencimentoDe, String dataVencimentoAte) {
         return UriComponentsBuilder.fromUriString(normalizeReceivablesBaseUrl())
                 .queryParam("pagina", page)
@@ -869,6 +1031,11 @@ public class ContaAzulClient {
                 .toUriString();
     }
 
+    /**
+     * Retorna a URL base para a busca de contas a receber; usa valor
+     * configurado em propriedades ou um fallback padrão.
+     * @return URL base como {@link String}
+     */
     private String normalizeReceivablesBaseUrl() {
         if (!StringUtils.hasText(receivableEventsSearchUrl)) {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
@@ -877,6 +1044,11 @@ public class ContaAzulClient {
         return receivableEventsSearchUrl.trim();
     }
 
+    /**
+     * Retorna a URL base para detalhes de baixa, usando valor configurado ou
+     * fallback padrão quando ausente.
+     * @return URL base de detalhe de baixa
+     */
     private String normalizeBaixaBaseUrl() {
         if (!StringUtils.hasText(baixaDetailsUrl)) {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
@@ -885,6 +1057,12 @@ public class ContaAzulClient {
         return baixaDetailsUrl.trim();
     }
 
+    /**
+     * Normaliza a URL de busca de vendas aplicando correções conhecidas entre
+     * endpoints v1/v2 da Conta Azul.
+     * @param rawUrl URL configurada
+     * @return URL normalizada para uso nas consultas de venda
+     */
     private String normalizeSaleSearchBaseUrl(String rawUrl) {
         if (!StringUtils.hasText(rawUrl)) {
             return "https://api-v2.contaazul.com/v1/venda/busca";
@@ -897,9 +1075,12 @@ public class ContaAzulClient {
 
         return normalized;
     }
-
     // normalizeSalePrintTemplate removido — impressão via endpoint de venda não é mais utilizada
 
+    /**
+     * Retorna um prefixo curto do token para exibição em logs, evitando
+     * exposição do token completo em mensagens de debug.
+     */
     private String sanitizeTokenPrefix(String accessToken) {
         if (!StringUtils.hasText(accessToken)) {
             return "n/a";
@@ -909,6 +1090,12 @@ public class ContaAzulClient {
         return normalized.length() <= 4 ? normalized : normalized.substring(0, 4);
     }
 
+    /**
+     * Sanitiza o header Authorization para logs, preservando apenas prefixos
+     * e suprimindo o conteúdo sensível do token quando necessário.
+     * @param authorizationHeader header completo
+     * @return representação segura para uso em logs
+     */
     private String sanitizeAuthorizationHeader(String authorizationHeader) {
         if (!StringUtils.hasText(authorizationHeader)) {
             return "Authorization: n/a";
@@ -934,6 +1121,11 @@ public class ContaAzulClient {
         return "Authorization: Bearer " + start + "..." + end;
     }
 
+    /**
+     * Normaliza URIs que possam apontar para hosts/paths legados da Conta Azul
+     * convertendo-os para o host `api-v2.contaazul.com` e removendo prefixos
+     * redundantes como `/api/v1/`.
+     */
     private String sanitizeContaAzulUri(String uri) {
         if (!StringUtils.hasText(uri)) {
             return uri;
@@ -993,6 +1185,14 @@ public class ContaAzulClient {
         return Optional.empty();
     }
 
+    /**
+     * Extrai e retorna o e-mail do cliente a partir do payload JSON retornado
+     * pelo endpoint de pessoa/cliente. Retorna {@link Optional#empty()} quando
+     * não for possível recuperar o e-mail.
+     *
+     * @param jsonPayload payload JSON bruto
+     * @return {@link Optional} contendo e-mail quando presente
+     */
     private Optional<String> parseCustomerEmailById(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
             return Optional.empty();
@@ -1017,6 +1217,13 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Converte o payload de listagem de pessoas em uma página de resultados
+     * contendo itens e o total estimado quando presente.
+     *
+     * @param jsonPayload payload JSON bruto
+     * @return {@link PessoasPage} com itens e total
+     */
     private PessoasPage parsePessoasPage(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
             return new PessoasPage(List.of(), null);
@@ -1050,6 +1257,13 @@ public class ContaAzulClient {
         }
     }
 
+    /**
+     * Faz o parse do payload retornado pelo endpoint "committed" e tenta
+     * identificar, por heurística, se a venda possui parcelas liquidadas.
+     *
+     * @param jsonPayload payload JSON bruto do endpoint committed
+     * @return lista de {@link SaleItem} extraídos do payload
+     */
     private List<SaleItem> parseCommittedSalesWithAcquittedParcels(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
             return List.of();
@@ -1144,6 +1358,15 @@ public class ContaAzulClient {
         return false;
     }
 
+    /**
+     * Lê um valor textual navegando por diferentes caminhos possíveis dentro do
+     * nó JSON. Cada caminho suportado pode conter segmentos separados por '.' e
+     * índices numéricos para acessar arrays.
+     *
+     * @param node nó JSON de base
+     * @param paths caminhos alternativos a serem consultados
+     * @return texto encontrado ou {@code null} quando não houver valor
+     */
     private String readText(JsonNode node, String... paths) {
         for (String path : paths) {
             JsonNode current = node;
@@ -1179,6 +1402,15 @@ public class ContaAzulClient {
         return null;
     }
 
+    /**
+     * Lê um valor numérico (Long) a partir dos caminhos fornecidos usando
+     * a mesma lógica de navegação de {@link #readText(JsonNode, String...)}.
+     * Retorna {@code null} quando o valor não existir ou não puder ser convertido.
+     *
+     * @param node nó JSON de base
+     * @param paths caminhos alternativos a serem consultados
+     * @return {@link Long} encontrado ou {@code null}
+     */
     private Long readLong(JsonNode node, String... paths) {
         String value = readText(node, paths);
         if (!StringUtils.hasText(value)) {
@@ -1234,9 +1466,27 @@ public class ContaAzulClient {
             @JsonProperty("id_recibo_digital") String idReciboDigital) {
         }
 
+        /** Referência simplificada a uma venda (ID). */
         public record VendaRef(String id) {
         }
 
+        /**
+         * DTO leve representando uma parcela/venda relevante para processamento.
+         *
+         * Campos principais:
+         * - `saleId`: identificador da venda (pode vir de vários campos do payload)
+         * - `customerUuid`/`customerName`: identificação e nome do cliente associado
+         * - `parcelaId`: identificador da parcela/conta a receber
+         * - `origem`/`venda`/`origemSaleId`/`vendaId`: diferentes formas de referenciar
+         *   a venda dependendo do formato retornado pela Conta Azul
+         * - `descricao`/`saleNumber`: campos auxiliares para auditoria/diagnóstico
+         * - `hasAcquittedInstallment`: flag heurística indicando presença de parcela
+         *   liquidada na estrutura da venda
+         * - `baixaId`/`idReciboDigital`: referências à baixa financeira e recibo
+         *
+         * Este registro é usado internamente pela automação para decidir quais
+         * PDFs baixar e quais vendas processar.
+         */
         public record SaleItem(
             String saleId,
             String customerUuid,
@@ -1255,31 +1505,53 @@ public class ContaAzulClient {
 
             // DTOs SaleByNumber removidos — fluxo Sniper desativado
 
-    private record PessoasPage(List<PessoaItem> itens, Long total) {
-    }
+        private record PessoasPage(List<PessoaItem> itens, Long total) {
+        }
 
-    public record PessoaItem(
+        /**
+         * Registro representando uma pessoa (cliente/médico) retornada pela
+         * Conta Azul. Usado pela sincronização de pessoas/contatos.
+         */
+        public record PessoaItem(
             String id,
             String nome,
             String email) {
-    }
+        }
 
+        /**
+         * DTO contendo identificadores encontrados para uma parcela (vendaId e baixaId).
+         * Retorna `null` nos campos que não puderem ser localizados.
+         */
         public record ParcelaDetailDTO(
             String vendaId,
             String baixaId) {
         }
 
+        /**
+         * DTO com detalhes da baixa, incluindo lista de anexos e id do recibo
+         * digital global quando disponível.
+         */
         public record BaixaDetailDTO(
             List<BaixaAttachmentDTO> anexos,
             String idReciboDigital) {
         }
 
+        /**
+         * Representa um anexo (attachment) retornado na consulta de baixa.
+         * - `tipo` ajuda a identificar recibos (RECIBO_DIGITAL / RECIBO)
+         * - `url` é a localização para download do binário
+         */
         public record BaixaAttachmentDTO(
             String id,
             String tipo,
             String url) {
         }
 
+        /**
+         * Exceção interna representando respostas HTTP não 2xx retornadas
+         * pela API da Conta Azul. Carrega o código de status e o corpo
+         * da resposta para diagnóstico quando necessário.
+         */
         private static final class ContaAzulHttpException extends RuntimeException {
             private final int statusCode;
             private final String responseBody;

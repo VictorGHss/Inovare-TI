@@ -44,7 +44,7 @@ public class NotificationController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -69,7 +69,7 @@ public class NotificationController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -89,7 +89,7 @@ public class NotificationController {
         try {
             authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 

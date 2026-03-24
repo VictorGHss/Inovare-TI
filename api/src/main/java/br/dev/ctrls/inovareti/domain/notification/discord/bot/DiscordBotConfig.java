@@ -41,14 +41,14 @@ public class DiscordBotConfig {
     public JDA jda() {
         // Validação do token
         if (discordBotToken == null || discordBotToken.isBlank()) {
-            log.warn("Discord bot token not configured. Skipping JDA initialization. " +
-                    "Set DISCORD_BOT_TOKEN environment variable to enable the bot.");
+            log.warn("Token do bot Discord não configurado. Pulando inicialização do JDA. " +
+                "Defina a variável de ambiente DISCORD_BOT_TOKEN para ativar o bot.");
             throw new IllegalArgumentException(
-                    "Discord bot token must be configured via DISCORD_BOT_TOKEN environment variable");
+                "O token do bot Discord deve ser configurado via variável de ambiente DISCORD_BOT_TOKEN");
         }
 
         try {
-            log.info("Initializing JDA with Discord bot token...");
+            log.info("Inicializando JDA com token do bot Discord...");
 
             JDA jda = JDABuilder.createDefault(discordBotToken)
                     // Gateway intents necessários para o bot funcionar
@@ -69,8 +69,8 @@ public class DiscordBotConfig {
             log.info("JDA iniciado de forma assíncrona. Bot será marcado como pronto ao receber ReadyEvent.");
             return jda;
         } catch (Exception e) {
-            log.error("❌ Error initializing Discord bot", e);
-            throw new RuntimeException("Failed to initialize Discord bot: " + e.getMessage(), e);
+            log.error("❌ Erro ao inicializar bot Discord", e);
+            throw new RuntimeException("Falha ao inicializar bot Discord: " + e.getMessage(), e);
         }
     }
 }

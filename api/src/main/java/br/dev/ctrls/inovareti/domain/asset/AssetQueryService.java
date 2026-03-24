@@ -40,7 +40,7 @@ public class AssetQueryService {
         try {
             return AssetFilterStatus.valueOf(status.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Invalid status. Allowed values: ALL, IN_USE, IN_STOCK.");
+            throw new BadRequestException("Status inválido. Valores permitidos: ALL, IN_USE, IN_STOCK.");
         }
     }
 
@@ -52,7 +52,7 @@ public class AssetQueryService {
         return switch (sortBy) {
             case "createdAt"        -> AssetSortBy.CREATED_AT;
             case "maintenanceCount" -> AssetSortBy.MAINTENANCE_COUNT;
-            default -> throw new BadRequestException("Invalid sortBy. Allowed values: createdAt, maintenanceCount.");
+            default -> throw new BadRequestException("sortBy inválido. Valores permitidos: createdAt, maintenanceCount.");
         };
     }
 }

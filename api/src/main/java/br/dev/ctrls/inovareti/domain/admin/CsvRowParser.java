@@ -57,7 +57,7 @@ public class CsvRowParser {
         try {
             return UserRole.valueOf(roleStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid role '{}', defaulting to USER", roleStr);
+            log.warn("Role inválido '{}' — usando USER por padrão", roleStr);
             return UserRole.USER;
         }
     }

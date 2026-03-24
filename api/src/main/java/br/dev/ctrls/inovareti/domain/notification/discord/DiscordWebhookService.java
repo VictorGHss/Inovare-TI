@@ -37,7 +37,7 @@ public class DiscordWebhookService {
             validateTicket(ticket);
             List<User> recipients = resolveRecipients(ticket);
             if (recipients.isEmpty()) {
-                log.info("Discord notification skipped for ticket {}: no eligible recipients", ticket.getId());
+                log.info("Notificação Discord ignorada para o chamado {}: nenhum destinatário elegível", ticket.getId());
                 return;
             }
 
@@ -58,10 +58,10 @@ public class DiscordWebhookService {
                         description);
             }
 
-            log.info("Discord notifications queued for ticket {} to {} recipient(s)", ticket.getId(), recipients.size());
+            log.info("Notificações Discord enfileiradas para o chamado {} para {} destinatário(s)", ticket.getId(), recipients.size());
         } catch (IllegalArgumentException e) {
             UUID ticketId = ticket != null ? ticket.getId() : null;
-            log.error("Validation error on Discord notification routing for ticket {}", ticketId, e);
+            log.error("Erro de validação no roteamento de notificação Discord para o chamado {}", ticketId, e);
         }
     }
 
@@ -91,16 +91,16 @@ public class DiscordWebhookService {
      */
     private void validateTicket(Ticket ticket) {
         if (ticket == null) {
-            throw new IllegalArgumentException("Ticket cannot be null");
+            throw new IllegalArgumentException("Chamado não pode ser nulo");
         }
         if (ticket.getRequester() == null) {
-            throw new IllegalArgumentException("Ticket requester cannot be null");
+            throw new IllegalArgumentException("Solicitante do chamado não pode ser nulo");
         }
         if (ticket.getPriority() == null) {
-            throw new IllegalArgumentException("Ticket priority cannot be null");
+            throw new IllegalArgumentException("Prioridade do chamado não pode ser nula");
         }
         if (ticket.getCategory() == null) {
-            throw new IllegalArgumentException("Ticket category cannot be null");
+            throw new IllegalArgumentException("Categoria do chamado não pode ser nula");
         }
     }
 }

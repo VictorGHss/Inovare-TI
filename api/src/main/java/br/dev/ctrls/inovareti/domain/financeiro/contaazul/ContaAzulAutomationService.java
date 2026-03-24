@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 
-import jakarta.annotation.PostConstruct;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,6 +22,7 @@ import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttemptRepository;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,8 +30,21 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class ContaAzulAutomationService {
+    /**
+     * Serviço responsável por orquestrar automações relacionadas à integração com a
+     * Conta Azul. Contém rotinas para:
+     * - sincronizar cadastro de médicos/clientes (pessoas) da Conta Azul para o banco local;
+     * - executar testes de envio real de recibos (baixar PDF da baixa e enviar por e-mail);
+     * - processar vendas liquidadas (pooling/agendamento), baixar recibos e enviar por e-mail,
+     *   além de registrar idempotência e tentativas de processamento.
+     *
+     * Observações:
+     * - A automação respeita a flag `app.contaazul.automation.enabled` e checa se a
+     *   configuração de vendas e o token estão disponíveis antes de executar.
+     */
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    /** Formato ISO para datas usadas nas consultas de período (YYYY-MM-DD). */
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -43,6 +55,17 @@ public class ContaAzulAutomationService {
     private final UserRepository userRepository;
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
+            /**
+             * Sincroniza todos os registros de pessoas (clientes/médicos) provenientes da Conta Azul
+             * com o repositório local de mapeamentos. Para cada pessoa retornada pelo cliente ContaAzul:
+             * - ignora itens sem id ou e-mail;
+             * - tenta encontrar um usuário local pelo e-mail;
+             * - cria ou atualiza o mapeamento `DoctorEmailMapping` associando o customer UUID ao e-mail/usuário.
+             *
+             * Retorna um resumo com a quantidade de mapeamentos criados e atualizados.
+             */
+        // Recupera todas as pessoas do ContaAzul e itera para criar/atualizar
+        // os mapeamentos locais entre customer UUID e usuário/e-mail.
         List<ContaAzulClient.PessoaItem> pessoas = contaAzulClient.fetchAllPessoas();
 
         int created = 0;
@@ -91,6 +114,18 @@ public class ContaAzulAutomationService {
     }
 
     public TesteEnvioRealResult processRealSaleTest(String saleId) {
+            /**
+             * Executa um envio de teste real para uma venda específica identificada por `saleId`.
+             * Fluxo:
+             * 1. valida se há configuração de vendas e token autorizado;
+             * 2. recupera a venda com status ACQUITTED;
+             * 3. verifica mapeamento do customer UUID para localizar e-mail do destinatário;
+             * 4. baixa o PDF do recibo da baixa e envia por e-mail ao destinatário.
+             *
+             * Lança `IllegalStateException` ou `IllegalArgumentException` quando pré-condições
+             * não são atendidas (configuração ausente, token não autorizado, mapeamento ausente, etc.).
+             */
+        // Fluxo de teste real: valida pré-condições, localiza mapeamento e envia o recibo.
         log.info("Iniciando teste real para venda {}...", saleId);
 
         if (!contaAzulClient.hasSalesConfiguration()) {
@@ -177,6 +212,21 @@ public class ContaAzulAutomationService {
             fixedDelayString = "${app.contaazul.automation.fixed-delay-ms:30000}",
             initialDelayString = "${app.contaazul.automation.initial-delay-ms:180000}")
     public void processAcquittedSales() {
+            /**
+             * Processa vendas liquidadas (acquitted) no período informado. Para cada parcela encontrada:
+             * - aplica throttling para evitar 429 do ERP;
+             * - tenta localizar a baixa financeira associada à parcela;
+             * - verifica se já foi processada (idempotência);
+             * - tenta baixar o recibo PDF; em caso de indisponibilidade do recibo, registra tentativas
+             *   e, após N tentativas, marca como processado para evitar loops infinitos;
+             * - envia e-mail com o recibo ao destinatário resolvido via mapeamento ou usuário associado.
+             *
+             * Este método é seguro para ser chamado tanto pela rotina agendada quanto manualmente
+             * (útil para testes e execuções ad-hoc) e é resiliente a falhas por parcela — falhas são
+             * contabilizadas e não interrompem a execução completa.
+             */
+        // Método agendado que processa vendas quitadas: baixa recibos, envia e-mails
+        // e registra idempotência. Projetado para ser resiliente a falhas por item.
         log.info("Iniciando pooling de vendas liquidadas na Conta Azul.");
 
         if (!automationEnabled) {
@@ -413,6 +463,8 @@ public class ContaAzulAutomationService {
     }
 
     private String resolveRecipientEmail(DoctorEmailMapping mapping) {
+            // Resolve o e-mail de destinatário preferindo o e-mail do usuário associado,
+            // caindo para o e-mail cadastrado no mapeamento quando necessário.
         if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getEmail())) {
             return mapping.getUser().getEmail();
         }
@@ -421,6 +473,8 @@ public class ContaAzulAutomationService {
     }
 
     private String resolveDoctorName(DoctorEmailMapping mapping, String customerName) {
+            // Resolve o nome do profissional: primeiro do usuário associado, depois do mapeamento,
+            // finalmente usa o nome vindo do payload (customerName) ou um valor padrão.
         if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getName())) {
             return mapping.getUser().getName();
         }
@@ -433,6 +487,8 @@ public class ContaAzulAutomationService {
     }
 
     private Optional<DoctorEmailMapping> findDoctorMappingByCustomerUuid(String customerUuidFromParcel) {
+            // Tenta localizar mapeamento do médico a partir do UUID do cliente/parcela.
+            // Faz normalização e várias tentativas de correspondência (normalizada, direta e por busca completa).
         if (!StringUtils.hasText(customerUuidFromParcel)) {
             return Optional.empty();
         }
@@ -458,10 +514,12 @@ public class ContaAzulAutomationService {
     }
 
     private String normalizeUuid(String value) {
+            // Normaliza UUIDs/textos para comparação: trim + lower-case.
         return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
     }
 
     private boolean applyThrottle() {
+            // Aplica um pequeno delay entre chamadas externas para reduzir risco de 429.
         LockSupport.parkNanos(350_000_000L);
 
         if (Thread.currentThread().isInterrupted()) {
@@ -474,6 +532,7 @@ public class ContaAzulAutomationService {
 
 
     private String buildEmailBody(String doctorName, String receiptNumber) {
+            // Constrói o corpo do e-mail enviado ao profissional com o recibo em anexo.
         return "Olá " + doctorName
                 + ",\n\nSegue em anexo o seu recibo de quitação (baixa) número: " + receiptNumber + ".\n\n"
                 + "Este é um envio automático do sistema Inovare TI.\n\n"
@@ -482,6 +541,8 @@ public class ContaAzulAutomationService {
 
 
     private String buildSalesConfigurationErrorMessage() {
+            // Monta uma mensagem explicativa quando as propriedades necessárias para integração
+            // de vendas com a Conta Azul estão incompletas.
         List<String> missingProperties = new ArrayList<>();
 
         if (!StringUtils.hasText(salesV2Url)) {

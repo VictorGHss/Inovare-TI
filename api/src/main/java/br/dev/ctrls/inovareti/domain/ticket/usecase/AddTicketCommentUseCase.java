@@ -35,10 +35,10 @@ public class AddTicketCommentUseCase {
         String userIdStr = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         UUID userId = UUID.fromString(userIdStr);
         User author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
+            .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado com id: " + userId));
 
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));
+            .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + ticketId));
 
         TicketComment comment = TicketComment.builder()
                 .content(request.content())
@@ -70,8 +70,8 @@ public class AddTicketCommentUseCase {
         }
 
         
-        log.info("Comment added to ticket {} by user {} ({})",
-                ticketId, author.getName(), author.getEmail());
+        log.info("Comentário adicionado ao chamado {} pelo usuário {} ({})",
+            ticketId, author.getName(), author.getEmail());
 
         return TicketCommentResponseDTO.from(savedComment);
     }

@@ -48,7 +48,7 @@ public class TwoFactorAuthService {
 
     public TwoFactorGenerateResponseDTO generateForUser(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Usuário não encontrado para geração de 2FA."));
+            .orElseThrow(() -> new NotFoundException("User not found for 2FA generation."));
 
         String secret = googleAuthenticator.createCredentials().getKey();
         user.setTotpSecret(secret);
@@ -61,17 +61,17 @@ public class TwoFactorAuthService {
 
     public AuthResponseDTO verifyCode(UUID userId, String code, String ipAddress) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Usuário não encontrado para validação de 2FA."));
+            .orElseThrow(() -> new NotFoundException("User not found for 2FA validation."));
 
         if (user.getTotpSecret() == null || user.getTotpSecret().isBlank()) {
-            throw new BadRequestException("O 2FA ainda não foi configurado para este usuário.");
+            throw new BadRequestException("2FA has not been configured for this user.");
         }
 
         int codeNumber;
         try {
             codeNumber = Integer.parseInt(code);
         } catch (NumberFormatException ex) {
-            throw new BadRequestException("O código 2FA informado é inválido.");
+            throw new BadRequestException("Provided 2FA code is invalid.");
         }
 
         boolean isValid = googleAuthenticator.authorize(user.getTotpSecret(), codeNumber);
@@ -82,7 +82,7 @@ public class TwoFactorAuthService {
                     .details("{\"reason\": \"INVALID_2FA_CODE\"}")
                     .ipAddress(ipAddress)
                     .build());
-            throw new BadRequestException("Código 2FA inválido.");
+            throw new BadRequestException("Invalid 2FA code.");
         }
 
         auditLogService.publish(AuditEvent.of(AuditAction.VAULT_AUTH_SUCCESS)
@@ -113,7 +113,7 @@ public class TwoFactorAuthService {
                 return Base64.getEncoder().encodeToString(outputStream.toByteArray());
             }
         } catch (WriterException | IOException ex) {
-            throw new IllegalStateException("Falha ao gerar o QR Code do 2FA.", ex);
+            throw new IllegalStateException("Failed to generate 2FA QR Code.", ex);
         }
     }
 }

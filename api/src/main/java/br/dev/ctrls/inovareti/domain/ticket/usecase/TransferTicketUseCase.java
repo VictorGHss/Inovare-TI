@@ -32,10 +32,10 @@ public class TransferTicketUseCase {
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UUID newUserId) {
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));
+            .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + ticketId));
 
         User newAssignee = userRepository.findById(newUserId)
-                .orElseThrow(() -> new NotFoundException("User not found with id: " + newUserId));
+            .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + newUserId));
 
         ticket.setAssignedTo(newAssignee);
 

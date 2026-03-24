@@ -29,7 +29,7 @@ public class FindTicketByIdUseCase {
     @Transactional(readOnly = true)
     public TicketResponseDTO execute(UUID id) {
         Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + id));
+                .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + id));
 
         // Busca os anexos do chamado
         List<AttachmentResponseDTO> attachments = attachmentRepository.findByTicketId(id)

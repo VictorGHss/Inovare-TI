@@ -1,7 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -26,6 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Serviço cliente para operações específicas de pagamentos/parcelas na Conta Azul.
+ *
+ * Fornece funções para buscar parcelas pagas, obter detalhes de parcela
+ * por ID e baixar PDFs de recibo. Implementa paginação e fallback de URLs
+ * quando necessário.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -49,6 +56,15 @@ public class ContaAzulPaymentsClient {
     @Value("${app.contaazul.parcela-by-id-url-template:}")
     private String parcelaByIdUrlTemplate;
 
+    /**
+     * Busca parcelas marcadas como pagas entre os instantes informados.
+     * Utilizado pelo processo de polling para identificar novas baixas.
+     *
+     * @param from início da janela de alteração
+     * @param to fim da janela de alteração
+     * @param pageSize tamanho da página de consulta
+     * @param page número da página
+     */
     public List<ContaAzulPaymentParcel> fetchPaidParcelsSinceLastRun(
             LocalDateTime from,
             LocalDateTime to,
@@ -91,6 +107,9 @@ public class ContaAzulPaymentsClient {
         return parseParcels(response.getBody());
     }
 
+    /**
+     * Versão compatível com `OffsetDateTime` para busca de parcelas pagas em uma janela.
+     */
     public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
             OffsetDateTime from,
             OffsetDateTime to,
@@ -109,6 +128,12 @@ public class ContaAzulPaymentsClient {
         return fetchPaidParcelsSinceLastRun(dataAlteracaoDe, dataAlteracaoAte, pageSize, page);
     }
 
+    /**
+     * Faz o download do PDF de recibo para a parcela informada. Tenta URL primária
+     * e fallback quando aplicável. Retorna o conteúdo em bytes ou lança `NotFound`.
+     *
+     * @param parcelaId identificador da parcela na Conta Azul
+     */
     public byte[] downloadReceiptPdf(String parcelaId) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
         String primaryPdfUrl = receiptPdfUrlTemplate.replace("{parcelaId}", parcelaId);
@@ -143,6 +168,12 @@ public class ContaAzulPaymentsClient {
         return new byte[0];
     }
 
+    /**
+     * Busca os dados da parcela por ID usando o endpoint adequado.
+     * Retorna um objeto `ContaAzulPaymentParcel` se encontrado e estiver quitado.
+     *
+     * @param parcelaId identificador da parcela
+     */
     public ContaAzulPaymentParcel fetchParcelById(String parcelaId) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
         String uri = resolveParcelByIdUrl(parcelaId);
@@ -176,6 +207,12 @@ public class ContaAzulPaymentsClient {
         return resolvedParcel;
     }
 
+    /**
+     * Converte o payload JSON de listagem de parcelas em uma lista de
+     * {@link ContaAzulPaymentParcel}. Aplica heurísticas para campos
+     * ambíguos e normaliza valores ausentes.
+     */
+    
     private List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return List.of();
@@ -209,6 +246,12 @@ public class ContaAzulPaymentsClient {
         }
     }
 
+    /**
+     * Parsers para o payload de detalhe de parcela retornado por consulta por ID.
+     * Retorna {@link ParcelLookup} contendo o objeto de parcela, id do evento
+     * e status quando possível; {@code null} caso o payload seja inválido.
+     */
+    
     private ParcelLookup parseSingleParcel(String jsonPayload) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return null;
@@ -274,6 +317,11 @@ public class ContaAzulPaymentsClient {
         }
     }
 
+    /**
+     * Resolve um nó de objeto relevante a partir de vários formatos possíveis de
+     * resposta (ex.: envelope com `data`, `item` ou objeto raiz).
+     */
+    
     private JsonNode resolveObjectNode(JsonNode root) {
         if (root == null || root.isNull()) {
             return null;
@@ -292,6 +340,12 @@ public class ContaAzulPaymentsClient {
         return null;
     }
 
+    /**
+     * Resolve a URL para consulta de parcela por ID. Tenta usar o template
+     * configurado (`app.contaazul.parcela-by-id-url-template`) ou inferir a partir
+     * do `paymentsUrl` configurado.
+     */
+    
     private String resolveParcelByIdUrl(String parcelaId) {
         if (StringUtils.hasText(parcelaByIdUrlTemplate)) {
             return parcelaByIdUrlTemplate.replace("{parcelaId}", parcelaId);
@@ -308,6 +362,11 @@ public class ContaAzulPaymentsClient {
                 "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
     }
 
+    /**
+     * Pesquisa identidade da parcela (cliente/medico) no endpoint de contas a
+     * receber quando os dados retornados pela consulta por ID estiverem incompletos.
+     */
+    
     private ContaAzulPaymentParcel searchParcelIdentityInReceivables(String parcelaId, String accessToken) {
         LocalDate today = LocalDate.now();
         LocalDate fromDueDate = today.minusMonths(12);
@@ -356,6 +415,11 @@ public class ContaAzulPaymentsClient {
         return null;
     }
 
+    /**
+     * Lê os entries do payload atendendo múltiplas formas de envelope e garante
+     * retorno de um array (vazio quando não houver entradas válidas).
+     */
+    
     private JsonNode readEntries(String jsonPayload) {
         if (jsonPayload == null || jsonPayload.isBlank()) {
             return objectMapper.createArrayNode();
@@ -437,9 +501,13 @@ public class ContaAzulPaymentsClient {
         return missingCustomerId && missingDoctorName;
     }
 
-    private record ParcelLookup(
+        /**
+         * Estrutura auxiliar retornada ao parsear o detalhe de parcela contendo o
+         * objeto de parcela, o id do evento associado e o status atual.
+         */
+        private record ParcelLookup(
             ContaAzulPaymentParcel parcel,
             String eventId,
             String status) {
-    }
+        }
 }

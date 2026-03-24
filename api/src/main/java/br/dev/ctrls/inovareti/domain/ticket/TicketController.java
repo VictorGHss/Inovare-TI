@@ -77,7 +77,7 @@ public class TicketController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.badRequest().build();
         }
         
@@ -123,7 +123,7 @@ public class TicketController {
         try {
             authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -159,7 +159,7 @@ public class TicketController {
             @RequestParam("file") MultipartFile file) {
         
         Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+            .orElseThrow(() -> new RuntimeException("Chamado não encontrado"));
 
         try {
             String storedFilename = fileStorageService.store(file);
@@ -173,7 +173,7 @@ public class TicketController {
             
             attachment = attachmentRepository.save(attachment);
             
-            log.info("File attachment uploaded for ticket {}: {} (stored as: {})",
+                log.info("Anexo enviado para chamado {}: {} (armazenado como: {})",
                     id, file.getOriginalFilename(), storedFilename);
             
             TicketAttachmentResponseDTO response = new TicketAttachmentResponseDTO(
@@ -187,7 +187,7 @@ public class TicketController {
             
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
+            throw new RuntimeException("Falha ao armazenar arquivo", e);
         }
     }
 

@@ -413,7 +413,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         for (Item item : items) {
             int quantity = item.getCurrentStock();
             if (quantity <= 0) {
-                log.debug("Skipping stock batch creation for item {} with zero/negative currentStock", item.getId());
+                log.debug("Ignorando criação de lote de estoque para o item {} pois currentStock é zero/negativo", item.getId());
                 continue;
             }
 
@@ -435,23 +435,23 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         stockBatchRepository.saveAll(batches);
-        log.info("Seeded {} stock batches (one per inventory item)", batches.size());
+        log.info("Criados {} lotes de estoque (um por item de inventário)", batches.size());
     }
 
     private void seedAssets() {
         User requesterJoao = userRepository.findByEmail("joao.silva@inovare.med.br")
-            .orElseThrow(() -> new RuntimeException("Requester João user not found"));
+            .orElseThrow(() -> new RuntimeException("Usuário solicitante João não encontrado"));
         User requesterMaria = userRepository.findByEmail("maria.santos@inovare.med.br")
-            .orElseThrow(() -> new RuntimeException("Requester Maria user not found"));
+            .orElseThrow(() -> new RuntimeException("Usuário solicitante Maria não encontrado"));
         User requesterPedro = userRepository.findByEmail("pedro.costa@inovare.med.br")
-            .orElseThrow(() -> new RuntimeException("Requester Pedro user not found"));
+            .orElseThrow(() -> new RuntimeException("Usuário solicitante Pedro não encontrado"));
 
         AssetCategory laptops = assetCategoryRepository.findByName("Laptops")
-            .orElseThrow(() -> new RuntimeException("Laptops category not found"));
+            .orElseThrow(() -> new RuntimeException("Categoria 'Laptops' não encontrada"));
         AssetCategory desktops = assetCategoryRepository.findByName("Desktops")
-            .orElseThrow(() -> new RuntimeException("Desktops category not found"));
+            .orElseThrow(() -> new RuntimeException("Categoria 'Desktops' não encontrada"));
         AssetCategory accessories = assetCategoryRepository.findByName("Acessórios")
-            .orElseThrow(() -> new RuntimeException("Acessórios category not found"));
+            .orElseThrow(() -> new RuntimeException("Categoria 'Acessórios' não encontrada"));
 
         LocalDateTime now = LocalDateTime.now();
 

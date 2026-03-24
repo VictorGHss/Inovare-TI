@@ -37,7 +37,7 @@ public class AnalyticsController {
      */
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardAnalyticsDTO> getDashboardAnalytics() {
-        log.info("GET /api/analytics/dashboard - Fetching dashboard analytics");
+        log.info("GET /api/analytics/dashboard - Recuperando métricas do dashboard");
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
@@ -45,7 +45,7 @@ public class AnalyticsController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Could not parse user ID from authentication");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.badRequest().build();
         }
 

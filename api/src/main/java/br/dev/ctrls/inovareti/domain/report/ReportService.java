@@ -33,6 +33,14 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ReportService {
 
+    /**
+     * Serviço responsável por gerar relatórios Excel para diferentes
+     * contextos do sistema (chamados, entradas e saídas de inventário).
+     *
+     * Os métodos exportam os dados para um {@link java.io.ByteArrayInputStream}
+     * pronto para ser retornado em uma resposta HTTP com anexo.
+     */
+
     private final StockBatchRepository stockBatchRepository;
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -96,6 +104,13 @@ public class ReportService {
         }
     }
 
+    /**
+     * Exporta uma lista de lotes de estoque para uma planilha Excel (Entradas).
+     *
+     * @param batches lista de {@link StockBatch} a serem exportados
+     * @return stream contendo o arquivo Excel gerado
+     */
+
     public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Entradas");
@@ -147,6 +162,14 @@ public class ReportService {
             throw new RuntimeException("Failed to generate Excel report", e);
         }
     }
+
+    /**
+     * Exporta saídas de inventário (itens entregues) para uma planilha Excel.
+     * Apenas chamados resolvidos com itens solicitados são considerados.
+     *
+     * @param tickets lista de {@link Ticket} representando saídas
+     * @return stream com o arquivo Excel de saídas
+     */
 
     public ByteArrayInputStream exportInventoryExitsToExcel(List<Ticket> tickets) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {

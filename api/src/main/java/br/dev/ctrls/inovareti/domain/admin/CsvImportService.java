@@ -34,7 +34,23 @@ public class CsvImportService {
 
     @Transactional
     public ImportResultDTO importCsv(MultipartFile file) {
-        log.info("Iniciando importação CSV do arquivo: {}", file.getOriginalFilename());
+
+    /**
+     * Importa usuários e ativos a partir de um arquivo CSV.
+     *
+     * O método lê o arquivo linha a linha (pulando o cabeçalho), delega o parsing
+     * para {@link CsvRowParser} e coordena a persistência via
+     * {@link CsvPersistenceService}. Em caso de erros por linha, eles são
+     * acumulados no {@link ImportResultDTO} e a importação continua para as
+     * demais linhas.
+     *
+     * Esta operação é transacional; a persistência parcial é controlada pelo
+     * {@link CsvPersistenceService} e pelo objeto {@code ImportResultDTO}.
+     *
+     * @param file arquivo CSV enviado pelo cliente
+     * @return {@link ImportResultDTO} contendo contadores e lista de erros
+     */
+        log.info("Starting CSV import for file: {}", file.getOriginalFilename());
 
         ImportResultDTO result = new ImportResultDTO();
         List<String> errors = new ArrayList<>();
@@ -52,7 +68,7 @@ public class CsvImportService {
                 try {
                     parsedRows.add(csvRowParser.parseLine(line, lineNumber));
                 } catch (Exception e) {
-                    String errorMsg = String.format("Erro na linha %d: %s", lineNumber, e.getMessage());
+                    String errorMsg = String.format("Error on line %d: %s", lineNumber, e.getMessage());
                     log.error(errorMsg, e);
                     errors.add(errorMsg);
                 }
@@ -64,12 +80,12 @@ public class CsvImportService {
             result.setErrors(errors);
             result.setSuccess(errors.isEmpty());
 
-            log.info("CSV import completed. Users: {}, Assets: {}, Errors: {}",
+                log.info("CSV import completed. Users: {}, Assets: {}, Errors: {}",
                     result.getUsersCreated(), result.getAssetsCreated(), errors.size());
 
         } catch (Exception e) {
             log.error("Fatal error during CSV import", e);
-            throw new RuntimeException("Erro ao processar arquivo CSV: " + e.getMessage(), e);
+            throw new RuntimeException("Error processing CSV file: " + e.getMessage(), e);
         }
 
         return result;
@@ -103,7 +119,7 @@ public class CsvImportService {
                         csvPersistenceService.processAssetRow(row, user, result);
                     } catch (Exception e) {
                         String assetError = String.format(
-                                "Erro na linha %d (ativo do usuário %s): %s",
+                                "Error on line %d (user asset %s): %s",
                                 row.lineNumber(), userEmail, e.getMessage());
                         log.error(assetError, e);
                         errors.add(assetError);
@@ -111,8 +127,8 @@ public class CsvImportService {
                 }
             } catch (Exception e) {
                 String userError = String.format(
-                        "Erro ao processar usuário %s (linha %d): %s",
-                        userEmail, referenceRow.get().lineNumber(), e.getMessage());
+                    "Error processing user %s (line %d): %s",
+                    userEmail, referenceRow.get().lineNumber(), e.getMessage());
                 log.error(userError, e);
                 errors.add(userError);
             }

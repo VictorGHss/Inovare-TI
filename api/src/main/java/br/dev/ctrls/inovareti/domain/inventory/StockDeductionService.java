@@ -24,16 +24,16 @@ public class StockDeductionService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void deductWithFifo(UUID itemId, int quantity, String reference) {
         if (quantity <= 0) {
-            throw new IllegalStateException("Quantity to deduct must be greater than zero.");
+            throw new IllegalStateException("A quantidade a deduzir deve ser maior que zero.");
         }
 
         Item lockedItem = itemRepository.findByIdForUpdate(itemId)
-                .orElseThrow(() -> new NotFoundException("Item not found with id: " + itemId));
+            .orElseThrow(() -> new NotFoundException("Item não encontrado com id: " + itemId));
 
         if (lockedItem.getCurrentStock() < quantity) {
-            throw new IllegalStateException(
-                    "Insufficient stock for item '" + lockedItem.getName() + "'. Current stock: "
-                            + lockedItem.getCurrentStock() + ", requested quantity: " + quantity);
+                throw new IllegalStateException(
+                    "Estoque insuficiente para o item '" + lockedItem.getName() + "'. Estoque atual: "
+                        + lockedItem.getCurrentStock() + ", quantidade solicitada: " + quantity);
         }
 
         List<StockBatch> fifoBatches = stockBatchRepository.findByItemIdOrderByEntryDateAscForUpdate(itemId);
@@ -55,8 +55,8 @@ public class StockDeductionService {
         }
 
         if (remainingToDeduct > 0) {
-            log.warn("FIFO deduction fallback: {} units cannot be satisfied from stock batches. Treating as legacy/phantom stock for itemId={}, reference={}", 
-                    remainingToDeduct, itemId, reference);
+            log.warn("Fallback FIFO: {} unidades não puderam ser atendidas a partir dos lotes. Tratando como estoque legado/fantasma para itemId={}, referência={}", 
+                remainingToDeduct, itemId, reference);
         }
 
         stockBatchRepository.saveAll(fifoBatches);
@@ -73,6 +73,6 @@ public class StockDeductionService {
                 .build();
         stockMovementRepository.save(movement);
 
-        log.info("FIFO stock deduction applied. itemId={}, quantity={}, reference={}", itemId, quantity, reference);
+        log.info("Dedução FIFO aplicada. itemId={}, quantidade={}, referência={}", itemId, quantity, reference);
     }
 }

@@ -54,28 +54,28 @@ public class FileStorageService {
 
         // Validações básicas
         if (file == null || file.isEmpty()) {
-            throw new BadRequestException("Arquivo de nota fiscal não enviado.");
+            throw new BadRequestException("Invoice file not provided.");
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new BadRequestException("Arquivo excede o tamanho máximo de 5MB.");
+            throw new BadRequestException("File exceeds maximum size of 5MB.");
         }
 
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null) {
-            throw new BadRequestException("Nome do arquivo não pode ser vazio.");
+            throw new BadRequestException("File name cannot be empty.");
         }
 
         // Extrai extensão do arquivo
         String fileExtension = getFileExtension(originalFileName).toLowerCase();
         if (!isAllowedExtension(fileExtension)) {
-            throw new BadRequestException(
-                    "Tipo de arquivo não permitido. Arquivos aceitos: PDF, JPG, PNG.");
+                throw new BadRequestException(
+                    "File type not allowed. Accepted: PDF, JPG, PNG.");
         }
 
         String mimeType = file.getContentType();
         if (mimeType == null || !isAllowedMimeType(mimeType)) {
-            throw new BadRequestException("Tipo MIME não permitido: " + mimeType);
+            throw new BadRequestException("MIME type not allowed: " + mimeType);
         }
 
         try {
@@ -94,7 +94,7 @@ public class FileStorageService {
 
             // Salva o arquivo em disco
             Files.write(filePath, file.getBytes());
-            log.info("Arquivo salvo com sucesso: {}", filePath.toString());
+            log.info("File saved successfully: {}", filePath.toString());
 
             // Retorna metadados
             return InvoiceFileMetadata.builder()
@@ -104,8 +104,8 @@ public class FileStorageService {
                     .build();
 
         } catch (IOException e) {
-            log.error("Erro ao salvar arquivo de nota fiscal", e);
-            throw new BadRequestException("Erro ao salvar arquivo: " + e.getMessage());
+            log.error("Error saving invoice file", e);
+            throw new BadRequestException("Error saving file: " + e.getMessage());
         }
     }
 
@@ -123,10 +123,10 @@ public class FileStorageService {
             Path path = Paths.get(filePath);
             if (Files.exists(path)) {
                 Files.delete(path);
-                log.info("Arquivo removido com sucesso: {}", filePath);
+                log.info("File removed successfully: {}", filePath);
             }
         } catch (IOException e) {
-            log.warn("Erro ao remover arquivo de nota fiscal: {}", filePath, e);
+            log.warn("Error removing invoice file: {}", filePath, e);
             // Não lança exceção, apenas registra o aviso
         }
     }
@@ -140,19 +140,19 @@ public class FileStorageService {
      */
     public byte[] loadInvoiceFile(String filePath) throws NotFoundException {
         if (filePath == null || filePath.isBlank()) {
-            throw new NotFoundException("Caminho do arquivo não fornecido.");
+            throw new NotFoundException("File path not provided.");
         }
 
         try {
             Path path = Paths.get(filePath);
             if (!Files.exists(path)) {
-                throw new NotFoundException("Arquivo de nota fiscal não encontrado: " + filePath);
+                throw new NotFoundException("Invoice file not found: " + filePath);
             }
 
             return Files.readAllBytes(path);
         } catch (IOException e) {
-            log.error("Erro ao carregar arquivo de nota fiscal: {}", filePath, e);
-            throw new NotFoundException("Erro ao carregar arquivo: " + e.getMessage());
+            log.error("Error loading invoice file: {}", filePath, e);
+            throw new NotFoundException("Error loading file: " + e.getMessage());
         }
     }
 

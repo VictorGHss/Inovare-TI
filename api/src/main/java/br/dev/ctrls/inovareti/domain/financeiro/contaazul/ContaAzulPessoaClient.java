@@ -18,6 +18,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Cliente para operações relacionadas a pessoas (médicos/pacientes) na Conta Azul.
+ *
+ * Oferece buscas por UUID ou ID legado e mapeia o payload para `ContaAzulPessoaDTO`.
+ * Utiliza `ContaAzulTokenService` para autenticação nas chamadas REST.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -29,6 +35,12 @@ public class ContaAzulPessoaClient {
     private final ObjectMapper objectMapper;
     private final ContaAzulTokenService tokenService;
 
+    /**
+     * Busca uma pessoa na Conta Azul por UUID.
+     *
+     * @param pessoaUuid UUID da pessoa na Conta Azul
+     * @return DTO com informações da pessoa, se encontrada
+     */
     public Optional<ContaAzulPessoaDTO> findById(String pessoaUuid) {
         try {
             String url = BASE_URL + "/v1/pessoas/" + pessoaUuid;
@@ -40,6 +52,12 @@ public class ContaAzulPessoaClient {
         }
     }
 
+    /**
+     * Busca uma pessoa na Conta Azul por ID legado (rota de compatibilidade).
+     *
+     * @param idLegado identificador legado da pessoa
+     * @return DTO com informações da pessoa, se encontrada
+     */
     public Optional<ContaAzulPessoaDTO> findByLegacyId(String idLegado) {
         try {
             String url = BASE_URL + "/v1/pessoas/legado/" + idLegado;
@@ -51,6 +69,10 @@ public class ContaAzulPessoaClient {
         }
     }
 
+    /**
+     * Constrói `HttpEntity` com cabeçalhos de autorização e `Accept` JSON
+     * a partir do token provido por `ContaAzulTokenService`.
+     */
     private HttpEntity<Void> buildRequest() {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenService.getValidAccessToken());
@@ -58,6 +80,10 @@ public class ContaAzulPessoaClient {
         return new HttpEntity<>(headers);
     }
 
+    /**
+     * Faz o parse do corpo de resposta JSON e converte em `ContaAzulPessoaDTO`.
+     * Retorna `Optional.empty()` quando o corpo é vazio ou o parse falha.
+     */
     private Optional<ContaAzulPessoaDTO> parsePessoa(String responseBody) {
         if (responseBody == null || responseBody.isBlank()) {
             return Optional.empty();
@@ -78,6 +104,11 @@ public class ContaAzulPessoaClient {
         }
     }
 
+    /**
+     * Desembrulha camadas de envelope JSON comuns da Conta Azul (por exemplo
+     * objetos `data` ou `item`) e retorna o `JsonNode` que representa o payload
+     * efetivo usado para mapeamento.
+     */
     private JsonNode unwrapPayload(JsonNode root) {
         if (root == null || root.isNull()) {
             return null;

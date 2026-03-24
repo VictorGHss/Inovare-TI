@@ -35,10 +35,10 @@ public class ClaimTicketUseCase {
         String userIdStr = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         UUID userId = UUID.fromString(userIdStr);
         User currentUser = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Authenticated user not found with id: " + userId));
+            .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado com id: " + userId));
 
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + ticketId));
+            .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + ticketId));
 
         ticket.setAssignedTo(currentUser);
         ticket.setStatus(TicketStatus.IN_PROGRESS);
@@ -57,7 +57,7 @@ public class ClaimTicketUseCase {
             + " foi assumido pelo técnico **" + currentUser.getName() + "**.";
         discordDirectMessageService.sendTicketUpdateDM(savedTicket, dmTitle, dmDescription);
 
-        log.info("Ticket {} claimed by user {} ({})", savedTicket.getId(), currentUser.getName(), currentUser.getEmail());
+        log.info("Chamado {} assumido pelo usuário {} ({})", savedTicket.getId(), currentUser.getName(), currentUser.getEmail());
 
         return TicketResponseDTO.from(savedTicket);
     }

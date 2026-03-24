@@ -1,0 +1,40 @@
+# Exemplo de values para habilitar Redis e variáveis de ambiente da aplicação
+# Use este arquivo como base para os ambientes staging/prod no Helm chart da aplicação
+
+redis:
+  enabled: true
+  architecture: "standalone"
+  auth:
+    enabled: false # ou true e setar senha em production via secret
+  master:
+    persistence:
+      enabled: false # em prod, habilitar persistence se necessário
+
+app:
+  env:
+    - name: SPRING_REDIS_HOST
+      value: "{{ include \"redis.fullname\" . }}-master"
+    - name: SPRING_REDIS_PORT
+      value: "6379"
+    - name: SPRING_REDIS_TIMEOUT
+      value: "60000"
+    - name: CONTAAZUL_REDIRECT_URI
+      value: "https://meu-domino/financeiro/contaazul/callback"
+    - name: APP_FRONTEND_URL
+      value: "https://meu-frontend"
+
+# Exemplo de application-prod.yml (alternativa para envs baseadas em ConfigMap/Secret)
+# spring:
+#   redis:
+#     host: redis-master
+#     port: 6379
+#     timeout: 60000ms
+# contaazul:
+#   redirect-uri: https://meu-domino/financeiro/contaazul/callback
+# app:
+#   frontend:
+#     url: https://meu-frontend
+
+# Observações:
+# - Em produção, use Redis gerenciado (Azure/Elasticache) e habilite auth.
+# - Ajuste persistence e recursos de acordo com requisitos de HA.

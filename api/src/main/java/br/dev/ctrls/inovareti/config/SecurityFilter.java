@@ -24,8 +24,9 @@ import jakarta.servlet.http.HttpServletResponse;
 // REMOVIDO: @RequiredArgsConstructor
 public class SecurityFilter extends OncePerRequestFilter {
 
-    private static final String CONTA_AZUL_AUTHORIZE_PATH = "/api/financeiro/contaazul/authorize";
-    private static final String CONTA_AZUL_CALLBACK_PATH = "/api/financeiro/contaazul/callback";
+    // Usar os mesmos caminhos expostos pelos controllers (sem prefixo "/api").
+    private static final String CONTA_AZUL_AUTHORIZE_PATH = "/financeiro/contaazul/authorize";
+    private static final String CONTA_AZUL_CALLBACK_PATH = "/financeiro/contaazul/callback";
 
     private final TokenService tokenService;
     private final UserRepository userRepository;

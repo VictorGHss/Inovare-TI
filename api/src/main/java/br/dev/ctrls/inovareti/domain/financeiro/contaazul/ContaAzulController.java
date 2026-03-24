@@ -1,8 +1,13 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,6 +38,8 @@ public class ContaAzulController {
     private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulAutomationService contaAzulAutomationService;
+
+    private static final Logger logger = LoggerFactory.getLogger(ContaAzulController.class);
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -85,7 +92,12 @@ public class ContaAzulController {
 
     @PostMapping("/force-refresh")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> forceRefresh() {
+    public ResponseEntity<Map<String, Object>> forceRefresh(HttpServletRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String who = (auth != null) ? auth.getName() : "anonymous";
+        String ip = request.getRemoteAddr();
+        logger.info("ContaAzul force-refresh requested by {} from {}", who, ip);
+
         try {
             var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             return ResponseEntity.ok(Map.of(
@@ -94,8 +106,10 @@ public class ContaAzulController {
                     "atualizadoEm", reloaded.getRefreshedAt()
             ));
         } catch (IllegalStateException ex) {
+            logger.warn("ContaAzul force-refresh bad request by {}: {}", who, ex.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("erro", ex.getMessage()));
         } catch (Exception ex) {
+            logger.error("ContaAzul force-refresh failed for {}: {}", who, ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("erro", ex.getMessage()));
         }
     }

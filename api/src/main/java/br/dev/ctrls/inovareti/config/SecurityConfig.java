@@ -55,7 +55,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/auth/reset-initial-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/attachments/**").permitAll()
-                .requestMatchers("/financeiro/contaazul/**").permitAll()
+                // Permitir apenas endpoints públicos da integração ContaAzul (OAuth flow).
+                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize").permitAll()
+                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(HttpMethod.GET, "/financeiro/trigger-test-receipt").permitAll()
                 .anyRequest().authenticated()
             )

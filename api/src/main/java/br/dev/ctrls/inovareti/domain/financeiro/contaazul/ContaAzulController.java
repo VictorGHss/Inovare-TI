@@ -74,9 +74,9 @@ public class ContaAzulController {
     }
 
     @GetMapping("/callback")
-    public void callback(@RequestParam("code") String code, HttpServletResponse response) throws java.io.IOException {
+    public String callback(@RequestParam("code") String code) {
         contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
-        response.sendRedirect(buildFinanceiroSuccessRedirect());
+        return buildFinanceiroSuccessRedirect();
     }
 
     @GetMapping("/check-customer/{email}")
@@ -165,33 +165,15 @@ public class ContaAzulController {
     }
 
     private String buildFinanceiroSuccessRedirect() {
-        String base = frontendUrl.endsWith("/")
-                ? frontendUrl.substring(0, frontendUrl.length() - 1)
-                : frontendUrl;
-
-        return base + "/financeiro?success=true";
+        String base = (frontendUrl != null) ? frontendUrl : "";
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return "redirect:" + base + "/financeiro?success=true";
     }
 
-        public record ContaAzulCustomerCheckResponseDTO(
-            String email,
-            String clienteId) {
-    }
-        /**
-         * Resposta simples para verificação de existência de cliente por e-mail.
-         */
-        public record ContaAzulCustomerEmailResponseDTO(
-            String clienteId,
-            String email) {
-        }
-
-        /**
-         * DTO de resposta do endpoint de teste real contendo identificadores
-         * básicos e tamanho do PDF enviado.
-         */
-        public record TesteEnvioRealResponseDTO(
-            String vendaId,
-            String nomeMedico,
-            String emailDestinatario,
-            int tamanhoPdf) {
-        }
 }
+// DTOs públicos declarados fora da classe principal
+public record ContaAzulCustomerCheckResponseDTO(String name, String email, boolean linked) {}
+public record ContaAzulCustomerEmailResponseDTO(String email) {}
+public record TesteEnvioRealResponseDTO(String status, String message) {}

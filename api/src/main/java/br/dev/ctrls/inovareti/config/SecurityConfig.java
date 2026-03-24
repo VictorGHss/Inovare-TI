@@ -4,13 +4,11 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,19 +46,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                .requestMatchers(HttpMethod.POST, "/auth/reset-initial-password").permitAll()
-                .requestMatchers(HttpMethod.GET, "/attachments/**").permitAll()
-                // Permitir apenas endpoints públicos da integração ContaAzul (OAuth flow).
-                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize").permitAll()
-                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/callback").permitAll()
-                .requestMatchers(HttpMethod.GET, "/financeiro/trigger-test-receipt").permitAll()
-                // Todas rotas sob /financeiro/** exigem role ADMIN (exceto os endpoints permitidos acima)
-                .requestMatchers("/financeiro/**").hasRole("ADMIN")
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

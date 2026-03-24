@@ -34,11 +34,18 @@ class ContaAzulControllerTest {
 
         when(tokenService.forceRefreshAndReloadFromDatabase()).thenReturn(token);
 
+        // primeira chamada deve retornar OK com campo em português
         mvc.perform(post("/financeiro/contaazul/force-refresh")
-                .with(user("admin").roles("ADMIN"))
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.authorized").value(true));
+            .with(user("admin").roles("ADMIN"))
+            .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.autorizado").value(true));
+
+        // segunda chamada imediata deve ser throttled (429)
+        mvc.perform(post("/financeiro/contaazul/force-refresh")
+            .with(user("admin").roles("ADMIN"))
+            .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isTooManyRequests());
     }
 
     @BeforeEach

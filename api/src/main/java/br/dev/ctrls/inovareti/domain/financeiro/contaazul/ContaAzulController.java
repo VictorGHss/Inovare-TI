@@ -40,6 +40,10 @@ public class ContaAzulController {
     private final ContaAzulAutomationService contaAzulAutomationService;
 
     private static final Logger logger = LoggerFactory.getLogger(ContaAzulController.class);
+        // Limite simples (por principal+IP) para evitar abuso do endpoint administrativo.
+        private static final java.util.concurrent.ConcurrentMap<String, Long> LAST_FORCE_REFRESH =
+            new java.util.concurrent.ConcurrentHashMap<>();
+        private static final long FORCE_REFRESH_COOLDOWN_MS = 60_000L; // 1 minuto
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -98,8 +102,18 @@ public class ContaAzulController {
         String ip = request.getRemoteAddr();
         logger.info("ContaAzul force-refresh requested by {} from {}", who, ip);
 
+        String key = who + ":" + ip;
+        Long last = LAST_FORCE_REFRESH.get(key);
+        long now = System.currentTimeMillis();
+        if (last != null && (now - last) < FORCE_REFRESH_COOLDOWN_MS) {
+            logger.warn("ContaAzul force-refresh throttled for {} from {}", who, ip);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
+        }
+
         try {
             var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
+            LAST_FORCE_REFRESH.put(key, now);
             return ResponseEntity.ok(Map.of(
                     "autorizado", true,
                     "expiraEm", reloaded.getExpiresAt(),

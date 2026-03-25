@@ -22,6 +22,7 @@ public class ContaAzulPrometheusIntegrationTest {
     @TestConfiguration
     static class TestConfig {
         @Bean
+        @org.springframework.context.annotation.Primary
         public ContaAzulOAuthTokenRepository tokenRepository() {
             ContaAzulOAuthTokenRepository mock = org.mockito.Mockito.mock(ContaAzulOAuthTokenRepository.class);
             java.time.LocalDateTime now = java.time.LocalDateTime.now();

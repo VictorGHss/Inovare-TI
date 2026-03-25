@@ -29,7 +29,6 @@ class ContaAzulMetricsTest {
         when(repo.findTopByOrderByUpdatedAtDesc()).thenReturn(Optional.of(token));
 
         var metrics = new ContaAzulMetrics(repo, registry);
-        metrics.registerGauges();
 
         // invoke update directly (scheduled in production)
         metrics.updateMetrics();

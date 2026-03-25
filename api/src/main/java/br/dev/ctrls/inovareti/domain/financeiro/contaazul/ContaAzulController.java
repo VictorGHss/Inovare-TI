@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -74,34 +75,30 @@ public class ContaAzulController {
     }
 
     @GetMapping("/callback")
-    public String callback(@RequestParam("code") String code) {
+    public RedirectView callback(@RequestParam("code") String code) {
         contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
-        return buildFinanceiroSuccessRedirect();
+        return new RedirectView(buildFinanceiroSuccessRedirectUrl());
     }
 
     @GetMapping("/check-customer/{email}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ContaAzulCustomerCheckResponseDTO> checkCustomerByEmail(@PathVariable String email) {
         String customerId = contaAzulClient.findCustomerIdByEmail(email).orElse(null);
-        return ResponseEntity.ok(new ContaAzulCustomerCheckResponseDTO(email, customerId));
+        return ResponseEntity.ok(new ContaAzulCustomerCheckResponseDTO(email, customerId, customerId != null));
     }
 
     @GetMapping("/customer-email/{customerId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ContaAzulCustomerEmailResponseDTO> getCustomerEmail(@PathVariable String customerId) {
         String email = contaAzulClient.findCustomerEmailById(customerId).orElse(null);
-        return ResponseEntity.ok(new ContaAzulCustomerEmailResponseDTO(customerId, email));
+        return ResponseEntity.ok(new ContaAzulCustomerEmailResponseDTO(email));
     }
 
     @PostMapping("/teste-envio-real/{saleId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TesteEnvioRealResponseDTO> triggerRealSaleTest(@PathVariable String saleId) {
         TesteEnvioRealResult result = contaAzulAutomationService.processRealSaleTest(saleId);
-        return ResponseEntity.ok(new TesteEnvioRealResponseDTO(
-                result.saleId(),
-                result.doctorName(),
-                result.recipientEmail(),
-                result.pdfBytes()));
+        return ResponseEntity.ok(new TesteEnvioRealResponseDTO("Success", "Test triggered for sale " + result.saleId()));
     }
 
     @PostMapping("/force-refresh")
@@ -164,16 +161,12 @@ public class ContaAzulController {
         }
     }
 
-    private String buildFinanceiroSuccessRedirect() {
+    private String buildFinanceiroSuccessRedirectUrl() {
         String base = (frontendUrl != null) ? frontendUrl : "";
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return "redirect:" + base + "/financeiro?success=true";
+        return base + "/financeiro?success=true";
     }
 
 }
-// DTOs públicos declarados fora da classe principal
-public record ContaAzulCustomerCheckResponseDTO(String name, String email, boolean linked) {}
-public record ContaAzulCustomerEmailResponseDTO(String email) {}
-public record TesteEnvioRealResponseDTO(String status, String message) {}

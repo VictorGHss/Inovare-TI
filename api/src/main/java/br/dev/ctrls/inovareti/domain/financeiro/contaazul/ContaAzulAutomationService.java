@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.locks.LockSupport;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import br.dev.ctrls.inovareti.domain.financeiro.AlertService;
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMapping;
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMappingRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
@@ -53,6 +55,7 @@ public class ContaAzulAutomationService {
     private final ProcessingAttemptRepository processingAttemptRepository;
     private final FinanceEmailService financeEmailService;
     private final UserRepository userRepository;
+    private final AlertService alertService;
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
             /**
@@ -374,16 +377,23 @@ public class ContaAzulAutomationService {
                         int attempts = attempt.getAttempts() + 1;
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
-                        if (attempts >= 5) {
+                        if (attempts >= 20) {
                             try {
                                 processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
                                 processingAttemptRepository.deleteBySaleId(baixaId);
-                                log.error("Recibo da baixa {} não gerado após {} tentativas. Marcado como processado.", baixaId, attempts);
+                                // Excedeu o limite de tentativas: registra alerta de alta severidade
+                                String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts + " tentativas. Marcado como processado para evitar loop.";
+                                alertService.registerPermanentFailureWithSeverity(
+                                        baixaId,
+                                        details,
+                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        "HIGH");
+                                log.error("Recibo da baixa {} não gerado após {} tentativas. Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {
                                 log.debug("Recibo {} já registrado por concorrência ao marcar como processado após tentativas.", baixaId);
                             }
                         } else {
-                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/5", baixaId, attempts);
+                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/20", baixaId, attempts);
                         }
                     }
                     continue;
@@ -396,11 +406,17 @@ public class ContaAzulAutomationService {
                         int attempts = attempt.getAttempts() + 1;
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
-                        if (attempts >= 5) {
+                        if (attempts >= 20) {
                             try {
                                 processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
                                 processingAttemptRepository.deleteBySaleId(baixaId);
-                                log.error("Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado.", baixaId, attempts);
+                                String details = "Falha ao baixar recibo da baixa " + baixaId + " após " + attempts + " tentativas. Erro: " + ex.getMessage();
+                                alertService.registerPermanentFailureWithSeverity(
+                                        baixaId,
+                                        details,
+                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        "HIGH");
+                                log.error("Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {
                                 log.debug("Recibo {} já registrado por concorrência ao marcar como processado após falhas.", baixaId);
                             }
@@ -420,16 +436,22 @@ public class ContaAzulAutomationService {
                         int attempts = attempt.getAttempts() + 1;
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
-                        if (attempts >= 5) {
+                        if (attempts >= 20) {
                             try {
                                 processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
                                 processingAttemptRepository.deleteBySaleId(baixaId);
-                                log.error("Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado.", baixaId, attempts);
+                                String details = "Recibo da baixa " + baixaId + " não gerou bytes após " + attempts + " tentativas. Marcado como processado.";
+                                alertService.registerPermanentFailureWithSeverity(
+                                        baixaId,
+                                        details,
+                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        "HIGH");
+                                log.error("Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {
                                 log.debug("Recibo {} já registrado por concorrência ao marcar como processado após tentativas.", baixaId);
                             }
                         } else {
-                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/5", baixaId, attempt.getAttempts());
+                            log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/20", baixaId, attempt.getAttempts());
                         }
                     }
                     continue;

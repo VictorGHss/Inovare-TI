@@ -75,6 +75,8 @@ curl -X POST "https://auth.contaazul.com/oauth2/token" \
 - Faz download de PDF (quando disponível) e aciona `FinanceEmailService` para envio de recibos.
 - Registra `ProcessedReceipt`/`ProcessedSale` para garantir idempotência.
 
+- Nota técnica: A geração do PDF do recibo após a baixa é assíncrona. O sistema realiza até 20 tentativas automáticas antes de gerar um alerta operacional.
+
 ### Erros comuns e troubleshooting
 
 - `Invalid ContaAzul token response.` — verificar `client_id`/`client_secret` e `redirect_uri`.

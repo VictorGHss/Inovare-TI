@@ -133,6 +133,34 @@ kubectl logs -l app=inovare-ti -n namespace --tail=200 | grep "ContaAzul force-r
 6) Auditoria
 - Registrar o incidente com logs e métricas para follow-up.
 
+### Triagem de Alerta — Falha na Captura de Recibo (20 tentativas)
+
+Playbook para operador quando o alerta indicar repetidas falhas na captura do recibo (sistema realizou 20 tentativas):
+
+1) Identificação
+- Verifique o alerta no Alertmanager/Slack e anote o timestamp e o payload do alerta (procure por `baixaId` ou `saleId`).
+
+2) Verificação no ERP
+- Localize a `baixaId` informada no painel financeiro do ERP.
+- Confirme se existe um anexo associado à baixa e se o tipo do anexo é `RECIBO` ou `RECIBO_DIGITAL`.
+
+3) Se o anexo estiver presente
+- Verifique se o PDF está íntegro/baixável. Se estiver válido, reprocessar ou marcar manualmente como processado no sistema operacional, conforme procedimento local.
+
+4) Se o anexo NÃO estiver presente
+- Tente acionar o endpoint de backfill (reprocessamento) via API admin para forçar recuperação de recibos históricos:
+
+```bash
+curl -X POST http://localhost:8085/api/financeiro/backfill \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+- Se o backfill não gerar o PDF automaticamente, anexe manualmente o recibo no ERP (ou use a interface administrativa do sistema para anexar o PDF), certificando-se de que o tipo do anexo seja `RECIBO` ou `RECIBO_DIGITAL`.
+
+5) Notificação e Escalonamento
+- Registre as ações tomadas no ticket/Slack e escale para o time financeiro se o problema persistir após o backfill e tentativa de anexo manual.
+
 ---
 
 ## Throttling e Rate-limiter

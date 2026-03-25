@@ -49,8 +49,12 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
+                // Considerando que a aplicação define `server.servlet.context-path=/api`,
+                // as rotas podem chegar ao Security com ou sem o prefixo "/api".
+                // Liberamos ambas as formas para garantir que o endpoint de login funcione.
+                .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
+                                 "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

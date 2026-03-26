@@ -21,7 +21,7 @@ O Inovare TI é uma aplicação full‑stack que automatiza a operação do supo
 | Camada       | Tecnologia                                                      |
 |--------------|------------------------------------------------------------------|
 | Backend      | Java 21 · Spring Boot 4 · Spring Security · JWT                 |
-| Persistência | PostgreSQL 16 · Spring Data JPA · Flyway (migrações)            |
+| Persistência / Cache | PostgreSQL 16 · Spring Data JPA · Flyway (migrações) · Redis (cache, usado para rate-limiting e throttling das APIs)            |
 | Frontend     | React 19 · TypeScript · Vite 6 · Tailwind CSS · React Router v7 |
 | Integração   | Discord JDA 5 (Bot bidirecional) · ContaAzul (OAuth2)          |
 | Infra        | Docker · Docker Compose · Nginx (serve o SPA)                  |
@@ -65,13 +65,17 @@ Na raiz do projeto, suba os serviços com:
 docker compose up --build
 ```
 
+Observação: no `docker-compose.yml` o serviço PostgreSQL está mapeado para a porta externa `5436` (host:5436 -> container:5432). Para conectar localmente ao banco use `localhost:5436`.
+
 Acesse a aplicação em: `http://localhost:5173`.
 
 ---
 
 ## 🔑 Credenciais de Desenvolvimento (seed)
 
-As migrações Flyway (V2) inserem usuários de desenvolvimento para testes locais:
+Os usuários iniciais (Administrador, Técnico e Usuário) são criados automaticamente pelo `DatabaseSeeder` apenas quando a aplicação é executada com o profile de desenvolvimento (`dev`). Em ambientes de produção o seeder não é executado.
+
+Exemplo de usuários criados no profile `dev`:
 
 | Perfil        | E-mail                       | Senha     | Role        |
 |---------------|------------------------------|-----------|-------------|
@@ -79,7 +83,7 @@ As migrações Flyway (V2) inserem usuários de desenvolvimento para testes loca
 | Técnico       | tecnico@inovare.med.br       | tech123   | TECHNICIAN  |
 | Usuário       | joao.silva@inovare.med.br    | user123   | USER        |
 
-> Atenção: essas credenciais existem apenas em desenvolvimento. Em produção, o seeder é desativado (`app.seeder.enabled=false`).
+> Atenção: esses usuários são inseridos somente em ambientes de desenvolvimento (profile `dev`). Em produção, o seeder não é executado.
 
 ---
 

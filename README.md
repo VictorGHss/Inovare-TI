@@ -1,45 +1,43 @@
 # Inovare TI — Sistema ITSM para Clínica
 
-Sistema de **Gerenciamento de Serviços de TI (ITSM)** desenvolvido para clínicas, com suporte a abertura e acompanhamento de chamados, gestão de inventário, controle de ativos, base de conhecimento e integração com Discord para notificações em tempo real.
+Sistema de **Gerenciamento de Serviços de TI (ITSM)** desenvolvido para clínicas, focado em centralizar chamados, inventário, ativos, base de conhecimento e automação financeira com notificações via Discord.
 
 ---
 
-## Visão Geral
+## 📋 Visão Geral
 
-O Inovare TI é uma aplicação web full-stack que centraliza toda a operação do suporte de TI interno:
+O Inovare TI é uma aplicação full‑stack que automatiza a operação do suporte de TI interno:
 
-- **Chamados (Tickets):** abertura, triagem, atribuição, resolução e SLA automático por categoria.
-- **Inventário:** controle de estoque com lotes de compra, notas fiscais e movimentações.
-- **Ativos:** registro e histórico de manutenção de equipamentos patrimoniais.
-- **Base de Conhecimento:** artigos internos com tags e busca textual.
-- **Notificações:** alertas em tempo real no sistema e via Discord Bot bidirecional.
-- **Relatórios:** exportação de chamados e inventário para XLSX.
-
----
-
-## Stack Tecnológica
-
-| Camada      | Tecnologia                                                          |
-|-------------|---------------------------------------------------------------------|
-| Backend     | Java 21 · Spring Boot 4 · Spring Security · JWT (auth0 4.4.0)      |
-| Persistência| PostgreSQL 16 · Spring Data JPA · Flyway (migrações)               |
-| Frontend    | React 19 · TypeScript · Vite 6 · Tailwind CSS · React Router v7    |
-| Integração  | Discord JDA 5 (Bot bidirecional) · Discord Webhooks                 |
-| Infraestrutura | Docker · Docker Compose · Nginx (serve o SPA em produção)       |
+- **Chamados (Tickets):** Abertura, triagem, atribuição e SLA automático por categoria.
+- **Inventário e Ativos:** Gestão de estoque com lotes, notas fiscais, movimentações e histórico de manutenção patrimonial.
+- **Cofre Seguro (Vault):** Proteção de credenciais e documentos com criptografia AES‑256/GCM e acesso restrito por 2FA.
+- **Automação Financeira:** Integração OAuth2 com ContaAzul para vínculo de clientes e envio automatizado de recibos.
+- **Auditoria 360:** Trilha de compliance imutável registrando todas as ações críticas do sistema.
 
 ---
 
-## Pré-requisitos
+## 🛠️ Stack Tecnológica
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e em execução.
-- [Git](https://git-scm.com/) para clonar o repositório.
-- Arquivo `.env` configurado na raiz do projeto (veja a seção abaixo).
+| Camada       | Tecnologia                                                      |
+|--------------|------------------------------------------------------------------|
+| Backend      | Java 21 · Spring Boot 4 · Spring Security · JWT                 |
+| Persistência | PostgreSQL 16 · Spring Data JPA · Flyway (migrações)            |
+| Frontend     | React 19 · TypeScript · Vite 6 · Tailwind CSS · React Router v7 |
+| Integração   | Discord JDA 5 (Bot bidirecional) · ContaAzul (OAuth2)          |
+| Infra        | Docker · Docker Compose · Nginx (serve o SPA)                  |
 
 ---
 
-## Configuração do Ambiente (`.env`)
+## ⚙️ Configuração e Execução
 
-Crie um arquivo `.env` na raiz do projeto com as variáveis abaixo. Valores de exemplo para desenvolvimento local estão indicados:
+### 1) Pré‑requisitos
+
+- `Docker Desktop` em execução.
+- `Git` para clonar o repositório.
+
+### 2) Variáveis de Ambiente (`.env`)
+
+Crie um arquivo `.env` na raiz do projeto conforme o modelo abaixo. Detalhes e recomendações de segurança em `docs/DEVELOPER_GUIDE.md`.
 
 ```env
 # Banco de dados
@@ -47,104 +45,75 @@ POSTGRES_DB=inovareti
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 
-# JWT — use uma string longa e aleatória em produção
-JWT_SECRET=MeuSegredoJWTSuperSegurogfdsInovareTI2025!
+# Segurança
+JWT_SECRET=SuaStringLongaE_Aleatoria_Para_Producao
+ENCRYPTION_SECRET=ChaveMestraParaCriptografiaVault2024!
 
-# Chave de criptografia para dados sensíveis
-ENCRYPTION_SECRET=MyStrongDevEncryptionSecret2024!
-
-# Discord (opcional em desenvolvimento — deixe em branco para desativar)
-DISCORD_WEBHOOK_URL=
-DISCORD_BOT_TOKEN=
+# Discord (Opcional)
+DISCORD_BOT_TOKEN=seu_token_aqui
 DISCORD_BOT_ENABLED=false
 
-# URL do frontend (usada nos links enviados ao Discord)
+# URLs
 FRONTEND_URL=http://localhost:5173/
 ```
 
----
+### 3) Rodar o Projeto
 
-## Como Rodar o Projeto Localmente
-
-Com o `.env` configurado, suba todos os serviços com um único comando na raiz do projeto:
+Na raiz do projeto, suba os serviços com:
 
 ```bash
 docker compose up --build
 ```
 
-O Docker Compose irá:
-1. Subir o **banco PostgreSQL 16** na porta `5436`.
-2. **Aguardar** o banco ficar saudável (healthcheck) antes de iniciar a API.
-3. Subir a **API Spring Boot** na porta `8085`.
-4. Subir o **frontend React** (via Nginx) na porta `5173`.
-
-> Após o primeiro `up`, o Flyway executará automaticamente as migrações de banco de dados (**V1** — schema completo e **V2** — dados de desenvolvimento), sem necessidade de nenhuma ação manual.
-
-Acesse a aplicação em: **http://localhost:5173**
+Acesse a aplicação em: `http://localhost:5173`.
 
 ---
 
-## Credenciais de Desenvolvimento
+## 🔑 Credenciais de Desenvolvimento (seed)
 
-As migrações do Flyway (V2) inserem os seguintes usuários de desenvolvimento automaticamente:
+As migrações Flyway (V2) inserem usuários de desenvolvimento para testes locais:
 
-| Perfil        | E-mail                          | Senha      | Role         |
-|---------------|---------------------------------|------------|--------------|
-| Administrador | `admin@inovare.med.br`          | `admin123` | `ADMIN`      |
-| Técnico       | `tecnico@inovare.med.br`        | `tech123`  | `TECHNICIAN` |
-| Usuário comum | `joao.silva@inovare.med.br`     | `user123`  | `USER`       |
+| Perfil        | E-mail                       | Senha     | Role        |
+|---------------|------------------------------|-----------|-------------|
+| Administrador | admin@inovare.med.br         | admin123  | ADMIN       |
+| Técnico       | tecnico@inovare.med.br       | tech123   | TECHNICIAN  |
+| Usuário       | joao.silva@inovare.med.br    | user123   | USER        |
 
-> **Atenção:** essas credenciais existem apenas em desenvolvimento. Em produção, o seeder é desativado (`app.seeder.enabled=false`) e os usuários devem ser criados manualmente pelo painel de administração.
-
----
-
-## Estrutura do Projeto
-
-```
-Inovare-TI/
-├── api/          # Backend Spring Boot (Java 21)
-│   └── src/main/resources/db/migration/   # Migrações Flyway (V1, V2)
-├── front/        # Frontend React + Vite
-├── docs/         # Documentação técnica (ARCHITECTURE.md, API_DOCS.md)
-├── docker-compose.yml
-└── .env          # Variáveis de ambiente (não versionado)
-```
+> Atenção: essas credenciais existem apenas em desenvolvimento. Em produção, o seeder é desativado (`app.seeder.enabled=false`).
 
 ---
 
-## Documentação Adicional
+## 📂 Documentação Mestre
 
-- [Arquitetura do Sistema](docs/ARCHITECTURE.md)
-- [Documentação da API REST](docs/API_DOCS.md)
-- [Banco de Dados — Schema](docs/DATABASE.md)
-- [TODO e Roadmap](docs/TODO.md)
+A documentação técnica foi consolidada em arquivos temáticos — consulte:
+
+- **Arquitetura e Infra:** `docs/ARCHITECTURE.md`
+- **Guia do Desenvolvedor:** `docs/DEVELOPER_GUIDE.md` (configurações, JWT+2FA, SMTP, erros)
+- **Integrações:** `docs/INTEGRATIONS.md` (ContaAzul, Discord, Vault)
+- **Operações & Runbooks:** `docs/OPERATIONS.md` (refresh, métricas, backfill)
+- **Banco de Dados:** `docs/DATABASE.md` (dicionário e migrações)
+- **Documentação da API:** `docs/openapi.yaml` / `docs/openapi.json`
 
 ---
 
-## Backend updates
+### Aviso rápido — Recibos ContaAzul
 
-- **OpenAPI:** a especificação OpenAPI foi atualizada em `docs/openapi.yaml` e `docs/openapi.json` (inclui o endpoint `POST /api/financeiro/contaazul/force-refresh`). Use a Swagger UI local conforme a seção OpenAPI abaixo.
-- **SMTP (envio de e-mails):** o envio usa `spring-boot-starter-mail` via SMTP — veja `docs/SMTP_EMAIL.md` para configuração, exemplos e recomendações (não usamos Brevo por padrão).
-- **Observability / Actuator:** endpoints expostos: `health`, `metrics`, `prometheus`. Como a API roda com contexto `/api`, o Actuator fica em `/api/actuator` e o Prometheus em `/api/actuator/prometheus`.
-- **Testes:** há ajustes para permitir testes rápidos:
-	- Arquivo de propriedades de teste: `api/src/test/resources/application.properties` (H2 como dependência de teste e `spring.flyway.enabled=false` para evitar migrações PostgreSQL durante testes).
-	- Tests de controller usam `MockMvc` em modo standalone quando possível; para executar um único teste localmente:
-
-```bash
-mvn -f api -Dtest=ContaAzulControllerTest test
-```
+A geração do PDF do recibo após a baixa na Conta Azul é assíncrona. O sistema realiza até 20 tentativas automáticas antes de gerar um alerta operacional. Procedimentos de triagem, backfill e ações operacionais estão documentados em `docs/INTEGRATIONS.md` e `docs/OPERATIONS.md` (ver seção "Falha na Captura de Recibo (20 tentativas)").
 
 
-## OpenAPI (Especificação da API)
+## 🛠️ Ferramentas de Suporte
 
-A especificação OpenAPI para o backend está disponível em `docs/openapi.yaml` e `docs/openapi.json`. Use esses arquivos para importar a API em clientes ou servir via Swagger UI.
-
-Comando rápido para servir a spec com o Swagger UI via Docker:
+- **OpenAPI / Swagger:** servir a spec localmente via Docker:
 
 ```bash
 docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json -v "%CD%/docs":/usr/share/nginx/html:ro swaggerapi/swagger-ui
 ```
 
-Abra http://localhost:8080 e a UI carregará `openapi.json`.
+- **Observability / Actuator:** endpoints expostos (a API roda com contexto `/api`):
 
-Coloque o arquivo `.env` na raiz conforme `.env.example` antes de iniciar os serviços.
+  - Health: `/api/actuator/health`
+  - Prometheus: `/api/actuator/prometheus`
+
+---
+
+Se precisar, eu posso abrir um PR com estas atualizações ou ajustar o texto para incluir links diretos a trechos específicos da documentação. 

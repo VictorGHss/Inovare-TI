@@ -94,6 +94,19 @@ export default function FinancialDashboard() {
     }
   }, [searchParams, setSearchParams]);
 
+  // Carrega mapeamentos usados pelo backend para envio automático dos recibos.
+  const reloadDoctorMappings = useCallback(async () => {
+    try {
+      setLoadingDoctorMappings(true);
+      const dados = await getDoctorMappings();
+      setDoctorMappings(dados);
+    } catch {
+      toast.error('Não foi possível carregar os mapeamentos de médicos.');
+    } finally {
+      setLoadingDoctorMappings(false);
+    }
+  }, []);
+
   const reloadDashboardData = useCallback(async () => {
     const status = await getFinanceConnectionStatus();
     setConnectionStatus(status);

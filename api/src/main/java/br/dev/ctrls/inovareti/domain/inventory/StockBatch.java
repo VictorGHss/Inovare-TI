@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -51,7 +52,7 @@ public class StockBatch {
     private Integer originalQuantity;
 
     @NotNull
-    @Positive
+    @PositiveOrZero
     @Column(name = "remaining_quantity", nullable = false)
     private Integer remainingQuantity;
 

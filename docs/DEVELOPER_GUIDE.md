@@ -28,32 +28,72 @@ mvn -Dtest=NomeDoTeste test
 
 ## Configuração do Ambiente (`.env` / `application.properties`)
 
-Crie um arquivo `.env` na raiz do projeto com as variáveis abaixo (exemplo para desenvolvimento):
+Crie um arquivo `.env` na raiz do projeto com as variáveis abaixo (exemplo para desenvolvimento). Para referência use também `.env.example`.
 
 ```env
+# -------------------------------
 # Banco de dados
+# -------------------------------
 POSTGRES_DB=inovareti
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+POSTGRES_USER=inovareti_user
+POSTGRES_PASSWORD=change_this_secure_password
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+DB_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 
-# JWT — use uma string longa e aleatória em produção
-JWT_SECRET=MeuSegredoJWTSuperSegurogfdsInovareTI2025!
+# -------------------------------
+# API / Frontend
+# -------------------------------
+API_PORT=8085
+FRONTEND_URL=http://localhost:5173
 
-# Chave de criptografia para dados sensíveis
-ENCRYPTION_SECRET=MyStrongDevEncryptionSecret2024!
+# -------------------------------
+# Redis (cache / rate-limiter)
+# -------------------------------
+SPRING_REDIS_HOST=redis
+SPRING_REDIS_PORT=6379
 
-# Discord (opcional em desenvolvimento)
+# -------------------------------
+# Segurança e criptografia
+# -------------------------------
+JWT_SECRET=ReplaceWithASecureRandomString
+ENCRYPTION_SECRET=ReplaceWith32ByteKeyOrBase64
+VAULT_ENCRYPTION_KEY=
+
+# -------------------------------
+# Discord (opcional)
+# -------------------------------
 DISCORD_WEBHOOK_URL=
 DISCORD_BOT_TOKEN=
 DISCORD_BOT_ENABLED=false
 
-# URL do frontend (usada em redirecionamentos)
-FRONTEND_URL=http://localhost:5173/
+# -------------------------------
+# SMTP / Financeiro
+# -------------------------------
+APP_FINANCEIRO_TEST_MODE=true
+APP_FINANCEIRO_DEV_EMAIL=
+APP_FINANCEIRO_SMTP_FROM_EMAIL=no-reply@inovare.med.br
+APP_FINANCEIRO_SMTP_FROM_NAME=Inovare TI Financeiro
+
+# -------------------------------
+# ContaAzul OAuth2
+# -------------------------------
+CONTAAZUL_CLIENT_ID=
+CONTAAZUL_CLIENT_SECRET=
+CONTAAZUL_AUTHORIZATION_URL=https://auth.contaazul.com/oauth2/authorize
+CONTAAZUL_TOKEN_URL=https://auth.contaazul.com/oauth2/token
+
+# -------------------------------
+# Feature toggles
+# -------------------------------
+# Habilita o DatabaseSeeder quando rodar com profile `dev` (APP_SEEDER_ENABLED -> app.seeder.enabled)
+APP_SEEDER_ENABLED=true
 ```
 
 Observações:
-- Nunca versionar segredos no repositório.
-- Em produção, use Vault/Secret Manager e rotacione chaves conforme procedimento.
+- Nunca versionar segredos no repositório. Use `Vault` ou `Secrets Manager` em produção.
+- O `DatabaseSeeder` é executado apenas quando a aplicação roda com o profile `dev` e quando a propriedade `app.seeder.enabled` (ou a variável de ambiente `APP_SEEDER_ENABLED`) está ativada. Por padrão `application.properties` define `app.seeder.enabled=false`.
+- O `DB_URL` também pode ser fornecido diretamente (ex.: `DB_URL=jdbc:postgresql://db:5432/inovareti`). O `docker-compose.yml` mapeia a porta do Postgres para `5436` no host — para conectar localmente ao container use `localhost:5436`.
 
 Propriedades importantes (exemplos):
 

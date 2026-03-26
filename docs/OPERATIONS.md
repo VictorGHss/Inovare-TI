@@ -161,6 +161,25 @@ curl -X POST http://localhost:8085/api/financeiro/backfill \
 5) Notificação e Escalonamento
 - Registre as ações tomadas no ticket/Slack e escale para o time financeiro se o problema persistir após o backfill e tentativa de anexo manual.
 
+### Simulação de Alerta Crítico (validação do fluxo de notificações)
+
+Há um endpoint temporário utilizado para validar o fluxo end-to-end (alerta → evento → listener → Discord). Este endpoint deve ser usado apenas em ambientes de teste e removido após validação.
+
+- **Endpoint:** `POST /api/financeiro/test/simulate-critical-alert`
+- **Autorização:** requer `ROLE_ADMIN` (Bearer JWT).
+
+Exemplo de uso (substitua `$TOKEN` por um JWT de admin):
+
+```bash
+curl -X POST http://localhost:8085/api/financeiro/test/simulate-critical-alert \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+O endpoint registra um alerta do tipo `FINANCEIRO_RECEIPT_CRITICAL` com severidade `HIGH` e publica o evento; o `AlertEventListener` encaminha a notificação para o webhook configurado (`DISCORD_WEBHOOK_URL`). Antes de executar, verifique que a variável de ambiente `DISCORD_WEBHOOK_URL` esteja preenchida e que a API esteja rodando e acessível.
+
+Remova ou proteja este endpoint após os testes para evitar uso indevido em produção.
+
 ---
 
 ## Throttling e Rate-limiter

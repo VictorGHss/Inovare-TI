@@ -101,6 +101,14 @@ curl -X POST "https://auth.contaazul.com/oauth2/token" \
 - Bot (JDA 5) inicializado assíncronamente para evitar impacto no startup.
 - Usado para: notificações de tickets, DMs de recuperação de 2FA e notificações operacionais.
 
+### Variáveis de ambiente (Discord)
+
+- `DISCORD_WEBHOOK_URL`: webhook utilizado para notificações operacionais (canal de SRE/ops). Preferir webhook para alertas automáticos.
+- `DISCORD_BOT_TOKEN`: token do bot JDA (usado para DMs, linking de usuários e eventos bidirecionais).
+- `DISCORD_BOT_ENABLED`: `true|false` — ativa inicialização do bot JDA.
+
+Observação: o sistema suporta tanto notificações via webhook (unidirecional, recomendado para alertas operacionais) quanto via bot (JDA) para interações/DMs. Configure o webhook operacional em `DISCORD_WEBHOOK_URL` antes de validar o fluxo de alertas.
+
 ---
 
 ## Vault — armazenamento de segredos

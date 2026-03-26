@@ -42,20 +42,31 @@ Crie um arquivo `.env` na raiz do projeto conforme o modelo abaixo. Detalhes e r
 ```env
 # Banco de dados
 POSTGRES_DB=inovareti
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+POSTGRES_USER=inovareti_user
+POSTGRES_PASSWORD=change_this_secure_password
+DB_URL=jdbc:postgresql://db:5432/inovareti
+
+# API / Ports
+API_PORT=8085
 
 # Segurança
-JWT_SECRET=SuaStringLongaE_Aleatoria_Para_Producao
+JWT_SECRET=UmaStringSeguraAleatoria_32+
 ENCRYPTION_SECRET=ChaveMestraParaCriptografiaVault2024!
 
-# Discord (Opcional)
+# Redis (cache / rate-limiter)
+SPRING_REDIS_HOST=redis
+SPRING_REDIS_PORT=6379
+
+# Discord (operational webhook + bot)
+DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/...
 DISCORD_BOT_TOKEN=seu_token_aqui
 DISCORD_BOT_ENABLED=false
 
 # URLs
 FRONTEND_URL=http://localhost:5173/
 ```
+
+Observação: nunca versionar o arquivo `.env` com segredos. Use `/.env.example` como referência e preencha valores sensíveis no ambiente (Vault/Secrets Manager) em produção.
 
 ### 3) Rodar o Projeto
 

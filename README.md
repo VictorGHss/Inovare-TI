@@ -37,7 +37,7 @@ O Inovare TI é uma aplicação full‑stack que automatiza a operação do supo
 
 ### 2) Variáveis de Ambiente (`.env`)
 
-Crie um arquivo `.env` na raiz do projeto conforme o modelo abaixo. Detalhes e recomendações de segurança em `docs/DEVELOPER_GUIDE.md`.
+Crie um arquivo `.env` na raiz do projeto conforme o modelo abaixo. Detalhes e recomendações de segurança em [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
 
 ```env
 # Banco de dados
@@ -84,7 +84,7 @@ Acesse a aplicação em: `http://localhost:5173`.
 
 ## 🔑 Credenciais de Desenvolvimento (seed)
 
-Os usuários iniciais (Administrador, Técnico e Usuário) são criados automaticamente pelo `DatabaseSeeder` apenas quando a aplicação é executada com o profile de desenvolvimento (`dev`). Em ambientes de produção o seeder não é executado.
+Os usuários iniciais (Administrador, Técnico e Usuário) são criados automaticamente pela migration Flyway (V3) presente em [api/src/main/resources/db/migration/dev/V3__seed_test_data.sql](api/src/main/resources/db/migration/dev/V3__seed_test_data.sql) quando a aplicação é executada com o profile de desenvolvimento (`dev`). Em ambientes de produção a migration dev-only não é carregada.
 
 Exemplo de usuários criados no profile `dev`:
 
@@ -102,18 +102,18 @@ Exemplo de usuários criados no profile `dev`:
 
 A documentação técnica foi consolidada em arquivos temáticos — consulte:
 
-- **Arquitetura e Infra:** `docs/ARCHITECTURE.md`
-- **Guia do Desenvolvedor:** `docs/DEVELOPER_GUIDE.md` (configurações, JWT+2FA, SMTP, erros)
-- **Integrações:** `docs/INTEGRATIONS.md` (ContaAzul, Discord, Vault)
-- **Operações & Runbooks:** `docs/OPERATIONS.md` (refresh, métricas, backfill)
-- **Banco de Dados:** `docs/DATABASE.md` (dicionário e migrações)
-- **Documentação da API:** `docs/openapi.yaml` / `docs/openapi.json`
+- **Arquitetura e Infra:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Guia do Desenvolvedor:** [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) (configurações, JWT+2FA, SMTP, erros)
+- **Integrações:** [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) (ContaAzul, Discord, Vault)
+- **Operações & Runbooks:** [docs/OPERATIONS.md](docs/OPERATIONS.md) (refresh, métricas, backfill)
+- **Banco de Dados:** [docs/DATABASE.md](docs/DATABASE.md) (dicionário e migrações)
+- **Documentação da API:** [docs/openapi.yaml](docs/openapi.yaml) / [docs/openapi.json](docs/openapi.json)
 
 ---
 
 ### Aviso rápido — Recibos ContaAzul
 
-A geração do PDF do recibo após a baixa na Conta Azul é assíncrona. O sistema realiza até 20 tentativas automáticas antes de gerar um alerta operacional. Procedimentos de triagem, backfill e ações operacionais estão documentados em `docs/INTEGRATIONS.md` e `docs/OPERATIONS.md` (ver seção "Falha na Captura de Recibo (20 tentativas)").
+A geração do PDF do recibo após a baixa na Conta Azul é assíncrona. O sistema realiza até 20 tentativas automáticas antes de gerar um alerta operacional. Procedimentos de triagem, backfill e ações operacionais estão documentados em [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) e [docs/OPERATIONS.md](docs/OPERATIONS.md) (ver seção "Falha na Captura de Recibo (20 tentativas)").
 
 
 ## 🛠️ Ferramentas de Suporte

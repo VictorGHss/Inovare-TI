@@ -1,3 +1,17 @@
+# V3__seed_test_data.sql (DEV ONLY) — Arquivo de referência
+
+Observação: o conteúdo abaixo foi removido da pasta de migrations do projeto
+porque se trata de seed destinado APENAS a ambientes de desenvolvimento.
+Não aplique este script em produção.
+
+Uso sugerido para testes locais:
+
+1. Crie um snapshot/backup do seu banco local antes de executar.
+2. Execute com psql: `psql -h <host> -U <user> -d <db> -f V3__seed_test_data.sql`
+
+--- SQL original da migration V3 (dev-only) ---
+
+```sql
 -- V3__seed_test_data.sql (DEV ONLY)
 -- Popula dados de teste mínimos: usuários, itens, lotes e chamados de exemplo
 -- Esta migration é idempotente e deve ser executada apenas em ambientes de desenvolvimento.
@@ -87,3 +101,8 @@ SELECT gen_random_uuid(), 'Solicitação de Mouse', 'Solicitação automática d
 WHERE NOT EXISTS (SELECT 1 FROM tickets t WHERE t.title = 'Solicitação de Mouse' AND t.requester_id = (SELECT id FROM users WHERE email = 'joao.silva@inovare.med.br' LIMIT 1));
 
 -- Fim da migration V3 (dev-only)
+```
+
+---
+
+Arquivo arquivado automaticamente pelo time de infra em 2026-03-26.

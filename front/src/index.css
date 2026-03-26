@@ -2,13 +2,13 @@
 
 /* Variáveis de cor da marca Inovare TI */
 @theme {
-  --color-brand-primary: #ffa751;
-  --color-brand-primary-dark: #f08c2e;
-  --color-brand-secondary: #ffd1a3;
+  --color-brand-primary: #feb56c;
+  --color-brand-primary-dark: #f1a154;
+  --color-brand-secondary: #fed8b0;
 
-  --color-primary: #ffa751;
-  --color-primary-hover: #f08c2e;
-  --color-secondary: #ffd1a3;
+  --color-primary: #feb56c;
+  --color-primary-hover: #f1a154;
+  --color-secondary: #fed8b0;
 }
 
 @layer base {

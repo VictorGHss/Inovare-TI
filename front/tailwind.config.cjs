@@ -1,6 +1,7 @@
 /**
  * Configuração Tailwind personalizada para o front-end.
- * Adiciona a cor `inovare` mapeada para o HEX `#ffa751`.
+ * Define as cores oficiais da marca Inovare sob o namespace `brand`.
+ * Permite classes como `bg-brand-primary` e `bg-brand-secondary`.
  */
 module.exports = {
   content: [
@@ -10,7 +11,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        inovare: '#ffa751'
+        brand: {
+          primary: '#feb56c',
+          'primary-dark': '#f1a154',
+          secondary: '#fed8b0'
+        }
       }
     }
   },

@@ -15,7 +15,7 @@ export default defineConfig({
         name: 'Inovare TI',
         short_name: 'Inovare TI',
         description: 'Sistema de gestão de chamados, ativos e inventário de TI',
-        theme_color: '#ffa751',
+        theme_color: '#feb56c',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

@@ -56,9 +56,11 @@ CREATE TABLE articles (
     author_id   uuid         NOT NULL,
     author_name varchar(255) NOT NULL,
     tags        varchar(500),
+    status      varchar(20)  NOT NULL DEFAULT 'PUBLISHED',
     created_at  timestamp    NOT NULL,
     updated_at  timestamp,
-    CONSTRAINT pk_articles PRIMARY KEY (id)
+    CONSTRAINT pk_articles PRIMARY KEY (id),
+    CONSTRAINT ck_articles_status CHECK (status IN ('DRAFT', 'PUBLISHED'))
 );
 
 -- Tabela para rastrear tentativas de processamento/baixas (controle de retries)
@@ -89,6 +91,7 @@ CREATE TABLE users (
     totp_secret          varchar(500),
     recovery_code_hash   varchar(255),
     recovery_code_expires_at timestamp,
+    receives_it_notifications boolean NOT NULL DEFAULT true,
     CONSTRAINT pk_users        PRIMARY KEY (id),
     CONSTRAINT uq_users_email  UNIQUE      (email),
     CONSTRAINT uq_users_contaazul_id UNIQUE (contaazul_id),
@@ -205,7 +208,7 @@ CREATE TABLE stock_batches (
     invoice_file_path    varchar(500),
     CONSTRAINT pk_stock_batches         PRIMARY KEY (id),
     CONSTRAINT ck_stock_batches_qty     CHECK       (original_quantity  >= 1),
-    CONSTRAINT ck_stock_batches_rem_qty CHECK       (remaining_quantity >= 1),
+    CONSTRAINT ck_stock_batches_rem_qty CHECK       (remaining_quantity >= 0),
     CONSTRAINT fk_stock_batches_item    FOREIGN KEY (item_id) REFERENCES items (id)
 );
 
@@ -218,6 +221,7 @@ CREATE TABLE stock_movements (
     item_id   uuid         NOT NULL,
     type      varchar(10)  NOT NULL,
     quantity  integer      NOT NULL,
+    unit_price_at_time numeric(19,2),
     reference varchar(255) NOT NULL,
     date      timestamp    NOT NULL,
     CONSTRAINT pk_stock_movements      PRIMARY KEY (id),
@@ -237,6 +241,7 @@ CREATE TABLE assets (
     patrimony_code       varchar(80)  NOT NULL,
     category_id          uuid,
     specifications       text,
+    acquisition_value    numeric(19,2),
     invoice_file_name    varchar(255),
     invoice_content_type varchar(50),
     invoice_file_path    varchar(500),
@@ -336,86 +341,7 @@ CREATE TABLE audit_logs (
     ip_address    varchar(45),
     created_at    timestamp    NOT NULL,
     CONSTRAINT pk_audit_logs        PRIMARY KEY (id),
-    CONSTRAINT ck_audit_logs_action CHECK       (action IN (
-        'VAULT_SECRET_VIEW',
-        'VAULT_FILE_VIEW',
-        'VAULT_ITEM_CREATE',
-        'LOGIN_SUCCESS',
-        'LOGIN_FAILURE',
-        'TWO_FACTOR_RESET',
-        'TWO_FACTOR_ADMIN_RESET',
-        'USER_PERMISSION_CHANGE'
-    ))
-);
-
-CREATE INDEX idx_audit_logs_user_id    ON audit_logs (user_id);
-CREATE INDEX idx_audit_logs_action     ON audit_logs (action);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at DESC);
-
--- =============================================================================
--- NOTA DE SINCRONIZACAO DO SCHEMA BASE
--- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
--- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.
--- =============================================================================
-
--- =============================================================================
--- AJUSTES INCREMENTAIS V1 (SEM NOVA MIGRACAO)
--- =============================================================================
-
-ALTER TABLE articles
-    ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'PUBLISHED';
-
-ALTER TABLE articles
-    DROP CONSTRAINT IF EXISTS ck_articles_status;
-
-ALTER TABLE articles
-    ADD CONSTRAINT ck_articles_status CHECK (status IN ('DRAFT', 'PUBLISHED'));
-
-ALTER TABLE audit_logs
-    DROP CONSTRAINT IF EXISTS ck_audit_logs_action;
-
-ALTER TABLE audit_logs
-    ADD CONSTRAINT ck_audit_logs_action CHECK (action IN (
-        'VAULT_LOGIN_SUCCESS',
-        'VAULT_LOGIN_FAILURE',
-        'VAULT_SECRET_VIEW',
-        'VAULT_FILE_VIEW',
-        'VAULT_ITEM_CREATE',
-        'VAULT_ITEM_EDIT',
-        'VAULT_ITEM_DELETE',
-        'LOGIN_SUCCESS',
-        'LOGIN_FAILURE',
-        'TWO_FACTOR_RESET',
-        'TWO_FACTOR_ADMIN_RESET',
-        'TICKET_OPEN',
-        'TICKET_ASSIGN',
-        'TICKET_TRANSFER',
-        'TICKET_RESOLVE',
-        'INVENTORY_BATCH_ENTRY',
-        'INVENTORY_ITEM_CREATE',
-        'ASSET_CREATE',
-        'ASSET_INVOICE_ATTACH',
-        'QR_SCAN',
-        'KB_ARTICLE_DRAFT_CREATE',
-        'KB_ARTICLE_PUBLISH',
-        'KB_ARTICLE_EDIT',
-        'SECTOR_CREATE',
-        'USER_CREATE',
-        'USER_UPDATE',
-        'USER_PASSWORD_RESET',
-        'USER_PERMISSION_CHANGE'
-    ));
-
--- =============================================================================
--- PROTOCOLO DE AUDITORIA TOTAL 360 - Novos valores canonicos de auditoria
--- Mantidos os antigos para compatibilidade com registros historicos.
--- =============================================================================
-
-ALTER TABLE audit_logs
-    DROP CONSTRAINT IF EXISTS ck_audit_logs_action;
-
-ALTER TABLE audit_logs
-    ADD CONSTRAINT ck_audit_logs_action CHECK (action IN (
+    CONSTRAINT ck_audit_logs_action CHECK (action IN (
         -- Vault (legado + canonico)
         'VAULT_LOGIN_SUCCESS', 'VAULT_LOGIN_FAILURE',
         'VAULT_SECRET_VIEW',   'VAULT_FILE_VIEW',
@@ -444,15 +370,20 @@ ALTER TABLE audit_logs
         'USER_PERMISSION_CHANGE',
         -- Perfil
         'PROFILE_PASSWORD_CHANGE'
-    ));
+    ))
+);
+
+CREATE INDEX idx_audit_logs_user_id    ON audit_logs (user_id);
+CREATE INDEX idx_audit_logs_action     ON audit_logs (action);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at DESC);
 
 -- =============================================================================
--- AJUSTES INCREMENTAIS NO SCHEMA BASE (manter sempre ao final do V1__init.sql)
+-- NOTA DE SINCRONIZACAO DO SCHEMA BASE
+-- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
+-- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.
 -- =============================================================================
 
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS receives_it_notifications boolean NOT NULL DEFAULT true;
-
+-- AJUSTES INCREMENTAIS removidos: todas as alterações consolidadas nos CREATE TABLE acima
 -- =============================================================================
 -- BLOCO 14 - MODULO FINANCEIRO (ContaAzul + Conferencia de Recibos)
 -- =============================================================================
@@ -484,6 +415,7 @@ CREATE TABLE financial_link (
     updated_at            timestamp    NOT NULL DEFAULT now(),
     CONSTRAINT pk_financial_link               PRIMARY KEY (id),
     CONSTRAINT uq_financial_link_customer_canal UNIQUE      (contaazul_customer_id, canal),
+    CONSTRAINT ck_financial_link_canal         CHECK       (canal IN ('EMAIL', 'DISCORD')),
     CONSTRAINT fk_financial_link_linked_by     FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
 );
 
@@ -519,11 +451,12 @@ CREATE TABLE processed_receipts (
     original_recipient_email varchar(255)  NOT NULL,
     status                   varchar(20)   NOT NULL DEFAULT 'SENT',
     brevo_message_id         varchar(120),
+    retry_count              integer       NOT NULL DEFAULT 0,
     payload                  jsonb         NOT NULL DEFAULT '{}'::jsonb,
     processed_at             timestamp     NOT NULL DEFAULT now(),
     CONSTRAINT pk_processed_receipts                 PRIMARY KEY (id),
     CONSTRAINT uq_processed_receipts_parcela_hash    UNIQUE      (parcela_id, receipt_hash),
-    CONSTRAINT ck_processed_receipts_status          CHECK       (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED')),
+    CONSTRAINT ck_processed_receipts_status          CHECK       (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY', 'HISTORICO')),
     CONSTRAINT fk_processed_receipts_financial_link  FOREIGN KEY (financial_link_id) REFERENCES financial_link (id)
 );
 
@@ -537,6 +470,7 @@ CREATE TABLE system_alerts (
     details     text,
     context     jsonb        NOT NULL DEFAULT '{}'::jsonb,
     resolved    boolean      NOT NULL DEFAULT false,
+    resolved_by uuid,
     created_at  timestamp    NOT NULL DEFAULT now(),
     resolved_at timestamp,
     CONSTRAINT pk_system_alerts            PRIMARY KEY (id),
@@ -546,51 +480,4 @@ CREATE TABLE system_alerts (
 CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
 CREATE INDEX idx_ps_sale_id  ON processed_sales (sale_id);
 CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);
-
-ALTER TABLE financial_link
-    ADD COLUMN IF NOT EXISTS canal varchar(20) NOT NULL DEFAULT 'EMAIL';
-
-ALTER TABLE financial_link
-    DROP CONSTRAINT IF EXISTS ck_financial_link_canal;
-
-ALTER TABLE financial_link
-    ADD CONSTRAINT ck_financial_link_canal
-    CHECK (canal IN ('EMAIL', 'DISCORD'));
-
-ALTER TABLE processed_receipts
-    DROP CONSTRAINT IF EXISTS ck_processed_receipts_status;
-
-ALTER TABLE processed_receipts
-    ADD CONSTRAINT ck_processed_receipts_status
-    CHECK (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY', 'HISTORICO'));
-
-ALTER TABLE processed_receipts
-    ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
-
-ALTER TABLE system_alerts
-    ADD COLUMN IF NOT EXISTS resolved_by uuid;
-
--- Adiciona colunas para aquisicao de ativos e registro do preco no momento da saida
-ALTER TABLE assets
-    ADD COLUMN IF NOT EXISTS acquisition_value numeric(19,2);
-
-ALTER TABLE stock_movements
-    ADD COLUMN IF NOT EXISTS unit_price_at_time numeric(19,2);
-
--- Tabela para registrar débitos financeiros (por médico ou setor)
-CREATE TABLE IF NOT EXISTS financial_transactions (
-    id uuid NOT NULL DEFAULT gen_random_uuid(),
-    target_type varchar(10) NOT NULL,
-    target_id uuid NOT NULL,
-    resource_type varchar(10) NOT NULL,
-    amount numeric(19,2) NOT NULL,
-    ticket_id uuid,
-    created_at timestamp NOT NULL DEFAULT now(),
-    CONSTRAINT pk_financial_transactions PRIMARY KEY (id),
-    CONSTRAINT ck_financial_transactions_target_type CHECK (target_type IN ('DOCTOR', 'SECTOR')),
-    CONSTRAINT ck_financial_transactions_resource_type CHECK (resource_type IN ('INVENTORY', 'ASSET')),
-    CONSTRAINT fk_financial_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_financial_transactions_target_id ON financial_transactions (target_id);
-CREATE INDEX IF NOT EXISTS idx_financial_transactions_ticket_id ON financial_transactions (ticket_id);
+-- All incremental ALTER TABLE statements consolidated into CREATE TABLE definitions above

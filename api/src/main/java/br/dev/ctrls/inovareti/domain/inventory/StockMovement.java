@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.inventory;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -54,4 +55,12 @@ public class StockMovement {
     @NotNull
     @Column(name = "date", nullable = false)
     private LocalDateTime date;
+
+    /**
+     * Valor total (soma dos preços das quantidades consumidas dos lotes) registrado
+     * no momento da saída. Este campo guarda a "verdade financeira" do custo do
+     * movimento, permitindo auditoria posterior por centro de custo.
+     */
+    @Column(name = "unit_price_at_time", precision = 19, scale = 2)
+    private BigDecimal unitPriceAtTime;
 }

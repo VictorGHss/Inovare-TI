@@ -221,32 +221,5 @@ public class FinanceiroController {
             int atualizados) {
         }
 
-            /**
-             * Endpoint temporário para simular um alerta crítico financeiro do tipo
-             * `FINANCEIRO_RECEIPT_CRITICAL`. Protegido por ROLE_ADMIN. Usado apenas para
-             * validação do fluxo de eventos e notificação (Discord). Remover após testes.
-             */
-            @PreAuthorize("hasRole('ADMIN')")
-            @PostMapping("/test/simulate-critical-alert")
-            public ResponseEntity<Map<String, String>> simulateCriticalAlert() {
-            String parcelaId = "TEST-123";
-            String doctorName = "Dr. Teste Automatizado";
-            String details = "Simulação de alerta crítico para validação do envio operacional (teste automatizado).";
-
-            Map<String, Object> context = Map.of(
-                "parcelaId", parcelaId,
-                "doctorName", doctorName
-            );
-
-            // Registra o alerta com tipo e severidade desejados; o AlertService publica
-            // o evento e o AlertEventListener cuidará do encaminhamento para o Discord.
-            alertService.registerPermanentFailureWithTypeAndSeverity(
-                parcelaId,
-                details,
-                context,
-                "FINANCEIRO_RECEIPT_CRITICAL",
-                "HIGH");
-
-            return ResponseEntity.ok(Map.of("status", "ok", "message", "Alerta crítico simulado"));
-            }
+            // Endpoint temporário de simulação removido.
 }

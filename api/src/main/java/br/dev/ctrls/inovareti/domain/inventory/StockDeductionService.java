@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.inventory;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,8 +22,18 @@ public class StockDeductionService {
     private final StockBatchRepository stockBatchRepository;
     private final StockMovementRepository stockMovementRepository;
 
+    /**
+     * Deduz quantidade do estoque seguindo a política FIFO por lotes.
+     * Para cada lote consumido calcula-se o custo: `unit_price * quantidade_consumida`
+     * e acumula-se no total. O valor total consumido é salvo no campo
+     * `unit_price_at_time` do `StockMovement` para registrar a "verdade financeira"
+     * do custo por lote na saída.
+     *
+     * Retorna o valor total (BigDecimal) da dedução, que pode ser utilizado para
+     * gerar lançamentos financeiros por centro de custo.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void deductWithFifo(UUID itemId, int quantity, String reference) {
+    public BigDecimal deductWithFifo(UUID itemId, int quantity, String reference) {
         if (quantity <= 0) {
             throw new IllegalStateException("A quantidade a deduzir deve ser maior que zero.");
         }
@@ -39,6 +50,9 @@ public class StockDeductionService {
         List<StockBatch> fifoBatches = stockBatchRepository.findByItemIdOrderByEntryDateAscForUpdate(itemId);
         int remainingToDeduct = quantity;
 
+        // Valor total acumulado (soma de unit_price * qtd_consumida por lote)
+        BigDecimal totalValue = BigDecimal.ZERO;
+
         for (StockBatch batch : fifoBatches) {
             if (remainingToDeduct == 0) {
                 break;
@@ -52,6 +66,13 @@ public class StockDeductionService {
             int consumedFromBatch = Math.min(batchRemaining, remainingToDeduct);
             batch.setRemainingQuantity(batchRemaining - consumedFromBatch);
             remainingToDeduct -= consumedFromBatch;
+
+            // Calcula o valor consumido deste lote e acumula no total
+            if (consumedFromBatch > 0 && batch.getUnitPrice() != null) {
+                BigDecimal consumedQty = BigDecimal.valueOf(consumedFromBatch);
+                BigDecimal consumedValue = batch.getUnitPrice().multiply(consumedQty);
+                totalValue = totalValue.add(consumedValue);
+            }
         }
 
         if (remainingToDeduct > 0) {
@@ -64,15 +85,19 @@ public class StockDeductionService {
         lockedItem.setCurrentStock(lockedItem.getCurrentStock() - quantity);
         itemRepository.save(lockedItem);
 
+        // Registra o movimento de saída com o valor total apurado no momento da saída.
         StockMovement movement = StockMovement.builder()
-                .itemId(itemId)
-                .type(StockMovementType.OUT)
-                .quantity(quantity)
-                .reference(reference)
-                .date(LocalDateTime.now())
-                .build();
+            .itemId(itemId)
+            .type(StockMovementType.OUT)
+            .quantity(quantity)
+            .reference(reference)
+            .date(LocalDateTime.now())
+            .unitPriceAtTime(totalValue)
+            .build();
         stockMovementRepository.save(movement);
 
-        log.info("Dedução FIFO aplicada. itemId={}, quantidade={}, referência={}", itemId, quantity, reference);
+        log.info("Dedução FIFO aplicada. itemId={}, quantidade={}, referência={}, valorTotal={}", itemId, quantity, reference, totalValue);
+
+        return totalValue;
     }
 }

@@ -53,6 +53,7 @@ public class ResolveTicketUseCase {
         private final AssetMaintenanceRepository assetMaintenanceRepository;
         private final CreateNotificationService createNotificationService;
         private final StockDeductionService stockDeductionService;
+        private final br.dev.ctrls.inovareti.domain.financeiro.FinancialService financialService;
         private final DiscordDirectMessageService discordDirectMessageService;
         private final UserRepository userRepository;
         private final AuditLogService auditLogService;
@@ -87,11 +88,13 @@ public class ResolveTicketUseCase {
         // Debita estoque se o chamado tiver item solicitado
         if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
             String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
-            stockDeductionService.deductWithFifo(
+            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
                     ticket.getRequestedItem().getId(),
                     ticket.getRequestedQuantity(),
                     reference
             );
+            // Registra débito financeiro com base no valor apurado pela dedução FIFO
+            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
             log.info("Stock debited with FIFO for requested item in ticket {}", ticketId);
         }
 
@@ -180,11 +183,13 @@ public class ResolveTicketUseCase {
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
             String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
-            stockDeductionService.deductWithFifo(
+            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
                     request.inventoryItemIdToDeliver(),
                     request.quantityToDeliver(),
                     reference
             );
+            // Registra débito financeiro para a entrega manual de item (INVENTORY)
+            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
             log.info("Stock debited with FIFO for manual item delivery in ticket {}", ticketId);
         }
 

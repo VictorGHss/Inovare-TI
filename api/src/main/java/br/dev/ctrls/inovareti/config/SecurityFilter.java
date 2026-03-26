@@ -63,19 +63,25 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);
 
-        if (token != null) {
-            String email = tokenService.validateToken(token);
-            if (!email.isBlank()) {
-                userRepository.findByEmail(email).ifPresent(user -> {
-                    var authentication = new UsernamePasswordAuthenticationToken(
-                            user.getId().toString(), null, user.getAuthorities());
-                    authentication.setDetails(Map.of(
-                            "twoFactorVerified", tokenService.isTwoFactorVerified(token)
-                    ));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                });
-            }
+        if (token == null) {
+            filterChain.doFilter(request, response);
+            return;
         }
+
+        String email = tokenService.validateToken(token);
+        if (email == null || email.isBlank()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        userRepository.findByEmail(email).ifPresent(user -> {
+            var authentication = new UsernamePasswordAuthenticationToken(
+                    user.getId().toString(), null, user.getAuthorities());
+            authentication.setDetails(Map.of(
+                    "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+            ));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        });
 
         filterChain.doFilter(request, response);
     }

@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.asset;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -63,6 +64,13 @@ public class Asset {
     /** Caminho do arquivo da nota fiscal no disco (ex: uploads/invoices/asset-{id}-{timestamp}.pdf). */
     @Column(name = "invoice_file_path", length = 500)
     private String invoiceFilePath;
+
+    /**
+     * Valor de aquisição do ativo, conforme nota fiscal.
+     * Usado para controle contábil e custo do ativo.
+     */
+    @Column(name = "acquisition_value", precision = 19, scale = 2)
+    private BigDecimal acquisitionValue;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -7,6 +7,7 @@
 > **Convenção de nomenclatura:** snake_case para tabelas e colunas; UUIDs como chaves primárias.
 
 > **Estado atual do schema:** as estruturas de Vault e recuperação de 2FA já estão consolidadas no arquivo base `api/src/main/resources/db/migration/V1__init.sql`, incluindo as colunas `recovery_code_hash` e `recovery_code_expires_at` na tabela `users`.
+> **Nota:** As migrações Flyway (por exemplo, `V1__init.sql`) criam o *esquema* do banco de dados — tabelas, índices e constraints — mas **não** inserem contas de usuário. Os usuários iniciais de desenvolvimento são populados pelo `DatabaseSeeder` (classe `api/src/main/java/.../config/DatabaseSeeder.java`), que é executado apenas quando a aplicação roda com o *profile* `dev`. Em produção o seeder não é executado.
 
 ---
 

@@ -389,7 +389,7 @@ public class ContaAzulAutomationService {
                                 if (StringUtils.hasText(sale.saleId())) {
                                     context.put("saleId", sale.saleId());
                                 }
-                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                if (StringUtils.hasText(mapping.getDoctorName())) {
                                     context.put("doctorName", mapping.getDoctorName());
                                 }
                                 context.put("attempts", attempts);
@@ -427,7 +427,7 @@ public class ContaAzulAutomationService {
                                 if (StringUtils.hasText(sale.saleId())) {
                                     context.put("saleId", sale.saleId());
                                 }
-                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                if (StringUtils.hasText(mapping.getDoctorName())) {
                                     context.put("doctorName", mapping.getDoctorName());
                                 }
                                 context.put("attempts", attempts);
@@ -467,7 +467,7 @@ public class ContaAzulAutomationService {
                                 if (StringUtils.hasText(sale.saleId())) {
                                     context.put("saleId", sale.saleId());
                                 }
-                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                if (StringUtils.hasText(mapping.getDoctorName())) {
                                     context.put("doctorName", mapping.getDoctorName());
                                 }
                                 context.put("attempts", attempts);

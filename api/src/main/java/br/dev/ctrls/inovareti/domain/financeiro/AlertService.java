@@ -1,16 +1,9 @@
 package br.dev.ctrls.inovareti.domain.financeiro;
 
 import java.util.Map;
-import org.springframework.context.ApplicationEventPublisher;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,11 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AlertService {
 
     private final SystemAlertRepository systemAlertRepository;
-    private final RestTemplate restTemplate;
     private final ApplicationEventPublisher eventPublisher;
-
-    @Value("${discord.webhook.url}")
-    private String discordWebhookUrl;
 
     public void registerPermanentFailure(String parcelaId, String details, Map<String, Object> context) {
         SystemAlert alert = SystemAlert.builder()
@@ -80,24 +69,8 @@ public class AlertService {
         eventPublisher.publishEvent(alert);
     }
 
-    private void sendDiscordAlert(String parcelaId, String details) {
-        if (!StringUtils.hasText(discordWebhookUrl)) {
-            log.warn("Discord webhook not configured. Alert for parcela {} recorded only in database.", parcelaId);
-            return;
-        }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        String message = "🚨 **Financeiro**: falha definitiva no envio do recibo da parcela `"
-                + parcelaId
-                + "`. Detalhes: "
-                + details;
-
-        try {
-            restTemplate.postForEntity(discordWebhookUrl, new HttpEntity<>(Map.of("content", message), headers), Void.class);
-        } catch (RestClientException ex) {
-            log.error("Falha ao enviar alerta financeiro no Discord para parcela {}", parcelaId, ex);
-        }
-    }
+    // Método de envio direto ao Discord removido — o sistema agora publica eventos
+    // `SystemAlert` e listeners assíncronos (ex.: `AlertEventListener`) cuidam do
+    // encaminhamento para canais externos (Discord). Isso evita que falhas no
+    // envio impactem o fluxo principal.
 }

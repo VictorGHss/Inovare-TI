@@ -477,6 +477,24 @@ CREATE TABLE system_alerts (
     CONSTRAINT ck_system_alerts_severity   CHECK       (severity IN ('INFO', 'WARN', 'ERROR', 'CRITICAL'))
 );
 
+-- BLOCO 14.A - financial_transactions: transações financeiras internas
+CREATE TABLE financial_transactions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    target_type varchar(10) NOT NULL,
+    target_id uuid NOT NULL,
+    resource_type varchar(10) NOT NULL,
+    amount numeric(19,2) NOT NULL,
+    ticket_id uuid,
+    created_at timestamp NOT NULL DEFAULT now(),
+    CONSTRAINT pk_financial_transactions PRIMARY KEY (id),
+    CONSTRAINT ck_financial_transactions_target_type CHECK (target_type IN ('DOCTOR','SECTOR')),
+    CONSTRAINT ck_financial_transactions_resource_type CHECK (resource_type IN ('INVENTORY','ASSET')),
+    CONSTRAINT fk_financial_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_financial_transactions_target ON financial_transactions (target_type, target_id);
+CREATE INDEX idx_financial_transactions_created_at ON financial_transactions (created_at DESC);
+
 CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
 CREATE INDEX idx_ps_sale_id  ON processed_sales (sale_id);
 CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);

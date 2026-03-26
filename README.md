@@ -130,5 +130,3 @@ docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json 
   - Prometheus: `/api/actuator/prometheus`
 
 ---
-
-Se precisar, eu posso abrir um PR com estas atualizações ou ajustar o texto para incluir links diretos a trechos específicos da documentação. 

@@ -1,6 +1,6 @@
--- V3__seed_test_data.sql
+-- V3__seed_test_data.sql (DEV ONLY)
 -- Popula dados de teste mínimos: usuários, itens, lotes e chamados de exemplo
--- Esta migration é escrita para ser idempotente: usa SELECT ... WHERE NOT EXISTS
+-- Esta migration é idempotente e deve ser executada apenas em ambientes de desenvolvimento.
 
 -- -----------------------------
 -- 1) Usuários (Admin, Técnico, Usuário)
@@ -86,4 +86,4 @@ SELECT gen_random_uuid(), 'Solicitação de Mouse', 'Solicitação automática d
        (SELECT id FROM items WHERE name = 'Mouse Wireless Logitech' LIMIT 1), 1, now() + interval '24 hours', now(), now()
 WHERE NOT EXISTS (SELECT 1 FROM tickets t WHERE t.title = 'Solicitação de Mouse' AND t.requester_id = (SELECT id FROM users WHERE email = 'joao.silva@inovare.med.br' LIMIT 1));
 
--- Fim da migration V3
+-- Fim da migration V3 (dev-only)

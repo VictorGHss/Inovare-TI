@@ -1,11 +1,19 @@
 package br.dev.ctrls.inovareti.domain.notification.discord;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
@@ -28,8 +36,15 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DiscordWebhookService {
 
-     private final UserRepository userRepository;
-     private final DiscordDirectMessageService discordDirectMessageService;
+    private final UserRepository userRepository;
+    private final DiscordDirectMessageService discordDirectMessageService;
+    private final RestTemplate restTemplate;
+
+    @Value("${discord.operational.webhook.url:}")
+    private String operationalWebhookUrl;
+
+    @Value("${discord.webhook.url:}")
+    private String defaultWebhookUrl;
 
     @Async
     public void sendNewTicketAlert(Ticket ticket) {
@@ -62,6 +77,29 @@ public class DiscordWebhookService {
         } catch (IllegalArgumentException e) {
             UUID ticketId = ticket != null ? ticket.getId() : null;
             log.error("Erro de validação no roteamento de notificação Discord para o chamado {}", ticketId, e);
+        }
+    }
+
+    /**
+     * Envia uma mensagem ao canal operacional (webhook) do Discord.
+     * Método assíncrono e tolerante a falhas para não impactar o fluxo principal.
+     */
+    @Async
+    public void sendOperationalAlert(String title, String message) {
+        String webhook = StringUtils.hasText(operationalWebhookUrl) ? operationalWebhookUrl : defaultWebhookUrl;
+        if (!StringUtils.hasText(webhook)) {
+            log.warn("Operational Discord webhook not configured. Skipping operational alert: {}", title);
+            return;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        try {
+            restTemplate.postForEntity(webhook, new HttpEntity<>(Map.of("content", message), headers), Void.class);
+            log.info("Operational alert enfileirada no Discord: {}", title);
+        } catch (RestClientException ex) {
+            log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
         }
     }
 

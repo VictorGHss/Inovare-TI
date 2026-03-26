@@ -3,9 +3,10 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -383,10 +384,20 @@ public class ContaAzulAutomationService {
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 // Excedeu o limite de tentativas: registra alerta de alta severidade
                                 String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts + " tentativas. Marcado como processado para evitar loop.";
-                                alertService.registerPermanentFailureWithSeverity(
+                                Map<String, Object> context = new HashMap<>();
+                                context.put("parcelaId", baixaId);
+                                if (StringUtils.hasText(sale.saleId())) {
+                                    context.put("saleId", sale.saleId());
+                                }
+                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                    context.put("doctorName", mapping.getDoctorName());
+                                }
+                                context.put("attempts", attempts);
+                                alertService.registerPermanentFailureWithTypeAndSeverity(
                                         baixaId,
                                         details,
-                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        context,
+                                        "FINANCEIRO_RECEIPT_CRITICAL",
                                         "HIGH");
                                 log.error("Recibo da baixa {} não gerado após {} tentativas. Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {
@@ -411,10 +422,20 @@ public class ContaAzulAutomationService {
                                 processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 String details = "Falha ao baixar recibo da baixa " + baixaId + " após " + attempts + " tentativas. Erro: " + ex.getMessage();
-                                alertService.registerPermanentFailureWithSeverity(
+                                Map<String, Object> context = new HashMap<>();
+                                context.put("parcelaId", baixaId);
+                                if (StringUtils.hasText(sale.saleId())) {
+                                    context.put("saleId", sale.saleId());
+                                }
+                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                    context.put("doctorName", mapping.getDoctorName());
+                                }
+                                context.put("attempts", attempts);
+                                alertService.registerPermanentFailureWithTypeAndSeverity(
                                         baixaId,
                                         details,
-                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        context,
+                                        "FINANCEIRO_RECEIPT_CRITICAL",
                                         "HIGH");
                                 log.error("Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {
@@ -441,10 +462,20 @@ public class ContaAzulAutomationService {
                                 processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 String details = "Recibo da baixa " + baixaId + " não gerou bytes após " + attempts + " tentativas. Marcado como processado.";
-                                alertService.registerPermanentFailureWithSeverity(
+                                Map<String, Object> context = new HashMap<>();
+                                context.put("parcelaId", baixaId);
+                                if (StringUtils.hasText(sale.saleId())) {
+                                    context.put("saleId", sale.saleId());
+                                }
+                                if (mapping != null && StringUtils.hasText(mapping.getDoctorName())) {
+                                    context.put("doctorName", mapping.getDoctorName());
+                                }
+                                context.put("attempts", attempts);
+                                alertService.registerPermanentFailureWithTypeAndSeverity(
                                         baixaId,
                                         details,
-                                        Map.of("parcelaId", baixaId, "saleId", sale.saleId(), "attempts", attempts),
+                                        context,
+                                        "FINANCEIRO_RECEIPT_CRITICAL",
                                         "HIGH");
                                 log.error("Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado e alerta registrado.", baixaId, attempts);
                             } catch (DataIntegrityViolationException dex) {

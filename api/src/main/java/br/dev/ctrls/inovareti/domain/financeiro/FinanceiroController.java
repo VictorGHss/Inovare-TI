@@ -37,7 +37,7 @@ public class FinanceiroController {
     private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
     private final ContaAzulAutomationService contaAzulAutomationService;
     private final FinanceEmailService receiptService;
-    private final AlertService alertService;
+    
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/recibos")

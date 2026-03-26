@@ -51,7 +51,6 @@ class ContaAzulControllerTest {
     }
 
     @BeforeEach
-    @SuppressWarnings("unused")
     void setup() {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);

@@ -18,7 +18,6 @@ class ContaAzulPublicEndpointsTest {
     private ContaAzulTokenService tokenService;
 
     @BeforeEach
-    @SuppressWarnings("unused")
     void setUp() {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);

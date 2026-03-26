@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -94,7 +94,7 @@ export default function FinancialDashboard() {
     }
   }, [searchParams, setSearchParams]);
 
-  async function reloadDashboardData() {
+  const reloadDashboardData = useCallback(async () => {
     const status = await getFinanceConnectionStatus();
     setConnectionStatus(status);
 
@@ -116,7 +116,7 @@ export default function FinancialDashboard() {
     setReceipts(receiptsData);
     setAlerts(alertsData);
     await reloadDoctorMappings();
-  }
+  }, [reloadDoctorMappings]);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -131,7 +131,7 @@ export default function FinancialDashboard() {
     }
 
     void loadDashboard();
-  }, []);
+  }, [reloadDashboardData]);
 
   async function handleTriggerTestReceipt() {
     try {
@@ -167,7 +167,7 @@ export default function FinancialDashboard() {
   }
 
   // Carrega mapeamentos usados pelo backend para envio automático dos recibos.
-  async function reloadDoctorMappings() {
+  const reloadDoctorMappings = useCallback(async () => {
     try {
       setLoadingDoctorMappings(true);
       const dados = await getDoctorMappings();
@@ -177,7 +177,7 @@ export default function FinancialDashboard() {
     } finally {
       setLoadingDoctorMappings(false);
     }
-  }
+  }, []);
 
   if (loading) {
     return (

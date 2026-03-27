@@ -17,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorResetConfirmRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorVerifyRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
+import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorAuthService;
 import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
@@ -103,8 +104,29 @@ public class AuthController {
             throw new BadRequestException("Usuário autenticado não encontrado.");
         }
 
+        Object principal = authentication.getPrincipal();
+
+        // Caso o principal seja a entidade User (definida no domínio), retornamos o id
+        if (principal instanceof User) {
+            UUID id = ((User) principal).getId();
+            if (id == null) {
+                throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            }
+            return id;
+        }
+
+        // Se for uma String contendo o UUID (fluxos antigos), parseamos diretamente
+        if (principal instanceof String) {
+            try {
+                return UUID.fromString((String) principal);
+            } catch (IllegalArgumentException ex) {
+                throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            }
+        }
+
+        // Fallback: tentar converter via toString()
         try {
-            return UUID.fromString(authentication.getPrincipal().toString());
+            return UUID.fromString(principal.toString());
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }

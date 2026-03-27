@@ -44,9 +44,31 @@ public class TokenService {
         return JWT.create()
                 .withIssuer(ISSUER)
                 .withSubject(user.getEmail())
+                .withClaim("userId", user.getId() != null ? user.getId().toString() : "")
                 .withClaim("two_factor_verified", twoFactorVerified)
                 .withExpiresAt(expiresAt())
                 .sign(algorithm);
+    }
+
+    /**
+     * Extrai o claim `userId` de um token JWT validado.
+     * Retorna string vazia se inválido ou ausente.
+     */
+    public String getUserIdFromToken(String token) {
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            var decoded = JWT.require(algorithm)
+                    .withIssuer(ISSUER)
+                    .build()
+                    .verify(token);
+            var claim = decoded.getClaim("userId");
+            if (claim == null || claim.isNull()) {
+                return "";
+            }
+            return claim.asString();
+        } catch (JWTVerificationException | IllegalArgumentException e) {
+            return "";
+        }
     }
 
     public String generateInitialPasswordResetToken(User user) {

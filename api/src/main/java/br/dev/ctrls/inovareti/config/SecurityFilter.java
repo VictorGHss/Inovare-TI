@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.config;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -60,20 +61,38 @@ public class SecurityFilter extends OncePerRequestFilter {
             return;
         }
 
-        String email = tokenService.validateToken(token);
-        if (email == null || email.isBlank()) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        // Preferir extrair o userId diretamente do claim do token.
+        String userIdClaim = tokenService.getUserIdFromToken(token);
+        if (userIdClaim != null && !userIdClaim.isBlank()) {
+            try {
+                UUID userId = UUID.fromString(userIdClaim);
+                userRepository.findById(userId).ifPresent(user -> {
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            user, null, user.getAuthorities());
+                    authentication.setDetails(Map.of(
+                            "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+                    ));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                });
+            } catch (IllegalArgumentException ex) {
+                // invalid UUID in claim - fallback to email-based resolution below
+            }
+        } else {
+            String email = tokenService.validateToken(token);
+            if (email == null || email.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-        userRepository.findByEmail(email).ifPresent(user -> {
-            var authentication = new UsernamePasswordAuthenticationToken(
-                    user.getId().toString(), null, user.getAuthorities());
-            authentication.setDetails(Map.of(
-                    "twoFactorVerified", tokenService.isTwoFactorVerified(token)
-            ));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        });
+            userRepository.findByEmail(email).ifPresent(user -> {
+                var authentication = new UsernamePasswordAuthenticationToken(
+                        user, null, user.getAuthorities());
+                authentication.setDetails(Map.of(
+                        "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+                ));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            });
+        }
 
         filterChain.doFilter(request, response);
     }

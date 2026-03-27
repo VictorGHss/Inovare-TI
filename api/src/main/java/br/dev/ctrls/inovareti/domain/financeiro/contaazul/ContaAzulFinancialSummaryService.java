@@ -68,21 +68,27 @@ public class ContaAzulFinancialSummaryService {
     public FinancialSummary fetchSummary() {
         String accessToken = contaAzulTokenService.getValidAccessToken();
 
-        long totalPaidCents = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
-        long totalPendingCents = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
+        StatusResult paidResult = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
+        StatusResult pendingResult = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
+
+        long totalPaidCents = paidResult.total();
+        long totalPendingCents = pendingResult.total();
         long balanceCents = totalPaidCents;
         long syncedReceiptsCount = processedSaleRepository.count();
 
-        return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount);
+        boolean externalServiceAvailable = paidResult.available() && pendingResult.available();
+
+        return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount, externalServiceAvailable);
     }
 
     // Recupera o total agregado (em centavos) para o `status` informado usando o accessToken.
     // Trata 401 autorizando refresh automático do token quando aplicável.
-    private long fetchTotalByStatus(String accessToken, String status) {
+    private StatusResult fetchTotalByStatus(String accessToken, String status) {
         try {
             ResponseEntity<String> response = executePaymentsRequest(status, accessToken);
 
-            return extractTotalCents(response.getBody(), status);
+            long total = extractTotalCents(response.getBody(), status);
+            return new StatusResult(total, true);
         } catch (Unauthorized ex) {
             String errorBody = ex.getResponseBodyAsString();
             log.warn(
@@ -93,7 +99,8 @@ public class ContaAzulFinancialSummaryService {
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
                 ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken);
-                return extractTotalCents(retryResponse.getBody(), status);
+                long total = extractTotalCents(retryResponse.getBody(), status);
+                return new StatusResult(total, true);
             } catch (Exception refreshEx) {
                 log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
                 throw new ContaAzulAuthException(
@@ -102,14 +109,14 @@ public class ContaAzulFinancialSummaryService {
             }
         } catch (HttpClientErrorException ex) {
             String errorBody = ex.getResponseBodyAsString();
-            
+
             // Tratar 403 (forbidden) como caso de conta não elegível para uso da API
             if (ex.getStatusCode().value() == 403) {
                 log.warn(
                         "ContaAzul API retornou 403 FORBIDDEN ao buscar pagamentos com status='{}'. Resposta: {}",
                         status, errorBody);
-                // Não interromper a visualização do financeiro: retornar 0 para este status.
-                return 0L;
+                // Não interromper a visualização do financeiro: retornar 0 para este status e sinalizar indisponibilidade.
+                return new StatusResult(0L, false);
             }
 
             if (ex.getStatusCode().value() == 401) {
@@ -124,12 +131,14 @@ public class ContaAzulFinancialSummaryService {
                         "Resposta: {}",
                         ex.getStatusCode(), status, errorBody, ex);
             }
-            
+
             throw new IllegalStateException(
                     "Falha ao recuperar resumo financeiro da Conta Azul [status=" + status + ", http=" + ex.getStatusCode() + "]. " +
                     "Verifique token OAuth e permissões do aplicativo no portal da Conta Azul.", ex);
         }
     }
+
+    private static record StatusResult(long total, boolean available) {}
 
     // Executa a requisição para o endpoint de pagamentos da Conta Azul com o status
     // e o token fornecidos. Retorna o corpo da resposta encapsulado em `ResponseEntity<String>`.
@@ -253,6 +262,7 @@ public class ContaAzulFinancialSummaryService {
             long totalPendingCents,
             long totalPaidCents,
             String currency,
-            long syncedReceiptsCount) {
+            long syncedReceiptsCount,
+            boolean externalServiceAvailable) {
         }
 }

@@ -18,11 +18,13 @@ import api, {
   getFinanceConnectionStatus,
   getFinanceReceipts,
   getFinancialSummary,
+  getDashboardAnalytics,
   type DoctorMapping,
   type FinanceAlert,
   type FinanceConnectionStatus,
   type FinanceReceipt,
   type FinancialSummaryDTO,
+  type DashboardAnalyticsDTO,
 } from '../../services/api';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 
@@ -70,6 +72,7 @@ export default function FinancialDashboard() {
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<FinanceConnectionStatus | null>(null);
   const [summary, setSummary] = useState<FinancialSummaryDTO | null>(null);
+  const [analytics, setAnalytics] = useState<DashboardAnalyticsDTO | null>(null);
   const [receipts, setReceipts] = useState<FinanceReceipt[]>([]);
   const [alerts, setAlerts] = useState<FinanceAlert[]>([]);
   const [doctorMappings, setDoctorMappings] = useState<DoctorMapping[]>([]);
@@ -119,15 +122,18 @@ export default function FinancialDashboard() {
       return;
     }
 
-    const [summaryData, receiptsData, alertsData] = await Promise.all([
+    const [summaryData, receiptsData, alertsData, analyticsData] = await Promise.all([
       getFinancialSummary(),
       getFinanceReceipts(),
       getFinanceAlerts(),
+      getDashboardAnalytics(),
     ]);
 
+    // set results
     setSummary(summaryData);
     setReceipts(receiptsData);
     setAlerts(alertsData);
+    setAnalytics(analyticsData);
     await reloadDoctorMappings();
   }, [reloadDoctorMappings]);
 
@@ -368,10 +374,15 @@ export default function FinancialDashboard() {
             <ArrowUpRight className="text-slate-300" size={20} />
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 md:grid-cols-4">
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Integração</p>
-              <strong className="mt-3 block text-lg font-semibold text-emerald-700">Ativa</strong>
+              <strong className={`mt-3 block text-lg font-semibold ${summary?.externalServiceAvailable === false ? 'text-amber-700' : 'text-emerald-700'}`}>
+                {summary?.externalServiceAvailable === false ? 'Indisponível' : 'Ativa'}
+              </strong>
+              {summary?.externalServiceAvailable === false && (
+                <p className="mt-2 text-sm text-amber-700">Conta Azul retornou restrição (403). Verifique assinatura.</p>
+              )}
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Última renovação</p>
@@ -380,6 +391,11 @@ export default function FinancialDashboard() {
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Moeda</p>
               <strong className="mt-3 block text-lg font-semibold text-slate-900">{currency}</strong>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Itens</p>
+              <strong className="mt-3 block text-lg font-semibold text-slate-900">{analytics?.inventorySummary?.totalItems ?? '—'}</strong>
+              <p className="mt-1 text-sm text-slate-500">Baixa: {analytics?.inventorySummary?.lowStockItems ?? '—'} • Zerados: {analytics?.inventorySummary?.outOfStockItems ?? '—'}</p>
             </div>
           </div>
         </article>

@@ -579,6 +579,7 @@ export interface FinancialSummaryDTO {
   totalPaidCents: number;
   currency: string;
   syncedReceiptsCount: number;
+  externalServiceAvailable?: boolean;
 }
 
 export interface AuthResponseDTO {

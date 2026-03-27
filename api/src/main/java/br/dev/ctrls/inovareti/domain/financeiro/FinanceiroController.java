@@ -90,7 +90,8 @@ public class FinanceiroController {
                 summary.totalPendingCents(),
                 summary.totalPaidCents(),
                 summary.currency(),
-                summary.syncedReceiptsCount()));
+                summary.syncedReceiptsCount(),
+                summary.externalServiceAvailable()));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -208,13 +209,14 @@ public class FinanceiroController {
             Map<String, Object> context) {
     }
 
-    public record FinanceSummaryResponseDTO(
+        public record FinanceSummaryResponseDTO(
             long balanceCents,
             long totalPendingCents,
             long totalPaidCents,
             String currency,
-            long syncedReceiptsCount) {
-    }
+            long syncedReceiptsCount,
+            boolean externalServiceAvailable) {
+        }
 
         public record SyncDoctorsResponseDTO(
             int novos,

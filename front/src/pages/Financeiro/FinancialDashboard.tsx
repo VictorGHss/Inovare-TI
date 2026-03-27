@@ -313,7 +313,7 @@ export default function FinancialDashboard() {
                   link.click();
                   link.parentNode?.removeChild(link);
                   window.URL.revokeObjectURL(url);
-                } catch (e) {
+                } catch {
                   toast.error('Falha ao exportar relatório de consumo.');
                 } finally {
                   setExporting(false);

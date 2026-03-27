@@ -42,10 +42,12 @@ public class SecurityFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String requestUri = request.getRequestURI();
         // Não aplicar o filtro para rotas de autenticação ou endpoints do ContaAzul.
-        // Simplifica o if redundante retornando diretamente a condição booleana.
-        return requestUri.contains("/auth/")
-                || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
-                || requestUri.contains(CONTA_AZUL_CALLBACK_PATH);
+        // Somente pular o filtro para endpoints públicos de autenticação (login, reset inicial).
+        // Não pular rotas de 2FA que precisam do SecurityContext preenchido.
+        return requestUri.contains("/auth/login")
+            || requestUri.contains("/auth/reset-initial-password")
+            || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
+            || requestUri.contains(CONTA_AZUL_CALLBACK_PATH);
     }
 
     @Override

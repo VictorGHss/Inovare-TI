@@ -883,24 +883,27 @@ export async function getVaultItemFileBlob(vaultItemId: string): Promise<Blob> {
 }
 
 // Exporta relatório de tickets em Excel
-export async function exportTicketsReport(): Promise<Blob> {
+export async function exportTicketsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
   const { data } = await api.get('/api/reports/tickets', {
+    params,
     responseType: 'blob',
   });
   return data;
 }
 
 // Exporta relatório de entradas de estoque (compras)
-export async function exportInventoryEntriesReport(): Promise<Blob> {
+export async function exportInventoryEntriesReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
   const { data } = await api.get('/api/reports/inventory/entries', {
+    params,
     responseType: 'blob',
   });
   return data;
 }
 
 // Exporta relatório de saídas de estoque (consumo)
-export async function exportInventoryExitsReport(): Promise<Blob> {
+export async function exportInventoryExitsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
   const { data } = await api.get('/api/reports/inventory/exits', {
+    params,
     responseType: 'blob',
   });
   return data;

@@ -8,4 +8,6 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
 
 	java.util.List<FinancialTransaction> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end);
 
+	java.util.List<FinancialTransaction> findByTicketId(UUID ticketId);
+
 }

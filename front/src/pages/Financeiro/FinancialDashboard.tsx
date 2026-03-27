@@ -18,6 +18,7 @@ import api, {
   getFinanceReceipts,
   getFinancialSummary,
   getDashboardAnalytics,
+  exportInventoryExitsReport,
   type DoctorMapping,
   type FinanceAlert,
   type FinanceConnectionStatus,
@@ -94,6 +95,7 @@ export default function FinancialDashboard() {
   const [startDate, setStartDate] = useState(defaultCycle.start);
   const [endDate, setEndDate] = useState(defaultCycle.end);
   const [activeTab, setActiveTab] = useState<'local' | 'integration'>('local');
+  const [exporting, setExporting] = useState(false);
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
   const unresolvedAlerts = useMemo(() => alerts.filter((alert) => !alert.resolved), [alerts]);
@@ -290,7 +292,41 @@ export default function FinancialDashboard() {
       </div>
 
       {activeTab === 'local' ? (
-        <InternalConsumptionPanel startDate={startDate} endDate={endDate} />
+        <>
+          <div className="mt-4 flex items-center justify-end">
+            <button
+              onClick={async () => {
+                if (startDate > endDate) {
+                  toast.error('Data Início não pode ser maior que Data Fim.');
+                  return;
+                }
+
+                try {
+                  setExporting(true);
+                  const blob = await exportInventoryExitsReport({ startDate, endDate });
+                  const url = window.URL.createObjectURL(new Blob([blob]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  const filename = `relatorio_consumo_${startDate}_to_${endDate}.xlsx`;
+                  link.setAttribute('download', filename);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode?.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                } catch (e) {
+                  toast.error('Falha ao exportar relatório de consumo.');
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              disabled={exporting}
+              className="ml-3 inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {exporting ? 'Exportando...' : 'Exportar Relatório de Consumo'}
+            </button>
+          </div>
+          <InternalConsumptionPanel startDate={startDate} endDate={endDate} />
+        </>
       ) : (
         <section className="mt-6 space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

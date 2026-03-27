@@ -2,7 +2,9 @@ package br.dev.ctrls.inovareti.domain.report;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -53,8 +55,21 @@ public class ReportController {
 
     @GetMapping("/tickets")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
-    public ResponseEntity<InputStreamResource> exportTickets() {
-        List<Ticket> tickets = ticketRepository.findAll();
+            public ResponseEntity<InputStreamResource> exportTickets(
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate endDate) {
+
+        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
+        LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+
+        List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
+            .filter(t -> t.getCreatedAt() != null && (t.getCreatedAt().isEqual(start) || t.getCreatedAt().isAfter(start)) && (t.getCreatedAt().isBefore(end) || t.getCreatedAt().isEqual(end)))
+            .toList();
+
         ByteArrayInputStream excelFile = reportService.exportTicketsToExcel(tickets);
 
         HttpHeaders headers = new HttpHeaders();
@@ -104,8 +119,21 @@ public class ReportController {
 
     @GetMapping("/inventory/entries")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
-    public ResponseEntity<InputStreamResource> exportInventoryEntries() {
-        List<StockBatch> batches = stockBatchRepository.findAll();
+        public ResponseEntity<InputStreamResource> exportInventoryEntries(
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate endDate) {
+
+        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
+        LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+
+        List<StockBatch> batches = stockBatchRepository.findAll().stream()
+            .filter(b -> b.getEntryDate() != null && (b.getEntryDate().isEqual(start) || b.getEntryDate().isAfter(start)) && (b.getEntryDate().isBefore(end) || b.getEntryDate().isEqual(end)))
+            .toList();
+
         ByteArrayInputStream excelFile = reportService.exportInventoryEntriesToExcel(batches);
 
         HttpHeaders headers = new HttpHeaders();
@@ -119,8 +147,21 @@ public class ReportController {
 
     @GetMapping("/inventory/exits")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
-    public ResponseEntity<InputStreamResource> exportInventoryExits() {
-        List<Ticket> tickets = ticketRepository.findAll();
+        public ResponseEntity<InputStreamResource> exportInventoryExits(
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+                @org.springframework.web.bind.annotation.RequestParam(required = false)
+                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                    LocalDate endDate) {
+
+        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
+        LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+
+        List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
+            .filter(t -> t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
+            .toList();
+
         ByteArrayInputStream excelFile = reportService.exportInventoryExitsToExcel(tickets);
 
         HttpHeaders headers = new HttpHeaders();

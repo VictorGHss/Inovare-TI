@@ -22,8 +22,12 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
+import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransaction;
+import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovement;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +46,8 @@ public class ReportService {
      */
 
     private final StockBatchRepository stockBatchRepository;
+    private final StockMovementRepository stockMovementRepository;
+    private final FinancialTransactionRepository transactionRepository;
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.of("pt", "BR"));
@@ -201,8 +207,8 @@ public class ReportService {
                     row.createCell(4).setCellValue(ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
                     row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
                     
-                    // Calcula o preço total com base no preço unitário do último lote
-                    BigDecimal totalPrice = calculateExitTotalPrice(ticket.getRequestedItem(), ticket.getRequestedQuantity());
+                    // Obtém o valor real do movimento prioritariamente a partir do lançamento financeiro
+                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity());
                     row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
                     
                     row.createCell(7).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
@@ -231,15 +237,60 @@ public class ReportService {
      * @param quantity a quantidade sendo retirada
      * @return preço total (quantidade * preço unitário do lote mais recente), ou ZERO se não houver lotes
      */
-    private BigDecimal calculateExitTotalPrice(br.dev.ctrls.inovareti.domain.inventory.Item item, Integer quantity) {
+    /**
+     * Calcula o preço total de uma saída de item priorizando o valor registrado
+     * em `financial_transactions.amount` (se existir) ou, alternativamente,
+     * somando `unit_price_at_time` dos movimentos (`stock_movements`) relacionados
+     * ao chamado. Como fallback final, utiliza o preço do lote mais recente.
+     */
+    private BigDecimal calculateExitTotalPrice(Ticket ticket, Integer quantity) {
+        // 1) Tenta obter lançamentos financeiros vinculados ao ticket
+        try {
+            var txs = transactionRepository.findByTicketId(ticket.getId());
+            if (txs != null && !txs.isEmpty()) {
+                BigDecimal sum = BigDecimal.ZERO;
+                for (FinancialTransaction tx : txs) {
+                    if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY && tx.getAmount() != null) {
+                        sum = sum.add(tx.getAmount());
+                    }
+                }
+                if (sum.compareTo(BigDecimal.ZERO) > 0) {
+                    return sum;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Erro ao buscar lançamentos financeiros para ticket {}: {}", ticket.getId(), e.getMessage());
+        }
+
+        // 2) Fallback: somar unit_price_at_time dos movimentos de estoque referenciando o ticket
+        try {
+            String prefix = "TICKET:" + ticket.getId();
+            List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithOrderByDateDesc(prefix);
+            if (movements != null && !movements.isEmpty()) {
+                BigDecimal sum = BigDecimal.ZERO;
+                for (StockMovement m : movements) {
+                    if (m.getUnitPriceAtTime() != null) {
+                        sum = sum.add(m.getUnitPriceAtTime());
+                    }
+                }
+                if (sum.compareTo(BigDecimal.ZERO) > 0) {
+                    return sum;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Erro ao buscar movimentos para ticket {}: {}", ticket.getId(), e.getMessage());
+        }
+
+        // 3) Fallback final: preço unitário do lote mais recente * quantidade
+        var item = ticket.getRequestedItem();
+        if (item == null) return BigDecimal.ZERO;
+
         List<StockBatch> batches = stockBatchRepository.findByItemOrderByEntryDateDesc(item);
-        
         if (batches.isEmpty()) {
             log.warn("No batches found for item {}, returning zero price", item.getId());
             return BigDecimal.ZERO;
         }
-        
-        // Obtém o lote mais recente (primeiro da lista ordenada por data decrescente)
+
         BigDecimal unitPrice = batches.get(0).getUnitPrice();
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }

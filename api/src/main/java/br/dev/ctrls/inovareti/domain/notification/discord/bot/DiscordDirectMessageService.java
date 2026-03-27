@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.utils.FileUpload;
 
 @Slf4j
 @Service
@@ -90,6 +91,44 @@ public class DiscordDirectMessageService {
                 error -> log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticketId, discordUserId, error)
                 ),
             error -> log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticketId, error)
+        );
+    }
+
+    /**
+     * Envia um arquivo PDF via DM para o usuário especificado no Discord.
+     * Método assíncrono; falhas são registradas mas não propagadas.
+     */
+    @Async
+    public void sendReportPdfDMToUser(String discordUserId, byte[] pdfBytes, String filename, String message) {
+        if (discordUserId == null || discordUserId.isBlank()) {
+            log.info("Ignoring report PDF DM: target user has no Discord id");
+            return;
+        }
+
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("Ignoring report PDF DM: JDA is not available");
+            return;
+        }
+
+        jda.retrieveUserById(discordUserId).queue(
+            user -> user.openPrivateChannel().queue(
+                channel -> {
+                    try {
+                        if (message != null && !message.isBlank()) {
+                            channel.sendMessage(message).queue();
+                        }
+                        channel.sendFiles(FileUpload.fromData(pdfBytes, filename)).queue(
+                            success -> log.info("Report PDF DM sent to user {}", discordUserId),
+                            error -> log.warn("Failed to send Report PDF DM to user {}", discordUserId, error)
+                        );
+                    } catch (Exception ex) {
+                        log.warn("Unexpected error sending PDF DM to {}", discordUserId, ex);
+                    }
+                },
+                error -> log.warn("Failed to open Discord DM channel for user {}", discordUserId, error)
+            ),
+            error -> log.warn("Failed to retrieve Discord user {}", discordUserId, error)
         );
     }
 

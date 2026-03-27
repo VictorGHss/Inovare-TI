@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.report;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.domain.notification.ReportDeliveryService;
 import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
@@ -29,6 +29,7 @@ public class ReportAutomationService {
     private final UserRepository userRepository;
     private final ReportDeliveryService reportDeliveryService;
     private final DiscordWebhookService discordWebhookService;
+    private final DiscordDirectMessageService discordDirectMessageService;
 
     /**
      * Executa no dia configurado (ex.: dia 12) às 08:00 todo mês.
@@ -64,17 +65,11 @@ public class ReportAutomationService {
                     List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
                             .filter(t -> t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
                             .toList();
+                    // generate PDF bytes
+                    ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(tickets);
+                    byte[] bytes = stream.readAllBytes();
 
-                    ByteArrayInputStream stream = reportService.exportInventoryExitsToExcel(tickets);
-                    byte[] bytes;
-                    try {
-                        bytes = stream.readAllBytes();
-                    } catch (IOException ioe) {
-                        log.error("Failed to read report stream for schedule {}", schedule.getId(), ioe);
-                        continue;
-                    }
-
-                    String filename = String.format("saidas_estoque_%s_to_%s.xlsx", startDate.toString(), endDate.toString());
+                    String filename = String.format("saidas_estoque_%s_to_%s.pdf", startDate.toString(), endDate.toString());
 
                     if (schedule.isSendEmail() && schedule.getTargetUserId() != null) {
                         userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
@@ -84,7 +79,7 @@ public class ReportAutomationService {
 
                             try {
                                 reportDeliveryService.sendReportEmail(user.getName(), user.getEmail(), subject, body, bytes, filename,
-                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                                        "application/pdf");
                             } catch (Exception ex) {
                                 log.error("Failed to send scheduled report email to {} for schedule {}", user.getEmail(), schedule.getId(), ex);
                             }
@@ -93,12 +88,36 @@ public class ReportAutomationService {
 
                     if (schedule.isSendDiscord()) {
                         String title = "Relatório Mensal de Saídas Gerado";
-                        String message = String.format("Relatório automático de saídas gerado para período %s → %s. Arquivo: %s",
-                                startDate.toString(), endDate.toString(), filename);
-                        try {
-                            discordWebhookService.sendOperationalAlert(title, message);
-                        } catch (Exception ex) {
-                            log.error("Failed to notify Discord for schedule {}", schedule.getId(), ex);
+                        String message = String.format("Relatório automático de saídas gerado para período %s → %s.",
+                                startDate.toString(), endDate.toString());
+
+                        if (schedule.getTargetUserId() != null) {
+                            userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
+                                if (user.getDiscordUserId() != null && !user.getDiscordUserId().isBlank()) {
+                                    try {
+                                        discordDirectMessageService.sendReportPdfDMToUser(user.getDiscordUserId(), bytes, filename,
+                                                String.format("Olá %s, segue o relatório automático de saídas referente ao período %s → %s.",
+                                                        user.getName(), startDate.toString(), endDate.toString()));
+                                    } catch (Exception ex) {
+                                        log.error("Failed to DM report PDF to Discord user {} for schedule {}", user.getDiscordUserId(), schedule.getId(), ex);
+                                        // fallback to webhook
+                                        discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                                    }
+                                } else {
+                                    // fallback to webhook when user has no discord linked
+                                    discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                                }
+                            }, () -> {
+                                // user not found, fallback to webhook
+                                discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                            });
+                        } else {
+                            // no specific user, send to operational webhook
+                            try {
+                                discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                            } catch (Exception ex) {
+                                log.error("Failed to notify Discord for schedule {}", schedule.getId(), ex);
+                            }
                         }
                     }
 

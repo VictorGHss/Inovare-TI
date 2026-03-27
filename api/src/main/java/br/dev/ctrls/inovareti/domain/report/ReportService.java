@@ -9,6 +9,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -307,5 +313,98 @@ public class ReportService {
         headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         headerStyle.setAlignment(HorizontalAlignment.CENTER);
         return headerStyle;
+    }
+
+    /**
+     * Gera um PDF simples com o relatório de saídas de estoque.
+     * Retorna o conteúdo em um ByteArrayInputStream pronto para envio.
+     */
+    public ByteArrayInputStream exportInventoryExitsToPdf(List<Ticket> tickets) {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+
+            PDFont font = PDType1Font.HELVETICA;
+            PDFont bold = PDType1Font.HELVETICA_BOLD;
+            float fontSize = 10f;
+            float leading = 1.2f * fontSize;
+
+            float margin = 50f;
+            PDRectangle mediaBox = page.getMediaBox();
+            float startX = mediaBox.getLowerLeftX() + margin;
+            float startY = mediaBox.getUpperRightY() - margin;
+            float y = startY;
+
+            PDPageContentStream content = new PDPageContentStream(document, page);
+
+            // Title
+            content.beginText();
+            content.setFont(bold, 14f);
+            content.newLineAtOffset(startX, y);
+            content.showText("Relatório de Saídas de Estoque");
+            content.endText();
+            y -= 25f;
+
+            // Header line
+            content.beginText();
+            content.setFont(bold, fontSize);
+            content.newLineAtOffset(startX, y);
+            String[] headers = {"Tipo", "Item", "Qtd", "Solicitante", "Local", "Setor", "Preço Total", "Data"};
+            content.showText(String.join(" | ", headers));
+            content.endText();
+            y -= leading;
+
+            // Rows
+            for (Ticket ticket : tickets) {
+                if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
+                    String tipo = safe(ticket.getRequestedItem().getItemCategory() != null ? ticket.getRequestedItem().getItemCategory().getName() : "-");
+                    String item = safe(ticket.getRequestedItem().getName());
+                    String qtd = String.valueOf(ticket.getRequestedQuantity());
+                    String requester = safe(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
+                    String location = ticket.getRequester() != null && ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-";
+                    String sector = ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-";
+                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity());
+                    String priceStr = CURRENCY_FORMATTER.format(totalPrice);
+                    String date = ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "";
+
+                    String line = String.format("%s | %s | %s | %s | %s | %s | %s | %s",
+                            truncate(tipo, 20), truncate(item, 40), qtd, truncate(requester, 20), truncate(location, 15), truncate(sector, 15), priceStr, date);
+
+                    if (y < margin + 50f) {
+                        content.close();
+                        page = new PDPage();
+                        document.addPage(page);
+                        content = new PDPageContentStream(document, page);
+                        y = page.getMediaBox().getUpperRightY() - margin;
+                    }
+
+                    content.beginText();
+                    content.setFont(font, fontSize);
+                    content.newLineAtOffset(startX, y);
+                    content.showText(line);
+                    content.endText();
+                    y -= leading;
+                }
+            }
+
+            content.close();
+            document.save(out);
+            document.close();
+
+            return new ByteArrayInputStream(out.toByteArray());
+        } catch (IOException e) {
+            log.error("Error generating PDF report for inventory exits", e);
+            throw new RuntimeException("Failed to generate PDF report", e);
+        }
+    }
+
+    private String safe(String s) {
+        return s == null ? "-" : s;
+    }
+
+    private String truncate(String s, int max) {
+        if (s == null) return "";
+        if (s.length() <= max) return s;
+        return s.substring(0, Math.max(0, max - 3)) + "...";
     }
 }

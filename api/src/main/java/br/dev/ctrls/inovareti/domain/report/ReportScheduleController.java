@@ -46,7 +46,7 @@ public class ReportScheduleController {
         entity.setSendEmail(req.isSendEmail());
         entity.setSendDiscord(req.isSendDiscord());
         entity.setScheduleDay(req.getScheduleDay());
-        entity.setIsActive(req.isActive());
+        entity.setActive(req.isActive());
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
 
@@ -63,7 +63,7 @@ public class ReportScheduleController {
             existing.setSendEmail(req.isSendEmail());
             existing.setSendDiscord(req.isSendDiscord());
             existing.setScheduleDay(req.getScheduleDay());
-            existing.setIsActive(req.isActive());
+            existing.setActive(req.isActive());
             existing.setUpdatedAt(LocalDateTime.now());
             repository.save(existing);
             return ResponseEntity.ok(existing);
@@ -80,7 +80,7 @@ public class ReportScheduleController {
     }
 
     @Data
-    static class ReportScheduleRequest {
+    public static class ReportScheduleRequest {
         private String reportType;
         private UUID targetUserId;
         private boolean sendEmail = true;

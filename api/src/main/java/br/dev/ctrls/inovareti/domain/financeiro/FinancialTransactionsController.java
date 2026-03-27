@@ -63,7 +63,7 @@ public class FinancialTransactionsController {
             String prefix = "TICKET:" + tx.getTicketId();
             List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithOrderByDateDesc(prefix);
 
-            String destinationName = null;
+            String destinationName;
             if (tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR) {
                 UUID uid = tx.getTargetId();
                 destinationName = userNameCache.computeIfAbsent(uid, k -> userRepository.findById(k).map(u -> u.getName()).orElse("Doctor " + k));

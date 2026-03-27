@@ -1106,6 +1106,18 @@ export interface SystemSetting {
 
 export type UpdateSystemSettingsPayload = Record<string, string>;
 
+export interface AdminConfig {
+  smtpFromEmail: string;
+  smtpFromName: string;
+  discordBotEnabled: boolean;
+  discordWebhookPresent: boolean;
+}
+
+export async function getAdminConfig(): Promise<AdminConfig> {
+  const { data } = await api.get<AdminConfig>('/admin/config');
+  return data;
+}
+
 export async function getSystemSettings(): Promise<SystemSetting[]> {
   const { data } = await api.get<SystemSetting[]>('/api/admin/settings');
   return data;

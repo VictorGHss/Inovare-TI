@@ -20,6 +20,8 @@ import {
   type UpdateSystemSettingsPayload,
   getUsers,
   type User,
+  getAdminConfig,
+  type AdminConfig,
 } from '../../services/api';
 import PageHero from '../../components/PageHero';
 
@@ -50,6 +52,13 @@ export default function Settings() {
   const [itemCategoryName, setItemCategoryName] = useState('');
   const [savingAssetCategory, setSavingAssetCategory] = useState(false);
   const [savingItemCategory, setSavingItemCategory] = useState(false);
+
+  // Admin env config (read-only values coming from .env via backend)
+  const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
+
+  // Add new system setting manual
+  const [newSettingKey, setNewSettingKey] = useState('');
+  const [newSettingValue, setNewSettingValue] = useState('');
 
   // Report schedules (admin)
   const [reportSchedules, setReportSchedules] = useState<ReportSchedule[]>([]);
@@ -88,6 +97,13 @@ export default function Settings() {
             return acc;
           }, {}),
         );
+        try {
+          const cfg = await getAdminConfig();
+          setAdminConfig(cfg);
+        } catch (e) {
+          // non-fatal
+          console.warn('Failed to load admin config', e);
+        }
         try {
           const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
           setReportSchedules(schedules);
@@ -259,6 +275,34 @@ export default function Settings() {
     }
   }
 
+  async function handleAddSetting() {
+    const key = newSettingKey.trim();
+    if (!key) {
+      toast.error('Digite a chave da configuração (ex: SLA_URGENT_HOURS).');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload: UpdateSystemSettingsPayload = { [key]: newSettingValue ?? '' };
+      const updated = await updateSystemSettings(payload);
+      setSettings(updated);
+      setValues(
+        updated.reduce<Record<string, string>>((acc, setting) => {
+          acc[setting.id] = setting.value;
+          return acc;
+        }, {}),
+      );
+      setNewSettingKey('');
+      setNewSettingValue('');
+      toast.success('Configuração adicionada com sucesso.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao adicionar configuração.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDeleteSchedule(id: string) {
     setSchedulesLoading(true);
     try {
@@ -360,6 +404,56 @@ export default function Settings() {
                         />
                       </div>
                     ))}
+                  </div>
+                  {adminConfig && (
+                    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+                      <h3 className="text-sm font-semibold text-slate-800">Ambiente (.env)</h3>
+                      <p className="text-xs text-slate-500 mt-1">Valores lidos do arquivo de ambiente (somente leitura).</p>
+
+                      <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-slate-500">SMTP From Email</p>
+                          <input type="text" value={adminConfig.smtpFromEmail ?? ''} readOnly className={inputClassName} />
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-slate-500">SMTP From Name</p>
+                          <input type="text" value={adminConfig.smtpFromName ?? ''} readOnly className={inputClassName} />
+                        </div>
+
+                        <div className="col-span-1 lg:col-span-2">
+                          <p className="text-xs text-slate-500">Discord</p>
+                          <div className="text-sm text-slate-700 mt-1">Bot: {adminConfig.discordBotEnabled ? 'Ativado' : 'Desativado'} — Webhook: {adminConfig.discordWebhookPresent ? 'Presente' : 'Não configurado'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-slate-800">Adicionar Configuração</h3>
+                    <p className="text-xs text-slate-500 mt-1">Adicione uma nova chave de configuração (ex: SLA_URGENT_HOURS).</p>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <input
+                        type="text"
+                        placeholder="Chave (ex: SLA_URGENT_HOURS)"
+                        value={newSettingKey}
+                        onChange={(e) => setNewSettingKey(e.target.value)}
+                        className={inputClassName}
+                      />
+
+                      <input
+                        type="text"
+                        placeholder="Valor"
+                        value={newSettingValue}
+                        onChange={(e) => setNewSettingValue(e.target.value)}
+                        className={inputClassName}
+                      />
+
+                      <div>
+                        <button onClick={handleAddSetting} disabled={saving} className="w-full bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Adicionar</button>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4">

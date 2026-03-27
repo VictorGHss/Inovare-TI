@@ -6,7 +6,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -23,10 +23,19 @@ public class SystemSettingService {
     @Transactional
     public List<SystemSetting> updateSettings(Map<String, String> updates) {
         for (Map.Entry<String, String> entry : updates.entrySet()) {
-            SystemSetting setting = systemSettingRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new NotFoundException("System setting not found: " + entry.getKey()));
+            String key = entry.getKey();
+            String value = entry.getValue() == null ? "" : entry.getValue().trim();
 
-            setting.setValue(entry.getValue() == null ? "" : entry.getValue().trim());
+            Optional<SystemSetting> maybe = systemSettingRepository.findById(key);
+            if (maybe.isPresent()) {
+                SystemSetting setting = maybe.get();
+                setting.setValue(value);
+                systemSettingRepository.save(setting);
+            } else {
+                // create new setting when missing (upsert)
+                SystemSetting created = SystemSetting.builder().id(key).value(value).description(null).build();
+                systemSettingRepository.save(created);
+            }
         }
 
         return systemSettingRepository.findAllByOrderByIdAsc();

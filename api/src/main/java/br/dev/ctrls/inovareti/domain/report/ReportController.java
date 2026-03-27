@@ -162,6 +162,32 @@ public class ReportController {
             .filter(t -> t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
             .toList();
 
+        // Suporta ?format=pdf para retornar PDF em vez de Excel
+        var format = "xlsx"; // padrão
+        try {
+            var req = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (req instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+                var fp = sra.getRequest().getParameter("format");
+                if (fp != null && !fp.isBlank()) format = fp.toLowerCase();
+            }
+        } catch (Exception e) {
+            // swallow - keep default
+        }
+
+        if ("pdf".equalsIgnoreCase(format)) {
+            ByteArrayInputStream pdfFile = reportService.exportInventoryExitsToPdf(tickets);
+
+            String filename = String.format("saidas_estoque_%s_to_%s.pdf", start.toLocalDate().toString(), end.toLocalDate().toString());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
+            headers.setContentType(MediaType.APPLICATION_PDF);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(new InputStreamResource(pdfFile));
+        }
+
         ByteArrayInputStream excelFile = reportService.exportInventoryExitsToExcel(tickets);
 
         HttpHeaders headers = new HttpHeaders();

@@ -5,7 +5,6 @@ import {
   BadgeDollarSign,
   DollarSign,
   Landmark,
-  Link2,
   RefreshCw,
   Wallet,
 } from 'lucide-react';

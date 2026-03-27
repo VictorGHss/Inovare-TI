@@ -67,10 +67,13 @@ public class SecurityFilter extends OncePerRequestFilter {
             try {
                 UUID userId = UUID.fromString(userIdClaim);
                 userRepository.findById(userId).ifPresent(user -> {
+                    // Use o ID (String) como principal para compatibilidade com o código
+                    // existente que chama `getPrincipal().toString()`.
+                    var principal = user.getId() != null ? user.getId().toString() : null;
                     var authentication = new UsernamePasswordAuthenticationToken(
-                            user, null, user.getAuthorities());
+                        principal, null, user.getAuthorities());
                     authentication.setDetails(Map.of(
-                            "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+                        "twoFactorVerified", tokenService.isTwoFactorVerified(token)
                     ));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
@@ -84,14 +87,15 @@ public class SecurityFilter extends OncePerRequestFilter {
                 return;
             }
 
-            userRepository.findByEmail(email).ifPresent(user -> {
+                userRepository.findByEmail(email).ifPresent(user -> {
+                var principal = user.getId() != null ? user.getId().toString() : null;
                 var authentication = new UsernamePasswordAuthenticationToken(
-                        user, null, user.getAuthorities());
+                    principal, null, user.getAuthorities());
                 authentication.setDetails(Map.of(
-                        "twoFactorVerified", tokenService.isTwoFactorVerified(token)
+                    "twoFactorVerified", tokenService.isTwoFactorVerified(token)
                 ));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-            });
+                });
         }
 
         filterChain.doFilter(request, response);

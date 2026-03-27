@@ -582,6 +582,21 @@ export interface FinancialSummaryDTO {
   externalServiceAvailable?: boolean;
 }
 
+export interface FinancialTransactionLineDTO {
+  transactionId: string;
+  date: string;
+  targetType: 'DOCTOR' | 'SECTOR';
+  destination: string;
+  item: string;
+  quantity: number;
+  amountCents: number;
+}
+
+export async function getFinancialTransactions(params?: { startDate?: string; endDate?: string }): Promise<FinancialTransactionLineDTO[]> {
+  const { data } = await api.get<FinancialTransactionLineDTO[]>('/api/financial/transactions', { params });
+  return data;
+}
+
 export interface AuthResponseDTO {
   status: 'AUTHENTICATED' | 'PASSWORD_RESET_REQUIRED';
   token: string | null;

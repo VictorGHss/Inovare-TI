@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
 public interface StockMovementRepository extends JpaRepository<StockMovement, UUID> {
 
     List<StockMovement> findByItemIdAndTypeOrderByDateDesc(UUID itemId, StockMovementType type);
+
+    List<StockMovement> findByReferenceStartingWithOrderByDateDesc(String referencePrefix);
 }

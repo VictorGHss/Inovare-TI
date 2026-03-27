@@ -27,6 +27,7 @@ import api, {
   type DashboardAnalyticsDTO,
 } from '../../services/api';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
+import InternalConsumptionPanel from './InternalConsumptionPanel';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
 
@@ -66,7 +67,20 @@ function formatDateForInput(value: Date): string {
 
 export default function FinancialDashboard() {
   const hoje = new Date();
-  const primeiroDiaMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  function getDefaultCycleDates() {
+    const now = new Date();
+    const day = now.getDate();
+    let start: Date;
+    if (day >= 12) {
+      start = new Date(now.getFullYear(), now.getMonth(), 12);
+    } else {
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 12);
+      start = prev;
+    }
+    const end = now;
+    return { start: formatDateForInput(start), end: formatDateForInput(end) };
+  }
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -79,8 +93,10 @@ export default function FinancialDashboard() {
   const [loadingDoctorMappings, setLoadingDoctorMappings] = useState(false);
   const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
   const [syncingReceipts, setSyncingReceipts] = useState(false);
-  const [dataInicio, setDataInicio] = useState(formatDateForInput(primeiroDiaMesAtual));
-  const [dataFim, setDataFim] = useState(formatDateForInput(hoje));
+  const defaultCycle = getDefaultCycleDates();
+  const [dataInicio, setDataInicio] = useState(defaultCycle.start);
+  const [dataFim, setDataFim] = useState(defaultCycle.end);
+  const [viewMode, setViewMode] = useState<'local' | 'external'>('local');
 
   const hasContaAzulLinked = connectionStatus?.authorized === true;
   const unresolvedAlerts = useMemo(
@@ -342,25 +358,40 @@ export default function FinancialDashboard() {
         </button>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {metricCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <article key={card.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{card.title}</p>
-                  <strong className="mt-4 block text-2xl font-bold text-slate-900">{card.value}</strong>
+      <div className="mt-4 flex items-center gap-4">
+        <button onClick={() => setViewMode('local')} className={`px-4 py-2 rounded-2xl ${viewMode === 'local' ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-700 border border-slate-200'}`}>
+          Resumo de Consumo Local
+        </button>
+        <button onClick={() => setViewMode('external')} className={`px-4 py-2 rounded-2xl ${viewMode === 'external' ? 'bg-sky-100 text-sky-800' : 'bg-white text-slate-700 border border-slate-200'}`}>
+          Integração Conta Azul
+        </button>
+      </div>
+
+      {viewMode === 'local' ? (
+        <>
+          <InternalConsumptionPanel startDate={dataInicio} endDate={dataFim} />
+        </>
+      ) : (
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4 mt-6">
+          {metricCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{card.title}</p>
+                    <strong className="mt-4 block text-2xl font-bold text-slate-900">{card.value}</strong>
+                  </div>
+                  <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.tone}`}>
+                    <Icon size={22} />
+                  </span>
                 </div>
-                <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.tone}`}>
-                  <Icon size={22} />
-                </span>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-slate-500">{card.helper}</p>
-            </article>
-          );
-        })}
-      </section>
+                <p className="mt-4 text-sm leading-6 text-slate-500">{card.helper}</p>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

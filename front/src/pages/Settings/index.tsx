@@ -10,10 +10,16 @@ import {
   getItemCategories,
   getSystemSettings,
   updateSystemSettings,
+  getReportSchedules,
+  createReportSchedule,
+  deleteReportSchedule,
   type AssetCategory,
   type ItemCategory,
+  type ReportSchedule,
   type SystemSetting,
   type UpdateSystemSettingsPayload,
+  getUsers,
+  type User,
 } from '../../services/api';
 import PageHero from '../../components/PageHero';
 
@@ -45,6 +51,19 @@ export default function Settings() {
   const [savingAssetCategory, setSavingAssetCategory] = useState(false);
   const [savingItemCategory, setSavingItemCategory] = useState(false);
 
+  // Report schedules (admin)
+  const [reportSchedules, setReportSchedules] = useState<ReportSchedule[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [usersList, setUsersList] = useState<User[]>([]);
+  const [newSchedulePayload, setNewSchedulePayload] = useState<Partial<ReportSchedule>>({
+    reportType: 'exits',
+    targetUserId: null,
+    sendEmail: true,
+    sendDiscord: false,
+    scheduleDay: 12,
+    isActive: true,
+  });
+
   // User preferences state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [darkTheme, setDarkTheme] = useState(false);
@@ -69,6 +88,14 @@ export default function Settings() {
             return acc;
           }, {}),
         );
+        try {
+          const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
+          setReportSchedules(schedules);
+          setUsersList(users);
+        } catch (e) {
+          // non-fatal
+          console.warn('Failed to load report schedules or users', e);
+        }
       } catch {
         toast.error('Erro ao carregar configurações globais.');
         setSettings([]);
@@ -206,6 +233,45 @@ export default function Settings() {
     }
   }
 
+  async function handleCreateSchedule() {
+    if (!newSchedulePayload.reportType) {
+      toast.error('Selecione o tipo de relatório.');
+      return;
+    }
+
+    setSchedulesLoading(true);
+    try {
+      const created = await createReportSchedule(newSchedulePayload as Partial<ReportSchedule>);
+      setReportSchedules((prev) => [...prev, created]);
+      toast.success('Agendamento criado com sucesso.');
+      setNewSchedulePayload({
+        reportType: 'exits',
+        targetUserId: null,
+        sendEmail: true,
+        sendDiscord: false,
+        scheduleDay: 12,
+        isActive: true,
+      });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao criar agendamento.'));
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }
+
+  async function handleDeleteSchedule(id: string) {
+    setSchedulesLoading(true);
+    try {
+      await deleteReportSchedule(id);
+      setReportSchedules((prev) => prev.filter((s) => s.id !== id));
+      toast.success('Agendamento removido com sucesso.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao remover agendamento.'));
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }
+
   if (!isAdmin && activeTab === 'global') {
     return (
       <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -294,6 +360,78 @@ export default function Settings() {
                         />
                       </div>
                     ))}
+                  </div>
+                  
+                  <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-slate-800">Agendamentos de Relatórios</h3>
+                    <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
+
+                    <div className="mt-4 space-y-3">
+                      {reportSchedules.length === 0 ? (
+                        <div className="text-xs text-slate-500">Nenhum agendamento encontrado.</div>
+                      ) : (
+                        reportSchedules.map((s) => {
+                          const user = usersList.find((u) => u.id === s.targetUserId);
+                          return (
+                            <div key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 p-3">
+                              <div>
+                                <div className="text-sm font-semibold">{s.reportType} — Dia {s.scheduleDay}</div>
+                                <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {user ? `${user.name} (${user.email})` : (s.targetUserId ?? '—')}</div>
+                              </div>
+                              <div>
+                                <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="text-sm text-red-600 hover:underline">Remover</button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <select
+                        value={newSchedulePayload.reportType}
+                        onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, reportType: e.target.value }))}
+                        className={inputClassName}
+                      >
+                        <option value="exits">Saídas de Estoque</option>
+                        <option value="entries">Entradas de Estoque</option>
+                        <option value="tickets">Histórico de Chamados</option>
+                      </select>
+
+                      <select
+                        value={newSchedulePayload.targetUserId ?? ''}
+                        onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, targetUserId: e.target.value || null }))}
+                        className={inputClassName}
+                      >
+                        <option value="">Selecione usuário (opcional)</option>
+                        {usersList.map((u) => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                        ))}
+                      </select>
+
+                      <input
+                        type="number"
+                        min={1}
+                        max={28}
+                        value={newSchedulePayload.scheduleDay ?? 12}
+                        onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, scheduleDay: Number(e.target.value) }))}
+                        className={inputClassName}
+                      />
+
+                      <label className="flex items-center gap-2 col-span-1 md:col-span-1">
+                        <input type="checkbox" checked={newSchedulePayload.sendEmail ?? true} onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, sendEmail: e.target.checked }))} />
+                        <span className="text-sm">Enviar por E-mail</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 col-span-1 md:col-span-1">
+                        <input type="checkbox" checked={newSchedulePayload.sendDiscord ?? false} onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, sendDiscord: e.target.checked }))} />
+                        <span className="text-sm">Enviar por Discord</span>
+                      </label>
+
+                      <div className="col-span-1 md:col-span-1">
+                        <button onClick={handleCreateSchedule} disabled={schedulesLoading} className="w-full bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Criar Agendamento</button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-6 flex justify-end">

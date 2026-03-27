@@ -391,6 +391,40 @@ export async function resetUserPassword(id: string): Promise<void> {
   await api.post(`/api/users/${id}/reset-password`);
 }
 
+// ==================== REPORT SCHEDULES (ADMIN) ====================
+
+export interface ReportSchedule {
+  id: string;
+  reportType: string; // 'tickets' | 'entries' | 'exits'
+  targetUserId: string | null;
+  sendEmail: boolean;
+  sendDiscord: boolean;
+  scheduleDay: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getReportSchedules(): Promise<ReportSchedule[]> {
+  const { data } = await api.get<ReportSchedule[]>('/report-schedules');
+  return data;
+}
+
+export async function createReportSchedule(payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
+  const { data } = await api.post<ReportSchedule>('/report-schedules', payload);
+  return data;
+}
+
+export async function updateReportSchedule(id: string, payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
+  const { data } = await api.put<ReportSchedule>(`/report-schedules/${id}`, payload);
+  return data;
+}
+
+export async function deleteReportSchedule(id: string): Promise<void> {
+  await api.delete(`/report-schedules/${id}`);
+}
+
+
 // Busca todos os setores cadastrados (requer ADMIN)
 export async function getSectors(): Promise<Sector[]> {
   const { data } = await api.get<Sector[]>('/api/sectors');

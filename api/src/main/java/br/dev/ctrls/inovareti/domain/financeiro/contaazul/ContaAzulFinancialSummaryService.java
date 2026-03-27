@@ -103,6 +103,15 @@ public class ContaAzulFinancialSummaryService {
         } catch (HttpClientErrorException ex) {
             String errorBody = ex.getResponseBodyAsString();
             
+            // Tratar 403 (forbidden) como caso de conta não elegível para uso da API
+            if (ex.getStatusCode().value() == 403) {
+                log.warn(
+                        "ContaAzul API retornou 403 FORBIDDEN ao buscar pagamentos com status='{}'. Resposta: {}",
+                        status, errorBody);
+                // Não interromper a visualização do financeiro: retornar 0 para este status.
+                return 0L;
+            }
+
             if (ex.getStatusCode().value() == 401) {
                 log.error(
                         "ContaAzul API retornou 401 (Unauthorized) ao buscar pagamentos com status='{}'. " +

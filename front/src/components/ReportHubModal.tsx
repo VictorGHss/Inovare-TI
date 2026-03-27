@@ -7,6 +7,20 @@ import {
   exportInventoryExitsReport,
 } from '../services/api';
 
+function getDefaultCycleDates() {
+  const now = new Date();
+  const day = now.getDate();
+  let start: Date;
+  if (day >= 12) {
+    start = new Date(now.getFullYear(), now.getMonth(), 12);
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 12);
+  }
+  const end = now;
+  const format = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { start: format(start), end: format(end) };
+}
+
 interface ReportHubModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,22 +28,30 @@ interface ReportHubModalProps {
 
 export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps) {
   const [exporting, setExporting] = useState<string | null>(null);
+  const defaults = getDefaultCycleDates();
+  const [startDate, setStartDate] = useState<string>(defaults.start);
+  const [endDate, setEndDate] = useState<string>(defaults.end);
 
   const handleExport = async (type: 'tickets' | 'entries' | 'exits') => {
+    if (startDate > endDate) {
+      toast.error('Data Início não pode ser maior que Data Fim.');
+      return;
+    }
+
     setExporting(type);
     try {
       let blob: Blob;
       let filename: string;
 
       if (type === 'tickets') {
-        blob = await exportTicketsReport();
-        filename = `historico_chamados_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        blob = await exportTicketsReport({ startDate, endDate });
+        filename = `historico_chamados_${startDate}_to_${endDate}.xlsx`;
       } else if (type === 'entries') {
-        blob = await exportInventoryEntriesReport();
-        filename = `entradas_estoque_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        blob = await exportInventoryEntriesReport({ startDate, endDate });
+        filename = `entradas_estoque_${startDate}_to_${endDate}.xlsx`;
       } else {
-        blob = await exportInventoryExitsReport();
-        filename = `saidas_estoque_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        blob = await exportInventoryExitsReport({ startDate, endDate });
+        filename = `saidas_estoque_${startDate}_to_${endDate}.xlsx`;
       }
 
       // Trigger download
@@ -64,6 +86,27 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
           >
             <X size={24} />
           </button>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <label className="text-[11px] text-slate-500">Data Início</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <label className="text-[11px] text-slate-500">Data Fim</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+            />
+          </div>
         </div>
 
         <p className="text-slate-600 text-sm mb-6">

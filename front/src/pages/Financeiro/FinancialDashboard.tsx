@@ -66,7 +66,6 @@ function formatDateForInput(value: Date): string {
 }
 
 export default function FinancialDashboard() {
-  const hoje = new Date();
 
   function getDefaultCycleDates() {
     const now = new Date();

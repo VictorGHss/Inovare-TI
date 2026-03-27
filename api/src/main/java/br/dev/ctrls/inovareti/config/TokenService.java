@@ -44,7 +44,9 @@ public class TokenService {
         return JWT.create()
                 .withIssuer(ISSUER)
                 .withSubject(user.getEmail())
+                // Expor o ID do usuário em ambos os claims para compatibilidade
                 .withClaim("userId", user.getId() != null ? user.getId().toString() : "")
+                .withClaim("id", user.getId() != null ? user.getId().toString() : "")
                 .withClaim("two_factor_verified", twoFactorVerified)
                 .withExpiresAt(expiresAt())
                 .sign(algorithm);
@@ -61,11 +63,18 @@ public class TokenService {
                     .withIssuer(ISSUER)
                     .build()
                     .verify(token);
-            var claim = decoded.getClaim("userId");
-            if (claim == null || claim.isNull()) {
-                return "";
+            // Primeiro tenta o claim 'userId', em seguida 'id' para retrocompatibilidade
+            var claimUserId = decoded.getClaim("userId");
+            if (claimUserId != null && !claimUserId.isNull() && claimUserId.asString() != null
+                    && !claimUserId.asString().isBlank()) {
+                return claimUserId.asString();
             }
-            return claim.asString();
+            var claimId = decoded.getClaim("id");
+            if (claimId != null && !claimId.isNull() && claimId.asString() != null
+                    && !claimId.asString().isBlank()) {
+                return claimId.asString();
+            }
+            return "";
         } catch (JWTVerificationException | IllegalArgumentException e) {
             return "";
         }

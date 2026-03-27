@@ -107,8 +107,8 @@ public class AuthController {
         Object principal = authentication.getPrincipal();
 
         // Caso o principal seja a entidade User (definida no domínio), retornamos o id
-        if (principal instanceof User) {
-            UUID id = ((User) principal).getId();
+        if (principal instanceof User user) {
+            UUID id = user.getId();
             if (id == null) {
                 throw new BadRequestException("Identificador do usuário autenticado inválido.");
             }
@@ -116,17 +116,18 @@ public class AuthController {
         }
 
         // Se for uma String contendo o UUID (fluxos antigos), parseamos diretamente
-        if (principal instanceof String) {
+        if (principal instanceof String s) {
             try {
-                return UUID.fromString((String) principal);
+                return UUID.fromString(s);
             } catch (IllegalArgumentException ex) {
                 throw new BadRequestException("Identificador do usuário autenticado inválido.");
             }
         }
 
-        // Fallback: tentar converter via toString()
+        // Fallback: tentar converter via toString() sem desreferenciar diretamente
+        String principalStr = principal == null ? "" : principal.toString();
         try {
-            return UUID.fromString(principal.toString());
+            return UUID.fromString(principalStr);
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Settings as SettingsIcon } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Settings as SettingsIcon, Clock3, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,7 +29,7 @@ import PageHero from '../../components/PageHero';
 type TabType = 'system' | 'profile' | 'integration';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-lg border border-slate-100 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors transition-shadow';
 
 const friendlyLabels: Record<string, string> = {
   SLA_URGENT_HOURS: 'SLA - Chamados Urgentes (Horas)',
@@ -474,9 +474,9 @@ export default function Settings() {
           {activeTab === 'system' && isAdmin && (
             <>
               {loading ? (
-                <div className="animate-pulse space-y-3">
-                  <div className="h-4 bg-slate-200 rounded w-3/4" />
-                  <div className="h-4 bg-slate-200 rounded w-1/2" />
+                <div className="space-y-4">
+                  <div className="h-28 rounded-xl bg-slate-200 animate-pulse" />
+                  <div className="h-20 rounded-xl bg-slate-200 animate-pulse" />
                 </div>
               ) : settings.length === 0 ? (
                 <p className="text-sm text-slate-500">Nenhuma configuração global encontrada.</p>
@@ -486,7 +486,7 @@ export default function Settings() {
                     {Array.isArray(settings) && settings.map((setting) => (
                       <div
                         key={setting.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center"
+                        className="rounded-xl border border-slate-100 bg-white px-4 py-4 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center shadow-sm"
                       >
                         <div>
                           <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(setting.id)}</p>
@@ -509,9 +509,12 @@ export default function Settings() {
                   </div>
 
                   {/* Seção SLA */}
-                  <div className="mt-6 rounded-xl border border-slate-200 bg-brand-secondary p-4">
-                    <h3 className="text-sm font-semibold text-slate-800">Configurações de SLA</h3>
-                    <p className="text-xs text-slate-700 mt-1">Edite os SLAs do sistema (ex: SLA_URGENT_HOURS, SLA_HIGH_HOURS).</p>
+                  <div className="mt-6 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">Configurações de SLA</h3>
+                    <p className="text-xs text-slate-500 mt-1">Edite os SLAs do sistema (ex: SLA_URGENT_HOURS, SLA_HIGH_HOURS).</p>
+                    <div className="mt-2">
+                      <span className="inline-block w-14 h-1 rounded-full bg-[#fed8b0]/20" />
+                    </div>
 
                     <div className="mt-4 space-y-3">
                       {Array.isArray(slaKeys) && slaKeys.length === 0 ? (
@@ -519,18 +522,23 @@ export default function Settings() {
                       ) : (
                         Array.isArray(slaKeys) ? (
                           slaKeys.map((s) => (
-                            <div key={s.id} className="rounded-md p-3 bg-white/70 grid grid-cols-1 lg:grid-cols-[1fr_160px] gap-3 items-center">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
-                                <p className="text-xs text-slate-500 mt-1">{s.description ?? 'Sem descrição.'}</p>
+                            <div key={s.id} className="rounded-lg p-3 border border-slate-100 bg-white flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Clock3 size={18} className="text-slate-400" />
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
+                                  <p className="text-xs text-slate-500 mt-1">{s.description ?? 'Sem descrição.'}</p>
+                                </div>
                               </div>
-                              <input
-                                type="number"
-                                min={0}
-                                value={values[s.id] ?? ''}
-                                onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                className={inputClassName}
-                              />
+                              <div className="w-36">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={values[s.id] ?? ''}
+                                  onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                  className={inputClassName}
+                                />
+                              </div>
                             </div>
                           ))
                         ) : null
@@ -538,7 +546,7 @@ export default function Settings() {
                     </div>
 
                     <div className="mt-4 flex justify-end">
-                      <button onClick={handleSaveSLA} disabled={saving} className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                      <button onClick={handleSaveSLA} disabled={saving} className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm transition-colors transition-shadow">
                         Salvar Alterações de SLA
                       </button>
                     </div>
@@ -571,7 +579,7 @@ export default function Settings() {
                     </div>
                   </div>
                   
-                  <div className="mt-8 rounded-xl border border-slate-200 bg-brand-secondary p-4">
+                  <div className="mt-8 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
                     <h3 className="text-sm font-semibold text-slate-800">Agendamentos de Relatórios</h3>
                     <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
 
@@ -583,7 +591,7 @@ export default function Settings() {
                           const usr = Array.isArray(usersList) ? usersList.find((u) => u.id === s.targetUserId) : undefined;
                           if (editingScheduleId === s.id) {
                             return (
-                              <div key={s.id} className="rounded-md border border-slate-100 p-3 bg-white">
+                              <div key={s.id} className="rounded-lg border border-slate-100 p-4 bg-white shadow-sm">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                   <select
                                     value={editingPayload?.reportType ?? 'exits'}
@@ -601,9 +609,9 @@ export default function Settings() {
                                     className={inputClassName}
                                   >
                                     <option value="">Selecione usuário (opcional)</option>
-                                    {Array.isArray(usersList) ? usersList.map((u) => (
+                                    {Array.isArray(usersList) && usersList.map((u) => (
                                       <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                                    )) : null}
+                                    ))}
                                   </select>
 
                                   <input
@@ -626,7 +634,7 @@ export default function Settings() {
                                   </label>
 
                                   <div className="md:col-span-3 flex gap-2 justify-end">
-                                    <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl">Salvar</button>
+                                    <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm">Salvar</button>
                                     <button onClick={cancelEdit} className="text-sm text-slate-600">Cancelar</button>
                                   </div>
                                 </div>
@@ -635,18 +643,18 @@ export default function Settings() {
                           }
 
                           return (
-                            <div key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 p-3">
+                            <div key={s.id} className="rounded-lg border border-slate-100 p-4 bg-white shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                               <div>
                                 <div className="text-sm font-semibold">{s.reportType} — Dia {s.scheduleDay}</div>
                                 <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {usr ? `${usr.name} (${usr.email})` : (s.targetUserId ?? '—')}</div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
                                 <label className="flex items-center gap-2">
-                                  <input type="checkbox" checked={s.isActive} onChange={() => handleToggleScheduleActive(s)} />
+                                  <input type="checkbox" checked={s.isActive} onChange={() => handleToggleScheduleActive(s)} className="h-4 w-4" />
                                   <span className="text-sm">Ativo</span>
                                 </label>
-                                <button onClick={() => startEditSchedule(s)} className="text-sm text-slate-700 hover:underline">Editar</button>
-                                <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="text-sm text-red-600 hover:underline">Remover</button>
+                                <button onClick={() => startEditSchedule(s)} className="p-2 rounded-md hover:bg-slate-100"><Pencil size={14} className="text-slate-700" /></button>
+                                <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="p-2 rounded-md hover:bg-slate-100"><Trash2 size={14} className="text-red-600" /></button>
                               </div>
                             </div>
                           );
@@ -725,7 +733,7 @@ export default function Settings() {
                           assetCategories.map((category) => (
                             <span
                               key={category.id}
-                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
+                              className="inline-flex items-center rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
                             >
                               {category.name}
                             </span>
@@ -766,7 +774,7 @@ export default function Settings() {
                             .map((category) => (
                               <span
                                 key={category.id}
-                                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
+                                className="inline-flex items-center rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
                               >
                                 {category.name}
                               </span>
@@ -803,7 +811,7 @@ export default function Settings() {
           {activeTab === 'profile' && (
             <div className="space-y-6 max-w-2xl">
               {/* Email Notifications */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 flex items-center justify-between">
+              <div className="rounded-xl border border-slate-100 bg-white px-4 py-4 flex items-center justify-between shadow-sm">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">Notificações por E-mail</p>
                   <p className="text-xs text-slate-500 mt-1">Receba atualizações de chamados e tarefas por e-mail</p>
@@ -820,7 +828,7 @@ export default function Settings() {
               </div>
 
               {/* Theme */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 flex items-center justify-between">
+              <div className="rounded-xl border border-slate-100 bg-white px-4 py-4 flex items-center justify-between shadow-sm">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">Tema Escuro</p>
                   <p className="text-xs text-slate-500 mt-1">Ative o modo escuro para melhor visualização noturna</p>
@@ -837,7 +845,7 @@ export default function Settings() {
               </div>
 
               {/* Language */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center">
+              <div className="rounded-xl border border-slate-100 bg-white px-4 py-4 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center shadow-sm">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">Idioma</p>
                   <p className="text-xs text-slate-500 mt-1">Escolha seu idioma preferido para a interface</p>

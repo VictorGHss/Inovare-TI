@@ -13,6 +13,7 @@ import {
   getReportSchedules,
   createReportSchedule,
   deleteReportSchedule,
+  updateReportSchedule,
   type AssetCategory,
   type ItemCategory,
   type ReportSchedule,
@@ -303,6 +304,34 @@ export default function Settings() {
     }
   }
 
+  // ----- SLA management -----
+  const slaKeys = useMemo(() => settings.filter((s) => s.id && s.id.startsWith('SLA_')), [settings]);
+
+  async function handleSaveSLA() {
+    if (!isAdmin) return;
+    const payload: UpdateSystemSettingsPayload = {};
+    slaKeys.forEach((s) => {
+      payload[s.id] = values[s.id] ?? '';
+    });
+
+    setSaving(true);
+    try {
+      const updated = await updateSystemSettings(payload);
+      setSettings(updated);
+      setValues(
+        updated.reduce<Record<string, string>>((acc, setting) => {
+          acc[setting.id] = setting.value;
+          return acc;
+        }, {}),
+      );
+      toast.success('SLAs salvos com sucesso.');
+    } catch (error) {
+      toast.error('Erro ao salvar SLAs.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDeleteSchedule(id: string) {
     setSchedulesLoading(true);
     try {
@@ -311,6 +340,21 @@ export default function Settings() {
       toast.success('Agendamento removido com sucesso.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Erro ao remover agendamento.'));
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }
+
+  async function handleToggleScheduleActive(schedule: ReportSchedule) {
+    setSchedulesLoading(true);
+    try {
+      // backend expects `active` field name
+      const payload: Partial<ReportSchedule> = { active: !schedule.isActive } as any;
+      const updated = await updateReportSchedule(schedule.id, payload as Partial<ReportSchedule>);
+      setReportSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
+    } catch (error) {
+      toast.error('Erro ao atualizar agendamento.');
     } finally {
       setSchedulesLoading(false);
     }
@@ -429,6 +473,40 @@ export default function Settings() {
                     </div>
                   )}
 
+                  {/* SLA Section */}
+                  <div className="mt-6 rounded-xl border border-slate-200 bg-brand-secondary p-4">
+                    <h3 className="text-sm font-semibold text-slate-800">Configurações de SLA</h3>
+                    <p className="text-xs text-slate-700 mt-1">Edite os SLAs do sistema (ex: SLA_URGENT_HOURS, SLA_HIGH_HOURS).</p>
+
+                    <div className="mt-4 space-y-3">
+                      {slaKeys.length === 0 ? (
+                        <div className="text-xs text-slate-700">Nenhuma configuração de SLA encontrada.</div>
+                      ) : (
+                        slaKeys.map((s) => (
+                          <div key={s.id} className="rounded-md p-3 bg-white/70 grid grid-cols-1 lg:grid-cols-[1fr_160px] gap-3 items-center">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
+                              <p className="text-xs text-slate-500 mt-1">{s.description ?? 'Sem descrição.'}</p>
+                            </div>
+                            <input
+                              type="number"
+                              min={0}
+                              value={values[s.id] ?? ''}
+                              onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                              className={inputClassName}
+                            />
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <button onClick={handleSaveSLA} disabled={saving} className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                        Salvar Alterações de SLA
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
                     <h3 className="text-sm font-semibold text-slate-800">Adicionar Configuração</h3>
                     <p className="text-xs text-slate-500 mt-1">Adicione uma nova chave de configuração (ex: SLA_URGENT_HOURS).</p>
@@ -451,12 +529,12 @@ export default function Settings() {
                       />
 
                       <div>
-                        <button onClick={handleAddSetting} disabled={saving} className="w-full bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Adicionar</button>
+                        <button onClick={handleAddSetting} disabled={saving} className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Adicionar</button>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mt-8 rounded-xl border border-slate-200 bg-brand-secondary p-4">
                     <h3 className="text-sm font-semibold text-slate-800">Agendamentos de Relatórios</h3>
                     <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
 
@@ -472,7 +550,11 @@ export default function Settings() {
                                 <div className="text-sm font-semibold">{s.reportType} — Dia {s.scheduleDay}</div>
                                 <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {user ? `${user.name} (${user.email})` : (s.targetUserId ?? '—')}</div>
                               </div>
-                              <div>
+                              <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2">
+                                  <input type="checkbox" checked={s.isActive} onChange={() => handleToggleScheduleActive(s)} />
+                                  <span className="text-sm">Ativo</span>
+                                </label>
                                 <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="text-sm text-red-600 hover:underline">Remover</button>
                               </div>
                             </div>
@@ -523,22 +605,22 @@ export default function Settings() {
                       </label>
 
                       <div className="col-span-1 md:col-span-1">
-                        <button onClick={handleCreateSchedule} disabled={schedulesLoading} className="w-full bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Criar Agendamento</button>
+                        <button onClick={handleCreateSchedule} disabled={schedulesLoading} className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">Criar Agendamento</button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      type="button"
-                      disabled={saving || !hasChanges}
-                      onClick={handleSave}
-                      className="inline-flex items-center gap-2 bg-brand-primary hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-                    >
-                      <Save size={16} />
-                      {saving ? 'Salvando...' : 'Salvar Configurações'}
-                    </button>
-                  </div>
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={saving || !hasChanges}
+                        onClick={handleSave}
+                        className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+                      >
+                        <Save size={16} />
+                        {saving ? 'Salvando...' : 'Salvar Configurações'}
+                      </button>
+                    </div>
 
                   <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4">

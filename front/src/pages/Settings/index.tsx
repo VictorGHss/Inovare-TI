@@ -608,7 +608,7 @@ export default function Settings() {
                     </div>
                   </div>
                   
-                  <div className="mt-8 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4">
                     <h3 className="text-sm font-semibold text-slate-800">Agendamentos de Relatórios</h3>
                     <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
 
@@ -620,7 +620,7 @@ export default function Settings() {
                           const usr = Array.isArray(usersList) ? usersList.find((u) => u.id === s.targetUserId) : undefined;
                           if (editingScheduleId === s.id) {
                             return (
-                              <div key={s.id} className="rounded-lg border border-slate-100 p-4 bg-white shadow-sm">
+                              <div key={s.id} className="rounded-lg border border-slate-200 p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                   <select
                                     value={editingPayload?.reportType ?? 'exits'}
@@ -646,11 +646,15 @@ export default function Settings() {
                                   <input
                                     type="number"
                                     min={1}
-                                    max={28}
+                                    max={31}
                                     value={editingPayload?.scheduleDay ?? s.scheduleDay}
                                     onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), scheduleDay: Number(e.target.value) }))}
                                     className={inputClassName}
                                   />
+
+                                  <div className="md:col-span-3">
+                                    <p className="text-xs text-slate-500 mt-1">Dias 29, 30 e 31 serão processados no último dia útil de meses mais curtos</p>
+                                  </div>
 
                                   <label className="flex items-center gap-2">
                                     <input type="checkbox" checked={!!editingPayload?.sendEmail} onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), sendEmail: e.target.checked }))} />
@@ -672,7 +676,7 @@ export default function Settings() {
                           }
 
                           return (
-                            <div key={s.id} className="rounded-lg border border-slate-100 p-4 bg-white shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div key={s.id} className="rounded-lg border border-slate-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                               <div>
                                 <div className="text-sm font-semibold">{s.reportType} — Dia {s.scheduleDay}</div>
                                 <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {usr ? `${usr.name} (${usr.email})` : (s.targetUserId ?? '—')}</div>
@@ -691,7 +695,7 @@ export default function Settings() {
                       )}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                       <select
                         value={newSchedulePayload.reportType}
                         onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, reportType: e.target.value }))}
@@ -716,11 +720,15 @@ export default function Settings() {
                       <input
                         type="number"
                         min={1}
-                        max={28}
+                        max={31}
                         value={newSchedulePayload.scheduleDay ?? 12}
                         onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, scheduleDay: Number(e.target.value) }))}
                         className={inputClassName}
                       />
+
+                      <div className="md:col-span-3">
+                        <p className="text-xs text-slate-500 mt-1">Dias 29, 30 e 31 serão processados no último dia útil de meses mais curtos</p>
+                      </div>
 
                       <label className="flex items-center gap-2 col-span-1 md:col-span-1">
                         <input type="checkbox" checked={newSchedulePayload.sendEmail ?? true} onChange={(e) => setNewSchedulePayload((prev) => ({ ...prev, sendEmail: e.target.checked }))} />

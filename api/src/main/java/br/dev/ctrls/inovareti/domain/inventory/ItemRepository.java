@@ -35,6 +35,9 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     @Query("SELECT i FROM Item i WHERE i.id = :id")
     java.util.Optional<Item> findByIdForUpdate(UUID id);
 
+    // Conta quantos itens estão vinculados a uma categoria específica
+    long countByItemCategory_Id(UUID categoryId);
+
     /**
      * Conta itens com estoque igual ou inferior ao limiar de alerta de estoque baixo.
      * @param threshold o nível máximo de estoque para considerar como "estoque baixo"

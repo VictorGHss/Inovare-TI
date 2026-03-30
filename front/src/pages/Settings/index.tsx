@@ -14,6 +14,8 @@ import {
   createReportSchedule,
   deleteReportSchedule,
   updateReportSchedule,
+  deleteItemCategory,
+  deleteAssetCategory,
   type AssetCategory,
   type ItemCategory,
   type ReportSchedule,
@@ -53,6 +55,8 @@ export default function Settings() {
   const [itemCategoryName, setItemCategoryName] = useState('');
   const [savingAssetCategory, setSavingAssetCategory] = useState(false);
   const [savingItemCategory, setSavingItemCategory] = useState(false);
+  const [deletingItemCategoryId, setDeletingItemCategoryId] = useState<string | null>(null);
+  const [deletingAssetCategoryId, setDeletingAssetCategoryId] = useState<string | null>(null);
 
   // Config admin (.env) — valores somente leitura vindos do backend
   const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
@@ -194,11 +198,21 @@ export default function Settings() {
     toast.success('Preferências salvas com sucesso.');
   }
 
+  function isProblemDetail(obj: unknown): obj is { detail?: string } {
+    return typeof obj === 'object' && obj !== null && 'detail' in (obj as Record<string, unknown>) && typeof (obj as Record<string, unknown>).detail === 'string';
+  }
+
   function getApiErrorMessage(error: unknown, fallbackMessage: string): string {
     if (typeof error === 'object' && error !== null) {
-      const maybeResponse = error as { response?: { data?: { detail?: string } } };
-      if (maybeResponse.response?.data?.detail) {
-        return maybeResponse.response.data.detail;
+      const maybeResponse = error as { response?: { data?: unknown } };
+      const data = maybeResponse.response?.data;
+
+      if (isProblemDetail(data)) {
+        return data.detail ?? fallbackMessage;
+      }
+
+      if (typeof data === 'string' && data.includes('<html')) {
+        return 'Resposta inesperada do servidor (HTML). Verifique proxy/NGINX.';
       }
     }
 
@@ -255,6 +269,21 @@ export default function Settings() {
       toast.error(getApiErrorMessage(error, 'Erro ao adicionar categoria de inventário.'));
     } finally {
       setSavingItemCategory(false);
+    }
+  }
+
+  async function handleDeleteItemCategory(id: string) {
+    if (!confirm('Tem certeza que deseja excluir esta categoria de inventário? Esta ação não pode ser desfeita.')) return;
+    setDeletingItemCategoryId(id);
+    try {
+      await deleteItemCategory(id);
+      await refreshCategories();
+      toast.success('Categoria de inventário excluída com sucesso.');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Erro ao excluir categoria de inventário.');
+      toast.error(message);
+    } finally {
+      setDeletingItemCategoryId(null);
     }
   }
 
@@ -733,9 +762,28 @@ export default function Settings() {
                           assetCategories.map((category) => (
                             <span
                               key={category.id}
-                              className="inline-flex items-center rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
                             >
-                              {category.name}
+                              <span>{category.name}</span>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm('Tem certeza que deseja excluir esta categoria de equipamentos?')) return;
+                                  setDeletingAssetCategoryId(category.id);
+                                  try {
+                                    await deleteAssetCategory(category.id);
+                                    await refreshCategories();
+                                    toast.success('Categoria de equipamentos excluída com sucesso.');
+                                  } catch (error) {
+                                    toast.error(getApiErrorMessage(error, 'Erro ao excluir categoria de equipamentos.'));
+                                  } finally {
+                                    setDeletingAssetCategoryId(null);
+                                  }
+                                }}
+                                disabled={deletingAssetCategoryId === category.id}
+                                className="p-1 rounded hover:bg-slate-100"
+                              >
+                                <Trash2 size={14} className="text-red-600" />
+                              </button>
                             </span>
                           ))
                         )}
@@ -762,23 +810,28 @@ export default function Settings() {
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-white p-4">
-                      <h3 className="text-sm font-semibold text-slate-800">Categorias de Inventário (Consumíveis)</h3>
+                      <h3 className="text-sm font-semibold text-slate-800">Categorias de Inventário</h3>
                       <p className="text-xs text-slate-500 mt-1">Gerencie categorias para materiais e itens de estoque.</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {!Array.isArray(itemCategories) || !itemCategories.some((category) => category.isConsumable) ? (
+                        {!Array.isArray(itemCategories) || itemCategories.length === 0 ? (
                           <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
                         ) : (
-                          itemCategories
-                            .filter((category) => category.isConsumable)
-                            .map((category) => (
-                              <span
-                                key={category.id}
-                                className="inline-flex items-center rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
+                          itemCategories.map((category) => (
+                            <span
+                              key={category.id}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-700"
+                            >
+                              <span>{category.name}</span>
+                              <button
+                                onClick={() => handleDeleteItemCategory(category.id)}
+                                disabled={deletingItemCategoryId === category.id}
+                                className="p-1 rounded hover:bg-slate-100"
                               >
-                                {category.name}
-                              </span>
-                            ))
+                                <Trash2 size={14} className="text-red-600" />
+                              </button>
+                            </span>
+                          ))
                         )}
                       </div>
 

@@ -55,4 +55,7 @@ public interface AssetRepository extends JpaRepository<Asset, UUID> {
             @Param("categoryId") UUID categoryId,
             @Param("status") String status
     );
+
+    // Conta assets vinculados a uma categoria (útil para validar deleção de categoria)
+    long countByCategory_Id(UUID categoryId);
 }

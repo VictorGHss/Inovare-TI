@@ -1,16 +1,20 @@
 package br.dev.ctrls.inovareti.domain.inventory;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemCategoryRequestDTO;
 import br.dev.ctrls.inovareti.domain.inventory.dto.ItemCategoryResponseDTO;
 import br.dev.ctrls.inovareti.domain.inventory.usecase.CreateItemCategoryUseCase;
@@ -29,6 +33,8 @@ public class ItemCategoryController {
 
     private final CreateItemCategoryUseCase createItemCategoryUseCase;
     private final ListAllItemCategoriesUseCase listAllItemCategoriesUseCase;
+    private final ItemCategoryRepository itemCategoryRepository;
+    private final ItemRepository itemRepository;
 
     /**
      * Cria uma nova categoria de item de inventário.
@@ -55,5 +61,18 @@ public class ItemCategoryController {
     @GetMapping
     public ResponseEntity<List<ItemCategoryResponseDTO>> listAll() {
         return ResponseEntity.ok(listAllItemCategoriesUseCase.execute());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        return itemCategoryRepository.findById(id).map(existing -> {
+            long linked = itemRepository.countByItemCategory_Id(id);
+            if (linked > 0) {
+                throw new ConflictException("Não é possível excluir esta categoria: existem itens vinculados a ela.");
+            }
+            itemCategoryRepository.deleteById(id);
+            return ResponseEntity.noContent().<Void>build();
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

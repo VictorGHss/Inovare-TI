@@ -1,11 +1,14 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class AssetCategoryController {
 
     private final AssetCategoryRepository assetCategoryRepository;
+    private final AssetRepository assetRepository;
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -49,5 +53,18 @@ public class AssetCategoryController {
                 .map(AssetCategoryResponseDTO::from)
                 .toList();
         return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        return assetCategoryRepository.findById(id).map(existing -> {
+            long linked = assetRepository.countByCategory_Id(id);
+            if (linked > 0) {
+                throw new ConflictException("Não é possível excluir esta categoria: existem ativos vinculados a ela.");
+            }
+            assetCategoryRepository.deleteById(id);
+            return ResponseEntity.noContent().<Void>build();
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

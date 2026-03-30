@@ -406,22 +406,31 @@ export interface ReportSchedule {
 }
 
 export async function getReportSchedules(): Promise<ReportSchedule[]> {
-  const { data } = await api.get<ReportSchedule[]>('/report-schedules');
+  const { data } = await api.get<ReportSchedule[]>('/api/report-schedules');
   return data;
 }
 
 export async function createReportSchedule(payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.post<ReportSchedule>('/report-schedules', payload);
+  const { data } = await api.post<ReportSchedule>('/api/report-schedules', payload);
   return data;
 }
 
 export async function updateReportSchedule(id: string, payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.put<ReportSchedule>(`/report-schedules/${id}`, payload);
+  const { data } = await api.put<ReportSchedule>(`/api/report-schedules/${id}`, payload);
   return data;
 }
 
 export async function deleteReportSchedule(id: string): Promise<void> {
-  await api.delete(`/report-schedules/${id}`);
+  await api.delete(`/api/report-schedules/${id}`);
+}
+
+// Deleção de categorias (frontend chama essas rotas — backend deve expor DELETE /api/item-categories/{id} e /api/asset-categories/{id})
+export async function deleteItemCategory(id: string): Promise<void> {
+  await api.delete(`/api/item-categories/${id}`);
+}
+
+export async function deleteAssetCategory(id: string): Promise<void> {
+  await api.delete(`/api/asset-categories/${id}`);
 }
 
 

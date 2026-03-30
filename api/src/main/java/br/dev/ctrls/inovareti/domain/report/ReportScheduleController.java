@@ -50,13 +50,13 @@ public class ReportScheduleController {
 
         // apply defaults when request omits optional fields (use boxed locals to avoid unboxing warnings)
         Boolean sendEmailBox = req.getSendEmail();
-        boolean sendEmail = sendEmailBox != null ? sendEmailBox.booleanValue() : true;
+        boolean sendEmail = sendEmailBox != null ? sendEmailBox : true;
         Boolean sendDiscordBox = req.getSendDiscord();
-        boolean sendDiscord = sendDiscordBox != null ? sendDiscordBox.booleanValue() : false;
+        boolean sendDiscord = sendDiscordBox != null ? sendDiscordBox : false;
         Integer scheduleDayBox = req.getScheduleDay();
-        int scheduleDay = scheduleDayBox != null ? scheduleDayBox.intValue() : 12;
+        int scheduleDay = scheduleDayBox != null ? scheduleDayBox : 12;
         Boolean activeBox = req.getActive();
-        boolean active = activeBox != null ? activeBox.booleanValue() : true;
+        boolean active = activeBox != null ? activeBox : true;
 
         entity.setSendEmail(sendEmail);
         entity.setSendDiscord(sendDiscord);
@@ -82,19 +82,19 @@ public class ReportScheduleController {
             }
             Boolean sendEmailBox = req.getSendEmail();
             if (sendEmailBox != null) {
-                existing.setSendEmail(sendEmailBox.booleanValue());
+                existing.setSendEmail(sendEmailBox);
             }
             Boolean sendDiscordBox = req.getSendDiscord();
             if (sendDiscordBox != null) {
-                existing.setSendDiscord(sendDiscordBox.booleanValue());
+                existing.setSendDiscord(sendDiscordBox);
             }
             Integer scheduleDayBox = req.getScheduleDay();
             if (scheduleDayBox != null) {
-                existing.setScheduleDay(scheduleDayBox.intValue());
+                existing.setScheduleDay(scheduleDayBox);
             }
             Boolean activeBox = req.getActive();
             if (activeBox != null) {
-                existing.setActive(activeBox.booleanValue());
+                existing.setActive(activeBox);
             }
 
             existing.setUpdatedAt(LocalDateTime.now());

@@ -114,39 +114,52 @@ export default function FinancialDashboard() {
     try {
       setLoadingDoctorMappings(true);
       const dados = await getDoctorMappings();
-      setDoctorMappings(dados);
+      setDoctorMappings(Array.isArray(dados) ? dados : []);
     } catch {
       toast.error('Não foi possível carregar os mapeamentos de médicos.');
+      setDoctorMappings([]);
     } finally {
       setLoadingDoctorMappings(false);
     }
   }, []);
 
   const reloadDashboardData = useCallback(async () => {
-    const status = await getFinanceConnectionStatus();
-    setConnectionStatus(status);
+    try {
+      const status = await getFinanceConnectionStatus();
+      setConnectionStatus(status);
 
-    if (!status.authorized) {
+      if (!status?.authorized) {
+        setSummary(null);
+        setReceipts([]);
+        setAlerts([]);
+        setAnalytics(null);
+        setDoctorMappings([]);
+        return;
+      }
+
+      const [summaryData, receiptsData, alertsData, analyticsData] = await Promise.all([
+        getFinancialSummary(),
+        getFinanceReceipts(),
+        getFinanceAlerts(),
+        getDashboardAnalytics(),
+      ]);
+
+      // set results with safety checks
+      setSummary(summaryData ?? null);
+      setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
+      setAlerts(Array.isArray(alertsData) ? alertsData : []);
+      setAnalytics(analyticsData ?? null);
+      await reloadDoctorMappings();
+    } catch (err) {
+      // Se alguma requisição falhar, garantir valores padrão para a UI em vez de respostas inesperadas
+      console.error('Erro ao carregar dados do dashboard financeiro', err);
+      toast.error('Não foi possível carregar dados financeiros.');
       setSummary(null);
       setReceipts([]);
       setAlerts([]);
+      setAnalytics(null);
       setDoctorMappings([]);
-      return;
     }
-
-    const [summaryData, receiptsData, alertsData, analyticsData] = await Promise.all([
-      getFinancialSummary(),
-      getFinanceReceipts(),
-      getFinanceAlerts(),
-      getDashboardAnalytics(),
-    ]);
-
-    // set results
-    setSummary(summaryData);
-    setReceipts(receiptsData);
-    setAlerts(alertsData);
-    setAnalytics(analyticsData);
-    await reloadDoctorMappings();
   }, [reloadDoctorMappings]);
 
   useEffect(() => {

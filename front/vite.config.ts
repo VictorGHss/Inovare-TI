@@ -6,6 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
+  build: {
+    // garantimos que a pasta de saída seja limpa entre builds para evitar assets obsoletos
+    emptyOutDir: true,
+  },
   plugins: [
     react(),
     tailwindcss(),

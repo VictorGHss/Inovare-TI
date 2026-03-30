@@ -9,7 +9,7 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Service Worker: check for updates and request skipWaiting to activate new SW immediately.
+// Service Worker: verificar atualizações e solicitar skipWaiting para ativar o novo SW imediatamente.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -19,8 +19,8 @@ if ('serviceWorker' in navigator) {
         if (reg.waiting) {
           try {
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          } catch (e) {
-            // ignore
+          } catch {
+            // ignorar
           }
         }
 
@@ -32,8 +32,8 @@ if ('serviceWorker' in navigator) {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 try {
                   newWorker.postMessage({ type: 'SKIP_WAITING' });
-                } catch (e) {
-                  // ignore
+                } catch {
+                  // ignorar
                 }
               }
             });
@@ -41,13 +41,13 @@ if ('serviceWorker' in navigator) {
         });
       }
     } catch (e) {
-      // registration may fail in some environments
-      // keep app running without SW update enforcement
-      // eslint-disable-next-line no-console
-      console.warn('SW registration check failed', e);
+      // o registro pode falhar em alguns ambientes
+      // manter o app funcionando sem forçar atualização do SW
+      console.warn('Falha na verificação de registro do SW', e);
     }
 
     // When a new SW takes control, reload to ensure clients use the new assets
+    // Quando um novo SW assumir o controle, recarregar para garantir uso dos novos assets
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       window.location.reload();
     });

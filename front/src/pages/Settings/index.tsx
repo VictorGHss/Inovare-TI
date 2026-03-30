@@ -54,10 +54,10 @@ export default function Settings() {
   const [savingAssetCategory, setSavingAssetCategory] = useState(false);
   const [savingItemCategory, setSavingItemCategory] = useState(false);
 
-  // Admin env config (read-only values coming from .env via backend)
+  // Config admin (.env) — valores somente leitura vindos do backend
   const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
 
-  // Add new system setting manual
+  // Adicionar nova configuração manualmente
   const [newSettingKey, setNewSettingKey] = useState('');
   const [newSettingValue, setNewSettingValue] = useState('');
 
@@ -78,7 +78,7 @@ export default function Settings() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editingPayload, setEditingPayload] = useState<Partial<ReportSchedule> | null>(null);
 
-  // User preferences state
+  // Estado de preferências do usuário
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [darkTheme, setDarkTheme] = useState(false);
   const [language, setLanguage] = useState<'pt-BR' | 'en'>('pt-BR');
@@ -95,27 +95,31 @@ export default function Settings() {
       setLoading(true);
       try {
         const data = await getSystemSettings();
-        setSettings(data);
+        const safeSettings = Array.isArray(data) ? data : [];
+        setSettings(safeSettings);
         setValues(
-          data.reduce<Record<string, string>>((acc, setting) => {
+          safeSettings.reduce<Record<string, string>>((acc, setting) => {
             acc[setting.id] = setting.value;
             return acc;
           }, {}),
         );
         try {
           const cfg = await getAdminConfig();
-          setAdminConfig(cfg);
+          setAdminConfig(cfg ?? null);
         } catch (e) {
-          // non-fatal
+          // não-fatal
           console.warn('Failed to load admin config', e);
+          setAdminConfig(null);
         }
         try {
           const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
-          setReportSchedules(schedules);
-          setUsersList(users);
+          setReportSchedules(Array.isArray(schedules) ? schedules : []);
+          setUsersList(Array.isArray(users) ? users : []);
         } catch (e) {
-          // non-fatal
+          // não-fatal
           console.warn('Failed to load report schedules or users', e);
+          setReportSchedules([]);
+          setUsersList([]);
         }
       } catch {
         toast.error('Erro ao carregar configurações globais.');
@@ -141,8 +145,8 @@ export default function Settings() {
           getItemCategories(),
         ]);
 
-        setAssetCategories(assetData);
-        setItemCategories(itemData);
+        setAssetCategories(Array.isArray(assetData) ? assetData : []);
+        setItemCategories(Array.isArray(itemData) ? itemData : []);
       } catch {
         toast.error('Erro ao carregar categorias de configuração.');
         setAssetCategories([]);
@@ -186,7 +190,7 @@ export default function Settings() {
   }
 
   function handleSavePreferences() {
-    // Mock save - preferences not persisted yet
+    // Salva local (mock) - preferências ainda não são persistidas no backend
     toast.success('Preferências salvas com sucesso.');
   }
 
@@ -341,7 +345,7 @@ export default function Settings() {
     }
   }
 
-  // ----- SLA management -----
+  // ----- Gerenciamento de SLA -----
   const slaKeys = useMemo(() => settings.filter((s) => s.id && s.id.startsWith('SLA_')), [settings]);
 
   async function handleSaveSLA() {
@@ -417,7 +421,7 @@ export default function Settings() {
         description="Ajuste parâmetros globais e personalize preferências para adaptar o ambiente ao fluxo da equipe."
       />
 
-      {/* Tabs */}
+      {/* Abas */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="flex border-b border-slate-200">
             {/* Tab: Sistema (ADMIN only) */}
@@ -479,7 +483,7 @@ export default function Settings() {
               ) : (
                 <>
                   <div className="space-y-4">
-                    {(settings ?? []).map((setting) => (
+                    {Array.isArray(settings) && settings.map((setting) => (
                       <div
                         key={setting.id}
                         className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center"
@@ -504,30 +508,32 @@ export default function Settings() {
                     ))}
                   </div>
 
-                  {/* SLA Section */}
+                  {/* Seção SLA */}
                   <div className="mt-6 rounded-xl border border-slate-200 bg-brand-secondary p-4">
                     <h3 className="text-sm font-semibold text-slate-800">Configurações de SLA</h3>
                     <p className="text-xs text-slate-700 mt-1">Edite os SLAs do sistema (ex: SLA_URGENT_HOURS, SLA_HIGH_HOURS).</p>
 
                     <div className="mt-4 space-y-3">
-                      {(slaKeys ?? []).length === 0 ? (
+                      {Array.isArray(slaKeys) && slaKeys.length === 0 ? (
                         <div className="text-xs text-slate-700">Nenhuma configuração de SLA encontrada.</div>
                       ) : (
-                        (slaKeys ?? []).map((s) => (
-                          <div key={s.id} className="rounded-md p-3 bg-white/70 grid grid-cols-1 lg:grid-cols-[1fr_160px] gap-3 items-center">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
-                              <p className="text-xs text-slate-500 mt-1">{s.description ?? 'Sem descrição.'}</p>
+                        Array.isArray(slaKeys) ? (
+                          slaKeys.map((s) => (
+                            <div key={s.id} className="rounded-md p-3 bg-white/70 grid grid-cols-1 lg:grid-cols-[1fr_160px] gap-3 items-center">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
+                                <p className="text-xs text-slate-500 mt-1">{s.description ?? 'Sem descrição.'}</p>
+                              </div>
+                              <input
+                                type="number"
+                                min={0}
+                                value={values[s.id] ?? ''}
+                                onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className={inputClassName}
+                              />
                             </div>
-                            <input
-                              type="number"
-                              min={0}
-                              value={values[s.id] ?? ''}
-                              onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                              className={inputClassName}
-                            />
-                          </div>
-                        ))
+                          ))
+                        ) : null
                       )}
                     </div>
 
@@ -570,11 +576,11 @@ export default function Settings() {
                     <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
 
                     <div className="mt-4 space-y-3">
-                      {(reportSchedules ?? []).length === 0 ? (
+                      {Array.isArray(reportSchedules) && reportSchedules.length === 0 ? (
                         <div className="text-xs text-slate-500">Nenhum agendamento encontrado.</div>
                       ) : (
-                        (reportSchedules ?? []).map((s) => {
-                          const usr = usersList.find((u) => u.id === s.targetUserId);
+                        Array.isArray(reportSchedules) ? reportSchedules.map((s) => {
+                          const usr = Array.isArray(usersList) ? usersList.find((u) => u.id === s.targetUserId) : undefined;
                           if (editingScheduleId === s.id) {
                             return (
                               <div key={s.id} className="rounded-md border border-slate-100 p-3 bg-white">
@@ -595,9 +601,9 @@ export default function Settings() {
                                     className={inputClassName}
                                   >
                                     <option value="">Selecione usuário (opcional)</option>
-                                    {(usersList ?? []).map((u) => (
+                                    {Array.isArray(usersList) ? usersList.map((u) => (
                                       <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                                    ))}
+                                    )) : null}
                                   </select>
 
                                   <input
@@ -644,7 +650,7 @@ export default function Settings() {
                               </div>
                             </div>
                           );
-                        })
+                        }) : null
                       )}
                     </div>
 
@@ -665,7 +671,7 @@ export default function Settings() {
                         className={inputClassName}
                       >
                         <option value="">Selecione usuário (opcional)</option>
-                        {(usersList ?? []).map((u) => (
+                        {Array.isArray(usersList) && usersList.map((u) => (
                           <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                         ))}
                       </select>
@@ -713,10 +719,10 @@ export default function Settings() {
                       <p className="text-xs text-slate-500 mt-1">Gerencie as categorias usadas nos ativos físicos.</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {(assetCategories ?? []).length === 0 ? (
+                        {!Array.isArray(assetCategories) || assetCategories.length === 0 ? (
                           <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
-                          ) : (
-                          (assetCategories ?? []).map((category) => (
+                        ) : (
+                          assetCategories.map((category) => (
                             <span
                               key={category.id}
                               className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
@@ -752,18 +758,18 @@ export default function Settings() {
                       <p className="text-xs text-slate-500 mt-1">Gerencie categorias para materiais e itens de estoque.</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {(itemCategories ?? []).filter((category) => category.isConsumable).length === 0 ? (
+                        {!Array.isArray(itemCategories) || !itemCategories.some((category) => category.isConsumable) ? (
                           <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
-                          ) : (
-                          (itemCategories ?? [])
+                        ) : (
+                          itemCategories
                             .filter((category) => category.isConsumable)
                             .map((category) => (
-                            <span
-                              key={category.id}
-                              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
-                            >
-                              {category.name}
-                            </span>
+                              <span
+                                key={category.id}
+                                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
+                              >
+                                {category.name}
+                              </span>
                             ))
                         )}
                       </div>
@@ -793,7 +799,7 @@ export default function Settings() {
             </>
           )}
 
-          {/* TAB: PREFERENCES */}
+          {/* ABA: PREFERÊNCIAS */}
           {activeTab === 'profile' && (
             <div className="space-y-6 max-w-2xl">
               {/* Email Notifications */}
@@ -846,7 +852,7 @@ export default function Settings() {
                 </select>
               </div>
 
-              {/* Save Button */}
+              {/* Botão Salvar */}
               <div className="flex justify-end pt-4">
                 <button
                   type="button"

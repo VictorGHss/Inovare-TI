@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Settings as SettingsIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,7 +26,7 @@ import {
 } from '../../services/api';
 import PageHero from '../../components/PageHero';
 
-type TabType = 'global' | 'preferences';
+type TabType = 'system' | 'profile' | 'integration';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
@@ -42,7 +42,7 @@ function getFriendlyLabel(settingKey: string): string {
 
 export default function Settings() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('global');
+  const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'system' : 'profile');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -73,6 +73,10 @@ export default function Settings() {
     scheduleDay: 12,
     isActive: true,
   });
+
+  // Edição inline de agendamento
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editingPayload, setEditingPayload] = useState<Partial<ReportSchedule> | null>(null);
 
   // User preferences state
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -276,6 +280,39 @@ export default function Settings() {
     }
   }
 
+  function startEditSchedule(s: ReportSchedule) {
+    setEditingScheduleId(s.id);
+    setEditingPayload({
+      reportType: s.reportType,
+      targetUserId: s.targetUserId,
+      sendEmail: s.sendEmail,
+      sendDiscord: s.sendDiscord,
+      scheduleDay: s.scheduleDay,
+      isActive: s.isActive,
+    });
+  }
+
+  async function handleSaveEditedSchedule() {
+    if (!editingScheduleId || !editingPayload) return;
+    setSchedulesLoading(true);
+    try {
+      const updated = await updateReportSchedule(editingScheduleId, editingPayload as Partial<ReportSchedule>);
+      setReportSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      toast.success('Agendamento atualizado com sucesso.');
+      setEditingScheduleId(null);
+      setEditingPayload(null);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Erro ao atualizar agendamento.'));
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }
+
+  function cancelEdit() {
+    setEditingScheduleId(null);
+    setEditingPayload(null);
+  }
+
   async function handleAddSetting() {
     const key = newSettingKey.trim();
     if (!key) {
@@ -362,7 +399,7 @@ export default function Settings() {
     }
   }
 
-  if (!isAdmin && activeTab === 'global') {
+  if (!isAdmin && (activeTab === 'system' || activeTab === 'integration')) {
     return (
       <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
@@ -382,40 +419,55 @@ export default function Settings() {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-200">
-          {/* Tab: Global (ADMIN only) */}
-          {isAdmin && (
+          <div className="flex border-b border-slate-200">
+            {/* Tab: Sistema (ADMIN only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('system')}
+                className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
+                  activeTab === 'system'
+                    ? 'text-brand-primary border-b-brand-primary'
+                    : 'text-slate-600 border-b-transparent hover:text-slate-800'
+                }`}
+              >
+                <Globe size={18} />
+                Sistema
+              </button>
+            )}
+
+            {/* Tab: Perfil */}
             <button
-              onClick={() => setActiveTab('global')}
+              onClick={() => setActiveTab('profile')}
               className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
-                activeTab === 'global'
+                activeTab === 'profile'
                   ? 'text-brand-primary border-b-brand-primary'
                   : 'text-slate-600 border-b-transparent hover:text-slate-800'
               }`}
             >
-              <Globe size={18} />
-              Configurações Globais
+              <UserIcon size={18} />
+              Perfil
             </button>
-          )}
 
-          {/* Tab: Preferences */}
-          <button
-            onClick={() => setActiveTab('preferences')}
-            className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
-              activeTab === 'preferences'
-                ? 'text-brand-primary border-b-brand-primary'
-                : 'text-slate-600 border-b-transparent hover:text-slate-800'
-            }`}
-          >
-            <UserIcon size={18} />
-            Minhas Preferências
-          </button>
-        </div>
+            {/* Tab: Integração (ADMIN only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('integration')}
+                className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
+                  activeTab === 'integration'
+                    ? 'text-brand-primary border-b-brand-primary'
+                    : 'text-slate-600 border-b-transparent hover:text-slate-800'
+                }`}
+              >
+                <SettingsIcon size={18} />
+                Integração
+              </button>
+            )}
+          </div>
 
         {/* Tab Content */}
         <div className="p-6 sm:p-8">
-          {/* TAB: GLOBAL */}
-          {activeTab === 'global' && isAdmin && (
+          {/* TAB: SISTEMA */}
+          {activeTab === 'system' && isAdmin && (
             <>
               {loading ? (
                 <div className="animate-pulse space-y-3">
@@ -451,29 +503,6 @@ export default function Settings() {
                       </div>
                     ))}
                   </div>
-                  {adminConfig && (
-                    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-                      <h3 className="text-sm font-semibold text-slate-800">Ambiente (.env)</h3>
-                      <p className="text-xs text-slate-500 mt-1">Valores lidos do arquivo de ambiente (somente leitura).</p>
-
-                      <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs text-slate-500">SMTP From Email</p>
-                          <input type="text" value={adminConfig.smtpFromEmail ?? ''} readOnly className={inputClassName} />
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">SMTP From Name</p>
-                          <input type="text" value={adminConfig.smtpFromName ?? ''} readOnly className={inputClassName} />
-                        </div>
-
-                        <div className="col-span-1 lg:col-span-2">
-                          <p className="text-xs text-slate-500">Discord</p>
-                          <div className="text-sm text-slate-700 mt-1">Bot: {adminConfig.discordBotEnabled ? 'Ativado' : 'Desativado'} — Webhook: {adminConfig.discordWebhookPresent ? 'Presente' : 'Não configurado'}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* SLA Section */}
                   <div className="mt-6 rounded-xl border border-slate-200 bg-brand-secondary p-4">
@@ -545,18 +574,72 @@ export default function Settings() {
                         <div className="text-xs text-slate-500">Nenhum agendamento encontrado.</div>
                       ) : (
                         reportSchedules.map((s) => {
-                          const user = usersList.find((u) => u.id === s.targetUserId);
+                          const usr = usersList.find((u) => u.id === s.targetUserId);
+                          if (editingScheduleId === s.id) {
+                            return (
+                              <div key={s.id} className="rounded-md border border-slate-100 p-3 bg-white">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                  <select
+                                    value={editingPayload?.reportType ?? 'exits'}
+                                    onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), reportType: e.target.value }))}
+                                    className={inputClassName}
+                                  >
+                                    <option value="exits">Saídas de Estoque</option>
+                                    <option value="entries">Entradas de Estoque</option>
+                                    <option value="tickets">Histórico de Chamados</option>
+                                  </select>
+
+                                  <select
+                                    value={editingPayload?.targetUserId ?? ''}
+                                    onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), targetUserId: e.target.value || null }))}
+                                    className={inputClassName}
+                                  >
+                                    <option value="">Selecione usuário (opcional)</option>
+                                    {usersList.map((u) => (
+                                      <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                                    ))}
+                                  </select>
+
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={28}
+                                    value={editingPayload?.scheduleDay ?? s.scheduleDay}
+                                    onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), scheduleDay: Number(e.target.value) }))}
+                                    className={inputClassName}
+                                  />
+
+                                  <label className="flex items-center gap-2">
+                                    <input type="checkbox" checked={!!editingPayload?.sendEmail} onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), sendEmail: e.target.checked }))} />
+                                    <span className="text-sm">Enviar por E-mail</span>
+                                  </label>
+
+                                  <label className="flex items-center gap-2">
+                                    <input type="checkbox" checked={!!editingPayload?.sendDiscord} onChange={(e) => setEditingPayload((prev) => ({ ...(prev ?? {}), sendDiscord: e.target.checked }))} />
+                                    <span className="text-sm">Enviar por Discord</span>
+                                  </label>
+
+                                  <div className="md:col-span-3 flex gap-2 justify-end">
+                                    <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl">Salvar</button>
+                                    <button onClick={cancelEdit} className="text-sm text-slate-600">Cancelar</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 p-3">
                               <div>
                                 <div className="text-sm font-semibold">{s.reportType} — Dia {s.scheduleDay}</div>
-                                <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {user ? `${user.name} (${user.email})` : (s.targetUserId ?? '—')}</div>
+                                <div className="text-xs text-slate-500">Envia: {s.sendEmail ? 'E-mail' : ''}{s.sendEmail && s.sendDiscord ? ' + ' : ''}{s.sendDiscord ? 'Discord' : ''} — Destinatário: {usr ? `${usr.name} (${usr.email})` : (s.targetUserId ?? '—')}</div>
                               </div>
                               <div className="flex items-center gap-3">
                                 <label className="flex items-center gap-2">
                                   <input type="checkbox" checked={s.isActive} onChange={() => handleToggleScheduleActive(s)} />
                                   <span className="text-sm">Ativo</span>
                                 </label>
+                                <button onClick={() => startEditSchedule(s)} className="text-sm text-slate-700 hover:underline">Editar</button>
                                 <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="text-sm text-red-600 hover:underline">Remover</button>
                               </div>
                             </div>
@@ -711,7 +794,7 @@ export default function Settings() {
           )}
 
           {/* TAB: PREFERENCES */}
-          {activeTab === 'preferences' && (
+          {activeTab === 'profile' && (
             <div className="space-y-6 max-w-2xl">
               {/* Email Notifications */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 flex items-center justify-between">
@@ -773,6 +856,37 @@ export default function Settings() {
                   <Save size={16} />
                   Salvar Preferências
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: INTEGRAÇÃO (ADMIN) */}
+          {activeTab === 'integration' && isAdmin && (
+            <div className="space-y-6 max-w-3xl">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-800">Ambiente (.env) e Integrações</h3>
+                <p className="text-xs text-slate-500 mt-1">Valores e indicadores das integrações do sistema (somente leitura).</p>
+
+                {adminConfig ? (
+                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-slate-500">SMTP From Email</p>
+                      <input type="text" value={adminConfig.smtpFromEmail ?? ''} readOnly className={inputClassName} />
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-500">SMTP From Name</p>
+                      <input type="text" value={adminConfig.smtpFromName ?? ''} readOnly className={inputClassName} />
+                    </div>
+
+                    <div className="col-span-1 lg:col-span-2">
+                      <p className="text-xs text-slate-500">Discord</p>
+                      <div className="text-sm text-slate-700 mt-1">Bot: {adminConfig.discordBotEnabled ? 'Ativado' : 'Desativado'} — Webhook: {adminConfig.discordWebhookPresent ? 'Presente' : 'Não configurado'}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 mt-2">Nenhuma configuração de integração disponível.</p>
+                )}
               </div>
             </div>
           )}

@@ -75,3 +75,15 @@ INSERT INTO sectors (id, name) VALUES
     (gen_random_uuid(), 'Espirometria'),
     (gen_random_uuid(), 'Pneumologia')
 ON CONFLICT (name) DO NOTHING;
+
+-- =============================================================================
+-- 5. CONFIGURAÇÕES DO SISTEMA (SLAs, limites e defaults)
+-- =============================================================================
+
+INSERT INTO system_settings (id, value, description) VALUES
+    ('SLA_URGENT_HOURS', '4', 'Horas para atendimento urgente (SLA)'),
+    ('SLA_HIGH_HOURS', '24', 'Horas para atendimento alto (SLA)'),
+    ('SLA_NORMAL_HOURS', '72', 'Horas para atendimento normal (SLA)'),
+    ('ATTACHMENT_SIZE_LIMIT_MB', '5', 'Limite de tamanho de anexos em MB'),
+    ('REPORT_DEFAULT_DAY', '12', 'Dia padrão do mês para relatórios agendados')
+ON CONFLICT (id) DO NOTHING;

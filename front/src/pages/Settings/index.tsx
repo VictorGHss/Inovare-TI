@@ -326,7 +326,8 @@ export default function Settings() {
       );
       toast.success('SLAs salvos com sucesso.');
     } catch (error) {
-      toast.error('Erro ao salvar SLAs.');
+      console.error('Erro ao salvar SLAs', error);
+      toast.error(getApiErrorMessage(error, 'Erro ao salvar SLAs.'));
     } finally {
       setSaving(false);
     }
@@ -349,12 +350,13 @@ export default function Settings() {
     setSchedulesLoading(true);
     try {
       // backend expects `active` field name
-      const payload: Partial<ReportSchedule> = { active: !schedule.isActive } as any;
-      const updated = await updateReportSchedule(schedule.id, payload as Partial<ReportSchedule>);
+      const payload = { active: !schedule.isActive } as unknown as Partial<ReportSchedule>;
+      const updated = await updateReportSchedule(schedule.id, payload);
       setReportSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
     } catch (error) {
-      toast.error('Erro ao atualizar agendamento.');
+      console.error('Erro ao atualizar agendamento', error);
+      toast.error(getApiErrorMessage(error, 'Erro ao atualizar agendamento.'));
     } finally {
       setSchedulesLoading(false);
     }

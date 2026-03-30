@@ -40,13 +40,28 @@ public class ReportScheduleController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReportSchedule> create(@RequestBody ReportScheduleRequest req) {
+        if (req.getReportType() == null || req.getReportType().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
         var entity = new ReportSchedule();
         entity.setReportType(req.getReportType());
         entity.setTargetUserId(req.getTargetUserId());
-        entity.setSendEmail(req.isSendEmail());
-        entity.setSendDiscord(req.isSendDiscord());
-        entity.setScheduleDay(req.getScheduleDay());
-        entity.setActive(req.isActive());
+
+        // apply defaults when request omits optional fields (use boxed locals to avoid unboxing warnings)
+        Boolean sendEmailBox = req.getSendEmail();
+        boolean sendEmail = sendEmailBox != null ? sendEmailBox.booleanValue() : true;
+        Boolean sendDiscordBox = req.getSendDiscord();
+        boolean sendDiscord = sendDiscordBox != null ? sendDiscordBox.booleanValue() : false;
+        Integer scheduleDayBox = req.getScheduleDay();
+        int scheduleDay = scheduleDayBox != null ? scheduleDayBox.intValue() : 12;
+        Boolean activeBox = req.getActive();
+        boolean active = activeBox != null ? activeBox.booleanValue() : true;
+
+        entity.setSendEmail(sendEmail);
+        entity.setSendDiscord(sendDiscord);
+        entity.setScheduleDay(scheduleDay);
+        entity.setActive(active);
         entity.setCreatedAt(LocalDateTime.now());
         entity.setUpdatedAt(LocalDateTime.now());
 
@@ -58,12 +73,30 @@ public class ReportScheduleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReportSchedule> update(@PathVariable UUID id, @RequestBody ReportScheduleRequest req) {
         return repository.findById(id).map(existing -> {
-            existing.setReportType(req.getReportType());
-            existing.setTargetUserId(req.getTargetUserId());
-            existing.setSendEmail(req.isSendEmail());
-            existing.setSendDiscord(req.isSendDiscord());
-            existing.setScheduleDay(req.getScheduleDay());
-            existing.setActive(req.isActive());
+            // only apply fields that are present in the request (non-null)
+            if (req.getReportType() != null) {
+                existing.setReportType(req.getReportType());
+            }
+            if (req.getTargetUserId() != null) {
+                existing.setTargetUserId(req.getTargetUserId());
+            }
+            Boolean sendEmailBox = req.getSendEmail();
+            if (sendEmailBox != null) {
+                existing.setSendEmail(sendEmailBox.booleanValue());
+            }
+            Boolean sendDiscordBox = req.getSendDiscord();
+            if (sendDiscordBox != null) {
+                existing.setSendDiscord(sendDiscordBox.booleanValue());
+            }
+            Integer scheduleDayBox = req.getScheduleDay();
+            if (scheduleDayBox != null) {
+                existing.setScheduleDay(scheduleDayBox.intValue());
+            }
+            Boolean activeBox = req.getActive();
+            if (activeBox != null) {
+                existing.setActive(activeBox.booleanValue());
+            }
+
             existing.setUpdatedAt(LocalDateTime.now());
             repository.save(existing);
             return ResponseEntity.ok(existing);
@@ -81,11 +114,12 @@ public class ReportScheduleController {
 
     @Data
     public static class ReportScheduleRequest {
+        // nullable request fields allow partial updates
         private String reportType;
         private UUID targetUserId;
-        private boolean sendEmail = true;
-        private boolean sendDiscord = false;
-        private int scheduleDay = 12;
-        private boolean active = true;
+        private Boolean sendEmail;
+        private Boolean sendDiscord;
+        private Integer scheduleDay;
+        private Boolean active;
     }
 }

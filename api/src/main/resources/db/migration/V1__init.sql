@@ -1,10 +1,8 @@
 ﻿-- =============================================================================
--- V1__init.sql - Schema inicial do Inovare TI
+-- V1__init.sql - Schema inicial do Inovare TI (Versão Consolidada)
 -- PostgreSQL 16 | Gerenciado pelo Flyway
--- Ordem de criacao respeita dependencias de Foreign Keys
 -- =============================================================================
 
--- Extensao para gen_random_uuid() (disponivel no PostgreSQL 13+)
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- =============================================================================
@@ -63,7 +61,6 @@ CREATE TABLE articles (
     CONSTRAINT ck_articles_status CHECK (status IN ('DRAFT', 'PUBLISHED'))
 );
 
--- Tabela para rastrear tentativas de processamento/baixas (controle de retries)
 CREATE TABLE processing_attempts (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     sale_id varchar(120) NOT NULL,
@@ -100,7 +97,7 @@ CREATE TABLE users (
 );
 
 -- =============================================================================
--- BLOCO 3 - notifications: user_id e coluna simples (sem FK na entidade)
+-- BLOCO 3 - notifications
 -- =============================================================================
 
 CREATE TABLE notifications (
@@ -126,8 +123,7 @@ CREATE TABLE items (
     specifications   jsonb        NOT NULL DEFAULT '{}',
     CONSTRAINT pk_items          PRIMARY KEY (id),
     CONSTRAINT ck_items_stock    CHECK       (current_stock >= 0),
-    CONSTRAINT fk_items_category FOREIGN KEY (item_category_id)
-        REFERENCES item_categories (id)
+    CONSTRAINT fk_items_category FOREIGN KEY (item_category_id) REFERENCES item_categories (id)
 );
 
 -- =============================================================================
@@ -152,14 +148,14 @@ CREATE TABLE tickets (
     CONSTRAINT pk_tickets          PRIMARY KEY (id),
     CONSTRAINT ck_tickets_status   CHECK       (status   IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
     CONSTRAINT ck_tickets_priority CHECK       (priority IN ('LOW', 'NORMAL', 'HIGH', 'URGENT')),
-    CONSTRAINT fk_tickets_requester FOREIGN KEY (requester_id)      REFERENCES users             (id),
-    CONSTRAINT fk_tickets_assigned  FOREIGN KEY (assigned_to_id)    REFERENCES users             (id),
-    CONSTRAINT fk_tickets_category  FOREIGN KEY (category_id)       REFERENCES ticket_categories (id),
-    CONSTRAINT fk_tickets_item      FOREIGN KEY (requested_item_id) REFERENCES items             (id)
+    CONSTRAINT fk_tickets_requester FOREIGN KEY (requester_id)      REFERENCES users(id),
+    CONSTRAINT fk_tickets_assigned  FOREIGN KEY (assigned_to_id)    REFERENCES users(id),
+    CONSTRAINT fk_tickets_category  FOREIGN KEY (category_id)       REFERENCES ticket_categories(id),
+    CONSTRAINT fk_tickets_item      FOREIGN KEY (requested_item_id) REFERENCES items(id)
 );
 
 -- =============================================================================
--- BLOCO 6 - ticket_attachments: depende de tickets
+-- BLOCO 6 - ticket_attachments
 -- =============================================================================
 
 CREATE TABLE ticket_attachments (
@@ -175,7 +171,7 @@ CREATE TABLE ticket_attachments (
 );
 
 -- =============================================================================
--- BLOCO 7 - ticket_comments: depende de tickets e users
+-- BLOCO 7 - ticket_comments
 -- =============================================================================
 
 CREATE TABLE ticket_comments (
@@ -186,11 +182,11 @@ CREATE TABLE ticket_comments (
     created_at timestamp NOT NULL,
     CONSTRAINT pk_ticket_comments        PRIMARY KEY (id),
     CONSTRAINT fk_ticket_comments_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id),
-    CONSTRAINT fk_ticket_comments_author FOREIGN KEY (author_id) REFERENCES users   (id)
+    CONSTRAINT fk_ticket_comments_author FOREIGN KEY (author_id) REFERENCES users (id)
 );
 
 -- =============================================================================
--- BLOCO 8 - stock_batches: depende de items
+-- BLOCO 8 - stock_batches (FIX: remaining_quantity >= 0 para FIFO)
 -- =============================================================================
 
 CREATE TABLE stock_batches (
@@ -213,7 +209,7 @@ CREATE TABLE stock_batches (
 );
 
 -- =============================================================================
--- BLOCO 9 - stock_movements: item_id como UUID simples (conforme entidade)
+-- BLOCO 9 - stock_movements (Incluso unit_price_at_time)
 -- =============================================================================
 
 CREATE TABLE stock_movements (
@@ -231,7 +227,7 @@ CREATE TABLE stock_movements (
 );
 
 -- =============================================================================
--- BLOCO 10 - assets: depende de asset_categories; user_id e UUID simples
+-- BLOCO 10 - assets (Incluso acquisition_value)
 -- =============================================================================
 
 CREATE TABLE assets (
@@ -252,7 +248,7 @@ CREATE TABLE assets (
 );
 
 -- =============================================================================
--- BLOCO 11 - asset_maintenances: depende de assets e users
+-- BLOCO 11 - asset_maintenances
 -- =============================================================================
 
 CREATE TABLE asset_maintenances (
@@ -271,29 +267,7 @@ CREATE TABLE asset_maintenances (
 );
 
 -- =============================================================================
--- INDICES DE PERFORMANCE
--- =============================================================================
-
-CREATE INDEX idx_tickets_status       ON tickets (status);
-CREATE INDEX idx_tickets_requester    ON tickets (requester_id);
-CREATE INDEX idx_tickets_assigned     ON tickets (assigned_to_id);
-CREATE INDEX idx_tickets_created_at   ON tickets (created_at   DESC);
-CREATE INDEX idx_tickets_sla_deadline ON tickets (sla_deadline ASC);
-
-CREATE INDEX idx_notifications_user_id ON notifications (user_id);
-CREATE INDEX idx_notifications_unread  ON notifications (user_id) WHERE is_read = false;
-
-CREATE INDEX idx_articles_created_at ON articles (created_at DESC);
-
-CREATE INDEX idx_stock_batches_item_id   ON stock_batches   (item_id);
-CREATE INDEX idx_stock_movements_item_id ON stock_movements (item_id);
-CREATE INDEX idx_stock_movements_date    ON stock_movements (date DESC);
-
-CREATE INDEX idx_assets_user_id              ON assets             (user_id);
-CREATE INDEX idx_asset_maintenances_asset_id ON asset_maintenances (asset_id);
-
--- =============================================================================
--- BLOCO 12 - vault_items e vault_item_shares: depende de users e vault_items
+-- BLOCO 12 - vault_items e shares
 -- =============================================================================
 
 CREATE TABLE vault_items (
@@ -307,28 +281,21 @@ CREATE TABLE vault_items (
     sharing_type   varchar(20)  NOT NULL,
     created_at     timestamp    NOT NULL,
     updated_at     timestamp    NOT NULL,
-    CONSTRAINT pk_vault_items                    PRIMARY KEY (id),
-    CONSTRAINT ck_vault_items_item_type          CHECK       (item_type IN ('CREDENTIAL', 'DOCUMENT', 'NOTE')),
-    CONSTRAINT ck_vault_items_sharing_type       CHECK       (sharing_type IN ('PRIVATE', 'ALL_TECH_ADMIN', 'CUSTOM')),
-    CONSTRAINT fk_vault_items_owner              FOREIGN KEY (owner_id) REFERENCES users (id)
+    CONSTRAINT pk_vault_items PRIMARY KEY (id),
+    CONSTRAINT fk_vault_items_owner FOREIGN KEY (owner_id) REFERENCES users (id)
 );
 
 CREATE TABLE vault_item_shares (
     id                  uuid      NOT NULL DEFAULT gen_random_uuid(),
     vault_item_id       uuid      NOT NULL,
     shared_with_user_id uuid      NOT NULL,
-    CONSTRAINT pk_vault_item_shares                     PRIMARY KEY (id),
-    CONSTRAINT fk_vault_item_shares_vault_item          FOREIGN KEY (vault_item_id) REFERENCES vault_items (id),
-    CONSTRAINT fk_vault_item_shares_shared_with_user    FOREIGN KEY (shared_with_user_id) REFERENCES users (id)
+    CONSTRAINT pk_vault_item_shares PRIMARY KEY (id),
+    CONSTRAINT fk_vault_item_shares_vault_item FOREIGN KEY (vault_item_id) REFERENCES vault_items (id),
+    CONSTRAINT fk_vault_item_shares_shared_with_user FOREIGN KEY (shared_with_user_id) REFERENCES users (id)
 );
 
-CREATE INDEX idx_vault_items_owner_id          ON vault_items       (owner_id);
-CREATE INDEX idx_vault_items_sharing_type      ON vault_items       (sharing_type);
-CREATE INDEX idx_vault_item_shares_vault_item  ON vault_item_shares (vault_item_id);
-CREATE INDEX idx_vault_item_shares_user        ON vault_item_shares (shared_with_user_id);
-
 -- =============================================================================
--- BLOCO 13 - audit_logs: tabela de trilha de auditoria (sem FK para preservar historico)
+-- BLOCO 13 - audit_logs
 -- =============================================================================
 
 CREATE TABLE audit_logs (
@@ -340,52 +307,11 @@ CREATE TABLE audit_logs (
     details       text,
     ip_address    varchar(45),
     created_at    timestamp    NOT NULL,
-    CONSTRAINT pk_audit_logs        PRIMARY KEY (id),
-    CONSTRAINT ck_audit_logs_action CHECK (action IN (
-        -- Vault (legado + canonico)
-        'VAULT_LOGIN_SUCCESS', 'VAULT_LOGIN_FAILURE',
-        'VAULT_SECRET_VIEW',   'VAULT_FILE_VIEW',
-        'VAULT_ITEM_CREATE',   'VAULT_ITEM_EDIT',   'VAULT_ITEM_DELETE',
-        'VAULT_AUTH_SUCCESS',  'VAULT_AUTH_FAIL',   'VAULT_ITEM_VIEW',
-        -- Autenticacao
-        'LOGIN_SUCCESS', 'LOGIN_FAILURE',
-        -- Segundo fator (legado + canonico)
-        'TWO_FACTOR_RESET', 'TWO_FACTOR_ADMIN_RESET', 'USER_2FA_ADMIN_RESET',
-        -- Chamados
-        'TICKET_OPEN', 'TICKET_ASSIGN', 'TICKET_TRANSFER', 'TICKET_RESOLVE',
-        -- Inventario (legado + canonico)
-        'INVENTORY_BATCH_ENTRY', 'INVENTORY_ITEM_CREATE',
-        'STOCK_BATCH_CREATE',    'ITEM_CREATE',
-        -- Ativos (legado + canonico)
-        'ASSET_CREATE', 'ASSET_INVOICE_ATTACH', 'QR_SCAN',
-        'ASSET_EDIT',   'ASSET_QR_SCAN',
-        -- Base de Conhecimento (legado + canonico)
-        'KB_ARTICLE_DRAFT_CREATE', 'KB_ARTICLE_PUBLISH', 'KB_ARTICLE_EDIT',
-        'ARTICLE_POST_PUBLIC',     'ARTICLE_POST_DRAFT',  'ARTICLE_EDIT',
-        -- Usuarios e setores (legado + canonico)
-        'SECTOR_CREATE',
-        'USER_CREATE',
-        'USER_UPDATE',           'USER_EDIT',
-        'USER_PASSWORD_RESET',   'USER_PASSWORD_ADMIN_RESET',
-        'USER_PERMISSION_CHANGE',
-        -- Perfil
-        'PROFILE_PASSWORD_CHANGE'
-    ))
+    CONSTRAINT pk_audit_logs PRIMARY KEY (id)
 );
 
-CREATE INDEX idx_audit_logs_user_id    ON audit_logs (user_id);
-CREATE INDEX idx_audit_logs_action     ON audit_logs (action);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs (created_at DESC);
-
 -- =============================================================================
--- NOTA DE SINCRONIZACAO DO SCHEMA BASE
--- A tabela users ja contempla no schema inicial as colunas recovery_code_hash
--- (varchar(255)) e recovery_code_expires_at (timestamp) para recuperacao de 2FA.
--- =============================================================================
-
--- AJUSTES INCREMENTAIS removidos: todas as alterações consolidadas nos CREATE TABLE acima
--- =============================================================================
--- BLOCO 14 - MODULO FINANCEIRO (ContaAzul + Conferencia de Recibos)
+-- BLOCO 14 - MODULO FINANCEIRO (ERP + Transações)
 -- =============================================================================
 
 CREATE TABLE contaazul_oauth_tokens (
@@ -413,13 +339,12 @@ CREATE TABLE financial_link (
     linked_by_user_id     uuid,
     created_at            timestamp    NOT NULL DEFAULT now(),
     updated_at            timestamp    NOT NULL DEFAULT now(),
-    CONSTRAINT pk_financial_link               PRIMARY KEY (id),
-    CONSTRAINT uq_financial_link_customer_canal UNIQUE      (contaazul_customer_id, canal),
-    CONSTRAINT ck_financial_link_canal         CHECK       (canal IN ('EMAIL', 'DISCORD')),
-    CONSTRAINT fk_financial_link_linked_by     FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
+    CONSTRAINT pk_financial_link PRIMARY KEY (id),
+    CONSTRAINT uq_financial_link_customer_canal UNIQUE (contaazul_customer_id, canal),
+    CONSTRAINT ck_financial_link_canal CHECK (canal IN ('EMAIL', 'DISCORD')),
+    CONSTRAINT fk_financial_link_linked_by FOREIGN KEY (linked_by_user_id) REFERENCES users (id)
 );
 
--- 📇 Mapeamento de cliente Conta Azul para o médico (nome + e-mail real de destino)
 CREATE TABLE doctor_email_mapping (
     id                      uuid         NOT NULL DEFAULT gen_random_uuid(),
     contaazul_customer_uuid varchar(64)  NOT NULL,
@@ -428,21 +353,19 @@ CREATE TABLE doctor_email_mapping (
     doctor_email            varchar(255),
     created_at              timestamp    NOT NULL DEFAULT now(),
     updated_at              timestamp    NOT NULL DEFAULT now(),
-    CONSTRAINT pk_doctor_email_mapping                   PRIMARY KEY (id),
-    CONSTRAINT uq_doctor_email_mapping_customer_uuid     UNIQUE      (contaazul_customer_uuid),
-    CONSTRAINT fk_doctor_email_mapping_user              FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT pk_doctor_email_mapping PRIMARY KEY (id),
+    CONSTRAINT uq_doctor_email_mapping_customer_uuid UNIQUE (contaazul_customer_uuid),
+    CONSTRAINT fk_doctor_email_mapping_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
--- 🧾 Controle de idempotência para vendas liquidadas já enviadas por e-mail
 CREATE TABLE processed_sales (
     id           uuid         NOT NULL DEFAULT gen_random_uuid(),
     sale_id      varchar(120) NOT NULL,
     processed_at timestamp    NOT NULL DEFAULT now(),
-    CONSTRAINT pk_processed_sales         PRIMARY KEY (id),
-    CONSTRAINT uq_processed_sales_sale_id UNIQUE      (sale_id)
+    CONSTRAINT pk_processed_sales PRIMARY KEY (id),
+    CONSTRAINT uq_processed_sales_sale_id UNIQUE (sale_id)
 );
 
--- ✨ Tabela de conferência vibrante: rastreia processamento e idempotência de recibos
 CREATE TABLE processed_receipts (
     id                       uuid          NOT NULL DEFAULT gen_random_uuid(),
     financial_link_id        uuid          NOT NULL,
@@ -454,13 +377,12 @@ CREATE TABLE processed_receipts (
     retry_count              integer       NOT NULL DEFAULT 0,
     payload                  jsonb         NOT NULL DEFAULT '{}'::jsonb,
     processed_at             timestamp     NOT NULL DEFAULT now(),
-    CONSTRAINT pk_processed_receipts                 PRIMARY KEY (id),
-    CONSTRAINT uq_processed_receipts_parcela_hash    UNIQUE      (parcela_id, receipt_hash),
-    CONSTRAINT ck_processed_receipts_status          CHECK       (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY', 'HISTORICO')),
-    CONSTRAINT fk_processed_receipts_financial_link  FOREIGN KEY (financial_link_id) REFERENCES financial_link (id)
+    CONSTRAINT pk_processed_receipts PRIMARY KEY (id),
+    CONSTRAINT uq_processed_receipts_parcela_hash UNIQUE (parcela_id, receipt_hash),
+    CONSTRAINT ck_processed_receipts_status CHECK (status IN ('SENT', 'SKIPPED_DUPLICATE', 'FAILED', 'PENDING_RETRY', 'HISTORICO')),
+    CONSTRAINT fk_processed_receipts_financial_link FOREIGN KEY (financial_link_id) REFERENCES financial_link (id)
 );
 
--- 🚨 Tabela de conferência vibrante: centraliza alertas de falhas de envio (Brevo)
 CREATE TABLE system_alerts (
     id          uuid         NOT NULL DEFAULT gen_random_uuid(),
     alert_type  varchar(60)  NOT NULL,
@@ -473,11 +395,11 @@ CREATE TABLE system_alerts (
     resolved_by uuid,
     created_at  timestamp    NOT NULL DEFAULT now(),
     resolved_at timestamp,
-    CONSTRAINT pk_system_alerts            PRIMARY KEY (id),
-    CONSTRAINT ck_system_alerts_severity   CHECK       (severity IN ('INFO', 'WARN', 'ERROR', 'CRITICAL'))
+    CONSTRAINT pk_system_alerts PRIMARY KEY (id),
+    CONSTRAINT ck_system_alerts_severity CHECK (severity IN ('INFO', 'WARN', 'ERROR', 'CRITICAL'))
 );
 
--- BLOCO 14.A - financial_transactions: transações financeiras internas
+-- BLOCO 14.A - financial_transactions
 CREATE TABLE financial_transactions (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     target_type varchar(10) NOT NULL,
@@ -492,15 +414,8 @@ CREATE TABLE financial_transactions (
     CONSTRAINT fk_financial_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_financial_transactions_target ON financial_transactions (target_type, target_id);
-CREATE INDEX idx_financial_transactions_created_at ON financial_transactions (created_at DESC);
-
-CREATE INDEX idx_fl_customer ON financial_link (contaazul_customer_id);
-CREATE INDEX idx_ps_sale_id  ON processed_sales (sale_id);
-CREATE INDEX idx_pr_parcela  ON processed_receipts (parcela_id);
--- All incremental ALTER TABLE statements consolidated into CREATE TABLE definitions above
 -- =============================================================================
--- BLOCO 15 - report_schedules: agendamentos de relatórios (migrado de V3)
+-- BLOCO 15 - report_schedules (Automação Dia 12)
 -- =============================================================================
 
 CREATE TABLE report_schedules (
@@ -517,4 +432,7 @@ CREATE TABLE report_schedules (
     CONSTRAINT fk_report_schedules_user FOREIGN KEY (target_user_id) REFERENCES users (id) ON DELETE SET NULL
 );
 
+-- Índices e Configurações de Performance
+CREATE INDEX idx_tickets_status ON tickets (status);
+CREATE INDEX idx_financial_transactions_created_at ON financial_transactions (created_at DESC);
 CREATE INDEX idx_report_schedules_active ON report_schedules (is_active);

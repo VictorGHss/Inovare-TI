@@ -1,3 +1,8 @@
+-- =============================================================================
+-- V2__production_setup.sql - População de Tabelas Mestres
+-- =============================================================================
+
+-- 1. CATEGORIAS DE CHAMADOS
 INSERT INTO ticket_categories (id, name, base_sla_hours) VALUES
     (gen_random_uuid(), 'Hardware', 48),
     (gen_random_uuid(), 'Software', 24),
@@ -5,6 +10,7 @@ INSERT INTO ticket_categories (id, name, base_sla_hours) VALUES
     (gen_random_uuid(), 'Acessos', 24)
 ON CONFLICT (name) DO NOTHING;
 
+-- 2. CATEGORIAS DE ITENS (INVENTÁRIO)
 INSERT INTO item_categories (id, name, is_consumable) VALUES
     (gen_random_uuid(), 'Consumiveis', true),
     (gen_random_uuid(), 'Ativos', false),
@@ -18,6 +24,7 @@ INSERT INTO item_categories (id, name, is_consumable) VALUES
     (gen_random_uuid(), 'Impressora', false)
 ON CONFLICT (name) DO NOTHING;
 
+-- 3. CATEGORIAS DE ATIVOS (PATRIMÔNIO)
 INSERT INTO asset_categories (id, name) VALUES
     (gen_random_uuid(), 'Laptops'),
     (gen_random_uuid(), 'Desktops'),
@@ -27,6 +34,7 @@ INSERT INTO asset_categories (id, name) VALUES
     (gen_random_uuid(), 'Telefonia')
 ON CONFLICT (name) DO NOTHING;
 
+-- 4. SETORES (Lista Inovare Completa)
 INSERT INTO sectors (id, name) VALUES
     (gen_random_uuid(), 'TI'),
     (gen_random_uuid(), 'Financeiro'),

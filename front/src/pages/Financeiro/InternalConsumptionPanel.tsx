@@ -35,7 +35,7 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
 
   const totalsBySector = useMemo(() => {
     const map = new Map<string, number>();
-    for (const l of lines) {
+    for (const l of (lines ?? [])) {
       if (l.targetType !== 'SECTOR') continue;
       map.set(l.destination, (map.get(l.destination) ?? 0) + l.amountCents);
     }
@@ -44,7 +44,7 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
 
   const totalsByDoctor = useMemo(() => {
     const map = new Map<string, number>();
-    for (const l of lines) {
+    for (const l of (lines ?? [])) {
       if (l.targetType !== 'DOCTOR') continue;
       map.set(l.destination, (map.get(l.destination) ?? 0) + l.amountCents);
     }
@@ -65,8 +65,8 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
           <div style={{ border: '1px solid #feb56c', backgroundColor: '#fed8b0' }} className="rounded-2xl p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">Total por Setores</p>
             <ul className="mt-3 space-y-2">
-              {totalsBySector.length === 0 && <li className="text-sm text-slate-500">Nenhum lançamento encontrado.</li>}
-              {totalsBySector.map((s) => (
+              {(totalsBySector ?? []).length === 0 && <li className="text-sm text-slate-500">Nenhum lançamento encontrado.</li>}
+              {(totalsBySector ?? []).map((s) => (
                 <li key={s.name} className="flex items-center justify-between">
                   <span className="text-sm text-slate-700">{s.name}</span>
                   <strong className="text-sm text-slate-900">{formatCurrency(s.amountCents)}</strong>
@@ -78,8 +78,8 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
           <div style={{ border: '1px solid #feb56c', backgroundColor: '#fed8b0' }} className="rounded-2xl p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">Total por Médicos</p>
             <ul className="mt-3 space-y-2">
-              {totalsByDoctor.length === 0 && <li className="text-sm text-slate-500">Nenhum lançamento encontrado.</li>}
-              {totalsByDoctor.map((d) => (
+              {(totalsByDoctor ?? []).length === 0 && <li className="text-sm text-slate-500">Nenhum lançamento encontrado.</li>}
+              {(totalsByDoctor ?? []).map((d) => (
                 <li key={d.name} className="flex items-center justify-between">
                   <span className="text-sm text-slate-700">{d.name}</span>
                   <strong className="text-sm text-slate-900">{formatCurrency(d.amountCents)}</strong>
@@ -107,7 +107,7 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
               {!loading && lines.length === 0 && (
                 <tr><td colSpan={5} className="py-4 text-center text-slate-500">Nenhuma saída registrada neste período.</td></tr>
               )}
-              {!loading && lines.map((l) => (
+              {!loading && (lines ?? []).map((l) => (
                 <tr key={l.transactionId + l.item + l.date} className="border-t border-slate-100">
                   <td className="py-3">{formatDateTime(l.date)}</td>
                   <td className="py-3">{l.destination}</td>

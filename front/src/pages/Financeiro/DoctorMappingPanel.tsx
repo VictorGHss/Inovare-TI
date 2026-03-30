@@ -28,7 +28,7 @@ export default function DoctorMappingPanel({
   const [showNovoMapeamentoModal, setShowNovoMapeamentoModal] = useState(false);
   const [syncingBase, setSyncingBase] = useState(false);
 
-  const mapeamentosOrdenados = useMemo(() => ordenarPorNomeMedico(mapeamentos), [mapeamentos]);
+  const mapeamentosOrdenados = useMemo(() => ordenarPorNomeMedico(mapeamentos ?? []), [mapeamentos]);
 
   async function handleRemover(id: string) {
     try {

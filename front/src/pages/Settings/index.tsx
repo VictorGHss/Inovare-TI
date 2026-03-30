@@ -263,7 +263,7 @@ export default function Settings() {
     setSchedulesLoading(true);
     try {
       const created = await createReportSchedule(newSchedulePayload as Partial<ReportSchedule>);
-      setReportSchedules((prev) => [...prev, created]);
+      setReportSchedules((prev) => (prev ?? []).concat(created));
       toast.success('Agendamento criado com sucesso.');
       setNewSchedulePayload({
         reportType: 'exits',
@@ -297,7 +297,7 @@ export default function Settings() {
     setSchedulesLoading(true);
     try {
       const updated = await updateReportSchedule(editingScheduleId, editingPayload as Partial<ReportSchedule>);
-      setReportSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
       toast.success('Agendamento atualizado com sucesso.');
       setEditingScheduleId(null);
       setEditingPayload(null);
@@ -374,7 +374,7 @@ export default function Settings() {
     setSchedulesLoading(true);
     try {
       await deleteReportSchedule(id);
-      setReportSchedules((prev) => prev.filter((s) => s.id !== id));
+      setReportSchedules((prev) => (prev ?? []).filter((s) => s.id !== id));
       toast.success('Agendamento removido com sucesso.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Erro ao remover agendamento.'));
@@ -389,7 +389,7 @@ export default function Settings() {
       // backend expects `active` field name
       const payload = { active: !schedule.isActive } as unknown as Partial<ReportSchedule>;
       const updated = await updateReportSchedule(schedule.id, payload);
-      setReportSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
       toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
     } catch (error) {
       console.error('Erro ao atualizar agendamento', error);
@@ -479,7 +479,7 @@ export default function Settings() {
               ) : (
                 <>
                   <div className="space-y-4">
-                    {settings.map((setting) => (
+                    {(settings ?? []).map((setting) => (
                       <div
                         key={setting.id}
                         className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-3 lg:items-center"
@@ -510,10 +510,10 @@ export default function Settings() {
                     <p className="text-xs text-slate-700 mt-1">Edite os SLAs do sistema (ex: SLA_URGENT_HOURS, SLA_HIGH_HOURS).</p>
 
                     <div className="mt-4 space-y-3">
-                      {slaKeys.length === 0 ? (
+                      {(slaKeys ?? []).length === 0 ? (
                         <div className="text-xs text-slate-700">Nenhuma configuração de SLA encontrada.</div>
                       ) : (
-                        slaKeys.map((s) => (
+                        (slaKeys ?? []).map((s) => (
                           <div key={s.id} className="rounded-md p-3 bg-white/70 grid grid-cols-1 lg:grid-cols-[1fr_160px] gap-3 items-center">
                             <div>
                               <p className="text-sm font-semibold text-slate-800">{getFriendlyLabel(s.id)}</p>
@@ -570,10 +570,10 @@ export default function Settings() {
                     <p className="text-xs text-slate-500 mt-1">Configure envios automáticos de relatórios (dia do mês).</p>
 
                     <div className="mt-4 space-y-3">
-                      {reportSchedules.length === 0 ? (
+                      {(reportSchedules ?? []).length === 0 ? (
                         <div className="text-xs text-slate-500">Nenhum agendamento encontrado.</div>
                       ) : (
-                        reportSchedules.map((s) => {
+                        (reportSchedules ?? []).map((s) => {
                           const usr = usersList.find((u) => u.id === s.targetUserId);
                           if (editingScheduleId === s.id) {
                             return (
@@ -595,7 +595,7 @@ export default function Settings() {
                                     className={inputClassName}
                                   >
                                     <option value="">Selecione usuário (opcional)</option>
-                                    {usersList.map((u) => (
+                                    {(usersList ?? []).map((u) => (
                                       <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                                     ))}
                                   </select>
@@ -665,7 +665,7 @@ export default function Settings() {
                         className={inputClassName}
                       >
                         <option value="">Selecione usuário (opcional)</option>
-                        {usersList.map((u) => (
+                        {(usersList ?? []).map((u) => (
                           <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                         ))}
                       </select>
@@ -713,10 +713,10 @@ export default function Settings() {
                       <p className="text-xs text-slate-500 mt-1">Gerencie as categorias usadas nos ativos físicos.</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {assetCategories.length === 0 ? (
+                        {(assetCategories ?? []).length === 0 ? (
                           <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
-                        ) : (
-                          assetCategories.map((category) => (
+                          ) : (
+                          (assetCategories ?? []).map((category) => (
                             <span
                               key={category.id}
                               className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700"
@@ -752,10 +752,10 @@ export default function Settings() {
                       <p className="text-xs text-slate-500 mt-1">Gerencie categorias para materiais e itens de estoque.</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {itemCategories.filter((category) => category.isConsumable).length === 0 ? (
+                        {(itemCategories ?? []).filter((category) => category.isConsumable).length === 0 ? (
                           <span className="text-xs text-slate-500">Nenhuma categoria cadastrada.</span>
-                        ) : (
-                          itemCategories
+                          ) : (
+                          (itemCategories ?? [])
                             .filter((category) => category.isConsumable)
                             .map((category) => (
                             <span

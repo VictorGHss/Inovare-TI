@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, Check, X, Pencil, Trash2, Calendar } from 'lucide-react';
+import { Plus, Check, X, Pencil, Trash2, Calendar, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import {
   getReportSchedules,
   createReportSchedule,
   deleteReportSchedule,
+  triggerReportScheduleTest,
   updateReportSchedule,
   getUsers,
   type ReportSchedule,
@@ -115,6 +116,17 @@ export default function ReportSchedulesSection() {
       toast.error('Erro ao remover agendamento.');
     } finally {
       setSchedulesLoading(false);
+    }
+  }
+
+  async function handleTriggerTest(schedule: ReportSchedule) {
+    toast.info('Enviando relatório de teste...');
+    try {
+      await triggerReportScheduleTest(schedule.id);
+      toast.success('Relatório de teste enviado com sucesso.');
+    } catch (err) {
+      console.warn('Failed to trigger test report', err);
+      toast.error('Erro ao enviar relatório de teste.');
     }
   }
 
@@ -239,6 +251,9 @@ export default function ReportSchedulesSection() {
                   </button>
                   <button onClick={() => startEditSchedule(s)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
                     <Pencil size={14} className="text-slate-500" />
+                  </button>
+                  <button onClick={() => handleTriggerTest(s)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Testar Agora">
+                    <Send size={14} className="text-slate-500" />
                   </button>
                   <button onClick={() => handleDeleteSchedule(s.id)} disabled={schedulesLoading} className="p-2 rounded-lg hover:bg-red-50 transition-colors">
                     <Trash2 size={14} className="text-red-500" />

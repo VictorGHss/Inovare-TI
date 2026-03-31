@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class ReportScheduleController {
 
     private final ReportScheduleRepository repository;
+    private final ReportAutomationService automationService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -92,6 +93,19 @@ public class ReportScheduleController {
         return repository.findById(id).map(existing -> {
             repository.deleteById(id);
             return ResponseEntity.noContent().<Void>build();
+        }).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/trigger-test")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> triggerTest(@PathVariable UUID id) {
+        return repository.findById(id).map(schedule -> {
+            try {
+                automationService.triggerTestReport(id);
+                return ResponseEntity.ok().<Void>build();
+            } catch (Exception ex) {
+                return ResponseEntity.status(500).<Void>build();
+            }
         }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 

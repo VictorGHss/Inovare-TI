@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -131,5 +132,84 @@ public class ReportAutomationService {
         }
 
         log.info("Scheduled reports job finished");
+    }
+
+    /**
+     * Gera e envia imediatamente um relatório (ignora o dia do mês configurado).
+     * Usado para disparos manuais de teste.
+     */
+    public void triggerTestReport(UUID scheduleId) {
+        scheduleRepository.findById(scheduleId).ifPresentOrElse(schedule -> {
+            try {
+                if (!"exits".equalsIgnoreCase(schedule.getReportType())) {
+                    log.warn("Manual trigger for unsupported reportType '{}' schedule {}", schedule.getReportType(), schedule.getId());
+                    return;
+                }
+
+                if (schedule.getTargetUserId() == null) {
+                    log.warn("Manual trigger requested but schedule {} has no target user", schedule.getId());
+                    return;
+                }
+
+                userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
+                    log.info("Iniciando disparo manual de relatório para o usuário {}", user.getEmail());
+
+                    LocalDate today = LocalDate.now();
+                    LocalDate startDate = today.minusMonths(1);
+                    LocalDate endDate = today;
+                    LocalDateTime start = startDate.atStartOfDay();
+                    LocalDateTime end = endDate.atTime(LocalTime.MAX);
+
+                    try {
+                        List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
+                                .filter(t -> t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
+                                .toList();
+
+                        ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(tickets);
+                        byte[] bytes = stream.readAllBytes();
+                        String filename = String.format("saidas_estoque_%s_to_%s.pdf", startDate.toString(), endDate.toString());
+
+                        if (schedule.isSendEmail()) {
+                            String subject = "Relatório de Teste - Saídas de Estoque";
+                            String body = String.format("Olá %s,\n\nSegue o relatório de teste de saídas de estoque referente ao período %s até %s.\n\nAtt,\nInovare TI",
+                                    user.getName(), startDate.toString(), endDate.toString());
+
+                            try {
+                                reportDeliveryService.sendReportEmail(user.getName(), user.getEmail(), subject, body, bytes, filename,
+                                        "application/pdf");
+                            } catch (Exception ex) {
+                                log.error("Failed to send test report email to {} for schedule {}", user.getEmail(), schedule.getId(), ex);
+                            }
+                        }
+
+                        if (schedule.isSendDiscord()) {
+                            String title = "Relatório de Teste de Saídas Gerado";
+                            String message = String.format("Relatório manual de saídas gerado para período %s → %s.", startDate.toString(), endDate.toString());
+
+                            if (user.getDiscordUserId() != null && !user.getDiscordUserId().isBlank()) {
+                                try {
+                                    discordDirectMessageService.sendReportPdfDMToUser(user.getDiscordUserId(), bytes, filename,
+                                            String.format("Olá %s, segue o relatório de teste de saídas referente ao período %s → %s.",
+                                                    user.getName(), startDate.toString(), endDate.toString()));
+                                } catch (Exception ex) {
+                                    log.error("Failed to DM test report to Discord user {} for schedule {}", user.getDiscordUserId(), schedule.getId(), ex);
+                                    // fallback to webhook
+                                    discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                                }
+                            } else {
+                                // fallback to webhook when user has no discord linked
+                                discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
+                            }
+                        }
+
+                    } catch (Exception ex) {
+                        log.error("Error triggering manual report for schedule {}", schedule.getId(), ex);
+                    }
+                }, () -> log.warn("Target user {} not found for schedule {}", schedule.getTargetUserId(), schedule.getId()));
+
+            } catch (Exception ex) {
+                log.error("Error processing manual trigger for schedule {}", schedule.getId(), ex);
+            }
+        }, () -> log.warn("Schedule not found {}", scheduleId));
     }
 }

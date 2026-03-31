@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -505,14 +506,66 @@ public class ReportService {
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
 
-                // 1) Prioriza valores registrados em financial_transactions para refletir valores reais validados (ex: R$ 500,00)
+                // 1) Prioriza valores registrados em financial_transactions para refletir a "Verdade Financeira".
+                //    Busca transações associadas ao chamado (ticket_id) filtrando por:
+                //      - resource_type = INVENTORY
+                //      - target_type IN (SECTOR, DOCTOR)
+                //    Além disso, limita por intervalo de data do dia de fechamento do chamado
+                //    considerando que o banco armazena timestamps em UTC.
                 BigDecimal totalPrice = BigDecimal.ZERO;
+                FinancialTransaction.ResourceType foundResourceType = null;
                 try {
+                    java.time.LocalDate txDate = t.getClosedAt() != null
+                            ? t.getClosedAt().toLocalDate()
+                            : java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+                    LocalDateTime startOfDayUtc = txDate.atStartOfDay();
+                    LocalDateTime endOfDayUtc = txDate.plusDays(1).atStartOfDay().minusNanos(1);
+
+                    // 1a) Tenta buscar transações vinculadas diretamente ao ticket
                     var txs = transactionRepository.findByTicketId(t.getId());
                     if (txs != null && !txs.isEmpty()) {
                         for (FinancialTransaction tx : txs) {
-                            if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY && tx.getAmount() != null) {
+                            if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
+                                    && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR)
+                                    && tx.getAmount() != null
+                                    && !tx.getCreatedAt().isBefore(startOfDayUtc)
+                                    && !tx.getCreatedAt().isAfter(endOfDayUtc)) {
                                 totalPrice = totalPrice.add(tx.getAmount());
+                                foundResourceType = tx.getResourceType();
+                            }
+                        }
+                    }
+
+                    // 1b) Se nada encontrado por ticket_id, tenta buscar por target (setor ou médico) do solicitante
+                    if (totalPrice.compareTo(BigDecimal.ZERO) <= 0 && t.getRequester() != null) {
+                        UUID requesterId = t.getRequester().getId();
+                        UUID sectorId = t.getRequester().getSector() != null ? t.getRequester().getSector().getId() : null;
+
+                        if (sectorId != null) {
+                            var sectorTxs = transactionRepository.findByResourceTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
+                                    FinancialTransaction.ResourceType.INVENTORY,
+                                    FinancialTransaction.TargetType.SECTOR,
+                                    sectorId,
+                                    startOfDayUtc,
+                                    endOfDayUtc);
+                            for (FinancialTransaction tx : sectorTxs) {
+                                if (tx.getAmount() != null) {
+                                    totalPrice = totalPrice.add(tx.getAmount());
+                                    foundResourceType = tx.getResourceType();
+                                }
+                            }
+                        }
+
+                        var doctorTxs = transactionRepository.findByResourceTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
+                                FinancialTransaction.ResourceType.INVENTORY,
+                                FinancialTransaction.TargetType.DOCTOR,
+                                requesterId,
+                                startOfDayUtc,
+                                endOfDayUtc);
+                        for (FinancialTransaction tx : doctorTxs) {
+                            if (tx.getAmount() != null) {
+                                totalPrice = totalPrice.add(tx.getAmount());
+                                foundResourceType = tx.getResourceType();
                             }
                         }
                     }
@@ -523,6 +576,11 @@ public class ReportService {
                 // 2) Se não houver lançamentos financeiros, usa cálculo alternativo já existente
                 if (totalPrice.compareTo(BigDecimal.ZERO) <= 0) {
                     totalPrice = calculateExitTotalPrice(t, qty);
+                }
+
+                // Se encontrarmos um resource_type nas transações, priorizamos o seu valor textual na coluna 'Tipo'
+                if (foundResourceType != null) {
+                    tipo = foundResourceType.toString();
                 }
 
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);

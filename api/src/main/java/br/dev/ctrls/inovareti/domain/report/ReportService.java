@@ -408,8 +408,10 @@ public class ReportService {
             content.endText();
             y -= 18f;
 
-            // Table column widths (percentages)
-            float[] colPercent = new float[] {0.10f, 0.30f, 0.07f, 0.14f, 0.10f, 0.10f, 0.12f, 0.07f};
+            // Definição explícita das larguras das colunas (percentual do espaço disponível)
+            // Usamos 7 colunas fixas: Tipo, Item, Qtd, Solicitante, Setor, Preço Total, Data
+            // As somas abaixo totalizam ~100% para evitar sobreposição de texto.
+            float[] colPercent = new float[] {0.14f, 0.30f, 0.06f, 0.16f, 0.14f, 0.12f, 0.08f};
             float[] colWidths = new float[colPercent.length];
             for (int i = 0; i < colPercent.length; i++) colWidths[i] = tableWidth * colPercent[i];
 
@@ -424,13 +426,13 @@ public class ReportService {
             }
             content.setNonStrokingColor(Color.BLACK);
 
-            // Header texts and borders
-            String[] headers = {"Tipo de Item", "Item", "Qtd", "Quem Solicitou", "Local do Usuário", "Setor do Usuário", "Preço Total", "Data da Entrega"};
+            // Cabeçalhos finais exigidos: 'Tipo', 'Item', 'Qtd', 'Solicitante', 'Setor', 'Preço Total', 'Data'
+            String[] headers = {"Tipo", "Item", "Qtd", "Solicitante", "Setor", "Preço Total", "Data"};
             cellX = startX;
             content.setStrokingColor(Color.LIGHT_GRAY);
             content.setLineWidth(0.5f);
             for (int i = 0; i < headers.length; i++) {
-                // text
+                // Escreve o texto do cabeçalho com sanitização para evitar caracteres inválidos no PDF
                 content.beginText();
                 content.setFont(bold, fontSize);
                 content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
@@ -494,25 +496,45 @@ public class ReportService {
                 content.setLineWidth(0.5f);
                 for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
 
-                // prepare cell values
-                String tipo = safe(t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
-                String item = safe(t.getRequestedItem().getName());
+                // Prepara valores das células de acordo com os cabeçalhos solicitados
+                String tipo = safe(t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
+                String item = safe(t.getRequestedItem() != null ? t.getRequestedItem().getName() : "-");
                 Integer requestedQty = t.getRequestedQuantity();
                 int qty = requestedQty != null ? requestedQty : 0;
                 String qtd = String.valueOf(qty);
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
-                String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
-                BigDecimal totalPrice = calculateExitTotalPrice(t, qty);
+
+                // 1) Prioriza valores registrados em financial_transactions para refletir valores reais validados (ex: R$ 500,00)
+                BigDecimal totalPrice = BigDecimal.ZERO;
+                try {
+                    var txs = transactionRepository.findByTicketId(t.getId());
+                    if (txs != null && !txs.isEmpty()) {
+                        for (FinancialTransaction tx : txs) {
+                            if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY && tx.getAmount() != null) {
+                                totalPrice = totalPrice.add(tx.getAmount());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Erro ao buscar financial_transactions para o ticket {}: {}", t.getId(), e.getMessage());
+                }
+
+                // 2) Se não houver lançamentos financeiros, usa cálculo alternativo já existente
+                if (totalPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                    totalPrice = calculateExitTotalPrice(t, qty);
+                }
+
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);
                 String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
 
-                String[] cells = new String[] { tipo, item, qtd, requester, location, sector, priceStr, date };
+                // Ordem das células conforme o cabeçalho final de 7 colunas
+                String[] cells = new String[] { tipo, item, qtd, requester, sector, priceStr, date };
 
-                // draw cell texts, align qty and price to right
+                // draw cell texts, alinhar quantidade (index 2) e preço (index 5) à direita
                 cellX = startX;
                 for (int i = 0; i < cells.length; i++) {
-                    if (i == 2 || i == 6) {
+                    if (i == 2 || i == 5) {
                         String sanitized = sanitizeForPdf(cells[i]);
                         float textWidth = (font.getStringWidth(sanitized) / 1000f) * fontSize;
                         float tx = cellX + colWidths[i] - 4f - textWidth;

@@ -259,59 +259,8 @@ public class DiscordWebhookService {
             return null;
         }
 
-        /**
-         * Envia o webhook de forma síncrona e retorna true em caso de sucesso.
-         */
-        private boolean doSendOperationalAlert(String title, String message) {
-            String webhook = resolveWebhookUrl(operationalWebhookUrl, "discord.operational.webhook.url");
-            if (!StringUtils.hasText(webhook)) {
-                webhook = resolveWebhookUrl(defaultWebhookUrl, "discord.webhook.url");
-            }
-
-            if (!StringUtils.hasText(webhook)) {
-                log.warn("Operational Discord webhook not configured. Skipping operational alert: {}", title);
-                return false;
-            }
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            try {
-                restTemplate.postForEntity(webhook, new HttpEntity<>(Map.of("content", message), headers), Void.class);
-                log.info("Operational alert enfileirada no Discord: {}", title);
-                return true;
-            } catch (HttpClientErrorException.NotFound nf) {
-                log.error("Webhook Discord inválido (404) para {}: {}", title, nf.getMessage());
-                try {
-                    systemAlertRepository.save(SystemAlert.builder()
-                            .alertType("DISCORD_OPERATIONAL_ALERT")
-                            .severity("ERROR")
-                            .source("DiscordWebhookService")
-                            .title("Webhook Discord inválido (404) para: " + title)
-                            .details(nf.getMessage())
-                            .context(Map.of("webhook", webhook, "title", title))
-                            .build());
-                } catch (Exception e) {
-                    log.warn("Falha ao registrar SystemAlert após webhook inválido: {}", e.getMessage(), e);
-                }
-                return false;
-            } catch (RestClientException ex) {
-                log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
-                try {
-                    systemAlertRepository.save(SystemAlert.builder()
-                            .alertType("DISCORD_OPERATIONAL_ALERT")
-                            .severity("ERROR")
-                            .source("DiscordWebhookService")
-                            .title("Falha ao enviar alerta operacional no Discord: " + title)
-                            .details(ex.getMessage())
-                            .context(Map.of("webhook", webhook, "title", title))
-                            .build());
-                } catch (Exception e) {
-                    log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
-                }
-                return false;
-            }
-        }
+        // Removed unused synchronous overload doSendOperationalAlert(String, String)
+        // to avoid unused-method warnings and keep only the ticket-specific sender.
 
         private String resolveThumbnailUrl() {
             String env = System.getenv("DISCORD_THUMBNAIL_URL");
@@ -359,11 +308,14 @@ public class DiscordWebhookService {
             String priority = ticket != null && ticket.getPriority() != null ? ticket.getPriority().toString() : "-";
             String category = ticket != null && ticket.getCategory() != null ? ticket.getCategory().getName() : "-";
 
+            // Monta campos inline do embed com as informações chave do chamado
+            // Campos solicitados: ID, Solicitante, Setor, Prioridade — todos em modo inline
             List<Map<String, Object>> fields = new ArrayList<>();
-            fields.add(Map.of("name", "👤 Solicitante", "value", requester, "inline", true));
-            fields.add(Map.of("name", "🏢 Setor", "value", sector, "inline", true));
-            fields.add(Map.of("name", "⚡ Prioridade", "value", priority, "inline", true));
-            fields.add(Map.of("name", "🏷️ Categoria", "value", category, "inline", true));
+            String shortId = ticket != null && ticket.getId() != null ? ticket.getId().toString().substring(0, 8).toUpperCase() : "-";
+            fields.add(Map.of("name", "ID", "value", shortId, "inline", true));
+            fields.add(Map.of("name", "Solicitante", "value", requester, "inline", true));
+            fields.add(Map.of("name", "Setor", "value", sector, "inline", true));
+            fields.add(Map.of("name", "Prioridade", "value", priority, "inline", true));
             embed.put("fields", fields);
 
             String thumbnail = resolveThumbnailUrl();

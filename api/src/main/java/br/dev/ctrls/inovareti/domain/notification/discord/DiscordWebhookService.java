@@ -20,6 +20,8 @@ import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,6 +41,7 @@ public class DiscordWebhookService {
     private final UserRepository userRepository;
     private final DiscordDirectMessageService discordDirectMessageService;
     private final RestTemplate restTemplate;
+    private final SystemAlertRepository systemAlertRepository;
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -50,17 +53,19 @@ public class DiscordWebhookService {
     public void sendNewTicketAlert(Ticket ticket) {
         try {
             validateTicket(ticket);
-            List<User> recipients = resolveRecipients(ticket);
-            if (recipients.isEmpty()) {
-                log.info("Notificação Discord ignorada para o chamado {}: nenhum destinatário elegível", ticket.getId());
-                return;
-            }
-
             String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
             String title = ticket.getAssignedTo() == null ? "Novo chamado aberto" : "Atualização de chamado";
             String description = ticket.getAssignedTo() == null
                     ? String.format("Chamado #%s aberto: %s", shortId, ticket.getTitle())
                     : String.format("Chamado #%s em acompanhamento: %s", shortId, ticket.getTitle());
+
+            List<User> recipients = resolveRecipients(ticket);
+            if (recipients.isEmpty()) {
+                log.info("Notificação Discord ignorada para o chamado {}: nenhum destinatário elegível", ticket.getId());
+                // Ainda assim, notifica o canal operacional para garantir visibilidade.
+                sendOperationalAlert(title, description);
+                return;
+            }
 
             for (User recipient : recipients) {
                 if (recipient.getDiscordUserId() == null || recipient.getDiscordUserId().isBlank()) {
@@ -74,6 +79,10 @@ public class DiscordWebhookService {
             }
 
             log.info("Notificações Discord enfileiradas para o chamado {} para {} destinatário(s)", ticket.getId(), recipients.size());
+
+            // Sempre enviar uma notificação ao canal operacional para que a
+            // equipe de operações receba um resumo do novo chamado.
+            sendOperationalAlert(title, description);
         } catch (IllegalArgumentException e) {
             UUID ticketId = ticket != null ? ticket.getId() : null;
             log.error("Erro de validação no roteamento de notificação Discord para o chamado {}", ticketId, e);
@@ -100,6 +109,20 @@ public class DiscordWebhookService {
             log.info("Operational alert enfileirada no Discord: {}", title);
         } catch (RestClientException ex) {
             log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
+            try {
+                SystemAlert alert = SystemAlert.builder()
+                        .alertType("DISCORD_OPERATIONAL_ALERT")
+                        .severity("ERROR")
+                        .source("DiscordWebhookService")
+                        .title("Falha ao enviar alerta operacional no Discord: " + title)
+                        .details(ex.getMessage())
+                        .context(Map.of("webhook", webhook, "title", title))
+                        .build();
+
+                systemAlertRepository.save(alert);
+            } catch (Exception e) {
+                log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
+            }
         }
     }
 

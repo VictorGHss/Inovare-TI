@@ -8,6 +8,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -34,6 +37,7 @@ public class DiscordDirectMessageService {
     private String frontendUrl;
 
     private final ObjectProvider<JDA> jdaProvider;
+    private final SystemAlertRepository systemAlertRepository;
 
     @Async
     public void sendTicketUpdateDM(Ticket ticket, String title, String description) {
@@ -70,6 +74,19 @@ public class DiscordDirectMessageService {
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
             log.warn("Ignoring Discord DM for ticket {}: JDA is not available", ticketId);
+            try {
+                SystemAlert alert = SystemAlert.builder()
+                        .alertType("DISCORD_DM_FAILURE")
+                        .severity("ERROR")
+                        .source("DiscordDirectMessageService")
+                        .title("JDA não disponível para envio de DM")
+                        .details("JDA provider retornou null ao tentar enviar DM")
+                        .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
+                        .build();
+                systemAlertRepository.save(alert);
+            } catch (Exception ex) {
+                log.warn("Falha ao salvar SystemAlert após JDA indisponível: {}", ex.getMessage(), ex);
+            }
             return;
         }
 
@@ -86,11 +103,56 @@ public class DiscordDirectMessageService {
                 user -> user.openPrivateChannel().queue(
                         channel -> channel.sendMessageEmbeds(embed).queue(
                     success -> log.info("Discord DM sent for ticket {} to user {}", ticketId, discordUserId),
-                    error -> log.warn("Failed to send Discord DM for ticket {} to user {}", ticketId, discordUserId, error)
+                    error -> {
+                        log.warn("Failed to send Discord DM for ticket {} to user {}", ticketId, discordUserId, error);
+                        try {
+                            SystemAlert alert = SystemAlert.builder()
+                                    .alertType("DISCORD_DM_FAILURE")
+                                    .severity("ERROR")
+                                    .source("DiscordDirectMessageService")
+                                    .title("Falha ao enviar DM no Discord")
+                                    .details(error != null ? error.getMessage() : "Unknown error")
+                                    .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
+                                    .build();
+                            systemAlertRepository.save(alert);
+                            } catch (Exception ex) {
+                            log.warn("Falha ao salvar SystemAlert para DM failure: {}", ex.getMessage(), ex);
+                        }
+                    }
                         ),
-                error -> log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticketId, discordUserId, error)
+                error -> {
+                    log.warn("Failed to open Discord DM channel for ticket {} to user {}", ticketId, discordUserId, error);
+                    try {
+                        SystemAlert alert = SystemAlert.builder()
+                                .alertType("DISCORD_DM_FAILURE")
+                                .severity("ERROR")
+                                .source("DiscordDirectMessageService")
+                                .title("Falha ao abrir canal DM no Discord")
+                                .details(error != null ? error.getMessage() : "Unknown error")
+                                .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
+                                .build();
+                        systemAlertRepository.save(alert);
+                        } catch (Exception ex) {
+                        log.warn("Falha ao salvar SystemAlert para DM open failure: {}", ex.getMessage(), ex);
+                    }
+                }
                 ),
-            error -> log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticketId, error)
+            error -> {
+                log.warn("Failed to retrieve Discord user {} for ticket {}", discordUserId, ticketId, error);
+                try {
+                    SystemAlert alert = SystemAlert.builder()
+                            .alertType("DISCORD_DM_FAILURE")
+                            .severity("ERROR")
+                            .source("DiscordDirectMessageService")
+                            .title("Falha ao recuperar usuário no Discord")
+                            .details(error != null ? error.getMessage() : "Unknown error")
+                            .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
+                            .build();
+                    systemAlertRepository.save(alert);
+                    } catch (Exception ex) {
+                    log.warn("Falha ao salvar SystemAlert para user retrieve failure: {}", ex.getMessage(), ex);
+                }
+            }
         );
     }
 

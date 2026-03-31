@@ -46,7 +46,6 @@ if ('serviceWorker' in navigator) {
       console.warn('Falha na verificação de registro do SW', e);
     }
 
-    // When a new SW takes control, reload to ensure clients use the new assets
     // Quando um novo SW assumir o controle, recarregar para garantir uso dos novos assets
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       window.location.reload();

@@ -60,7 +60,8 @@ export default function ReportSchedulesSection() {
       setReportSchedules((prev) => (prev ?? []).concat(created));
       toast.success('Agendamento criado com sucesso.');
       setNewSchedulePayload({ reportType: 'exits', targetUserId: null, sendEmail: true, sendDiscord: false, scheduleDay: 12, isActive: true });
-    } catch (error) {
+    } catch (err) {
+      console.warn('Failed to create schedule', err);
       toast.error('Erro ao criar agendamento.');
     } finally {
       setSchedulesLoading(false);
@@ -90,7 +91,8 @@ export default function ReportSchedulesSection() {
       toast.success(`Agendamento atualizado. Status: ${updated.isActive ? 'Ativo' : 'Inativo'}.`);
       setEditingScheduleId(null);
       setEditingPayload(null);
-    } catch (error) {
+    } catch (err) {
+      console.warn('Failed to update schedule', err);
       toast.error('Erro ao atualizar agendamento.');
     } finally {
       setSchedulesLoading(false);
@@ -108,7 +110,8 @@ export default function ReportSchedulesSection() {
       await deleteReportSchedule(id);
       setReportSchedules((prev) => (prev ?? []).filter((s) => s.id !== id));
       toast.success('Agendamento removido com sucesso.');
-    } catch (error) {
+    } catch (err) {
+      console.warn('Failed to delete schedule', err);
       toast.error('Erro ao remover agendamento.');
     } finally {
       setSchedulesLoading(false);
@@ -129,7 +132,8 @@ export default function ReportSchedulesSection() {
       const updated = await updateReportSchedule(schedule.id, payload);
       setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
       toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
-    } catch (error) {
+    } catch (err) {
+      console.warn('Failed to toggle schedule active', err);
       toast.error('Erro ao atualizar agendamento.');
     } finally {
       setSchedulesLoading(false);

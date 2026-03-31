@@ -6,15 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   getSystemSettings,
   updateSystemSettings,
-  getReportSchedules,
-  createReportSchedule,
-  deleteReportSchedule,
-  updateReportSchedule,
-  type ReportSchedule,
   type SystemSetting,
   type UpdateSystemSettingsPayload,
-  getUsers,
-  type User,
 } from '../../services/api';
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
@@ -42,20 +35,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   
 
-  const [reportSchedules, setReportSchedules] = useState<ReportSchedule[]>([]);
-  const [schedulesLoading, setSchedulesLoading] = useState(false);
-  const [usersList, setUsersList] = useState<User[]>([]);
-  const [newSchedulePayload, setNewSchedulePayload] = useState<Partial<ReportSchedule>>({
-    reportType: 'exits',
-    targetUserId: null,
-    sendEmail: true,
-    sendDiscord: false,
-    scheduleDay: 12,
-    isActive: true,
-  });
-
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-  const [editingPayload, setEditingPayload] = useState<Partial<ReportSchedule> | null>(null);
+  
 
   
 
@@ -78,15 +58,7 @@ export default function Settings() {
             return acc;
           }, {}),
         );
-        try {
-          const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
-          setReportSchedules(Array.isArray(schedules) ? schedules : []);
-          setUsersList(Array.isArray(users) ? users : []);
-        } catch (e) {
-          console.warn('Failed to load report schedules or users', e);
-          setReportSchedules([]);
-          setUsersList([]);
-        }
+        // Agendamentos são carregados pelo componente ReportSchedulesSection
       } catch {
         toast.error('Erro ao carregar configurações globais.');
         setSettings([]);
@@ -146,59 +118,6 @@ export default function Settings() {
     return fallbackMessage;
   }
 
-  // funções de categorias removidas
-
-  async function handleCreateSchedule() {
-    if (!newSchedulePayload.reportType) { toast.error('Selecione o tipo de relatório.'); return; }
-    setSchedulesLoading(true);
-    try {
-      const created = await createReportSchedule(newSchedulePayload as Partial<ReportSchedule>);
-      setReportSchedules((prev) => (prev ?? []).concat(created));
-      toast.success('Agendamento criado com sucesso.');
-      setNewSchedulePayload({ reportType: 'exits', targetUserId: null, sendEmail: true, sendDiscord: false, scheduleDay: 12, isActive: true });
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao criar agendamento.'));
-    } finally {
-      setSchedulesLoading(false);
-    }
-  }
-
-  function startEditSchedule(s: ReportSchedule) {
-    setEditingScheduleId(s.id);
-    setEditingPayload({ reportType: s.reportType, targetUserId: s.targetUserId, sendEmail: s.sendEmail, sendDiscord: s.sendDiscord, scheduleDay: s.scheduleDay, isActive: s.isActive });
-  }
-
-  async function handleSaveEditedSchedule() {
-    if (!editingScheduleId || !editingPayload) return;
-    setSchedulesLoading(true);
-    try {
-      const original = reportSchedules.find((r) => r.id === editingScheduleId) ?? null;
-      const payload: Partial<ReportSchedule> = {
-        reportType: editingPayload.reportType ?? original?.reportType ?? '',
-        targetUserId: editingPayload.targetUserId ?? original?.targetUserId ?? null,
-        sendEmail: editingPayload.sendEmail ?? original?.sendEmail ?? true,
-        sendDiscord: editingPayload.sendDiscord ?? original?.sendDiscord ?? false,
-        scheduleDay: editingPayload.scheduleDay ?? original?.scheduleDay ?? 12,
-        isActive: editingPayload.isActive ?? original?.isActive ?? true,
-      };
-      const updated = await updateReportSchedule(editingScheduleId, payload);
-      setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
-      toast.success(`Agendamento atualizado. Status: ${updated.isActive ? 'Ativo' : 'Inativo'}.`);
-      setEditingScheduleId(null);
-      setEditingPayload(null);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao atualizar agendamento.'));
-    } finally {
-      setSchedulesLoading(false);
-    }
-  }
-
-  function cancelEdit() {
-    setEditingScheduleId(null);
-    setEditingPayload(null);
-  }
-
-  
 
   const slaKeys = useMemo(() => settings.filter((s) => s.id && s.id.startsWith('SLA_')), [settings]);
 
@@ -219,40 +138,7 @@ export default function Settings() {
     }
   }
 
-  async function handleDeleteSchedule(id: string) {
-    setSchedulesLoading(true);
-    try {
-      await deleteReportSchedule(id);
-      setReportSchedules((prev) => (prev ?? []).filter((s) => s.id !== id));
-      toast.success('Agendamento removido com sucesso.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao remover agendamento.'));
-    } finally {
-      setSchedulesLoading(false);
-    }
-  }
-
-  async function handleToggleScheduleActive(schedule: ReportSchedule) {
-    setSchedulesLoading(true);
-    try {
-      // Envia o objeto completo para evitar sobrescrever campos obrigatórios no backend
-      const payload: Partial<ReportSchedule> = {
-        reportType: schedule.reportType,
-        targetUserId: schedule.targetUserId,
-        sendEmail: schedule.sendEmail,
-        sendDiscord: schedule.sendDiscord,
-        scheduleDay: schedule.scheduleDay,
-        isActive: !schedule.isActive,
-      };
-      const updated = await updateReportSchedule(schedule.id, payload);
-      setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
-      toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao atualizar agendamento.'));
-    } finally {
-      setSchedulesLoading(false);
-    }
-  }
+  
 
   if (!isAdmin && activeTab === 'system') {
     return (

@@ -1,11 +1,15 @@
 package br.dev.ctrls.inovareti.domain.report;
 
+import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -321,71 +325,241 @@ public class ReportService {
      */
     public ByteArrayInputStream exportInventoryExitsToPdf(List<Ticket> tickets) {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            PDPage page = new PDPage();
+            PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
 
             PDFont font = PDType1Font.HELVETICA;
             PDFont bold = PDType1Font.HELVETICA_BOLD;
             float fontSize = 10f;
-            float leading = 1.2f * fontSize;
+            float titleFontSize = 16f;
+            float headerFontSize = 11f;
+            float rowHeight = 18f;
 
             float margin = 50f;
             PDRectangle mediaBox = page.getMediaBox();
+            float pageWidth = mediaBox.getWidth();
+            float pageHeight = mediaBox.getHeight();
+            float tableWidth = pageWidth - 2 * margin;
             float startX = mediaBox.getLowerLeftX() + margin;
-            float startY = mediaBox.getUpperRightY() - margin;
-            float y = startY;
+            float y = mediaBox.getUpperRightY() - margin;
 
             PDPageContentStream content = new PDPageContentStream(document, page);
 
-            // Title
+            // Title (with Inovare brand color)
+            content.setNonStrokingColor(Color.decode("#feb56c"));
             content.beginText();
-            content.setFont(bold, 14f);
+            content.setFont(bold, titleFontSize);
             content.newLineAtOffset(startX, y);
-            content.showText("Relatório de Saídas de Estoque");
+            content.showText("Inovare Serviços de Saúde");
             content.endText();
-            y -= 25f;
 
-            // Header line
-            content.beginText();
-            content.setFont(bold, fontSize);
-            content.newLineAtOffset(startX, y);
-            String[] headers = {"Tipo", "Item", "Qtd", "Solicitante", "Local", "Setor", "Preço Total", "Data"};
-            content.showText(String.join(" | ", headers));
-            content.endText();
-            y -= leading;
+            // Underline in brand color
+            float titleWidth = (bold.getStringWidth("Inovare Serviços de Saúde") / 1000f) * titleFontSize;
+            content.setStrokingColor(Color.decode("#feb56c"));
+            content.setLineWidth(1f);
+            content.moveTo(startX, y - 4f);
+            content.lineTo(startX + titleWidth + 6f, y - 4f);
+            content.stroke();
 
-            // Rows
-            for (Ticket ticket : tickets) {
-                if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
-                    String tipo = safe(ticket.getRequestedItem().getItemCategory() != null ? ticket.getRequestedItem().getItemCategory().getName() : "-");
-                    String item = safe(ticket.getRequestedItem().getName());
-                    String qtd = String.valueOf(ticket.getRequestedQuantity());
-                    String requester = safe(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
-                    String location = ticket.getRequester() != null && ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-";
-                    String sector = ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-";
-                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity());
-                    String priceStr = CURRENCY_FORMATTER.format(totalPrice);
-                    String date = ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "";
+            // Reset color and move down
+            content.setNonStrokingColor(Color.BLACK);
+            y -= 28f;
 
-                    String line = String.format("%s | %s | %s | %s | %s | %s | %s | %s",
-                            truncate(tipo, 20), truncate(item, 40), qtd, truncate(requester, 20), truncate(location, 15), truncate(sector, 15), priceStr, date);
-
-                    if (y < margin + 50f) {
-                        content.close();
-                        page = new PDPage();
-                        document.addPage(page);
-                        content = new PDPageContentStream(document, page);
-                        y = page.getMediaBox().getUpperRightY() - margin;
+            // Prepare rows: filter resolved tickets with items
+            java.util.List<Ticket> rows = new ArrayList<>();
+            LocalDate periodStart = null;
+            LocalDate periodEnd = null;
+            for (Ticket t : tickets) {
+                if (t.getStatus() != null && "RESOLVED".equals(t.getStatus().toString()) && t.getRequestedItem() != null && t.getRequestedQuantity() != null) {
+                    rows.add(t);
+                    if (t.getClosedAt() != null) {
+                        LocalDate d = t.getClosedAt().toLocalDate();
+                        if (periodStart == null || d.isBefore(periodStart)) periodStart = d;
+                        if (periodEnd == null || d.isAfter(periodEnd)) periodEnd = d;
                     }
-
-                    content.beginText();
-                    content.setFont(font, fontSize);
-                    content.newLineAtOffset(startX, y);
-                    content.showText(line);
-                    content.endText();
-                    y -= leading;
                 }
             }
+
+            String periodStr;
+            if (periodStart != null && periodEnd != null) {
+                var dateOnly = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                periodStr = dateOnly.format(periodStart) + " → " + dateOnly.format(periodEnd);
+            } else {
+                periodStr = "-";
+            }
+
+            // Generation info
+            String generatedAt = DATE_FORMATTER.format(LocalDateTime.now());
+
+            // Report subtitle: period and generated at
+            content.beginText();
+            content.setFont(bold, headerFontSize);
+            content.newLineAtOffset(startX, y);
+            content.showText("Relatório de Saídas — Período: " + periodStr);
+            content.endText();
+            y -= 14f;
+
+            content.beginText();
+            content.setFont(font, fontSize);
+            content.newLineAtOffset(startX, y);
+            content.showText("Gerado em: " + generatedAt);
+            content.endText();
+            y -= 18f;
+
+            // Table column widths (percentages)
+            float[] colPercent = new float[] {0.10f, 0.30f, 0.07f, 0.14f, 0.10f, 0.10f, 0.12f, 0.07f};
+            float[] colWidths = new float[colPercent.length];
+            for (int i = 0; i < colPercent.length; i++) colWidths[i] = tableWidth * colPercent[i];
+
+            // Draw header background
+            float headerHeight = rowHeight;
+            float cellX = startX;
+            content.setNonStrokingColor(new Color(240, 240, 240));
+            for (float w : colWidths) {
+                content.addRect(cellX, y - headerHeight, w, headerHeight);
+                content.fill();
+                cellX += w;
+            }
+            content.setNonStrokingColor(Color.BLACK);
+
+            // Header texts and borders
+            String[] headers = {"Tipo de Item", "Item", "Qtd", "Quem Solicitou", "Local do Usuário", "Setor do Usuário", "Preço Total", "Data da Entrega"};
+            cellX = startX;
+            content.setStrokingColor(Color.LIGHT_GRAY);
+            content.setLineWidth(0.5f);
+            for (int i = 0; i < headers.length; i++) {
+                // text
+                content.beginText();
+                content.setFont(bold, fontSize);
+                content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
+                content.showText(headers[i]);
+                content.endText();
+
+                // border
+                content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
+                content.stroke();
+
+                cellX += colWidths[i];
+            }
+
+            y -= headerHeight;
+
+            // Rows with zebra striping
+            float availableY = y - margin;
+            for (int idx = 0; idx < rows.size(); idx++) {
+                Ticket t = rows.get(idx);
+
+                if (availableY < rowHeight) {
+                    content.close();
+                    page = new PDPage(PDRectangle.A4);
+                    document.addPage(page);
+                    content = new PDPageContentStream(document, page);
+                    // reset y to top of new page and redraw header
+                    y = page.getMediaBox().getUpperRightY() - margin;
+
+                    // redraw header background
+                    cellX = startX;
+                    content.setNonStrokingColor(new Color(240, 240, 240));
+                    for (float w : colWidths) { content.addRect(cellX, y - headerHeight, w, headerHeight); content.fill(); cellX += w; }
+                    content.setNonStrokingColor(Color.BLACK);
+
+                    cellX = startX;
+                    content.setStrokingColor(Color.LIGHT_GRAY);
+                    content.setLineWidth(0.5f);
+                    for (int i = 0; i < headers.length; i++) {
+                        content.beginText();
+                        content.setFont(bold, fontSize);
+                        content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
+                        content.showText(headers[i]);
+                        content.endText();
+                        content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
+                        content.stroke();
+                        cellX += colWidths[i];
+                    }
+
+                    y -= headerHeight;
+                    availableY = y - margin;
+                }
+
+                // zebra
+                if (idx % 2 == 0) {
+                    content.setNonStrokingColor(new Color(250, 250, 250));
+                    content.addRect(startX, y - rowHeight, tableWidth, rowHeight);
+                    content.fill();
+                }
+
+                // cell borders
+                cellX = startX;
+                content.setStrokingColor(Color.LIGHT_GRAY);
+                content.setLineWidth(0.5f);
+                for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
+
+                // prepare cell values
+                String tipo = safe(t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
+                String item = safe(t.getRequestedItem().getName());
+                String qtd = String.valueOf(t.getRequestedQuantity());
+                String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
+                String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
+                String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
+                BigDecimal totalPrice = calculateExitTotalPrice(t, t.getRequestedQuantity());
+                String priceStr = CURRENCY_FORMATTER.format(totalPrice);
+                String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
+
+                String[] cells = new String[] { tipo, item, qtd, requester, location, sector, priceStr, date };
+
+                // draw cell texts, align qty and price to right
+                cellX = startX;
+                for (int i = 0; i < cells.length; i++) {
+                    if (i == 2 || i == 6) {
+                        float textWidth = (font.getStringWidth(cells[i]) / 1000f) * fontSize;
+                        float tx = cellX + colWidths[i] - 4f - textWidth;
+                        content.beginText();
+                        content.setFont(font, fontSize);
+                        content.newLineAtOffset(tx, y - rowHeight + 4f);
+                        content.showText(cells[i]);
+                        content.endText();
+                    } else {
+                        content.beginText();
+                        content.setFont(font, fontSize);
+                        content.newLineAtOffset(cellX + 4f, y - rowHeight + 4f);
+                        content.showText(cells[i]);
+                        content.endText();
+                    }
+                    cellX += colWidths[i];
+                }
+
+                y -= rowHeight;
+                availableY = y - margin;
+            }
+
+            // Summary
+            int totalItems = 0;
+            BigDecimal totalValue = BigDecimal.ZERO;
+            for (Ticket t : rows) {
+                totalItems += t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
+                totalValue = totalValue.add(calculateExitTotalPrice(t, t.getRequestedQuantity()));
+            }
+
+            y -= 8f;
+            content.beginText();
+            content.setFont(bold, headerFontSize);
+            content.newLineAtOffset(startX, y);
+            content.showText("Resumo do Período");
+            content.endText();
+            y -= 14f;
+
+            content.beginText();
+            content.setFont(font, fontSize);
+            content.newLineAtOffset(startX, y);
+            content.showText("Total de Itens Baixados: " + totalItems);
+            content.endText();
+            y -= 12f;
+
+            content.beginText();
+            content.setFont(font, fontSize);
+            content.newLineAtOffset(startX, y);
+            content.showText("Valor Total do Consumo: " + CURRENCY_FORMATTER.format(totalValue));
+            content.endText();
 
             content.close();
             document.save(out);

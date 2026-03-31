@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Clock3, Pencil, Trash2, Plus, Check, X, Calendar } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,7 +78,6 @@ export default function Settings() {
             return acc;
           }, {}),
         );
-        // admin-specific integration details removed to simplify settings page
         try {
           const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
           setReportSchedules(Array.isArray(schedules) ? schedules : []);

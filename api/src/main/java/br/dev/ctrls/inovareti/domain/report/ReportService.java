@@ -218,7 +218,7 @@ public class ReportService {
                     row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
                     
                     // Obtém o valor real do movimento prioritariamente a partir do lançamento financeiro
-                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity());
+                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity() != null ? ticket.getRequestedQuantity() : 0);
                     row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
                     
                     row.createCell(7).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
@@ -338,7 +338,6 @@ public class ReportService {
             float margin = 50f;
             PDRectangle mediaBox = page.getMediaBox();
             float pageWidth = mediaBox.getWidth();
-            float pageHeight = mediaBox.getHeight();
             float tableWidth = pageWidth - 2 * margin;
             float startX = mediaBox.getLowerLeftX() + margin;
             float y = mediaBox.getUpperRightY() - margin;
@@ -445,11 +444,10 @@ public class ReportService {
             y -= headerHeight;
 
             // Rows with zebra striping
-            float availableY = y - margin;
             for (int idx = 0; idx < rows.size(); idx++) {
                 Ticket t = rows.get(idx);
 
-                if (availableY < rowHeight) {
+                if (y - margin < rowHeight) {
                     content.close();
                     page = new PDPage(PDRectangle.A4);
                     document.addPage(page);
@@ -478,7 +476,6 @@ public class ReportService {
                     }
 
                     y -= headerHeight;
-                    availableY = y - margin;
                 }
 
                 // zebra
@@ -501,7 +498,7 @@ public class ReportService {
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
-                BigDecimal totalPrice = calculateExitTotalPrice(t, t.getRequestedQuantity());
+                BigDecimal totalPrice = calculateExitTotalPrice(t, t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0);
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);
                 String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
 
@@ -529,7 +526,6 @@ public class ReportService {
                 }
 
                 y -= rowHeight;
-                availableY = y - margin;
             }
 
             // Summary
@@ -537,7 +533,7 @@ public class ReportService {
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
                 totalItems += t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
-                totalValue = totalValue.add(calculateExitTotalPrice(t, t.getRequestedQuantity()));
+                totalValue = totalValue.add(calculateExitTotalPrice(t, t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0));
             }
 
             y -= 8f;
@@ -576,9 +572,5 @@ public class ReportService {
         return s == null ? "-" : s;
     }
 
-    private String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, Math.max(0, max - 3)) + "...";
-    }
+    // removed unused truncate helper (no callers)
 }

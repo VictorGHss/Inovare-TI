@@ -210,15 +210,17 @@ public class ReportService {
                 if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
                     Row row = sheet.createRow(rowNum++);
 
+                    int qty = ticket.getRequestedQuantity() != null ? ticket.getRequestedQuantity() : 0;
+
                     row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
-                    row.createCell(2).setCellValue(ticket.getRequestedQuantity());
+                    row.createCell(2).setCellValue(qty);
                     row.createCell(3).setCellValue(ticket.getRequester().getName());
                     row.createCell(4).setCellValue(ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
                     row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
                     
                     // Obtém o valor real do movimento prioritariamente a partir do lançamento financeiro
-                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, ticket.getRequestedQuantity() != null ? ticket.getRequestedQuantity() : 0);
+                    BigDecimal totalPrice = calculateExitTotalPrice(ticket, qty);
                     row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
                     
                     row.createCell(7).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
@@ -253,7 +255,7 @@ public class ReportService {
      * somando `unit_price_at_time` dos movimentos (`stock_movements`) relacionados
      * ao chamado. Como fallback final, utiliza o preço do lote mais recente.
      */
-    private BigDecimal calculateExitTotalPrice(Ticket ticket, Integer quantity) {
+    private BigDecimal calculateExitTotalPrice(Ticket ticket, int quantity) {
         // 1) Tenta obter lançamentos financeiros vinculados ao ticket
         try {
             var txs = transactionRepository.findByTicketId(ticket.getId());
@@ -494,11 +496,12 @@ public class ReportService {
                 // prepare cell values
                 String tipo = safe(t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
                 String item = safe(t.getRequestedItem().getName());
-                String qtd = String.valueOf(t.getRequestedQuantity());
+                int qty = t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
+                String qtd = String.valueOf(qty);
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
-                BigDecimal totalPrice = calculateExitTotalPrice(t, t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0);
+                BigDecimal totalPrice = calculateExitTotalPrice(t, qty);
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);
                 String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
 
@@ -532,8 +535,9 @@ public class ReportService {
             int totalItems = 0;
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
-                totalItems += t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
-                totalValue = totalValue.add(calculateExitTotalPrice(t, t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0));
+                int qty = t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
+                totalItems += qty;
+                totalValue = totalValue.add(calculateExitTotalPrice(t, qty));
             }
 
             y -= 8f;

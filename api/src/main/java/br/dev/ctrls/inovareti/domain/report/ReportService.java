@@ -210,7 +210,8 @@ public class ReportService {
                 if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
                     Row row = sheet.createRow(rowNum++);
 
-                    int qty = ticket.getRequestedQuantity() != null ? ticket.getRequestedQuantity() : 0;
+                    Integer requestedQty = ticket.getRequestedQuantity();
+                    int qty = requestedQty != null ? requestedQty.intValue() : 0;
 
                     row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
@@ -496,7 +497,8 @@ public class ReportService {
                 // prepare cell values
                 String tipo = safe(t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
                 String item = safe(t.getRequestedItem().getName());
-                int qty = t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
+                Integer requestedQty = t.getRequestedQuantity();
+                int qty = requestedQty != null ? requestedQty.intValue() : 0;
                 String qtd = String.valueOf(qty);
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
@@ -535,7 +537,8 @@ public class ReportService {
             int totalItems = 0;
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
-                int qty = t.getRequestedQuantity() != null ? t.getRequestedQuantity() : 0;
+                Integer requestedQty = t.getRequestedQuantity();
+                int qty = requestedQty != null ? requestedQty.intValue() : 0;
                 totalItems += qty;
                 totalValue = totalValue.add(calculateExitTotalPrice(t, qty));
             }

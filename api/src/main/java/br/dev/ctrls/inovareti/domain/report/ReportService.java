@@ -324,7 +324,7 @@ public class ReportService {
 
     /**
      * Gera um PDF simples com o relatório de saídas de estoque.
-     * Retorna o conteúdo em um ByteArrayInputStream pronto para envio.
+     * Retorna o conteúdo em um ByteArrayInputStream pronto para envio. 
      */
     public ByteArrayInputStream exportInventoryExitsToPdf(List<Ticket> tickets) {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -356,7 +356,7 @@ public class ReportService {
             content.endText();
 
             // Underline in brand color
-            float titleWidth = (bold.getStringWidth("Inovare Serviços de Saúde") / 1000f) * titleFontSize;
+            float titleWidth = (bold.getStringWidth(sanitizeForPdf("Inovare Serviços de Saúde")) / 1000f) * titleFontSize;
             content.setStrokingColor(Color.decode("#feb56c"));
             content.setLineWidth(1f);
             content.moveTo(startX, y - 4f);
@@ -397,14 +397,14 @@ public class ReportService {
             content.beginText();
             content.setFont(bold, headerFontSize);
             content.newLineAtOffset(startX, y);
-            content.showText("Relatório de Saídas — Período: " + periodStr);
+            content.showText(sanitizeForPdf("Relatório de Saídas - Período: " + periodStr));
             content.endText();
             y -= 14f;
 
             content.beginText();
             content.setFont(font, fontSize);
             content.newLineAtOffset(startX, y);
-            content.showText("Gerado em: " + generatedAt);
+            content.showText(sanitizeForPdf("Gerado em: " + generatedAt));
             content.endText();
             y -= 18f;
 
@@ -434,7 +434,7 @@ public class ReportService {
                 content.beginText();
                 content.setFont(bold, fontSize);
                 content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
-                content.showText(headers[i]);
+                content.showText(sanitizeForPdf(headers[i]));
                 content.endText();
 
                 // border
@@ -513,18 +513,19 @@ public class ReportService {
                 cellX = startX;
                 for (int i = 0; i < cells.length; i++) {
                     if (i == 2 || i == 6) {
-                        float textWidth = (font.getStringWidth(cells[i]) / 1000f) * fontSize;
+                        String sanitized = sanitizeForPdf(cells[i]);
+                        float textWidth = (font.getStringWidth(sanitized) / 1000f) * fontSize;
                         float tx = cellX + colWidths[i] - 4f - textWidth;
                         content.beginText();
                         content.setFont(font, fontSize);
                         content.newLineAtOffset(tx, y - rowHeight + 4f);
-                        content.showText(cells[i]);
+                        content.showText(sanitized);
                         content.endText();
                     } else {
                         content.beginText();
                         content.setFont(font, fontSize);
                         content.newLineAtOffset(cellX + 4f, y - rowHeight + 4f);
-                        content.showText(cells[i]);
+                        content.showText(sanitizeForPdf(cells[i]));
                         content.endText();
                     }
                     cellX += colWidths[i];
@@ -544,24 +545,24 @@ public class ReportService {
             }
 
             y -= 8f;
-            content.beginText();
-            content.setFont(bold, headerFontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText("Resumo do Período");
-            content.endText();
+                    content.beginText();
+                    content.setFont(bold, headerFontSize);
+                    content.newLineAtOffset(startX, y);
+                    content.showText(sanitizeForPdf("Resumo do Período"));
+                    content.endText();
             y -= 14f;
 
             content.beginText();
             content.setFont(font, fontSize);
             content.newLineAtOffset(startX, y);
-            content.showText("Total de Itens Baixados: " + totalItems);
+            content.showText(sanitizeForPdf("Total de Itens Baixados: " + totalItems));
             content.endText();
             y -= 12f;
 
             content.beginText();
             content.setFont(font, fontSize);
             content.newLineAtOffset(startX, y);
-            content.showText("Valor Total do Consumo: " + CURRENCY_FORMATTER.format(totalValue));
+            content.showText(sanitizeForPdf("Valor Total do Consumo: " + CURRENCY_FORMATTER.format(totalValue)));
             content.endText();
 
             content.close();
@@ -573,6 +574,21 @@ public class ReportService {
             log.error("Error generating PDF report for inventory exits", e);
             throw new RuntimeException("Failed to generate PDF report", e);
         }
+    }
+
+    private String sanitizeForPdf(String s) {
+        if (s == null) return "-";
+        String out = s;
+        out = out.replace("→", "->");
+        out = out.replace("—", "-");
+        out = out.replace("–", "-");
+        out = out.replace("…", "...");
+        out = out.replace("•", "-");
+        out = out.replace("\u2018", "'");
+        out = out.replace("\u2019", "'");
+        out = out.replace("\u201C", "\"");
+        out = out.replace("\u201D", "\"");
+        return out;
     }
 
     private String safe(String s) {

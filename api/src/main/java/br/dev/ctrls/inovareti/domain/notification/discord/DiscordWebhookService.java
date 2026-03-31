@@ -190,6 +190,20 @@ public class DiscordWebhookService {
         try {
             restTemplate.postForEntity(webhook, new HttpEntity<>(payload, headers), Void.class);
             log.info("Operational alert enfileirada no Discord: {}", title);
+        } catch (HttpClientErrorException.NotFound nf) {
+            log.error("Webhook Discord inválido (404) para {}: {}", title, nf.getMessage());
+            try {
+                systemAlertRepository.save(SystemAlert.builder()
+                        .alertType("DISCORD_OPERATIONAL_ALERT")
+                        .severity("ERROR")
+                        .source("DiscordWebhookService")
+                        .title("Webhook Discord inválido (404) para: " + title)
+                        .details(nf.getMessage())
+                        .context(Map.of("webhook", webhook, "title", title))
+                        .build());
+            } catch (Exception e) {
+                log.warn("Falha ao registrar SystemAlert após webhook inválido: {}", e.getMessage(), e);
+            }
         } catch (RestClientException ex) {
             log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
             try {
@@ -205,6 +219,20 @@ public class DiscordWebhookService {
                 systemAlertRepository.save(alert);
             } catch (Exception e) {
                 log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
+            }
+        } catch (Exception e) {
+            log.error("Erro inesperado ao enviar alerta operacional no Discord: {}", title, e);
+            try {
+                systemAlertRepository.save(SystemAlert.builder()
+                        .alertType("DISCORD_OPERATIONAL_ALERT")
+                        .severity("ERROR")
+                        .source("DiscordWebhookService")
+                        .title("Erro inesperado ao enviar alerta operacional: " + title)
+                        .details(e.getMessage())
+                        .context(Map.of("webhook", webhook, "title", title))
+                        .build());
+            } catch (Exception ex) {
+                log.warn("Falha ao registrar SystemAlert após erro inesperado no webhook: {}", ex.getMessage(), ex);
             }
         }
     }
@@ -384,6 +412,21 @@ public class DiscordWebhookService {
                             .build());
                 } catch (Exception e) {
                     log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
+                }
+                return false;
+            } catch (Exception ex) {
+                log.error("Erro inesperado ao enviar alerta operacional embed no Discord para chamado {}: {}", ticket != null ? ticket.getId() : null, ex.getMessage(), ex);
+                try {
+                    systemAlertRepository.save(SystemAlert.builder()
+                            .alertType("DISCORD_OPERATIONAL_ALERT")
+                            .severity("ERROR")
+                            .source("DiscordWebhookService")
+                            .title("Erro inesperado ao enviar alerta operacional embed no Discord para chamado: " + (ticket != null ? ticket.getId() : "?"))
+                            .details(ex.getMessage())
+                            .context(Map.of("webhook", webhook, "ticketId", ticket != null && ticket.getId() != null ? ticket.getId().toString() : ""))
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Falha ao registrar SystemAlert após erro inesperado no webhook do Discord: {}", e.getMessage(), e);
                 }
                 return false;
             }

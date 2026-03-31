@@ -64,4 +64,19 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
                         @Param("requesterId") UUID requesterId,
                         @Param("statusList") List<TicketStatus> statusList
         );
+
+            /**
+             * Busca um chamado por id carregando relações necessárias para notificações
+             * (requester + requester.sector + category + assignedTo) via JOIN FETCH
+             * para evitar LazyInitializationException quando usado em métodos assíncronos.
+             */
+            @Query("""
+                    SELECT t FROM Ticket t
+                    JOIN FETCH t.requester r
+                    JOIN FETCH r.sector
+                    JOIN FETCH t.category
+                    LEFT JOIN FETCH t.assignedTo a
+                    WHERE t.id = :id
+                    """)
+            Optional<Ticket> findByIdWithRelations(@Param("id") UUID id);
 }

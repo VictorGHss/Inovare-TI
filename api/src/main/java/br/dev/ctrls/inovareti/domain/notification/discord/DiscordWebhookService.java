@@ -25,6 +25,8 @@ import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessa
 import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
+import org.springframework.transaction.annotation.Transactional;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -49,6 +51,7 @@ public class DiscordWebhookService {
     private final RestTemplate restTemplate;
     private final SystemAlertRepository systemAlertRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final TicketRepository ticketRepository;
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -59,8 +62,41 @@ public class DiscordWebhookService {
     @Value("${discord.thumbnail.url:}")
     private String discordThumbnailUrl;
 
-    @Async
+    /**
+     * Compatibilidade: aceita a entidade Ticket e encaminha para a versão que
+     * carrega o chamado dentro de uma transação antes de disparar o envio
+     * assíncrono. Isso previne LazyInitializationException.
+     */
     public void sendNewTicketAlert(Ticket ticket) {
+        if (ticket == null || ticket.getId() == null) {
+            log.warn("sendNewTicketAlert chamado com ticket nulo ou sem id");
+            return;
+        }
+        sendNewTicketAlert(ticket.getId());
+    }
+
+    /**
+     * Carrega o Ticket com as relações necessárias dentro de uma transação
+     * e delega para o envio assíncrono.
+     */
+    @Transactional(readOnly = true)
+    public void sendNewTicketAlert(UUID ticketId) {
+        if (ticketId == null) return;
+        try {
+            Optional<Ticket> maybe = ticketRepository.findByIdWithRelations(ticketId);
+            if (maybe.isEmpty()) {
+                log.warn("Chamado {} não encontrado para notificação Discord", ticketId);
+                return;
+            }
+            Ticket fullTicket = maybe.get();
+            sendNewTicketAlertAsync(fullTicket);
+        } catch (Exception e) {
+            log.error("Erro ao carregar chamado {} para notificação Discord: {}", ticketId, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    private void sendNewTicketAlertAsync(Ticket ticket) {
         try {
             validateTicket(ticket);
             String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();

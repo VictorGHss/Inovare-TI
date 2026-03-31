@@ -3,6 +3,8 @@ package br.dev.ctrls.inovareti.domain.report;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -38,6 +40,7 @@ public class ReportSchedule {
     private int scheduleDay = 12;
 
     @Column(name = "is_active", nullable = false)
+    @JsonProperty("isActive")
     private boolean isActive = true;
 
     @Column(name = "created_at", nullable = false)

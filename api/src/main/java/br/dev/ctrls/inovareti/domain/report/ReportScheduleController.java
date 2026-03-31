@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
@@ -55,8 +57,8 @@ public class ReportScheduleController {
         boolean sendDiscord = sendDiscordBox != null ? sendDiscordBox : false;
         Integer scheduleDayBox = req.getScheduleDay();
         int scheduleDay = scheduleDayBox != null ? scheduleDayBox : 12;
-        Boolean activeBox = req.getActive();
-        boolean active = activeBox != null ? activeBox : true;
+        Boolean isActiveBox = req.getIsActive();
+        boolean active = isActiveBox != null ? isActiveBox : true;
 
         entity.setSendEmail(sendEmail);
         entity.setSendDiscord(sendDiscord);
@@ -73,32 +75,13 @@ public class ReportScheduleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReportSchedule> update(@PathVariable UUID id, @RequestBody ReportScheduleRequest req) {
         return repository.findById(id).map(existing -> {
-            // only apply fields that are present in the request (non-null)
-            if (req.getReportType() != null) {
-                existing.setReportType(req.getReportType());
+            // Preserve all original fields and update only 'isActive' when provided to avoid nulling required columns
+            Boolean isActiveBox = req.getIsActive();
+            if (isActiveBox != null) {
+                existing.setActive(isActiveBox);
+                existing.setUpdatedAt(LocalDateTime.now());
+                repository.save(existing);
             }
-            if (req.getTargetUserId() != null) {
-                existing.setTargetUserId(req.getTargetUserId());
-            }
-            Boolean sendEmailBox = req.getSendEmail();
-            if (sendEmailBox != null) {
-                existing.setSendEmail(sendEmailBox);
-            }
-            Boolean sendDiscordBox = req.getSendDiscord();
-            if (sendDiscordBox != null) {
-                existing.setSendDiscord(sendDiscordBox);
-            }
-            Integer scheduleDayBox = req.getScheduleDay();
-            if (scheduleDayBox != null) {
-                existing.setScheduleDay(scheduleDayBox);
-            }
-            Boolean activeBox = req.getActive();
-            if (activeBox != null) {
-                existing.setActive(activeBox);
-            }
-
-            existing.setUpdatedAt(LocalDateTime.now());
-            repository.save(existing);
             return ResponseEntity.ok(existing);
         }).orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -120,6 +103,7 @@ public class ReportScheduleController {
         private Boolean sendEmail;
         private Boolean sendDiscord;
         private Integer scheduleDay;
-        private Boolean active;
+        @JsonProperty("isActive")
+        private Boolean isActive;
     }
 }

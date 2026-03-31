@@ -1,34 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Settings as SettingsIcon, Clock3, Pencil, Trash2, Plus, Bell, Moon, Languages, Check, X, Calendar } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3, Pencil, Trash2, Plus, Check, X, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  createAssetCategory,
-  createItemCategory,
-  getAssetCategories,
-  getItemCategories,
   getSystemSettings,
   updateSystemSettings,
   getReportSchedules,
   createReportSchedule,
   deleteReportSchedule,
   updateReportSchedule,
-  deleteItemCategory,
-  deleteAssetCategory,
-  type AssetCategory,
-  type ItemCategory,
   type ReportSchedule,
   type SystemSetting,
   type UpdateSystemSettingsPayload,
   getUsers,
   type User,
-  getAdminConfig,
-  type AdminConfig,
 } from '../../services/api';
 import PageHero from '../../components/PageHero';
 
-type TabType = 'system' | 'profile' | 'integration';
+type TabType = 'system' | 'profile';
 
 const inputClassName =
   'w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 shadow-none placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary focus:bg-white transition-all';
@@ -49,19 +39,7 @@ export default function Settings() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
-  const [itemCategories, setItemCategories] = useState<ItemCategory[]>([]);
-  const [assetCategoryName, setAssetCategoryName] = useState('');
-  const [itemCategoryName, setItemCategoryName] = useState('');
-  const [savingAssetCategory, setSavingAssetCategory] = useState(false);
-  const [savingItemCategory, setSavingItemCategory] = useState(false);
-  const [deletingItemCategoryId, setDeletingItemCategoryId] = useState<string | null>(null);
-  const [deletingAssetCategoryId, setDeletingAssetCategoryId] = useState<string | null>(null);
-
-  const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
-
-  const [newSettingKey, setNewSettingKey] = useState('');
-  const [newSettingValue, setNewSettingValue] = useState('');
+  
 
   const [reportSchedules, setReportSchedules] = useState<ReportSchedule[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
@@ -78,9 +56,7 @@ export default function Settings() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editingPayload, setEditingPayload] = useState<Partial<ReportSchedule> | null>(null);
 
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [darkTheme, setDarkTheme] = useState(false);
-  const [language, setLanguage] = useState<'pt-BR' | 'en'>('pt-BR');
+  
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -101,13 +77,7 @@ export default function Settings() {
             return acc;
           }, {}),
         );
-        try {
-          const cfg = await getAdminConfig();
-          setAdminConfig(cfg ?? null);
-        } catch (e) {
-          console.warn('Failed to load admin config', e);
-          setAdminConfig(null);
-        }
+        // admin-specific integration details removed to simplify settings page
         try {
           const [schedules, users] = await Promise.all([getReportSchedules(), getUsers()]);
           setReportSchedules(Array.isArray(schedules) ? schedules : []);
@@ -128,21 +98,7 @@ export default function Settings() {
     loadSettings();
   }, [isAdmin]);
 
-  useEffect(() => {
-    async function loadCategories() {
-      if (!isAdmin) return;
-      try {
-        const [assetData, itemData] = await Promise.all([getAssetCategories(), getItemCategories()]);
-        setAssetCategories(Array.isArray(assetData) ? assetData : []);
-        setItemCategories(Array.isArray(itemData) ? itemData : []);
-      } catch {
-        toast.error('Erro ao carregar categorias de configuração.');
-        setAssetCategories([]);
-        setItemCategories([]);
-      }
-    }
-    loadCategories();
-  }, [isAdmin]);
+  // categorias e integrações removidas — simplificamos para SLA e Agendamentos
 
   const hasChanges = useMemo(() => {
     return settings.some((setting) => values[setting.id] !== setting.value);
@@ -190,57 +146,7 @@ export default function Settings() {
     return fallbackMessage;
   }
 
-  async function refreshCategories() {
-    const [assetData, itemData] = await Promise.all([getAssetCategories(), getItemCategories()]);
-    setAssetCategories(assetData);
-    setItemCategories(itemData);
-  }
-
-  async function handleCreateAssetCategory() {
-    const normalizedName = assetCategoryName.trim();
-    if (!normalizedName) { toast.error('Digite um nome para a categoria de equipamentos.'); return; }
-    setSavingAssetCategory(true);
-    try {
-      await createAssetCategory({ name: normalizedName });
-      setAssetCategoryName('');
-      await refreshCategories();
-      toast.success('Categoria de equipamentos adicionada com sucesso.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao adicionar categoria de equipamentos.'));
-    } finally {
-      setSavingAssetCategory(false);
-    }
-  }
-
-  async function handleCreateItemCategory() {
-    const normalizedName = itemCategoryName.trim();
-    if (!normalizedName) { toast.error('Digite um nome para a categoria de inventário.'); return; }
-    setSavingItemCategory(true);
-    try {
-      await createItemCategory({ name: normalizedName, isConsumable: true });
-      setItemCategoryName('');
-      await refreshCategories();
-      toast.success('Categoria de inventário adicionada com sucesso.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao adicionar categoria de inventário.'));
-    } finally {
-      setSavingItemCategory(false);
-    }
-  }
-
-  async function handleDeleteItemCategory(id: string) {
-    if (!confirm('Tem certeza que deseja excluir esta categoria de inventário? Esta ação não pode ser desfeita.')) return;
-    setDeletingItemCategoryId(id);
-    try {
-      await deleteItemCategory(id);
-      await refreshCategories();
-      toast.success('Categoria de inventário excluída com sucesso.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao excluir categoria de inventário.'));
-    } finally {
-      setDeletingItemCategoryId(null);
-    }
-  }
+  // funções de categorias removidas
 
   async function handleCreateSchedule() {
     if (!newSchedulePayload.reportType) { toast.error('Selecione o tipo de relatório.'); return; }
@@ -266,9 +172,18 @@ export default function Settings() {
     if (!editingScheduleId || !editingPayload) return;
     setSchedulesLoading(true);
     try {
-      const updated = await updateReportSchedule(editingScheduleId, editingPayload as Partial<ReportSchedule>);
+      const original = reportSchedules.find((r) => r.id === editingScheduleId) ?? null;
+      const payload: Partial<ReportSchedule> = {
+        reportType: editingPayload.reportType ?? original?.reportType ?? '',
+        targetUserId: editingPayload.targetUserId ?? original?.targetUserId ?? null,
+        sendEmail: editingPayload.sendEmail ?? original?.sendEmail ?? true,
+        sendDiscord: editingPayload.sendDiscord ?? original?.sendDiscord ?? false,
+        scheduleDay: editingPayload.scheduleDay ?? original?.scheduleDay ?? 12,
+        isActive: editingPayload.isActive ?? original?.isActive ?? true,
+      };
+      const updated = await updateReportSchedule(editingScheduleId, payload);
       setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
-      toast.success('Agendamento atualizado com sucesso.');
+      toast.success(`Agendamento atualizado. Status: ${updated.isActive ? 'Ativo' : 'Inativo'}.`);
       setEditingScheduleId(null);
       setEditingPayload(null);
     } catch (error) {
@@ -283,24 +198,7 @@ export default function Settings() {
     setEditingPayload(null);
   }
 
-  async function handleAddSetting() {
-    const key = newSettingKey.trim();
-    if (!key) { toast.error('Digite a chave da configuração (ex: SLA_URGENT_HOURS).'); return; }
-    setSaving(true);
-    try {
-      const payload: UpdateSystemSettingsPayload = { [key]: newSettingValue ?? '' };
-      const updated = await updateSystemSettings(payload);
-      setSettings(updated);
-      setValues(updated.reduce<Record<string, string>>((acc, setting) => { acc[setting.id] = setting.value; return acc; }, {}));
-      setNewSettingKey('');
-      setNewSettingValue('');
-      toast.success('Configuração adicionada com sucesso.');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erro ao adicionar configuração.'));
-    } finally {
-      setSaving(false);
-    }
-  }
+  
 
   const slaKeys = useMemo(() => settings.filter((s) => s.id && s.id.startsWith('SLA_')), [settings]);
 
@@ -337,7 +235,15 @@ export default function Settings() {
   async function handleToggleScheduleActive(schedule: ReportSchedule) {
     setSchedulesLoading(true);
     try {
-      const payload = { active: !schedule.isActive } as unknown as Partial<ReportSchedule>;
+      // Envia o objeto completo para evitar sobrescrever campos obrigatórios no backend
+      const payload: Partial<ReportSchedule> = {
+        reportType: schedule.reportType,
+        targetUserId: schedule.targetUserId,
+        sendEmail: schedule.sendEmail,
+        sendDiscord: schedule.sendDiscord,
+        scheduleDay: schedule.scheduleDay,
+        isActive: !schedule.isActive,
+      };
       const updated = await updateReportSchedule(schedule.id, payload);
       setReportSchedules((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
       toast.success(updated.isActive ? 'Agendamento ativado.' : 'Agendamento desativado.');
@@ -348,12 +254,12 @@ export default function Settings() {
     }
   }
 
-  if (!isAdmin && (activeTab === 'system' || activeTab === 'integration')) {
+  if (!isAdmin && activeTab === 'system') {
     return (
       <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
           <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <SettingsIcon size={22} className="text-slate-400" />
+            <Globe size={22} className="text-slate-400" />
           </div>
           <p className="text-sm font-medium text-slate-700">Acesso Restrito</p>
           <p className="text-xs text-slate-400 mt-1">Você não possui permissão para acessar configurações globais.</p>
@@ -365,7 +271,6 @@ export default function Settings() {
   const tabs = [
     ...(isAdmin ? [{ id: 'system' as TabType, label: 'Sistema', icon: Globe }] : []),
     { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
-    ...(isAdmin ? [{ id: 'integration' as TabType, label: 'Integração', icon: SettingsIcon }] : []),
   ];
 
   return (
@@ -439,7 +344,7 @@ export default function Settings() {
                     type="button"
                     disabled={saving || !hasChanges}
                     onClick={handleSave}
-                    className="inline-flex items-center gap-2 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                   >
                     <Save size={14} />
                     {saving ? 'Salvando...' : 'Salvar Configurações'}
@@ -449,9 +354,9 @@ export default function Settings() {
 
               {/* SLA */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                    <Clock3 size={16} className="text-amber-500" />
+                    <Clock3 size={16} className="text-[#feb56c]" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-slate-900">Configurações de SLA</h2>
@@ -485,7 +390,7 @@ export default function Settings() {
                   <button
                     onClick={handleSaveSLA}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                   >
                     <Save size={14} />
                     Salvar SLAs
@@ -493,39 +398,13 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Adicionar configuração */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="text-sm font-semibold text-slate-900">Adicionar Configuração</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Crie uma nova chave de configuração manualmente.</p>
-                </div>
-                <div className="px-6 py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1.5">Chave</label>
-                      <input type="text" placeholder="ex: SLA_URGENT_HOURS" value={newSettingKey} onChange={(e) => setNewSettingKey(e.target.value)} className={inputClassName} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1.5">Valor</label>
-                      <input type="text" placeholder="Valor" value={newSettingValue} onChange={(e) => setNewSettingValue(e.target.value)} className={inputClassName} />
-                    </div>
-                    <button
-                      onClick={handleAddSetting}
-                      disabled={saving}
-                      className="inline-flex items-center justify-center gap-2 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                    >
-                      <Plus size={14} />
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              </div>
+              {/* Adicionar configuração removida — foco em SLAs e Agendamentos */}
 
               {/* Agendamentos */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                    <Calendar size={16} className="text-blue-500" />
+                    <Calendar size={16} className="text-[#feb56c]" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-slate-900">Agendamentos de Relatórios</h2>
@@ -582,7 +461,7 @@ export default function Settings() {
                                 </label>
                               </div>
                               <div className="md:col-span-2 flex gap-2 justify-end">
-                                <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="inline-flex items-center gap-1.5 bg-brand-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg">
+                                <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="inline-flex items-center gap-1.5 bg-[#feb56c] hover:brightness-95 text-white text-sm font-medium px-4 py-2 rounded-lg">
                                   <Check size={13} /> Salvar
                                 </button>
                                 <button onClick={cancelEdit} className="inline-flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors">
@@ -611,11 +490,11 @@ export default function Settings() {
                               {usr ? ` — ${usr.name}` : s.targetUserId ? ` — ${s.targetUserId}` : ''}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => handleToggleScheduleActive(s)}
                               title={s.isActive ? 'Desativar' : 'Ativar'}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${s.isActive ? 'border-slate-200 text-slate-600 hover:bg-slate-50' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${s.isActive ? 'bg-[#feb56c] text-white' : 'bg-white border border-slate-200 text-[#feb56c]'}`}
                             >
                               {s.isActive ? 'Desativar' : 'Ativar'}
                             </button>
@@ -674,7 +553,7 @@ export default function Settings() {
                       <button
                         onClick={handleCreateSchedule}
                         disabled={schedulesLoading}
-                        className="inline-flex items-center gap-2 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                        className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
                       >
                         <Plus size={14} />
                         Criar Agendamento
@@ -684,114 +563,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Categorias */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Categorias de Equipamentos */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100">
-                    <h3 className="text-sm font-semibold text-slate-900">Categorias de Equipamentos</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Ativos físicos do CMDB.</p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <div className="flex flex-wrap gap-2 min-h-[40px]">
-                      {!Array.isArray(assetCategories) || assetCategories.length === 0 ? (
-                        <span className="text-xs text-slate-400">Nenhuma categoria cadastrada.</span>
-                      ) : (
-                        assetCategories.map((category) => (
-                          <span key={category.id} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-full">
-                            {category.name}
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Tem certeza que deseja excluir esta categoria de equipamentos?')) return;
-                                setDeletingAssetCategoryId(category.id);
-                                try {
-                                  await deleteAssetCategory(category.id);
-                                  await refreshCategories();
-                                  toast.success('Categoria de equipamentos excluída com sucesso.');
-                                } catch (error) {
-                                  toast.error(getApiErrorMessage(error, 'Erro ao excluir categoria de equipamentos.'));
-                                } finally {
-                                  setDeletingAssetCategoryId(null);
-                                }
-                              }}
-                              disabled={deletingAssetCategoryId === category.id}
-                              className="hover:text-red-500 transition-colors disabled:opacity-50"
-                            >
-                              <X size={12} />
-                            </button>
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <input
-                        type="text"
-                        value={assetCategoryName}
-                        onChange={(event) => setAssetCategoryName(event.target.value)}
-                        className={inputClassName}
-                        placeholder="Nova categoria..."
-                        maxLength={100}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleCreateAssetCategory}
-                        disabled={savingAssetCategory}
-                        className="shrink-0 inline-flex items-center gap-1.5 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg transition-colors"
-                      >
-                        <Plus size={14} />
-                        {savingAssetCategory ? 'Adicionando...' : 'Adicionar'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Categorias de Inventário */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100">
-                    <h3 className="text-sm font-semibold text-slate-900">Categorias de Inventário</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Materiais e itens de estoque.</p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <div className="flex flex-wrap gap-2 min-h-[40px]">
-                      {!Array.isArray(itemCategories) || itemCategories.length === 0 ? (
-                        <span className="text-xs text-slate-400">Nenhuma categoria cadastrada.</span>
-                      ) : (
-                        itemCategories.map((category) => (
-                          <span key={category.id} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-full">
-                            {category.name}
-                            <button
-                              onClick={() => handleDeleteItemCategory(category.id)}
-                              disabled={deletingItemCategoryId === category.id}
-                              className="hover:text-red-500 transition-colors disabled:opacity-50"
-                            >
-                              <X size={12} />
-                            </button>
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <input
-                        type="text"
-                        value={itemCategoryName}
-                        onChange={(event) => setItemCategoryName(event.target.value)}
-                        className={inputClassName}
-                        placeholder="Nova categoria..."
-                        maxLength={100}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleCreateItemCategory}
-                        disabled={savingItemCategory}
-                        className="shrink-0 inline-flex items-center gap-1.5 bg-brand-primary hover:bg-primary-hover disabled:opacity-40 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg transition-colors"
-                      >
-                        <Plus size={14} />
-                        {savingItemCategory ? 'Adicionando...' : 'Adicionar'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Categorias removidas — foco em SLAs e Agendamentos */}
             </>
           )}
         </div>
@@ -800,126 +572,43 @@ export default function Settings() {
       {/* ── TAB: PERFIL ── */}
       {activeTab === 'profile' && (
         <div className="space-y-3 max-w-2xl">
-          {/* Notificações */}
-          <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                <Bell size={15} className="text-blue-500" />
+          <div className="bg-white rounded-2xl border border-slate-200 px-6 py-6">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#fff6ee] flex items-center justify-center">
+                <UserIcon size={20} className="text-[#feb56c]" />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-800">Notificações por E-mail</p>
-                <p className="text-xs text-slate-400 mt-0.5">Receba atualizações de chamados e tarefas por e-mail</p>
+                <p className="text-sm font-semibold text-slate-900">Perfil</p>
+                <p className="text-xs text-slate-400 mt-0.5">Informações básicas da sua conta</p>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="sr-only peer" />
-              <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-primary/30 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary shadow-inner" />
-            </label>
-          </div>
 
-          {/* Tema Escuro */}
-          <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                <Moon size={15} className="text-slate-600" />
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome</label>
+                <input type="text" readOnly value={user?.name ?? ''} className={inputClassName} />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-800">Tema Escuro</p>
-                <p className="text-xs text-slate-400 mt-0.5">Ative o modo escuro para melhor visualização noturna</p>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">E-mail</label>
+                <input type="text" readOnly value={user?.email ?? ''} className={inputClassName} />
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={darkTheme} onChange={(e) => setDarkTheme(e.target.checked)} className="sr-only peer" />
-              <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-primary/30 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary shadow-inner" />
-            </label>
-          </div>
 
-          {/* Idioma */}
-          <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                <Languages size={15} className="text-violet-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-800">Idioma</p>
-                <p className="text-xs text-slate-400 mt-0.5">Escolha seu idioma preferido para a interface</p>
-              </div>
+            <div className="flex justify-end mt-4">
+              <button
+                type="button"
+                onClick={handleSavePreferences}
+                className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+              >
+                <Save size={14} />
+                Salvar Preferências
+              </button>
             </div>
-            <select value={language} onChange={(e) => setLanguage(e.target.value as 'pt-BR' | 'en')} className="w-full sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary focus:bg-white transition-all">
-              <option value="pt-BR">Português (BR)</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              type="button"
-              onClick={handleSavePreferences}
-              className="inline-flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-            >
-              <Save size={14} />
-              Salvar Preferências
-            </button>
           </div>
         </div>
       )}
 
-      {/* ── TAB: INTEGRAÇÃO ── */}
-      {activeTab === 'integration' && isAdmin && (
-        <div className="space-y-5 max-w-3xl">
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-900">Ambiente e Integrações</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Valores e indicadores das integrações do sistema (somente leitura).</p>
-            </div>
-
-            {adminConfig ? (
-              <div className="divide-y divide-slate-100">
-                {/* SMTP From Email */}
-                <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">SMTP From Email</p>
-                  </div>
-                  <div className="w-full sm:w-64">
-                    <input type="text" value={adminConfig.smtpFromEmail ?? ''} readOnly className={`${inputClassName} cursor-default`} />
-                  </div>
-                </div>
-
-                {/* SMTP From Name */}
-                <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">SMTP From Name</p>
-                  </div>
-                  <div className="w-full sm:w-64">
-                    <input type="text" value={adminConfig.smtpFromName ?? ''} readOnly className={`${inputClassName} cursor-default`} />
-                  </div>
-                </div>
-
-                {/* Discord */}
-                <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Discord</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${adminConfig.discordBotEnabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${adminConfig.discordBotEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                      Bot {adminConfig.discordBotEnabled ? 'ativado' : 'desativado'}
-                    </span>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${adminConfig.discordWebhookPresent ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${adminConfig.discordWebhookPresent ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                      Webhook {adminConfig.discordWebhookPresent ? 'presente' : 'não configurado'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="px-6 py-8 text-center">
-                <p className="text-sm text-slate-400">Nenhuma configuração de integração disponível.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Integração removida - simplificação da página de Settings */}
     </main>
   );
 }

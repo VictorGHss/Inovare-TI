@@ -306,7 +306,6 @@ public class DiscordWebhookService {
             String requester = ticket != null && ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
             String sector = ticket != null && ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-";
             String priority = ticket != null && ticket.getPriority() != null ? ticket.getPriority().toString() : "-";
-            String category = ticket != null && ticket.getCategory() != null ? ticket.getCategory().getName() : "-";
 
             // Monta campos inline do embed com as informações chave do chamado
             // Campos solicitados: ID, Solicitante, Setor, Prioridade — todos em modo inline

@@ -28,13 +28,17 @@ public class AdminConfigController {
     @Value("${discord.webhook.url:}")
     private String discordWebhookUrl;
 
+    private final br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService discordWebhookService;
+
     @GetMapping
     public ResponseEntity<AdminConfigResponse> getConfig() {
         AdminConfigResponse res = new AdminConfigResponse();
         res.setSmtpFromEmail(smtpFromEmail);
         res.setSmtpFromName(smtpFromName);
         res.setDiscordBotEnabled(discordBotEnabled);
-        res.setDiscordWebhookPresent(discordWebhookUrl != null && !discordWebhookUrl.isBlank());
+        String status = discordWebhookService.getDefaultWebhookStatus();
+        res.setDiscordWebhookStatus(status);
+        res.setDiscordWebhookPresent("PRESENT".equals(status));
 
         return ResponseEntity.ok(res);
     }
@@ -45,5 +49,6 @@ public class AdminConfigController {
         private String smtpFromName;
         private boolean discordBotEnabled;
         private boolean discordWebhookPresent;
+        private String discordWebhookStatus;
     }
 }

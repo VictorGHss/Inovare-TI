@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.notification.discord;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -13,15 +14,18 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
+import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
+import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
+import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
-import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
-import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +46,7 @@ public class DiscordWebhookService {
     private final DiscordDirectMessageService discordDirectMessageService;
     private final RestTemplate restTemplate;
     private final SystemAlertRepository systemAlertRepository;
+    private final SystemSettingRepository systemSettingRepository;
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -62,8 +67,35 @@ public class DiscordWebhookService {
             List<User> recipients = resolveRecipients(ticket);
             if (recipients.isEmpty()) {
                 log.info("Notificação Discord ignorada para o chamado {}: nenhum destinatário elegível", ticket.getId());
-                // Ainda assim, notifica o canal operacional para garantir visibilidade.
-                sendOperationalAlert(title, description);
+                // Ainda assim, tenta notificar o canal operacional para garantir visibilidade.
+                boolean sent = doSendOperationalAlert(title, description);
+                if (!sent) {
+                    // fallback: tentar notificar técnicos via DM
+                    List<User> techs = userRepository.findAllByRoleInAndReceivesItNotificationsTrue(
+                        List.of(UserRole.ADMIN, UserRole.TECHNICIAN));
+                    log.warn("Operational webhook falhou — tentando fallback via DM para {} técnico(s)", techs.size());
+                    for (User tech : techs) {
+                        try {
+                            if (tech.getDiscordUserId() == null || tech.getDiscordUserId().isBlank()) continue;
+                            discordDirectMessageService.sendTicketUpdateDMToUser(
+                                    tech.getDiscordUserId(), ticket.getId(), "ALERTA OPERACIONAL: " + title, description);
+                        } catch (Exception e) {
+                            log.warn("Falha ao enviar DM fallback para {}: {}", tech.getId(), e.getMessage());
+                            try {
+                                systemAlertRepository.save(SystemAlert.builder()
+                                        .alertType("DISCORD_DM_FALLBACK_FAILURE")
+                                        .severity("ERROR")
+                                        .source("DiscordWebhookService")
+                                        .title("Falha ao enviar fallback DM para técnico")
+                                        .details(e.getMessage())
+                                        .context(Map.of("ticketId", ticket.getId().toString(), "techId", tech.getId().toString()))
+                                        .build());
+                            } catch (Exception ex) {
+                                log.warn("Falha ao registrar SystemAlert após falha DM fallback: {}", ex.getMessage(), ex);
+                            }
+                        }
+                    }
+                }
                 return;
             }
 
@@ -82,7 +114,34 @@ public class DiscordWebhookService {
 
             // Sempre enviar uma notificação ao canal operacional para que a
             // equipe de operações receba um resumo do novo chamado.
-            sendOperationalAlert(title, description);
+            boolean sent = doSendOperationalAlert(title, description);
+            if (!sent) {
+                // fallback: tentar notificar técnicos via DM
+                List<User> techs = userRepository.findAllByRoleInAndReceivesItNotificationsTrue(
+                    List.of(UserRole.ADMIN, UserRole.TECHNICIAN));
+                log.warn("Operational webhook falhou — tentando fallback via DM para {} técnico(s)", techs.size());
+                for (User tech : techs) {
+                    try {
+                        if (tech.getDiscordUserId() == null || tech.getDiscordUserId().isBlank()) continue;
+                        discordDirectMessageService.sendTicketUpdateDMToUser(
+                                tech.getDiscordUserId(), ticket.getId(), "ALERTA OPERACIONAL: " + title, description);
+                    } catch (Exception e) {
+                        log.warn("Falha ao enviar DM fallback para {}: {}", tech.getId(), e.getMessage());
+                        try {
+                            systemAlertRepository.save(SystemAlert.builder()
+                                    .alertType("DISCORD_DM_FALLBACK_FAILURE")
+                                    .severity("ERROR")
+                                    .source("DiscordWebhookService")
+                                    .title("Falha ao enviar fallback DM para técnico")
+                                    .details(e.getMessage())
+                                    .context(Map.of("ticketId", ticket.getId().toString(), "techId", tech.getId().toString()))
+                                    .build());
+                        } catch (Exception ex) {
+                            log.warn("Falha ao registrar SystemAlert após falha DM fallback: {}", ex.getMessage(), ex);
+                        }
+                    }
+                }
+            }
         } catch (IllegalArgumentException e) {
             UUID ticketId = ticket != null ? ticket.getId() : null;
             log.error("Erro de validação no roteamento de notificação Discord para o chamado {}", ticketId, e);
@@ -125,6 +184,96 @@ public class DiscordWebhookService {
             }
         }
     }
+
+        private String resolveWebhookUrl(String configured, String settingKey) {
+            // 1) environment variable (preferred)
+            String env = System.getenv("DISCORD_WEBHOOK_URL");
+            if (StringUtils.hasText(env)) return env;
+
+            // 2) system_settings table
+            try {
+                if (StringUtils.hasText(settingKey)) {
+                    Optional<SystemSetting> maybe = systemSettingRepository.findById(settingKey);
+                    if (maybe.isPresent() && StringUtils.hasText(maybe.get().getValue())) return maybe.get().getValue();
+                }
+                Optional<SystemSetting> maybeEnv = systemSettingRepository.findById("DISCORD_WEBHOOK_URL");
+                if (maybeEnv.isPresent() && StringUtils.hasText(maybeEnv.get().getValue())) return maybeEnv.get().getValue();
+            } catch (Exception e) {
+                log.warn("Erro ao ler system_settings para chave {}: {}", settingKey, e.getMessage());
+            }
+
+            // 3) configured property fallback
+            if (StringUtils.hasText(configured)) return configured;
+            return null;
+        }
+
+        /**
+         * Envia o webhook de forma síncrona e retorna true em caso de sucesso.
+         */
+        private boolean doSendOperationalAlert(String title, String message) {
+            String webhook = resolveWebhookUrl(operationalWebhookUrl, "discord.operational.webhook.url");
+            if (!StringUtils.hasText(webhook)) {
+                webhook = resolveWebhookUrl(defaultWebhookUrl, "discord.webhook.url");
+            }
+
+            if (!StringUtils.hasText(webhook)) {
+                log.warn("Operational Discord webhook not configured. Skipping operational alert: {}", title);
+                return false;
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            try {
+                restTemplate.postForEntity(webhook, new HttpEntity<>(Map.of("content", message), headers), Void.class);
+                log.info("Operational alert enfileirada no Discord: {}", title);
+                return true;
+            } catch (HttpClientErrorException.NotFound nf) {
+                log.error("Webhook Discord inválido (404) para {}: {}", title, nf.getMessage());
+                try {
+                    systemAlertRepository.save(SystemAlert.builder()
+                            .alertType("DISCORD_OPERATIONAL_ALERT")
+                            .severity("ERROR")
+                            .source("DiscordWebhookService")
+                            .title("Webhook Discord inválido (404) para: " + title)
+                            .details(nf.getMessage())
+                            .context(Map.of("webhook", webhook, "title", title))
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Falha ao registrar SystemAlert após webhook inválido: {}", e.getMessage(), e);
+                }
+                return false;
+            } catch (RestClientException ex) {
+                log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
+                try {
+                    systemAlertRepository.save(SystemAlert.builder()
+                            .alertType("DISCORD_OPERATIONAL_ALERT")
+                            .severity("ERROR")
+                            .source("DiscordWebhookService")
+                            .title("Falha ao enviar alerta operacional no Discord: " + title)
+                            .details(ex.getMessage())
+                            .context(Map.of("webhook", webhook, "title", title))
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
+                }
+                return false;
+            }
+        }
+
+        public String getDefaultWebhookStatus() {
+            String webhook = resolveWebhookUrl(defaultWebhookUrl, "discord.webhook.url");
+            if (!StringUtils.hasText(webhook)) return "MISSING";
+            try {
+                restTemplate.headForHeaders(webhook);
+                return "PRESENT";
+            } catch (HttpClientErrorException.NotFound nf) {
+                return "INVALID";
+            } catch (RestClientException ex) {
+                log.warn("Não foi possível verificar status do webhook: {}", ex.getMessage());
+                return "UNKNOWN";
+            }
+        }
 
     private List<User> resolveRecipients(Ticket ticket) {
         if (ticket.getAssignedTo() != null) {

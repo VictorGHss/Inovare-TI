@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -7,10 +8,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
-import java.util.Map;
+import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;

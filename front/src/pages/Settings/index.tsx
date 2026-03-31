@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getSystemSettings,
+  getAdminConfig,
   updateSystemSettings,
   type SystemSetting,
   type UpdateSystemSettingsPayload,
@@ -26,6 +27,29 @@ function getFriendlyLabel(settingKey: string): string {
   return friendlyLabels[settingKey] ?? settingKey.replaceAll('_', ' ');
 }
 
+function WebhookBadge({ status }: { status: string }) {
+  let text = 'Desconhecido';
+  let cls = 'bg-amber-100 text-amber-700';
+  switch (status) {
+    case 'PRESENT':
+      text = 'Presente';
+      cls = 'bg-emerald-100 text-emerald-700';
+      break;
+    case 'INVALID':
+      text = 'Erro/Inválido';
+      cls = 'bg-red-100 text-red-700';
+      break;
+    case 'MISSING':
+      text = 'Ausente';
+      cls = 'bg-slate-100 text-slate-500';
+      break;
+    default:
+      text = 'Desconhecido';
+      cls = 'bg-amber-100 text-amber-700';
+  }
+  return <span className={`${cls} text-xs font-medium px-2 py-1 rounded`}>{text}</span>;
+}
+
 export default function Settings() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'system' : 'profile');
@@ -33,6 +57,7 @@ export default function Settings() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [discordWebhookStatus, setDiscordWebhookStatus] = useState<string | null>(null);
   
 
   
@@ -58,6 +83,12 @@ export default function Settings() {
             return acc;
           }, {}),
         );
+        try {
+          const cfg = await getAdminConfig();
+          setDiscordWebhookStatus(cfg.discordWebhookStatus ?? (cfg.discordWebhookPresent ? 'PRESENT' : 'MISSING'));
+        } catch (err) {
+          setDiscordWebhookStatus(null);
+        }
         // Agendamentos são carregados pelo componente ReportSchedulesSection
       } catch {
         toast.error('Erro ao carregar configurações globais.');
@@ -203,8 +234,17 @@ export default function Settings() {
               {/* Configurações gerais */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="text-sm font-semibold text-slate-900">Parâmetros Globais</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Configurações gerais do sistema.</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900">Parâmetros Globais</h2>
+                      <p className="text-xs text-slate-500 mt-0.5">Configurações gerais do sistema.</p>
+                    </div>
+                    <div>
+                      {discordWebhookStatus && (
+                        <WebhookBadge status={discordWebhookStatus} />
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {Array.isArray(settings) && settings.map((setting) => (

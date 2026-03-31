@@ -1124,6 +1124,7 @@ export interface AdminConfig {
   smtpFromName: string;
   discordBotEnabled: boolean;
   discordWebhookPresent: boolean;
+  discordWebhookStatus?: string;
 }
 
 export async function getAdminConfig(): Promise<AdminConfig> {

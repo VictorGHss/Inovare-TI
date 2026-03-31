@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.domain.notification.discord;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -13,15 +15,15 @@ import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
-import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
@@ -54,6 +56,9 @@ public class DiscordWebhookService {
     @Value("${discord.webhook.url:}")
     private String defaultWebhookUrl;
 
+    @Value("${discord.thumbnail.url:}")
+    private String discordThumbnailUrl;
+
     @Async
     public void sendNewTicketAlert(Ticket ticket) {
         try {
@@ -68,7 +73,7 @@ public class DiscordWebhookService {
             if (recipients.isEmpty()) {
                 log.info("Notificação Discord ignorada para o chamado {}: nenhum destinatário elegível", ticket.getId());
                 // Ainda assim, tenta notificar o canal operacional para garantir visibilidade.
-                boolean sent = doSendOperationalAlert(title, description);
+                boolean sent = doSendOperationalAlert(ticket);
                 if (!sent) {
                     // fallback: tentar notificar técnicos via DM
                     List<User> techs = userRepository.findAllByRoleInAndReceivesItNotificationsTrue(
@@ -114,7 +119,7 @@ public class DiscordWebhookService {
 
             // Sempre enviar uma notificação ao canal operacional para que a
             // equipe de operações receba um resumo do novo chamado.
-            boolean sent = doSendOperationalAlert(title, description);
+            boolean sent = doSendOperationalAlert(ticket);
             if (!sent) {
                 // fallback: tentar notificar técnicos via DM
                 List<User> techs = userRepository.findAllByRoleInAndReceivesItNotificationsTrue(
@@ -163,8 +168,27 @@ public class DiscordWebhookService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        Map<String, Object> payload = new HashMap<>();
+        List<Map<String, Object>> embeds = new ArrayList<>();
+        Map<String, Object> embed = new HashMap<>();
+
+        embed.put("title", title != null ? title : "Alerta Operacional");
+        embed.put("description", message != null ? message : "");
+        embed.put("color", 16692588);
+
+        String thumbnail = resolveThumbnailUrl();
+        if (StringUtils.hasText(thumbnail)) {
+            embed.put("thumbnail", Map.of("url", thumbnail));
+        }
+
+        String generatedAt = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        embed.put("footer", Map.of("text", "Gerado em: " + generatedAt));
+
+        embeds.add(embed);
+        payload.put("embeds", embeds);
+
         try {
-            restTemplate.postForEntity(webhook, new HttpEntity<>(Map.of("content", message), headers), Void.class);
+            restTemplate.postForEntity(webhook, new HttpEntity<>(payload, headers), Void.class);
             log.info("Operational alert enfileirada no Discord: {}", title);
         } catch (RestClientException ex) {
             log.error("Falha ao enviar alerta operacional no Discord: {}", title, ex);
@@ -253,6 +277,110 @@ public class DiscordWebhookService {
                             .title("Falha ao enviar alerta operacional no Discord: " + title)
                             .details(ex.getMessage())
                             .context(Map.of("webhook", webhook, "title", title))
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);
+                }
+                return false;
+            }
+        }
+
+        private String resolveThumbnailUrl() {
+            String env = System.getenv("DISCORD_THUMBNAIL_URL");
+            if (StringUtils.hasText(env)) return env;
+            try {
+                Optional<SystemSetting> maybe = systemSettingRepository.findById("discord.thumbnail.url");
+                if (maybe.isPresent() && StringUtils.hasText(maybe.get().getValue())) return maybe.get().getValue();
+            } catch (Exception e) {
+                log.warn("Erro ao ler system_settings para discord.thumbnail.url: {}", e.getMessage());
+            }
+            if (StringUtils.hasText(discordThumbnailUrl)) return discordThumbnailUrl;
+            return null;
+        }
+
+        /**
+         * Envia um embed rico específico para notificações de chamados.
+         * Retorna true em caso de sucesso.
+         */
+        private boolean doSendOperationalAlert(Ticket ticket) {
+            String webhook = resolveWebhookUrl(operationalWebhookUrl, "discord.operational.webhook.url");
+            if (!StringUtils.hasText(webhook)) {
+                webhook = resolveWebhookUrl(defaultWebhookUrl, "discord.webhook.url");
+            }
+
+            if (!StringUtils.hasText(webhook)) {
+                log.warn("Operational Discord webhook not configured. Skipping operational alert: {}", ticket != null ? ticket.getId() : null);
+                return false;
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> payload = new HashMap<>();
+            List<Map<String, Object>> embeds = new ArrayList<>();
+            Map<String, Object> embed = new HashMap<>();
+
+            embed.put("title", "🚨 Novo Chamado Aberto");
+            embed.put("color", 16692588);
+
+            String url = ticket != null && ticket.getId() != null ? "https://itsm-inovare.ctrls.dev.br/tickets/" + ticket.getId().toString() : null;
+            if (url != null) embed.put("url", url);
+
+            String requester = ticket != null && ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
+            String sector = ticket != null && ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-";
+            String priority = ticket != null && ticket.getPriority() != null ? ticket.getPriority().toString() : "-";
+            String category = ticket != null && ticket.getCategory() != null ? ticket.getCategory().getName() : "-";
+
+            List<Map<String, Object>> fields = new ArrayList<>();
+            fields.add(Map.of("name", "👤 Solicitante", "value", requester, "inline", true));
+            fields.add(Map.of("name", "🏢 Setor", "value", sector, "inline", true));
+            fields.add(Map.of("name", "⚡ Prioridade", "value", priority, "inline", true));
+            fields.add(Map.of("name", "🏷️ Categoria", "value", category, "inline", true));
+            embed.put("fields", fields);
+
+            String thumbnail = resolveThumbnailUrl();
+            if (StringUtils.hasText(thumbnail)) {
+                embed.put("thumbnail", Map.of("url", thumbnail));
+            }
+
+            String openedAt = ticket != null && ticket.getCreatedAt() != null ? ticket.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "";
+            embed.put("footer", Map.of("text", "Aberto em: " + openedAt));
+
+            // short description
+            embed.put("description", ticket != null && ticket.getTitle() != null ? ticket.getTitle() : "-");
+
+            embeds.add(embed);
+            payload.put("embeds", embeds);
+
+            try {
+                restTemplate.postForEntity(webhook, new HttpEntity<>(payload, headers), Void.class);
+                log.info("Operational embed enfileirado no Discord para chamado {}", ticket != null ? ticket.getId() : null);
+                return true;
+            } catch (HttpClientErrorException.NotFound nf) {
+                log.error("Webhook Discord inválido (404) para chamado {}: {}", ticket != null ? ticket.getId() : null, nf.getMessage());
+                try {
+                    systemAlertRepository.save(SystemAlert.builder()
+                            .alertType("DISCORD_OPERATIONAL_ALERT")
+                            .severity("ERROR")
+                            .source("DiscordWebhookService")
+                            .title("Webhook Discord inválido (404) para chamado: " + (ticket != null ? ticket.getId() : "?"))
+                            .details(nf.getMessage())
+                            .context(Map.of("webhook", webhook, "ticketId", ticket != null && ticket.getId() != null ? ticket.getId().toString() : ""))
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Falha ao registrar SystemAlert após webhook inválido: {}", e.getMessage(), e);
+                }
+                return false;
+            } catch (RestClientException ex) {
+                log.error("Falha ao enviar alerta operacional embed no Discord para chamado {}: {}", ticket != null ? ticket.getId() : null, ex.getMessage(), ex);
+                try {
+                    systemAlertRepository.save(SystemAlert.builder()
+                            .alertType("DISCORD_OPERATIONAL_ALERT")
+                            .severity("ERROR")
+                            .source("DiscordWebhookService")
+                            .title("Falha ao enviar alerta operacional embed no Discord para chamado: " + (ticket != null ? ticket.getId() : "?"))
+                            .details(ex.getMessage())
+                            .context(Map.of("webhook", webhook, "ticketId", ticket != null && ticket.getId() != null ? ticket.getId().toString() : ""))
                             .build());
                 } catch (Exception e) {
                     log.warn("Falha ao registrar SystemAlert após falha no webhook do Discord: {}", e.getMessage(), e);

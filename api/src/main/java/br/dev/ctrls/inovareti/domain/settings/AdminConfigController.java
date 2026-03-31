@@ -25,8 +25,6 @@ public class AdminConfigController {
     @Value("${discord.bot.enabled:false}")
     private boolean discordBotEnabled;
 
-    @Value("${discord.webhook.url:}")
-    private String discordWebhookUrl;
 
     private final br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService discordWebhookService;
 

@@ -211,7 +211,7 @@ public class ReportService {
                     Row row = sheet.createRow(rowNum++);
 
                     Integer requestedQty = ticket.getRequestedQuantity();
-                    int qty = requestedQty != null ? requestedQty.intValue() : 0;
+                    int qty = requestedQty != null ? requestedQty : 0;
 
                     row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
@@ -385,7 +385,7 @@ public class ReportService {
             String periodStr;
             if (periodStart != null && periodEnd != null) {
                 var dateOnly = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                periodStr = dateOnly.format(periodStart) + " → " + dateOnly.format(periodEnd);
+                periodStr = dateOnly.format(periodStart) + " - " + dateOnly.format(periodEnd);
             } else {
                 periodStr = "-";
             }
@@ -498,7 +498,7 @@ public class ReportService {
                 String tipo = safe(t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
                 String item = safe(t.getRequestedItem().getName());
                 Integer requestedQty = t.getRequestedQuantity();
-                int qty = requestedQty != null ? requestedQty.intValue() : 0;
+                int qty = requestedQty != null ? requestedQty : 0;
                 String qtd = String.valueOf(qty);
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String location = t.getRequester() != null && t.getRequester().getLocation() != null ? t.getRequester().getLocation() : "-";
@@ -538,7 +538,7 @@ public class ReportService {
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
                 Integer requestedQty = t.getRequestedQuantity();
-                int qty = requestedQty != null ? requestedQty.intValue() : 0;
+                int qty = requestedQty != null ? requestedQty : 0;
                 totalItems += qty;
                 totalValue = totalValue.add(calculateExitTotalPrice(t, qty));
             }

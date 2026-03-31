@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -368,12 +370,13 @@ public class ReportService {
             content.setNonStrokingColor(Color.BLACK);
             y -= 28f;
 
-            // Prepare rows: filter resolved tickets with items
+            // Prepara linhas: inclui chamados com itens solicitados.
+            // Aceita status RESOLVED ou CLOSED para cobrir diferentes fluxos de fechamento.
             java.util.List<Ticket> rows = new ArrayList<>();
             LocalDate periodStart = null;
             LocalDate periodEnd = null;
             for (Ticket t : tickets) {
-                if (t.getStatus() != null && "RESOLVED".equals(t.getStatus().toString()) && t.getRequestedItem() != null && t.getRequestedQuantity() != null) {
+                if (t.getStatus() != null && ("RESOLVED".equals(t.getStatus().toString()) || "CLOSED".equals(t.getStatus().toString())) && t.getRequestedItem() != null && t.getRequestedQuantity() != null) {
                     rows.add(t);
                     if (t.getClosedAt() != null) {
                         LocalDate d = t.getClosedAt().toLocalDate();
@@ -515,11 +518,13 @@ public class ReportService {
                 BigDecimal totalPrice = BigDecimal.ZERO;
                 FinancialTransaction.ResourceType foundResourceType = null;
                 try {
-                    java.time.LocalDate txDate = t.getClosedAt() != null
-                            ? t.getClosedAt().toLocalDate()
-                            : java.time.LocalDate.now(java.time.ZoneOffset.UTC);
-                    LocalDateTime startOfDayUtc = txDate.atStartOfDay();
-                    LocalDateTime endOfDayUtc = txDate.plusDays(1).atStartOfDay().minusNanos(1);
+                        // Interpreta a data de fechamento do chamado considerando UTC (base do banco)
+                        java.time.LocalDate txDate = t.getClosedAt() != null
+                            ? t.getClosedAt().atOffset(ZoneOffset.UTC).toLocalDate()
+                            : java.time.LocalDate.now(ZoneOffset.UTC);
+                        // Define início e fim do dia (inclusivo até 23:59:59.999999999) para o dia UTC
+                        LocalDateTime startOfDayUtc = txDate.atStartOfDay();
+                        LocalDateTime endOfDayUtc = txDate.atTime(java.time.LocalTime.MAX);
 
                     // 1a) Tenta buscar transações vinculadas diretamente ao ticket
                     var txs = transactionRepository.findByTicketId(t.getId());

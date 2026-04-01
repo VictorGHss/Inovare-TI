@@ -44,6 +44,12 @@ Este documento consolida o histórico de fases, tarefas pendentes, sugestões de
 
 Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi preservado e permanece funcional para validações manuais rápidas.
 
+### ✅ Observability & Rate-limiting (Concluído — 01/04/2026)
+- Redis: o serviço `redis` foi adicionado ao `docker-compose.yml` e integrado via variáveis de ambiente (`SPRING_REDIS_HOST`, `SPRING_REDIS_PORT`). Foi implementado o componente `RedisRateLimiter` (comportamento condicional com `@ConditionalOnBean(StringRedisTemplate.class)`) utilizado pelo endpoint `POST /financeiro/contaazul/force-refresh` para aplicar rate-limiting distribuído. O algoritmo usa `INCR` + `EXPIRE` para contagem atômica na janela; o controller implementa fallback em memória quando o Redis não está disponível.
+- Prometheus & Micrometer: as dependências `micrometer-registry-prometheus` e `spring-boot-starter-actuator` foram adicionadas ao projeto. O endpoint de métricas está exposto em `/api/actuator/prometheus` (configuração: `management.endpoints.web.exposure.include=health,metrics,prometheus`). O componente `ContaAzulMetrics` registra um contador de throttles (`contaazul.force.refresh.throttled` — exposto como `contaazul_force_refresh_throttled_total` no Prometheus) e gauges para timestamps/expiração do token (`contaazul_last_refresh_timestamp`, `contaazul_token_expires_at`), atualizados periodicamente via `@Scheduled`.
+- Regras de alerta: existe uma regra Prometheus dedicada em `docs/prometheus/contaazul-throttle-alerts.yml` (alerta `ContaAzulForceRefreshThrottled`, expressão `increase(contaazul_force_refresh_throttled_total[5m]) > 0`).
+- Observação operacional: o `docker-compose.yml` provisiona o `redis`, porém o Prometheus não está incluído no compose e deve ser provisionado separadamente (por exemplo via Helm/Kubernetes ou instância dedicada) para coleta e alerting em staging/produção.
+
 ### 🔲 Fase 11 — Documentação e Deploy (Em andamento)
 - Documentar endpoints restantes, atualizar CI/CD e validar playbook de rollback.
 
@@ -51,14 +57,12 @@ Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi pres
 
 ## Backlog e Sugestões Prioritárias
 
-1. Validar e aplicar regra de alerta Prometheus para `contaazul_force_refresh_throttled_total`.
-2. Habilitar rate-limiter distribuído (Redis) para `POST /financeiro/contaazul/force-refresh`.
-3. Criar PR com checklist: throttling, métricas, testes e manifestos de monitoramento.
-4. Provisionar Redis em staging e validar `RedisRateLimiter`.
+- Itens relacionados a Redis e Prometheus foram concluídos e movidos para a seção "✅ Observability & Rate-limiting (Concluído — 01/04/2026)" acima.
+- Tarefas pendentes (prioritárias): criar PR com checklist de integração contínua e validações automatizadas de monitoramento (CI), revisão de thresholds em produção.
 
 ### Observability & Alerting (recomendações)
 
-- Métricas essenciais: `contaazul_force_refresh_throttled_total`, `contaazul_token_last_refresh`, `contaazul_token_expires_seconds`.
+- Métricas essenciais: `contaazul_force_refresh_throttled_total` (counter), `contaazul_last_refresh_timestamp` (gauge), `contaazul_token_expires_at` (gauge).
 - Alertas: curto prazo (5m) e médio prazo (30m) com thresholds claros.
 
 ---

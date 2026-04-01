@@ -52,6 +52,7 @@ O `docker-compose.yml` define os serviços e a rede `inovare_network` (driver `b
 | `db`     | `inovareti_db`     | `postgres:16-alpine`   | `5436:5432` |
 | `api`    | `inovareti_api`    | Build local `./api`    | `8085:8085` |
 | `front`  | `inovareti_front`  | Build local `./front`  | `5173:80`   |
+| `redis`  | `inovareti_redis`  | `redis:alpine`         | (acesso interno: `redis:6379`)
 
 ### Rede
 
@@ -69,6 +70,11 @@ networks:
 | `./uploads`     | Arquivos enviados pelos usuários (NFs, anexos de chamados)    |
 
 O volume `./uploads` é montado como bind mount (`./uploads:/app/uploads`) para facilitar backup local em dev.
+
+Infraestrutura adicional:
+
+- Redis: O `docker-compose.yml` inclui o serviço `redis` utilizado como camada de estabilidade para caching e para o rate-limiter distribuído (`RedisRateLimiter`) usado pelo endpoint administrativo de ContaAzul. A aplicação obtém host/porta via variáveis de ambiente (`SPRING_REDIS_HOST`, `SPRING_REDIS_PORT`) e registra o bean `StringRedisTemplate` quando configurado.
+- Prometheus: o projeto expõe métricas via Micrometer/Actuator em `/api/actuator/prometheus`. A dependência `micrometer-registry-prometheus` está presente no POM; contudo, o Prometheus em si não está provisionado no `docker-compose.yml` e deve ser implantado separadamente (Helm/Kubernetes ou instância dedicada). Regras de alerta específicas estão em `docs/prometheus/contaazul-throttle-alerts.yml`.
 
 ### Healthcheck e ordem de inicialização
 

@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.domain.report;
 
-import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -8,28 +7,12 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.UUID;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Image;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.pdf.PdfWriter;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.Element;
-// using java.awt.Color for colors with OpenPDF
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -42,6 +25,16 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
+
+import com.lowagie.text.Element;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.Image;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
 
 import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransaction;
 import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransactionRepository;
@@ -411,7 +404,10 @@ public class ReportService {
             // Tabela profissional usando PdfPTable (7 colunas)
             PdfPTable table = new PdfPTable(7);
             table.setWidthPercentage(100f);
-            table.setWidths(new float[] {14f, 30f, 6f, 16f, 14f, 12f, 8f});
+            // Ajuste de larguras em percentuais (aproximados):
+            // Tipo 8%, Item 22%, Qtd 5%, Solicitante 18%, Setor 12%, Preço 15%, Data 20%
+            // Distribuição reduz 'Tipo' e 'Qtd' para garantir espaço suficiente na coluna 'Data'
+            table.setWidths(new float[] {8f, 22f, 5f, 18f, 12f, 15f, 20f});
             table.setSpacingBefore(6f);
 
             com.lowagie.text.Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, com.lowagie.text.Font.BOLD, java.awt.Color.WHITE);
@@ -468,7 +464,12 @@ public class ReportService {
                 PdfPCell c4 = new PdfPCell(new Phrase(requester, cellFont)); c4.setPadding(6f); c4.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c4);
                 PdfPCell c5 = new PdfPCell(new Phrase(sector, cellFont)); c5.setPadding(6f); c5.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c5);
                 PdfPCell c6 = new PdfPCell(new Phrase(priceStr, cellFont)); c6.setPadding(6f); c6.setHorizontalAlignment(Element.ALIGN_RIGHT); table.addCell(c6);
-                PdfPCell c7 = new PdfPCell(new Phrase(date, cellFont)); c7.setPadding(6f); c7.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c7);
+                PdfPCell c7 = new PdfPCell(new Phrase(date, cellFont));
+                c7.setPadding(6f);
+                c7.setHorizontalAlignment(Element.ALIGN_LEFT);
+                // Não permitir quebra de linha na coluna 'Data' para manter o formato "dd/MM/yyyy HH:mm" em uma única linha
+                c7.setNoWrap(true);
+                table.addCell(c7);
             }
 
             if (!rows.isEmpty()) {

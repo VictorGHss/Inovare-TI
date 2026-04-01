@@ -39,14 +39,12 @@ public class ContaAzulMetrics {
      * Inicializa o registro dos gauges após a injeção de dependências.
      *
      * Observação: este método é invocado pelo container do Spring através de
-     * {@code @PostConstruct}. Ferramentas de análise estática podem reportar este
-     * método como "não utilizado" (unused) porque a chamada é feita pelo runtime
-     * e não por referências Java explícitas; para evitar falsos positivos adicionamos
-     * {@code @SuppressWarnings("unused")} abaixo.
+     * {@code @PostConstruct}. O método precisa ser público para que analisadores
+     * e frameworks reconheçam sua finalidade sem dependências de suposições
+     * sobre modificadores de acesso. Comentários e explicações estão em Português.
      */
     @PostConstruct
-    @SuppressWarnings("unused")
-    private void init() {
+    public void init() {
         registerGauges();
     }
 

@@ -44,10 +44,15 @@ public class SecurityFilter extends OncePerRequestFilter {
         // Não aplicar o filtro para rotas de autenticação ou endpoints do ContaAzul.
         // Somente pular o filtro para endpoints públicos de autenticação (login, reset inicial).
         // Não pular rotas de 2FA que precisam do SecurityContext preenchido.
+        // Além dos endpoints de auth, também pular o filtro para endpoints do
+        // Actuator (ex.: /api/actuator/prometheus) para permitir que Prometheus
+        // colete métricas sem exigir um token JWT.
         return requestUri.contains("/auth/login")
             || requestUri.contains("/auth/reset-initial-password")
             || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
-            || requestUri.contains(CONTA_AZUL_CALLBACK_PATH);
+            || requestUri.contains(CONTA_AZUL_CALLBACK_PATH)
+            || requestUri.contains("/actuator/")
+            || requestUri.startsWith("/api/actuator/");
     }
 
     @Override

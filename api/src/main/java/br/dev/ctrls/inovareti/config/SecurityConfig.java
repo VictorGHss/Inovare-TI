@@ -53,6 +53,9 @@ public class SecurityConfig {
                 // as rotas podem chegar ao Security com ou sem o prefixo "/api".
                 // Liberamos ambas as formas para garantir que o endpoint de login funcione.
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                // Permitir acesso público aos endpoints do Actuator para que coletores
+                // de métricas (ex: Prometheus) possam ler /api/actuator/** sem JWT.
+                .requestMatchers("/actuator/**", "/api/actuator/**").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
                                  "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
                 .anyRequest().authenticated()

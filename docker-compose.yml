@@ -103,6 +103,27 @@ services:
     networks:
       - inovare_network
 
+  # Serviço Grafana para visualização de dashboards e integração com o frontend.
+  # Porta mapeada para evitar conflitos locais: HOST 3001 -> CONTAINER 3000
+  # As variáveis de ambiente abaixo permitem embedding no frontend e acesso
+  # anônimo para visualização rápida em ambientes de desenvolvimento.
+  # NOTA: habilitar acesso anônimo não é recomendado em produção.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: inovareti_grafana
+    restart: always
+    environment:
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - inovare_network
+
 networks:
   inovare_network:
     driver: bridge
@@ -111,3 +132,4 @@ volumes:
   postgres_data:
   redis_data:
   prometheus_data:
+  grafana_data:

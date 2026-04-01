@@ -132,6 +132,19 @@ Exemplo via curl para a API do Prometheus (consulta instantânea):
 curl "http://localhost:9095/api/v1/query?query=contaazul_force_refresh_throttled_total"
 ```
 
+### Grafana — Acesso e embedding
+
+- O Grafana foi adicionado ao `docker-compose.yml` para uso local e está disponível em `http://localhost:3001` (host:container `3001:3000`).
+- Credenciais padrão: `admin` / `admin` (altere no primeiro login em ambientes reais).
+- Para permitir embedding no frontend, o serviço Grafana foi configurado com `GF_SECURITY_ALLOW_EMBEDDING=true`.
+- Para visualização rápida em desenvolvimento, `GF_AUTH_ANONYMOUS_ENABLED=true` está habilitado; NÃO habilite acesso anônimo em produção.
+
+Para acessar dashboards e conectar o Prometheus como datasource dentro do Grafana:
+
+1. Abra `http://localhost:3001` e faça login como `admin`/`admin`.
+2. Adicione um Data Source do tipo Prometheus apontando para `http://prometheus:9090` (conectando via rede Docker interna).
+3. Importe ou crie dashboards conforme necessário.
+
 Observações de segurança e deploy:
 
 - Em produção prefira um Prometheus provisionado via Helm/Kubernetes; o serviço local é apenas para desenvolvimento e validação.

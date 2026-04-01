@@ -181,7 +181,7 @@ public class ContaAzulAutomationService {
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
 
-    @Value("${APP_CONTAAZUL_POLLING_INTERVAL_MS:300000}")
+    @Value("${CONTAAZUL_AUTOMATION_FIXED_DELAY_MS:300000}")
     private long contaAzulPollingIntervalMs;
 
     @Value("${app.contaazul.sales-v2-url}")
@@ -216,10 +216,11 @@ public class ContaAzulAutomationService {
          * consulta, valida mapeamento do médico, envia e-mail e marca idempotência.
          */
         @Scheduled(
-            // Usa a variável de ambiente APP_CONTAAZUL_POLLING_INTERVAL_MS para controlar
+            // Usa a variável de ambiente CONTAAZUL_AUTOMATION_FIXED_DELAY_MS para controlar
             // o intervalo entre o término de uma execução e o início da próxima.
-            // Espera-se que a variável seja definida em .env como 300000 (5 minutos).
-            fixedDelayString = "${APP_CONTAAZUL_POLLING_INTERVAL_MS}",
+            // Define um fallback obrigatório de 300000 ms (5 minutos) para evitar crash no boot
+            // caso a variável não esteja presente no ambiente.
+            fixedDelayString = "${CONTAAZUL_AUTOMATION_FIXED_DELAY_MS:300000}",
             initialDelayString = "${app.contaazul.automation.initial-delay-ms:180000}")
     public void processAcquittedSales() {
             /**

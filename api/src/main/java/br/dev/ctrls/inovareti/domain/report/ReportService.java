@@ -350,12 +350,14 @@ public class ReportService {
                     logo = Image.getInstance(bytes);
                 } else {
                     try {
-                        java.net.URL url = new java.net.URL("https://inovare.med.br/wp-content/uploads/2023/01/Logo.png");
+                        // Moderniza criação de URL para evitar uso do construtor deprecated
+                        java.net.URL url = java.net.URI.create("https://inovare.med.br/wp-content/uploads/2023/01/Logo.png").toURL();
                         try (java.io.InputStream is = url.openStream()) {
                             byte[] bytes = is.readAllBytes();
                             logo = Image.getInstance(bytes);
                         }
-                    } catch (Exception ex) {
+                    } catch (IOException | com.lowagie.text.BadElementException ex) {
+                        // Tratamento específico para falhas de IO ou elemento de imagem inválido
                         log.warn("Logo não encontrada em resources e falha ao buscar URL pública: {}", ex.getMessage());
                     }
                 }
@@ -364,7 +366,8 @@ public class ReportService {
                     logo.setAlignment(Image.ALIGN_LEFT);
                     document.add(logo);
                 }
-            } catch (Exception e) {
+            } catch (IOException | com.lowagie.text.DocumentException e) {
+                // Captura problemas ao adicionar o logo/elementos ao documento PDF
                 log.warn("Erro ao inserir logo no PDF: {}", e.getMessage());
             }
 
@@ -397,7 +400,8 @@ public class ReportService {
             }
 
             com.lowagie.text.Font subFont = FontFactory.getFont(FontFactory.HELVETICA, 10, com.lowagie.text.Font.NORMAL, java.awt.Color.BLACK);
-            Paragraph subtitle = new Paragraph("Relatório de Saídas - Período: " + periodStr + "    Gerado em: " + DATE_FORMATTER.format(LocalDateTime.now()), subFont);
+            // Usa `safe` para garantir valor padrão caso periodStr seja nulo
+            Paragraph subtitle = new Paragraph("Relatório de Saídas - Período: " + safe(periodStr) + "    Gerado em: " + DATE_FORMATTER.format(LocalDateTime.now()), subFont);
             subtitle.setSpacingAfter(8f);
             document.add(subtitle);
 
@@ -428,8 +432,9 @@ public class ReportService {
             int totalItems = 0;
 
             for (Ticket t : rows) {
-                String requester = t.getRequester() != null ? t.getRequester().getName() : "-";
-                String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
+                // Higieniza strings para evitar caracteres problemáticos no PDF
+                String requester = sanitizeForPdf(t.getRequester() != null ? t.getRequester().getName() : null);
+                String sector = sanitizeForPdf(t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : null);
                 int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
 
                 BigDecimal totalPrice = BigDecimal.ZERO;
@@ -452,11 +457,11 @@ public class ReportService {
                 tableTotalValue = tableTotalValue.add(totalPrice);
                 totalItems += qty;
 
-                String tipo = t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-";
-                String item = t.getRequestedItem() != null ? t.getRequestedItem().getName() : "-";
+                String tipo = sanitizeForPdf(t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : null);
+                String item = sanitizeForPdf(t.getRequestedItem() != null ? t.getRequestedItem().getName() : null);
                 String qtd = String.valueOf(qty);
-                String priceStr = CURRENCY_FORMATTER.format(totalPrice);
-                String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
+                String priceStr = sanitizeForPdf(CURRENCY_FORMATTER.format(totalPrice));
+                String date = sanitizeForPdf(t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : null);
 
                 PdfPCell c1 = new PdfPCell(new Phrase(tipo, cellFont)); c1.setPadding(6f); c1.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c1);
                 PdfPCell c2 = new PdfPCell(new Phrase(item, cellFont)); c2.setPadding(6f); c2.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c2);

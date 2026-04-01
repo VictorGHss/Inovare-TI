@@ -86,7 +86,8 @@ export default function Settings() {
         try {
           const cfg = await getAdminConfig();
           setDiscordWebhookStatus(cfg.discordWebhookStatus ?? (cfg.discordWebhookPresent ? 'PRESENT' : 'MISSING'));
-        } catch (err) {
+        } catch {
+          // Em caso de falha ao obter configuração de admin, considera webhook desconhecido
           setDiscordWebhookStatus(null);
         }
         // Agendamentos são carregados pelo componente ReportSchedulesSection

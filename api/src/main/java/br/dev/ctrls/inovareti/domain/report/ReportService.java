@@ -354,7 +354,7 @@ public class ReportService {
 
             PDPageContentStream content = new PDPageContentStream(document, page);
 
-            // Title (with Inovare brand color)
+            // Título (cor da marca Inovare)
             content.setNonStrokingColor(Color.decode("#feb56c"));
             content.beginText();
             content.setFont(bold, titleFontSize);
@@ -362,7 +362,7 @@ public class ReportService {
             content.showText("Inovare Serviços de Saúde");
             content.endText();
 
-            // Underline in brand color
+            // Sublinhado na cor da marca
             float titleWidth = (bold.getStringWidth(sanitizeForPdf("Inovare Serviços de Saúde")) / 1000f) * titleFontSize;
             content.setStrokingColor(Color.decode("#feb56c"));
             content.setLineWidth(1f);
@@ -370,7 +370,7 @@ public class ReportService {
             content.lineTo(startX + titleWidth + 6f, y - 4f);
             content.stroke();
 
-            // Reset color and move down
+            // Restaura cor e avança o cursor para baixo
             content.setNonStrokingColor(Color.BLACK);
             y -= 28f;
 
@@ -400,10 +400,10 @@ public class ReportService {
             // Log diagnóstico: quantos chamados válidos serão renderizados no PDF
             log.info("Relatório PDF: período {}. Chamados válidos para relatório: {}", periodStr, rows.size());
 
-            // Generation info
+            // Informações de geração
             String generatedAt = DATE_FORMATTER.format(LocalDateTime.now());
 
-            // Report subtitle: period and generated at
+            // Subtítulo do relatório: período e data de geração
             content.beginText();
             content.setFont(bold, headerFontSize);
             content.newLineAtOffset(startX, y);
@@ -419,13 +419,14 @@ public class ReportService {
             y -= 18f;
 
             // Definição explícita das larguras das colunas (percentual do espaço disponível)
+            // Mantemos larguras fixas de colunas para evitar sobreposição de texto no PDF.
             // Usamos 7 colunas fixas: Tipo, Item, Qtd, Solicitante, Setor, Preço Total, Data
-            // As somas abaixo totalizam ~100% para evitar sobreposição de texto.
+            // As somas abaixo totalizam ~100% para preservar o layout.
             float[] colPercent = new float[] {0.14f, 0.30f, 0.06f, 0.16f, 0.14f, 0.12f, 0.08f};
             float[] colWidths = new float[colPercent.length];
             for (int i = 0; i < colPercent.length; i++) colWidths[i] = tableWidth * colPercent[i];
 
-            // Draw header background
+            // Desenha o fundo do cabeçalho
             float headerHeight = rowHeight;
             float cellX = startX;
             content.setNonStrokingColor(new Color(240, 240, 240));
@@ -449,7 +450,7 @@ public class ReportService {
                 content.showText(sanitizeForPdf(headers[i]));
                 content.endText();
 
-                // border
+                // borda
                 content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
                 content.stroke();
 
@@ -458,7 +459,7 @@ public class ReportService {
 
             y -= headerHeight;
 
-            // Rows with zebra striping
+            // Linhas com alternância de cor (zebra)
             for (int idx = 0; idx < rows.size(); idx++) {
                 Ticket t = rows.get(idx);
 
@@ -468,9 +469,11 @@ public class ReportService {
                     document.addPage(page);
                     content = new PDPageContentStream(document, page);
                     // reset y to top of new page and redraw header
+                    // reinicia y para o topo da nova página e redesenha o cabeçalho
                     y = page.getMediaBox().getUpperRightY() - margin;
 
                     // redraw header background
+                    // redesenha o fundo do cabeçalho
                     cellX = startX;
                     content.setNonStrokingColor(new Color(240, 240, 240));
                     for (float w : colWidths) { content.addRect(cellX, y - headerHeight, w, headerHeight); content.fill(); cellX += w; }
@@ -501,6 +504,7 @@ public class ReportService {
                 }
 
                 // cell borders
+                // bordas das células
                 cellX = startX;
                 content.setStrokingColor(Color.LIGHT_GRAY);
                 content.setLineWidth(0.5f);
@@ -535,9 +539,10 @@ public class ReportService {
                     LocalDateTime closedLocal = t.getClosedAt() != null ? t.getClosedAt() : LocalDateTime.now();
                     LocalDate closedDate = closedLocal.toLocalDate();
 
-                    // Define início do dia (00:00:00.000) e fim do dia (23:59:59.999) em São Paulo
+                    // Define início do dia e fim do dia em São Paulo
+                    // Início: 00:00 via atStartOfDay(); Fim: uso de LocalTime.MAX para cobrir até 23:59:59.999999999
                     LocalDateTime startLocal = closedDate.atStartOfDay();
-                    LocalDateTime endLocal = LocalDateTime.of(closedDate, LocalTime.of(23, 59, 59, 999_000_000));
+                    LocalDateTime endLocal = closedDate.atTime(LocalTime.MAX);
 
                     // Converte os limites para UTC (instante equivalente) para uso nas queries
                     ZonedDateTime startZoned = startLocal.atZone(saoPaulo).withZoneSameInstant(ZoneOffset.UTC);
@@ -574,6 +579,7 @@ public class ReportService {
                         UUID requesterId = t.getRequester().getId();
                         UUID sectorId = t.getRequester().getSector() != null ? t.getRequester().getSector().getId() : null;
 
+                        int sectorCount = 0;
                         if (sectorId != null) {
                             var sectorTxs = transactionRepository.findByResourceTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
                                     FinancialTransaction.ResourceType.INVENTORY,
@@ -581,12 +587,14 @@ public class ReportService {
                                     sectorId,
                                     startOfDayUtc,
                                     endOfDayUtc);
-                            int sectorCount = sectorTxs != null ? sectorTxs.size() : 0;
+                            sectorCount = sectorTxs != null ? sectorTxs.size() : 0;
                             log.info("Relatório: Buscando transações por setor {} entre {} e {}. Encontradas: {} linhas", sectorId, startOfDayUtc, endOfDayUtc, sectorCount);
-                            for (FinancialTransaction tx : sectorTxs) {
-                                if (tx.getAmount() != null) {
-                                    totalPrice = totalPrice.add(tx.getAmount());
-                                    foundResourceType = tx.getResourceType();
+                            if (sectorTxs != null) {
+                                for (FinancialTransaction tx : sectorTxs) {
+                                    if (tx.getAmount() != null) {
+                                        totalPrice = totalPrice.add(tx.getAmount());
+                                        foundResourceType = tx.getResourceType();
+                                    }
                                 }
                             }
                         }
@@ -599,12 +607,18 @@ public class ReportService {
                                 endOfDayUtc);
                         int doctorCount = doctorTxs != null ? doctorTxs.size() : 0;
                         log.info("Relatório: Buscando transações por médico {} entre {} e {}. Encontradas: {} linhas", requesterId, startOfDayUtc, endOfDayUtc, doctorCount);
-                        for (FinancialTransaction tx : doctorTxs) {
-                            if (tx.getAmount() != null) {
-                                totalPrice = totalPrice.add(tx.getAmount());
-                                foundResourceType = tx.getResourceType();
+                        if (doctorTxs != null) {
+                            for (FinancialTransaction tx : doctorTxs) {
+                                if (tx.getAmount() != null) {
+                                    totalPrice = totalPrice.add(tx.getAmount());
+                                    foundResourceType = tx.getResourceType();
+                                }
                             }
                         }
+
+                        // Log de depuração consolidado com contagem total de transações encontradas no filtro
+                        int totalTxCount = matchedByTicket + sectorCount + doctorCount;
+                        log.debug("Filtro Relatório: {} até {} - Transações encontradas: {}", startOfDayUtc, endOfDayUtc, totalTxCount);
                     }
                 } catch (Exception e) {
                     log.warn("Erro ao buscar financial_transactions para o ticket {}: {}", t.getId(), e.getMessage());
@@ -626,7 +640,7 @@ public class ReportService {
                 // Ordem das células conforme o cabeçalho final de 7 colunas
                 String[] cells = new String[] { tipo, item, qtd, requester, sector, priceStr, date };
 
-                // draw cell texts, alinhar quantidade (index 2) e preço (index 5) à direita
+                // desenha textos das células; alinhar quantidade (index 2) e preço (index 5) à direita
                 cellX = startX;
                 for (int i = 0; i < cells.length; i++) {
                     if (i == 2 || i == 5) {
@@ -651,7 +665,7 @@ public class ReportService {
                 y -= rowHeight;
             }
 
-            // Summary
+            // Resumo
             int totalItems = 0;
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
@@ -717,5 +731,5 @@ public class ReportService {
         return s == null ? "-" : s;
     }
 
-    // removed unused truncate helper (no callers)
+    // removido helper de truncamento não utilizado (sem chamadores)
 }

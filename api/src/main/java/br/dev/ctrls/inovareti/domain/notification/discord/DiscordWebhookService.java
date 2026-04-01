@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -26,7 +27,6 @@ import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import org.springframework.transaction.annotation.Transactional;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -274,11 +274,11 @@ public class DiscordWebhookService {
     }
 
         private String resolveWebhookUrl(String configured, String settingKey) {
-            // 1) environment variable (preferred)
+            // 1) variável de ambiente (preferencial)
             String env = System.getenv("DISCORD_WEBHOOK_URL");
             if (StringUtils.hasText(env)) return env;
 
-            // 2) system_settings table
+            // 2) tabela system_settings
             try {
                 if (StringUtils.hasText(settingKey)) {
                     Optional<SystemSetting> maybe = systemSettingRepository.findById(settingKey);
@@ -290,13 +290,13 @@ public class DiscordWebhookService {
                 log.warn("Erro ao ler system_settings para chave {}: {}", settingKey, e.getMessage());
             }
 
-            // 3) configured property fallback
+            // 3) fallback para propriedade configurada
             if (StringUtils.hasText(configured)) return configured;
             return null;
         }
 
-        // Removed unused synchronous overload doSendOperationalAlert(String, String)
-        // to avoid unused-method warnings and keep only the ticket-specific sender.
+        // Removido overload síncrono não utilizado doSendOperationalAlert(String, String)
+        // para evitar warnings de método não utilizado e manter apenas o envio específico por chamado.
 
         private String resolveThumbnailUrl() {
             String env = System.getenv("DISCORD_THUMBNAIL_URL");
@@ -361,7 +361,7 @@ public class DiscordWebhookService {
             String openedAt = ticket != null && ticket.getCreatedAt() != null ? ticket.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "";
             embed.put("footer", Map.of("text", "Aberto em: " + openedAt));
 
-            // short description
+            // descrição resumida
             embed.put("description", ticket != null && ticket.getTitle() != null ? ticket.getTitle() : "-");
 
             embeds.add(embed);

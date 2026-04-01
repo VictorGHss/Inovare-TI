@@ -81,6 +81,41 @@ Verificar métricas do Prometheus via terminal:
 curl -u admin:admin123 http://localhost:8085/api/actuator/prometheus | grep contaazul
 ```
 
+### Prometheus — Conexão e exemplo de scrape
+
+- Observação: o Prometheus não está provisionado no `docker-compose.yml`. Em ambientes de staging/produção o coletor Prometheus deve ser implantado separadamente (por exemplo via Helm/Kubernetes ou instância dedicada) e configurado para fazer scrape do endpoint de métricas da API.
+
+- Endpoint de métricas exposto pela aplicação: `/api/actuator/prometheus` (a aplicação define `server.servlet.context-path=/api`).
+
+- Exemplo mínimo de configuração (`prometheus.yml`) para coletar métricas da API:
+
+```yaml
+scrape_configs:
+  - job_name: 'inovare-ti'
+    metrics_path: /api/actuator/prometheus
+    static_configs:
+      - targets: ['<API_HOST_OR_SERVICE>:8085']
+    # se a API exigir autenticação, use 'basic_auth' ou 'bearer_token' conforme abaixo
+    # basic_auth:
+    #   username: 'prometheus'
+    #   password: 'PROM_PASS'
+    # ou
+    # authorization: { type: Bearer, credentials: '<TOKEN>' }
+```
+
+- Kubernetes (exemplo com Service discovery): use o `metrics_path: /api/actuator/prometheus` e a service DNS interna, ex: `inovare-ti-service.namespace.svc.cluster.local:8085`.
+
+- Segurança: por padrão o Spring Security exige autenticação para a maioria das rotas. Para permitir que o Prometheus acesse o endpoint de métricas sem autenticação, opte por uma destas abordagens:
+  1. Permitir explicitamente `/actuator/prometheus` no `SecurityConfig` (apenas dentro da rede do cluster).
+  2. Configurar Prometheus com `basic_auth` ou `bearer_token` para usar credenciais seguras.
+  3. Executar o Prometheus em rede interna (via ServiceAccount/sidecar) para evitar exposição pública.
+
+- Métricas importantes expostas pela aplicação:
+  - `contaazul_force_refresh_throttled_total`
+  - `contaazul_last_refresh_timestamp`
+  - `contaazul_token_expires_at`
+
+
 Forçar o Refresh de Token via API (Admin):
 
 ```bash

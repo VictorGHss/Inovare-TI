@@ -1,16 +1,17 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.annotation.PostConstruct;
+import java.time.ZoneId;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.ZoneId;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 
 @Component
 public class ContaAzulMetrics {
@@ -36,20 +37,26 @@ public class ContaAzulMetrics {
 
     /**
      * Inicializa o registro dos gauges após a injeção de dependências.
-     * <p>
-     * A anotação {@code @PostConstruct} garante que este método seja executado após o construtor
-     * e a injeção de todas as dependências pelo Spring. Esta abordagem é preferível a chamar
-     * lógica de inicialização no construtor, pois evita problemas com chamadas a métodos
-     * que podem ser sobrescritos (warning "Overridable method call in constructor") e garante
-     * que o componente esteja totalmente configurado.
+     *
+     * Observação: este método é invocado pelo container do Spring através de
+     * {@code @PostConstruct}. Ferramentas de análise estática podem reportar este
+     * método como "não utilizado" (unused) porque a chamada é feita pelo runtime
+     * e não por referências Java explícitas; para evitar falsos positivos adicionamos
+     * {@code @SuppressWarnings("unused")} abaixo.
      */
     @PostConstruct
+    @SuppressWarnings("unused")
     private void init() {
         registerGauges();
     }
 
     private void registerGauges() {
+        // Registramos os gauges e emitimos um log amigável indicando onde o Prometheus
+        // pode coletar as métricas. Este log serve como "simulação" de verificação
+        // quando a aplicação sobe em ambientes onde não é possível executar uma
+        // requisição HTTP de verificação neste momento.
         log.info("Registrando gauges da Conta Azul");
+        log.info("Endpoint de métricas Prometheus: /api/actuator/prometheus (verifique com curl se a API estiver rodando)");
         registry.gauge("contaazul_token_expires_at", expiresAt);
         registry.gauge("contaazul_last_refresh_timestamp", refreshedAt);
     }

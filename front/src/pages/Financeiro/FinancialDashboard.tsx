@@ -334,7 +334,10 @@ export default function FinancialDashboard() {
                 }
               }}
               disabled={exporting}
-              className="ml-3 inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              /* Botão secundário: mantém fundo branco mas com borda e transição consistentes
+                 Utiliza `rounded-md` e `transition-colors` para aparência moderna e consistente
+                 com a paleta Inovare. */
+              className="ml-3 inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {exporting ? 'Exportando...' : 'Exportar Relatório de Consumo'}
             </button>
@@ -355,7 +358,9 @@ export default function FinancialDashboard() {
                   void handleSyncReceiptsNow();
                 }}
                 disabled={syncingReceipts}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                /* Botão de ação principal: agora usa a cor primária da Inovare.
+                   Fundo `brand.primary`, texto branco e hover em `brand.primary-dark`. */
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors ${syncingReceipts ? 'opacity-70 cursor-not-allowed' : 'bg-brand-primary hover:bg-brand-primary-dark'}`}
               >
                 {syncingReceipts ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
@@ -367,20 +372,21 @@ export default function FinancialDashboard() {
                   void handleTriggerTestReceipt();
                 }}
                 disabled={triggeringTestReceipt}
-                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                /* Botão secundário para ações de desenvolvimento/teste: usa a cor secundária da paleta Inovare.
+                   Comentários em português explicam a escolha visual. */
+                className={`rounded-md px-4 py-3 text-sm font-medium shadow-sm transition-colors ${triggeringTestReceipt ? 'opacity-70 cursor-not-allowed border border-slate-300 bg-white text-slate-700' : 'bg-brand-secondary text-slate-900 hover:bg-brand-primary'}`}
               >
                 {triggeringTestReceipt ? 'Enviando...' : 'Enviar Recibo de Teste (Dev)'}
               </button>
 
-              {/* Botão de atalho para o Grafana: abre o dashboard em nova aba. */}
+              {/* Botão de atalho para o Grafana: segue a paleta Inovare (primary-dark)
+                 Usa `rounded-lg` e `transition-colors` para consistência visual. */}
               <button
                 type="button"
                 onClick={() => {
-                  // Abre o dashboard do Grafana em uma nova aba (URL fixa de rede interna)
                   window.open('http://172.25.0.171:3001/dashboards', '_blank', 'noopener');
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-sm transition-colors hover:opacity-90"
-                style={{ backgroundColor: '#feb56c', color: 'white' }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow-sm transition-colors bg-brand-primary-dark text-white hover:bg-brand-primary"
               >
                 <Activity size={16} />
                 <span className="hidden sm:inline">Dashboard de Saúde</span>

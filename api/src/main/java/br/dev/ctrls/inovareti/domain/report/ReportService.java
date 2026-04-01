@@ -19,12 +19,17 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import com.lowagie.text.Document;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Image;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.pdf.PdfWriter;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.Element;
+// using java.awt.Color for colors with OpenPDF
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -334,48 +339,48 @@ public class ReportService {
      * Retorna o conteúdo em um ByteArrayInputStream pronto para envio. 
      */
     public ByteArrayInputStream exportInventoryExitsToPdf(List<Ticket> tickets) {
-        try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            PDPage page = new PDPage(PDRectangle.A4);
-            document.addPage(page);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        com.lowagie.text.Document document = new com.lowagie.text.Document(PageSize.A4, 50, 50, 50, 50);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
 
-            PDFont font = PDType1Font.HELVETICA;
-            PDFont bold = PDType1Font.HELVETICA_BOLD;
-            float fontSize = 10f;
-            float titleFontSize = 16f;
-            float headerFontSize = 11f;
-            float rowHeight = 18f;
+            // Cor da marca Inovare (#feb56c)
+            java.awt.Color inovareColor = new java.awt.Color(254, 181, 108);
 
-            float margin = 50f;
-            PDRectangle mediaBox = page.getMediaBox();
-            float pageWidth = mediaBox.getWidth();
-            float tableWidth = pageWidth - 2 * margin;
-            float startX = mediaBox.getLowerLeftX() + margin;
-            float y = mediaBox.getUpperRightY() - margin;
+            // Logo: tenta carregar de resources (/images/logo.png), se não existir tenta URL pública
+            try {
+                Image logo = null;
+                java.io.InputStream logoStream = ReportService.class.getResourceAsStream("/images/logo.png");
+                if (logoStream != null) {
+                    byte[] bytes = logoStream.readAllBytes();
+                    logo = Image.getInstance(bytes);
+                } else {
+                    try {
+                        java.net.URL url = new java.net.URL("https://inovare.med.br/wp-content/uploads/2023/01/Logo.png");
+                        try (java.io.InputStream is = url.openStream()) {
+                            byte[] bytes = is.readAllBytes();
+                            logo = Image.getInstance(bytes);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Logo não encontrada em resources e falha ao buscar URL pública: {}", ex.getMessage());
+                    }
+                }
+                if (logo != null) {
+                    logo.scaleToFit(140f, 60f);
+                    logo.setAlignment(Image.ALIGN_LEFT);
+                    document.add(logo);
+                }
+            } catch (Exception e) {
+                log.warn("Erro ao inserir logo no PDF: {}", e.getMessage());
+            }
 
-            PDPageContentStream content = new PDPageContentStream(document, page);
+            // Título e subtítulo
+            com.lowagie.text.Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, com.lowagie.text.Font.BOLD, inovareColor);
+            Paragraph title = new Paragraph("Inovare Serviços de Saúde", titleFont);
+            title.setAlignment(Element.ALIGN_LEFT);
+            document.add(title);
 
-            // Título (cor da marca Inovare)
-            content.setNonStrokingColor(Color.decode("#feb56c"));
-            content.beginText();
-            content.setFont(bold, titleFontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText("Inovare Serviços de Saúde");
-            content.endText();
-
-            // Sublinhado na cor da marca
-            float titleWidth = (bold.getStringWidth(sanitizeForPdf("Inovare Serviços de Saúde")) / 1000f) * titleFontSize;
-            content.setStrokingColor(Color.decode("#feb56c"));
-            content.setLineWidth(1f);
-            content.moveTo(startX, y - 4f);
-            content.lineTo(startX + titleWidth + 6f, y - 4f);
-            content.stroke();
-
-            // Restaura cor e avança o cursor para baixo
-            content.setNonStrokingColor(Color.BLACK);
-            y -= 28f;
-
-            // Prepara linhas: inclui chamados com itens solicitados.
-            // Aceita status RESOLVED ou CLOSED para cobrir diferentes fluxos de fechamento.
             java.util.List<Ticket> rows = new ArrayList<>();
             LocalDate periodStart = null;
             LocalDate periodEnd = null;
@@ -397,395 +402,107 @@ public class ReportService {
             } else {
                 periodStr = "-";
             }
-            // Log diagnóstico: quantos chamados válidos serão renderizados no PDF
-            log.info("Relatório PDF: período {}. Chamados válidos para relatório: {}", periodStr, rows.size());
 
-            // Informações de geração
-            String generatedAt = DATE_FORMATTER.format(LocalDateTime.now());
+            com.lowagie.text.Font subFont = FontFactory.getFont(FontFactory.HELVETICA, 10, com.lowagie.text.Font.NORMAL, java.awt.Color.BLACK);
+            Paragraph subtitle = new Paragraph("Relatório de Saídas - Período: " + periodStr + "    Gerado em: " + DATE_FORMATTER.format(LocalDateTime.now()), subFont);
+            subtitle.setSpacingAfter(8f);
+            document.add(subtitle);
 
-            // Subtítulo do relatório: período e data de geração
-            content.beginText();
-            content.setFont(bold, headerFontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText(sanitizeForPdf("Relatório de Saídas - Período: " + periodStr));
-            content.endText();
-            y -= 14f;
+            // Tabela profissional usando PdfPTable (7 colunas)
+            PdfPTable table = new PdfPTable(7);
+            table.setWidthPercentage(100f);
+            table.setWidths(new float[] {14f, 30f, 6f, 16f, 14f, 12f, 8f});
+            table.setSpacingBefore(6f);
 
-            content.beginText();
-            content.setFont(font, fontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText(sanitizeForPdf("Gerado em: " + generatedAt));
-            content.endText();
-            y -= 18f;
-
-            // Definição explícita das larguras das colunas (percentual do espaço disponível)
-            // Mantemos larguras fixas de colunas para evitar sobreposição de texto no PDF.
-            // Usamos 7 colunas fixas: Tipo, Item, Qtd, Solicitante, Setor, Preço Total, Data
-            // As somas abaixo totalizam ~100% para preservar o layout.
-            float[] colPercent = new float[] {0.14f, 0.30f, 0.06f, 0.16f, 0.14f, 0.12f, 0.08f};
-            float[] colWidths = new float[colPercent.length];
-            for (int i = 0; i < colPercent.length; i++) colWidths[i] = tableWidth * colPercent[i];
-
-            // Desenha o fundo do cabeçalho
-            float headerHeight = rowHeight;
-            float cellX = startX;
-            content.setNonStrokingColor(new Color(240, 240, 240));
-            for (float w : colWidths) {
-                content.addRect(cellX, y - headerHeight, w, headerHeight);
-                content.fill();
-                cellX += w;
-            }
-            content.setNonStrokingColor(Color.BLACK);
-
-            // Cabeçalhos finais exigidos: 'Tipo', 'Item', 'Qtd', 'Solicitante', 'Setor', 'Preço Total', 'Data'
+            com.lowagie.text.Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, com.lowagie.text.Font.BOLD, java.awt.Color.WHITE);
             String[] headers = {"Tipo", "Item", "Qtd", "Solicitante", "Setor", "Preço Total", "Data"};
-            cellX = startX;
-            content.setStrokingColor(Color.LIGHT_GRAY);
-            content.setLineWidth(0.5f);
-            for (int i = 0; i < headers.length; i++) {
-                // Escreve o texto do cabeçalho com sanitização para evitar caracteres inválidos no PDF
-                content.beginText();
-                content.setFont(bold, fontSize);
-                content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
-                content.showText(sanitizeForPdf(headers[i]));
-                content.endText();
-
-                // borda
-                content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
-                content.stroke();
-
-                cellX += colWidths[i];
+            for (String h : headers) {
+                PdfPCell hd = new PdfPCell(new Phrase(h, headerFont));
+                hd.setBackgroundColor(inovareColor);
+                hd.setBorderWidth(0.5f);
+                hd.setPadding(6f);
+                hd.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(hd);
             }
 
-            y -= headerHeight;
+            com.lowagie.text.Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 10, com.lowagie.text.Font.NORMAL, java.awt.Color.BLACK);
+            com.lowagie.text.Font cellFontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, com.lowagie.text.Font.BOLD, java.awt.Color.BLACK);
 
-            // Linhas com alternância de cor (zebra)
-            // Acumulador do total exibido na tabela (somatório dos preços por linha)
             BigDecimal tableTotalValue = BigDecimal.ZERO;
-            for (int idx = 0; idx < rows.size(); idx++) {
-                Ticket t = rows.get(idx);
+            int totalItems = 0;
 
-                if (y - margin < rowHeight) {
-                    content.close();
-                    page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    content = new PDPageContentStream(document, page);
-                    // reset y to top of new page and redraw header
-                    // reinicia y para o topo da nova página e redesenha o cabeçalho
-                    y = page.getMediaBox().getUpperRightY() - margin;
-
-                    // redraw header background
-                    // redesenha o fundo do cabeçalho
-                    cellX = startX;
-                    content.setNonStrokingColor(new Color(240, 240, 240));
-                    for (float w : colWidths) { content.addRect(cellX, y - headerHeight, w, headerHeight); content.fill(); cellX += w; }
-                    content.setNonStrokingColor(Color.BLACK);
-
-                    cellX = startX;
-                    content.setStrokingColor(Color.LIGHT_GRAY);
-                    content.setLineWidth(0.5f);
-                    for (int i = 0; i < headers.length; i++) {
-                        content.beginText();
-                        content.setFont(bold, fontSize);
-                        content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
-                        content.showText(headers[i]);
-                        content.endText();
-                        content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
-                        content.stroke();
-                        cellX += colWidths[i];
-                    }
-
-                    y -= headerHeight;
-                }
-
-                // zebra
-                if (idx % 2 == 0) {
-                    content.setNonStrokingColor(new Color(250, 250, 250));
-                    content.addRect(startX, y - rowHeight, tableWidth, rowHeight);
-                    content.fill();
-                }
-
-                // cell borders
-                // bordas das células
-                cellX = startX;
-                content.setStrokingColor(Color.LIGHT_GRAY);
-                content.setLineWidth(0.5f);
-                for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
-
-                // Garantir cor de texto preta antes de desenhar as células (evita texto invisível sobre fundo claro)
-                content.setNonStrokingColor(Color.BLACK);
-
-                // Prepara valores das células de acordo com os cabeçalhos solicitados
-                String tipo = safe(t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
-                String item = safe(t.getRequestedItem() != null ? t.getRequestedItem().getName() : "-");
-                // Proteção contra NullPointerException ao desencaixar (unboxing) de Integer para int.
-                // O valor pode vir nulo do banco; garantimos 0 como padrão usando Optional.
-                int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
-                String qtd = String.valueOf(qty);
-                String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
+            for (Ticket t : rows) {
+                String requester = t.getRequester() != null ? t.getRequester().getName() : "-";
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
+                int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
 
-                // 1) Prioriza valores registrados em financial_transactions para refletir a "Verdade Financeira".
-                //    Busca transações associadas ao chamado (ticket_id) filtrando por:
-                //      - resource_type = INVENTORY
-                //      - target_type IN (SECTOR, DOCTOR)
-                //    Além disso, limita por intervalo de data do dia de fechamento do chamado
-                //    considerando que o banco armazena timestamps em UTC.
                 BigDecimal totalPrice = BigDecimal.ZERO;
-                FinancialTransaction.ResourceType foundResourceType = null;
                 try {
-                    // Interpreta a data de fechamento do chamado no fuso de Brasília (America/Sao_Paulo)
-                    // e converte os limites do dia para UTC. Assim garantimos que uma transação
-                    // registrada no banco em UTC seja capturada mesmo que o horário do fechamento
-                    // seja em UTC-3 (horário de Brasília).
-                    ZoneId saoPaulo = ZoneId.of("America/Sao_Paulo");
-
-                    // Se closedAt for nulo, usamos o momento atual como referência (em SP)
-                    LocalDateTime closedLocal = t.getClosedAt() != null ? t.getClosedAt() : LocalDateTime.now();
-                    LocalDate closedDate = closedLocal.toLocalDate();
-
-                    // Define início do dia e fim do dia em São Paulo
-                    // Início: 00:00 via atStartOfDay(); Fim: uso de LocalTime.MAX para cobrir até 23:59:59.999999999
-                    LocalDateTime startLocal = closedDate.atStartOfDay();
-                    LocalDateTime endLocal = closedDate.atTime(LocalTime.MAX);
-
-                    // Converte os limites para UTC (instante equivalente) para uso nas queries
-                    ZonedDateTime startZoned = startLocal.atZone(saoPaulo).withZoneSameInstant(ZoneOffset.UTC);
-                    ZonedDateTime endZoned = endLocal.atZone(saoPaulo).withZoneSameInstant(ZoneOffset.UTC);
-                    LocalDateTime startOfDayUtc = startZoned.toLocalDateTime();
-                    LocalDateTime endOfDayUtc = endZoned.toLocalDateTime();
-
-                    // 1a) Tenta buscar transações vinculadas diretamente ao ticket
                     var txs = transactionRepository.findByTicketId(t.getId());
-                    int matchedByTicket = 0;
                     if (txs != null && !txs.isEmpty()) {
-                        java.util.List<FinancialTransaction> filtered = new ArrayList<>();
                         for (FinancialTransaction tx : txs) {
-                            if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
-                                    && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR)
-                                    && tx.getAmount() != null
-                                    && !tx.getCreatedAt().isBefore(startOfDayUtc)
-                                    && !tx.getCreatedAt().isAfter(endOfDayUtc)) {
-                                filtered.add(tx);
+                            if (tx.getAmount() != null && tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY) {
+                                totalPrice = totalPrice.add(tx.getAmount());
                             }
                         }
-                        matchedByTicket = filtered.size();
-                        log.info("Relatório: Buscando transações entre {} e {}. Encontradas: {} linhas (por ticket_id={})", startOfDayUtc, endOfDayUtc, matchedByTicket, t.getId());
-                        for (FinancialTransaction tx : filtered) {
-                            totalPrice = totalPrice.add(tx.getAmount());
-                            foundResourceType = tx.getResourceType();
-                        }
-                    } else {
-                        log.info("Relatório: Nenhuma transação encontrada por ticket_id={} para o período {} - {}", t.getId(), startOfDayUtc, endOfDayUtc);
-                    }
-
-                    // 1b) Se nada encontrado por ticket_id, tenta buscar por target (setor ou médico) do solicitante
-                    if (totalPrice.compareTo(BigDecimal.ZERO) <= 0 && t.getRequester() != null) {
-                        UUID requesterId = t.getRequester().getId();
-                        UUID sectorId = t.getRequester().getSector() != null ? t.getRequester().getSector().getId() : null;
-
-                        int sectorCount = 0;
-                        if (sectorId != null) {
-                            var sectorTxs = transactionRepository.findByResourceTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
-                                    FinancialTransaction.ResourceType.INVENTORY,
-                                    FinancialTransaction.TargetType.SECTOR,
-                                    sectorId,
-                                    startOfDayUtc,
-                                    endOfDayUtc);
-                            sectorCount = sectorTxs != null ? sectorTxs.size() : 0;
-                            log.info("Relatório: Buscando transações por setor {} entre {} e {}. Encontradas: {} linhas", sectorId, startOfDayUtc, endOfDayUtc, sectorCount);
-                            if (sectorTxs != null) {
-                                for (FinancialTransaction tx : sectorTxs) {
-                                    if (tx.getAmount() != null) {
-                                        totalPrice = totalPrice.add(tx.getAmount());
-                                        foundResourceType = tx.getResourceType();
-                                    }
-                                }
-                            }
-                        }
-
-                        var doctorTxs = transactionRepository.findByResourceTypeAndTargetTypeAndTargetIdAndCreatedAtBetween(
-                                FinancialTransaction.ResourceType.INVENTORY,
-                                FinancialTransaction.TargetType.DOCTOR,
-                                requesterId,
-                                startOfDayUtc,
-                                endOfDayUtc);
-                        int doctorCount = doctorTxs != null ? doctorTxs.size() : 0;
-                        log.info("Relatório: Buscando transações por médico {} entre {} e {}. Encontradas: {} linhas", requesterId, startOfDayUtc, endOfDayUtc, doctorCount);
-                        if (doctorTxs != null) {
-                            for (FinancialTransaction tx : doctorTxs) {
-                                if (tx.getAmount() != null) {
-                                    totalPrice = totalPrice.add(tx.getAmount());
-                                    foundResourceType = tx.getResourceType();
-                                }
-                            }
-                        }
-
-                        // Log de depuração consolidado com contagem total de transações encontradas no filtro
-                        int totalTxCount = matchedByTicket + sectorCount + doctorCount;
-                        log.debug("Filtro Relatório: {} até {} - Transações encontradas: {}", startOfDayUtc, endOfDayUtc, totalTxCount);
                     }
                 } catch (Exception e) {
-                    log.warn("Erro ao buscar financial_transactions para o ticket {}: {}", t.getId(), e.getMessage());
+                    log.warn("Erro ao buscar transações para ticket {}: {}", t.getId(), e.getMessage());
                 }
-
-                // 2) Se não houver lançamentos financeiros, usa cálculo alternativo já existente
                 if (totalPrice.compareTo(BigDecimal.ZERO) <= 0) {
                     totalPrice = calculateExitTotalPrice(t, qty);
                 }
 
-                // Se encontrarmos um resource_type nas transações, priorizamos o seu valor textual na coluna 'Tipo'
-                if (foundResourceType != null) {
-                    tipo = foundResourceType.toString();
-                }
+                tableTotalValue = tableTotalValue.add(totalPrice);
+                totalItems += qty;
 
+                String tipo = t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-";
+                String item = t.getRequestedItem() != null ? t.getRequestedItem().getName() : "-";
+                String qtd = String.valueOf(qty);
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);
                 String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
 
-                // Acumula valor para a linha de total da tabela
-                tableTotalValue = tableTotalValue.add(totalPrice);
-
-                // Ordem das células conforme o cabeçalho final de 7 colunas
-                String[] cells = new String[] { tipo, item, qtd, requester, sector, priceStr, date };
-
-                // desenha textos das células; alinhar quantidade (index 2) e preço (index 5) à direita
-                cellX = startX;
-                for (int i = 0; i < cells.length; i++) {
-                    if (i == 2 || i == 5) {
-                        String sanitized = sanitizeForPdf(cells[i]);
-                        float textWidth = (font.getStringWidth(sanitized) / 1000f) * fontSize;
-                        float tx = cellX + colWidths[i] - 4f - textWidth;
-                        content.beginText();
-                        content.setFont(font, fontSize);
-                        content.newLineAtOffset(tx, y - rowHeight + 4f);
-                        content.showText(sanitized);
-                        content.endText();
-                    } else {
-                        content.beginText();
-                        content.setFont(font, fontSize);
-                        content.newLineAtOffset(cellX + 4f, y - rowHeight + 4f);
-                        content.showText(sanitizeForPdf(cells[i]));
-                        content.endText();
-                    }
-                    cellX += colWidths[i];
-                }
-
-                y -= rowHeight;
+                PdfPCell c1 = new PdfPCell(new Phrase(tipo, cellFont)); c1.setPadding(6f); c1.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c1);
+                PdfPCell c2 = new PdfPCell(new Phrase(item, cellFont)); c2.setPadding(6f); c2.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c2);
+                PdfPCell c3 = new PdfPCell(new Phrase(qtd, cellFont)); c3.setPadding(6f); c3.setHorizontalAlignment(Element.ALIGN_RIGHT); table.addCell(c3);
+                PdfPCell c4 = new PdfPCell(new Phrase(requester, cellFont)); c4.setPadding(6f); c4.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c4);
+                PdfPCell c5 = new PdfPCell(new Phrase(sector, cellFont)); c5.setPadding(6f); c5.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c5);
+                PdfPCell c6 = new PdfPCell(new Phrase(priceStr, cellFont)); c6.setPadding(6f); c6.setHorizontalAlignment(Element.ALIGN_RIGHT); table.addCell(c6);
+                PdfPCell c7 = new PdfPCell(new Phrase(date, cellFont)); c7.setPadding(6f); c7.setHorizontalAlignment(Element.ALIGN_LEFT); table.addCell(c7);
             }
 
-            // Desenha uma linha de total na tabela (se houver linhas)
             if (!rows.isEmpty()) {
-                // Quebra de página se necessário antes da linha de total
-                if (y - margin < rowHeight) {
-                    content.close();
-                    page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    content = new PDPageContentStream(document, page);
-                    y = page.getMediaBox().getUpperRightY() - margin;
+                PdfPCell totalLabel = new PdfPCell(new Phrase("TOTAL", cellFontBold));
+                totalLabel.setColspan(5);
+                totalLabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                totalLabel.setPadding(6f);
+                totalLabel.setBorderWidthTop(1f);
+                table.addCell(totalLabel);
 
-                    // redesenha cabeçalho da tabela na nova página
-                    cellX = startX;
-                    content.setNonStrokingColor(new Color(240, 240, 240));
-                    for (float w : colWidths) { content.addRect(cellX, y - headerHeight, w, headerHeight); content.fill(); cellX += w; }
-                    content.setNonStrokingColor(Color.BLACK);
+                PdfPCell totalValueCell = new PdfPCell(new Phrase(CURRENCY_FORMATTER.format(tableTotalValue), cellFontBold));
+                totalValueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                totalValueCell.setPadding(6f);
+                totalValueCell.setBorderWidthTop(1f);
+                table.addCell(totalValueCell);
 
-                    cellX = startX;
-                    content.setStrokingColor(Color.LIGHT_GRAY);
-                    content.setLineWidth(0.5f);
-                    for (int i = 0; i < headers.length; i++) {
-                        content.beginText();
-                        content.setFont(bold, fontSize);
-                        content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
-                        content.showText(headers[i]);
-                        content.endText();
-                        content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
-                        content.stroke();
-                        cellX += colWidths[i];
-                    }
-
-                    y -= headerHeight;
-                }
-
-                // Fundo da linha de total
-                content.setNonStrokingColor(new Color(235, 235, 235));
-                content.addRect(startX, y - rowHeight, tableWidth, rowHeight);
-                content.fill();
-
-                // Borda da linha de total
-                cellX = startX;
-                content.setStrokingColor(Color.LIGHT_GRAY);
-                content.setLineWidth(0.5f);
-                for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
-
-                // Texto da linha de total: 'TOTAL' na primeira coluna e valor na coluna de preço (index 5)
-                content.setNonStrokingColor(Color.BLACK);
-                cellX = startX;
-                // Escreve 'TOTAL' na primeira célula
-                content.beginText();
-                content.setFont(bold, fontSize);
-                content.newLineAtOffset(cellX + 4f, y - rowHeight + 4f);
-                content.showText("TOTAL");
-                content.endText();
-
-                // Escreve valor total alinhado à direita na coluna de preço (index 5)
-                String totalStr = CURRENCY_FORMATTER.format(tableTotalValue);
-                float priceColX = startX;
-                for (int i = 0; i < 5; i++) priceColX += colWidths[i];
-                float textWidth = (bold.getStringWidth(totalStr) / 1000f) * fontSize;
-                float tx = priceColX + colWidths[5] - 4f - textWidth;
-                content.beginText();
-                content.setFont(bold, fontSize);
-                content.newLineAtOffset(tx, y - rowHeight + 4f);
-                content.showText(totalStr);
-                content.endText();
-
-                y -= rowHeight;
+                PdfPCell empty = new PdfPCell(new Phrase("")); empty.setPadding(6f); empty.setBorderWidthTop(1f); table.addCell(empty);
             }
 
-            // Resumo
-            int totalItems = 0;
-            BigDecimal totalValue = BigDecimal.ZERO;
-            for (Ticket t : rows) {
-                // Proteção contra NullPointerException ao desencaixar (unboxing) de Integer para int
-                // ao somar o total de itens do período. Usamos Optional para garantir 0 se nulo.
-                int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
-                totalItems += qty;
-                totalValue = totalValue.add(calculateExitTotalPrice(t, qty));
-            }
+            document.add(table);
 
-            y -= 8f;
-                    content.beginText();
-                    content.setFont(bold, headerFontSize);
-                    content.newLineAtOffset(startX, y);
-                    content.showText(sanitizeForPdf("Resumo do Período"));
-                    content.endText();
-            y -= 14f;
+            Paragraph resumoTitle = new Paragraph("Resumo do Período", cellFontBold);
+            resumoTitle.setSpacingBefore(8f);
+            document.add(resumoTitle);
 
-            content.beginText();
-            content.setFont(font, fontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText(sanitizeForPdf("Total de Itens Baixados: " + totalItems));
-            content.endText();
-            y -= 12f;
-
-            content.beginText();
-            content.setFont(font, fontSize);
-            content.newLineAtOffset(startX, y);
-            content.showText(sanitizeForPdf("Valor Total do Consumo: " + CURRENCY_FORMATTER.format(totalValue)));
-            content.endText();
-
-            content.close();
-            document.save(out);
-
-            // Log diagnóstico final: tamanho do PDF gerado e soma do relatório
-            log.info("Relatório PDF gerado: bytes={} linhas={} totalItems={} valorTotal={}", out.size(), rows.size(), totalItems, CURRENCY_FORMATTER.format(totalValue));
+            Paragraph resumo = new Paragraph("Total de Itens Baixados: " + totalItems + "    Valor Total do Consumo: " + CURRENCY_FORMATTER.format(tableTotalValue), cellFont);
+            document.add(resumo);
 
             document.close();
-
             return new ByteArrayInputStream(out.toByteArray());
-        } catch (IOException e) {
-            log.error("Error generating PDF report for inventory exits", e);
-            throw new RuntimeException("Failed to generate PDF report", e);
+        } catch (Exception e) {
+            log.error("Erro ao gerar PDF profissional de saídas", e);
+            if (document.isOpen()) document.close();
+            throw new RuntimeException("Failed to generate professional PDF report", e);
         }
     }
 

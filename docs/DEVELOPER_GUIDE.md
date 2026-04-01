@@ -219,11 +219,13 @@ Para testes locais use `MailHog` ou similar; para unit tests, mockar `JavaMailSe
 
 ---
 
-## Relatórios PDF (PDFBox)
+## Relatórios PDF (OpenPDF / PdfPTable)
 
-- O serviço `ReportService.exportInventoryExitsToPdf` utiliza Apache PDFBox para renderizar tabelas manualmente.
-- Correções recentes aplicadas:
-    - Reset explícito da cor do texto para preto antes de desenhar células (evita PDFs com linhas "invisíveis" quando o fundo é claro).
-    - Adição de uma linha de `TOTAL` ao final da tabela com o somatório dos valores exibidos por linha.
-    - Paginação automática preservada: cabeçalho da tabela é redesenhado em novas páginas quando necessário.
-- Observação: se for necessário um renderer de tabelas mais rico (ex.: iText ou bibliotecas de tabela específicas), considerar migrar abrindo uma issue para avaliar impacto.
+- O serviço `ReportService.exportInventoryExitsToPdf` agora usa a biblioteca OpenPDF (API compatível com iText) e `PdfPTable` para gerar uma tabela profissional.
+- Alterações principais:
+    - Inclusão de logo (tenta carregar `src/main/resources/images/logo.png`, com fallback para URL pública) no cabeçalho do PDF.
+    - Cabeçalho da tabela com cor da marca Inovare (`#feb56c`) e fonte em branco para contraste.
+    - Uso de `PdfPTable` para garantir colunas reais, larguras fixas e alinhamentos (quantidades e valores à direita; textos à esquerda).
+    - Linha `TOTAL` ao final da tabela com somatório financeiro e resumo abaixo da tabela.
+    - Comentários em código mantidos em português e paginação tratada pela API de PDF.
+ - Observação: se for necessário trocar a biblioteca por iText comercial, abrir discussão sobre licenciamento.

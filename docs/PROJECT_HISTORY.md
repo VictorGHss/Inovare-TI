@@ -50,6 +50,8 @@ Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi pres
 - Regras de alerta: existe uma regra Prometheus dedicada em `docs/prometheus/contaazul-throttle-alerts.yml` (alerta `ContaAzulForceRefreshThrottled`, expressão `increase(contaazul_force_refresh_throttled_total[5m]) > 0`).
 - Observação operacional: o `docker-compose.yml` provisiona o `redis`, porém o Prometheus não está incluído no compose e deve ser provisionado separadamente (por exemplo via Helm/Kubernetes ou instância dedicada) para coleta e alerting em staging/produção.
 
+- Implementação de Healthchecks e otimização de polling (01/04/2026): adicionado `healthcheck` ao serviço `redis` no `docker-compose.yml` e ajustado o `ContaAzulAutomationService` para usar a variável `APP_CONTAAZUL_POLLING_INTERVAL_MS`, garantindo que o ciclo de polling só inicie após o término do ciclo anterior.
+
 ### 🔲 Fase 11 — Documentação e Deploy (Em andamento)
 - Documentar endpoints restantes, atualizar CI/CD e validar playbook de rollback.
 

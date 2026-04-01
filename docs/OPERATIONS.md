@@ -73,6 +73,25 @@ WHERE id = (SELECT id FROM contaazul_oauth_tokens ORDER BY updated_at DESC LIMIT
 
 Expor `management.endpoints.web.exposure.include=prometheus,health` em ambientes de monitoramento.
 
+Redis Healthcheck:
+
+- O `docker-compose.yml` agora inclui um `healthcheck` para o serviço `redis` que executa `redis-cli ping` periodicamente. Isso protege a subida do sistema garantindo que a API e outros serviços dependentes não iniciem antes que o cache esteja pronto para uso.
+- A API foi configurada para depender do Redis via `depends_on: condition: service_healthy`, evitando que o processo de polling/automação (ContaAzul) inicie antes do Redis estar totalmente operacional.
+
+Importância operacional:
+
+- Evita que a aplicação tente usar o Redis durante o bootstrap, reduzindo erros de conexão (ex.: refused/connection reset) e exceções na inicialização dos jobs agendados.
+- Previne que o `ContaAzulAutomationService` execute antes do cache/distribuição de rate-limiter estar pronta, o que poderia causar falhas de throttling e tentativas duplicadas.
+
+Configuração recomendada (desenvolvimento local):
+
+- `interval`: 5s
+- `timeout`: 3s
+- `retries`: 5
+
+Essas configurações equilibram sensibilidade e robustez para detecção rápida de readiness em ambiente de desenvolvimento local.
+
+
 Verificações rápidas via terminal
 
 Verificar métricas do Prometheus via terminal:

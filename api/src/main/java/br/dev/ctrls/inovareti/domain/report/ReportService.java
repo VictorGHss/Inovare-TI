@@ -8,13 +8,16 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -520,27 +523,48 @@ public class ReportService {
                 BigDecimal totalPrice = BigDecimal.ZERO;
                 FinancialTransaction.ResourceType foundResourceType = null;
                 try {
-                        // Interpreta a data de fechamento do chamado considerando UTC (base do banco)
-                        java.time.LocalDate txDate = t.getClosedAt() != null
-                            ? t.getClosedAt().atOffset(ZoneOffset.UTC).toLocalDate()
-                            : java.time.LocalDate.now(ZoneOffset.UTC);
-                        // Define início e fim do dia (inclusivo até 23:59:59.999999999) para o dia UTC
-                        LocalDateTime startOfDayUtc = txDate.atStartOfDay();
-                        LocalDateTime endOfDayUtc = txDate.atTime(java.time.LocalTime.MAX);
+                    // Interpreta a data de fechamento do chamado no fuso de Brasília (America/Sao_Paulo)
+                    // e converte os limites do dia para UTC. Assim garantimos que uma transação
+                    // registrada no banco em UTC seja capturada mesmo que o horário do fechamento
+                    // seja em UTC-3 (horário de Brasília).
+                    ZoneId saoPaulo = ZoneId.of("America/Sao_Paulo");
+
+                    // Se closedAt for nulo, usamos o momento atual como referência (em SP)
+                    LocalDateTime closedLocal = t.getClosedAt() != null ? t.getClosedAt() : LocalDateTime.now();
+                    LocalDate closedDate = closedLocal.toLocalDate();
+
+                    // Define início do dia (00:00:00.000) e fim do dia (23:59:59.999) em São Paulo
+                    LocalDateTime startLocal = closedDate.atStartOfDay();
+                    LocalDateTime endLocal = LocalDateTime.of(closedDate, LocalTime.of(23, 59, 59, 999_000_000));
+
+                    // Converte os limites para UTC (instante equivalente) para uso nas queries
+                    ZonedDateTime startZoned = startLocal.atZone(saoPaulo).withZoneSameInstant(ZoneOffset.UTC);
+                    ZonedDateTime endZoned = endLocal.atZone(saoPaulo).withZoneSameInstant(ZoneOffset.UTC);
+                    LocalDateTime startOfDayUtc = startZoned.toLocalDateTime();
+                    LocalDateTime endOfDayUtc = endZoned.toLocalDateTime();
 
                     // 1a) Tenta buscar transações vinculadas diretamente ao ticket
                     var txs = transactionRepository.findByTicketId(t.getId());
+                    int matchedByTicket = 0;
                     if (txs != null && !txs.isEmpty()) {
+                        java.util.List<FinancialTransaction> filtered = new ArrayList<>();
                         for (FinancialTransaction tx : txs) {
                             if (tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
                                     && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR)
                                     && tx.getAmount() != null
                                     && !tx.getCreatedAt().isBefore(startOfDayUtc)
                                     && !tx.getCreatedAt().isAfter(endOfDayUtc)) {
-                                totalPrice = totalPrice.add(tx.getAmount());
-                                foundResourceType = tx.getResourceType();
+                                filtered.add(tx);
                             }
                         }
+                        matchedByTicket = filtered.size();
+                        log.info("Relatório: Buscando transações entre {} e {}. Encontradas: {} linhas (por ticket_id={})", startOfDayUtc, endOfDayUtc, matchedByTicket, t.getId());
+                        for (FinancialTransaction tx : filtered) {
+                            totalPrice = totalPrice.add(tx.getAmount());
+                            foundResourceType = tx.getResourceType();
+                        }
+                    } else {
+                        log.info("Relatório: Nenhuma transação encontrada por ticket_id={} para o período {} - {}", t.getId(), startOfDayUtc, endOfDayUtc);
                     }
 
                     // 1b) Se nada encontrado por ticket_id, tenta buscar por target (setor ou médico) do solicitante
@@ -555,6 +579,8 @@ public class ReportService {
                                     sectorId,
                                     startOfDayUtc,
                                     endOfDayUtc);
+                            int sectorCount = sectorTxs != null ? sectorTxs.size() : 0;
+                            log.info("Relatório: Buscando transações por setor {} entre {} e {}. Encontradas: {} linhas", sectorId, startOfDayUtc, endOfDayUtc, sectorCount);
                             for (FinancialTransaction tx : sectorTxs) {
                                 if (tx.getAmount() != null) {
                                     totalPrice = totalPrice.add(tx.getAmount());
@@ -569,6 +595,8 @@ public class ReportService {
                                 requesterId,
                                 startOfDayUtc,
                                 endOfDayUtc);
+                        int doctorCount = doctorTxs != null ? doctorTxs.size() : 0;
+                        log.info("Relatório: Buscando transações por médico {} entre {} e {}. Encontradas: {} linhas", requesterId, startOfDayUtc, endOfDayUtc, doctorCount);
                         for (FinancialTransaction tx : doctorTxs) {
                             if (tx.getAmount() != null) {
                                 totalPrice = totalPrice.add(tx.getAmount());

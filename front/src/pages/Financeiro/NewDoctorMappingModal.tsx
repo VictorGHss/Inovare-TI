@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Stethoscope, UserPlus2, X, RefreshCw, SearchCheck } from 'lucide-react';
+import { Loader2, Stethoscope, UserPlus2, X, RefreshCw, SearchCheck, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   checkContaAzulCustomerByEmail,
@@ -10,7 +10,9 @@ import {
 } from '../../services/api';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
+
+const labelClassName = 'block text-xs font-bold uppercase tracking-widest text-slate-400';
 
 const customerNotFoundMessage =
   'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';
@@ -28,9 +30,6 @@ interface FormState {
   doctorEmail: string;
 }
 
-/**
- * Modal de criação de mapeamento entre cliente da Conta Azul e e-mail real do médico.
- */
 export default function NewDoctorMappingModal({
   isOpen,
   onClose,
@@ -54,10 +53,7 @@ export default function NewDoctorMappingModal({
   );
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
+    if (!isOpen) return;
     void loadUsers();
   }, [isOpen]);
 
@@ -75,12 +71,7 @@ export default function NewDoctorMappingModal({
   }
 
   function resetForm() {
-    setFormState({
-      userId: '',
-      doctorName: '',
-      contaAzulCustomerUuid: '',
-      doctorEmail: '',
-    });
+    setFormState({ userId: '', doctorName: '', contaAzulCustomerUuid: '', doctorEmail: '' });
   }
 
   function handleClose() {
@@ -184,39 +175,48 @@ export default function NewDoctorMappingModal({
     }
   }
 
-  if (!isOpen) {
-    return null;
-  }
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-3xl bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">Novo Mapeamento</h2>
-            <p className="mt-1 text-xs text-slate-500">Integração de médico para envio automático de recibos</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+
+        {/* Modal header with brand accent strip */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-brand-primary to-brand-primary-dark" />
+
+        <header className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-secondary/60">
+              <UserRound size={18} className="text-brand-primary-dark" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Novo Mapeamento</h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Integração de médico para envio automático de recibos
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             title="Fechar modal"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </header>
 
-        {/* Formulário de integração com o endpoint POST /api/financeiro/doctor-mappings */}
         <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4 p-6">
-          <label className="block text-sm font-medium text-slate-500">
-            Usuário Vinculado (opcional)
+
+          {/* Linked user */}
+          <div>
+            <label className={labelClassName}>Usuário Vinculado (opcional)</label>
             <select
               value={formState.userId}
               onChange={(event) => {
                 const nextUserId = event.target.value;
                 const user = users.find((candidate) => candidate.id === nextUserId);
-
                 setFormState((prev) => ({
                   ...prev,
                   userId: nextUserId,
@@ -224,7 +224,7 @@ export default function NewDoctorMappingModal({
                   doctorEmail: user?.email ?? prev.doctorEmail,
                 }));
               }}
-              className={`${inputClassName} mt-1.5`}
+              className={`${inputClassName} mt-2`}
               disabled={submitting || loadingUsers}
             >
               <option value="">Sem vínculo (usar fallback manual)</option>
@@ -234,12 +234,13 @@ export default function NewDoctorMappingModal({
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium text-slate-500">
-            Nome do Médico
-            <div className="relative mt-1.5">
-              <Stethoscope size={16} className="pointer-events-none absolute left-3 top-3 text-slate-400" />
+          {/* Doctor name */}
+          <div>
+            <label className={labelClassName}>Nome do Médico</label>
+            <div className="relative mt-2">
+              <Stethoscope size={15} className="pointer-events-none absolute left-3.5 top-3 text-slate-400" />
               <input
                 type="text"
                 value={formState.doctorName}
@@ -250,24 +251,26 @@ export default function NewDoctorMappingModal({
                 disabled={submitting || Boolean(selectedUser)}
               />
             </div>
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium text-slate-500">
-            UUID do Cliente Conta Azul
+          {/* Conta Azul UUID */}
+          <div>
+            <label className={labelClassName}>UUID do Cliente Conta Azul</label>
             <input
               type="text"
               value={formState.contaAzulCustomerUuid}
               onChange={(event) => setFormState((prev) => ({ ...prev, contaAzulCustomerUuid: event.target.value }))}
-              className={`${inputClassName} mt-1.5`}
+              className={`${inputClassName} mt-2 font-mono text-xs`}
               placeholder="Ex.: 8fd57bc1-5c1f-4ef5-9a2e-..."
               maxLength={64}
               required
             />
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium text-slate-500">
-            E-mail de Destino
-            <div className="mt-1.5 space-y-2">
+          {/* Doctor email */}
+          <div>
+            <label className={labelClassName}>E-mail de Destino</label>
+            <div className="mt-2 space-y-2">
               <div className="flex items-center gap-2">
                 <input
                   type="email"
@@ -280,44 +283,47 @@ export default function NewDoctorMappingModal({
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    void handleCheckContaAzulCustomerByEmail();
-                  }}
+                  onClick={() => { void handleCheckContaAzulCustomerByEmail(); }}
                   disabled={submitting || Boolean(selectedUser) || checkingContaAzulCustomer}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {checkingContaAzulCustomer ? <Loader2 size={14} className="animate-spin" /> : <SearchCheck size={14} />}
+                  {checkingContaAzulCustomer
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <SearchCheck size={13} />}
                   {checkingContaAzulCustomer ? 'Buscando...' : 'Verificar'}
                 </button>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  void handlePullContaAzulEmail();
-                }}
+                onClick={() => { void handlePullContaAzulEmail(); }}
                 disabled={submitting || Boolean(selectedUser) || pullingContaAzulEmail}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-brand-primary/30 bg-brand-secondary/30 px-3 py-2 text-xs font-semibold text-brand-primary-dark transition-colors hover:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pullingContaAzulEmail ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                Puxar do Conta Azul
+                {pullingContaAzulEmail
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <RefreshCw size={13} />}
+                Puxar e-mail do Conta Azul
               </button>
             </div>
-          </label>
+          </div>
 
-          <footer className="flex items-center justify-end gap-3 pt-1">
+          {/* Footer actions */}
+          <footer className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4 mt-2">
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-500 transition-colors hover:text-slate-700"
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <UserPlus2 size={16} />}
+              {submitting
+                ? <Loader2 size={15} className="animate-spin" />
+                : <UserPlus2 size={15} />}
               {submitting ? 'Salvando...' : 'Salvar Mapeamento'}
             </button>
           </footer>

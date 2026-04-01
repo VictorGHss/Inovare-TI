@@ -8,6 +8,9 @@ import {
   RefreshCw,
   Wallet,
   Activity,
+  FileDown,
+  LayoutDashboard,
+  Settings2,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -110,7 +113,6 @@ export default function FinancialDashboard() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Carrega mapeamentos usados pelo backend para envio automático dos recibos.
   const reloadDoctorMappings = useCallback(async () => {
     try {
       setLoadingDoctorMappings(true);
@@ -145,14 +147,12 @@ export default function FinancialDashboard() {
         getDashboardAnalytics(),
       ]);
 
-      // set results with safety checks
       setSummary(summaryData ?? null);
       setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
       setAnalytics(analyticsData ?? null);
       await reloadDoctorMappings();
     } catch (err) {
-      // Se alguma requisição falhar, garantir valores padrão para a UI em vez de respostas inesperadas
       console.error('Erro ao carregar dados do dashboard financeiro', err);
       toast.error('Não foi possível carregar dados financeiros.');
       setSummary(null);
@@ -210,17 +210,16 @@ export default function FinancialDashboard() {
 
   if (loading) {
     return (
-      <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8">
+      <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8 bg-orange-50/30 min-h-screen">
         <div className="grid gap-6 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-36 animate-pulse rounded-3xl border border-slate-200 bg-white shadow-sm" />
+            <div key={index} className="h-36 animate-pulse rounded-3xl border border-orange-100 bg-white shadow-sm" />
           ))}
         </div>
       </main>
     );
   }
 
-  // O painel local é prioridade — não bloqueamos por ausência de integração externa.
   const currency = summary?.currency ?? 'BRL';
 
   const metricCards = [
@@ -229,85 +228,115 @@ export default function FinancialDashboard() {
       value: formatCurrency(summary?.balanceCents, currency),
       helper: 'Posição consolidada do financeiro na Conta Azul.',
       icon: Wallet,
-      tone: 'bg-emerald-50 text-emerald-700',
+      iconBg: 'bg-brand-secondary',
+      iconColor: 'text-brand-primary-dark',
+      accent: 'border-l-brand-primary',
     },
     {
       title: 'Total Pendente',
       value: formatCurrency(summary?.totalPendingCents, currency),
       helper: 'Valores ainda pendentes de quitação.',
       icon: DollarSign,
-      tone: 'bg-sky-50 text-sky-700',
+      iconBg: 'bg-sky-50',
+      iconColor: 'text-sky-600',
+      accent: 'border-l-sky-400',
     },
     {
       title: 'Total Pago',
       value: formatCurrency(summary?.totalPaidCents, currency),
       helper: 'Valores já recebidos e conciliados.',
       icon: Landmark,
-      tone: 'bg-violet-50 text-violet-700',
+      iconBg: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
+      accent: 'border-l-emerald-400',
     },
     {
       title: 'Alertas Pendentes',
       value: String(unresolvedAlerts.length),
       helper: 'Ocorrências que ainda exigem acompanhamento.',
       icon: AlertTriangle,
-      tone: 'bg-amber-50 text-amber-700',
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+      accent: 'border-l-amber-400',
     },
   ];
 
   return (
-    <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8">
-      <section className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8 bg-orange-50/20 min-h-screen">
+
+      {/* ── Page Header ── */}
+      <section className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-            Consumo Interno
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-primary/30 bg-brand-secondary/60 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-brand-primary-dark">
+            Inovare · Financeiro
           </span>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">Dashboard Financeiro</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Acompanhe o faturamento e consumo interno por setor e médico.</p>
+          <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900">
+            Dashboard Financeiro
+          </h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
+            Acompanhe o faturamento e consumo interno por setor e médico.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            <label className="text-[11px] text-slate-500">Data Início</label>
+        {/* Date range pickers */}
+        <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              Data Início
+            </label>
             <input
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition"
             />
           </div>
-
-          <div className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            <label className="text-[11px] text-slate-500">Data Fim</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+              Data Fim
+            </label>
             <input
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 focus:border-brand-primary focus:outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition"
             />
           </div>
         </div>
       </section>
 
-      <div className="mt-4 flex items-center gap-4">
+      {/* ── Tab Navigation ── */}
+      <div className="mb-6 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm w-fit">
         <button
           onClick={() => setActiveTab('local')}
           aria-selected={activeTab === 'local'}
-          className={`px-4 py-2 rounded-2xl ${activeTab === 'local' ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-700 border border-slate-200'}`}
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'local'
+              ? 'bg-brand-primary text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
         >
+          <LayoutDashboard size={15} />
           Consumo Local
         </button>
         <button
           onClick={() => setActiveTab('integration')}
           aria-selected={activeTab === 'integration'}
-          className={`px-4 py-2 rounded-2xl ${activeTab === 'integration' ? 'bg-sky-100 text-sky-800' : 'bg-white text-slate-700 border border-slate-200'}`}
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'integration'
+              ? 'bg-brand-primary text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
         >
-          Configurações de Integração
+          <Settings2 size={15} />
+          Integração
         </button>
       </div>
 
+      {/* ── TAB: Consumo Local ── */}
       {activeTab === 'local' ? (
         <>
-          <div className="mt-4 flex items-center justify-end">
+          <div className="flex items-center justify-end">
             <button
               onClick={async () => {
                 if (startDate > endDate) {
@@ -334,157 +363,167 @@ export default function FinancialDashboard() {
                 }
               }}
               disabled={exporting}
-              /* Botão secundário: mantém fundo branco mas com borda e transição consistentes
-                 Utiliza `rounded-md` e `transition-colors` para aparência moderna e consistente
-                 com a paleta Inovare. */
-              className="ml-3 inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl border border-brand-primary/40 bg-white px-4 py-2.5 text-sm font-semibold text-brand-primary-dark shadow-sm transition-colors hover:bg-brand-secondary/40 disabled:cursor-not-allowed disabled:opacity-70"
             >
+              <FileDown size={15} />
               {exporting ? 'Exportando...' : 'Exportar Relatório de Consumo'}
             </button>
           </div>
           <InternalConsumptionPanel startDate={startDate} endDate={endDate} />
         </>
       ) : (
-        <section className="mt-6 space-y-6">
+        /* ── TAB: Integração ── */
+        <section className="space-y-6">
+
+          {/* Action bar */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-              Última atualização do token: <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Última atualização:{' '}
+              <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => {
-                  void handleSyncReceiptsNow();
-                }}
+                onClick={() => { void handleSyncReceiptsNow(); }}
                 disabled={syncingReceipts}
-                /* Botão de ação principal: agora usa a cor primária da Inovare.
-                   Fundo `brand.primary`, texto branco e hover em `brand.primary-dark`. */
-                className={`inline-flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors ${syncingReceipts ? 'opacity-70 cursor-not-allowed' : 'bg-brand-primary hover:bg-brand-primary-dark'}`}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {syncingReceipts ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                <RefreshCw size={15} className={syncingReceipts ? 'animate-spin' : ''} />
                 {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  void handleTriggerTestReceipt();
-                }}
+                onClick={() => { void handleTriggerTestReceipt(); }}
                 disabled={triggeringTestReceipt}
-                /* Botão secundário para ações de desenvolvimento/teste: usa a cor secundária da paleta Inovare.
-                   Comentários em português explicam a escolha visual. */
-                className={`rounded-md px-4 py-3 text-sm font-medium shadow-sm transition-colors ${triggeringTestReceipt ? 'opacity-70 cursor-not-allowed border border-slate-300 bg-white text-slate-700' : 'bg-brand-secondary text-slate-900 hover:bg-brand-primary'}`}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {triggeringTestReceipt ? 'Enviando...' : 'Enviar Recibo de Teste (Dev)'}
+                {triggeringTestReceipt ? 'Enviando...' : 'Enviar Recibo de Teste'}
               </button>
 
-              {/* Botão de atalho para o Grafana: segue a paleta Inovare (primary-dark)
-                 Usa `rounded-lg` e `transition-colors` para consistência visual. */}
               <button
                 type="button"
                 onClick={() => {
                   window.open('http://172.25.0.171:3001/dashboards', '_blank', 'noopener');
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow-sm transition-colors bg-brand-primary-dark text-white hover:bg-brand-primary"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
               >
-                <Activity size={16} />
+                <Activity size={15} />
                 <span className="hidden sm:inline">Dashboard de Saúde</span>
               </button>
 
               {!hasContaAzulLinked && (
                 <button
                   type="button"
-                  onClick={() => {
-                    window.location.href = CONTA_AZUL_AUTHORIZE_URL;
-                  }}
-                  className="inline-flex items-center justify-center gap-3 rounded-2xl bg-brand-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
+                  onClick={() => { window.location.href = CONTA_AZUL_AUTHORIZE_URL; }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
                 >
-                  <BadgeDollarSign size={16} />
+                  <BadgeDollarSign size={15} />
                   Vincular Conta Azul
                 </button>
               )}
             </div>
           </div>
 
-          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4 mt-2">
+          {/* Metric cards */}
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {metricCards.map((card) => {
               const Icon = card.icon;
               return (
-                <article key={card.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{card.title}</p>
-                      <strong className="mt-4 block text-2xl font-bold text-slate-900">{card.value}</strong>
-                    </div>
-                    <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.tone}`}>
-                      <Icon size={22} />
+                <article
+                  key={card.title}
+                  className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md border-l-4 ${card.accent}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                      {card.title}
+                    </p>
+                    <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${card.iconBg} ${card.iconColor}`}>
+                      <Icon size={18} />
                     </span>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-slate-500">{card.helper}</p>
+                  <strong className="mt-4 block text-2xl font-extrabold text-slate-900">
+                    {card.value}
+                  </strong>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">{card.helper}</p>
                 </article>
               );
             })}
           </section>
 
-          <section className="mt-8 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-            <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          {/* Resumo + Status */}
+          <section className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
+            <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Resumo operacional</h2>
-                  <p className="mt-1 text-sm text-slate-500">Visão preparada para os próximos indicadores financeiros retornados pela API.</p>
+                  <h2 className="text-base font-bold text-slate-800">Resumo operacional</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Indicadores financeiros retornados pela API.
+                  </p>
                 </div>
-                <ArrowUpRight className="text-slate-300" size={20} />
+                <ArrowUpRight className="text-brand-primary" size={20} />
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-4">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Integração</p>
-                  <strong className={`mt-3 block text-lg font-semibold ${summary?.externalServiceAvailable === false ? 'text-amber-700' : 'text-emerald-700'}`}>
-                    {summary?.externalServiceAvailable === false ? 'Indisponível' : 'Ativa'}
-                  </strong>
-                  {summary?.externalServiceAvailable === false && (
-                    <p className="mt-2 text-sm text-amber-700">Conta Azul retornou restrição (403). Verifique assinatura.</p>
-                  )}
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Última renovação</p>
-                  <strong className="mt-3 block text-lg font-semibold text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Moeda</p>
-                  <strong className="mt-3 block text-lg font-semibold text-slate-900">{currency}</strong>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Itens</p>
-                  <strong className="mt-3 block text-lg font-semibold text-slate-900">{analytics?.inventorySummary?.totalItems ?? '—'}</strong>
-                  <p className="mt-1 text-sm text-slate-500">Baixa: {analytics?.inventorySummary?.lowStockItems ?? '—'} • Zerados: {analytics?.inventorySummary?.outOfStockItems ?? '—'}</p>
-                </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-4">
+                {[
+                  {
+                    label: 'Integração',
+                    value: summary?.externalServiceAvailable === false ? 'Indisponível' : 'Ativa',
+                    valueClass: summary?.externalServiceAvailable === false ? 'text-amber-600' : 'text-emerald-600',
+                    sub: summary?.externalServiceAvailable === false ? 'Conta Azul retornou restrição (403).' : null,
+                  },
+                  {
+                    label: 'Última renovação',
+                    value: formatDate(connectionStatus?.refreshedAt),
+                    valueClass: 'text-slate-800',
+                    sub: null,
+                  },
+                  {
+                    label: 'Moeda',
+                    value: currency,
+                    valueClass: 'text-slate-800',
+                    sub: null,
+                  },
+                  {
+                    label: 'Itens no estoque',
+                    value: analytics?.inventorySummary?.totalItems ?? '—',
+                    valueClass: 'text-slate-800',
+                    sub: `Baixa: ${analytics?.inventorySummary?.lowStockItems ?? '—'} · Zerados: ${analytics?.inventorySummary?.outOfStockItems ?? '—'}`,
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl bg-orange-50/60 border border-orange-100 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p>
+                    <strong className={`mt-2 block text-base font-bold ${item.valueClass}`}>{item.value}</strong>
+                    {item.sub && <p className="mt-1 text-xs text-amber-600">{item.sub}</p>}
+                  </div>
+                ))}
               </div>
             </article>
 
-            <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Status da integração</h2>
-              <div className="mt-5 space-y-4">
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Token OAuth</p>
-                  <strong className="mt-2 block text-lg font-semibold text-emerald-700">Ativo</strong>
-                  <p className="mt-2 text-sm text-slate-500">Expiração prevista: {formatDate(connectionStatus?.expiresAt)}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Recibos sincronizados</p>
-                  <strong className="mt-2 block text-lg font-semibold text-slate-900">{summary?.syncedReceiptsCount ?? receipts.length}</strong>
-                </div>
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Alertas em aberto</p>
-                  <strong className="mt-2 block text-lg font-semibold text-slate-900">{unresolvedAlerts.length}</strong>
-                </div>
+            <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-base font-bold text-slate-800">Status da integração</h2>
+              <div className="mt-4 space-y-3">
+                {[
+                  { label: 'Token OAuth', value: 'Ativo', valueClass: 'text-emerald-600', sub: `Expiração: ${formatDate(connectionStatus?.expiresAt)}` },
+                  { label: 'Recibos sincronizados', value: String(summary?.syncedReceiptsCount ?? receipts.length), valueClass: 'text-slate-800', sub: null },
+                  { label: 'Alertas em aberto', value: String(unresolvedAlerts.length), valueClass: unresolvedAlerts.length > 0 ? 'text-amber-600' : 'text-slate-800', sub: null },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p>
+                      {item.sub && <p className="mt-0.5 text-xs text-slate-400">{item.sub}</p>}
+                    </div>
+                    <strong className={`text-lg font-extrabold ${item.valueClass}`}>{item.value}</strong>
+                  </div>
+                ))}
               </div>
             </aside>
           </section>
 
           {hasContaAzulLinked && (
-            <section className="mt-8">
+            <section>
               <DoctorMappingPanel mapeamentos={doctorMappings} carregando={loadingDoctorMappings} onAtualizar={reloadDoctorMappings} />
             </section>
           )}

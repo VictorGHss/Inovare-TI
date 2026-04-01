@@ -1,5 +1,8 @@
 package br.dev.ctrls.inovareti.domain.user.usecase;
 
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
@@ -9,8 +12,6 @@ import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Caso de uso: cria um novo setor.

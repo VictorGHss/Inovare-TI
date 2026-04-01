@@ -83,32 +83,39 @@ curl -u admin:admin123 http://localhost:8085/api/actuator/prometheus | grep cont
 
 ### Prometheus — Conexão e exemplo de scrape
 
-- Observação: o Prometheus não está provisionado no `docker-compose.yml`. Em ambientes de staging/produção o coletor Prometheus deve ser implantado separadamente (por exemplo via Helm/Kubernetes ou instância dedicada) e configurado para fazer scrape do endpoint de métricas da API.
+O repositório agora inclui um serviço `prometheus` no `docker-compose.yml` para uso local (porta 9090). A configuração usada está em `docs/prometheus/prometheus.yml` e as regras em `docs/prometheus/alert.rules.yml`.
 
 - Endpoint de métricas exposto pela aplicação: `/api/actuator/prometheus` (a aplicação define `server.servlet.context-path=/api`).
 
-- Exemplo mínimo de configuração (`prometheus.yml`) para coletar métricas da API:
+Como executar localmente (exemplo mínimo):
 
-```yaml
-scrape_configs:
-  - job_name: 'inovare-ti'
-    metrics_path: /api/actuator/prometheus
-    static_configs:
-      - targets: ['<API_HOST_OR_SERVICE>:8085']
-    # se a API exigir autenticação, use 'basic_auth' ou 'bearer_token' conforme abaixo
-    # basic_auth:
-    #   username: 'prometheus'
-    #   password: 'PROM_PASS'
-    # ou
-    # authorization: { type: Bearer, credentials: '<TOKEN>' }
+```bash
+# sobe API, Redis, Front e Prometheus (no background)
+docker-compose up -d api redis front prometheus
+
+# ou sobe todos os serviços
+docker-compose up -d
 ```
 
-- Kubernetes (exemplo com Service discovery): use o `metrics_path: /api/actuator/prometheus` e a service DNS interna, ex: `inovare-ti-service.namespace.svc.cluster.local:8085`.
+Depois de iniciados os serviços, abra o UI do Prometheus em:
 
-- Segurança: por padrão o Spring Security exige autenticação para a maioria das rotas. Para permitir que o Prometheus acesse o endpoint de métricas sem autenticação, opte por uma destas abordagens:
-  1. Permitir explicitamente `/actuator/prometheus` no `SecurityConfig` (apenas dentro da rede do cluster).
-  2. Configurar Prometheus com `basic_auth` ou `bearer_token` para usar credenciais seguras.
-  3. Executar o Prometheus em rede interna (via ServiceAccount/sidecar) para evitar exposição pública.
+  http://localhost:9090
+
+Passos rápidos na UI do Prometheus:
+
+1. Acesse `Status -> Targets` e verifique o job `inovare-ti` com target `api:8085` e STATUS `UP`.
+2. Use `Graph` para testar uma consulta, ex.: `contaazul_force_refresh_throttled_total`.
+
+Exemplo via curl para a API do Prometheus (consulta instantânea):
+
+```bash
+curl "http://localhost:9090/api/v1/query?query=contaazul_force_refresh_throttled_total"
+```
+
+Observações de segurança e deploy:
+
+- Em produção prefira um Prometheus provisionado via Helm/Kubernetes; o serviço local é apenas para desenvolvimento e validação.
+- Se a API tiver autenticação, configure `basic_auth` ou `bearer_token` no `prometheus.yml` ou permita acesso ao endpoint de métricas apenas pela rede interna do cluster.
 
 - Métricas importantes expostas pela aplicação:
   - `contaazul_force_refresh_throttled_total`

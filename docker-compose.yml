@@ -68,6 +68,22 @@ services:
     networks:
       - inovare_network
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: inovareti_prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docs/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+      - redis
+    networks:
+      - inovare_network
+
 networks:
   inovare_network:
     driver: bridge
@@ -75,3 +91,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:

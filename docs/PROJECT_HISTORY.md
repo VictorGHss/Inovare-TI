@@ -48,6 +48,7 @@ Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi pres
 
 - Implementação do Grafana e configuração de políticas de embedding para o frontend (01/04/2026): adicionado o serviço `grafana` ao `docker-compose.yml` com `GF_SECURITY_ALLOW_EMBEDDING=true` e `GF_AUTH_ANONYMOUS_ENABLED=true` para facilitar visualização e integração no frontend em ambientes de desenvolvimento.
 - Implementação de Healthchecks e padronização de variáveis de polling (01/04/2026): adicionado `healthcheck` ao serviço `redis` no `docker-compose.yml` e ajustado o `ContaAzulAutomationService` para usar e padronizar a variável `CONTAAZUL_AUTOMATION_FIXED_DELAY_MS` com fallback `:300000` (corrige crash de inicialização quando a variável não estiver presente), garantindo que o ciclo de polling só inicie após o término do ciclo anterior.
+ - Adição de atalho para Dashboard Grafana na interface financeira (01/04/2026): incluído botão "Dashboard de Saúde" na tela financeira para acesso rápido ao Grafana e facilitar investigações operacionais.
 
 ### 🔲 Fase 11 — Documentação e Deploy (Em andamento)
 - Documentar endpoints restantes, atualizar CI/CD e validar playbook de rollback.

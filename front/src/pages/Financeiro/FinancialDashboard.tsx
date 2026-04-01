@@ -7,6 +7,7 @@ import {
   Landmark,
   RefreshCw,
   Wallet,
+  Activity,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -369,6 +370,20 @@ export default function FinancialDashboard() {
                 className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {triggeringTestReceipt ? 'Enviando...' : 'Enviar Recibo de Teste (Dev)'}
+              </button>
+
+              {/* Botão de atalho para o Grafana: abre o dashboard em nova aba. */}
+              <button
+                type="button"
+                onClick={() => {
+                  // Abre o dashboard do Grafana em uma nova aba (URL fixa de rede interna)
+                  window.open('http://172.25.0.171:3001/dashboards', '_blank', 'noopener');
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-sm transition-colors hover:opacity-90"
+                style={{ backgroundColor: '#feb56c', color: 'white' }}
+              >
+                <Activity size={16} />
+                <span className="hidden sm:inline">Dashboard de Saúde</span>
               </button>
 
               {!hasContaAzulLinked && (

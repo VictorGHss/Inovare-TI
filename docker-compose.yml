@@ -119,6 +119,10 @@ services:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      # Monta os arquivos de provisionamento (datasources e dashboards) no caminho esperado pelo Grafana
+      - ./docs/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Monta os dashboards JSON para serem carregados pelo provider
+      - ./docs/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     networks:

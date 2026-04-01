@@ -59,6 +59,8 @@ Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi pres
 - Itens relacionados a Redis e Prometheus foram concluídos e movidos para a seção "✅ Observability & Rate-limiting (Concluído — 01/04/2026)" acima.
 - Tarefas pendentes (prioritárias): criar PR com checklist de integração contínua e validações automatizadas de monitoramento (CI), revisão de thresholds em produção.
 
+- Implementação de Infrastructure as Code (IaC) para Grafana (01/04/2026): adicionado provisionamento automático de datasource Prometheus e dashboard inicial via arquivos em `docs/grafana/provisioning` e `docs/grafana/dashboards`. Isso permite auto-provisionamento do Grafana em ambientes de desenvolvimento e facilita integração com o frontend.
+
 ### Observability & Alerting (recomendações)
 
 - Métricas essenciais: `contaazul_force_refresh_throttled_total` (counter), `contaazul_last_refresh_timestamp` (gauge), `contaazul_token_expires_at` (gauge).

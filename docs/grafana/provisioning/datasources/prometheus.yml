@@ -1,0 +1,11 @@
+# Provisionamento automático do datasource Prometheus
+# Este arquivo configura o Prometheus como datasource padrão dentro do Grafana.
+# Comentários em português explicam a finalidade e a URL interna do Docker.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

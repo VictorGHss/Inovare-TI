@@ -1,0 +1,14 @@
+# Provisionamento automático de dashboards do Grafana
+# Este provider aponta para uma pasta com arquivos JSON de dashboards
+# Comentários em português explicam que os dashboards estão em /var/lib/grafana/dashboards
+apiVersion: 1
+providers:
+  - name: "Inovare Dashboards"
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    # Intervalo em segundos para o Grafana verificar atualizações nos arquivos
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

@@ -397,6 +397,8 @@ public class ReportService {
             } else {
                 periodStr = "-";
             }
+            // Log diagnóstico: quantos chamados válidos serão renderizados no PDF
+            log.info("Relatório PDF: período {}. Chamados válidos para relatório: {}", periodStr, rows.size());
 
             // Generation info
             String generatedAt = DATE_FORMATTER.format(LocalDateTime.now());
@@ -683,6 +685,10 @@ public class ReportService {
 
             content.close();
             document.save(out);
+
+            // Log diagnóstico final: tamanho do PDF gerado e soma do relatório
+            log.info("Relatório PDF gerado: bytes={} linhas={} totalItems={} valorTotal={}", out.size(), rows.size(), totalItems, CURRENCY_FORMATTER.format(totalValue));
+
             document.close();
 
             return new ByteArrayInputStream(out.toByteArray());

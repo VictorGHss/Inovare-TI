@@ -47,12 +47,13 @@ O `docker-compose.yml` define os serviços e a rede `inovare_network` (driver `b
 
 ### Serviços (resumo)
 
-| Serviço  | Container          | Build / Imagem         | Porta local |
-|----------|--------------------|------------------------|-------------|
-| `db`     | `inovareti_db`     | `postgres:16-alpine`   | `5436:5432` |
-| `api`    | `inovareti_api`    | Build local `./api`    | `8085:8085` |
-| `front`  | `inovareti_front`  | Build local `./front`  | `5173:80`   |
-| `redis`  | `inovareti_redis`  | `redis:alpine`         | (acesso interno: `redis:6379`)
+| Serviço       | Container               | Build / Imagem              | Porta local                                 |
+|---------------|-------------------------|-----------------------------|---------------------------------------------|
+| `db`          | `inovareti_db`          | `postgres:16-alpine`        | `5436:5432`                                 |
+| `api`         | `inovareti_api`         | Build local `./api`         | `8085:8085`                                 |
+| `front`       | `inovareti_front`       | Build local `./front`       | `5173:80`                                   |
+| `redis`       | `inovareti_redis`       | `redis:alpine`              | `6380:6379` (acesso interno: `redis:6379`) |
+| `prometheus`  | `inovareti_prometheus`  | `prom/prometheus:latest`    | `9095:9090`                                 |
 
 ### Rede
 
@@ -73,8 +74,8 @@ O volume `./uploads` é montado como bind mount (`./uploads:/app/uploads`) para 
 
 Infraestrutura adicional:
 
-- Redis: O `docker-compose.yml` inclui o serviço `redis` utilizado como camada de estabilidade para caching e para o rate-limiter distribuído (`RedisRateLimiter`) usado pelo endpoint administrativo de ContaAzul. A aplicação obtém host/porta via variáveis de ambiente (`SPRING_REDIS_HOST`, `SPRING_REDIS_PORT`) e registra o bean `StringRedisTemplate` quando configurado.
-- Prometheus: o projeto expõe métricas via Micrometer/Actuator em `/api/actuator/prometheus`. A dependência `micrometer-registry-prometheus` está presente no POM; contudo, o Prometheus em si não está provisionado no `docker-compose.yml` e deve ser implantado separadamente (Helm/Kubernetes ou instância dedicada). Regras de alerta específicas estão em `docs/prometheus/contaazul-throttle-alerts.yml`.
+- Redis: O `docker-compose.yml` inclui o serviço `redis` utilizado como camada de estabilidade para caching e para o rate-limiter distribuído (`RedisRateLimiter`) usado pelo endpoint administrativo de ContaAzul. A aplicação obtém host/porta via variáveis de ambiente (`SPRING_REDIS_HOST`, `SPRING_REDIS_PORT`) e registra o bean `StringRedisTemplate` quando configurado. O Redis está mapeado em `6380:6379` no host para evitar conflitos locais; internamente a API usa `redis:6379`.
+- Prometheus: o projeto expõe métricas via Micrometer/Actuator em `/api/actuator/prometheus`. Para facilitar desenvolvimento local, o repositório agora inclui um serviço `prometheus` no `docker-compose.yml` com mapeamento `9095:9090` (acessível em `http://localhost:9095`). As regras de alerta estão em `docs/prometheus/alert.rules.yml`.
 
 ### Healthcheck e ordem de inicialização
 

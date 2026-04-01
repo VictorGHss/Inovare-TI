@@ -24,6 +24,11 @@ services:
     container_name: inovareti_redis
     restart: always
     command: redis-server --save 60 1 --loglevel warning
+    # Mapeamento de porta externa para evitar conflitos no host:
+    #  - 6380 (host) -> 6379 (container)
+    # A API continua conectando ao Redis pelo hostname interno 'redis:6379'.
+    ports:
+      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -72,8 +77,10 @@ services:
     image: prom/prometheus:latest
     container_name: inovareti_prometheus
     restart: always
+    # Mapeamento de porta externa do Prometheus (HOST:CONTAINER):
+    #  - 9095 (host) -> 9090 (container). Use http://localhost:9095 para acessar localmente.
     ports:
-      - "9090:9090"
+      - "9095:9090"
     volumes:
       - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./docs/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro

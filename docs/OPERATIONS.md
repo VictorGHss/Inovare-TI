@@ -83,7 +83,8 @@ curl -u admin:admin123 http://localhost:8085/api/actuator/prometheus | grep cont
 
 ### Prometheus — Conexão e exemplo de scrape
 
-O repositório agora inclui um serviço `prometheus` no `docker-compose.yml` para uso local (porta 9090). A configuração usada está em `docs/prometheus/prometheus.yml` e as regras em `docs/prometheus/alert.rules.yml`.
+
+O repositório agora inclui um serviço `prometheus` no `docker-compose.yml` para uso local (porta 9095 no host -> 9090 no container). A configuração usada está em `docs/prometheus/prometheus.yml` e as regras em `docs/prometheus/alert.rules.yml`.
 
 - Endpoint de métricas exposto pela aplicação: `/api/actuator/prometheus` (a aplicação define `server.servlet.context-path=/api`).
 
@@ -99,7 +100,7 @@ docker-compose up -d
 
 Depois de iniciados os serviços, abra o UI do Prometheus em:
 
-  http://localhost:9090
+  http://localhost:9095
 
 Passos rápidos na UI do Prometheus:
 
@@ -109,7 +110,7 @@ Passos rápidos na UI do Prometheus:
 Exemplo via curl para a API do Prometheus (consulta instantânea):
 
 ```bash
-curl "http://localhost:9090/api/v1/query?query=contaazul_force_refresh_throttled_total"
+curl "http://localhost:9095/api/v1/query?query=contaazul_force_refresh_throttled_total"
 ```
 
 Observações de segurança e deploy:

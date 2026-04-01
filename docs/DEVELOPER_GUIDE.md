@@ -216,3 +216,14 @@ Para testes locais use `MailHog` ou similar; para unit tests, mockar `JavaMailSe
 - Manter mensagens visíveis ao usuário em português.
 - Evitar logs que contenham tokens completos em produção.
 - Testar cenários de refresh de token e parsing defensivo nas integrações.
+
+---
+
+## Relatórios PDF (PDFBox)
+
+- O serviço `ReportService.exportInventoryExitsToPdf` utiliza Apache PDFBox para renderizar tabelas manualmente.
+- Correções recentes aplicadas:
+    - Reset explícito da cor do texto para preto antes de desenhar células (evita PDFs com linhas "invisíveis" quando o fundo é claro).
+    - Adição de uma linha de `TOTAL` ao final da tabela com o somatório dos valores exibidos por linha.
+    - Paginação automática preservada: cabeçalho da tabela é redesenhado em novas páginas quando necessário.
+- Observação: se for necessário um renderer de tabelas mais rico (ex.: iText ou bibliotecas de tabela específicas), considerar migrar abrindo uma issue para avaliar impacto.

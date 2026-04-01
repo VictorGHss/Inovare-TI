@@ -460,6 +460,8 @@ public class ReportService {
             y -= headerHeight;
 
             // Linhas com alternância de cor (zebra)
+            // Acumulador do total exibido na tabela (somatório dos preços por linha)
+            BigDecimal tableTotalValue = BigDecimal.ZERO;
             for (int idx = 0; idx < rows.size(); idx++) {
                 Ticket t = rows.get(idx);
 
@@ -509,6 +511,9 @@ public class ReportService {
                 content.setStrokingColor(Color.LIGHT_GRAY);
                 content.setLineWidth(0.5f);
                 for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
+
+                // Garantir cor de texto preta antes de desenhar as células (evita texto invisível sobre fundo claro)
+                content.setNonStrokingColor(Color.BLACK);
 
                 // Prepara valores das células de acordo com os cabeçalhos solicitados
                 String tipo = safe(t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
@@ -637,6 +642,9 @@ public class ReportService {
                 String priceStr = CURRENCY_FORMATTER.format(totalPrice);
                 String date = t.getClosedAt() != null ? t.getClosedAt().format(DATE_FORMATTER) : "";
 
+                // Acumula valor para a linha de total da tabela
+                tableTotalValue = tableTotalValue.add(totalPrice);
+
                 // Ordem das células conforme o cabeçalho final de 7 colunas
                 String[] cells = new String[] { tipo, item, qtd, requester, sector, priceStr, date };
 
@@ -661,6 +669,75 @@ public class ReportService {
                     }
                     cellX += colWidths[i];
                 }
+
+                y -= rowHeight;
+            }
+
+            // Desenha uma linha de total na tabela (se houver linhas)
+            if (!rows.isEmpty()) {
+                // Quebra de página se necessário antes da linha de total
+                if (y - margin < rowHeight) {
+                    content.close();
+                    page = new PDPage(PDRectangle.A4);
+                    document.addPage(page);
+                    content = new PDPageContentStream(document, page);
+                    y = page.getMediaBox().getUpperRightY() - margin;
+
+                    // redesenha cabeçalho da tabela na nova página
+                    cellX = startX;
+                    content.setNonStrokingColor(new Color(240, 240, 240));
+                    for (float w : colWidths) { content.addRect(cellX, y - headerHeight, w, headerHeight); content.fill(); cellX += w; }
+                    content.setNonStrokingColor(Color.BLACK);
+
+                    cellX = startX;
+                    content.setStrokingColor(Color.LIGHT_GRAY);
+                    content.setLineWidth(0.5f);
+                    for (int i = 0; i < headers.length; i++) {
+                        content.beginText();
+                        content.setFont(bold, fontSize);
+                        content.newLineAtOffset(cellX + 4f, y - headerHeight + 4f);
+                        content.showText(headers[i]);
+                        content.endText();
+                        content.addRect(cellX, y - headerHeight, colWidths[i], headerHeight);
+                        content.stroke();
+                        cellX += colWidths[i];
+                    }
+
+                    y -= headerHeight;
+                }
+
+                // Fundo da linha de total
+                content.setNonStrokingColor(new Color(235, 235, 235));
+                content.addRect(startX, y - rowHeight, tableWidth, rowHeight);
+                content.fill();
+
+                // Borda da linha de total
+                cellX = startX;
+                content.setStrokingColor(Color.LIGHT_GRAY);
+                content.setLineWidth(0.5f);
+                for (float w : colWidths) { content.addRect(cellX, y - rowHeight, w, rowHeight); content.stroke(); cellX += w; }
+
+                // Texto da linha de total: 'TOTAL' na primeira coluna e valor na coluna de preço (index 5)
+                content.setNonStrokingColor(Color.BLACK);
+                cellX = startX;
+                // Escreve 'TOTAL' na primeira célula
+                content.beginText();
+                content.setFont(bold, fontSize);
+                content.newLineAtOffset(cellX + 4f, y - rowHeight + 4f);
+                content.showText("TOTAL");
+                content.endText();
+
+                // Escreve valor total alinhado à direita na coluna de preço (index 5)
+                String totalStr = CURRENCY_FORMATTER.format(tableTotalValue);
+                float priceColX = startX;
+                for (int i = 0; i < 5; i++) priceColX += colWidths[i];
+                float textWidth = (bold.getStringWidth(totalStr) / 1000f) * fontSize;
+                float tx = priceColX + colWidths[5] - 4f - textWidth;
+                content.beginText();
+                content.setFont(bold, fontSize);
+                content.newLineAtOffset(tx, y - rowHeight + 4f);
+                content.showText(totalStr);
+                content.endText();
 
                 y -= rowHeight;
             }

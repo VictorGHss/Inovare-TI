@@ -8,13 +8,13 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Optional;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -213,8 +213,9 @@ public class ReportService {
                 if (ticket.getStatus().toString().equals("RESOLVED") && ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
                     Row row = sheet.createRow(rowNum++);
 
-                    Integer requestedQty = ticket.getRequestedQuantity();
-                    int qty = requestedQty != null ? requestedQty : 0;
+                    // Proteção contra NullPointerException ao desencaixar (unboxing) de Integer para int.
+                    // O valor pode vir nulo do banco; garantimos 0 como padrão usando Optional.
+                    int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
 
                     row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
@@ -503,8 +504,9 @@ public class ReportService {
                 // Prepara valores das células de acordo com os cabeçalhos solicitados
                 String tipo = safe(t.getRequestedItem() != null && t.getRequestedItem().getItemCategory() != null ? t.getRequestedItem().getItemCategory().getName() : "-");
                 String item = safe(t.getRequestedItem() != null ? t.getRequestedItem().getName() : "-");
-                Integer requestedQty = t.getRequestedQuantity();
-                int qty = requestedQty != null ? requestedQty : 0;
+                // Proteção contra NullPointerException ao desencaixar (unboxing) de Integer para int.
+                // O valor pode vir nulo do banco; garantimos 0 como padrão usando Optional.
+                int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
                 String qtd = String.valueOf(qty);
                 String requester = safe(t.getRequester() != null ? t.getRequester().getName() : "-");
                 String sector = t.getRequester() != null && t.getRequester().getSector() != null ? t.getRequester().getSector().getName() : "-";
@@ -623,8 +625,9 @@ public class ReportService {
             int totalItems = 0;
             BigDecimal totalValue = BigDecimal.ZERO;
             for (Ticket t : rows) {
-                Integer requestedQty = t.getRequestedQuantity();
-                int qty = requestedQty != null ? requestedQty : 0;
+                // Proteção contra NullPointerException ao desencaixar (unboxing) de Integer para int
+                // ao somar o total de itens do período. Usamos Optional para garantir 0 se nulo.
+                int qty = Optional.ofNullable(t.getRequestedQuantity()).orElse(0);
                 totalItems += qty;
                 totalValue = totalValue.add(calculateExitTotalPrice(t, qty));
             }

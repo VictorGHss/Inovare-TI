@@ -7,7 +7,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransaction;
 import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
@@ -149,6 +153,13 @@ public class ReportController {
                 .body(new InputStreamResource(excelFile));
     }
 
+    /**
+     * Gera relatório de saídas de inventário.
+     * Inclui chamados fechados no período informado (o filtro final é inclusivo
+     * até 23:59:59 no fuso UTC) e também inclui chamados que aparecem em
+     * lançamentos da tabela `financial_transactions` onde
+     * `resource_type = INVENTORY` e `target_type` é SECTOR ou DOCTOR.
+     */
     @GetMapping("/inventory/exits")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
         public ResponseEntity<InputStreamResource> exportInventoryExits(

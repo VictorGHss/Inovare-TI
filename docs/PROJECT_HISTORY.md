@@ -34,6 +34,16 @@ Este documento consolida o histórico de fases, tarefas pendentes, sugestões de
 
 ### ✅ Fase 10 — Dashboard Premium (Concluída)
 
+### ✅ Módulo Financeiro e Relatórios (Concluído — 01/04/2026)
+
+- Implementação de lógica FIFO (First-In, First-Out) real para saídas de inventário: os lotes agora são consumidos em ordem cronológica de entrada, garantindo coerência contábil, rastreabilidade e consistência das quantidades baixadas.
+- Refatoração completa do `ReportService`: migração para `PdfPTable` com layout profissional, suporte a fontes Helvetica/Helvetica-Bold, inclusão do logotipo empresarial, cabeçalho com a cor da marca (`#feb56c`), alinhamento numérico à direita e linha de TOTAL no rodapé do relatório.
+- Correção de filtros de data e tratamento de fuso: padronização de conversões `America/Sao_Paulo` → UTC e inclusão do fim-do-dia nas consultas para garantir captura completa das transações do dia corrente.
+- Integração de Rich Embeds nas notificações Discord com identidade visual da Inovare (cor `#feb56c`), incluindo sumário financeiro e links/contexto nos embeds para facilitar triagem.
+- Limpeza e modernização de código: remoção de logs de depuração usados durante testes de fuso horário, higienização de strings para geração de PDFs (`sanitizeForPdf`), e modernização de chamadas de URL (`URI.create(...).toURL()`). Avisos de compilação relativos a unboxing/imports foram resolvidos.
+
+Observação: o botão `Testar Agora` (`trigger-test`) na interface web foi preservado e permanece funcional para validações manuais rápidas.
+
 ### 🔲 Fase 11 — Documentação e Deploy (Em andamento)
 - Documentar endpoints restantes, atualizar CI/CD e validar playbook de rollback.
 

@@ -26,6 +26,7 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
+import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.FontFactory;
 import com.lowagie.text.Image;
@@ -505,7 +506,7 @@ public class ReportService {
 
             document.close();
             return new ByteArrayInputStream(out.toByteArray());
-        } catch (Exception e) {
+        } catch (DocumentException e) {
             log.error("Erro ao gerar PDF profissional de saídas", e);
             if (document.isOpen()) document.close();
             throw new RuntimeException("Failed to generate professional PDF report", e);

@@ -51,7 +51,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-white to-brand-secondary/20 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo da clínica */}
         <div className="flex justify-center mb-8">
@@ -65,7 +65,7 @@ export default function Login() {
         {/* Card de login */}
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-5"
+          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col gap-5"
         >
           <LoginField
             id="email"
@@ -95,7 +95,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
+            className="mt-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
           >
             {loading ? (
               <Loader2 size={18} className="animate-spin" />

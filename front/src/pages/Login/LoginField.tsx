@@ -26,7 +26,7 @@ export default function LoginField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="text-xs font-bold uppercase tracking-widest text-slate-400">
         {label}
       </label>
       <div className="relative flex items-center">
@@ -38,7 +38,7 @@ export default function LoginField({
           value={value}
           onChange={handleChange}
           required
-          className="w-full bg-white text-slate-800 placeholder-slate-400 text-sm rounded-xl pl-9 pr-4 py-2.5 border border-slate-200 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+          className="w-full bg-white text-slate-800 placeholder-slate-400 text-sm rounded-xl pl-9 pr-4 py-2.5 border border-slate-200 shadow-sm focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30 transition-colors"
         />
       </div>
     </div>

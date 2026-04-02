@@ -81,7 +81,7 @@ export default function PrimeiroAcesso() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-white to-brand-secondary/20 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <img src={LOGO_URL} alt="Inovare TI" className="h-16 object-contain" />
@@ -89,24 +89,36 @@ export default function PrimeiroAcesso() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-5"
+          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col gap-5"
         >
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-brand-secondary border border-brand-primary">
-            <ShieldCheck className="w-5 h-5 text-brand-primary mt-0.5" />
-            <p className="text-sm text-slate-700">
-              Bem-vindo! Por segurança, você precisa criar sua própria senha antes de entrar.
-            </p>
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-brand-secondary/30 border border-brand-primary/30">
+            <ShieldCheck className="w-5 h-5 text-brand-primary-dark mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Primeiro acesso seguro</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Bem-vindo! Por segurança, você precisa criar sua própria senha antes de entrar.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            {["Informe sua nova senha", "Confirme a senha", "Finalize para entrar"].map((step, index) => (
+              <div key={step} className="rounded-2xl border border-brand-primary/20 bg-brand-secondary/20 px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-primary-dark">Passo {index + 1}</p>
+                <p className="mt-1 text-xs text-slate-700">{step}</p>
+              </div>
+            ))}
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Nova Senha</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Nova Senha</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 pl-10 pr-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                 placeholder="Digite sua nova senha"
                 disabled={loading}
               />
@@ -114,14 +126,14 @@ export default function PrimeiroAcesso() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">Confirmar Senha</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Confirmar Senha</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 pl-10 pr-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                 placeholder="Confirme sua nova senha"
                 disabled={loading}
               />
@@ -131,7 +143,7 @@ export default function PrimeiroAcesso() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
+            className="mt-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-colors"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
             {loading ? 'Salvando...' : 'Confirmar Nova Senha'}

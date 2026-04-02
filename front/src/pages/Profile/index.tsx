@@ -101,78 +101,77 @@ export default function Profile() {
   }
 
   return (
-    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
+    <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8 bg-orange-50/20 min-h-screen">
       <PageHero
         eyebrow="Conta"
         title="Meu Perfil"
         description="Gerencie suas informações pessoais, senha e autenticação em dois fatores da sua conta."
       />
 
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 mb-6">
+        {[
+          { label: 'Nome', value: user?.name ?? '-', icon: UserCircle2 },
+          { label: 'E-mail', value: user?.email ?? '-', icon: Key },
+          { label: 'Setor', value: user?.sectorName ?? '-', icon: ShieldCheck },
+          { label: 'Nível de Acesso', value: roleLabel, icon: Lock },
+        ].map((card) => {
+          const Icon = card.icon;
+          return (
+            <article
+              key={card.label}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md border-l-4 border-l-brand-primary"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-secondary/40 text-brand-primary-dark">
+                  <Icon size={18} />
+                </span>
+              </div>
+              <strong className="mt-4 block text-base font-bold text-slate-900 break-words">{card.value}</strong>
+            </article>
+          );
+        })}
+      </section>
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <UserCircle2 className="w-5 h-5 text-brand-primary" />
-            <h2 className="text-base font-semibold text-slate-800">Informações da Conta</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Nome</p>
-              <p className="text-sm font-medium text-slate-800">{user?.name ?? '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">E-mail</p>
-              <p className="text-sm font-medium text-slate-800">{user?.email ?? '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Setor</p>
-              <p className="text-sm font-medium text-slate-800">{user?.sectorName ?? '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Nível de Acesso</p>
-              <p className="text-sm font-medium text-slate-800">{roleLabel}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-5">
             <ShieldCheck className="w-5 h-5 text-brand-primary" />
-            <h2 className="text-base font-semibold text-slate-800">Trocar Senha</h2>
+            <h2 className="text-base font-semibold text-slate-800">Segurança de Acesso</h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Senha Atual</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Senha Atual</label>
               <input
                 type="password"
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                 disabled={submitting}
                 autoComplete="current-password"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nova Senha</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Nova Senha</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                 disabled={submitting}
                 autoComplete="new-password"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirmar Nova Senha</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Confirmar Nova Senha</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                 disabled={submitting}
                 autoComplete="new-password"
               />
@@ -181,16 +180,32 @@ export default function Profile() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? 'Alterando...' : 'Salvar Nova Senha'}
             </button>
           </form>
         </section>
+
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <UserCircle2 className="w-5 h-5 text-brand-primary" />
+            <h2 className="text-base font-semibold text-slate-800">Resumo da Conta</h2>
+          </div>
+
+          <div className="space-y-3">
+            {[['Nome', user?.name ?? '-'], ['E-mail', user?.email ?? '-'], ['Setor', user?.sectorName ?? '-'], ['Nível de Acesso', roleLabel]].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+                <p className="mt-1 text-sm font-medium text-slate-800 break-words">{value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
 
       {canManageTwoFactor && (
-        <section className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <section className="mt-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-5">
             <ShieldCheck className="w-5 h-5 text-brand-primary" />
             <h2 className="text-base font-semibold text-slate-800">Autenticação em Dois Fatores (2FA)</h2>
@@ -215,7 +230,7 @@ export default function Profile() {
                 <span
                   className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                     isTwoFactorVerified
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-brand-secondary/40 text-brand-primary-dark'
                       : 'bg-slate-100 text-slate-600'
                   }`}
                 >
@@ -224,19 +239,19 @@ export default function Profile() {
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Código do Autenticador</label>
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Código do Autenticador</label>
                 <input
                   type="text"
                   value={twoFactorCode}
                   onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
                   placeholder="000000"
                   inputMode="numeric"
                 />
                 <button
                   onClick={() => void handleVerifyTwoFactor()}
                   disabled={validatingTwoFactor}
-                  className="mt-3 inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                  className="mt-3 inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
                 >
                   <Lock size={16} />
                   {validatingTwoFactor ? 'Validando...' : 'Validar 2FA'}

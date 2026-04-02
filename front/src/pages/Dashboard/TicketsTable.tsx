@@ -10,6 +10,20 @@ interface TicketsTableProps {
   tickets: Ticket[];
 }
 
+const priorityLabelMap: Record<Ticket['priority'], string> = {
+  LOW: 'Baixa',
+  NORMAL: 'Normal',
+  HIGH: 'Alta',
+  URGENT: 'Urgente',
+};
+
+const priorityClassMap: Record<Ticket['priority'], string> = {
+  LOW: 'bg-slate-100 text-slate-600',
+  NORMAL: 'bg-brand-secondary/30 text-brand-primary',
+  HIGH: 'bg-orange-100 text-orange-700',
+  URGENT: 'bg-red-100 text-red-600',
+};
+
 // Converte data ISO para exibição segura em português — retorna '-' em caso de valor nulo
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '-';
@@ -96,8 +110,10 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
               <td className="px-4 py-3 text-slate-500">
                 {String(ticket.categoryName ?? '-')}
               </td>
-              <td className="px-4 py-3 text-slate-500 capitalize">
-                {String(ticket.priority ?? '-').toLowerCase()}
+              <td className="px-4 py-3">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityClassMap[ticket.priority]}`}>
+                  {priorityLabelMap[ticket.priority]}
+                </span>
               </td>
               <td className="px-4 py-3">
                 <StatusBadge status={ticket.status} />

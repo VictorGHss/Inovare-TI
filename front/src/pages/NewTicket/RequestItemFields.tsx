@@ -14,6 +14,8 @@ interface Props {
   onQuantityChange: (q: number) => void;
 }
 
+const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
+
 export default function RequestItemFields({
   items, requestedItemId, requestedQuantity, inputCls, onItemChange, onQuantityChange,
 }: Props) {
@@ -47,7 +49,7 @@ export default function RequestItemFields({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div className="flex flex-col gap-1.5 relative">
-        <label className="text-sm font-medium text-slate-700">Item Solicitado</label>
+        <label className={labelCls}>Item Solicitado</label>
         <div className="relative">
           <div className="relative flex items-center">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -74,13 +76,13 @@ export default function RequestItemFields({
             )}
           </div>
           {isDropdownOpen && filteredItems.length > 0 && (
-            <ul className="absolute z-50 w-full bg-white shadow-lg max-h-60 overflow-y-auto border border-slate-200 rounded-lg mt-1 top-full">
+            <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg top-full">
               {filteredItems.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
                     onClick={() => handleSelectItem(item)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-primary hover:text-white transition-colors text-sm"
+                    className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark"
                   >
                     {item.name}
                   </button>
@@ -99,7 +101,7 @@ export default function RequestItemFields({
             </ul>
           )}
           {isDropdownOpen && searchTerm.length > 0 && filteredItems.length === 0 && (
-            <ul className="absolute z-50 w-full bg-white shadow-lg border border-slate-200 rounded-lg mt-1 top-full">
+            <ul className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg top-full">
               <li className="px-4 py-2.5 text-sm text-slate-500">
                 Nenhum item encontrado
               </li>
@@ -118,7 +120,7 @@ export default function RequestItemFields({
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Quantidade</label>
+        <label className={labelCls}>Quantidade</label>
         <input
           type="number"
           min={1}

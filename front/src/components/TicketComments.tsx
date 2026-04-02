@@ -78,6 +78,22 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
         ) : (
           comments.map((comment) => {
             const isCurrentUser = user?.id === comment.authorId;
+            const isSystemComment = /sistema|system/i.test(comment.authorName) || comment.authorId.toUpperCase?.() === 'SYSTEM';
+            const isTechnicianComment = !isSystemComment && Boolean(assignedToId) && comment.authorId === assignedToId;
+
+            let bubbleClass = 'bg-white border border-slate-200';
+            let authorClass = 'text-slate-700';
+
+            if (isSystemComment) {
+              bubbleClass = 'bg-slate-50 border border-slate-200';
+              authorClass = 'text-slate-500';
+            } else if (isTechnicianComment) {
+              bubbleClass = 'bg-brand-secondary/20 border border-brand-primary/20';
+              authorClass = 'text-brand-primary-dark';
+            } else if (isCurrentUser) {
+              bubbleClass = 'bg-brand-secondary/20 border border-brand-primary/20';
+              authorClass = 'text-brand-primary-dark';
+            }
 
             return (
               <div
@@ -85,20 +101,12 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
                 className={`flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`}
               >
                 <div
-                  className={`flex-1 rounded-lg p-3 ${
-                    isCurrentUser
-                      ? 'bg-primary/10 border border-primary/20'
-                      : 'bg-slate-50 border border-slate-100'
-                  }`}
+                  className={`flex-1 rounded-2xl p-3 ${bubbleClass}`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-xs font-semibold ${
-                        isCurrentUser ? 'text-primary' : 'text-slate-700'
-                      }`}
-                    >
+                    <span className={`text-xs font-semibold ${authorClass}`}>
                       {comment.authorName}
-                      {isCurrentUser && <span className="ml-1 text-primary">(Você)</span>}
+                      {isCurrentUser && <span className="ml-1 text-brand-primary-dark">(Você)</span>}
                     </span>
                     <span className="text-xs text-slate-400">{formatDate(comment.createdAt)}</span>
                   </div>
@@ -126,12 +134,12 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
             placeholder="Adicione um comentário para tirar dúvidas..."
             rows={3}
             disabled={submitting || isCommentDisabled}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 disabled:bg-slate-50"
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-700 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary disabled:opacity-60 disabled:bg-slate-50"
           />
           <button
             onClick={handleSubmitComment}
             disabled={submitting || !newComment.trim() || isCommentDisabled}
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-60"
           >
             <Send size={16} />
             {submitting ? 'Enviando...' : 'Enviar Comentário'}

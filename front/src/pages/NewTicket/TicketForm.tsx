@@ -20,7 +20,9 @@ interface Props {
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const inputCls =
-  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
+
+const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
 
 export default function TicketForm({ type, onTypeChange }: Props) {
   const navigate = useNavigate();
@@ -229,7 +231,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-5">
       <TicketTypeToggle value={type} onChange={handleTypeChange} />
 
       {type === 'REQUEST' && (
@@ -255,7 +257,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
 
       {type === 'INCIDENT' && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">Título <span className="text-red-500">*</span></label>
+          <label className={labelCls}>Título <span className="text-red-500 normal-case tracking-normal">*</span></label>
           <input className={inputCls} placeholder="Descreva brevemente" value={form.title}
             onChange={(e) => set('title', e.target.value)} required />
         </div>
@@ -265,7 +267,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
 
       {type === 'INCIDENT' && (
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Código AnyDesk (Acesso Remoto) - Opcional</label>
+        <label className={labelCls}>Código AnyDesk (Acesso Remoto) - Opcional</label>
         <input className={inputCls} placeholder="Ex: 123 456 789" value={form.anydeskCode || ''}
           onChange={(e) => set('anydeskCode', e.target.value)} />
         <p className="text-xs text-slate-400">Use este código para permitir acesso remoto ao seu computador durante o suporte.</p>
@@ -273,7 +275,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       )}
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Descrição</label>
+        <label className={labelCls}>Descrição</label>
         <textarea className={`${inputCls} resize-none`} rows={4}
           placeholder={type === 'REQUEST' ? 'Justifique a necessidade do item...' : 'Detalhe o problema, passos para reproduzir...'}
           value={form.description} 

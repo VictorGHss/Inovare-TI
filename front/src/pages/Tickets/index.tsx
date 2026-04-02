@@ -93,7 +93,7 @@ export default function Tickets() {
         actions={(
           <button
             onClick={() => navigate('/tickets/new')}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <PlusCircle size={17} />
             Novo Chamado
@@ -119,11 +119,11 @@ export default function Tickets() {
       </div>
 
       {/* Advanced Filter Bar */}
-      <div className="mb-6 bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search by Title */}
           <div className="relative">
-            <label className="block text-xs font-semibold text-slate-600 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
               Buscar por Título
             </label>
             <div className="relative flex items-center">
@@ -133,7 +133,7 @@ export default function Tickets() {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
                 placeholder="Digite o título do chamado..."
-                className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
               />
               {searchTitle && (
                 <button
@@ -148,13 +148,13 @@ export default function Tickets() {
 
           {/* Priority Filter */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
               Prioridade
             </label>
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
             >
               <option value="all">Todas as Prioridades</option>
               {priorities.map((priority) => (
@@ -167,13 +167,13 @@ export default function Tickets() {
 
           {/* Category Filter */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
               Categoria
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
             >
               <option value="all">Todas as Categorias</option>
               {categories.map((category) => (
@@ -186,13 +186,13 @@ export default function Tickets() {
 
           {/* Sort Order */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
               Ordenar por Data
             </label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm appearance-none bg-white cursor-pointer"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
             >
               <option value="newest">Mais Recentes</option>
               <option value="oldest">Mais Antigos</option>
@@ -243,7 +243,7 @@ export default function Tickets() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {loading ? <SkeletonTable /> : <TicketsTable tickets={sortedTickets} />}
       </div>
     </main>

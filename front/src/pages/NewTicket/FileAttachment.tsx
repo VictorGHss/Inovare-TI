@@ -9,6 +9,7 @@ interface Props {
 }
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
 
 export default function FileAttachment({ files, setFiles }: Props) {
   const inputId = 'new-ticket-attachment-input';
@@ -35,7 +36,7 @@ export default function FileAttachment({ files, setFiles }: Props) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-slate-700">Anexos</label>
+      <label className={labelCls}>Anexos</label>
 
       <div className="flex items-center gap-3">
         <label
@@ -49,7 +50,7 @@ export default function FileAttachment({ files, setFiles }: Props) {
         </span>
       </div>
 
-      <label className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+      <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 p-4 transition-colors hover:border-brand-primary/40 hover:bg-brand-secondary/20">
         <Paperclip size={20} className="text-slate-400" />
         <span className="text-sm text-slate-400 text-center">
           Anexar imagens ou documentos{' '}

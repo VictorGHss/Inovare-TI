@@ -44,11 +44,11 @@ const priorityLabels: Record<string, string> = {
   URGENT: 'Urgente',
 };
 
-const priorityColors: Record<string, string> = {
-  LOW: 'text-slate-500',
-  NORMAL: 'text-brand-primary',
-  HIGH: 'text-orange-600',
-  URGENT: 'text-red-600 font-semibold',
+const priorityBadgeClass: Record<string, string> = {
+  LOW: 'bg-slate-100 text-slate-600',
+  NORMAL: 'bg-brand-secondary/30 text-brand-primary',
+  HIGH: 'bg-orange-100 text-orange-700',
+  URGENT: 'bg-red-100 text-red-600',
 };
 
 export default function TicketDetails() {
@@ -212,7 +212,7 @@ export default function TicketDetails() {
                   <span className="font-medium text-slate-700">{ticket.assignedToName}</span>
                 </span>
               )}
-              <span className={priorityColors[ticket.priority]}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityBadgeClass[ticket.priority] ?? 'bg-slate-100 text-slate-600'}`}>
                 Prioridade: {priorityLabels[ticket.priority] ?? ticket.priority}
               </span>
               <SlaBadge deadline={ticket.slaDeadline} status={ticket.status} closedAt={ticket.closedAt} />

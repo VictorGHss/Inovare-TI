@@ -58,14 +58,14 @@ export default function Inventory() {
           <>
             <button
               onClick={openBatchModal}
-              className="flex items-center gap-2 bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <Package size={17} />
-              Entrada de Lote
+              Adicionar Estoque
             </button>
             <button
               onClick={() => navigate('/inventory/new')}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-brand-secondary/30 hover:bg-brand-secondary/50 text-brand-primary-dark text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <PlusCircle size={17} />
               Novo Item
@@ -75,7 +75,7 @@ export default function Inventory() {
       />
 
       {/* Tabela de itens */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-pulse space-y-3">
@@ -89,14 +89,14 @@ export default function Inventory() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">Categoria</th>
-                  <th className="px-4 py-3 text-left">Estoque Atual</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-center">Ações</th>
+            <table className="w-full table-auto text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Categoria</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Estoque Atual</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -104,7 +104,7 @@ export default function Inventory() {
                   <tr
                     key={item.id}
                     onClick={() => navigate(`/inventory/${item.id}`)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="cursor-pointer transition-colors hover:bg-orange-50/40"
                   >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {item.name}
@@ -117,11 +117,11 @@ export default function Inventory() {
                     </td>
                     <td className="px-4 py-3">
                       {item.currentStock === 0 ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
                           Sem Estoque
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-secondary text-brand-primary">
+                        <span className="inline-flex items-center rounded-full bg-brand-secondary/40 px-2.5 py-0.5 text-xs font-medium text-brand-primary-dark">
                           Em Estoque
                         </span>
                       )}
@@ -130,7 +130,7 @@ export default function Inventory() {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={(e) => openBatchModalForItem(item.id, e)}
-                          className="flex items-center gap-1.5 text-xs font-medium bg-brand-primary hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-dark"
                           title="Registrar nova entrada de lote"
                         >
                           <PackagePlus size={15} />

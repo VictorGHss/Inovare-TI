@@ -55,15 +55,15 @@ export default function AssetTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
-          <tr>
-            <th className="px-4 py-3 text-left">Nome</th>
-            <th className="px-4 py-3 text-left">Patrimônio</th>
-            <th className="px-4 py-3 text-left">Categoria</th>
-            <th className="px-4 py-3 text-left">Usuário Vinculado</th>
-            <th className="px-4 py-3 text-center">Nota Fiscal</th>
-            <th className="px-4 py-3 text-center">Etiqueta</th>
+      <table className="w-full table-auto text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Patrimônio</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Categoria</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Usuário Vinculado</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Nota Fiscal</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Etiqueta</th>
           </tr>
         </thead>
         <motion.tbody
@@ -77,7 +77,7 @@ export default function AssetTable({
               key={asset.id}
               variants={rowVariants}
               onClick={() => onOpenDetails(asset)}
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
+              className="cursor-pointer transition-colors hover:bg-orange-50/40"
             >
               <td className="px-4 py-3 font-medium text-slate-800">
                 <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function AssetTable({
                   {asset.invoiceFileName ? (
                     <button
                       onClick={(e) => onInvoiceDownload(asset, e)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:text-brand-primary-dark hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-brand-secondary/30 px-3 py-1.5 text-xs font-semibold text-brand-primary-dark transition-colors hover:bg-brand-secondary/50"
                       title="Visualizar/baixar nota fiscal"
                     >
                       <Download size={14} />
@@ -126,7 +126,7 @@ export default function AssetTable({
                       e.stopPropagation();
                       onOpenPrintModal(asset);
                     }}
-                    className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:bg-brand-secondary px-3 py-1.5 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-secondary/30 px-3 py-1.5 text-xs font-semibold text-brand-primary-dark transition-colors hover:bg-brand-secondary/50"
                     title="Imprimir etiqueta com QR Code"
                   >
                     <Printer size={14} />

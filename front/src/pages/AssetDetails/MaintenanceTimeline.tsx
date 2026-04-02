@@ -61,7 +61,7 @@ export default function MaintenanceTimeline({ maintenances }: MaintenanceTimelin
         return (
           <div
             key={maintenance.id}
-            className={`${config.bg} border border-l-4 ${config.border} rounded-xl p-4 transition-all hover:shadow-sm`}
+            className={`${config.bg} border border-l-4 ${config.border} rounded-xl p-4 transition-colors hover:bg-orange-50/40`}
           >
             {/* Header row */}
             <div className="flex items-start justify-between gap-3 mb-3">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createAssetMaintenance, type AssetMaintenance, type CreateAssetMaintenanceData } from '../../services/api';
 
@@ -9,6 +9,11 @@ interface NewMaintenanceModalProps {
   onClose: () => void;
   onMaintenanceCreated: (maintenance: AssetMaintenance) => void;
 }
+
+const inputClassName =
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
+
+const labelClassName = 'block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2';
 
 export default function NewMaintenanceModal({
   isOpen,
@@ -26,7 +31,7 @@ export default function NewMaintenanceModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!formData.maintenanceDate || !formData.type) {
       toast.error('Data e tipo da manutenção são obrigatórios.');
       return;
@@ -44,8 +49,7 @@ export default function NewMaintenanceModal({
       const newMaintenance = await createAssetMaintenance(assetId, dto);
       toast.success('Manutenção registrada com sucesso!');
       onMaintenanceCreated(newMaintenance);
-      
-      // Resetar formulário
+
       setFormData({
         maintenanceDate: new Date().toISOString().split('T')[0],
         type: 'PREVENTIVE',
@@ -63,51 +67,59 @@ export default function NewMaintenanceModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto overflow-hidden">
+
+        {/* Brand accent strip */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-brand-primary to-brand-primary-dark" />
+
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800">Registrar Manutenção</h2>
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-secondary/60">
+              <Wrench size={17} className="text-brand-primary-dark" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Registrar Manutenção</h2>
+              <p className="mt-0.5 text-xs text-slate-400">Preencha os dados do serviço realizado</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             aria-label="Fechar"
           >
-            <X size={20} />
+            <X size={17} />
           </button>
         </div>
 
-        {/* Formulário */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Data da Manutenção */}
+
+          {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Data da Manutenção <span className="text-red-500">*</span>
+            <label className={labelClassName}>
+              Data da Manutenção <span className="text-red-400 normal-case tracking-normal font-bold">*</span>
             </label>
             <input
               type="date"
               value={formData.maintenanceDate}
-              onChange={(e) =>
-                setFormData({ ...formData, maintenanceDate: e.target.value })
-              }
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+              onChange={(e) => setFormData({ ...formData, maintenanceDate: e.target.value })}
+              className={inputClassName}
             />
           </div>
 
-          {/* Tipo de Manutenção */}
+          {/* Type */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Tipo de Manutenção <span className="text-red-500">*</span>
+            <label className={labelClassName}>
+              Tipo de Manutenção <span className="text-red-400 normal-case tracking-normal font-bold">*</span>
             </label>
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  type: e.target.value as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE',
-                })
+                setFormData({ ...formData, type: e.target.value as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' })
               }
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+              className={inputClassName}
             >
               <option value="PREVENTIVE">Preventiva</option>
               <option value="CORRECTIVE">Corretiva</option>
@@ -115,10 +127,11 @@ export default function NewMaintenanceModal({
             </select>
           </div>
 
-          {/* Custo */}
+          {/* Cost */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Custo (R$) <span className="text-slate-400 text-xs">(Opcional)</span>
+            <label className={labelClassName}>
+              Custo (R$){' '}
+              <span className="normal-case tracking-normal font-normal text-slate-400">— opcional</span>
             </label>
             <input
               type="number"
@@ -126,44 +139,41 @@ export default function NewMaintenanceModal({
               min="0"
               placeholder="0.00"
               value={formData.cost}
-              onChange={(e) =>
-                setFormData({ ...formData, cost: e.target.value })
-              }
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+              onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+              className={inputClassName}
             />
           </div>
 
-          {/* Descrição */}
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Descrição Detalhada <span className="text-slate-400 text-xs">(Opcional)</span>
+            <label className={labelClassName}>
+              Descrição Detalhada{' '}
+              <span className="normal-case tracking-normal font-normal text-slate-400">— opcional</span>
             </label>
             <textarea
               placeholder="Descreva o que foi realizado na manutenção..."
               value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm resize-none"
+              className={`${inputClassName} resize-none`}
             />
           </div>
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-4">
+          {/* Actions */}
+          <div className="flex gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors text-sm"
+              className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading && <Loader2 size={16} className="animate-spin" />}
+              {loading && <Loader2 size={15} className="animate-spin" />}
               {loading ? 'Registrando...' : 'Registrar'}
             </button>
           </div>

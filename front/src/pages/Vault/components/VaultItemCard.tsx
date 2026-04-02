@@ -85,7 +85,7 @@ export default function VaultItemCard({
         )}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 min-h-[58px]">
+      <div className="min-h-[58px] rounded-lg border border-slate-200 bg-slate-50 p-3 shadow-inner">
         {isSecretVisible ? (
           <p className="text-sm text-slate-700 break-all">{revealedSecret}</p>
         ) : (
@@ -105,7 +105,7 @@ export default function VaultItemCard({
         ) : (
           <button
             onClick={() => onReveal(item.id)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:text-brand-primary-dark"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-dark"
           >
             <Eye size={14} />
             Ver conteúdo

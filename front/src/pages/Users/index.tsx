@@ -168,14 +168,14 @@ export default function Users() {
           <>
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 bg-brand-primary hover:bg-orange-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
             >
               <Upload size={17} />
               Importar Planilha
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
             >
               <PlusCircle size={17} />
               Novo Usuário
@@ -184,7 +184,7 @@ export default function Users() {
         )}
       />
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-pulse space-y-3">
@@ -196,14 +196,14 @@ export default function Users() {
           <p className="text-center text-slate-400 py-12 text-sm">Nenhum usuário cadastrado.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider">
+            <table className="w-full table-auto text-sm">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">E-mail</th>
-                  <th className="px-4 py-3 text-left">Setor</th>
-                  <th className="px-4 py-3 text-left">Nível de Acesso</th>
-                  <th className="px-4 py-3 text-center">Alertas Discord</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">E-mail</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Setor</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nível de Acesso</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Alertas Discord</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -211,7 +211,7 @@ export default function Users() {
                   <tr
                     key={currentUser.id}
                     onClick={() => setSelectedUser(currentUser)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="cursor-pointer transition-colors hover:bg-orange-50/40"
                   >
                     <td className="px-4 py-3 font-medium text-slate-800">{currentUser.name}</td>
                     <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
@@ -222,7 +222,7 @@ export default function Users() {
                           currentUser.role === 'ADMIN'
                             ? 'bg-red-100 text-red-700'
                             : currentUser.role === 'TECHNICIAN'
-                              ? 'bg-brand-secondary text-brand-primary'
+                              ? 'bg-brand-secondary/40 text-brand-primary-dark'
                               : 'bg-slate-100 text-slate-700'
                         }`}
                       >

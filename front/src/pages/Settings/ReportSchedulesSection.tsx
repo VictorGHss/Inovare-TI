@@ -14,7 +14,7 @@ import {
 } from '../../services/api';
 
 const inputClassName =
-  'w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 shadow-none placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary focus:bg-white transition-all';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all';
 
 export default function ReportSchedulesSection() {
   const [reportSchedules, setReportSchedules] = useState<ReportSchedule[]>([]);
@@ -212,7 +212,7 @@ export default function ReportSchedulesSection() {
                       </label>
                     </div>
                     <div className="md:col-span-2 flex gap-2 justify-end">
-                      <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="inline-flex items-center gap-1.5 bg-[#feb56c] hover:brightness-95 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                      <button onClick={handleSaveEditedSchedule} disabled={schedulesLoading} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-primary-dark">
                         <Check size={13} /> Salvar
                       </button>
                       <button onClick={cancelEdit} className="inline-flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors">
@@ -245,7 +245,7 @@ export default function ReportSchedulesSection() {
                   <button
                     onClick={() => handleToggleScheduleActive(s)}
                     title={s.isActive ? 'Desativar' : 'Ativar'}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${s.isActive ? 'bg-[#feb56c] text-white' : 'bg-white border border-slate-200 text-[#feb56c]'}`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${s.isActive ? 'bg-brand-primary text-white hover:bg-brand-primary-dark' : 'bg-white border border-slate-200 text-brand-primary'}`}
                   >
                     {s.isActive ? 'Desativar' : 'Ativar'}
                   </button>
@@ -306,7 +306,7 @@ export default function ReportSchedulesSection() {
             <button
               onClick={handleCreateSchedule}
               disabled={schedulesLoading}
-              className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-40"
             >
               <Plus size={14} />
               Criar Agendamento

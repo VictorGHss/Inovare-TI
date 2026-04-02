@@ -16,7 +16,7 @@ import ReportSchedulesSection from './ReportSchedulesSection';
 type TabType = 'system' | 'profile';
 
 const inputClassName =
-  'w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 shadow-none placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary focus:bg-white transition-all';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all';
 
 const friendlyLabels: Record<string, string> = {
   SLA_URGENT_HOURS: 'SLA — Chamados Urgentes (Horas)',
@@ -271,7 +271,7 @@ export default function Settings() {
                     type="button"
                     disabled={saving || !hasChanges}
                     onClick={handleSave}
-                    className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Save size={14} />
                     {saving ? 'Salvando...' : 'Salvar Configurações'}
@@ -317,7 +317,7 @@ export default function Settings() {
                   <button
                     onClick={handleSaveSLA}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-40"
                   >
                     <Save size={14} />
                     Salvar SLAs
@@ -363,7 +363,7 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={handleSavePreferences}
-                className="inline-flex items-center gap-2 bg-[#feb56c] hover:brightness-95 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
               >
                 <Save size={14} />
                 Salvar Preferências

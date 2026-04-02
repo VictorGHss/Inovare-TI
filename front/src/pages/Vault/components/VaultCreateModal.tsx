@@ -12,7 +12,7 @@ type VaultItemType = VaultCreateItemRequestDTO['itemType'];
 type VaultSharingType = VaultCreateItemRequestDTO['sharingType'];
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
 
 const dropzoneClassName =
   'block w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500 hover:border-brand-primary hover:bg-brand-secondary/30 transition cursor-pointer';
@@ -205,7 +205,7 @@ export default function VaultCreateModal({
             <textarea
               value={formSecretContent}
               onChange={(e) => setFormSecretContent(e.target.value)}
-              className={`${inputClassName} min-h-24 resize-y`}
+              className={`${inputClassName} min-h-24 resize-y bg-slate-50 shadow-inner`}
             />
           </div>
 

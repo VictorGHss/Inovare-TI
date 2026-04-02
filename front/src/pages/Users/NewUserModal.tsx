@@ -1,4 +1,4 @@
-import { CircleHelp, Loader2, SearchCheck, X } from 'lucide-react';
+import { CircleHelp, Loader2, SearchCheck, UserPlus2, UserRound, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { checkContaAzulCustomerByEmail, type CreateUserDto, type Sector } from '../../services/api';
 
@@ -6,7 +6,9 @@ const customerNotFoundMessage =
   'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
+
+const labelClassName = 'block text-xs font-bold uppercase tracking-widest text-slate-400';
 
 interface NewUserModalProps {
   isOpen: boolean;
@@ -64,90 +66,106 @@ export default function NewUserModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-800">Novo Usuário</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+        <div className="h-1.5 w-full bg-gradient-to-r from-brand-primary to-brand-primary-dark" />
+
+        <header className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-secondary/60">
+              <UserRound size={18} className="text-brand-primary-dark" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Novo Usuário</h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Cadastro de colaborador com perfil, setor e vínculo financeiro opcional.
+              </p>
+            </div>
+          </div>
+
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             type="button"
           >
-            <X size={18} className="text-slate-500" />
+            <X size={17} />
           </button>
-        </div>
+        </header>
 
-        <form onSubmit={(event) => void onSubmit(event)} className="space-y-4">
+        <form onSubmit={(event) => void onSubmit(event)} className="space-y-4 p-6">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome Completo</label>
+            <label className={labelClassName}>Nome Completo</label>
             <input
               type="text"
               value={formData.name}
               onChange={(event) => onChange({ ...formData, name: event.target.value })}
-              className={inputClassName}
+              className={`${inputClassName} mt-2`}
               disabled={submitting}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">E-mail</label>
+            <label className={labelClassName}>E-mail</label>
             <input
               type="email"
               value={formData.email}
               onChange={(event) => onChange({ ...formData, email: event.target.value })}
-              className={inputClassName}
+              className={`${inputClassName} mt-2`}
               disabled={submitting || checkingContaAzul}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Senha</label>
+            <label className={labelClassName}>Senha</label>
             <input
               type="password"
               value={formData.password}
               onChange={(event) => onChange({ ...formData, password: event.target.value })}
-              className={inputClassName}
+              className={`${inputClassName} mt-2`}
               disabled={submitting}
               placeholder="Mínimo 8 caracteres"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Setor</label>
-            <select
-              value={formData.sectorId}
-              onChange={(event) => onChange({ ...formData, sectorId: event.target.value })}
-              className={inputClassName}
-              disabled={submitting}
-            >
-              <option value="">Selecione...</option>
-              {sectors.map((sector) => (
-                <option key={sector.id} value={sector.id}>
-                  {sector.name}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClassName}>Setor</label>
+              <select
+                value={formData.sectorId}
+                onChange={(event) => onChange({ ...formData, sectorId: event.target.value })}
+                className={`${inputClassName} mt-2`}
+                disabled={submitting}
+              >
+                <option value="">Selecione...</option>
+                {sectors.map((sector) => (
+                  <option key={sector.id} value={sector.id}>
+                    {sector.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClassName}>Nível de Acesso</label>
+              <select
+                value={formData.role}
+                onChange={(event) =>
+                  onChange({ ...formData, role: event.target.value as CreateUserDto['role'] })
+                }
+                className={`${inputClassName} mt-2`}
+                disabled={submitting}
+              >
+                <option value="USER">Usuário</option>
+                <option value="TECHNICIAN">Técnico</option>
+                <option value="ADMIN">Administrador</option>
+              </select>
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Nível de Acesso</label>
-            <select
-              value={formData.role}
-              onChange={(event) =>
-                onChange({ ...formData, role: event.target.value as CreateUserDto['role'] })
-              }
-              className={inputClassName}
-              disabled={submitting}
-            >
-              <option value="USER">Usuário</option>
-              <option value="TECHNICIAN">Técnico</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">ID Conta Azul (opcional)</label>
-            <div className="flex items-center gap-2">
+            <label className={labelClassName}>ID Conta Azul (Opcional)</label>
+            <div className="mt-2 flex items-center gap-2">
               <input
                 type="text"
                 value={formData.contaAzulId ?? ''}
@@ -163,15 +181,15 @@ export default function NewUserModal({
                   void handleCheckContaAzul();
                 }}
                 disabled={submitting || checkingContaAzul}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {checkingContaAzul ? <Loader2 size={14} className="animate-spin" /> : <SearchCheck size={14} />}
+                {checkingContaAzul ? <Loader2 size={13} className="animate-spin" /> : <SearchCheck size={13} />}
                 {checkingContaAzul ? 'Buscando...' : 'Verificar'}
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-700">Receber notificações de chamados (Discord)</span>
               <span
@@ -195,7 +213,7 @@ export default function NewUserModal({
               }
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                 formData.receives_it_notifications
-                  ? 'focus:ring-[#ffa751]'
+                  ? 'focus:ring-brand-primary/40'
                   : 'bg-slate-300 focus:ring-slate-400'
               }`}
               style={{
@@ -211,13 +229,23 @@ export default function NewUserModal({
             </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {submitting ? 'Salvando...' : 'Cadastrar Usuário'}
-          </button>
+          <footer className="mt-2 flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <UserPlus2 size={15} />}
+              {submitting ? 'Salvando...' : 'Cadastrar Usuário'}
+            </button>
+          </footer>
         </form>
       </div>
     </div>

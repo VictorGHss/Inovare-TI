@@ -210,7 +210,7 @@ export default function Vault() {
         actions={(
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
           >
             <PlusCircle size={17} />
             Novo Item
@@ -218,7 +218,7 @@ export default function Vault() {
         )}
       />
 
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         {loading ? (
           <div className="animate-pulse space-y-3 py-6">
             <div className="h-4 bg-slate-200 rounded w-3/4" />

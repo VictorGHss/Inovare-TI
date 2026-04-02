@@ -86,49 +86,79 @@ function toFriendlyAuditAction(action: AuditAction): string {
 }
 
 const ACTION_BADGE_CLASS: Record<AuditAction, string> = {
-  VAULT_LOGIN_SUCCESS: 'bg-indigo-100 text-indigo-700',
-  VAULT_LOGIN_FAILURE: 'bg-rose-100 text-rose-700',
-  VAULT_SECRET_VIEW: 'bg-blue-100 text-blue-700',
-  VAULT_FILE_VIEW: 'bg-blue-100 text-blue-700',
-  VAULT_ITEM_CREATE: 'bg-emerald-100 text-emerald-700',
-  VAULT_ITEM_VIEW: 'bg-blue-100 text-blue-700',
-  VAULT_ITEM_EDIT: 'bg-indigo-100 text-indigo-700',
-  VAULT_ITEM_DELETE: 'bg-rose-100 text-rose-700',
-  VAULT_AUTH_SUCCESS: 'bg-indigo-100 text-indigo-700',
-  VAULT_AUTH_FAIL: 'bg-rose-100 text-rose-700',
-  LOGIN_SUCCESS: 'bg-green-100 text-green-700',
-  LOGIN_FAILURE: 'bg-red-100 text-red-700',
-  TWO_FACTOR_RESET: 'bg-yellow-100 text-yellow-700',
+  VAULT_LOGIN_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
+  VAULT_LOGIN_FAILURE: 'bg-red-100 text-red-600',
+  VAULT_SECRET_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
+  VAULT_FILE_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
+  VAULT_ITEM_CREATE: 'bg-orange-100 text-orange-700',
+  VAULT_ITEM_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
+  VAULT_ITEM_EDIT: 'bg-orange-100 text-orange-700',
+  VAULT_ITEM_DELETE: 'bg-red-100 text-red-600',
+  VAULT_AUTH_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
+  VAULT_AUTH_FAIL: 'bg-red-100 text-red-600',
+  LOGIN_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
+  LOGIN_FAILURE: 'bg-red-100 text-red-600',
+  TWO_FACTOR_RESET: 'bg-amber-100 text-amber-700',
   TWO_FACTOR_ADMIN_RESET: 'bg-orange-100 text-orange-700',
   USER_2FA_ADMIN_RESET: 'bg-orange-100 text-orange-700',
   TICKET_OPEN: 'bg-orange-100 text-orange-700',
-  TICKET_ASSIGN: 'bg-indigo-100 text-indigo-700',
-  TICKET_TRANSFER: 'bg-slate-200 text-slate-700',
-  TICKET_RESOLVE: 'bg-emerald-100 text-emerald-700',
+  TICKET_ASSIGN: 'bg-brand-secondary/40 text-brand-primary-dark',
+  TICKET_TRANSFER: 'bg-amber-100 text-amber-700',
+  TICKET_RESOLVE: 'bg-brand-secondary/40 text-brand-primary-dark',
   INVENTORY_BATCH_ENTRY: 'bg-amber-100 text-amber-700',
-  INVENTORY_ITEM_CREATE: 'bg-teal-100 text-teal-700',
+  INVENTORY_ITEM_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
   STOCK_BATCH_CREATE: 'bg-amber-100 text-amber-700',
-  ITEM_CREATE: 'bg-teal-100 text-teal-700',
-  ASSET_CREATE: 'bg-cyan-100 text-cyan-700',
-  ASSET_EDIT: 'bg-cyan-100 text-cyan-700',
-  ASSET_INVOICE_ATTACH: 'bg-lime-100 text-lime-700',
-  QR_SCAN: 'bg-violet-100 text-violet-700',
-  ASSET_QR_SCAN: 'bg-violet-100 text-violet-700',
-  KB_ARTICLE_DRAFT_CREATE: 'bg-slate-200 text-slate-700',
-  KB_ARTICLE_PUBLISH: 'bg-emerald-100 text-emerald-700',
-  KB_ARTICLE_EDIT: 'bg-indigo-100 text-indigo-700',
-  ARTICLE_POST_PUBLIC: 'bg-emerald-100 text-emerald-700',
-  ARTICLE_POST_DRAFT: 'bg-slate-200 text-slate-700',
-  ARTICLE_EDIT: 'bg-indigo-100 text-indigo-700',
-  SECTOR_CREATE: 'bg-blue-100 text-blue-700',
-  USER_CREATE: 'bg-sky-100 text-sky-700',
-  USER_UPDATE: 'bg-purple-100 text-purple-700',
-  USER_EDIT: 'bg-purple-100 text-purple-700',
+  ITEM_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
+  ASSET_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
+  ASSET_EDIT: 'bg-orange-100 text-orange-700',
+  ASSET_INVOICE_ATTACH: 'bg-brand-secondary/40 text-brand-primary-dark',
+  QR_SCAN: 'bg-brand-secondary/40 text-brand-primary-dark',
+  ASSET_QR_SCAN: 'bg-brand-secondary/40 text-brand-primary-dark',
+  KB_ARTICLE_DRAFT_CREATE: 'bg-slate-100 text-slate-700',
+  KB_ARTICLE_PUBLISH: 'bg-brand-secondary/40 text-brand-primary-dark',
+  KB_ARTICLE_EDIT: 'bg-orange-100 text-orange-700',
+  ARTICLE_POST_PUBLIC: 'bg-brand-secondary/40 text-brand-primary-dark',
+  ARTICLE_POST_DRAFT: 'bg-slate-100 text-slate-700',
+  ARTICLE_EDIT: 'bg-orange-100 text-orange-700',
+  SECTOR_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
+  USER_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
+  USER_UPDATE: 'bg-orange-100 text-orange-700',
+  USER_EDIT: 'bg-orange-100 text-orange-700',
   USER_PASSWORD_RESET: 'bg-red-100 text-red-700',
-  USER_PERMISSION_CHANGE: 'bg-purple-100 text-purple-700',
+  USER_PERMISSION_CHANGE: 'bg-amber-100 text-amber-700',
   USER_PASSWORD_ADMIN_RESET: 'bg-red-100 text-red-700',
-  PROFILE_PASSWORD_CHANGE: 'bg-yellow-100 text-yellow-700',
+  PROFILE_PASSWORD_CHANGE: 'bg-amber-100 text-amber-700',
 };
+
+type AuditSeverity = 'INFO' | 'WARN' | 'ERROR';
+
+const SEVERITY_BADGE_CLASS: Record<AuditSeverity, string> = {
+  INFO: 'bg-brand-secondary/40 text-brand-primary-dark',
+  WARN: 'bg-amber-100 text-amber-700',
+  ERROR: 'bg-red-100 text-red-600',
+};
+
+function getAuditSeverity(action: AuditAction): AuditSeverity {
+  if (
+    action.includes('FAILURE')
+    || action.endsWith('_FAIL')
+    || action === 'USER_PASSWORD_RESET'
+    || action === 'USER_PASSWORD_ADMIN_RESET'
+  ) {
+    return 'ERROR';
+  }
+
+  if (
+    action.includes('RESET')
+    || action === 'USER_PERMISSION_CHANGE'
+    || action === 'VAULT_ITEM_DELETE'
+    || action === 'TICKET_TRANSFER'
+  ) {
+    return 'WARN';
+  }
+
+  return 'INFO';
+}
 
 const ALL_ACTIONS: AuditAction[] = [
   'VAULT_LOGIN_SUCCESS',
@@ -246,7 +276,7 @@ export default function SystemLogs() {
       {/* Filtros */}
       <form
         onSubmit={handleFilter}
-        className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 items-end shadow-sm"
+        className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="flex flex-col gap-1 min-w-[180px]">
           <label className="text-xs font-medium text-slate-600">Usuário</label>
@@ -309,7 +339,7 @@ export default function SystemLogs() {
       </form>
 
       {/* Tabela */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <SkeletonTable />
         ) : error ? (
@@ -321,22 +351,23 @@ export default function SystemLogs() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
                     Data / Hora
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Usuário</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ação</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Usuário</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Ação</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Severidade</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
                     Endereço IP
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Detalhes</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Detalhes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {page.content.map((log: AuditLog) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={log.id} className="transition-colors hover:bg-orange-50/40">
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap font-mono text-xs">
                       {formatDate(log.createdAt)}
                     </td>
@@ -352,6 +383,13 @@ export default function SystemLogs() {
                         }`}
                       >
                         {toFriendlyAuditAction(log.action)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${SEVERITY_BADGE_CLASS[getAuditSeverity(log.action)]}`}
+                      >
+                        {getAuditSeverity(log.action)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500 font-mono text-xs whitespace-nowrap">

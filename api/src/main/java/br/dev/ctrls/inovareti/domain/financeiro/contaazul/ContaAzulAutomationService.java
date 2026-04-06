@@ -36,7 +36,7 @@ public class ContaAzulAutomationService {
         contaAzulReceiptProcessor.processCurrentMonthAcquittedSales();
     }
 
-    public void processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
-        contaAzulReceiptProcessor.processAcquittedSales(dataInicio, dataFim);
+    public ContaAzulReceiptProcessor.ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
+        return contaAzulReceiptProcessor.processAcquittedSales(dataInicio, dataFim);
     }
 }

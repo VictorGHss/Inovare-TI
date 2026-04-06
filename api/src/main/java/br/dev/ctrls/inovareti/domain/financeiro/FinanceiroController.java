@@ -112,25 +112,39 @@ public class FinanceiroController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/autonacao/executar")
-    public ResponseEntity<Map<String, String>> executeAutomationNow(
+        public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
             @RequestParam LocalDate dataInicio,
             @RequestParam LocalDate dataFim) {
         log.info("Iniciando sincronização solicitada pelo usuário: Período [{}] a [{}]", dataInicio, dataFim);
         try {
             long start = System.currentTimeMillis();
-            contaAzulAutomationService.processAcquittedSales(dataInicio, dataFim);
+            var result = contaAzulAutomationService.processAcquittedSales(dataInicio, dataFim);
             long durationMs = System.currentTimeMillis() - start;
             log.info("Automação financeira manual concluída em {} ms.", durationMs);
 
-            return ResponseEntity.ok(Map.of(
-                    "status", "ok",
-                    "message", "Automação executada manualmente com sucesso após conclusão do processamento.",
-                    "durationMs", String.valueOf(durationMs)));
+            boolean hasErrors = result.errors() != null && !result.errors().isEmpty();
+            String status = hasErrors ? "warning" : "ok";
+            String message = hasErrors
+                ? "Automação executada manualmente com avisos. Verifique os logs para detalhes."
+                : "Automação executada manualmente com sucesso após conclusão do processamento.";
+
+            return ResponseEntity.ok(new AutomationExecutionResponseDTO(
+                status,
+                message,
+                durationMs,
+                result.errors(),
+                result.noAttachmentWarnings(),
+                result.mappingWarnings()));
         } catch (RuntimeException ex) {
             log.error("Falha ao executar automação financeira manual.", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                    "status", "erro",
-                    "message", "Falha ao executar automação manual. Verifique os logs para detalhes."));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                new AutomationExecutionResponseDTO(
+                    "erro",
+                    "Falha ao executar automação manual. Verifique os logs para detalhes.",
+                    0L,
+                    List.of(ex.getMessage()),
+                    0,
+                    0));
         }
     }
 
@@ -238,6 +252,15 @@ public class FinanceiroController {
         public record SyncDoctorsResponseDTO(
             int novos,
             int atualizados) {
+        }
+
+        public record AutomationExecutionResponseDTO(
+            String status,
+            String message,
+            long durationMs,
+            List<String> errors,
+            int noAttachmentWarnings,
+            int mappingWarnings) {
         }
 
             // Endpoint temporário de simulação removido.

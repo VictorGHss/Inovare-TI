@@ -111,3 +111,12 @@ export interface ExecuteFinanceAutomationNowParams {
   dataInicio: string;
   dataFim: string;
 }
+
+export interface FinanceAutomationExecutionResponse {
+  status: 'ok' | 'warning' | 'erro';
+  message: string;
+  durationMs: number;
+  errors: string[];
+  noAttachmentWarnings: number;
+  mappingWarnings: number;
+}

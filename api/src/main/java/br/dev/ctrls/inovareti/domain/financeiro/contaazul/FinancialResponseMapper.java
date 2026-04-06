@@ -13,10 +13,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Mapper de respostas relacionadas ao contexto financeiro da Conta Azul.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FinancialResponseMapper {
@@ -184,7 +186,11 @@ public class FinancialResponseMapper {
      */
     public Optional<String> extractReceiptUrl(JsonNode settlementNode) {
         JsonNode anexosNode = resolveAnexosNode(settlementNode);
-        if (anexosNode == null || !anexosNode.isArray()) {
+        if (anexosNode == null || !anexosNode.isArray() || anexosNode.isEmpty()) {
+            if (log.isDebugEnabled()) {
+                log.debug("Settlement sem anexos disponíveis para recibo. JSON completo: {}",
+                        settlementNode != null ? settlementNode.toString() : "null");
+            }
             return Optional.empty();
         }
 

@@ -39,9 +39,17 @@ export function useFinancialActions({
 
     try {
       setSyncingReceipts(true);
-      await executeFinanceAutomationNow({ dataInicio: startDate, dataFim: endDate });
+      const result = await executeFinanceAutomationNow({ dataInicio: startDate, dataFim: endDate });
       await reloadDashboardData();
-      toast.success('Sincronização executada com sucesso.');
+
+      if ((result.errors ?? []).length === 0) {
+        toast.success('Sincronização executada com sucesso.');
+      } else {
+        const semAnexoCount = result.noAttachmentWarnings ?? 0;
+        toast.warn(
+          `Sincronização finalizada com avisos. ${semAnexoCount} recibos não possuíam anexo no ERP. Verifique os logs.`,
+        );
+      }
     } catch {
       toast.error('Falha ao executar sincronização manual de recibos.');
     } finally {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import api from './api';
-import type { ContaAzulCustomerEmailResponse, CreateDoctorMappingDTO, DashboardAnalyticsDTO, DoctorMapping, ExecuteFinanceAutomationNowParams, FinanceAlert, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, SyncDoctorsResponse } from '../types/models';
+import type { ContaAzulCustomerEmailResponse, CreateDoctorMappingDTO, DashboardAnalyticsDTO, DoctorMapping, ExecuteFinanceAutomationNowParams, FinanceAlert, FinanceAutomationExecutionResponse, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, SyncDoctorsResponse } from '../types/models';
 
 // Serviço focado apenas no domínio financeiro e integrações ContaAzul.
 
@@ -38,10 +38,14 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
   }
 }
 
-export async function executeFinanceAutomationNow(params: ExecuteFinanceAutomationNowParams): Promise<void> {
-  await api.post('/api/financeiro/autonacao/executar', null, {
+export async function executeFinanceAutomationNow(
+  params: ExecuteFinanceAutomationNowParams,
+): Promise<FinanceAutomationExecutionResponse> {
+  const { data } = await api.post<FinanceAutomationExecutionResponse>('/api/financeiro/autonacao/executar', null, {
     params,
   });
+
+  return data;
 }
 
 export async function getDoctorMappings(): Promise<DoctorMapping[]> {

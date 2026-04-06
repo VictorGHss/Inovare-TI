@@ -32,6 +32,7 @@ public class ContaAzulReceiptProcessor {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int SETTLEMENT_DETAILS_MAX_ATTEMPTS = 2;
     private static final long SETTLEMENT_DETAILS_RETRY_WAIT_NANOS = 15_000_000_000L;
+    private static final int MAX_ERROR_DETAILS = 200;
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -134,30 +135,30 @@ public class ContaAzulReceiptProcessor {
         processAcquittedSales(primeiroDiaMesAtual, hoje);
     }
 
-    public void processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
+    public ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
         if (!automationEnabled) {
             log.info("Pooling Conta Azul desativado por configuração.");
-            return;
+            return ReceiptProcessingResult.empty();
         }
 
         if (!contaAzulClient.hasSalesConfiguration()) {
             log.warn("Automação ContaAzul desabilitada: {}", buildSalesConfigurationErrorMessage());
-            return;
+            return ReceiptProcessingResult.empty();
         }
 
         if (!contaAzulTokenService.hasAuthorizedToken()) {
             log.debug("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
-            return;
+            return ReceiptProcessingResult.empty();
         }
 
         if (dataInicio == null || dataFim == null) {
             log.warn("Período inválido para sincronização: dataInicio={} dataFim={}", dataInicio, dataFim);
-            return;
+            return ReceiptProcessingResult.empty();
         }
 
         if (dataInicio.isAfter(dataFim)) {
             log.warn("Período inválido para sincronização: dataInicio ({}) maior que dataFim ({})", dataInicio, dataFim);
-            return;
+            return ReceiptProcessingResult.empty();
         }
 
         log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
@@ -172,13 +173,24 @@ public class ContaAzulReceiptProcessor {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
         } catch (RuntimeException ex) {
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
-            return;
+            return new ReceiptProcessingResult(
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    List.of("Falha ao buscar vendas liquidadas no Conta Azul: " + ex.getMessage()));
         }
 
         int sent = 0;
         int skippedProcessed = 0;
         int skippedMapping = 0;
         int failures = 0;
+        int noAttachmentWarnings = 0;
+        int mappingWarnings = 0;
+        List<String> errors = new ArrayList<>();
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
@@ -200,6 +212,8 @@ public class ContaAzulReceiptProcessor {
                 if (baixaIdOpt.isEmpty()) {
                     log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.",
                             sale.parcelaId());
+                    registerError(errors,
+                        "Nenhuma baixa encontrada para a parcela " + sale.parcelaId() + ". Item não processado.");
                     String markId = StringUtils.hasText(sale.parcelaId())
                             ? sale.parcelaId()
                             : (StringUtils.hasText(sale.saleId()) ? sale.saleId() : null);
@@ -226,6 +240,8 @@ public class ContaAzulReceiptProcessor {
                     failures++;
                     log.warn("baixaId inválido (nulo/vazio) para parcela {}. Item ignorado para segurança.",
                             sale.parcelaId());
+                    registerError(errors,
+                        "baixaId inválido para parcela " + sale.parcelaId() + ". Item ignorado para segurança.");
                     continue;
                 }
 
@@ -239,7 +255,10 @@ public class ContaAzulReceiptProcessor {
 
                 if (!StringUtils.hasText(customerUuidFromParcel)) {
                     skippedMapping++;
+                    mappingWarnings++;
                     log.warn("Recibo {} sem customer UUID. Pulando.", baixaId);
+                    registerError(errors,
+                            "Recibo " + baixaId + " sem customer UUID retornado pela API. Mapeamento ignorado.");
                     continue;
                 }
 
@@ -249,9 +268,14 @@ public class ContaAzulReceiptProcessor {
                 DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel).orElse(null);
                 if (mapping == null) {
                     skippedMapping++;
+                    mappingWarnings++;
                     log.info("Mapeamento NÃO encontrado. Pulando item.");
-                    log.warn("[MAP_FAIL] Cadastro faltando para o médico: {}",
-                            StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)");
+                    log.warn("[MAP_FAIL] Cadastro faltando para o médico: {} | UUID API='{}' | UUID normalizado='{}'",
+                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)",
+                        sale.customerUuid(),
+                        customerUuidFromParcel);
+                    registerError(errors,
+                        "MAP_FAIL para UUID " + customerUuidFromParcel + " (parcela " + sale.parcelaId() + ").");
                     continue;
                 }
 
@@ -260,10 +284,14 @@ public class ContaAzulReceiptProcessor {
                 String recipientEmail = resolveRecipientEmail(mapping);
                 if (!StringUtils.hasText(recipientEmail)) {
                     skippedMapping++;
+                    mappingWarnings++;
                     log.warn(
                             "Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Recibo {} ignorado.",
                             customerUuidFromParcel,
                             baixaId);
+                    registerError(errors,
+                        "Mapeamento sem e-mail de destino para customer UUID " + customerUuidFromParcel
+                            + " (recibo " + baixaId + ").");
                     continue;
                 }
 
@@ -277,6 +305,9 @@ public class ContaAzulReceiptProcessor {
                 try {
                     pdfBytes = downloadReceiptPdfFromSettlement(baixaId);
                 } catch (NoReceiptAvailableException nr) {
+                    noAttachmentWarnings++;
+                    registerError(errors,
+                            "Recibo sem anexo no ERP para baixa " + baixaId + ". Tentará novamente nas próximas rodadas.");
                     ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
                     if (attempt == null) {
                         processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
@@ -286,27 +317,19 @@ public class ContaAzulReceiptProcessor {
                         int attempts = attempt.getAttempts() + 1;
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
-                        if (attempts >= 20) {
-                            try {
-                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-                                processingAttemptRepository.deleteBySaleId(baixaId);
-                                String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts
-                                        + " tentativas. Marcado como processado para evitar loop.";
-                                receiptAlertService.notifyPermanentReceiptFailure(
+                        if (attempts == 20) {
+                            String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts
+                                    + " tentativas. Mantido pendente para nova tentativa quando o ERP disponibilizar anexo.";
+                            receiptAlertService.notifyPermanentReceiptFailure(
                                     baixaId,
                                     sale.saleId(),
                                     mapping.getDoctorName(),
                                     attempts,
                                     details);
-                                log.error(
-                                        "Recibo da baixa {} não gerado após {} tentativas. Marcado como processado e alerta registrado.",
-                                        baixaId,
-                                        attempts);
-                            } catch (DataIntegrityViolationException dex) {
-                                log.debug(
-                                        "Recibo {} já registrado por concorrência ao marcar como processado após tentativas.",
-                                        baixaId);
-                            }
+                            log.error(
+                                    "Recibo da baixa {} não gerado após {} tentativas. Mantido pendente para nova tentativa.",
+                                    baixaId,
+                                    attempts);
                         } else {
                             log.info(
                                     "Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/20",
@@ -347,6 +370,8 @@ public class ContaAzulReceiptProcessor {
                     }
                     failures++;
                     log.error("Falha ao baixar recibo para baixa {}.", baixaId, ex);
+                        registerError(errors,
+                            "Falha ao baixar recibo para baixa " + baixaId + ": " + ex.getMessage());
                     continue;
                 }
 
@@ -386,6 +411,8 @@ public class ContaAzulReceiptProcessor {
                                     attempt.getAttempts());
                         }
                     }
+                        registerError(errors,
+                            "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.");
                     continue;
                 }
 
@@ -411,6 +438,7 @@ public class ContaAzulReceiptProcessor {
             } catch (RuntimeException ex) {
                 failures++;
                 log.error("Falha ao processar recibo.", ex);
+                registerError(errors, "Falha ao processar recibo: " + ex.getMessage());
             }
         }
 
@@ -421,6 +449,16 @@ public class ContaAzulReceiptProcessor {
                 skippedProcessed,
                 skippedMapping,
                 failures);
+
+            return new ReceiptProcessingResult(
+                acquittedSales.size(),
+                sent,
+                skippedProcessed,
+                skippedMapping,
+                failures,
+                noAttachmentWarnings,
+                mappingWarnings,
+                List.copyOf(errors));
     }
 
     /**
@@ -539,7 +577,39 @@ public class ContaAzulReceiptProcessor {
     }
 
     private String normalizeUuid(String value) {
-        return StringUtils.hasText(value) ? value.trim().toLowerCase() : null;
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        String normalized = value.replaceAll("\\\\s+", "").toLowerCase();
+        return StringUtils.hasText(normalized) ? normalized : null;
+    }
+
+    private void registerError(List<String> errors, String message) {
+        if (!StringUtils.hasText(message)) {
+            return;
+        }
+
+        if (errors.size() >= MAX_ERROR_DETAILS) {
+            return;
+        }
+
+        errors.add(message.trim());
+    }
+
+    public record ReceiptProcessingResult(
+            int acquitted,
+            int sent,
+            int skippedProcessed,
+            int skippedMapping,
+            int failures,
+            int noAttachmentWarnings,
+            int mappingWarnings,
+            List<String> errors) {
+
+        static ReceiptProcessingResult empty() {
+            return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of());
+        }
     }
 
     private boolean applyThrottle() {

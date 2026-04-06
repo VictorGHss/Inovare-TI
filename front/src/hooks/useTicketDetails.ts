@@ -14,10 +14,9 @@ import type { Asset, ResolveTicketRequest, Ticket, User } from '../types/models'
 
 interface UseTicketDetailsParams {
   ticketId?: string;
-  onTicketNotFound?: () => void;
 }
 
-export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetailsParams) {
+export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
@@ -30,32 +29,38 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
   const [selectedUserId, setSelectedUserId] = useState('');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  const [ticketNotFound, setTicketNotFound] = useState(false);
 
-  const fetchTicket = useCallback(async () => {
+  const loadTicket = useCallback(async () => {
     if (!ticketId) return;
 
     try {
       const data = await getTicketById(ticketId);
       setTicket(data);
+      setTicketNotFound(false);
     } catch {
       toast.error('Chamado nao encontrado.');
-      onTicketNotFound?.();
+      setTicketNotFound(true);
+      setTicket(null);
     }
-  }, [onTicketNotFound, ticketId]);
+  }, [ticketId]);
 
   useEffect(() => {
     if (!ticketId) {
       setLoading(false);
       setTicket(null);
+      setTicketNotFound(false);
       return;
     }
 
     setLoading(true);
-    void fetchTicket().finally(() => setLoading(false));
-  }, [fetchTicket, ticketId]);
+    void loadTicket().finally(() => setLoading(false));
+    // Dependência intencionalmente restrita ao id para evitar loops por referência de função.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
 
   useEffect(() => {
-    async function fetchAssets() {
+    async function loadAssets() {
       if (!ticket?.requesterId) {
         setAssets([]);
         return;
@@ -72,10 +77,10 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
       }
     }
 
-    void fetchAssets();
+    void loadAssets();
   }, [ticket?.requesterId]);
 
-  async function handleResolve(request: ResolveTicketRequest) {
+  const handleResolve = useCallback(async (request: ResolveTicketRequest) => {
     if (!ticket) return;
 
     setClosing(true);
@@ -90,24 +95,24 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
     } finally {
       setClosing(false);
     }
-  }
+  }, [ticket]);
 
-  async function handleClaim() {
+  const handleClaim = useCallback(async () => {
     if (!ticket) return;
 
     setClaiming(true);
     try {
       await claimTicket(ticket.id);
-      await fetchTicket();
+      await loadTicket();
       toast.success('Chamado assumido com sucesso!');
     } catch {
       toast.error('Erro ao assumir o chamado.');
     } finally {
       setClaiming(false);
     }
-  }
+  }, [loadTicket, ticket]);
 
-  async function handleOpenTransfer() {
+  const handleOpenTransfer = useCallback(async () => {
     try {
       const usersData = await getUsers();
       setUsers(usersData);
@@ -115,20 +120,20 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
     } catch {
       toast.error('Erro ao carregar usuarios para transferencia.');
     }
-  }
+  }, []);
 
-  function handleCancelTransfer() {
+  const handleCancelTransfer = useCallback(() => {
     setShowTransfer(false);
     setSelectedUserId('');
-  }
+  }, []);
 
-  async function handleTransfer() {
+  const handleTransfer = useCallback(async () => {
     if (!ticket || !selectedUserId) return;
 
     setTransferring(true);
     try {
       await transferTicket(ticket.id, selectedUserId);
-      await fetchTicket();
+      await loadTicket();
       handleCancelTransfer();
       toast.success('Chamado transferido com sucesso!');
     } catch {
@@ -136,33 +141,38 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
     } finally {
       setTransferring(false);
     }
-  }
+  }, [handleCancelTransfer, loadTicket, selectedUserId, ticket]);
 
-  async function handleAttachmentUpload(file: File) {
+  const handleAttachmentUpload = useCallback(async (file: File) => {
     if (!ticket) return;
 
     setUploadingAttachment(true);
     try {
       await uploadTicketAttachment(ticket.id, file);
-      await fetchTicket();
+      await loadTicket();
       toast.success('Anexo enviado com sucesso!');
     } catch {
       toast.error('Erro ao enviar anexo.');
     } finally {
       setUploadingAttachment(false);
     }
-  }
+  }, [loadTicket, ticket]);
 
-  function openResolveModal() {
+  const openResolveModal = useCallback(() => {
     setShowResolveModal(true);
-  }
+  }, []);
 
-  function closeResolveModal() {
+  const closeResolveModal = useCallback(() => {
     setShowResolveModal(false);
-  }
+  }, []);
+
+  const updateSelectedUserId = useCallback((userId: string) => {
+    setSelectedUserId(userId);
+  }, []);
 
   return {
     ticket,
+    ticketNotFound,
     loading,
     closing,
     claiming,
@@ -175,7 +185,8 @@ export function useTicketDetails({ ticketId, onTicketNotFound }: UseTicketDetail
     assets,
     loadingAssets,
     isResolved: ticket?.status === 'RESOLVED',
-    setSelectedUserId,
+    loadTicket,
+    setSelectedUserId: updateSelectedUserId,
     handleResolve,
     handleClaim,
     handleOpenTransfer,

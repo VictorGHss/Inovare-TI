@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHero from '../../components/PageHero';
@@ -15,6 +16,7 @@ export default function TicketDetails() {
   const { user } = useAuth();
   const {
     ticket,
+    ticketNotFound,
     loading,
     closing,
     claiming,
@@ -38,8 +40,13 @@ export default function TicketDetails() {
     closeResolveModal,
   } = useTicketDetails({
     ticketId: id,
-    onTicketNotFound: () => navigate('/dashboard'),
   });
+
+  useEffect(() => {
+    if (ticketNotFound) {
+      navigate('/dashboard');
+    }
+  }, [ticketNotFound, navigate]);
 
   if (loading) {
     return (

@@ -1,11 +1,19 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -26,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ReceiptEmailService {
 
     private final JavaMailSender mailSender;
+    private final RestTemplate restTemplate;
 
     @Value("${app.financeiro.test-mode}")
     private boolean financeiroTestMode;
@@ -65,6 +74,31 @@ public class ReceiptEmailService {
                 receiptNumber,
                 pdfBytes,
                 "recibo-quitacao-baixa-" + baixaId + ".pdf");
+    }
+
+    /**
+     * Faz download do binário de recibo garantindo Authorization Bearer no GET.
+     */
+    public byte[] downloadReceiptBinary(String receiptUrl, String accessToken) {
+        if (!StringUtils.hasText(receiptUrl)) {
+            return new byte[0];
+        }
+
+        if (!StringUtils.hasText(accessToken)) {
+            throw new IllegalStateException("Token de acesso da Conta Azul é obrigatório para baixar o recibo.");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken.trim());
+        headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM));
+
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+                receiptUrl.trim(),
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                byte[].class);
+
+        return response.getBody() != null ? response.getBody() : new byte[0];
     }
 
     private void sendReceiptEmailWithPdf(

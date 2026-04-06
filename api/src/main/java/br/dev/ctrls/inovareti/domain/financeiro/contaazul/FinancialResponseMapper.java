@@ -156,24 +156,69 @@ public class FinancialResponseMapper {
 
         try {
             JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode anexosNode = jsonSafeReader.readArrayNode(root, "anexos", "evento.anexos", "data.anexos", "content.anexos");
-            if (anexosNode == null || !anexosNode.isArray()) {
-                return Optional.empty();
-            }
-
-            for (JsonNode anexoNode : anexosNode) {
-                String tipo = jsonSafeReader.readText(anexoNode, "tipo", "type", "categoria");
-                String url = jsonSafeReader.readText(anexoNode, "url", "link", "download_url", "arquivo.url");
-                if (StringUtils.hasText(tipo)
-                        && ("RECIBO_DIGITAL".equalsIgnoreCase(tipo) || "RECIBO".equalsIgnoreCase(tipo))
-                        && StringUtils.hasText(url)) {
-                    return Optional.of(url);
-                }
-            }
-
-            return Optional.empty();
+            return extractReceiptUrl(root);
         } catch (IOException ex) {
             throw new IllegalStateException("Falha ao parsear payload de anexos da baixa da Conta Azul.", ex);
         }
+    }
+
+    /**
+     * Faz parse genérico do payload de detalhe da baixa e retorna o JsonNode raiz.
+     */
+    public Optional<JsonNode> parseSettlementNode(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear payload de detalhe de baixa da Conta Azul.", ex);
+        }
+    }
+
+    /**
+     * Extrai a URL do recibo digital a partir dos anexos da baixa.
+     *
+     * Regra de negócio: considerar somente anexos com tipo RECIBO ou RECIBO_DIGITAL.
+     */
+    public Optional<String> extractReceiptUrl(JsonNode settlementNode) {
+        JsonNode anexosNode = resolveAnexosNode(settlementNode);
+        if (anexosNode == null || !anexosNode.isArray()) {
+            return Optional.empty();
+        }
+
+        for (JsonNode anexoNode : anexosNode) {
+            String tipo = jsonSafeReader.readText(anexoNode, "tipo", "type", "categoria");
+            String url = jsonSafeReader.readText(anexoNode, "url", "link", "download_url", "arquivo.url");
+            if (StringUtils.hasText(tipo)
+                    && ("RECIBO_DIGITAL".equalsIgnoreCase(tipo) || "RECIBO".equalsIgnoreCase(tipo))
+                    && StringUtils.hasText(url)) {
+                return Optional.of(url.trim());
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Indica se o array de anexos está ausente ou vazio no detalhe da baixa.
+     */
+    public boolean isSettlementAttachmentsEmpty(JsonNode settlementNode) {
+        JsonNode anexosNode = resolveAnexosNode(settlementNode);
+        return anexosNode == null || !anexosNode.isArray() || anexosNode.isEmpty();
+    }
+
+    private JsonNode resolveAnexosNode(JsonNode settlementNode) {
+        if (settlementNode == null || settlementNode.isNull()) {
+            return null;
+        }
+
+        return jsonSafeReader.readArrayNode(
+                settlementNode,
+                "anexos",
+                "evento.anexos",
+                "data.anexos",
+                "content.anexos");
     }
 }

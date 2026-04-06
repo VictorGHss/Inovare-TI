@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,14 +35,18 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/" + normalizedBaixaId;
 
         try {
-            String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            String receiptUrl = financialResponseMapper.parseReceiptDownloadUrl(payload)
+            JsonNode settlementNode = getSettlementDetails(normalizedBaixaId)
+                    .orElseThrow(() -> new NoReceiptAvailableException(
+                            "Detalhe da baixa não encontrado para " + normalizedBaixaId));
+
+            String receiptUrl = financialResponseMapper.extractReceiptUrl(settlementNode)
                     .orElseThrow(() -> new NoReceiptAvailableException(
                             "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
-            return requestExecutor.downloadFile(receiptUrl);
+
+            String accessToken = contaAzulTokenService.getValidAccessToken();
+            return requestExecutor.downloadFile(receiptUrl, accessToken);
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(401)) {
                 throw ex;
@@ -48,11 +54,37 @@ public class ContaAzulFinancialClient {
 
             log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh explícito.", normalizedBaixaId);
             ContaAzulOAuthToken refreshed = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            String payload = requestExecutor.executeJsonGetResponse(uri, refreshed).body();
-                String receiptUrl = financialResponseMapper.parseReceiptDownloadUrl(payload)
+            JsonNode settlementNode = getSettlementDetails(normalizedBaixaId)
+                    .orElseThrow(() -> new NoReceiptAvailableException(
+
+                            "Detalhe da baixa não encontrado para " + normalizedBaixaId));
+            String receiptUrl = financialResponseMapper.extractReceiptUrl(settlementNode)
                     .orElseThrow(() -> new NoReceiptAvailableException(
                             "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
             return requestExecutor.downloadFile(receiptUrl, refreshed.getAccessToken());
+        }
+    }
+
+    /**
+     * Obtém os detalhes da baixa (settlement) no endpoint de parcelas baixadas.
+     */
+    public Optional<JsonNode> getSettlementDetails(String settlementId) {
+        if (!StringUtils.hasText(settlementId)) {
+            return Optional.empty();
+        }
+
+        String normalizedSettlementId = settlementId.trim();
+        String uri = normalizeBaixaBaseUrl().replace("{id}", normalizedSettlementId);
+
+        try {
+            String payload = requestExecutor.executeJsonGetWithRefresh(uri);
+            return financialResponseMapper.parseSettlementNode(payload);
+        } catch (ContaAzulHttpException ex) {
+            if (!ex.isStatus(404)) {
+                throw ex;
+            }
+            log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedSettlementId);
+            return Optional.empty();
         }
     }
 

@@ -18,6 +18,8 @@ import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttempt;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttemptRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulReceiptProcessor {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final int SETTLEMENT_DETAILS_MAX_ATTEMPTS = 2;
+    private static final long SETTLEMENT_DETAILS_RETRY_WAIT_NANOS = 15_000_000_000L;
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -36,6 +40,7 @@ public class ContaAzulReceiptProcessor {
     private final ProcessingAttemptRepository processingAttemptRepository;
     private final ReceiptEmailService receiptEmailService;
     private final ReceiptAlertService receiptAlertService;
+    private final FinancialResponseMapper financialResponseMapper;
 
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
@@ -101,7 +106,7 @@ public class ContaAzulReceiptProcessor {
             throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
         }
 
-        byte[] pdfBytes = contaAzulClient.downloadReceiptPdf(baixaIdOpt.get());
+        byte[] pdfBytes = downloadReceiptPdfFromSettlement(baixaIdOpt.get());
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
         log.info("Enviando para {}", recipientEmail);
@@ -254,7 +259,7 @@ public class ContaAzulReceiptProcessor {
 
                 byte[] pdfBytes;
                 try {
-                    pdfBytes = contaAzulClient.downloadReceiptPdf(baixaId);
+                    pdfBytes = downloadReceiptPdfFromSettlement(baixaId);
                 } catch (NoReceiptAvailableException nr) {
                     ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
                     if (attempt == null) {
@@ -400,6 +405,64 @@ public class ContaAzulReceiptProcessor {
                 skippedProcessed,
                 skippedMapping,
                 failures);
+    }
+
+    /**
+     * Resolve URL do recibo a partir dos anexos da baixa e baixa o PDF autenticado.
+     */
+    private byte[] downloadReceiptPdfFromSettlement(String baixaId) {
+        String receiptUrl = resolveReceiptUrlFromSettlementWithRetry(baixaId)
+                .orElseThrow(() -> new NoReceiptAvailableException(
+                        "Nenhum anexo de recibo encontrado para baixa " + baixaId));
+
+        String accessToken = contaAzulTokenService.getValidAccessToken();
+        return receiptEmailService.downloadReceiptBinary(receiptUrl, accessToken);
+    }
+
+    /**
+     * Busca detalhes da baixa para extrair URL do recibo.
+     *
+     * Regra: quando o array de anexos vier vazio, aguarda 15 segundos e tenta
+     * mais uma vez (máximo 2 tentativas).
+     */
+    private Optional<String> resolveReceiptUrlFromSettlementWithRetry(String baixaId) {
+        for (int attempt = 1; attempt <= SETTLEMENT_DETAILS_MAX_ATTEMPTS; attempt++) {
+            Optional<JsonNode> settlementNodeOpt = contaAzulClient.getSettlementDetails(baixaId);
+            if (settlementNodeOpt.isEmpty()) {
+                return Optional.empty();
+            }
+
+            JsonNode settlementNode = settlementNodeOpt.get();
+            Optional<String> receiptUrlOpt = financialResponseMapper.extractReceiptUrl(settlementNode);
+            if (receiptUrlOpt.isPresent()) {
+                return receiptUrlOpt;
+            }
+
+            boolean attachmentsEmpty = financialResponseMapper.isSettlementAttachmentsEmpty(settlementNode);
+            if (!attachmentsEmpty || attempt >= SETTLEMENT_DETAILS_MAX_ATTEMPTS) {
+                return Optional.empty();
+            }
+
+            log.info(
+                    "Anexos ainda vazios para baixa {} na tentativa {}/{}. Aguardando 15 segundos para nova consulta.",
+                    baixaId,
+                    attempt,
+                    SETTLEMENT_DETAILS_MAX_ATTEMPTS);
+            waitBeforeSettlementRetry();
+            if (Thread.currentThread().isInterrupted()) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private void waitBeforeSettlementRetry() {
+        LockSupport.parkNanos(SETTLEMENT_DETAILS_RETRY_WAIT_NANOS);
+        if (Thread.currentThread().isInterrupted()) {
+            Thread.currentThread().interrupt();
+            log.warn("Thread interrompida durante espera de retry para anexos da baixa.");
+        }
     }
 
     private String resolveRecipientEmail(DoctorEmailMapping mapping) {

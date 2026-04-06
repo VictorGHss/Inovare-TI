@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -67,6 +69,10 @@ public class ContaAzulClient {
 
     public Optional<BaixaDetailDTO> fetchBaixaDetail(String baixaId) {
         return financialClient.fetchBaixaDetail(baixaId);
+    }
+
+    public Optional<JsonNode> getSettlementDetails(String settlementId) {
+        return financialClient.getSettlementDetails(settlementId);
     }
 
     public byte[] downloadFile(String url) {

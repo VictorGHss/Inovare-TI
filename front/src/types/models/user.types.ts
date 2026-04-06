@@ -204,9 +204,13 @@ export interface AuditLogPage {
   last: boolean;
 }
 
+export type AuditSeverity = 'INFO' | 'WARN' | 'ERROR';
+
 export interface GetAuditLogsParams {
   userId?: string;
   action?: AuditAction;
+  severity?: AuditSeverity;
+  search?: string;
   startDate?: string;
   endDate?: string;
   page?: number;

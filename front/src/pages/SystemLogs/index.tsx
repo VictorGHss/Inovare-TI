@@ -1,263 +1,32 @@
-// Página de Logs do Sistema — exclusiva para ADMIN
-import { useEffect, useState, useCallback } from 'react';
 import { Shield } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import axios from 'axios';
-import { getUsers } from '../../services/userService';
-import { getAuditLogs } from '../../services/inventoryService';
-import type { AuditLog, AuditAction, AuditLogPage, User } from '../../types/models';
-import SkeletonTable from '../../components/SkeletonTable';
+
 import PageHero from '../../components/PageHero';
-
-const ACTION_LABEL_OVERRIDES: Partial<Record<AuditAction, string>> = {
-  VAULT_LOGIN_SUCCESS: 'Cofre: Login 2FA com Sucesso',
-  VAULT_LOGIN_FAILURE: 'Cofre: Falha de Login 2FA',
-  VAULT_SECRET_VIEW: 'Visualizou Segredo',
-  VAULT_FILE_VIEW: 'Visualizou Arquivo',
-  VAULT_ITEM_CREATE: 'Criou Item no Cofre',
-  VAULT_ITEM_VIEW: 'Visualizou Item no Cofre',
-  VAULT_ITEM_EDIT: 'Editou Item no Cofre',
-  VAULT_ITEM_DELETE: 'Removeu Item no Cofre',
-  VAULT_AUTH_SUCCESS: 'Autenticação 2FA Bem-sucedida',
-  VAULT_AUTH_FAIL: 'Falha na Autenticação 2FA',
-  LOGIN_SUCCESS: 'Login com Sucesso',
-  LOGIN_FAILURE: 'Falha de Login',
-  TWO_FACTOR_RESET: 'Reset 2FA (próprio)',
-  TWO_FACTOR_ADMIN_RESET: 'Reset 2FA (Admin)',
-  USER_2FA_ADMIN_RESET: 'Reset 2FA (Admin)',
-  TICKET_OPEN: 'Chamado Aberto',
-  TICKET_ASSIGN: 'Chamado Atribuído',
-  TICKET_TRANSFER: 'Chamado Transferido',
-  TICKET_RESOLVE: 'Chamado Resolvido',
-  INVENTORY_BATCH_ENTRY: 'Inventário: Entrada de Lote',
-  INVENTORY_ITEM_CREATE: 'Inventário: Criação de Item',
-  STOCK_BATCH_CREATE: 'Inventário: Entrada de Lote',
-  ITEM_CREATE: 'Inventário: Criação de Item',
-  ASSET_CREATE: 'Ativo Criado',
-  ASSET_EDIT: 'Ativo Editado',
-  ASSET_INVOICE_ATTACH: 'NF Anexada ao Ativo',
-  QR_SCAN: 'Leitura de QR Code',
-  ASSET_QR_SCAN: 'Escaneou QR Code de Ativo',
-  KB_ARTICLE_DRAFT_CREATE: 'Base de Conhecimento: Rascunho',
-  KB_ARTICLE_PUBLISH: 'Base de Conhecimento: Publicação',
-  KB_ARTICLE_EDIT: 'Base de Conhecimento: Edição',
-  ARTICLE_POST_PUBLIC: 'Base de Conhecimento: Publicação',
-  ARTICLE_POST_DRAFT: 'Base de Conhecimento: Rascunho',
-  ARTICLE_EDIT: 'Base de Conhecimento: Edição',
-  SECTOR_CREATE: 'Gestão: Criação de Setor',
-  USER_CREATE: 'Gestão: Criação de Usuário',
-  USER_UPDATE: 'Gestão: Edição de Usuário',
-  USER_EDIT: 'Gestão: Edição de Usuário',
-  USER_PASSWORD_RESET: 'Gestão: Reset de Senha',
-  USER_PASSWORD_ADMIN_RESET: 'Gestão: Reset de Senha',
-  USER_PERMISSION_CHANGE: 'Alteração de Permissão',
-  PROFILE_PASSWORD_CHANGE: 'Alterou a própria senha',
-};
-
-function toFriendlyAuditAction(action: AuditAction): string {
-  const override = ACTION_LABEL_OVERRIDES[action];
-  if (override) {
-    return override;
-  }
-
-  if (action.startsWith('TICKET_')) {
-    return `Chamado: ${action.replace('TICKET_', '').replaceAll('_', ' ')}`;
-  }
-
-  if (
-    action.startsWith('INVENTORY_')
-    || action === 'STOCK_BATCH_CREATE'
-    || action === 'ITEM_CREATE'
-  ) {
-    return `Inventário: ${action
-      .replace('INVENTORY_', '')
-      .replace('STOCK_BATCH_CREATE', 'ENTRADA DE LOTE')
-      .replace('ITEM_CREATE', 'CRIAÇÃO DE ITEM')
-      .replaceAll('_', ' ')}`;
-  }
-
-  return action.replaceAll('_', ' ');
-}
-
-const ACTION_BADGE_CLASS: Record<AuditAction, string> = {
-  VAULT_LOGIN_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
-  VAULT_LOGIN_FAILURE: 'bg-red-100 text-red-600',
-  VAULT_SECRET_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
-  VAULT_FILE_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
-  VAULT_ITEM_CREATE: 'bg-orange-100 text-orange-700',
-  VAULT_ITEM_VIEW: 'bg-brand-secondary/40 text-brand-primary-dark',
-  VAULT_ITEM_EDIT: 'bg-orange-100 text-orange-700',
-  VAULT_ITEM_DELETE: 'bg-red-100 text-red-600',
-  VAULT_AUTH_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
-  VAULT_AUTH_FAIL: 'bg-red-100 text-red-600',
-  LOGIN_SUCCESS: 'bg-brand-secondary/40 text-brand-primary-dark',
-  LOGIN_FAILURE: 'bg-red-100 text-red-600',
-  TWO_FACTOR_RESET: 'bg-amber-100 text-amber-700',
-  TWO_FACTOR_ADMIN_RESET: 'bg-orange-100 text-orange-700',
-  USER_2FA_ADMIN_RESET: 'bg-orange-100 text-orange-700',
-  TICKET_OPEN: 'bg-orange-100 text-orange-700',
-  TICKET_ASSIGN: 'bg-brand-secondary/40 text-brand-primary-dark',
-  TICKET_TRANSFER: 'bg-amber-100 text-amber-700',
-  TICKET_RESOLVE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  INVENTORY_BATCH_ENTRY: 'bg-amber-100 text-amber-700',
-  INVENTORY_ITEM_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  STOCK_BATCH_CREATE: 'bg-amber-100 text-amber-700',
-  ITEM_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  ASSET_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  ASSET_EDIT: 'bg-orange-100 text-orange-700',
-  ASSET_INVOICE_ATTACH: 'bg-brand-secondary/40 text-brand-primary-dark',
-  QR_SCAN: 'bg-brand-secondary/40 text-brand-primary-dark',
-  ASSET_QR_SCAN: 'bg-brand-secondary/40 text-brand-primary-dark',
-  KB_ARTICLE_DRAFT_CREATE: 'bg-slate-100 text-slate-700',
-  KB_ARTICLE_PUBLISH: 'bg-brand-secondary/40 text-brand-primary-dark',
-  KB_ARTICLE_EDIT: 'bg-orange-100 text-orange-700',
-  ARTICLE_POST_PUBLIC: 'bg-brand-secondary/40 text-brand-primary-dark',
-  ARTICLE_POST_DRAFT: 'bg-slate-100 text-slate-700',
-  ARTICLE_EDIT: 'bg-orange-100 text-orange-700',
-  SECTOR_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  USER_CREATE: 'bg-brand-secondary/40 text-brand-primary-dark',
-  USER_UPDATE: 'bg-orange-100 text-orange-700',
-  USER_EDIT: 'bg-orange-100 text-orange-700',
-  USER_PASSWORD_RESET: 'bg-red-100 text-red-700',
-  USER_PERMISSION_CHANGE: 'bg-amber-100 text-amber-700',
-  USER_PASSWORD_ADMIN_RESET: 'bg-red-100 text-red-700',
-  PROFILE_PASSWORD_CHANGE: 'bg-amber-100 text-amber-700',
-};
-
-type AuditSeverity = 'INFO' | 'WARN' | 'ERROR';
-
-const SEVERITY_BADGE_CLASS: Record<AuditSeverity, string> = {
-  INFO: 'bg-brand-secondary/40 text-brand-primary-dark',
-  WARN: 'bg-amber-100 text-amber-700',
-  ERROR: 'bg-red-100 text-red-600',
-};
-
-function getAuditSeverity(action: AuditAction): AuditSeverity {
-  if (
-    action.includes('FAILURE')
-    || action.endsWith('_FAIL')
-    || action === 'USER_PASSWORD_RESET'
-    || action === 'USER_PASSWORD_ADMIN_RESET'
-  ) {
-    return 'ERROR';
-  }
-
-  if (
-    action.includes('RESET')
-    || action === 'USER_PERMISSION_CHANGE'
-    || action === 'VAULT_ITEM_DELETE'
-    || action === 'TICKET_TRANSFER'
-  ) {
-    return 'WARN';
-  }
-
-  return 'INFO';
-}
-
-const ALL_ACTIONS: AuditAction[] = [
-  'VAULT_LOGIN_SUCCESS',
-  'VAULT_LOGIN_FAILURE',
-  'VAULT_SECRET_VIEW',
-  'VAULT_FILE_VIEW',
-  'VAULT_ITEM_CREATE',
-  'VAULT_ITEM_VIEW',
-  'VAULT_ITEM_EDIT',
-  'VAULT_ITEM_DELETE',
-  'VAULT_AUTH_SUCCESS',
-  'VAULT_AUTH_FAIL',
-  'LOGIN_SUCCESS',
-  'LOGIN_FAILURE',
-  'TWO_FACTOR_RESET',
-  'TWO_FACTOR_ADMIN_RESET',
-  'USER_2FA_ADMIN_RESET',
-  'TICKET_OPEN',
-  'TICKET_ASSIGN',
-  'TICKET_TRANSFER',
-  'TICKET_RESOLVE',
-  'INVENTORY_BATCH_ENTRY',
-  'INVENTORY_ITEM_CREATE',
-  'STOCK_BATCH_CREATE',
-  'ITEM_CREATE',
-  'ASSET_CREATE',
-  'ASSET_EDIT',
-  'ASSET_INVOICE_ATTACH',
-  'QR_SCAN',
-  'ASSET_QR_SCAN',
-  'KB_ARTICLE_DRAFT_CREATE',
-  'KB_ARTICLE_PUBLISH',
-  'KB_ARTICLE_EDIT',
-  'ARTICLE_POST_PUBLIC',
-  'ARTICLE_POST_DRAFT',
-  'ARTICLE_EDIT',
-  'SECTOR_CREATE',
-  'USER_CREATE',
-  'USER_UPDATE',
-  'USER_EDIT',
-  'USER_PASSWORD_RESET',
-  'USER_PERMISSION_CHANGE',
-  'USER_PASSWORD_ADMIN_RESET',
-  'PROFILE_PASSWORD_CHANGE',
-];
+import { useSystemLogs } from '../../hooks/useSystemLogs';
+import LogFilters from './LogFilters';
+import LogTable from './LogTable';
 
 export default function SystemLogs() {
-  const [filterUserId, setFilterUserId] = useState('');
-  const [filterAction, setFilterAction] = useState<AuditAction | ''>('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  const [users, setUsers] = useState<User[]>([]);
-  const [page, setPage] = useState<AuditLogPage | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchLogs = useCallback(
-    async (pageNum = 0) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getAuditLogs({
-          userId: filterUserId || undefined,
-          action: (filterAction as AuditAction) || undefined,
-          startDate: startDate ? `${startDate}T00:00:00` : undefined,
-          endDate: endDate ? `${endDate}T23:59:59` : undefined,
-          page: pageNum,
-          size: 20,
-        });
-        setPage(data);
-        setCurrentPage(pageNum);
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 500) {
-          setError('Erro interno no servidor ao consultar a auditoria. Tente novamente em instantes.');
-        } else {
-          setError('Erro ao carregar logs. Verifique sua conexão e tente novamente.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [filterUserId, filterAction, startDate, endDate],
-  );
-
-  useEffect(() => {
-    getUsers().then(setUsers).catch(() => {});
-    fetchLogs(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleFilter = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchLogs(0);
-  };
-
-  const formatDate = (isoString: string) => {
-    try {
-      return format(new Date(isoString), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR });
-    } catch {
-      return isoString;
-    }
-  };
+  const {
+    filterUserId,
+    setFilterUserId,
+    filterAction,
+    setFilterAction,
+    filterSeverity,
+    setFilterSeverity,
+    search,
+    setSearch,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    users,
+    page,
+    loading,
+    error,
+    applyFilters,
+    goToPreviousPage,
+    goToNextPage,
+  } = useSystemLogs();
 
   return (
     <div className="p-4 sm:p-6 w-full max-w-full">
@@ -268,167 +37,31 @@ export default function SystemLogs() {
         description="Trilha de auditoria com eventos sensíveis do sistema para governança, rastreabilidade e segurança operacional."
       />
 
-      {/* Filtros */}
-      <form
-        onSubmit={handleFilter}
-        className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <div className="flex flex-col gap-1 min-w-[180px]">
-          <label className="text-xs font-medium text-slate-600">Usuário</label>
-          <select
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-            value={filterUserId}
-            onChange={(e) => setFilterUserId(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <LogFilters
+        users={users}
+        filterUserId={filterUserId}
+        filterAction={filterAction}
+        filterSeverity={filterSeverity}
+        search={search}
+        startDate={startDate}
+        endDate={endDate}
+        loading={loading}
+        onFilterUserIdChange={setFilterUserId}
+        onFilterActionChange={setFilterAction}
+        onFilterSeverityChange={setFilterSeverity}
+        onSearchChange={setSearch}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        onSubmit={applyFilters}
+      />
 
-        <div className="flex flex-col gap-1 min-w-[210px]">
-          <label className="text-xs font-medium text-slate-600">Ação</label>
-          <select
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-            value={filterAction}
-            onChange={(e) => setFilterAction(e.target.value as AuditAction | '')}
-          >
-            <option value="">Todas</option>
-            {ALL_ACTIONS.map((a) => (
-              <option key={a} value={a}>
-                {toFriendlyAuditAction(a)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">De</label>
-          <input
-            type="date"
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Até</label>
-          <input
-            type="date"
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
-        >
-          Filtrar
-        </button>
-      </form>
-
-      {/* Tabela */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <SkeletonTable />
-        ) : error ? (
-          <div className="p-8 text-center text-sm text-red-500">{error}</div>
-        ) : !page || page.content.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-400">
-            Nenhum log encontrado para os filtros selecionados.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
-                    Data / Hora
-                  </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Usuário</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Ação</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Severidade</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">
-                    Endereço IP
-                  </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Detalhes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {page.content.map((log: AuditLog) => (
-                  <tr key={log.id} className="transition-colors hover:bg-orange-50/40">
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap font-mono text-xs">
-                      {formatDate(log.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700 max-w-[160px] truncate">
-                      {log.userName ?? (
-                        <span className="text-slate-400 italic">sistema</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          ACTION_BADGE_CLASS[log.action] ?? 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {toFriendlyAuditAction(log.action)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${SEVERITY_BADGE_CLASS[getAuditSeverity(log.action)]}`}
-                      >
-                        {getAuditSeverity(log.action)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 font-mono text-xs whitespace-nowrap">
-                      {log.ipAddress ?? '—'}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-slate-500 text-xs max-w-[260px] truncate"
-                      title={log.details ?? undefined}
-                    >
-                      {log.details ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Paginação */}
-        {page && page.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-            <span className="text-xs text-slate-500">
-              {page.totalElements} registro{page.totalElements !== 1 ? 's' : ''} — página{' '}
-              {page.number + 1} de {page.totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => fetchLogs(currentPage - 1)}
-                disabled={page.first}
-                className="px-3 py-1 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => fetchLogs(currentPage + 1)}
-                disabled={page.last}
-                className="px-3 py-1 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <LogTable
+        page={page}
+        loading={loading}
+        error={error}
+        onPreviousPage={goToPreviousPage}
+        onNextPage={goToNextPage}
+      />
     </div>
   );
 }

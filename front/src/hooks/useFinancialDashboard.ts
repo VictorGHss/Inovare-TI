@@ -59,7 +59,8 @@ export function useFinancialDashboard() {
   const [endDate, setEndDate] = useState(defaultCycle.end);
   const [activeTab, setActiveTab] = useState<'local' | 'integration'>('local');
 
-  const hasContaAzulLinked = connectionStatus?.authorized === true;
+  const hasContaAzulLinked =
+    summary?.integrationActive ?? (connectionStatus?.authorized === true);
   const unresolvedAlerts = useMemo(() => alerts.filter((alert) => !alert.resolved), [alerts]);
 
   useEffect(() => {
@@ -67,6 +68,18 @@ export function useFinancialDashboard() {
       toast.success('Conexão com Conta Azul estabelecida com sucesso!');
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('success');
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    if (searchParams.get('success') === 'false') {
+      const errorDescription = searchParams.get('error_description');
+      toast.error(errorDescription ?? 'Não foi possível concluir a integração com a ContaAzul.');
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('success');
+      nextParams.delete('error');
+      nextParams.delete('error_description');
       setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -89,23 +102,25 @@ export function useFinancialDashboard() {
       const status = await getFinanceConnectionStatus();
       setConnectionStatus(status);
 
-      if (!status?.authorized) {
-        setSummary(null);
+      const summaryData = await getFinancialSummary();
+      setSummary(summaryData ?? null);
+
+      const integrationActive = summaryData?.integrationActive ?? status?.authorized === true;
+
+      if (!integrationActive) {
         setReceipts([]);
         setAlerts([]);
         setAnalytics(null);
-        setDoctorMappings([]);
+        await reloadDoctorMappings();
         return;
       }
 
-      const [summaryData, receiptsData, alertsData, analyticsData] = await Promise.all([
-        getFinancialSummary(),
+      const [receiptsData, alertsData, analyticsData] = await Promise.all([
         getFinanceReceipts(),
         getFinanceAlerts(),
         getDashboardAnalytics(),
       ]);
 
-      setSummary(summaryData ?? null);
       setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
       setAnalytics(analyticsData ?? null);

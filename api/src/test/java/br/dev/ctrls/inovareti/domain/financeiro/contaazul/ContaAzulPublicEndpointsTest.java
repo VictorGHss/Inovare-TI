@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -80,5 +81,35 @@ class ContaAzulPublicEndpointsTest {
             .andExpect(redirectedUrl("http://localhost:5173/financeiro?success=true"));
 
         verify(tokenService).exchangeAuthorizationCode("abc", "http://localhost/api/financeiro/callback");
+    }
+
+    @Test
+    void callbackWithProviderErrorRedirectsToFrontendWithFailureParams() throws Exception {
+        this.tokenService = Mockito.mock(ContaAzulTokenService.class);
+        var client = Mockito.mock(ContaAzulClient.class);
+        var automation = Mockito.mock(ContaAzulAutomationService.class);
+        var controller = new ContaAzulController(this.tokenService, client, automation);
+
+        try {
+            var f1 = controller.getClass().getDeclaredField("contaAzulRedirectUri");
+            f1.setAccessible(true);
+            f1.set(controller, "http://localhost/api/financeiro/callback");
+
+            var f2 = controller.getClass().getDeclaredField("frontendUrl");
+            f2.setAccessible(true);
+            f2.set(controller, "http://localhost:5173/");
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+
+        this.mvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mvc.perform(get("/financeiro/contaazul/callback")
+                .param("error", "access_denied")
+                .param("error_description", "usuario negou"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("http://localhost:5173/financeiro?success=false&error=access_denied&error_description=usuario+negou"));
+
+        verify(tokenService, never()).exchangeAuthorizationCode("abc", "http://localhost/api/financeiro/callback");
     }
 }

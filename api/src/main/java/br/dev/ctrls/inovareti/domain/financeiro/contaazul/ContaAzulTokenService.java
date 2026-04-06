@@ -172,6 +172,16 @@ public class ContaAzulTokenService {
                 .map(token -> StringUtils.hasText(token.getAccessToken()))
                 .orElse(false);
     }
+
+    /**
+     * Verifica se existe ao menos um registro persistido na tabela de tokens OAuth.
+     *
+     * @return {@code true} quando há token persistido, {@code false} quando a tabela está vazia
+     */
+    public boolean hasPersistedTokenRecord() {
+        return tokenRepository.count() > 0;
+    }
+
     /**
      * Retorna o status de autorização atual contendo indicador se existe um
      * access token, data de expiração e data do último refresh.

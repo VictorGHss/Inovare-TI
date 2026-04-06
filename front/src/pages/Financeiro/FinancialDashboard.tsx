@@ -1,4 +1,4 @@
-import { Activity, BadgeDollarSign, FileDown, LayoutDashboard, RefreshCw, Settings2, Users } from 'lucide-react';
+import { Activity, BadgeDollarSign, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 import FinancialMetricsGrid from './FinancialMetricsGrid';
@@ -50,11 +50,9 @@ export default function FinancialDashboard() {
   const {
     triggeringTestReceipt,
     syncingReceipts,
-    syncingDoctors,
     exporting,
     handleTriggerTestReceipt,
     handleSyncReceiptsNow,
-    handleSyncDoctors,
     handleExportConsumption,
   } = useFinancialActions({
     startDate,
@@ -64,6 +62,11 @@ export default function FinancialDashboard() {
   });
 
   const currency = summary?.currency ?? 'BRL';
+  const integrationActive = summary?.integrationActive ?? hasContaAzulLinked;
+
+  function handleConnectContaAzul() {
+    window.location.href = CONTA_AZUL_AUTHORIZE_URL;
+  }
 
   if (loading) {
     return (
@@ -170,7 +173,7 @@ export default function FinancialDashboard() {
           {/* Action bar */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className={`h-2 w-2 rounded-full ${integrationActive ? 'bg-emerald-400' : 'bg-red-500'}`} />
               Última atualização:{' '}
               <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
             </div>
@@ -186,18 +189,6 @@ export default function FinancialDashboard() {
               >
                 <RefreshCw size={15} className={syncingReceipts ? 'animate-spin' : ''} />
                 {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  void handleSyncDoctors();
-                }}
-                disabled={syncingDoctors}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#feb56c] px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-[#f6a455] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <Users size={15} className={syncingDoctors ? 'animate-pulse' : ''} />
-                {syncingDoctors ? 'Sincronizando...' : 'Sincronizar Médicos'}
               </button>
 
               <button
@@ -222,16 +213,14 @@ export default function FinancialDashboard() {
                 <span className="hidden sm:inline">Dashboard de Saúde</span>
               </button>
 
-              {!hasContaAzulLinked && (
+              {!integrationActive && (
                 <button
                   type="button"
-                  onClick={() => {
-                    window.location.href = CONTA_AZUL_AUTHORIZE_URL;
-                  }}
+                  onClick={handleConnectContaAzul}
                   className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
                 >
                   <BadgeDollarSign size={15} />
-                  Vincular Conta Azul
+                  Conectar ContaAzul
                 </button>
               )}
             </div>
@@ -248,12 +237,12 @@ export default function FinancialDashboard() {
                 {[
                   {
                     label: 'Integração',
-                    value: summary?.externalServiceAvailable === false ? 'Indisponível' : 'Ativa',
+                    value: integrationActive ? 'Ativa' : 'Integração Pendente',
                     valueClass:
-                      summary?.externalServiceAvailable === false ? 'text-amber-600' : 'text-emerald-600',
+                      integrationActive ? 'text-emerald-600' : 'text-red-600',
                     sub:
-                      summary?.externalServiceAvailable === false
-                        ? 'Conta Azul retornou restrição (403).'
+                      !integrationActive
+                        ? 'Conecte sua ContaAzul para habilitar sincronização e resumo financeiro.'
                         : null,
                   },
                   {
@@ -289,20 +278,22 @@ export default function FinancialDashboard() {
               summary={summary}
               receipts={receipts}
               unresolvedAlertsCount={unresolvedAlerts.length}
+              integrationActive={integrationActive}
+              onConnectContaAzul={handleConnectContaAzul}
             />
           </section>
 
           <FinancialAlertsList alerts={alerts} />
 
-          {hasContaAzulLinked && (
-            <section>
-              <DoctorMappingPanel
-                mapeamentos={doctorMappings}
-                carregando={loadingDoctorMappings}
-                onAtualizar={reloadDoctorMappings}
-              />
-            </section>
-          )}
+          <section>
+            <DoctorMappingPanel
+              mapeamentos={doctorMappings}
+              carregando={loadingDoctorMappings}
+              onAtualizar={reloadDoctorMappings}
+              integrationActive={integrationActive}
+              onConnectContaAzul={handleConnectContaAzul}
+            />
+          </section>
         </section>
       )}
     </main>

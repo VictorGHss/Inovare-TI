@@ -9,6 +9,8 @@ interface ContaAzulStatusCardProps {
   summary: FinancialSummaryDTO | null;
   receipts: FinanceReceipt[];
   unresolvedAlertsCount: number;
+  integrationActive: boolean;
+  onConnectContaAzul: () => void;
 }
 
 function formatDate(value?: string | null): string {
@@ -32,13 +34,17 @@ export default function ContaAzulStatusCard({
   summary,
   receipts,
   unresolvedAlertsCount,
+  integrationActive,
+  onConnectContaAzul,
 }: ContaAzulStatusCardProps) {
   const items = [
     {
-      label: 'Token OAuth',
-      value: connectionStatus?.authorized ? 'Ativo' : 'Inativo',
-      valueClass: connectionStatus?.authorized ? 'text-emerald-600' : 'text-amber-600',
-      sub: `Expiração: ${formatDate(connectionStatus?.expiresAt)}`,
+      label: 'Integração ContaAzul',
+      value: integrationActive ? 'Ativa' : 'Integração Pendente',
+      valueClass: integrationActive ? 'text-emerald-600' : 'text-red-600',
+      sub: integrationActive
+        ? `Expiração do token: ${formatDate(connectionStatus?.expiresAt)}`
+        : 'Aguardando autorização OAuth2 da ContaAzul.',
     },
     {
       label: 'Recibos sincronizados',
@@ -68,6 +74,16 @@ export default function ContaAzulStatusCard({
           </div>
         ))}
       </div>
+
+      {!integrationActive && (
+        <button
+          type="button"
+          onClick={onConnectContaAzul}
+          className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
+        >
+          Conectar ContaAzul
+        </button>
+      )}
     </aside>
   );
 }

@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulTokenService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class FinanceiroController {
     private final FinanceiroOperationsService financeiroOperationsService;
     private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
     private final ContaAzulAutomationService contaAzulAutomationService;
+    private final ContaAzulTokenService contaAzulTokenService;
     private final FinanceEmailService receiptService;
     
 
@@ -84,6 +86,19 @@ public class FinanceiroController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/resumo")
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
+        boolean integrationActive = contaAzulTokenService.hasPersistedTokenRecord();
+
+        if (!integrationActive) {
+            return ResponseEntity.ok(new FinanceSummaryResponseDTO(
+                0L,
+                0L,
+                0L,
+                "BRL",
+                0L,
+                false,
+                false));
+        }
+
         ContaAzulFinancialSummaryService.FinancialSummary summary = contaAzulFinancialSummaryService.fetchSummary();
         return ResponseEntity.ok(new FinanceSummaryResponseDTO(
                 summary.balanceCents(),
@@ -91,7 +106,8 @@ public class FinanceiroController {
                 summary.totalPaidCents(),
                 summary.currency(),
                 summary.syncedReceiptsCount(),
-                summary.externalServiceAvailable()));
+            summary.externalServiceAvailable(),
+            true));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -215,7 +231,8 @@ public class FinanceiroController {
             long totalPaidCents,
             String currency,
             long syncedReceiptsCount,
-            boolean externalServiceAvailable) {
+            boolean externalServiceAvailable,
+            boolean integrationActive) {
         }
 
         public record SyncDoctorsResponseDTO(

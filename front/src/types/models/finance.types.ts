@@ -94,6 +94,7 @@ export interface FinancialSummaryDTO {
   currency: string;
   syncedReceiptsCount: number;
   externalServiceAvailable?: boolean;
+  integrationActive?: boolean;
 }
 
 export interface FinancialTransactionLineDTO {

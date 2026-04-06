@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -12,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,9 +78,27 @@ public class ContaAzulController {
     }
 
     @GetMapping("/callback")
-    public RedirectView callback(@RequestParam("code") String code) {
-        contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
-        return new RedirectView(buildFinanceiroSuccessRedirectUrl());
+    public RedirectView callback(
+            @RequestParam(value = "code", required = false) String code,
+            @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "error_description", required = false) String errorDescription) {
+        if (StringUtils.hasText(error)) {
+            logger.warn("Callback OAuth da ContaAzul retornou erro do provedor: {} - {}", error, errorDescription);
+            return new RedirectView(buildFinanceiroErrorRedirectUrl(error, errorDescription));
+        }
+
+        if (!StringUtils.hasText(code)) {
+            logger.warn("Callback OAuth da ContaAzul recebido sem authorization code.");
+            return new RedirectView(buildFinanceiroErrorRedirectUrl("missing_authorization_code", null));
+        }
+
+        try {
+            contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
+            return new RedirectView(buildFinanceiroSuccessRedirectUrl());
+        } catch (RuntimeException ex) {
+            logger.error("Falha ao processar callback OAuth da ContaAzul.", ex);
+            return new RedirectView(buildFinanceiroErrorRedirectUrl("oauth_callback_failed", ex.getMessage()));
+        }
     }
 
     @GetMapping("/check-customer/{email}")
@@ -162,11 +183,32 @@ public class ContaAzulController {
     }
 
     private String buildFinanceiroSuccessRedirectUrl() {
+        return resolveFinanceiroBaseUrl() + "/financeiro?success=true";
+    }
+
+    private String buildFinanceiroErrorRedirectUrl(String errorCode, String errorDescription) {
+        StringBuilder redirect = new StringBuilder(resolveFinanceiroBaseUrl())
+                .append("/financeiro?success=false");
+
+        if (StringUtils.hasText(errorCode)) {
+            redirect.append("&error=")
+                    .append(URLEncoder.encode(errorCode, StandardCharsets.UTF_8));
+        }
+
+        if (StringUtils.hasText(errorDescription)) {
+            redirect.append("&error_description=")
+                    .append(URLEncoder.encode(errorDescription, StandardCharsets.UTF_8));
+        }
+
+        return redirect.toString();
+    }
+
+    private String resolveFinanceiroBaseUrl() {
         String base = (frontendUrl != null) ? frontendUrl : "";
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return base + "/financeiro?success=true";
+        return base;
     }
 
 }

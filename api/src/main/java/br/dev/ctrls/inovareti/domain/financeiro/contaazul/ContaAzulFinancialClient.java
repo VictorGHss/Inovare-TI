@@ -74,7 +74,7 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedSettlementId = settlementId.trim();
-        String uri = normalizeBaixaBaseUrl().replace("{id}", normalizedSettlementId);
+        String uri = buildBaixaDetailsUri(normalizedSettlementId);
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
@@ -144,7 +144,7 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedBaixaId = baixaId.trim();
-        String uri = normalizeBaixaBaseUrl().replace("{id}", normalizedBaixaId);
+        String uri = buildBaixaDetailsUri(normalizedBaixaId);
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
@@ -181,9 +181,22 @@ public class ContaAzulFinancialClient {
 
     private String normalizeBaixaBaseUrl() {
         if (!StringUtils.hasText(baixaDetailsUrl)) {
-            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa/{id}";
+            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa";
         }
 
         return baixaDetailsUrl.trim();
+    }
+
+    private String buildBaixaDetailsUri(String settlementId) {
+        String baseUrl = normalizeBaixaBaseUrl();
+        if (baseUrl.contains("{id}")) {
+            return baseUrl.replace("{id}", settlementId);
+        }
+
+        String normalizedBase = baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1)
+                : baseUrl;
+
+        return normalizedBase + "/" + settlementId;
     }
 }

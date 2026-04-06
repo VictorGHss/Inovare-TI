@@ -106,7 +106,14 @@ public class ContaAzulReceiptProcessor {
             throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
         }
 
-        byte[] pdfBytes = downloadReceiptPdfFromSettlement(baixaIdOpt.get());
+        String baixaId = baixaIdOpt.get().trim();
+        if (!StringUtils.hasText(baixaId)) {
+            throw new IllegalStateException("baixaId inválido (nulo/vazio) para a parcela da venda informada.");
+        }
+
+        log.info("Baixa ID extraído com sucesso para parcela {}: {}", sale.parcelaId(), baixaId);
+
+        byte[] pdfBytes = downloadReceiptPdfFromSettlement(baixaId);
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
         log.info("Enviando para {}", recipientEmail);
@@ -214,7 +221,16 @@ public class ContaAzulReceiptProcessor {
                     continue;
                 }
 
-                String baixaId = baixaIdOpt.get();
+                String baixaId = baixaIdOpt.get().trim();
+                if (!StringUtils.hasText(baixaId)) {
+                    failures++;
+                    log.warn("baixaId inválido (nulo/vazio) para parcela {}. Item ignorado para segurança.",
+                            sale.parcelaId());
+                    continue;
+                }
+
+                log.info("Baixa ID extraído com sucesso para parcela {}: {}", sale.parcelaId(), baixaId);
+
                 if (processedSaleRepository.existsBySaleId(baixaId)) {
                     skippedProcessed++;
                     log.info("Recibo/baixa {} já processado anteriormente. Ignorando.", baixaId);
@@ -411,9 +427,14 @@ public class ContaAzulReceiptProcessor {
      * Resolve URL do recibo a partir dos anexos da baixa e baixa o PDF autenticado.
      */
     private byte[] downloadReceiptPdfFromSettlement(String baixaId) {
-        String receiptUrl = resolveReceiptUrlFromSettlementWithRetry(baixaId)
+        if (!StringUtils.hasText(baixaId)) {
+            throw new IllegalArgumentException("baixaId não pode ser nulo/vazio para baixar recibo.");
+        }
+
+        String normalizedBaixaId = baixaId.trim();
+        String receiptUrl = resolveReceiptUrlFromSettlementWithRetry(normalizedBaixaId)
                 .orElseThrow(() -> new NoReceiptAvailableException(
-                        "Nenhum anexo de recibo encontrado para baixa " + baixaId));
+                        "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
 
         String accessToken = contaAzulTokenService.getValidAccessToken();
         return receiptEmailService.downloadReceiptBinary(receiptUrl, accessToken);
@@ -426,8 +447,15 @@ public class ContaAzulReceiptProcessor {
      * mais uma vez (máximo 2 tentativas).
      */
     private Optional<String> resolveReceiptUrlFromSettlementWithRetry(String baixaId) {
+        if (!StringUtils.hasText(baixaId)) {
+            log.warn("resolveReceiptUrlFromSettlementWithRetry chamado com baixaId vazio.");
+            return Optional.empty();
+        }
+
+        String normalizedBaixaId = baixaId.trim();
+
         for (int attempt = 1; attempt <= SETTLEMENT_DETAILS_MAX_ATTEMPTS; attempt++) {
-            Optional<JsonNode> settlementNodeOpt = contaAzulClient.getSettlementDetails(baixaId);
+            Optional<JsonNode> settlementNodeOpt = contaAzulClient.getSettlementDetails(normalizedBaixaId);
             if (settlementNodeOpt.isEmpty()) {
                 return Optional.empty();
             }
@@ -445,7 +473,7 @@ public class ContaAzulReceiptProcessor {
 
             log.info(
                     "Anexos ainda vazios para baixa {} na tentativa {}/{}. Aguardando 15 segundos para nova consulta.",
-                    baixaId,
+                    normalizedBaixaId,
                     attempt,
                     SETTLEMENT_DETAILS_MAX_ATTEMPTS);
             waitBeforeSettlementRetry();

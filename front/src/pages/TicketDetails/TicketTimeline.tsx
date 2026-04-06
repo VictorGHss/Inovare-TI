@@ -46,13 +46,18 @@ export default function TicketTimeline({
 }: TicketTimelineProps) {
   const apiUrl = import.meta.env.VITE_API_URL;
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
+  const hasAssignedTechnician = Boolean(
+    ticket.assignedToId ||
+      (ticket as Ticket & { technicianId?: string | null; technician?: unknown }).technicianId ||
+      (ticket as Ticket & { technicianId?: string | null; technician?: unknown }).technician,
+  );
   const canClaim = ticket.status === 'OPEN' && canManageTicket;
   const canTransfer = !isResolved && canManageTicket && (ticket.assignedToId === userId || userRole === 'ADMIN');
   const canResolve =
     ticket.status === 'IN_PROGRESS' &&
     ticket.assignedToId === userId &&
     canManageTicket;
-  const canUploadAttachment = !isResolved && canManageTicket;
+  const canUploadAttachment = !isResolved && canManageTicket && hasAssignedTechnician;
 
   return (
     <section className="flex flex-col gap-5">
@@ -65,12 +70,12 @@ export default function TicketTimeline({
         )}
       </div>
 
-      {(ticket.attachments.length > 0 || canUploadAttachment) && (
+      {(ticket.attachments.length > 0 || (!isResolved && canManageTicket)) && (
         <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Paperclip size={16} className="text-[#d98635]" />
-              <h3 className="text-sm font-semibold text-slate-700">Anexos ({ticket.attachments.length})</h3>
+              <h3 className="text-sm font-semibold text-slate-700">Upload de Anexos ({ticket.attachments.length})</h3>
             </div>
 
             {canUploadAttachment && (
@@ -92,6 +97,15 @@ export default function TicketTimeline({
               </label>
             )}
           </div>
+
+          {!hasAssignedTechnician && !isResolved && canManageTicket && (
+            <p
+              className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800"
+              title="Assuma o chamado para adicionar anexos ou interagir."
+            >
+              Assuma o chamado para adicionar anexos ou interagir.
+            </p>
+          )}
 
           {ticket.attachments.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

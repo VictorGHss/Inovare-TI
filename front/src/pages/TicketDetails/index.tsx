@@ -4,18 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Calendar, Clock, Tag, Package, Paperclip, Download, FileText, Laptop, Monitor } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  getTicketById,
-  resolveTicket,
-  claimTicket,
-  transferTicket,
-  getUsers,
-  getAssetsByUser,
-  type ResolveTicketRequest,
-  type Ticket,
-  type User,
-  type Asset,
-} from '../../services/api';
+import { getUsers } from '../../services/userService';
+import { getTicketById, resolveTicket, claimTicket, transferTicket } from '../../services/ticketService';
+import { getAssetsByUser } from '../../services/financeService';
+import type { ResolveTicketRequest, Ticket, User, Asset } from '../../types/domain';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
 import TicketComments from '../../components/TicketComments';

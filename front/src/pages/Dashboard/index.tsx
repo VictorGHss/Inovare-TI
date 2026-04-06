@@ -4,14 +4,9 @@ import { PlusCircle, Download, Laptop, HardDrive } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import {
-  getDashboardAnalytics,
-  getTickets,
-  getAssetsByUser,
-  type Ticket,
-  type DashboardAnalyticsDTO,
-  type Asset,
-} from '../../services/api';
+import { getTickets } from '../../services/ticketService';
+import { getDashboardAnalytics, getAssetsByUser } from '../../services/financeService';
+import type { Ticket, DashboardAnalyticsDTO, Asset } from '../../types/domain';
 import SkeletonTable from '../../components/SkeletonTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';

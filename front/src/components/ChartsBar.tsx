@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import type { Ticket } from '../services/api';
+import type { Ticket } from '../types/domain';
 import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsBarProps {

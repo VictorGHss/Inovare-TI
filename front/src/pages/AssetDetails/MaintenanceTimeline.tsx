@@ -1,4 +1,4 @@
-import type { AssetMaintenance } from '../../services/api';
+import type { AssetMaintenance } from '../../types/domain';
 import { formatCurrency } from '../../lib/formatters';
 import { Stethoscope, AlertTriangle, ArrowUpCircle, MoveRight } from 'lucide-react';
 

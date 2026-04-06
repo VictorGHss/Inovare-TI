@@ -4,15 +4,9 @@ import type { AxiosError } from 'axios';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  deleteVaultItem,
-  getUsers,
-  getVaultItemFileBlob,
-  getVaultItemSecret,
-  getVaultItems,
-  type User,
-  type VaultItem,
-} from '../../services/api';
+import { getUsers } from '../../services/userService';
+import { deleteVaultItem, getVaultItemFileBlob, getVaultItemSecret, getVaultItems } from '../../services/financeService';
+import type { User, VaultItem } from '../../types/domain';
 
 import VaultAttachmentPreview from './components/VaultAttachmentPreview';
 import VaultCreateModal from './components/VaultCreateModal';

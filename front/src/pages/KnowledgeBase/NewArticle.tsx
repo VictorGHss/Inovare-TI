@@ -2,7 +2,8 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createArticle, uploadGenericFile, type ArticleStatus } from '../../services/api';
+import { createArticle, uploadGenericFile } from '../../services/financeService';
+import type { ArticleStatus } from '../../types/domain';
 
 export default function NewArticle() {
   const navigate = useNavigate();

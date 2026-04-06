@@ -1,6 +1,6 @@
 import { AlertCircle, Package, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { InventorySummaryDTO } from '../services/api';
+import type { InventorySummaryDTO } from '../types/domain';
 
 interface InventorySummaryCardProps {
   data: InventorySummaryDTO;

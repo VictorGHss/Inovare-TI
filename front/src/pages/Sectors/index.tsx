@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { PlusCircle, Building2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getSectors, createSector, type Sector } from '../../services/api';
+import { getSectors, createSector } from '../../services/userService';
+import type { Sector } from '../../types/domain';
 import PageHero from '../../components/PageHero';
 
 export default function Sectors() {

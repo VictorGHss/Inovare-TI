@@ -1,6 +1,6 @@
 // Sugestões dinâmicas da Base de Conhecimento — desvia de criação de chamado (Ticket Deflection)
 import { Lightbulb, ExternalLink } from 'lucide-react';
-import type { ArticleSearchResult } from '../../services/api';
+import type { ArticleSearchResult } from '../../types/domain';
 
 interface Props {
   articles: ArticleSearchResult[];

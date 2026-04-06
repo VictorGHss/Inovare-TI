@@ -1,6 +1,6 @@
 import { Download, FileText, HardDrive, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { Asset } from '../../../services/api';
+import type { Asset } from '../../../types/domain';
 
 interface Props {
   assets: Asset[];

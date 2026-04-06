@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { X, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createAssetMaintenance, type AssetMaintenance, type CreateAssetMaintenanceData } from '../../services/api';
+import { createAssetMaintenance } from '../../services/financeService';
+import type { AssetMaintenance, CreateAssetMaintenanceData } from '../../types/domain';
 
 interface NewMaintenanceModalProps {
   isOpen: boolean;

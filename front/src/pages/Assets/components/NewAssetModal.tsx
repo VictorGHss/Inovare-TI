@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import {
-  createAsset,
-  uploadAssetInvoice,
-  type AssetCategory,
-  type CreateAssetDto,
-  type User,
-} from '../../../services/api';
+import { createAsset, uploadAssetInvoice } from '../../../services/financeService';
+import type { AssetCategory, CreateAssetDto, User } from '../../../types/domain';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';

@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import type { MetricDTO } from '../services/api';
+import type { MetricDTO } from '../types/domain';
 import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsPieProps {

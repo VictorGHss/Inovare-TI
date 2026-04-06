@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Stethoscope, UserPlus2, X, RefreshCw, SearchCheck, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  checkContaAzulCustomerByEmail,
-  createDoctorMapping,
-  getContaAzulCustomerEmailById,
-  getUsers,
-  type User,
-} from '../../services/api';
+import { checkContaAzulCustomerByEmail, getUsers } from '../../services/userService';
+import { createDoctorMapping, getContaAzulCustomerEmailById } from '../../services/financeService';
+import type { User } from '../../types/domain';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';

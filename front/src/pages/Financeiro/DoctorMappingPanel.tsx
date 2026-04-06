@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Mail, PlusCircle, RefreshCcw, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { deleteDoctorMapping, syncDoctorsBaseFromContaAzul, type DoctorMapping } from '../../services/api';
+import { deleteDoctorMapping, syncDoctorsBaseFromContaAzul } from '../../services/financeService';
+import type { DoctorMapping } from '../../types/domain';
 import NewDoctorMappingModal from './NewDoctorMappingModal';
 
 interface DoctorMappingPanelProps {

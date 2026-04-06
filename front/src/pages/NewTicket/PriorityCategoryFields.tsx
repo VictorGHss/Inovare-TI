@@ -1,5 +1,5 @@
 // Seletores de Prioridade e Categoria do chamado
-import type { CreateTicketDto, TicketCategory } from '../../services/api';
+import type { CreateTicketDto, TicketCategory } from '../../types/domain';
 
 interface Props {
   priority: CreateTicketDto['priority'];

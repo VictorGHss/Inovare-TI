@@ -4,14 +4,9 @@ import { Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import axios from 'axios';
-import {
-  getAuditLogs,
-  getUsers,
-  type AuditLog,
-  type AuditAction,
-  type AuditLogPage,
-  type User,
-} from '../../services/api';
+import { getUsers } from '../../services/userService';
+import { getAuditLogs } from '../../services/financeService';
+import type { AuditLog, AuditAction, AuditLogPage, User } from '../../types/domain';
 import SkeletonTable from '../../components/SkeletonTable';
 import PageHero from '../../components/PageHero';
 

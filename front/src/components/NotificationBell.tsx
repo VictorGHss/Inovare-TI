@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check } from 'lucide-react';
-import { getNotifications, markNotificationAsRead, type Notification } from '../services/api';
+import { getNotifications, markNotificationAsRead } from '../services/financeService';
+import type { Notification } from '../types/domain';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {

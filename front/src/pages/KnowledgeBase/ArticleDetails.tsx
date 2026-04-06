@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ReactMarkdown from 'react-markdown';
-import type { Article } from '../../services/api';
-import { getArticleById } from '../../services/api';
+import type { Article } from '../../types/domain';
+import { getArticleById } from '../../services/financeService';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ArticleDetails() {

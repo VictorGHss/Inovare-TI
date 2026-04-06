@@ -14,22 +14,9 @@ import {
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import api, {
-  getDoctorMappings,
-  executeFinanceAutomationNow,
-  getFinanceAlerts,
-  getFinanceConnectionStatus,
-  getFinanceReceipts,
-  getFinancialSummary,
-  getDashboardAnalytics,
-  exportInventoryExitsReport,
-  type DoctorMapping,
-  type FinanceAlert,
-  type FinanceConnectionStatus,
-  type FinanceReceipt,
-  type FinancialSummaryDTO,
-  type DashboardAnalyticsDTO,
-} from '../../services/api';
+import api from '../../services/api';
+import { getDoctorMappings, executeFinanceAutomationNow, getFinanceAlerts, getFinanceConnectionStatus, getFinanceReceipts, getFinancialSummary, getDashboardAnalytics, exportInventoryExitsReport } from '../../services/financeService';
+import type { DoctorMapping, FinanceAlert, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, DashboardAnalyticsDTO } from '../../types/domain';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 

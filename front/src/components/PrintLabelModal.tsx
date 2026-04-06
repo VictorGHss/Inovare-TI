@@ -1,6 +1,6 @@
 import { X, Printer } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import type { Asset } from '../services/api';
+import type { Asset } from '../types/domain';
 
 interface PrintLabelModalProps {
   isOpen: boolean;

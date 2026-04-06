@@ -1,7 +1,7 @@
 // Fields for REQUEST tickets with typeahead/autocomplete
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
-import type { Item } from '../../services/api';
+import type { Item } from '../../types/domain';
 
 interface Props {
   items: Item[];

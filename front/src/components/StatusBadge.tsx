@@ -1,5 +1,5 @@
 // Componente de badge de status para chamados
-import type { Ticket } from '../services/api';
+import type { Ticket } from '../types/domain';
 
 type Status = Ticket['status'];
 

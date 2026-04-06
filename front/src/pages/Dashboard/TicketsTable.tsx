@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Bot } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { Ticket } from '../../services/api';
+import type { Ticket } from '../../types/domain';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
 

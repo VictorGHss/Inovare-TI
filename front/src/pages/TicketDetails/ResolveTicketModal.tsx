@@ -2,16 +2,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  getAssets,
-  getItems,
-  getAssetCategories,
-  type Asset,
-  type Item,
-  type AssetCategory,
-  type ResolveTicketRequest,
-  type Ticket,
-} from '../../services/api';
+import { getAssets, getItems, getAssetCategories } from '../../services/financeService';
+import type { Asset, Item, AssetCategory, ResolveTicketRequest, Ticket } from '../../types/domain';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;

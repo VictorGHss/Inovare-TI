@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getArticleById, updateArticle, uploadGenericFile, type ArticleStatus } from '../../services/api';
+import { getArticleById, updateArticle, uploadGenericFile } from '../../services/financeService';
+import type { ArticleStatus } from '../../types/domain';
 
 export default function EditArticle() {
   const { id } = useParams<{ id: string }>();

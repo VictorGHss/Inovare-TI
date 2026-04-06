@@ -2,11 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import {
-  createVaultItem,
-  type User,
-  type VaultCreateItemRequestDTO,
-} from '../../../services/api';
+import { createVaultItem } from '../../../services/financeService';
+import type { User, VaultCreateItemRequestDTO } from '../../../types/domain';
 
 type VaultItemType = VaultCreateItemRequestDTO['itemType'];
 type VaultSharingType = VaultCreateItemRequestDTO['sharingType'];

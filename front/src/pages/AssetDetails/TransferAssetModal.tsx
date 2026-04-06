@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, RefreshCw, HardDrive } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  transferAsset,
-  getUsers,
-  type User,
-  type TransferAssetData,
-  type Asset,
-} from '../../services/api';
+import { getUsers } from '../../services/userService';
+import { transferAsset } from '../../services/financeService';
+import type { User, TransferAssetData, Asset } from '../../types/domain';
 
 interface TransferAssetModalProps {
   isOpen: boolean;

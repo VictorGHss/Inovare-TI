@@ -1,12 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  updateUser,
-  type User,
-  type Sector,
-  type UpdateUserDto,
-} from '../../services/api';
+import { updateUser } from '../../services/userService';
+import type { User, Sector, UpdateUserDto } from '../../types/domain';
 
 interface EditUserModalProps {
   user: User | null;

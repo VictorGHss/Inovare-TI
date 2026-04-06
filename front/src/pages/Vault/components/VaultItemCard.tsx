@@ -1,5 +1,5 @@
 import { Eye, EyeOff, FileLock, Key, Lock, Paperclip, Pencil, Trash2 } from 'lucide-react';
-import type { VaultItem } from '../../../services/api';
+import type { VaultItem } from '../../../types/domain';
 
 interface Props {
   item: VaultItem;

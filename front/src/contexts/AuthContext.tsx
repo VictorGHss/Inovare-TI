@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import api from '../services/api';
-import { resetInitialPassword, type AuthResponseDTO, type User } from '../services/api';
+import { resetInitialPassword } from '../services/userService';
+import type { AuthResponseDTO, User } from '../types/domain';
 
 interface SignInCredentials {
   email: string;

@@ -2,7 +2,7 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { X, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { importCsv } from '../../services/api';
+import { importCsv } from '../../services/userService';
 
 interface BulkImportModalProps {
   isOpen: boolean;

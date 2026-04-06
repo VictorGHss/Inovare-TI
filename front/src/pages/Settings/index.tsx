@@ -3,13 +3,8 @@ import { Save, Globe, User as UserIcon, Clock3 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  getSystemSettings,
-  getAdminConfig,
-  updateSystemSettings,
-  type SystemSetting,
-  type UpdateSystemSettingsPayload,
-} from '../../services/api';
+import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/financeService';
+import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/domain';
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 

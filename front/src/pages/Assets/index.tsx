@@ -7,18 +7,9 @@ import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
 import QrScannerLauncher from '../../components/QrScannerLauncher';
 import PageHero from '../../components/PageHero';
-import {
-  downloadAssetInvoice,
-  getAssetCategories,
-  getAssets,
-  getUsers,
-  uploadAssetInvoice,
-  type Asset,
-  type AssetCategory,
-  type AssetFilterStatus,
-  type AssetSortBy,
-  type User,
-} from '../../services/api';
+import { getUsers } from '../../services/userService';
+import { downloadAssetInvoice, getAssetCategories, getAssets, uploadAssetInvoice } from '../../services/financeService';
+import type { Asset, AssetCategory, AssetFilterStatus, AssetSortBy, User } from '../../types/domain';
 import AssetTable from './components/AssetTable';
 import NewAssetModal from './components/NewAssetModal';
 

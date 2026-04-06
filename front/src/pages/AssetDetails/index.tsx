@@ -14,13 +14,8 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  getAssetById,
-  downloadAssetInvoice,
-  getAssetMaintenances,
-  type Asset,
-  type AssetMaintenance,
-} from '../../services/api';
+import { getAssetById, downloadAssetInvoice, getAssetMaintenances } from '../../services/financeService';
+import type { Asset, AssetMaintenance } from '../../types/domain';
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';

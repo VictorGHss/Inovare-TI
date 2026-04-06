@@ -2,10 +2,9 @@
 import { useState, useEffect, useRef, type FormEvent, type ClipboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import {
-  getTicketCategories, getItems, createTicket, uploadTicketAttachment, searchArticles,
-  type TicketCategory, type Item, type CreateTicketDto, type ArticleSearchResult,
-} from '../../services/api';
+import { getTicketCategories, createTicket, uploadTicketAttachment } from '../../services/ticketService';
+import { getItems, searchArticles } from '../../services/financeService';
+import type { TicketCategory, Item, CreateTicketDto, ArticleSearchResult } from '../../types/domain';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';
 import FileAttachment from './FileAttachment';

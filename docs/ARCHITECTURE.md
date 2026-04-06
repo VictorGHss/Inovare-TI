@@ -18,7 +18,8 @@ O sistema é dividido em três camadas independentes, cada uma rodando em contai
 │  • React 19 + TypeScript + Vite 6 + Tailwind CSS               │
 │  • React Router v7 com Lazy Loading por rota                   │
 │  • Gerenciamento de estado via React Context (AuthContext)     │
-│  • Comunicação com a API via Axios (services/api.ts)           │
+│  • Camada de serviços modular por domínio sobre Axios, com     │
+│    core HTTP central em services/api.ts                        │
 └────────────────────────┬───────────────────────────────────────┘
                          │ HTTP/REST + JWT (porta 8085)
 ┌────────────────────────▼───────────────────────────────────────┐
@@ -86,6 +87,56 @@ depends_on:
   db:
     condition: service_healthy
 ```
+
+---
+
+## Evolução Arquitetural Pós-Refatoração Modular
+
+Esta seção documenta a estrutura atual do sistema após a fase de modularização, sem substituir o histórico anterior.
+
+### Camada de Serviços do Frontend
+
+Antes, o frontend concentrava grande parte da comunicação HTTP em um fluxo mais acoplado ao cliente central. Agora, a organização segue um modelo de serviços por domínio:
+
+- `services/api.ts`: client HTTP base (Axios), interceptors de autenticação e configuração comum.
+- `services/ticketService.ts`: operações de tickets, comentários e anexos.
+- `services/inventoryService.ts`: operações de ativos, itens e categorias.
+- `services/financeService.ts`: operações financeiras e integrações do módulo financeiro.
+- `services/userService.ts`: operações de usuários e gestão administrativa.
+
+Resultado arquitetural:
+
+- melhor separação de responsabilidades por domínio;
+- menor acoplamento entre telas e detalhes de transporte HTTP;
+- maior previsibilidade para testes, mocks e evolução incremental.
+
+### Arquitetura Backend para Integrações Conta Azul
+
+A integração com Conta Azul foi reorganizada para reduzir concentração de responsabilidades em uma única classe:
+
+- `ContaAzulClient` permanece como fachada estável para o restante do sistema.
+- `ContaAzulSalesClient` concentra consultas e fluxos de vendas.
+- `ContaAzulFinancialClient` concentra baixa, recibo e operações financeiras.
+- `ContaAzulCustomerClient` concentra pessoas/clientes e resolução de dados cadastrais.
+
+Componentes transversais de suporte:
+
+- `ContaAzulRequestExecutor`: execução HTTP com política comum de chamada.
+- `ContaAzulResponseParser`: parsing e normalização de payloads de resposta.
+- `ContaAzulHttpException`: encapsulamento consistente de falhas HTTP da integração.
+
+Esse desenho preserva compatibilidade interna via fachada e melhora coesão dos clientes especializados.
+
+### Separação de Responsabilidades no ReportService
+
+O fluxo de relatórios foi dividido para aplicar SRP de forma explícita:
+
+- `ReportService`: fachada de orquestração para exportação.
+- `ReportPdfExporter`: geração de relatórios em PDF.
+- `ReportExcelExporter`: geração de relatórios em Excel.
+- `InventoryPricingService`: cálculo de valores/totais, desacoplado da renderização.
+
+Com isso, a regra de cálculo deixa de competir com detalhes de formatação e saída de arquivo, facilitando manutenção e testes.
 
 ---
 
@@ -209,4 +260,5 @@ Observações operacionais:
 Deploy em produção sugerido via Cloudflare Tunnel para expor a aplicação sem IP público fixo.
 
 Vantagens: TLS gerenciado pela Cloudflare, banco interno sem exposição pública e possibilidade de Zero-Trust Access.
+
 

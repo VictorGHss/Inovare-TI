@@ -4,6 +4,61 @@ Este documento agrega procedimentos operacionais para administração e triagem,
 
 ---
 
+## Stack de Observabilidade (Atual)
+
+A stack de observabilidade local foi consolidada para padronizar diagnóstico e operação:
+
+- Prometheus: `http://localhost:9095` (mapeamento `9095:9090`).
+- Grafana: `http://localhost:3001` (mapeamento `3001:3000`).
+- Endpoint de métricas da aplicação: `/api/actuator/prometheus`.
+
+Diretriz operacional:
+
+- Prometheus é a fonte de coleta e avaliação de regras de alerta.
+- Grafana é a camada de visualização de dashboards e troubleshooting.
+- Em produção, manter acesso restrito e autenticação reforçada em ambos os serviços.
+
+---
+
+## Variáveis de Ambiente Críticas
+
+### `CONTAAZUL_AUTOMATION_FIXED_DELAY_MS`
+
+Controla o intervalo de polling da automação Conta Azul (agendamento por `fixedDelay`).
+
+- Valor de referência atual: `300000` ms (5 minutos).
+- Objetivo: equilibrar latência de processamento e proteção contra throttling/limites de API externa.
+
+Por que 5 minutos é importante:
+
+- reduz risco de excesso de chamadas consecutivas na Conta Azul;
+- evita loops agressivos em cenários de indisponibilidade temporária de recibo;
+- mantém janela operacional aceitável para processamento financeiro contínuo.
+
+Riscos de configuração inadequada:
+
+- intervalo muito baixo: maior chance de rate-limit, falhas repetidas e ruído de alerta;
+- intervalo muito alto: aumento de tempo até processamento de baixas/recibos.
+
+---
+
+## Healthchecks no Docker Compose (Redis e Postgres)
+
+O `docker-compose.yml` utiliza healthchecks explícitos para reduzir falhas de bootstrap:
+
+- Postgres (`db`): `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}`.
+- Redis (`redis`): `redis-cli ping`.
+
+Além disso, a API sobe com dependências condicionadas a `service_healthy` para `db` e `redis`.
+
+Benefícios operacionais:
+
+- evita inicialização prematura da API antes da infraestrutura crítica;
+- reduz erros de conexão transitórios no boot;
+- aumenta previsibilidade dos jobs agendados e do rate-limiter distribuído.
+
+---
+
 ## Re-autorização Manual — ContaAzul
 
 ### Objetivo
@@ -282,3 +337,4 @@ Recomendações:
 
 - Time Plataforma: slack `#plataforma`
 - Devs responsáveis: `@lead-dev` (adapte conforme o canal interno)
+

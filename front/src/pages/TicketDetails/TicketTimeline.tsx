@@ -46,18 +46,15 @@ export default function TicketTimeline({
 }: TicketTimelineProps) {
   const apiUrl = import.meta.env.VITE_API_URL;
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
-  const hasAssignedTechnician = Boolean(
-    ticket.assignedToId ||
-      (ticket as Ticket & { technicianId?: string | null; technician?: unknown }).technicianId ||
-      (ticket as Ticket & { technicianId?: string | null; technician?: unknown }).technician,
-  );
+  const hasAssignedTechnician = !!ticket.technicianId;
   const canClaim = ticket.status === 'OPEN' && canManageTicket;
   const canTransfer = !isResolved && canManageTicket && (ticket.assignedToId === userId || userRole === 'ADMIN');
   const canResolve =
     ticket.status === 'IN_PROGRESS' &&
     ticket.assignedToId === userId &&
     canManageTicket;
-  const canUploadAttachment = !isResolved && canManageTicket && hasAssignedTechnician;
+
+  console.log('ID do Técnico:', ticket.technicianId);
 
   return (
     <section className="flex flex-col gap-5">
@@ -78,14 +75,14 @@ export default function TicketTimeline({
               <h3 className="text-sm font-semibold text-slate-700">Upload de Anexos ({ticket.attachments.length})</h3>
             </div>
 
-            {canUploadAttachment && (
+            {!!ticket.technicianId && (
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#feb56c]/45 bg-[#fff4e8] px-3 py-2 text-xs font-semibold text-amber-800 transition-colors hover:bg-[#ffe8d1]">
                 <UploadCloud size={14} />
                 {uploadingAttachment ? 'Enviando...' : 'Adicionar anexo'}
                 <input
                   type="file"
                   className="hidden"
-                  disabled={uploadingAttachment}
+                  disabled={uploadingAttachment || !canManageTicket || isResolved}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {

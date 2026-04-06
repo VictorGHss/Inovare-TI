@@ -16,6 +16,29 @@ interface UseTicketDetailsParams {
   ticketId?: string;
 }
 
+type TicketBackendPayload = Ticket & {
+  technicianId?: string | null;
+  technician_id?: string | null;
+  technician?: { id?: string | null } | string | null;
+};
+
+function normalizeTechnicianId(ticketData: TicketBackendPayload): Ticket {
+  const technicianFromObject =
+    ticketData.technician && typeof ticketData.technician === 'object'
+      ? (ticketData.technician.id ?? null)
+      : null;
+
+  return {
+    ...ticketData,
+    technicianId:
+      ticketData.technicianId ??
+      ticketData.technician_id ??
+      technicianFromObject ??
+      ticketData.assignedToId ??
+      null,
+  };
+}
+
 export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +59,7 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
 
     try {
       const data = await getTicketById(ticketId);
-      setTicket(data);
+      setTicket(normalizeTechnicianId(data as TicketBackendPayload));
       setTicketNotFound(false);
     } catch {
       toast.error('Chamado nao encontrado.');
@@ -86,7 +109,7 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     setClosing(true);
     try {
       const updated = await resolveTicket(ticket.id, request);
-      setTicket(updated);
+      setTicket(normalizeTechnicianId(updated as TicketBackendPayload));
       setShowResolveModal(false);
       toast.success('Chamado resolvido com sucesso!');
     } catch (error) {
@@ -145,6 +168,10 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
 
   const handleAttachmentUpload = useCallback(async (file: File) => {
     if (!ticket) return;
+    if (!ticket.technicianId) {
+      toast.error('Ação não permitida. Assuma o chamado primeiro.');
+      return;
+    }
 
     setUploadingAttachment(true);
     try {

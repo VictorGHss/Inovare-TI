@@ -14,6 +14,9 @@ export interface Ticket {
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   requesterId: string;
   requesterName: string;
+  technicianId?: string | null;
+  technician_id?: string | null;
+  technician?: { id?: string | null } | string | null;
   assignedToId: string | null;
   assignedToName: string | null;
   categoryId: string;

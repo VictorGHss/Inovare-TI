@@ -1,5 +1,5 @@
 import { Eye, EyeOff, FileLock, Key, Lock, Paperclip, Pencil, Trash2 } from 'lucide-react';
-import type { VaultItem } from '../../../types/domain';
+import type { VaultItem } from '../../../types/models';
 
 interface Props {
   item: VaultItem;
@@ -139,3 +139,4 @@ export default function VaultItemCard({
     </article>
   );
 }
+

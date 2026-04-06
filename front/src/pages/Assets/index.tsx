@@ -9,7 +9,7 @@ import QrScannerLauncher from '../../components/QrScannerLauncher';
 import PageHero from '../../components/PageHero';
 import { getUsers } from '../../services/userService';
 import { downloadAssetInvoice, getAssetCategories, getAssets, uploadAssetInvoice } from '../../services/inventoryService';
-import type { Asset, AssetCategory, AssetFilterStatus, AssetSortBy, User } from '../../types/domain';
+import type { Asset, AssetCategory, AssetFilterStatus, AssetSortBy, User } from '../../types/models';
 import AssetTable from './components/AssetTable';
 import NewAssetModal from './components/NewAssetModal';
 
@@ -265,3 +265,4 @@ export default function Assets() {
     </main>
   );
 }
+

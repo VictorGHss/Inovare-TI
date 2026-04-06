@@ -1,6 +1,6 @@
 import axios from 'axios';
 import api from './api';
-import type { ContaAzulCustomerEmailResponse, CreateDoctorMappingDTO, DashboardAnalyticsDTO, DoctorMapping, ExecuteFinanceAutomationNowParams, FinanceAlert, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, SyncDoctorsResponse } from '../types/domain';
+import type { ContaAzulCustomerEmailResponse, CreateDoctorMappingDTO, DashboardAnalyticsDTO, DoctorMapping, ExecuteFinanceAutomationNowParams, FinanceAlert, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, SyncDoctorsResponse } from '../types/models';
 
 // Serviço focado apenas no domínio financeiro e integrações ContaAzul.
 
@@ -67,3 +67,4 @@ export async function getContaAzulCustomerEmailById(customerId: string): Promise
   const { data } = await api.get<ContaAzulCustomerEmailResponse>(`/api/financeiro/contaazul/customer-email/${encodeURIComponent(customerId)}`);
   return data;
 }
+

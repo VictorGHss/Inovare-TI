@@ -1,6 +1,6 @@
 import { Download, FileText, HardDrive, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { Asset } from '../../../types/domain';
+import type { Asset } from '../../../types/models';
 
 interface Props {
   assets: Asset[];
@@ -141,3 +141,4 @@ export default function AssetTable({
     </div>
   );
 }
+

@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import axios from 'axios';
 import { getUsers } from '../../services/userService';
 import { getAuditLogs } from '../../services/inventoryService';
-import type { AuditLog, AuditAction, AuditLogPage, User } from '../../types/domain';
+import type { AuditLog, AuditAction, AuditLogPage, User } from '../../types/models';
 import SkeletonTable from '../../components/SkeletonTable';
 import PageHero from '../../components/PageHero';
 
@@ -432,3 +432,4 @@ export default function SystemLogs() {
     </div>
   );
 }
+

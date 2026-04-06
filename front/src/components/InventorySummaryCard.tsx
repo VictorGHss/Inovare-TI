@@ -1,6 +1,6 @@
 import { AlertCircle, Package, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { InventorySummaryDTO } from '../types/domain';
+import type { InventorySummaryDTO } from '../types/models';
 
 interface InventorySummaryCardProps {
   data: InventorySummaryDTO;
@@ -75,3 +75,4 @@ export default function InventorySummaryCard({ data }: InventorySummaryCardProps
     </div>
   );
 }
+

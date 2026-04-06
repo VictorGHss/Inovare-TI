@@ -7,7 +7,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 import { getTickets } from '../../services/ticketService';
 import { getDashboardAnalytics } from '../../services/financeService';
 import { getAssetsByUser } from '../../services/inventoryService';
-import type { Ticket, DashboardAnalyticsDTO, Asset } from '../../types/domain';
+import type { Ticket, DashboardAnalyticsDTO, Asset } from '../../types/models';
 import SkeletonTable from '../../components/SkeletonTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';
@@ -272,4 +272,5 @@ export default function Dashboard() {
     </main>
   );
 }
+
 

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getAssetById, downloadAssetInvoice, getAssetMaintenances } from '../../services/inventoryService';
-import type { Asset, AssetMaintenance } from '../../types/domain';
+import type { Asset, AssetMaintenance } from '../../types/models';
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';
@@ -322,3 +322,4 @@ export default function AssetDetails() {
     </main>
   );
 }
+

@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { updateVaultItem } from '../../../services/inventoryService';
-import type { User, VaultItem, VaultUpdateItemRequestDTO } from '../../../types/domain';
+import type { User, VaultItem, VaultUpdateItemRequestDTO } from '../../../types/models';
 
 type VaultItemType = VaultUpdateItemRequestDTO['itemType'];
 type VaultSharingType = VaultUpdateItemRequestDTO['sharingType'];
@@ -308,3 +308,4 @@ export default function VaultEditModal({
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import api from './api';
-import type { AuthResponseDTO, ChangePasswordRequestDTO, ContaAzulCustomerCheckResponse, CreateSectorDto, CreateUserDto, ImportResult, ResetInitialPasswordRequestDTO, Sector, TwoFactorGenerateResponseDTO, TwoFactorVerifyRequestDTO, UpdateUserDto, User } from '../types/domain';
+import type { AuthResponseDTO, ChangePasswordRequestDTO, ContaAzulCustomerCheckResponse, CreateSectorDto, CreateUserDto, ImportResult, ResetInitialPasswordRequestDTO, Sector, TwoFactorGenerateResponseDTO, TwoFactorVerifyRequestDTO, UpdateUserDto, User } from '../types/models';
 
 // Busca todos os usuários cadastrados (requer ADMIN)
 export async function getUsers(): Promise<User[]> {
@@ -119,3 +119,4 @@ export async function importCsv(file: File): Promise<ImportResult> {
   });
   return response.data;
 }
+

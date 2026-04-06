@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import type { FinanceAlert } from '../../types/domain';
+import type { FinanceAlert } from '../../types/models';
 
 interface FinancialAlertsListProps {
   alerts: FinanceAlert[];
@@ -70,3 +70,4 @@ export default function FinancialAlertsList({ alerts }: FinancialAlertsListProps
     </section>
   );
 }
+

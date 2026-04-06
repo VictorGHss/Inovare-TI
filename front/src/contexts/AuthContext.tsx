@@ -9,7 +9,7 @@ import {
 } from 'react';
 import api from '../services/api';
 import { resetInitialPassword } from '../services/userService';
-import type { AuthResponseDTO, User } from '../types/domain';
+import type { AuthResponseDTO, User } from '../types/models';
 
 interface SignInCredentials {
   email: string;
@@ -171,3 +171,4 @@ function getTwoFactorClaimFromToken(token: string | null): boolean {
     return false;
   }
 }
+

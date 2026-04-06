@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getArticleById, updateArticle, uploadGenericFile } from '../../services/inventoryService';
-import type { ArticleStatus } from '../../types/domain';
+import type { ArticleStatus } from '../../types/models';
 
 export default function EditArticle() {
   const { id } = useParams<{ id: string }>();
@@ -213,3 +213,4 @@ export default function EditArticle() {
     </div>
   );
 }
+

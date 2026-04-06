@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Loader2, Mail, PlusCircle, RefreshCcw, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { deleteDoctorMapping, syncDoctorsBaseFromContaAzul } from '../../services/financeService';
-import type { DoctorMapping } from '../../types/domain';
+import type { DoctorMapping } from '../../types/models';
 import NewDoctorMappingModal from './NewDoctorMappingModal';
 
 interface DoctorMappingPanelProps {
@@ -190,3 +190,4 @@ export default function DoctorMappingPanel({
     </section>
   );
 }
+

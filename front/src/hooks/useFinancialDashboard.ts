@@ -16,7 +16,7 @@ import type {
   FinanceConnectionStatus,
   FinanceReceipt,
   FinancialSummaryDTO,
-} from '../types/domain';
+} from '../types/models';
 
 function formatDateForInput(value: Date): string {
   const year = value.getFullYear();
@@ -157,3 +157,4 @@ export function useFinancialDashboard() {
     reloadDoctorMappings,
   };
 }
+

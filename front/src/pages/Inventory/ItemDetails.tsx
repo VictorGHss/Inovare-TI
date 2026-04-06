@@ -5,7 +5,7 @@ import { ArrowLeft, Package, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import { getItemById, getItemBatches, getItemOutMovements, uploadBatchInvoice, downloadBatchInvoice } from '../../services/inventoryService';
-import type { Item, Batch, StockMovement } from '../../types/domain';
+import type { Item, Batch, StockMovement } from '../../types/models';
 
 // Formata data ISO para dd/MM/yyyy
 function formatDate(iso: string): string {
@@ -323,3 +323,4 @@ export default function ItemDetails() {
     </main>
   );
 }
+

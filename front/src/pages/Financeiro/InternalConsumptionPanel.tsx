@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, Stethoscope, PackageOpen } from 'lucide-react';
 import { getFinancialTransactions } from '../../services/inventoryService';
-import type { FinancialTransactionLineDTO } from '../../types/domain';
+import type { FinancialTransactionLineDTO } from '../../types/models';
 
 function formatCurrency(value: number | null | undefined, currency = 'BRL'): string {
   if (value === null || value === undefined) return '—';
@@ -175,3 +175,4 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
     </section>
   );
 }
+

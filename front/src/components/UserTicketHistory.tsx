@@ -1,4 +1,4 @@
-import type { Ticket } from '../types/domain';
+import type { Ticket } from '../types/models';
 import StatusBadge from './StatusBadge';
 import { Calendar, FileText } from 'lucide-react';
 
@@ -47,3 +47,4 @@ export default function UserTicketHistory({ tickets }: UserTicketHistoryProps) {
     </div>
   );
 }
+

@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { createAsset, uploadAssetInvoice } from '../../../services/inventoryService';
-import type { AssetCategory, CreateAssetDto, User } from '../../../types/domain';
+import type { AssetCategory, CreateAssetDto, User } from '../../../types/models';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
@@ -234,3 +234,4 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
     </div>
   );
 }
+

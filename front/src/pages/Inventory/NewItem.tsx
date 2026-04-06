@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItemCategories, createItem, addBatch } from '../../services/inventoryService';
-import type { ItemCategory } from '../../types/domain';
+import type { ItemCategory } from '../../types/models';
 
 interface SpecEntry {
   key: string;
@@ -353,3 +353,4 @@ export default function NewItem() {
     </main>
   );
 }
+

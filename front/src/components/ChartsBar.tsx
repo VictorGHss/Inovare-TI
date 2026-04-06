@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import type { Ticket } from '../types/domain';
+import type { Ticket } from '../types/models';
 import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsBarProps {
@@ -61,3 +61,4 @@ export default function ChartsBar({ tickets, title }: ChartsBarProps) {
     </div>
   );
 }
+

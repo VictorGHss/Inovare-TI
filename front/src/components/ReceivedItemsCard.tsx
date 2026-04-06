@@ -1,4 +1,4 @@
-import type { Ticket } from '../types/domain';
+import type { Ticket } from '../types/models';
 import { CheckCircle2 } from 'lucide-react';
 
 interface ReceivedItemsCardProps {
@@ -39,3 +39,4 @@ export default function ReceivedItemsCard({ tickets, totalReceivedCount }: Recei
     </div>
   );
 }
+

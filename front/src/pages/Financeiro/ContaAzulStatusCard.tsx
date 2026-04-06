@@ -2,7 +2,7 @@ import type {
   FinanceConnectionStatus,
   FinanceReceipt,
   FinancialSummaryDTO,
-} from '../../types/domain';
+} from '../../types/models';
 
 interface ContaAzulStatusCardProps {
   connectionStatus: FinanceConnectionStatus | null;
@@ -71,3 +71,4 @@ export default function ContaAzulStatusCard({
     </aside>
   );
 }
+

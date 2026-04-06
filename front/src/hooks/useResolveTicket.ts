@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 
 import { getAssetCategories, getAssets, getItems } from '../services/inventoryService';
-import type { Asset, AssetCategory, Item, ResolveTicketRequest, Ticket } from '../types/domain';
+import type { Asset, AssetCategory, Item, ResolveTicketRequest, Ticket } from '../types/models';
 
 interface UseResolveTicketParams {
   isOpen: boolean;

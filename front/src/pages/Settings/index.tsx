@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/inventoryService';
-import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/domain';
+import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 
@@ -372,3 +372,4 @@ export default function Settings() {
     </main>
   );
 }
+

@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/domain';
+import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/models';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
@@ -411,3 +411,4 @@ export async function getAuditLogs(params?: GetAuditLogsParams): Promise<AuditLo
   const { data } = await api.get<AuditLogPage>('/api/audit-logs', { params: sanitized });
   return data;
 }
+

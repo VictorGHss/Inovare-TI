@@ -1,0 +1,101 @@
+export interface AttachmentResponse {
+  id: string;
+  originalFilename: string;
+  fileUrl: string;
+  fileType: string;
+}
+
+export interface Ticket {
+  id: string;
+  title: string;
+  description: string | null;
+  anydeskCode: string | null;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  requesterId: string;
+  requesterName: string;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  categoryId: string;
+  categoryName: string;
+  requestedItemId: string | null;
+  requestedItemName: string | null;
+  requestedQuantity: number | null;
+  isFromDiscord: boolean;
+  slaDeadline: string | null;
+  createdAt: string;
+  closedAt: string | null;
+  attachments: AttachmentResponse[];
+}
+
+export interface TicketCategory {
+  id: string;
+  name: string;
+}
+
+export interface ResolveTicketRequest {
+  resolutionNotes?: string;
+  assetIdToDeliver?: string;
+  inventoryItemIdToDeliver?: string;
+  quantityToDeliver?: number;
+  newAssetToDeliver?: {
+    userId: string;
+    name: string;
+    patrimonyCode: string;
+    categoryId: string;
+    specifications?: string;
+  };
+}
+
+export interface TicketAttachment {
+  id: string;
+  originalFilename: string;
+  storedFilename: string;
+  fileType: string;
+  ticketId: string;
+  uploadedAt: string;
+}
+
+export interface CreateTicketDto {
+  title: string;
+  description: string;
+  anydeskCode?: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  categoryId: string;
+  requestedItemId?: string;
+  requestedQuantity?: number;
+}
+
+export interface TicketComment {
+  id: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface Article {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  tags: string | null;
+  status: 'DRAFT' | 'PUBLISHED';
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export type ArticleStatus = 'DRAFT' | 'PUBLISHED';
+
+export interface CreateArticleDto {
+  title: string;
+  content: string;
+  tags?: string;
+  status?: ArticleStatus;
+}
+
+export interface ArticleSearchResult {
+  id: string;
+  title: string;
+}

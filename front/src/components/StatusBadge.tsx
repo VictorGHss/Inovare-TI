@@ -1,5 +1,5 @@
 // Componente de badge de status para chamados
-import type { Ticket } from '../types/domain';
+import type { Ticket } from '../types/models';
 
 type Status = Ticket['status'];
 
@@ -28,3 +28,4 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
     </span>
   );
 }
+

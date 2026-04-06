@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getTicketComments, addTicketComment } from '../services/ticketService';
-import type { TicketComment } from '../types/domain';
+import type { TicketComment } from '../types/models';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TicketCommentsProps {
@@ -158,3 +158,4 @@ export default function TicketComments({ ticketId, ticketStatus, assignedToId }:
     </div>
   );
 }
+

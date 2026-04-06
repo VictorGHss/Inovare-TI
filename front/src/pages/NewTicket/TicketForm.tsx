@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getTicketCategories, createTicket, uploadTicketAttachment } from '../../services/ticketService';
 import { getItems, searchArticles } from '../../services/inventoryService';
-import type { TicketCategory, Item, CreateTicketDto, ArticleSearchResult } from '../../types/domain';
+import type { TicketCategory, Item, CreateTicketDto, ArticleSearchResult } from '../../types/models';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';
 import FileAttachment from './FileAttachment';
@@ -306,3 +306,4 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     </form>
   );
 }
+

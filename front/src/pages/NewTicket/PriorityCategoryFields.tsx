@@ -1,5 +1,5 @@
 // Seletores de Prioridade e Categoria do chamado
-import type { CreateTicketDto, TicketCategory } from '../../types/domain';
+import type { CreateTicketDto, TicketCategory } from '../../types/models';
 
 interface Props {
   priority: CreateTicketDto['priority'];
@@ -45,3 +45,4 @@ export default function PriorityCategoryFields({
     </div>
   );
 }
+

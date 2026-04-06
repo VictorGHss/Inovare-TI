@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Package, PackagePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItems } from '../../services/inventoryService';
-import type { Item } from '../../types/domain';
+import type { Item } from '../../types/models';
 import AddBatchModal from './AddBatchModal';
 import PageHero from '../../components/PageHero';
 
@@ -158,3 +158,4 @@ export default function Inventory() {
     </main>
   );
 }
+

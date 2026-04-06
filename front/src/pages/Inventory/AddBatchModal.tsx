@@ -3,7 +3,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { addBatch, uploadBatchInvoice } from '../../services/inventoryService';
-import type { Item } from '../../types/domain';
+import type { Item } from '../../types/models';
 
 interface AddBatchModalProps {
   isOpen: boolean;
@@ -244,3 +244,4 @@ export default function AddBatchModal({
     </div>
   );
 }
+

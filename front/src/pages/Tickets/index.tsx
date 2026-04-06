@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getTickets } from '../../services/ticketService';
-import type { Ticket } from '../../types/domain';
+import type { Ticket } from '../../types/models';
 import SkeletonTable from '../../components/SkeletonTable';
 import PageHero from '../../components/PageHero';
 import TicketsTable from '../Dashboard/TicketsTable';
@@ -250,3 +250,4 @@ export default function Tickets() {
     </main>
   );
 }
+

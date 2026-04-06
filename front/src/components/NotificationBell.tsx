@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { getNotifications, markNotificationAsRead } from '../services/inventoryService';
-import type { Notification } from '../types/domain';
+import type { Notification } from '../types/models';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {
@@ -179,3 +179,4 @@ export default function NotificationBell() {
     </div>
   );
 }
+

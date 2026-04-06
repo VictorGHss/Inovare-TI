@@ -1,4 +1,4 @@
-import type { AssetMaintenance } from '../../types/domain';
+import type { AssetMaintenance } from '../../types/models';
 import { formatCurrency } from '../../lib/formatters';
 import { Stethoscope, AlertTriangle, ArrowUpCircle, MoveRight } from 'lucide-react';
 
@@ -114,3 +114,4 @@ export default function MaintenanceTimeline({ maintenances }: MaintenanceTimelin
     </div>
   );
 }
+

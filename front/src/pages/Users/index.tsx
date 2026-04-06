@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getUsers, createUser, getSectors, resetUserPassword, adminReset2FA } from '../../services/userService';
-import type { User, Sector, CreateUserDto } from '../../types/domain';
+import type { User, Sector, CreateUserDto } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import BulkImportModal from './BulkImportModal';
 import EditUserModal from './EditUserModal';
@@ -409,3 +409,4 @@ export default function Users() {
     </main>
   );
 }
+

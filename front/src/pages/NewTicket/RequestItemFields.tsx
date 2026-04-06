@@ -1,7 +1,7 @@
 // Fields for REQUEST tickets with typeahead/autocomplete
 import { useState } from 'react';
 import { Search, X } from 'lucide-react';
-import type { Item } from '../../types/domain';
+import type { Item } from '../../types/models';
 
 interface Props {
   items: Item[];
@@ -132,4 +132,5 @@ export default function RequestItemFields({
     </div>
   );
 }
+
 

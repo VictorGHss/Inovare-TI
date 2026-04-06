@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getUsers } from '../../services/userService';
 import { getTicketById, resolveTicket, claimTicket, transferTicket } from '../../services/ticketService';
 import { getAssetsByUser } from '../../services/inventoryService';
-import type { ResolveTicketRequest, Ticket, User, Asset } from '../../types/domain';
+import type { ResolveTicketRequest, Ticket, User, Asset } from '../../types/models';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';
 import TicketComments from '../../components/TicketComments';
@@ -470,3 +470,4 @@ export default function TicketDetails() {
     </main>
   );
 }
+

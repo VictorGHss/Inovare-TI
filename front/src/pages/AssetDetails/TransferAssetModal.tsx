@@ -3,7 +3,7 @@ import { X, Loader2, RefreshCw, HardDrive } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getUsers } from '../../services/userService';
 import { transferAsset } from '../../services/inventoryService';
-import type { User, TransferAssetData, Asset } from '../../types/domain';
+import type { User, TransferAssetData, Asset } from '../../types/models';
 
 interface TransferAssetModalProps {
   isOpen: boolean;
@@ -192,3 +192,4 @@ export default function TransferAssetModal({
     </div>
   );
 }
+

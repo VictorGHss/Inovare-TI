@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { updateUser } from '../../services/userService';
-import type { User, Sector, UpdateUserDto } from '../../types/domain';
+import type { User, Sector, UpdateUserDto } from '../../types/models';
 
 interface EditUserModalProps {
   user: User | null;
@@ -207,3 +207,4 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
     </div>
   );
 }
+

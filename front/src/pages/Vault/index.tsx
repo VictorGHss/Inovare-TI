@@ -6,7 +6,7 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUsers } from '../../services/userService';
 import { deleteVaultItem, getVaultItemFileBlob, getVaultItemSecret, getVaultItems } from '../../services/inventoryService';
-import type { User, VaultItem } from '../../types/domain';
+import type { User, VaultItem } from '../../types/models';
 
 import VaultAttachmentPreview from './components/VaultAttachmentPreview';
 import VaultCreateModal from './components/VaultCreateModal';
@@ -309,3 +309,4 @@ export default function Vault() {
     </main>
   );
 }
+

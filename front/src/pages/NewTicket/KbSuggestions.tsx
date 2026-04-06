@@ -1,6 +1,6 @@
 // Sugestões dinâmicas da Base de Conhecimento — desvia de criação de chamado (Ticket Deflection)
 import { Lightbulb, ExternalLink } from 'lucide-react';
-import type { ArticleSearchResult } from '../../types/domain';
+import type { ArticleSearchResult } from '../../types/models';
 
 interface Props {
   articles: ArticleSearchResult[];
@@ -35,3 +35,4 @@ export default function KbSuggestions({ articles }: Props) {
     </div>
   );
 }
+

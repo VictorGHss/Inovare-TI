@@ -1,5 +1,5 @@
 import { AlertTriangle, DollarSign, Landmark, Wallet } from 'lucide-react';
-import type { FinancialSummaryDTO } from '../../types/domain';
+import type { FinancialSummaryDTO } from '../../types/models';
 
 interface FinancialMetricsGridProps {
   summary: FinancialSummaryDTO | null;
@@ -89,3 +89,4 @@ export default function FinancialMetricsGrid({
     </section>
   );
 }
+

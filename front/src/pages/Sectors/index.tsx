@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { PlusCircle, Building2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSectors, createSector } from '../../services/userService';
-import type { Sector } from '../../types/domain';
+import type { Sector } from '../../types/models';
 import PageHero from '../../components/PageHero';
 
 export default function Sectors() {
@@ -120,3 +120,4 @@ export default function Sectors() {
     </main>
   );
 }
+

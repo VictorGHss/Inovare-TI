@@ -2,7 +2,7 @@
 import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 
 import { useResolveTicket } from '../../hooks/useResolveTicket';
-import type { ResolveTicketRequest, Ticket } from '../../types/domain';
+import type { ResolveTicketRequest, Ticket } from '../../types/models';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;
@@ -338,3 +338,4 @@ export default function ResolveTicketModal({
     </div>
   );
 }
+

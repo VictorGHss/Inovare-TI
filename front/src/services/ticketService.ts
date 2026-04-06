@@ -1,5 +1,5 @@
 import api from './api';
-import type { CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment } from '../types/domain';
+import type { CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment } from '../types/models';
 
 // Busca todos os tickets do usuário autenticado
 export async function getTickets(): Promise<Ticket[]> {
@@ -73,3 +73,4 @@ export async function getTicketComments(ticketId: string): Promise<TicketComment
   const { data } = await api.get<TicketComment[]>(`/api/tickets/${ticketId}/comments`);
   return data;
 }
+

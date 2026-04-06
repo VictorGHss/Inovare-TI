@@ -1,4 +1,4 @@
-import { Activity, BadgeDollarSign, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
+import { Activity, BadgeDollarSign, FileDown, LayoutDashboard, RefreshCw, Settings2, Users } from 'lucide-react';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 import FinancialMetricsGrid from './FinancialMetricsGrid';
@@ -50,14 +50,17 @@ export default function FinancialDashboard() {
   const {
     triggeringTestReceipt,
     syncingReceipts,
+    syncingDoctors,
     exporting,
     handleTriggerTestReceipt,
     handleSyncReceiptsNow,
+    handleSyncDoctors,
     handleExportConsumption,
   } = useFinancialActions({
     startDate,
     endDate,
     reloadDashboardData,
+    reloadDoctorMappings,
   });
 
   const currency = summary?.currency ?? 'BRL';
@@ -183,6 +186,18 @@ export default function FinancialDashboard() {
               >
                 <RefreshCw size={15} className={syncingReceipts ? 'animate-spin' : ''} />
                 {syncingReceipts ? 'Sincronizando...' : 'Sincronizar Recibos'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void handleSyncDoctors();
+                }}
+                disabled={syncingDoctors}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#feb56c] px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-[#f6a455] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <Users size={15} className={syncingDoctors ? 'animate-pulse' : ''} />
+                {syncingDoctors ? 'Sincronizando...' : 'Sincronizar Médicos'}
               </button>
 
               <button

@@ -58,7 +58,6 @@ export default function FinancialDashboard() {
     startDate,
     endDate,
     reloadDashboardData,
-    reloadDoctorMappings,
   });
 
   const currency = summary?.currency ?? 'BRL';

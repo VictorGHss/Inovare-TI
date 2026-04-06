@@ -1,4 +1,4 @@
-import api from '../api';
+import api from './api';
 import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/domain';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.

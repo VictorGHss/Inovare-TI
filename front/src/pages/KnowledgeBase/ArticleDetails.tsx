@@ -4,7 +4,7 @@ import { ArrowLeft, Calendar, User, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ReactMarkdown from 'react-markdown';
 import type { Article } from '../../types/domain';
-import { getArticleById } from '../../services/financeService';
+import { getArticleById } from '../../services/inventoryService';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ArticleDetails() {

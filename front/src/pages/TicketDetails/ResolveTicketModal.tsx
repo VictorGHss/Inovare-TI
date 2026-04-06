@@ -2,7 +2,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAssets, getItems, getAssetCategories } from '../../services/financeService';
+import { getAssets, getItems, getAssetCategories } from '../../services/inventoryService';
 import type { Asset, Item, AssetCategory, ResolveTicketRequest, Ticket } from '../../types/domain';
 
 interface ResolveTicketModalProps {

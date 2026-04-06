@@ -8,7 +8,7 @@ import PrintLabelModal from '../../components/PrintLabelModal';
 import QrScannerLauncher from '../../components/QrScannerLauncher';
 import PageHero from '../../components/PageHero';
 import { getUsers } from '../../services/userService';
-import { downloadAssetInvoice, getAssetCategories, getAssets, uploadAssetInvoice } from '../../services/financeService';
+import { downloadAssetInvoice, getAssetCategories, getAssets, uploadAssetInvoice } from '../../services/inventoryService';
 import type { Asset, AssetCategory, AssetFilterStatus, AssetSortBy, User } from '../../types/domain';
 import AssetTable from './components/AssetTable';
 import NewAssetModal from './components/NewAssetModal';

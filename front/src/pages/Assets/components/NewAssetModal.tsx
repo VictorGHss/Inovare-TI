@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import { createAsset, uploadAssetInvoice } from '../../../services/financeService';
+import { createAsset, uploadAssetInvoice } from '../../../services/inventoryService';
 import type { AssetCategory, CreateAssetDto, User } from '../../../types/domain';
 
 const inputClassName =

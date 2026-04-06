@@ -3,7 +3,7 @@ import { Plus, Check, X, Pencil, Trash2, Calendar, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { getUsers } from '../../services/userService';
-import { getReportSchedules, createReportSchedule, deleteReportSchedule, triggerReportScheduleTest, updateReportSchedule } from '../../services/financeService';
+import { getReportSchedules, createReportSchedule, deleteReportSchedule, triggerReportScheduleTest, updateReportSchedule } from '../../services/inventoryService';
 import type { ReportSchedule, User } from '../../types/domain';
 
 const inputClassName =

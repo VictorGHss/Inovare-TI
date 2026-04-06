@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileSpreadsheet, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { exportTicketsReport, exportInventoryEntriesReport, exportInventoryExitsReport } from '../services/financeService';
+import { exportTicketsReport, exportInventoryEntriesReport, exportInventoryExitsReport } from '../services/inventoryService';
 
 function getDefaultCycleDates() {
   const now = new Date();

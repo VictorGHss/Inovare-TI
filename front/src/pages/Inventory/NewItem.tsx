@@ -3,7 +3,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getItemCategories, createItem, addBatch } from '../../services/financeService';
+import { getItemCategories, createItem, addBatch } from '../../services/inventoryService';
 import type { ItemCategory } from '../../types/domain';
 
 interface SpecEntry {

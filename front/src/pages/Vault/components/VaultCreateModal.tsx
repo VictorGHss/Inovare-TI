@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import { createVaultItem } from '../../../services/financeService';
+import { createVaultItem } from '../../../services/inventoryService';
 import type { User, VaultCreateItemRequestDTO } from '../../../types/domain';
 
 type VaultItemType = VaultCreateItemRequestDTO['itemType'];

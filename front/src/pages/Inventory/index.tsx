@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Package, PackagePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getItems } from '../../services/financeService';
+import { getItems } from '../../services/inventoryService';
 import type { Item } from '../../types/domain';
 import AddBatchModal from './AddBatchModal';
 import PageHero from '../../components/PageHero';

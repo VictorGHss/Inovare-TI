@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUsers } from '../../services/userService';
 import { getTicketById, resolveTicket, claimTicket, transferTicket } from '../../services/ticketService';
-import { getAssetsByUser } from '../../services/financeService';
+import { getAssetsByUser } from '../../services/inventoryService';
 import type { ResolveTicketRequest, Ticket, User, Asset } from '../../types/domain';
 import StatusBadge from '../../components/StatusBadge';
 import SlaBadge from '../../components/SlaBadge';

@@ -2,7 +2,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { addBatch, uploadBatchInvoice } from '../../services/financeService';
+import { addBatch, uploadBatchInvoice } from '../../services/inventoryService';
 import type { Item } from '../../types/domain';
 
 interface AddBatchModalProps {

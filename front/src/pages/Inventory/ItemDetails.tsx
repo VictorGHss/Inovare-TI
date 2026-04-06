@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
-import { getItemById, getItemBatches, getItemOutMovements, uploadBatchInvoice, downloadBatchInvoice } from '../../services/financeService';
+import { getItemById, getItemBatches, getItemOutMovements, uploadBatchInvoice, downloadBatchInvoice } from '../../services/inventoryService';
 import type { Item, Batch, StockMovement } from '../../types/domain';
 
 // Formata data ISO para dd/MM/yyyy

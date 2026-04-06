@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import axios from 'axios';
 import { getUsers } from '../../services/userService';
-import { getAuditLogs } from '../../services/financeService';
+import { getAuditLogs } from '../../services/inventoryService';
 import type { AuditLog, AuditAction, AuditLogPage, User } from '../../types/domain';
 import SkeletonTable from '../../components/SkeletonTable';
 import PageHero from '../../components/PageHero';

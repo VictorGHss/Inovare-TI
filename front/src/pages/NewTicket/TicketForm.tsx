@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, type FormEvent, type ClipboardEvent } from
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getTicketCategories, createTicket, uploadTicketAttachment } from '../../services/ticketService';
-import { getItems, searchArticles } from '../../services/financeService';
+import { getItems, searchArticles } from '../../services/inventoryService';
 import type { TicketCategory, Item, CreateTicketDto, ArticleSearchResult } from '../../types/domain';
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';

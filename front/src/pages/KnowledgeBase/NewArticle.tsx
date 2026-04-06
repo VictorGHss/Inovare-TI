@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createArticle, uploadGenericFile } from '../../services/financeService';
+import { createArticle, uploadGenericFile } from '../../services/inventoryService';
 import type { ArticleStatus } from '../../types/domain';
 
 export default function NewArticle() {

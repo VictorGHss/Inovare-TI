@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, User, Loader2, BookOpenText, FileText, ArrowRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Article } from '../../types/domain';
-import { getArticles } from '../../services/financeService';
+import { getArticles } from '../../services/inventoryService';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function KnowledgeBase() {

@@ -15,7 +15,8 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
-import { getDoctorMappings, executeFinanceAutomationNow, getFinanceAlerts, getFinanceConnectionStatus, getFinanceReceipts, getFinancialSummary, getDashboardAnalytics, exportInventoryExitsReport } from '../../services/financeService';
+import { getDoctorMappings, executeFinanceAutomationNow, getFinanceAlerts, getFinanceConnectionStatus, getFinanceReceipts, getFinancialSummary, getDashboardAnalytics } from '../../services/financeService';
+import { exportInventoryExitsReport } from '../../services/inventoryService';
 import type { DoctorMapping, FinanceAlert, FinanceConnectionStatus, FinanceReceipt, FinancialSummaryDTO, DashboardAnalyticsDTO } from '../../types/domain';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 import InternalConsumptionPanel from './InternalConsumptionPanel';

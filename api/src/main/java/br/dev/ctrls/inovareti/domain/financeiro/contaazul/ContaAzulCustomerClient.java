@@ -25,7 +25,7 @@ public class ContaAzulCustomerClient {
     private static final int MAX_PAGES = 30;
 
     private final ContaAzulRequestExecutor requestExecutor;
-    private final ContaAzulResponseParser parser;
+    private final CustomerResponseMapper customerResponseMapper;
 
     @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
     private String customersV1Url;
@@ -51,7 +51,7 @@ public class ContaAzulCustomerClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            return parser.parseCustomerIdByEmail(payload, normalizedEmail);
+            return customerResponseMapper.parseCustomerIdByEmail(payload, normalizedEmail);
         } catch (RuntimeException ex) {
             log.warn("Falha ao consultar cliente Conta Azul por e-mail {}: {}", email, ex.getMessage());
             return Optional.empty();
@@ -73,7 +73,7 @@ public class ContaAzulCustomerClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            return parser.parseCustomerEmailById(payload);
+            return customerResponseMapper.parseCustomerEmailById(payload);
         } catch (RuntimeException ex) {
             log.warn("Falha ao consultar e-mail do cliente Conta Azul (id={}): {}", customerId, ex.getMessage());
             return Optional.empty();
@@ -95,7 +95,7 @@ public class ContaAzulCustomerClient {
                     .toUriString();
 
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            ContaAzulResponseParser.PessoasPage pageResult = parser.parsePessoasPage(payload);
+                CustomerResponseMapper.PessoasPage pageResult = customerResponseMapper.parsePessoasPage(payload);
 
             if (pageResult.total() != null && pageResult.total() > 0) {
                 totalExpected = pageResult.total();

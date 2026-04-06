@@ -29,7 +29,7 @@ public class ContaAzulSalesClient {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final ContaAzulRequestExecutor requestExecutor;
-    private final ContaAzulResponseParser parser;
+    private final SalesResponseMapper salesResponseMapper;
 
     @Value("${app.contaazul.payments-url}")
     private String receivableEventsSearchUrl;
@@ -69,7 +69,7 @@ public class ContaAzulSalesClient {
         for (int page = 1; page <= MAX_PAGES; page++) {
             String uri = buildReceivableSearchUri(page, dataVencimentoDe, dataVencimentoAte);
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            List<ContaAzulClient.SaleItem> pageItems = parser.parseAcquittedSales(payload);
+            List<ContaAzulClient.SaleItem> pageItems = salesResponseMapper.parseAcquittedSales(payload);
 
             if (pageItems.isEmpty()) {
                 break;
@@ -101,7 +101,7 @@ public class ContaAzulSalesClient {
         for (int page = 1; page <= MAX_PAGES; page++) {
             String uri = buildReceivableSearchUri(page, dataVencimentoDe, dataVencimentoAte);
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            List<ContaAzulClient.SaleItem> pageItems = parser.parseAcquittedSales(payload);
+            List<ContaAzulClient.SaleItem> pageItems = salesResponseMapper.parseAcquittedSales(payload);
 
             Optional<ContaAzulClient.SaleItem> match = pageItems.stream()
                     .filter(item -> normalizedSaleId.equals(item.saleId()))
@@ -127,7 +127,7 @@ public class ContaAzulSalesClient {
 
         for (int page = 1; page <= MAX_PAGES; page++) {
             String payload = fetchCommittedSalesPagePayload(page);
-            List<ContaAzulClient.SaleItem> pageItems = parser.parseCommittedSalesWithAcquittedParcels(payload);
+            List<ContaAzulClient.SaleItem> pageItems = salesResponseMapper.parseCommittedSalesWithAcquittedParcels(payload);
 
             if (pageItems.isEmpty()) {
                 break;

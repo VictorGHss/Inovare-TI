@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulFinancialClient {
 
     private final ContaAzulRequestExecutor requestExecutor;
-    private final ContaAzulResponseParser parser;
+    private final FinancialResponseMapper financialResponseMapper;
     private final ContaAzulTokenService contaAzulTokenService;
 
     @Value("${app.contaazul.baixa-details-url}")
@@ -37,7 +37,7 @@ public class ContaAzulFinancialClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            String receiptUrl = parser.parseReceiptDownloadUrl(payload)
+            String receiptUrl = financialResponseMapper.parseReceiptDownloadUrl(payload)
                     .orElseThrow(() -> new NoReceiptAvailableException(
                             "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
             return requestExecutor.downloadFile(receiptUrl);
@@ -49,7 +49,7 @@ public class ContaAzulFinancialClient {
             log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh explícito.", normalizedBaixaId);
             ContaAzulOAuthToken refreshed = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             String payload = requestExecutor.executeJsonGetResponse(uri, refreshed).body();
-            String receiptUrl = parser.parseReceiptDownloadUrl(payload)
+                String receiptUrl = financialResponseMapper.parseReceiptDownloadUrl(payload)
                     .orElseThrow(() -> new NoReceiptAvailableException(
                             "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
             return requestExecutor.downloadFile(receiptUrl, refreshed.getAccessToken());
@@ -70,7 +70,7 @@ public class ContaAzulFinancialClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            return parser.parseBaixaIdByParcelaPayload(payload);
+            return financialResponseMapper.parseBaixaIdByParcelaPayload(payload);
         } catch (ContaAzulHttpException ex) {
             log.warn("Falha ao buscar baixa para parcela {}: erro HTTP ContaAzul.", parcelaId, ex);
             return Optional.empty();
@@ -93,7 +93,7 @@ public class ContaAzulFinancialClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            return parser.parseParcelaDetail(payload);
+            return financialResponseMapper.parseParcelaDetail(payload);
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(404)) {
                 throw ex;
@@ -116,7 +116,7 @@ public class ContaAzulFinancialClient {
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
-            return parser.parseBaixaDetail(payload);
+            return financialResponseMapper.parseBaixaDetail(payload);
         } catch (ContaAzulHttpException ex) {
             if (!ex.isStatus(404)) {
                 throw ex;

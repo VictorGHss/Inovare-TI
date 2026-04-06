@@ -3,9 +3,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 
@@ -14,14 +12,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.domain.financeiro.AlertService;
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMapping;
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMappingRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttempt;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttemptRepository;
-import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +34,8 @@ public class ContaAzulReceiptProcessor {
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
     private final ProcessedSaleRepository processedSaleRepository;
     private final ProcessingAttemptRepository processingAttemptRepository;
-    private final FinanceEmailService financeEmailService;
-    private final AlertService alertService;
+    private final ReceiptEmailService receiptEmailService;
+    private final ReceiptAlertService receiptAlertService;
 
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
@@ -109,12 +105,12 @@ public class ContaAzulReceiptProcessor {
         log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
 
         log.info("Enviando para {}", recipientEmail);
-        financeEmailService.sendReceiptEmailWithPdf(
+        receiptEmailService.sendReceiptForRealSaleTest(
                 doctorName,
                 recipientEmail,
-                buildEmailBody(doctorName, StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D"),
-                pdfBytes,
-                "recibo-venda-" + sale.saleId() + ".pdf");
+                StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D",
+                sale.saleId(),
+                pdfBytes);
 
         log.info("Teste real finalizado com sucesso para a venda {}.", sale.saleId());
         return new TesteEnvioRealResult(sale.saleId(), doctorName, recipientEmail, pdfBytes.length);
@@ -275,21 +271,12 @@ public class ContaAzulReceiptProcessor {
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts
                                         + " tentativas. Marcado como processado para evitar loop.";
-                                Map<String, Object> context = new HashMap<>();
-                                context.put("parcelaId", baixaId);
-                                if (StringUtils.hasText(sale.saleId())) {
-                                    context.put("saleId", sale.saleId());
-                                }
-                                if (StringUtils.hasText(mapping.getDoctorName())) {
-                                    context.put("doctorName", mapping.getDoctorName());
-                                }
-                                context.put("attempts", attempts);
-                                alertService.registerPermanentFailureWithTypeAndSeverity(
-                                        baixaId,
-                                        details,
-                                        context,
-                                        "FINANCEIRO_RECEIPT_CRITICAL",
-                                        "HIGH");
+                                receiptAlertService.notifyPermanentReceiptFailure(
+                                    baixaId,
+                                    sale.saleId(),
+                                    mapping.getDoctorName(),
+                                    attempts,
+                                    details);
                                 log.error(
                                         "Recibo da baixa {} não gerado após {} tentativas. Marcado como processado e alerta registrado.",
                                         baixaId,
@@ -321,21 +308,12 @@ public class ContaAzulReceiptProcessor {
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 String details = "Falha ao baixar recibo da baixa " + baixaId + " após " + attempts
                                         + " tentativas. Erro: " + ex.getMessage();
-                                Map<String, Object> context = new HashMap<>();
-                                context.put("parcelaId", baixaId);
-                                if (StringUtils.hasText(sale.saleId())) {
-                                    context.put("saleId", sale.saleId());
-                                }
-                                if (StringUtils.hasText(mapping.getDoctorName())) {
-                                    context.put("doctorName", mapping.getDoctorName());
-                                }
-                                context.put("attempts", attempts);
-                                alertService.registerPermanentFailureWithTypeAndSeverity(
-                                        baixaId,
-                                        details,
-                                        context,
-                                        "FINANCEIRO_RECEIPT_CRITICAL",
-                                        "HIGH");
+                                receiptAlertService.notifyPermanentReceiptFailure(
+                                    baixaId,
+                                    sale.saleId(),
+                                    mapping.getDoctorName(),
+                                    attempts,
+                                    details);
                                 log.error(
                                         "Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado e alerta registrado.",
                                         baixaId,
@@ -365,21 +343,12 @@ public class ContaAzulReceiptProcessor {
                                 processingAttemptRepository.deleteBySaleId(baixaId);
                                 String details = "Recibo da baixa " + baixaId + " não gerou bytes após " + attempts
                                         + " tentativas. Marcado como processado.";
-                                Map<String, Object> context = new HashMap<>();
-                                context.put("parcelaId", baixaId);
-                                if (StringUtils.hasText(sale.saleId())) {
-                                    context.put("saleId", sale.saleId());
-                                }
-                                if (StringUtils.hasText(mapping.getDoctorName())) {
-                                    context.put("doctorName", mapping.getDoctorName());
-                                }
-                                context.put("attempts", attempts);
-                                alertService.registerPermanentFailureWithTypeAndSeverity(
-                                        baixaId,
-                                        details,
-                                        context,
-                                        "FINANCEIRO_RECEIPT_CRITICAL",
-                                        "HIGH");
+                                receiptAlertService.notifyPermanentReceiptFailure(
+                                    baixaId,
+                                    sale.saleId(),
+                                    mapping.getDoctorName(),
+                                    attempts,
+                                    details);
                                 log.error(
                                         "Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado e alerta registrado.",
                                         baixaId,
@@ -401,12 +370,12 @@ public class ContaAzulReceiptProcessor {
 
                 processingAttemptRepository.deleteBySaleId(baixaId);
 
-                financeEmailService.sendReceiptEmailWithPdf(
+                receiptEmailService.sendReceiptForBaixa(
                         doctorName,
                         recipientEmail,
-                        buildEmailBody(doctorName, StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D"),
-                        pdfBytes,
-                        "recibo-quitacao-baixa-" + baixaId + ".pdf");
+                        StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D",
+                        baixaId,
+                        pdfBytes);
 
                 log.info("E-mail enviado com sucesso para recibo {} (médico: {}).",
                         baixaId,
@@ -491,13 +460,6 @@ public class ContaAzulReceiptProcessor {
         }
 
         return true;
-    }
-
-    private String buildEmailBody(String doctorName, String receiptNumber) {
-        return "Olá " + doctorName
-                + ",\n\nSegue em anexo o seu recibo de quitação (baixa) número: " + receiptNumber + ".\n\n"
-                + "Este é um envio automático do sistema Inovare TI.\n\n"
-                + "Atenciosamente,\nAdministrativo Inovare.";
     }
 
     private String buildSalesConfigurationErrorMessage() {

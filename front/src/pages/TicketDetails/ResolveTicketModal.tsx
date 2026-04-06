@@ -1,16 +1,14 @@
 // Modal para resolver chamado com opção de entregar equipamento/material
-import { useState, useEffect, type FormEvent } from 'react';
 import { X, Laptop, Box, AlertCircle } from 'lucide-react';
-import { toast } from 'react-toastify';
-import { getAssets, getItems, getAssetCategories } from '../../services/inventoryService';
-import type { Asset, Item, AssetCategory, ResolveTicketRequest, Ticket } from '../../types/domain';
+
+import { useResolveTicket } from '../../hooks/useResolveTicket';
+import type { ResolveTicketRequest, Ticket } from '../../types/domain';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
   requesterId: string;
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
-  isSubmitting: boolean;
   ticket?: Ticket;
 }
 
@@ -19,223 +17,94 @@ export default function ResolveTicketModal({
   onClose,
   requesterId,
   onResolve,
-  isSubmitting,
   ticket,
 }: ResolveTicketModalProps) {
-  const [resolutionNotes, setResolutionNotes] = useState('');
-  const [deliverEquipment, setDeliverEquipment] = useState(false);
-  const [deliveryType, setDeliveryType] = useState<'asset' | 'item'>('asset');
-  const [assetMode, setAssetMode] = useState<'existing' | 'new'>('existing');
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState('');
-  const [selectedItemId, setSelectedItemId] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [newAssetName, setNewAssetName] = useState('');
-  const [newAssetCategoryId, setNewAssetCategoryId] = useState('');
-  const [newAssetPatrimonyCode, setNewAssetPatrimonyCode] = useState('');
-  const [newAssetSpecifications, setNewAssetSpecifications] = useState('');
-  const [loadingAssets, setLoadingAssets] = useState(false);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [loadingAssetCategories, setLoadingAssetCategories] = useState(false);
-  const hasAutoInventoryDeduction = !!ticket?.requestedItemId && !!ticket?.requestedQuantity;
-
-  // Carrega assets ao abrir modal ou ao mudar deliverEquipment
-  useEffect(() => {
-    async function loadAssets() {
-      if (!deliverEquipment || deliveryType !== 'asset' || assetMode !== 'existing') {
-        setAssets([]);
-        return;
-      }
-
-      setLoadingAssets(true);
-      try {
-        const allAssets = await getAssets();
-        // Filtra assets sem dono (disponíveis no estoque da TI)
-        const availableAssets = allAssets.filter(a => !a.userId);
-        setAssets(availableAssets);
-        setSelectedAssetId('');
-      } catch {
-        toast.error('Erro ao carregar equipamentos disponíveis.');
-        setAssets([]);
-      } finally {
-        setLoadingAssets(false);
-      }
-    }
-
-    loadAssets();
-  }, [deliverEquipment, deliveryType, assetMode]);
-
-  useEffect(() => {
-    async function loadAssetCategories() {
-      if (!deliverEquipment || deliveryType !== 'asset' || assetMode !== 'new') {
-        setAssetCategories([]);
-        return;
-      }
-
-      setLoadingAssetCategories(true);
-      try {
-        const data = await getAssetCategories();
-        setAssetCategories(data);
-      } catch {
-        toast.error('Erro ao carregar categorias de ativo.');
-        setAssetCategories([]);
-      } finally {
-        setLoadingAssetCategories(false);
-      }
-    }
-
-    loadAssetCategories();
-  }, [deliverEquipment, deliveryType, assetMode]);
-
-  // Carrega items ao abrir modal ou ao mudar deliverEquipment
-  useEffect(() => {
-    async function loadItems() {
-      if (!deliverEquipment || deliveryType !== 'item') {
-        setItems([]);
-        return;
-      }
-
-      setLoadingItems(true);
-      try {
-        const allItems = await getItems();
-        // Filtra items com estoque disponível
-        const availableItems = allItems.filter(i => i.currentStock > 0);
-        setItems(availableItems);
-        setSelectedItemId('');
-      } catch {
-        toast.error('Erro ao carregar materiais disponíveis.');
-        setItems([]);
-      } finally {
-        setLoadingItems(false);
-      }
-    }
-
-    loadItems();
-  }, [deliverEquipment, deliveryType]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-
-    if (!resolutionNotes.trim()) {
-      toast.error('Digite a nota de resolução.');
-      return;
-    }
-
-    if (deliverEquipment) {
-      if (deliveryType === 'asset') {
-        if (assetMode === 'existing' && !selectedAssetId) {
-          toast.error('Selecione um equipamento para entregar.');
-          return;
-        }
-
-        if (assetMode === 'new') {
-          if (!newAssetName.trim()) {
-            toast.error('Informe o nome do ativo.');
-            return;
-          }
-          if (!newAssetCategoryId) {
-            toast.error('Selecione a categoria do ativo.');
-            return;
-          }
-          if (!newAssetPatrimonyCode.trim()) {
-            toast.error('Informe o código do patrimônio.');
-            return;
-          }
-        }
-      }
-
-      if (deliveryType === 'item' && (!selectedItemId || quantity < 1)) {
-        toast.error('Selecione um material e quantidade válida.');
-        return;
-      }
-    }
-
-    try {
-      if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
-        await onResolve({
-          resolutionNotes,
-          assetIdToDeliver: selectedAssetId,
-        });
-      } else if (deliverEquipment && deliveryType === 'asset' && assetMode === 'new') {
-        await onResolve({
-          resolutionNotes,
-          newAssetToDeliver: {
-            userId: requesterId,
-            name: newAssetName.trim(),
-            patrimonyCode: newAssetPatrimonyCode.trim(),
-            categoryId: newAssetCategoryId,
-            specifications: newAssetSpecifications.trim() || undefined,
-          },
-        });
-      } else if (deliverEquipment && deliveryType === 'item') {
-        await onResolve({
-          resolutionNotes,
-          inventoryItemIdToDeliver: selectedItemId,
-          quantityToDeliver: quantity,
-        });
-      } else {
-        await onResolve({ resolutionNotes });
-      }
-
-      setResolutionNotes('');
-      setDeliverEquipment(false);
-      setDeliveryType('asset');
-      setAssetMode('existing');
-      setSelectedAssetId('');
-      setSelectedItemId('');
-      setQuantity(1);
-      setNewAssetName('');
-      setNewAssetCategoryId('');
-      setNewAssetPatrimonyCode('');
-      setNewAssetSpecifications('');
-      onClose();
-    } catch (error) {
-      console.error('Erro ao resolver chamado:', error);
-    }
-  }
+  const {
+    resolutionNotes,
+    setResolutionNotes,
+    deliverEquipment,
+    setDeliverEquipment,
+    deliveryType,
+    setDeliveryType,
+    assetMode,
+    setAssetMode,
+    assets,
+    items,
+    assetCategories,
+    selectedAssetId,
+    setSelectedAssetId,
+    selectedItemId,
+    setSelectedItemId,
+    quantity,
+    setQuantity,
+    newAssetName,
+    setNewAssetName,
+    newAssetCategoryId,
+    setNewAssetCategoryId,
+    newAssetPatrimonyCode,
+    setNewAssetPatrimonyCode,
+    newAssetSpecifications,
+    setNewAssetSpecifications,
+    loadingAssets,
+    loadingItems,
+    loadingAssetCategories,
+    isSubmitting,
+    hasAutoInventoryDeduction,
+    handleSubmit,
+  } = useResolveTicket({
+    isOpen,
+    onClose,
+    requesterId,
+    onResolve,
+    ticket,
+  });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white">
-          <h2 className="text-lg font-bold text-slate-800">Resolver Chamado</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        {/* Cabeçalho */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-brand-primary/20">
+              <AlertCircle size={16} className="text-brand-primary-dark" />
+            </span>
+            <h2 className="text-lg font-bold text-slate-800">Resolver Chamado</h2>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            className="rounded-2xl p-2 text-slate-400 transition-colors hover:bg-brand-secondary/40 hover:text-slate-700"
+            disabled={isSubmitting}
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6">
-          {/* Resolution Notes */}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-6">
+          {/* Nota de resolução */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">
-              Nota de Resolução *
-            </label>
+            <label className="text-sm font-medium text-slate-700">Nota de Resolução *</label>
             <textarea
               value={resolutionNotes}
-              onChange={(e) => setResolutionNotes(e.target.value)}
+              onChange={(event) => setResolutionNotes(event.target.value)}
               placeholder="Descreva como o problema foi resolvido..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
+              className="w-full resize-none rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
               rows={4}
               disabled={isSubmitting}
             />
           </div>
 
           {hasAutoInventoryDeduction ? (
-            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <AlertCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 rounded-2xl border border-brand-primary/35 bg-brand-secondary/55 p-4">
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-primary-dark" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Dedução Automática</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  O item <strong>{ticket?.requestedItemName ?? 'selecionado'}</strong> ({ticket?.requestedQuantity} unidade{ticket?.requestedQuantity && ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do stock ao fechar este chamado.
+                <p className="text-sm font-semibold text-slate-800">Dedução Automática</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  O item <strong>{ticket?.requestedItemName ?? 'selecionado'}</strong> ({ticket?.requestedQuantity} unidade
+                  {ticket?.requestedQuantity && ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do
+                  stock ao fechar este chamado.
                 </p>
               </div>
             </div>
@@ -246,25 +115,25 @@ export default function ResolveTicketModal({
                   type="checkbox"
                   id="deliverEquipment"
                   checked={deliverEquipment}
-                  onChange={(e) => setDeliverEquipment(e.target.checked)}
-                  className="w-4 h-4 cursor-pointer"
+                  onChange={(event) => setDeliverEquipment(event.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
                   disabled={isSubmitting}
                 />
-                <label htmlFor="deliverEquipment" className="text-sm font-medium text-slate-700 cursor-pointer">
+                <label htmlFor="deliverEquipment" className="cursor-pointer text-sm font-medium text-slate-700">
                   Entregar Equipamento ou Material nesta resolução?
                 </label>
               </div>
 
               {deliverEquipment && (
-                <div className="border border-brand-primary bg-brand-secondary rounded-lg p-4 flex flex-col gap-4">
-                  <div className="flex gap-2">
+                <div className="flex flex-col gap-4 rounded-2xl border border-brand-primary/40 bg-brand-secondary/50 p-4">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setDeliveryType('asset')}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${
                         deliveryType === 'asset'
                           ? 'bg-brand-primary text-white'
-                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                          : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                       }`}
                       disabled={isSubmitting}
                     >
@@ -274,10 +143,10 @@ export default function ResolveTicketModal({
                     <button
                       type="button"
                       onClick={() => setDeliveryType('item')}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${
                         deliveryType === 'item'
                           ? 'bg-brand-primary text-white'
-                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                          : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                       }`}
                       disabled={isSubmitting}
                     >
@@ -288,14 +157,14 @@ export default function ResolveTicketModal({
 
                   {deliveryType === 'asset' && (
                     <div className="flex flex-col gap-4">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => setAssetMode('existing')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          className={`rounded-2xl px-3 py-1.5 text-sm font-semibold transition-colors ${
                             assetMode === 'existing'
                               ? 'bg-brand-primary text-white'
-                              : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                           }`}
                           disabled={isSubmitting}
                         >
@@ -304,10 +173,10 @@ export default function ResolveTicketModal({
                         <button
                           type="button"
                           onClick={() => setAssetMode('new')}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          className={`rounded-2xl px-3 py-1.5 text-sm font-semibold transition-colors ${
                             assetMode === 'new'
                               ? 'bg-brand-primary text-white'
-                              : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                           }`}
                           disabled={isSubmitting}
                         >
@@ -317,9 +186,7 @@ export default function ResolveTicketModal({
 
                       {assetMode === 'existing' && (
                         <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Selecione o Equipamento *
-                          </label>
+                          <label className="text-sm font-medium text-slate-700">Selecione o Equipamento *</label>
                           {loadingAssets ? (
                             <div className="text-sm text-slate-500">Carregando equipamentos...</div>
                           ) : assets.length === 0 ? (
@@ -327,8 +194,8 @@ export default function ResolveTicketModal({
                           ) : (
                             <select
                               value={selectedAssetId}
-                              onChange={(e) => setSelectedAssetId(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                              onChange={(event) => setSelectedAssetId(event.target.value)}
+                              className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                               disabled={isSubmitting}
                             >
                               <option value="">-- Selecione um equipamento --</option>
@@ -343,14 +210,14 @@ export default function ResolveTicketModal({
                       )}
 
                       {assetMode === 'new' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                           <div className="flex flex-col gap-2 md:col-span-2">
                             <label className="text-sm font-medium text-slate-700">Nome do Ativo *</label>
                             <input
                               type="text"
                               value={newAssetName}
-                              onChange={(e) => setNewAssetName(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                              onChange={(event) => setNewAssetName(event.target.value)}
+                              className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                               placeholder="Ex.: Notebook Dell Latitude"
                               disabled={isSubmitting}
                             />
@@ -363,8 +230,8 @@ export default function ResolveTicketModal({
                             ) : (
                               <select
                                 value={newAssetCategoryId}
-                                onChange={(e) => setNewAssetCategoryId(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                onChange={(event) => setNewAssetCategoryId(event.target.value)}
+                                className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                                 disabled={isSubmitting}
                               >
                                 <option value="">-- Selecione a categoria --</option>
@@ -382,8 +249,8 @@ export default function ResolveTicketModal({
                             <input
                               type="text"
                               value={newAssetPatrimonyCode}
-                              onChange={(e) => setNewAssetPatrimonyCode(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                              onChange={(event) => setNewAssetPatrimonyCode(event.target.value)}
+                              className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                               placeholder="Ex.: PAT-2026-001"
                               disabled={isSubmitting}
                             />
@@ -393,8 +260,8 @@ export default function ResolveTicketModal({
                             <label className="text-sm font-medium text-slate-700">Especificações</label>
                             <textarea
                               value={newAssetSpecifications}
-                              onChange={(e) => setNewAssetSpecifications(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
+                              onChange={(event) => setNewAssetSpecifications(event.target.value)}
+                              className="w-full resize-none rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                               rows={3}
                               placeholder="CPU, memória, armazenamento, etc."
                               disabled={isSubmitting}
@@ -408,9 +275,7 @@ export default function ResolveTicketModal({
                   {deliveryType === 'item' && (
                     <>
                       <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Selecione o Material *
-                        </label>
+                        <label className="text-sm font-medium text-slate-700">Selecione o Material *</label>
                         {loadingItems ? (
                           <div className="text-sm text-slate-500">Carregando materiais...</div>
                         ) : items.length === 0 ? (
@@ -418,8 +283,8 @@ export default function ResolveTicketModal({
                         ) : (
                           <select
                             value={selectedItemId}
-                            onChange={(e) => setSelectedItemId(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                            onChange={(event) => setSelectedItemId(event.target.value)}
+                            className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                             disabled={isSubmitting}
                           >
                             <option value="">-- Selecione um material --</option>
@@ -433,15 +298,13 @@ export default function ResolveTicketModal({
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Quantidade *
-                        </label>
+                        <label className="text-sm font-medium text-slate-700">Quantidade *</label>
                         <input
                           type="number"
                           value={quantity}
-                          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                          onChange={(event) => setQuantity(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
                           min="1"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                          className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                           disabled={isSubmitting}
                         />
                       </div>
@@ -452,12 +315,12 @@ export default function ResolveTicketModal({
             </>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-3 justify-end pt-4 border-t border-slate-200">
+          {/* Ações */}
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium transition-colors"
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
               disabled={isSubmitting}
             >
               Cancelar
@@ -465,7 +328,7 @@ export default function ResolveTicketModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2.5 bg-brand-primary hover:bg-brand-primary-dark text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-2xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? 'Resolvendo...' : 'Resolver Chamado'}
             </button>

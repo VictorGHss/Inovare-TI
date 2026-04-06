@@ -102,8 +102,9 @@ export default function TicketDetails() {
       const updated = await resolveTicket(ticket.id, request);
       setTicket(updated);
       toast.success('Chamado resolvido com sucesso!');
-    } catch {
+    } catch (error) {
       toast.error('Erro ao resolver o chamado. Tente novamente.');
+      throw error;
     } finally {
       setClosing(false);
     }
@@ -464,7 +465,6 @@ export default function TicketDetails() {
         onClose={() => setShowResolveModal(false)}
         onResolve={handleResolve}
         requesterId={ticket.requesterId}
-        isSubmitting={closing}
         ticket={ticket}
       />
     </main>

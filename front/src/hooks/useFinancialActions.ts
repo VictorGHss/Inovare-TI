@@ -1,25 +1,22 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
-import { executeFinanceAutomationNow, syncDoctorsBaseFromContaAzul } from '../services/financeService';
+import { executeFinanceAutomationNow } from '../services/financeService';
 import { exportInventoryExitsReport } from '../services/inventoryService';
 
 interface UseFinancialActionsParams {
   startDate: string;
   endDate: string;
   reloadDashboardData: () => Promise<void>;
-  reloadDoctorMappings: () => Promise<void>;
 }
 
 export function useFinancialActions({
   startDate,
   endDate,
   reloadDashboardData,
-  reloadDoctorMappings,
 }: UseFinancialActionsParams) {
   const [triggeringTestReceipt, setTriggeringTestReceipt] = useState(false);
   const [syncingReceipts, setSyncingReceipts] = useState(false);
-  const [syncingDoctors, setSyncingDoctors] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const handleTriggerTestReceipt = useCallback(async () => {
@@ -77,27 +74,12 @@ export function useFinancialActions({
     }
   }, [endDate, startDate]);
 
-  const handleSyncDoctors = useCallback(async () => {
-    try {
-      setSyncingDoctors(true);
-      const result = await syncDoctorsBaseFromContaAzul();
-      await reloadDoctorMappings();
-      toast.success(`Sincronização concluída. Novos: ${result.novos}. Atualizados: ${result.atualizados}.`);
-    } catch {
-      toast.error('Falha ao sincronizar médicos da Conta Azul.');
-    } finally {
-      setSyncingDoctors(false);
-    }
-  }, [reloadDoctorMappings]);
-
   return {
     triggeringTestReceipt,
     syncingReceipts,
-    syncingDoctors,
     exporting,
     handleTriggerTestReceipt,
     handleSyncReceiptsNow,
-    handleSyncDoctors,
     handleExportConsumption,
   };
 }

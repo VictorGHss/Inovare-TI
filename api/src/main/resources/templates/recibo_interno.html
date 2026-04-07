@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Recibo Interno Inovare</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.2cm;
+        }
+
+        body {
+            font-family: "DejaVu Sans", "Segoe UI", Arial, sans-serif;
+            color: #222222;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .sheet {
+            border: 1px solid #f0d7bf;
+            border-top: 8px solid #feb56c;
+            border-radius: 8px;
+            padding: 26px;
+            background: #fffaf5;
+        }
+
+        .header {
+            width: 100%;
+            border-bottom: 1px solid #f0d7bf;
+            padding-bottom: 16px;
+            margin-bottom: 22px;
+        }
+
+        .logo {
+            display: inline-block;
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            border: 3px solid #feb56c;
+            text-align: center;
+            line-height: 1.25;
+            font-weight: 700;
+            color: #d7741f;
+            font-size: 14px;
+            padding-top: 20px;
+            box-sizing: border-box;
+            vertical-align: top;
+            background: #fff;
+            margin-right: 16px;
+        }
+
+        .company {
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .company h1 {
+            margin: 0;
+            font-size: 20px;
+            color: #b95e13;
+        }
+
+        .company p {
+            margin: 2px 0;
+            color: #555;
+            font-size: 12px;
+        }
+
+        .title {
+            margin-top: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #b95e13;
+            letter-spacing: 0.8px;
+            text-align: center;
+        }
+
+        .content {
+            margin-top: 18px;
+            text-align: justify;
+            font-size: 14px;
+        }
+
+        .highlight {
+            font-weight: 700;
+            color: #b95e13;
+        }
+
+        .meta {
+            margin-top: 18px;
+            padding: 12px 14px;
+            background: #fff;
+            border: 1px solid #f0d7bf;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .footer {
+            margin-top: 46px;
+            text-align: center;
+        }
+
+        .line {
+            border-top: 1px solid #222;
+            width: 280px;
+            margin: 0 auto 8px;
+        }
+
+        .sign {
+            font-size: 12px;
+            color: #444;
+        }
+
+        .date {
+            margin-top: 22px;
+            text-align: right;
+            font-size: 13px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+<div class="sheet">
+    <div class="header">
+        <div class="logo">LOGO<br />INOVARE</div>
+        <div class="company">
+            <h1>Condominio Edificio Inovare</h1>
+            <p>CNPJ: 13.481.879/0001-82</p>
+            <p>Recibo interno de quitacao financeira</p>
+        </div>
+        <div class="title">RECIBO</div>
+    </div>
+
+    <div class="content">
+        Recebi de <span class="highlight" th:text="${doctorName}">Nome</span>, CPF/CNPJ
+        <span class="highlight" th:text="${doctorDocument}">Documento</span>,
+        a importancia de <span class="highlight" th:text="${amountInWords}">Valor extenso</span>
+        (<span class="highlight" th:text="${amountValue}">R$ 0,00</span>)
+        referente a <span class="highlight" th:text="${parcela}">Parcela</span>.
+    </div>
+
+    <div class="meta">
+        <div><strong>Referencia:</strong> <span th:text="${referenceId}">N/D</span></div>
+        <div><strong>Data de pagamento:</strong> <span th:text="${paymentDate}">01/01/2026</span></div>
+    </div>
+
+    <div class="date" th:text="${city} + ', ' + ${issueDate}">Curitiba/PR, 01 de janeiro de 2026</div>
+
+    <div class="footer">
+        <div class="line"></div>
+        <div class="sign">Administracao - Condominio Edificio Inovare</div>
+    </div>
+</div>
+</body>
+</html>

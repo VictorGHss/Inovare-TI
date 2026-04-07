@@ -43,6 +43,7 @@ public class ContaAzulReceiptProcessor {
     private final ReceiptEmailService receiptEmailService;
     private final ReceiptAlertService receiptAlertService;
     private final FinancialResponseMapper financialResponseMapper;
+    private final InternalReceiptService internalReceiptService;
 
     @Value("${app.contaazul.automation.enabled:true}")
     private boolean automationEnabled;
@@ -254,15 +255,6 @@ public class ContaAzulReceiptProcessor {
                     continue;
                 }
 
-                if (!StringUtils.hasText(sale.idReciboDigital())) {
-                    noAttachmentWarnings++;
-                    String warningMessage = "Baixa " + baixaId
-                            + " ignorada: Recibo Digital não gerado internamente pelo Conta Azul.";
-                    log.info("Baixa {} ignorada: Recibo Digital não gerado internamente pelo Conta Azul.", baixaId);
-                    registerError(errors, warningMessage);
-                    continue;
-                }
-
                 if (!StringUtils.hasText(customerUuidFromParcel)) {
                     skippedMapping++;
                     mappingWarnings++;
@@ -316,43 +308,45 @@ public class ContaAzulReceiptProcessor {
                         baixaId);
 
                 byte[] pdfBytes;
-                try {
-                    pdfBytes = downloadReceiptPdfFromSettlement(baixaId);
-                } catch (NoReceiptAvailableException nr) {
+                boolean usedInternalFallback = false;
+
+                if (!StringUtils.hasText(sale.idReciboDigital())) {
                     noAttachmentWarnings++;
-                    registerError(errors,
-                            "Recibo sem anexo no ERP para baixa " + baixaId + ". Tentará novamente nas próximas rodadas.");
-                    ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
-                    if (attempt == null) {
-                        processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
-                        log.info("Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução.",
-                                baixaId);
-                    } else {
-                        int attempts = attempt.getAttempts() + 1;
-                        attempt.setAttempts(attempts);
-                        processingAttemptRepository.save(attempt);
-                        if (attempts == 20) {
-                            String details = "Recibo da baixa " + baixaId + " não gerou PDF após " + attempts
-                                    + " tentativas. Mantido pendente para nova tentativa quando o ERP disponibilizar anexo.";
-                            receiptAlertService.notifyPermanentReceiptFailure(
-                                    baixaId,
-                                    sale.saleId(),
-                                    mapping.getDoctorName(),
-                                    attempts,
-                                    details);
-                            log.error(
-                                    "Recibo da baixa {} não gerado após {} tentativas. Mantido pendente para nova tentativa.",
-                                    baixaId,
-                                    attempts);
-                        } else {
-                            log.info(
-                                    "Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/20",
-                                    baixaId,
-                                    attempts);
-                        }
+                    log.info(
+                            "Baixa {} sem id_recibo_digital no retorno da Conta Azul. Gerando recibo interno Inovare (fallback).",
+                            baixaId);
+                    try {
+                        pdfBytes = generateInternalReceiptPdf(baixaId, doctorName, null);
+                        usedInternalFallback = true;
+                    } catch (RuntimeException fallbackEx) {
+                        failures++;
+                        log.error("Falha ao gerar recibo interno para baixa {}.", baixaId, fallbackEx);
+                        registerError(errors,
+                                "Falha ao gerar recibo interno para baixa " + baixaId + ": " + fallbackEx.getMessage());
+                        continue;
                     }
-                    continue;
-                } catch (RuntimeException ex) {
+                } else {
+                    try {
+                        pdfBytes = downloadReceiptPdfFromSettlement(baixaId);
+                    } catch (NoReceiptAvailableException nr) {
+                        noAttachmentWarnings++;
+                        log.warn(
+                                "Recibo digital da baixa {} indisponivel apos retries. Gerando recibo interno Inovare (fallback).",
+                                baixaId);
+
+                        try {
+                            pdfBytes = generateInternalReceiptPdf(baixaId, doctorName, null);
+                            usedInternalFallback = true;
+                        } catch (RuntimeException fallbackEx) {
+                            failures++;
+                            log.error("Falha ao gerar recibo interno para baixa {} apos indisponibilidade de anexo.",
+                                    baixaId,
+                                    fallbackEx);
+                            registerError(errors,
+                                    "Falha no fallback interno da baixa " + baixaId + ": " + fallbackEx.getMessage());
+                            continue;
+                        }
+                    } catch (RuntimeException ex) {
                     ProcessingAttempt attempt = processingAttemptRepository.findBySaleId(baixaId).orElse(null);
                     if (attempt == null) {
                         processingAttemptRepository.save(ProcessingAttempt.builder().saleId(baixaId).attempts(1).build());
@@ -387,6 +381,7 @@ public class ContaAzulReceiptProcessor {
                         registerError(errors,
                             "Falha ao baixar recibo para baixa " + baixaId + ": " + ex.getMessage());
                     continue;
+                    }
                 }
 
                 if (pdfBytes == null || pdfBytes.length == 0) {
@@ -438,6 +433,12 @@ public class ContaAzulReceiptProcessor {
                         StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D",
                         baixaId,
                         pdfBytes);
+
+                if (usedInternalFallback) {
+                    log.info("Recibo interno enviado com sucesso para baixa {} (médico: {}).",
+                        baixaId,
+                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
+                }
 
                 log.info("E-mail enviado com sucesso para recibo {} (médico: {}).",
                         baixaId,
@@ -535,6 +536,23 @@ public class ContaAzulReceiptProcessor {
         }
 
         return Optional.empty();
+    }
+
+    private byte[] generateInternalReceiptPdf(String baixaId, String doctorName, String doctorCpfCnpj) {
+        JsonNode settlementNode = null;
+
+        try {
+            settlementNode = contaAzulClient.getSettlementDetails(baixaId).orElse(null);
+        } catch (RuntimeException ex) {
+            log.warn("Nao foi possivel obter detalhes da baixa {} para montagem completa do recibo interno.", baixaId, ex);
+        }
+
+        byte[] pdfBytes = internalReceiptService.generateReceipt(settlementNode, doctorName, doctorCpfCnpj);
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            throw new IllegalStateException("Recibo interno gerado sem conteudo para baixa " + baixaId + ".");
+        }
+
+        return pdfBytes;
     }
 
     private void waitBeforeSettlementRetry() {

@@ -51,7 +51,7 @@ public class InternalReceiptService {
             context.setVariable("referenceId", referenceId);
             context.setVariable("paymentDate", paymentDate.format(DATE_DISPLAY));
             context.setVariable("issueDate", LocalDate.now().format(DATE_FULL));
-            context.setVariable("city", "Ponta Grossa/PR");
+            context.setVariable("city", "Ponta Grossa-PR");
 
             String html = templateEngine.process("recibo_interno", context);
 

@@ -33,6 +33,7 @@ public class ContaAzulReceiptProcessor {
     private static final int SETTLEMENT_DETAILS_MAX_ATTEMPTS = 2;
     private static final long SETTLEMENT_DETAILS_RETRY_WAIT_NANOS = 15_000_000_000L;
     private static final int MAX_ERROR_DETAILS = 200;
+    private static final String ROBERTO_TETSUO_UUID = "b68a0402-6620-4890-af48-909d8b38362b";
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -253,6 +254,15 @@ public class ContaAzulReceiptProcessor {
                     continue;
                 }
 
+                if (!StringUtils.hasText(sale.idReciboDigital())) {
+                    noAttachmentWarnings++;
+                    String warningMessage = "Baixa " + baixaId
+                            + " ignorada: Recibo Digital não gerado internamente pelo Conta Azul.";
+                    log.info("Baixa {} ignorada: Recibo Digital não gerado internamente pelo Conta Azul.", baixaId);
+                    registerError(errors, warningMessage);
+                    continue;
+                }
+
                 if (!StringUtils.hasText(customerUuidFromParcel)) {
                     skippedMapping++;
                     mappingWarnings++;
@@ -274,6 +284,10 @@ public class ContaAzulReceiptProcessor {
                         StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)",
                         sale.customerUuid(),
                         customerUuidFromParcel);
+                    if (ROBERTO_TETSUO_UUID.equals(customerUuidFromParcel)) {
+                        log.warn(
+                                "Dica: Verifique se o UUID b68a0402... está cadastrado na tabela doctor_email_mapping para o médico Roberto Tetsuo.");
+                    }
                     registerError(errors,
                         "MAP_FAIL para UUID " + customerUuidFromParcel + " (parcela " + sale.parcelaId() + ").");
                     continue;
@@ -581,7 +595,7 @@ public class ContaAzulReceiptProcessor {
             return null;
         }
 
-        String normalized = value.replaceAll("\\\\s+", "").toLowerCase();
+        String normalized = value.replaceAll("\\s+", "").toLowerCase();
         return StringUtils.hasText(normalized) ? normalized : null;
     }
 

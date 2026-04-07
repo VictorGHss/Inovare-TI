@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class InternalReceiptService {
 
-    private static final Locale PT_BR = new Locale("pt", "BR");
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
     private static final DateTimeFormatter DATE_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATE_FULL = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", PT_BR);
 
@@ -51,7 +51,7 @@ public class InternalReceiptService {
             context.setVariable("referenceId", referenceId);
             context.setVariable("paymentDate", paymentDate.format(DATE_DISPLAY));
             context.setVariable("issueDate", LocalDate.now().format(DATE_FULL));
-            context.setVariable("city", "Curitiba/PR");
+            context.setVariable("city", "Ponta Grossa/PR");
 
             String html = templateEngine.process("recibo_interno", context);
 
@@ -63,7 +63,10 @@ public class InternalReceiptService {
                 builder.run();
                 return output.toByteArray();
             }
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
+            log.error("Falha em tempo de execução ao gerar recibo interno em PDF.", ex);
+            throw new IllegalStateException("Falha ao gerar recibo interno em PDF.", ex);
+        } catch (java.io.IOException ex) {
             log.error("Falha ao gerar recibo interno em PDF.", ex);
             throw new IllegalStateException("Falha ao gerar recibo interno em PDF.", ex);
         }

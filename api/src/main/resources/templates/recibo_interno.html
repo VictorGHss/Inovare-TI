@@ -135,8 +135,8 @@
 <div class="sheet">
     <div class="header">
         <div class="logo-box">
-            <img class="logo-image" th:if="${#strings.isNotEmpty(logoBase64)}" th:src="${logoBase64}" alt="Logo Inovare" />
-            <div class="logo-fallback" th:if="${#strings.isEmpty(logoBase64)}">INOVARE</div>
+            <img class="logo-image" th:if="${logoBase64 != null}" th:src="|data:image/png;base64,${logoBase64}|" alt="Logo Inovare" />
+            <div class="logo-fallback" th:if="${logoBase64 == null}">INOVARE</div>
         </div>
         <div class="company">
             <h1>Condomínio Edifício Inovare</h1>

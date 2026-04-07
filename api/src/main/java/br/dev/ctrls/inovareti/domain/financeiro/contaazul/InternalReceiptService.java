@@ -38,11 +38,11 @@ public class InternalReceiptService {
     private static final DateTimeFormatter DATE_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATE_FULL = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", PT_BR);
     private static final String LOGO_RESOURCE_PATH = "static/inovare-logo.png";
-    private static final String LOGO_DATA_URI_PREFIX = "data:image/png;base64,";
 
     private final ITemplateEngine templateEngine;
     private final JsonSafeReader jsonSafeReader;
     private volatile String cachedLogoDataUri;
+    private volatile boolean logoResolutionDone;
 
     public byte[] generateReceipt(JsonNode settlement, String doctorName, String doctorCpfCnpj, String saleDescription) {
         try {
@@ -53,7 +53,7 @@ public class InternalReceiptService {
             String valueInWords = NumberToWords.toBrazilianCurrencyWords(netValue);
             String htmlLogoBase64 = resolveLogoDataUri();
 
-            Context context = new Context(PT_BR);
+            Context context = new Context(Locale.forLanguageTag("pt-BR"));
             context.setVariable("doctorName", resolveDoctorName(doctorName));
             context.setVariable("doctorDocument", resolveDoctorDocument(doctorCpfCnpj, settlement));
             context.setVariable("amountValue", formatCurrency(netValue));
@@ -91,6 +91,11 @@ public class InternalReceiptService {
         double valorLiquido = valorLiquidoNode.asDouble(Double.NaN);
         if (!Double.isNaN(valorLiquido)) {
             return BigDecimal.valueOf(valorLiquido).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        double valorTotal = safeSettlement.path("total").asDouble(Double.NaN);
+        if (!Double.isNaN(valorTotal)) {
+            return BigDecimal.valueOf(valorTotal).setScale(2, RoundingMode.HALF_UP);
         }
 
         String rawValue = jsonSafeReader.readText(
@@ -197,20 +202,20 @@ public class InternalReceiptService {
     }
 
     private String resolveLogoDataUri() {
-        String cached = cachedLogoDataUri;
-        if (StringUtils.hasText(cached)) {
-            return cached;
+        if (logoResolutionDone) {
+            return cachedLogoDataUri;
         }
 
         synchronized (this) {
-            if (StringUtils.hasText(cachedLogoDataUri)) {
+            if (logoResolutionDone) {
                 return cachedLogoDataUri;
             }
 
             ClassPathResource logoResource = new ClassPathResource(LOGO_RESOURCE_PATH);
             if (!logoResource.exists()) {
                 log.warn("Logo interna nao encontrada em classpath:{}", LOGO_RESOURCE_PATH);
-                cachedLogoDataUri = "";
+                cachedLogoDataUri = null;
+                logoResolutionDone = true;
                 return cachedLogoDataUri;
             }
 
@@ -218,15 +223,18 @@ public class InternalReceiptService {
                 byte[] logoBytes = StreamUtils.copyToByteArray(inputStream);
                 if (logoBytes.length == 0) {
                     log.warn("Logo interna encontrada, mas sem bytes em classpath:{}", LOGO_RESOURCE_PATH);
-                    cachedLogoDataUri = "";
+                    cachedLogoDataUri = null;
+                    logoResolutionDone = true;
                     return cachedLogoDataUri;
                 }
 
-                cachedLogoDataUri = LOGO_DATA_URI_PREFIX + Base64.getEncoder().encodeToString(logoBytes);
+                cachedLogoDataUri = Base64.getEncoder().encodeToString(logoBytes);
+                logoResolutionDone = true;
                 return cachedLogoDataUri;
             } catch (java.io.IOException ex) {
                 log.warn("Falha ao carregar logo interna para base64.", ex);
-                cachedLogoDataUri = "";
+                cachedLogoDataUri = null;
+                logoResolutionDone = true;
                 return cachedLogoDataUri;
             }
         }
@@ -253,7 +261,7 @@ public class InternalReceiptService {
             return fromSettlement.trim();
         }
 
-        return "Nao informado";
+        return "Documento não cadastrado";
     }
 
     private BigDecimal parseCurrencyValue(String rawValue) {

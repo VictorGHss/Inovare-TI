@@ -8,6 +8,8 @@ import java.math.RoundingMode;
  */
 public final class NumberToWords {
 
+    private static final java.util.Locale PT_BR = java.util.Locale.forLanguageTag("pt-BR");
+
     private static final String[] UNITS = {
             "zero", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"
     };
@@ -157,6 +159,7 @@ public final class NumberToWords {
             return value;
         }
 
-        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+        String normalized = value.trim();
+        return normalized.substring(0, 1).toUpperCase(PT_BR) + normalized.substring(1);
     }
 }

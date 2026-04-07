@@ -164,6 +164,27 @@ public class FinancialResponseMapper {
         }
     }
 
+    public Optional<String> parsePessoaDocumento(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return Optional.empty();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            String documento = jsonSafeReader.readText(
+                    root,
+                    "documento",
+                    "cpf_cnpj",
+                    "document",
+                    "person.documento",
+                    "data.documento");
+
+            return StringUtils.hasText(documento) ? Optional.of(documento.trim()) : Optional.empty();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Falha ao parsear documento da pessoa da Conta Azul.", ex);
+        }
+    }
+
     /**
      * Faz parse genérico do payload de detalhe da baixa e retorna o JsonNode raiz.
      */

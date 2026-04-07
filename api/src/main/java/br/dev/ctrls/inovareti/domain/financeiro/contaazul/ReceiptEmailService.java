@@ -58,6 +58,7 @@ public class ReceiptEmailService {
                 doctorName,
                 destinationEmail,
                 receiptNumber,
+            "número",
                 pdfBytes,
                 "recibo-venda-" + saleId + ".pdf");
     }
@@ -65,13 +66,13 @@ public class ReceiptEmailService {
     public void sendReceiptForBaixa(
             String doctorName,
             String destinationEmail,
-            String receiptNumber,
             String baixaId,
             byte[] pdfBytes) {
         sendReceiptEmailWithPdf(
                 doctorName,
                 destinationEmail,
-                receiptNumber,
+            baixaId,
+            "baixa",
                 pdfBytes,
                 "recibo-quitacao-baixa-" + baixaId + ".pdf");
     }
@@ -104,7 +105,8 @@ public class ReceiptEmailService {
     private void sendReceiptEmailWithPdf(
             String doctorName,
             String destinationEmail,
-            String receiptNumber,
+            String bodyIdentifier,
+            String bodyIdentifierLabel,
             byte[] pdfBytes,
             String attachmentFileName) {
         validateConfiguration();
@@ -117,7 +119,7 @@ public class ReceiptEmailService {
             helper.setFrom(formatFromAddress());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
-            helper.setText(buildEmailBody(doctorName, receiptNumber), false);
+            helper.setText(buildEmailBody(doctorName, bodyIdentifier, bodyIdentifierLabel), false);
 
             if (pdfBytes != null && pdfBytes.length > 0) {
                 helper.addAttachment(
@@ -143,12 +145,13 @@ public class ReceiptEmailService {
         return new EmailDispatch(financeiroDeveloperEmail, subject);
     }
 
-    private String buildEmailBody(String doctorName, String receiptNumber) {
+    private String buildEmailBody(String doctorName, String bodyIdentifier, String bodyIdentifierLabel) {
         String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName : "Profissional";
-        String resolvedReceiptNumber = StringUtils.hasText(receiptNumber) ? receiptNumber : "N/D";
+        String resolvedIdentifier = StringUtils.hasText(bodyIdentifier) ? bodyIdentifier : "N/D";
+        String resolvedLabel = StringUtils.hasText(bodyIdentifierLabel) ? bodyIdentifierLabel : "número";
 
         return "Olá " + resolvedDoctorName
-                + ",\n\nSegue em anexo o seu recibo de quitação (baixa) número: " + resolvedReceiptNumber + ".\n\n"
+                + ",\n\nSegue em anexo o seu recibo de quitação (baixa) " + resolvedLabel + ": " + resolvedIdentifier + ".\n\n"
                 + "Este é um envio automático do sistema Inovare TI.\n\n"
                 + "Atenciosamente,\nAdministrativo Inovare.";
     }

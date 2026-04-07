@@ -12,9 +12,9 @@
         body {
             font-family: "DejaVu Sans", "Segoe UI", Arial, sans-serif;
             color: #222222;
-            font-size: 13px;
-            line-height: 1.6;
-            margin: 0;
+            font-size: 14px;
+            line-height: 1.8;
+            margin: 50px;
         }
 
         .sheet {
@@ -33,22 +33,13 @@
         }
 
         .logo-box {
-            display: inline-block;
-            width: 86px;
-            height: 86px;
-            border-radius: 50%;
-            border: 3px solid #feb56c;
-            overflow: hidden;
-            box-sizing: border-box;
-            vertical-align: top;
-            background: #fff;
-            margin-right: 16px;
+            display: block;
+            margin-bottom: 30px;
         }
 
         .logo-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+            max-width: 280px;
+            height: auto;
             display: block;
         }
 
@@ -79,8 +70,11 @@
         }
 
         .title {
-            margin-top: 8px;
-            font-size: 18px;
+            margin: 8px auto 24px;
+            width: fit-content;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #feb56c;
+            font-size: 30px;
             font-weight: 700;
             color: #b95e13;
             letter-spacing: 0.8px;
@@ -105,6 +99,18 @@
             border: 1px solid #f0d7bf;
             border-radius: 6px;
             font-size: 12px;
+        }
+
+        .amount-box {
+            margin-top: 16px;
+            padding: 20px;
+            background: #fff8f2;
+            border: 1px solid #f4d8c1;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: #b95e13;
         }
 
         .footer {
@@ -141,7 +147,7 @@
         <div class="company">
             <h1>Condomínio Edifício Inovare</h1>
             <p>CNPJ: 13.481.879/0001-82</p>
-            <p>Recibo interno de quitação financeira</p>
+            <p>Recibo</p>
         </div>
         <div class="title">RECIBO</div>
     </div>
@@ -150,8 +156,9 @@
         Recebi de <span class="highlight" th:text="${doctorName}">Nome</span>, CPF/CNPJ
         <span class="highlight" th:text="${doctorDocument}">Documento</span>,
         a importância de <span class="highlight" th:text="${amountInWords}">Valor extenso</span>
-        (<span class="highlight" th:text="${amountValue}">R$ 0,00</span>)
         referente à <span class="highlight" th:text="${parcela}">Parcela</span>.
+
+        <div class="amount-box" th:text="${amountValue}">R$ 0,00</div>
     </div>
 
     <div class="meta">
@@ -159,7 +166,7 @@
         <div><strong>Data de pagamento:</strong> <span th:text="${paymentDate}">01/01/2026</span></div>
     </div>
 
-    <div class="date" th:text="${city} + ', ' + ${issueDate}">Curitiba/PR, 01 de janeiro de 2026</div>
+    <div class="date" th:text="${city} + ', ' + ${issueDate}">Ponta Grossa(PR), 01 de janeiro de 2026</div>
 
     <div class="footer">
         <div class="line"></div>

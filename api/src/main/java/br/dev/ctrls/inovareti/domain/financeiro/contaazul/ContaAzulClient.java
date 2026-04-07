@@ -55,6 +55,10 @@ public class ContaAzulClient {
         return customerClient.findCustomerEmailById(customerId);
     }
 
+    public Optional<String> fetchPersonDocumentById(String personId) {
+        return financialClient.fetchPersonDocumentById(personId);
+    }
+
     public List<PessoaItem> fetchAllPessoas() {
         return customerClient.fetchAllPessoas();
     }

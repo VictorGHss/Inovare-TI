@@ -26,6 +26,9 @@ public class ContaAzulFinancialClient {
     @Value("${app.contaazul.baixa-details-url}")
     private String baixaDetailsUrl;
 
+    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
+    private String customerByIdV1UrlTemplate;
+
     /**
      * Baixa o PDF do recibo da baixa financeira.
      */
@@ -154,6 +157,28 @@ public class ContaAzulFinancialClient {
                 throw ex;
             }
             log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedBaixaId);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Busca CPF/CNPJ (documento) da pessoa no endpoint GET /v1/pessoas/{id}.
+     */
+    public Optional<String> fetchPersonDocumentById(String personId) {
+        if (!StringUtils.hasText(personId)) {
+            return Optional.empty();
+        }
+
+        String normalizedId = personId.trim();
+        String uri = customerByIdV1UrlTemplate
+                .replace("{id}", normalizedId)
+                .replace("{customerId}", normalizedId);
+
+        try {
+            String payload = requestExecutor.executeJsonGetWithRefresh(uri);
+            return financialResponseMapper.parsePessoaDocumento(payload);
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao buscar documento da pessoa {} na Conta Azul: {}", normalizedId, ex.getMessage());
             return Optional.empty();
         }
     }

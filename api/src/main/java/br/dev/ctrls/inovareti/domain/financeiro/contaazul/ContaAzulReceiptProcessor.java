@@ -34,6 +34,7 @@ public class ContaAzulReceiptProcessor {
     private static final long SETTLEMENT_DETAILS_RETRY_WAIT_NANOS = 15_000_000_000L;
     private static final int MAX_ERROR_DETAILS = 200;
     private static final String ROBERTO_TETSUO_UUID = "b68a0402-6620-4890-af48-909d8b38362b";
+    private static final String DOCUMENT_FALLBACK_UNDER_REVIEW = "CPF/CNPJ sob consulta";
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -438,7 +439,6 @@ public class ContaAzulReceiptProcessor {
                 receiptEmailService.sendReceiptForBaixa(
                         doctorName,
                         recipientEmail,
-                        StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D",
                         baixaId,
                         pdfBytes);
 
@@ -563,16 +563,65 @@ public class ContaAzulReceiptProcessor {
             log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
         }
 
+        String documentForReceipt = StringUtils.hasText(doctorCpfCnpj)
+                ? doctorCpfCnpj.trim()
+                : DOCUMENT_FALLBACK_UNDER_REVIEW;
+
+        String clientId = extractClientIdFromSettlement(settlementNode);
+        if (StringUtils.hasText(clientId)) {
+            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(clientId);
+            if (apiDocument.isPresent()) {
+                documentForReceipt = apiDocument.get();
+                log.info("Documento obtido via API da pessoa {} para baixa {}.", clientId, baixaId);
+            } else {
+                documentForReceipt = DOCUMENT_FALLBACK_UNDER_REVIEW;
+                log.warn("Nao foi possivel obter documento via API para cliente_id {} (baixa {}). Usando fallback.",
+                        clientId,
+                        baixaId);
+            }
+        } else {
+            log.warn("cliente_id nao encontrado no JSON da baixa {}. Mantendo documento em fallback interno.", baixaId);
+        }
+
         byte[] pdfBytes = internalReceiptService.generateReceipt(
                 settlementNode,
                 doctorName,
-                doctorCpfCnpj,
+                documentForReceipt,
                 saleDescription);
         if (pdfBytes == null || pdfBytes.length == 0) {
             throw new IllegalStateException("Recibo interno gerado sem conteudo para baixa " + baixaId + ".");
         }
 
         return pdfBytes;
+    }
+
+    private String extractClientIdFromSettlement(JsonNode settlementNode) {
+        if (settlementNode == null || settlementNode.isNull()) {
+            return null;
+        }
+
+        String clientId = null;
+        if (settlementNode.path("cliente_id").isValueNode()) {
+            clientId = settlementNode.path("cliente_id").asText();
+        }
+
+        if (!StringUtils.hasText(clientId) && settlementNode.path("cliente").path("id").isValueNode()) {
+            clientId = settlementNode.path("cliente").path("id").asText();
+        }
+
+        if (!StringUtils.hasText(clientId) && settlementNode.path("customer").path("id").isValueNode()) {
+            clientId = settlementNode.path("customer").path("id").asText();
+        }
+
+        if (!StringUtils.hasText(clientId) && settlementNode.path("pessoa").path("id").isValueNode()) {
+            clientId = settlementNode.path("pessoa").path("id").asText();
+        }
+
+        if (clientId == null || clientId.isBlank()) {
+            return null;
+        }
+
+        return clientId.trim();
     }
 
     private void waitBeforeSettlementRetry() {

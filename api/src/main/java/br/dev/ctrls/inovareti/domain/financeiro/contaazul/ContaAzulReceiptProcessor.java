@@ -316,7 +316,11 @@ public class ContaAzulReceiptProcessor {
                             "Baixa {} sem id_recibo_digital no retorno da Conta Azul. Gerando recibo interno Inovare (fallback).",
                             baixaId);
                     try {
-                        pdfBytes = generateInternalReceiptPdf(baixaId, doctorName, null);
+                        pdfBytes = generateInternalReceiptPdf(
+                                baixaId,
+                                doctorName,
+                                mapping.getDoctorCpfCnpj(),
+                                sale.descricao());
                         usedInternalFallback = true;
                     } catch (RuntimeException fallbackEx) {
                         failures++;
@@ -335,7 +339,11 @@ public class ContaAzulReceiptProcessor {
                                 baixaId);
 
                         try {
-                            pdfBytes = generateInternalReceiptPdf(baixaId, doctorName, null);
+                            pdfBytes = generateInternalReceiptPdf(
+                                    baixaId,
+                                    doctorName,
+                                    mapping.getDoctorCpfCnpj(),
+                                    sale.descricao());
                             usedInternalFallback = true;
                         } catch (RuntimeException fallbackEx) {
                             failures++;
@@ -538,7 +546,11 @@ public class ContaAzulReceiptProcessor {
         return Optional.empty();
     }
 
-    private byte[] generateInternalReceiptPdf(String baixaId, String doctorName, String doctorCpfCnpj) {
+    private byte[] generateInternalReceiptPdf(
+            String baixaId,
+            String doctorName,
+            String doctorCpfCnpj,
+            String saleDescription) {
         JsonNode settlementNode = null;
 
         try {
@@ -547,7 +559,15 @@ public class ContaAzulReceiptProcessor {
             log.warn("Nao foi possivel obter detalhes da baixa {} para montagem completa do recibo interno.", baixaId, ex);
         }
 
-        byte[] pdfBytes = internalReceiptService.generateReceipt(settlementNode, doctorName, doctorCpfCnpj);
+        if (!StringUtils.hasText(doctorCpfCnpj)) {
+            log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
+        }
+
+        byte[] pdfBytes = internalReceiptService.generateReceipt(
+                settlementNode,
+                doctorName,
+                doctorCpfCnpj,
+                saleDescription);
         if (pdfBytes == null || pdfBytes.length == 0) {
             throw new IllegalStateException("Recibo interno gerado sem conteudo para baixa " + baixaId + ".");
         }

@@ -2,21 +2,28 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.thymeleaf.ITemplateEngine;
 import org.thymeleaf.context.Context;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.MissingNode;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
 import lombok.RequiredArgsConstructor;
@@ -30,17 +37,21 @@ public class InternalReceiptService {
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
     private static final DateTimeFormatter DATE_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATE_FULL = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", PT_BR);
+    private static final String LOGO_RESOURCE_PATH = "static/inovare-logo.png";
+    private static final String LOGO_DATA_URI_PREFIX = "data:image/png;base64,";
 
     private final ITemplateEngine templateEngine;
     private final JsonSafeReader jsonSafeReader;
+    private volatile String cachedLogoDataUri;
 
-    public byte[] generateReceipt(JsonNode settlement, String doctorName, String doctorCpfCnpj) {
+    public byte[] generateReceipt(JsonNode settlement, String doctorName, String doctorCpfCnpj, String saleDescription) {
         try {
             BigDecimal netValue = resolveNetValue(settlement);
             LocalDate paymentDate = resolvePaymentDate(settlement);
-            String referenceId = resolveReferenceId(settlement);
-            String parcela = resolveParcelaDescription(settlement, referenceId);
+            String referenceId = resolveReferenceId(settlement, saleDescription);
+            String parcela = resolveParcelaDescription(settlement, saleDescription, referenceId);
             String valueInWords = NumberToWords.toBrazilianCurrencyWords(netValue);
+            String htmlLogoBase64 = resolveLogoDataUri();
 
             Context context = new Context(PT_BR);
             context.setVariable("doctorName", resolveDoctorName(doctorName));
@@ -52,13 +63,14 @@ public class InternalReceiptService {
             context.setVariable("paymentDate", paymentDate.format(DATE_DISPLAY));
             context.setVariable("issueDate", LocalDate.now().format(DATE_FULL));
             context.setVariable("city", "Ponta Grossa-PR");
+            context.setVariable("logoBase64", htmlLogoBase64);
 
             String html = templateEngine.process("recibo_interno", context);
+            String htmlUtf8 = new String(html.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
 
             try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
-                builder.useFastMode();
-                builder.withHtmlContent(html, null);
+                builder.useFastMode().withHtmlContent(htmlUtf8, null);
                 builder.toStream(output);
                 builder.run();
                 return output.toByteArray();
@@ -73,8 +85,17 @@ public class InternalReceiptService {
     }
 
     private BigDecimal resolveNetValue(JsonNode settlement) {
+        JsonNode safeSettlement = settlement == null ? MissingNode.getInstance() : settlement;
+        JsonNode valorLiquidoNode = safeSettlement.path("valor_composicao").path("valor_liquido");
+
+        double valorLiquido = valorLiquidoNode.asDouble(Double.NaN);
+        if (!Double.isNaN(valorLiquido)) {
+            return BigDecimal.valueOf(valorLiquido).setScale(2, RoundingMode.HALF_UP);
+        }
+
         String rawValue = jsonSafeReader.readText(
-                settlement,
+                safeSettlement,
+                "valor_composicao.valor_liquido",
                 "valor_liquido",
                 "valor.liquido",
                 "valorLiquido",
@@ -133,9 +154,10 @@ public class InternalReceiptService {
         return LocalDate.now();
     }
 
-    private String resolveReferenceId(JsonNode settlement) {
+    private String resolveReferenceId(JsonNode settlement, String saleDescription) {
         String referenceId = jsonSafeReader.readText(
                 settlement,
+                "id_referencia",
                 "evento.referencia.id",
                 "evento_financeiro.referencia.id",
                 "referencia.id",
@@ -147,10 +169,18 @@ public class InternalReceiptService {
             return referenceId.trim();
         }
 
+        if (StringUtils.hasText(saleDescription)) {
+            return saleDescription.trim();
+        }
+
         return "N/D";
     }
 
-    private String resolveParcelaDescription(JsonNode settlement, String referenceId) {
+    private String resolveParcelaDescription(JsonNode settlement, String saleDescription, String referenceId) {
+        if (StringUtils.hasText(saleDescription)) {
+            return saleDescription.trim();
+        }
+
         String parcela = jsonSafeReader.readText(
                 settlement,
                 "descricao",
@@ -164,6 +194,42 @@ public class InternalReceiptService {
         }
 
         return "Parcela vinculada a referencia " + referenceId;
+    }
+
+    private String resolveLogoDataUri() {
+        String cached = cachedLogoDataUri;
+        if (StringUtils.hasText(cached)) {
+            return cached;
+        }
+
+        synchronized (this) {
+            if (StringUtils.hasText(cachedLogoDataUri)) {
+                return cachedLogoDataUri;
+            }
+
+            ClassPathResource logoResource = new ClassPathResource(LOGO_RESOURCE_PATH);
+            if (!logoResource.exists()) {
+                log.warn("Logo interna nao encontrada em classpath:{}", LOGO_RESOURCE_PATH);
+                cachedLogoDataUri = "";
+                return cachedLogoDataUri;
+            }
+
+            try (var inputStream = logoResource.getInputStream()) {
+                byte[] logoBytes = StreamUtils.copyToByteArray(inputStream);
+                if (logoBytes.length == 0) {
+                    log.warn("Logo interna encontrada, mas sem bytes em classpath:{}", LOGO_RESOURCE_PATH);
+                    cachedLogoDataUri = "";
+                    return cachedLogoDataUri;
+                }
+
+                cachedLogoDataUri = LOGO_DATA_URI_PREFIX + Base64.getEncoder().encodeToString(logoBytes);
+                return cachedLogoDataUri;
+            } catch (java.io.IOException ex) {
+                log.warn("Falha ao carregar logo interna para base64.", ex);
+                cachedLogoDataUri = "";
+                return cachedLogoDataUri;
+            }
+        }
     }
 
     private String resolveDoctorName(String doctorName) {
@@ -213,6 +279,6 @@ public class InternalReceiptService {
 
     private String formatCurrency(BigDecimal value) {
         NumberFormat formatter = NumberFormat.getCurrencyInstance(PT_BR);
-        return formatter.format(value);
+        return formatter.format(Objects.requireNonNullElse(value, BigDecimal.ZERO));
     }
 }

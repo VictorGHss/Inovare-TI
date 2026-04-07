@@ -51,6 +51,7 @@ public class DoctorMappingController {
         String customerUuid = request.contaAzulCustomerUuid().trim();
         String doctorName = normalizeNullable(request.doctorName());
         String doctorEmail = normalizeNullable(request.doctorEmail());
+        String doctorCpfCnpj = normalizeNullable(request.doctorCpfCnpj());
 
         if (doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuid).isPresent()) {
             throw new BadRequestException("Já existe mapeamento para o UUID informado.");
@@ -66,6 +67,7 @@ public class DoctorMappingController {
                 .doctorName(doctorName)
                 .contaAzulCustomerUuid(customerUuid)
                 .doctorEmail(doctorEmail)
+            .doctorCpfCnpj(doctorCpfCnpj)
                 .build());
 
         log.info("Mapeamento de médico criado com sucesso. customerUuid={}, userId={}, emailFallback={}",
@@ -103,6 +105,7 @@ public class DoctorMappingController {
                 resolvedDoctorName,
                 mapping.getContaAzulCustomerUuid(),
                 resolvedDoctorEmail,
+            mapping.getDoctorCpfCnpj(),
                 mapping.getCreatedAt(),
                 mapping.getUpdatedAt());
     }
@@ -130,7 +133,8 @@ public class DoctorMappingController {
             @NotBlank(message = "O UUID do cliente da Conta Azul é obrigatório.")
             String contaAzulCustomerUuid,
             @Email(message = "Informe um e-mail válido para o médico.")
-            String doctorEmail) {
+            String doctorEmail,
+            String doctorCpfCnpj) {
     }
 
     public record DoctorMappingResponseDTO(
@@ -140,6 +144,7 @@ public class DoctorMappingController {
             String doctorName,
             String contaAzulCustomerUuid,
             String doctorEmail,
+            String doctorCpfCnpj,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
     }

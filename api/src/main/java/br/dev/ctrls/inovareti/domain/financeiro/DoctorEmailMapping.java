@@ -48,6 +48,9 @@ public class DoctorEmailMapping {
     @Column(name = "doctor_email", length = 255)
     private String doctorEmail;
 
+    @Column(name = "doctor_cpf_cnpj", length = 20)
+    private String doctorCpfCnpj;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

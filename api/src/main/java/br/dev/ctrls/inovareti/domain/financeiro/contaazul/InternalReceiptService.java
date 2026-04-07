@@ -52,10 +52,17 @@ public class InternalReceiptService {
             String parcela = resolveParcelaDescription(settlement, saleDescription, referenceId);
             String valueInWords = NumberToWords.toBrazilianCurrencyWords(netValue);
             String htmlLogoBase64 = resolveLogoDataUri();
+            String doctorDocument = resolveDoctorDocument(doctorCpfCnpj);
+
+            if ("Documento não cadastrado".equals(doctorDocument)) {
+                log.info("Recibo interno gerado para médico sem CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+            } else {
+                log.info("Recibo interno gerado para médico com CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+            }
 
             Context context = new Context(Locale.forLanguageTag("pt-BR"));
             context.setVariable("doctorName", resolveDoctorName(doctorName));
-            context.setVariable("doctorDocument", resolveDoctorDocument(doctorCpfCnpj, settlement));
+            context.setVariable("doctorDocument", doctorDocument);
             context.setVariable("amountValue", formatCurrency(netValue));
             context.setVariable("amountInWords", valueInWords);
             context.setVariable("parcela", parcela);
@@ -70,7 +77,7 @@ public class InternalReceiptService {
 
             try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
-                builder.useFastMode().withHtmlContent(htmlUtf8, null);
+                builder.useFastMode().withHtmlContent(htmlUtf8, "");
                 builder.toStream(output);
                 builder.run();
                 return output.toByteArray();
@@ -85,22 +92,21 @@ public class InternalReceiptService {
     }
 
     private BigDecimal resolveNetValue(JsonNode settlement) {
-        JsonNode safeSettlement = settlement == null ? MissingNode.getInstance() : settlement;
-        JsonNode valorLiquidoNode = safeSettlement.path("valor_composicao").path("valor_liquido");
+        JsonNode settlementData = settlement == null ? MissingNode.getInstance() : settlement;
 
-        double valorLiquido = valorLiquidoNode.asDouble(Double.NaN);
-        if (!Double.isNaN(valorLiquido)) {
+        double valorLiquido = settlementData.path("valor_composicao").path("valor_liquido").asDouble(0.0);
+        if (valorLiquido == 0.0d) {
+            valorLiquido = settlementData.path("valor_bruto").asDouble(0.0);
+        }
+
+        if (valorLiquido != 0.0d) {
             return BigDecimal.valueOf(valorLiquido).setScale(2, RoundingMode.HALF_UP);
         }
 
-        double valorTotal = safeSettlement.path("total").asDouble(Double.NaN);
-        if (!Double.isNaN(valorTotal)) {
-            return BigDecimal.valueOf(valorTotal).setScale(2, RoundingMode.HALF_UP);
-        }
-
         String rawValue = jsonSafeReader.readText(
-                safeSettlement,
+                settlementData,
                 "valor_composicao.valor_liquido",
+                "valor_bruto",
                 "valor_liquido",
                 "valor.liquido",
                 "valorLiquido",
@@ -244,21 +250,9 @@ public class InternalReceiptService {
         return StringUtils.hasText(doctorName) ? doctorName.trim() : "Profissional";
     }
 
-    private String resolveDoctorDocument(String doctorCpfCnpj, JsonNode settlement) {
+    private String resolveDoctorDocument(String doctorCpfCnpj) {
         if (StringUtils.hasText(doctorCpfCnpj)) {
             return doctorCpfCnpj.trim();
-        }
-
-        String fromSettlement = jsonSafeReader.readText(
-                settlement,
-                "cliente.cpf_cnpj",
-                "customer.cpf_cnpj",
-                "pessoa.cpf_cnpj",
-                "referencia.cpf_cnpj",
-                "cpf_cnpj");
-
-        if (StringUtils.hasText(fromSettlement)) {
-            return fromSettlement.trim();
         }
 
         return "Documento não cadastrado";

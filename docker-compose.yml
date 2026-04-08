@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:16-alpine
@@ -24,27 +26,17 @@ services:
     container_name: inovareti_redis
     restart: always
     command: redis-server --save 60 1 --loglevel warning
-    # Mapeamento de porta externa para evitar conflitos no host:
-    #  - 6380 (host) -> 6379 (container)
-    # A API continua conectando ao Redis pelo hostname interno 'redis:6379'.
     ports:
       - "6380:6379"
     volumes:
       - redis_data:/data
-    # Healthcheck: verifica se o Redis está pronto para aceitar conexões.
-    # Usa o comando 'redis-cli ping' que retorna PONG quando o servidor está saudável.
-    # Configuração recomendada para desenvolvimento local:
-    # - intervalo: 5s
-    # - timeout: 3s
-    # - tentativas: 5
+    networks:
+      - inovare_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 5s
-    networks:
-      - inovare_network
 
   api:
     build:
@@ -52,16 +44,18 @@ services:
       dockerfile: Dockerfile
     container_name: inovareti_api
     restart: always
-    env_file:
-      - .env
+    env_file: .env
     environment:
-      - DB_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-    ports:
-      - "8085:8085"
+      - SERVER_PORT=8085
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/inovareti
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/inovareti
+    expose:
+      - "8085"
     volumes:
       - ./uploads:/app/uploads
+      - ${BACKUP_HDD_PATH}:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -75,11 +69,11 @@ services:
       context: ./front
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=https://itsm-inovare.ctrls.dev.br
+        - VITE_API_URL=https://itsm-inovare.ctrls.dev.br/api
     container_name: inovareti_front
     restart: always
     ports:
-      - "5173:80"
+      - "8085:80"
     depends_on:
       - api
     networks:
@@ -89,8 +83,6 @@ services:
     image: prom/prometheus:latest
     container_name: inovareti_prometheus
     restart: always
-    # Mapeamento de porta externa do Prometheus (HOST:CONTAINER):
-    #  - 9095 (host) -> 9090 (container). Use http://localhost:9095 para acessar localmente.
     ports:
       - "9095:9090"
     volumes:
@@ -103,25 +95,18 @@ services:
     networks:
       - inovare_network
 
-  # Serviço Grafana para visualização de dashboards e integração com o frontend.
-  # Porta mapeada para evitar conflitos locais: HOST 3001 -> CONTAINER 3000
-  # As variáveis de ambiente abaixo permitem embedding no frontend e acesso
-  # anônimo para visualização rápida em ambientes de desenvolvimento.
-  # NOTA: habilitar acesso anônimo não é recomendado em produção.
   grafana:
     image: grafana/grafana:latest
     container_name: inovareti_grafana
     restart: always
     environment:
-      GF_SECURITY_ALLOW_EMBEDDING: "true"
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
     ports:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      # Monta os arquivos de provisionamento (datasources e dashboards) no caminho esperado pelo Grafana
       - ./docs/grafana/provisioning:/etc/grafana/provisioning:ro
-      # Monta os dashboards JSON para serem carregados pelo provider
       - ./docs/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus

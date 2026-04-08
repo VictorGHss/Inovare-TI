@@ -66,19 +66,34 @@ public class ContaAzulFinancialSummaryService {
      * - `syncedReceiptsCount`: quantidade de recibos já registrados localmente.
      */
     public FinancialSummary fetchSummary() {
-        String accessToken = contaAzulTokenService.getValidAccessToken();
-
-        StatusResult paidResult = fetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
-        StatusResult pendingResult = fetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
-
-        long totalPaidCents = paidResult.total();
-        long totalPendingCents = pendingResult.total();
-        long balanceCents = totalPaidCents;
         long syncedReceiptsCount = processedSaleRepository.count();
 
-        boolean externalServiceAvailable = paidResult.available() && pendingResult.available();
+        try {
+            String accessToken = contaAzulTokenService.getValidAccessToken();
 
-        return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount, externalServiceAvailable);
+            StatusResult paidResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
+            StatusResult pendingResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
+
+            long totalPaidCents = paidResult.total();
+            long totalPendingCents = pendingResult.total();
+            long balanceCents = totalPaidCents;
+
+            boolean externalServiceAvailable = paidResult.available() && pendingResult.available();
+
+            return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount, externalServiceAvailable);
+        } catch (Exception ex) {
+            log.warn("Falha ao montar resumo financeiro da Conta Azul. Retornando fallback com serviço externo indisponível.", ex);
+            return new FinancialSummary(0L, 0L, 0L, "BRL", syncedReceiptsCount, false);
+        }
+    }
+
+    private StatusResult safeFetchTotalByStatus(String accessToken, String status) {
+        try {
+            return fetchTotalByStatus(accessToken, status);
+        } catch (Exception ex) {
+            log.warn("Falha ao consultar status '{}' na Conta Azul. Considerando indisponível para este status.", status, ex);
+            return new StatusResult(0L, false);
+        }
     }
 
     // Recupera o total agregado (em centavos) para o `status` informado usando o accessToken.

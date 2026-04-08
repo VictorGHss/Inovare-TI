@@ -34,6 +34,18 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
       return null;
     }
 
+    if (axios.isAxiosError(error) && [401, 403, 422, 500, 502, 503, 504].includes(error.response?.status ?? 0)) {
+      return {
+        balanceCents: 0,
+        totalPendingCents: 0,
+        totalPaidCents: 0,
+        currency: 'BRL',
+        syncedReceiptsCount: 0,
+        externalServiceAvailable: false,
+        integrationActive: true,
+      };
+    }
+
     throw error;
   }
 }

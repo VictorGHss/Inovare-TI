@@ -12,6 +12,27 @@ createRoot(document.getElementById('root')!).render(
 // Service Worker: verificar atualizações e solicitar skipWaiting para ativar o novo SW imediatamente.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
+    const swResetFlag = '@InovareTI:sw-reset-2026-04-08';
+
+    // Migração de emergência para limpar SW/cache antigo que referencia assets removidos.
+    if (!localStorage.getItem(swResetFlag)) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((reg) => reg.unregister()));
+
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys();
+          await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+        }
+
+        localStorage.setItem(swResetFlag, 'done');
+        window.location.reload();
+        return;
+      } catch (resetError) {
+        console.warn('Falha ao executar reset de SW/cache', resetError);
+      }
+    }
+
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg) {

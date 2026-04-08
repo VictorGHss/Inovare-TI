@@ -69,7 +69,7 @@ services:
       context: ./front
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=https://itsm-inovare.ctrls.dev.br/api
+        - VITE_API_URL=https://itsm-inovare.ctrls.dev.br
     container_name: inovareti_front
     restart: always
     ports:

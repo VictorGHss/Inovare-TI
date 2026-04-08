@@ -263,5 +263,25 @@
     "name": "CONTAAZUL_CLIENT_SECRET",
     "type": "java.lang.String",
     "description": "A description for 'CONTAAZUL_CLIENT_SECRET'"
+  },
+  {
+    "name": "app.backup.destination-email",
+    "type": "java.lang.String",
+    "description": "A description for 'app.backup.destination-email'"
+  },
+  {
+    "name": "app.backup.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'app.backup.enabled'"
+  },
+  {
+    "name": "app.backup.temp-dir",
+    "type": "java.lang.String",
+    "description": "A description for 'app.backup.temp-dir'"
+  },
+  {
+    "name": "app.backup.pg-dump-binary",
+    "type": "java.lang.String",
+    "description": "A description for 'app.backup.pg-dump-binary'"
   }
 ]}

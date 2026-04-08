@@ -124,7 +124,6 @@ public class ContaAzulReceiptProcessor {
         receiptEmailService.sendReceiptForRealSaleTest(
                 doctorName,
                 recipientEmail,
-                StringUtils.hasText(sale.saleNumber()) ? sale.saleNumber() : "N/D",
                 sale.saleId(),
                 pdfBytes);
 
@@ -439,6 +438,7 @@ public class ContaAzulReceiptProcessor {
                 receiptEmailService.sendReceiptForBaixa(
                         doctorName,
                         recipientEmail,
+                    sale.saleId(),
                         baixaId,
                         pdfBytes);
 

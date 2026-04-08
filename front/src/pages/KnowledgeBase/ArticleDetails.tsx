@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import ReactMarkdown from 'react-markdown';
 import type { Article } from '../../types/models';
 import { getArticleById } from '../../services/inventoryService';
+import { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ArticleDetails() {
@@ -80,9 +81,7 @@ export default function ArticleDetails() {
   
   const CustomImage = ({ ...props }: ImgProps) => {
     const src = props.src || '';
-    const fullUrl = src.startsWith('http') 
-      ? src 
-      : `${import.meta.env.VITE_API_URL}${src}`;
+    const fullUrl = buildApiUrl(src);
     
     return (
       <img

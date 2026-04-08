@@ -1,6 +1,7 @@
 import { CheckCircle2, Download, FileText, Paperclip, UploadCloud } from 'lucide-react';
 
 import TicketComments from '../../components/TicketComments';
+import { buildApiUrl } from '../../services/api';
 import type { Ticket, User } from '../../types/models';
 
 interface TicketTimelineProps {
@@ -44,7 +45,6 @@ export default function TicketTimeline({
   onCancelTransfer,
   onUploadAttachment,
 }: TicketTimelineProps) {
-  const apiUrl = import.meta.env.VITE_API_URL;
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
   const hasAssignedTechnician = !!ticket.technicianId;
   const canClaim = ticket.status === 'OPEN' && canManageTicket;
@@ -108,7 +108,7 @@ export default function TicketTimeline({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {ticket.attachments.map((attachment) => {
                 const isImage = attachment.fileType.includes('image');
-                const fullUrl = `${apiUrl}${attachment.fileUrl}`;
+                const fullUrl = buildApiUrl(attachment.fileUrl);
 
                 if (isImage) {
                   return (

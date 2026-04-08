@@ -13,6 +13,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.client.RestTemplate;
 
 import jakarta.mail.MessagingException;
@@ -42,23 +43,21 @@ public class ReceiptEmailService {
     @Value("${app.financeiro.dev-email}")
     private String financeiroDeveloperEmail;
 
-    @Value("${app.financeiro.smtp.from-email}")
+    @Value("${app.financeiro.smtp.from-email:administrativo@inovare.med.br}")
     private String financeiroFromEmail;
 
-    @Value("${app.financeiro.smtp.from-name}")
+    @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
     private String financeiroFromName;
 
     public void sendReceiptForRealSaleTest(
             String doctorName,
             String destinationEmail,
-            String receiptNumber,
             String saleId,
             byte[] pdfBytes) {
         sendReceiptEmailWithPdf(
                 doctorName,
                 destinationEmail,
-                receiptNumber,
-            "número",
+                saleId,
                 pdfBytes,
                 "recibo-venda-" + saleId + ".pdf");
     }
@@ -66,13 +65,13 @@ public class ReceiptEmailService {
     public void sendReceiptForBaixa(
             String doctorName,
             String destinationEmail,
+            String saleId,
             String baixaId,
             byte[] pdfBytes) {
         sendReceiptEmailWithPdf(
                 doctorName,
                 destinationEmail,
-            baixaId,
-            "baixa",
+                StringUtils.hasText(saleId) ? saleId : baixaId,
                 pdfBytes,
                 "recibo-quitacao-baixa-" + baixaId + ".pdf");
     }
@@ -105,8 +104,7 @@ public class ReceiptEmailService {
     private void sendReceiptEmailWithPdf(
             String doctorName,
             String destinationEmail,
-            String bodyIdentifier,
-            String bodyIdentifierLabel,
+            String saleIdentifier,
             byte[] pdfBytes,
             String attachmentFileName) {
         validateConfiguration();
@@ -119,7 +117,7 @@ public class ReceiptEmailService {
             helper.setFrom(formatFromAddress());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
-            helper.setText(buildEmailBody(doctorName, bodyIdentifier, bodyIdentifierLabel), false);
+            helper.setText(buildEmailBodyHtml(doctorName, saleIdentifier), true);
 
             if (pdfBytes != null && pdfBytes.length > 0) {
                 helper.addAttachment(
@@ -137,23 +135,33 @@ public class ReceiptEmailService {
     }
 
     private EmailDispatch resolveDispatch(String doctorName, String destinationEmail) {
+        String subject = buildEmailSubject(doctorName);
         if (!financeiroTestMode) {
-            return new EmailDispatch(destinationEmail, "Recibo Financeiro");
+            return new EmailDispatch(destinationEmail, subject);
         }
 
-        String subject = "[TESTE FINANCEIRO] Recibo para: " + (StringUtils.hasText(doctorName) ? doctorName : "Profissional");
         return new EmailDispatch(financeiroDeveloperEmail, subject);
     }
 
-    private String buildEmailBody(String doctorName, String bodyIdentifier, String bodyIdentifierLabel) {
-        String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName : "Profissional";
-        String resolvedIdentifier = StringUtils.hasText(bodyIdentifier) ? bodyIdentifier : "N/D";
-        String resolvedLabel = StringUtils.hasText(bodyIdentifierLabel) ? bodyIdentifierLabel : "número";
+    private String buildEmailSubject(String doctorName) {
+        String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName.trim() : "Cliente";
+        return "Recibo de Quitação - Inovare TI - " + resolvedDoctorName;
+    }
 
-        return "Olá " + resolvedDoctorName
-                + ",\n\nSegue em anexo o seu recibo de quitação (baixa) " + resolvedLabel + ": " + resolvedIdentifier + ".\n\n"
-                + "Este é um envio automático do sistema Inovare TI.\n\n"
-                + "Atenciosamente,\nAdministrativo Inovare.";
+    private String buildEmailBodyHtml(String doctorName, String saleIdentifier) {
+        String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName.trim() : "Cliente";
+        String resolvedSaleIdentifier = StringUtils.hasText(saleIdentifier) ? saleIdentifier.trim() : "N/D";
+
+        String safeDoctorName = HtmlUtils.htmlEscape(resolvedDoctorName);
+        String safeSaleIdentifier = HtmlUtils.htmlEscape(resolvedSaleIdentifier);
+
+        return "<html><body>"
+                + "<p>Prezado(a) " + safeDoctorName + ",</p>"
+                + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleIdentifier
+                + ". O seu recibo de quitação já está disponível e segue em anexo a este e-mail.</p>"
+                + "<p>Agradecemos a confiança.</p>"
+                + "<p>Atenciosamente,<br/>Equipe Administrativa<br/>Inovare Serviços de Saúde</p>"
+                + "</body></html>";
     }
 
     private String formatFromAddress() {

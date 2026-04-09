@@ -20,7 +20,7 @@ public class ReportDeliveryService {
     private final JavaMailSender mailSender;
 
     @Value("${app.financeiro.test-mode:false}")
-    private boolean testMode;
+    private String testModeRaw;
 
     @Value("${app.financeiro.dev-email:}")
     private String developerEmail;
@@ -65,11 +65,24 @@ public class ReportDeliveryService {
     }
 
     private String resolveRecipient(String destinationEmail) {
-        if (!testMode) return destinationEmail;
-        if (!StringUtils.hasText(developerEmail)) {
+        boolean testMode = isTestModeEnabled();
+        String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
+        String devEmail = StringUtils.hasText(developerEmail) ? developerEmail.trim() : "";
+        String destinoFinal = testMode ? devEmail : originalEmail;
+
+        if (testMode) {
+            log.warn("MODO DE TESTE ATIVO: Redirecionando e-mail de {} para {}", originalEmail, devEmail);
+        }
+
+        if (testMode && !StringUtils.hasText(developerEmail)) {
             throw new IllegalStateException("app.financeiro.test-mode=true exige app.financeiro.dev-email configurado");
         }
-        return developerEmail;
+
+        if (!StringUtils.hasText(destinoFinal)) {
+            throw new IllegalStateException("Destinatário final de e-mail está vazio após resolução do modo de teste.");
+        }
+
+        return destinoFinal;
     }
 
     private String formatFromAddress() {
@@ -80,5 +93,22 @@ public class ReportDeliveryService {
         if (!StringUtils.hasText(fromEmail) || !StringUtils.hasText(fromName)) {
             throw new IllegalStateException("Configuração SMTP inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
+    }
+
+    private boolean isTestModeEnabled() {
+        if (!StringUtils.hasText(testModeRaw)) {
+            return false;
+        }
+
+        String normalized = testModeRaw.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+
+        return "true".equalsIgnoreCase(normalized)
+                || "1".equals(normalized)
+                || "yes".equalsIgnoreCase(normalized)
+                || "on".equalsIgnoreCase(normalized)
+                || "sim".equalsIgnoreCase(normalized);
     }
 }

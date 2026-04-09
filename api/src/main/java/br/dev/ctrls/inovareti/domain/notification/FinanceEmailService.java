@@ -27,8 +27,8 @@ public class FinanceEmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.financeiro.test-mode}")
-    private boolean financeiroTestMode;
+    @Value("${app.financeiro.test-mode:false}")
+    private String financeiroTestModeRaw;
 
     @Value("${app.financeiro.dev-email}")
     private String financeiroDeveloperEmail;
@@ -96,12 +96,20 @@ public class FinanceEmailService {
     private EmailDispatch resolveDispatch(String medicoNome, String destinationEmail) {
         String resolvedName = StringUtils.hasText(medicoNome) ? medicoNome.trim() : "Cliente";
         String subject = "Recibo de Quitação - Inovare TI - " + resolvedName;
+        boolean testMode = isTestModeEnabled();
+        String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
+        String devEmail = StringUtils.hasText(financeiroDeveloperEmail) ? financeiroDeveloperEmail.trim() : "";
+        String destinoFinal = testMode ? devEmail : originalEmail;
 
-        if (!financeiroTestMode) {
-            return new EmailDispatch(destinationEmail, subject);
+        if (testMode) {
+            log.warn("MODO DE TESTE ATIVO: Redirecionando e-mail de {} para {}", originalEmail, devEmail);
         }
 
-        return new EmailDispatch(financeiroDeveloperEmail, subject);
+        if (!StringUtils.hasText(destinoFinal)) {
+            throw new IllegalStateException("Destinatário final de e-mail está vazio após resolução do modo de teste.");
+        }
+
+        return new EmailDispatch(destinoFinal, subject);
     }
 
     private String resolveStrictFromEmail() {
@@ -161,9 +169,26 @@ public class FinanceEmailService {
             throw new IllegalStateException("Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
 
-        if (financeiroTestMode && !StringUtils.hasText(financeiroDeveloperEmail)) {
+        if (isTestModeEnabled() && !StringUtils.hasText(financeiroDeveloperEmail)) {
             throw new IllegalStateException("app.financeiro.test-mode=true exige app.financeiro.dev-email com o e-mail do desenvolvedor Victor.");
         }
+    }
+
+    private boolean isTestModeEnabled() {
+        if (!StringUtils.hasText(financeiroTestModeRaw)) {
+            return false;
+        }
+
+        String normalized = financeiroTestModeRaw.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+
+        return "true".equalsIgnoreCase(normalized)
+                || "1".equals(normalized)
+                || "yes".equalsIgnoreCase(normalized)
+                || "on".equalsIgnoreCase(normalized)
+                || "sim".equalsIgnoreCase(normalized);
     }
 
     private record EmailDispatch(String to, String subject) {

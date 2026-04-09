@@ -39,6 +39,9 @@ public class FinanceEmailService {
     @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
     private String financeiroFromName;
 
+    @Value("${spring.mail.username:}")
+    private String smtpUsername;
+
     public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText) {
         sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null);
     }
@@ -62,7 +65,8 @@ public class FinanceEmailService {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(formatFromAddress());
+            // O Skymail rejeita remetente divergente do usuário autenticado; força From estrito.
+            helper.setFrom(resolveStrictFromEmail());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
             helper.setText(buildEmailBodyHtml(medicoNome, bodyText, attachmentFileName), true);
@@ -100,8 +104,17 @@ public class FinanceEmailService {
         return new EmailDispatch(financeiroDeveloperEmail, subject);
     }
 
-    private String formatFromAddress() {
-        return financeiroFromName + " <" + financeiroFromEmail + ">";
+    private String resolveStrictFromEmail() {
+        if (StringUtils.hasText(smtpUsername)) {
+            String normalizedSmtpUser = smtpUsername.trim();
+            if (!normalizedSmtpUser.equalsIgnoreCase(financeiroFromEmail.trim())) {
+                log.warn(
+                        "app.financeiro.smtp.from-email difere de spring.mail.username. Usando usuário SMTP como remetente para evitar rejeição do provedor.");
+            }
+            return normalizedSmtpUser;
+        }
+
+        return financeiroFromEmail.trim();
     }
 
     private String buildEmailBodyHtml(String medicoNome, String bodyText, String attachmentFileName) {

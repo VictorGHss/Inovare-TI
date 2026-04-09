@@ -49,6 +49,9 @@ public class ReceiptEmailService {
     @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
     private String financeiroFromName;
 
+    @Value("${spring.mail.username:}")
+    private String smtpUsername;
+
     public void sendReceiptForRealSaleTest(
             String doctorName,
             String destinationEmail,
@@ -114,7 +117,8 @@ public class ReceiptEmailService {
 
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(formatFromAddress());
+            // Skymail valida o remetente contra o usuário autenticado; usa From estritamente igual ao SMTP user.
+            helper.setFrom(resolveStrictFromEmail());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
             helper.setText(buildEmailBodyHtml(doctorName, saleIdentifier), true);
@@ -164,8 +168,17 @@ public class ReceiptEmailService {
                 + "</body></html>";
     }
 
-    private String formatFromAddress() {
-        return financeiroFromName + " <" + financeiroFromEmail + ">";
+    private String resolveStrictFromEmail() {
+        if (StringUtils.hasText(smtpUsername)) {
+            String normalizedSmtpUser = smtpUsername.trim();
+            if (!normalizedSmtpUser.equalsIgnoreCase(financeiroFromEmail.trim())) {
+                log.warn(
+                        "app.financeiro.smtp.from-email difere de spring.mail.username. Usando usuário SMTP como remetente para evitar rejeição do provedor.");
+            }
+            return normalizedSmtpUser;
+        }
+
+        return financeiroFromEmail.trim();
     }
 
     private void validateConfiguration() {

@@ -457,12 +457,24 @@ public class ContaAzulReceiptProcessor {
 
                 processingAttemptRepository.deleteBySaleId(baixaId);
 
-                receiptEmailService.sendReceiptForBaixa(
-                        doctorName,
-                        recipientEmail,
-                    resolvedSaleId,
-                        baixaId,
-                        pdfBytes);
+                try {
+                    receiptEmailService.sendReceiptForBaixa(
+                            doctorName,
+                            recipientEmail,
+                            resolvedSaleId,
+                            baixaId,
+                            pdfBytes);
+                } catch (RuntimeException emailEx) {
+                    // Se SMTP falhar, preserva o trabalho: salva marcador no banco e registra alerta.
+                    failures++;
+                    persistReceiptProgressAfterEmailFailure(
+                            baixaId,
+                            resolvedSaleId,
+                            doctorName,
+                            emailEx,
+                            errors);
+                    continue;
+                }
 
                 if (usedInternalFallback) {
                     log.info("Recibo interno enviado com sucesso para baixa {} (médico: {}).",
@@ -747,6 +759,34 @@ public class ContaAzulReceiptProcessor {
         }
 
         errors.add(message.trim());
+    }
+
+    private void persistReceiptProgressAfterEmailFailure(
+            String baixaId,
+            String resolvedSaleId,
+            String doctorName,
+            RuntimeException emailEx,
+            List<String> errors) {
+        String details = "Falha SMTP no envio do recibo da baixa " + baixaId
+                + ". O processamento da parcela foi preservado no banco para não perder trabalho. Erro: "
+                + emailEx.getMessage();
+
+        registerError(errors, details);
+        log.error("Falha SMTP ao enviar recibo da baixa {}. Persistindo progresso sem envio de e-mail.", baixaId, emailEx);
+
+        try {
+            processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
+            log.warn("Recibo {} marcado como processado mesmo com falha de e-mail.", baixaId);
+        } catch (DataIntegrityViolationException dex) {
+            log.debug("Recibo {} já estava marcado como processado ao tratar falha de e-mail.", baixaId);
+        }
+
+        receiptAlertService.notifyPermanentReceiptFailure(
+                baixaId,
+                resolvedSaleId,
+                doctorName,
+                1,
+                details);
     }
 
     public record ReceiptProcessingResult(

@@ -11,7 +11,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -38,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ReceiptEmailService {
 
     private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
+    private static final String FINANCEIRO_FIXED_FROM = "administrativo@inovare.med.br";
 
     private final JavaMailSender mailSender;
     private final RestTemplate restTemplate;
@@ -53,6 +53,12 @@ public class ReceiptEmailService {
 
     @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
     private String financeiroFromName;
+
+    @Value("${spring.mail.port:0}")
+    private int smtpPort;
+
+    @Value("${spring.mail.properties.mail.smtp.ssl.enable:false}")
+    private boolean smtpSslEnable;
 
     public void sendReceiptForRealSaleTest(
             String doctorName,
@@ -121,8 +127,8 @@ public class ReceiptEmailService {
 
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            // Skymail exige remetente exatamente igual ao e-mail configurado para envio financeiro.
-            helper.setFrom(financeiroFromEmail.trim());
+            // Política de segurança: remetente financeiro fixo para evitar variações indevidas no SMTP.
+            helper.setFrom(FINANCEIRO_FIXED_FROM);
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
             helper.setText(buildEmailBodyHtml(doctorName, saleNumber), true);
@@ -141,7 +147,7 @@ public class ReceiptEmailService {
             // Blindagem do fluxo financeiro: falha SMTP não deve interromper sincronização de parcelas.
             mailSender.send(message);
             log.info("Recibo enviado por e-mail para {} (destino original: {})", dispatch.to(), destinationEmail);
-        } catch (MailException e) {
+        } catch (Exception e) {
             log.error("Falha ao enviar e-mail de recibo para {}. Processamento seguirá sem crash.", dispatch.to(), e);
         }
     }
@@ -189,6 +195,12 @@ public class ReceiptEmailService {
         if (!StringUtils.hasText(financeiroFromEmail) || !StringUtils.hasText(financeiroFromName)) {
             throw new IllegalStateException(
                     "Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
+        }
+
+        // Blindagem obrigatória: envio financeiro deve ocorrer apenas com SSL puro na porta 465.
+        if (!smtpSslEnable || smtpPort != 465) {
+            throw new IllegalStateException(
+                    "Configuração SMTP insegura para recibos: exige SSL habilitado e porta 465.");
         }
 
         if (isTestModeEnabled() && !StringUtils.hasText(financeiroDeveloperEmail)) {

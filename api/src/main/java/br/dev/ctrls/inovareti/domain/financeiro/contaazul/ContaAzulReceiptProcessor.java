@@ -249,14 +249,9 @@ public class ContaAzulReceiptProcessor {
                             : (StringUtils.hasText(resolvedSaleId) ? resolvedSaleId : null);
 
                     if (markId != null) {
-                        try {
-                            processedSaleRepository.save(ProcessedSale.builder().saleId(markId).build());
-                            log.info("Recibo {} registrado como processado (nenhuma baixa encontrada).", markId);
-                        } catch (DataIntegrityViolationException ex) {
-                            log.debug(
-                                    "Recibo {} já registrado por concorrência ao marcar como processado quando nenhuma baixa encontrada.",
-                                    markId);
-                        }
+                        saveProcessedSaleIfNeeded(markId,
+                                "Recibo {} registrado como processado (nenhuma baixa encontrada).",
+                                "Recibo {} já registrado por concorrência ao marcar como processado quando nenhuma baixa encontrada.");
                     } else {
                         log.warn(
                                 "Nenhum identificador disponível para marcar como processado (parcela sem id e sem saleId). Parcela descrição: {}",
@@ -393,25 +388,22 @@ public class ContaAzulReceiptProcessor {
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
                         if (attempts >= 20) {
-                            try {
-                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-                                processingAttemptRepository.deleteBySaleId(baixaId);
-                                String details = "Falha ao baixar recibo da baixa " + baixaId + " após " + attempts
-                                        + " tentativas. Erro: " + ex.getMessage();
-                                receiptAlertService.notifyPermanentReceiptFailure(
+                            saveProcessedSaleIfNeeded(baixaId,
+                                    "Recibo {} marcado como processado após falhas repetidas.",
+                                    "Recibo {} já registrado por concorrência ao marcar como processado após falhas.");
+                            processingAttemptRepository.deleteBySaleId(baixaId);
+                            String details = "Falha ao baixar recibo da baixa " + baixaId + " após " + attempts
+                                    + " tentativas. Erro: " + ex.getMessage();
+                            receiptAlertService.notifyPermanentReceiptFailure(
+                                baixaId,
+                                resolvedSaleId,
+                                mapping.getDoctorName(),
+                                attempts,
+                                details);
+                            log.error(
+                                    "Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado e alerta registrado.",
                                     baixaId,
-                                    resolvedSaleId,
-                                    mapping.getDoctorName(),
-                                    attempts,
-                                    details);
-                                log.error(
-                                        "Recibo da baixa {} falhou repetidamente ({} tentativas). Marcado como processado e alerta registrado.",
-                                        baixaId,
-                                        attempts);
-                            } catch (DataIntegrityViolationException dex) {
-                                log.debug("Recibo {} já registrado por concorrência ao marcar como processado após falhas.",
-                                        baixaId);
-                            }
+                                    attempts);
                         }
                     }
                     failures++;
@@ -431,26 +423,22 @@ public class ContaAzulReceiptProcessor {
                         attempt.setAttempts(attempts);
                         processingAttemptRepository.save(attempt);
                         if (attempts >= 20) {
-                            try {
-                                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-                                processingAttemptRepository.deleteBySaleId(baixaId);
-                                String details = "Recibo da baixa " + baixaId + " não gerou bytes após " + attempts
-                                        + " tentativas. Marcado como processado.";
-                                receiptAlertService.notifyPermanentReceiptFailure(
-                                    baixaId,
-                                    resolvedSaleId,
-                                    mapping.getDoctorName(),
-                                    attempts,
-                                    details);
-                                log.error(
-                                        "Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado e alerta registrado.",
-                                        baixaId,
-                                        attempts);
-                            } catch (DataIntegrityViolationException dex) {
-                                log.debug(
-                                        "Recibo {} já registrado por concorrência ao marcar como processado após tentativas.",
-                                        baixaId);
-                            }
+                            saveProcessedSaleIfNeeded(baixaId,
+                                "Recibo {} marcado como processado após PDF vazio recorrente.",
+                                "Recibo {} já registrado por concorrência ao marcar como processado após tentativas.");
+                            processingAttemptRepository.deleteBySaleId(baixaId);
+                            String details = "Recibo da baixa " + baixaId + " não gerou bytes após " + attempts
+                                + " tentativas. Marcado como processado.";
+                            receiptAlertService.notifyPermanentReceiptFailure(
+                            baixaId,
+                            resolvedSaleId,
+                            mapping.getDoctorName(),
+                            attempts,
+                            details);
+                            log.error(
+                                "Recibo da baixa {} não gerou bytes após {} tentativas. Marcado como processado e alerta registrado.",
+                                baixaId,
+                                attempts);
                         } else {
                             log.info(
                                     "Recibo ainda não gerado pelo ERP para a baixa {}. Tentando novamente na próxima execução. Tentativa {}/20",
@@ -494,8 +482,9 @@ public class ContaAzulReceiptProcessor {
                         baixaId,
                         StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
 
-                processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-                log.info("Recibo {} registrado como processado com sucesso.", baixaId);
+                saveProcessedSaleIfNeeded(baixaId,
+                    "Recibo {} registrado como processado com sucesso.",
+                    "Recibo {} já registrado por concorrência ao finalizar processamento.");
                 sent++;
             } catch (DataIntegrityViolationException ex) {
                 skippedProcessed++;
@@ -878,12 +867,9 @@ public class ContaAzulReceiptProcessor {
         registerError(errors, details);
         log.error("Falha SMTP ao enviar recibo da baixa {}. Persistindo progresso sem envio de e-mail.", baixaId, emailEx);
 
-        try {
-            processedSaleRepository.save(ProcessedSale.builder().saleId(baixaId).build());
-            log.warn("Recibo {} marcado como processado mesmo com falha de e-mail.", baixaId);
-        } catch (DataIntegrityViolationException dex) {
-            log.debug("Recibo {} já estava marcado como processado ao tratar falha de e-mail.", baixaId);
-        }
+        saveProcessedSaleIfNeeded(baixaId,
+                "Recibo {} marcado como processado mesmo com falha de e-mail.",
+                "Recibo {} já estava marcado como processado ao tratar falha de e-mail.");
 
         receiptAlertService.notifyPermanentReceiptFailure(
                 baixaId,
@@ -891,6 +877,31 @@ public class ContaAzulReceiptProcessor {
                 doctorName,
                 1,
                 details);
+    }
+
+    private void saveProcessedSaleIfNeeded(String saleId, String successMessage, String duplicateMessage) {
+        if (!StringUtils.hasText(saleId)) {
+            return;
+        }
+
+        // Protege a constraint única de sale_id com pré-checagem antes do insert.
+        if (processedSaleRepository.existsBySaleId(saleId)) {
+            if (StringUtils.hasText(duplicateMessage)) {
+                log.debug(duplicateMessage, saleId);
+            }
+            return;
+        }
+
+        try {
+            processedSaleRepository.save(ProcessedSale.builder().saleId(saleId).build());
+            if (StringUtils.hasText(successMessage)) {
+                log.info(successMessage, saleId);
+            }
+        } catch (DataIntegrityViolationException ex) {
+            if (StringUtils.hasText(duplicateMessage)) {
+                log.debug(duplicateMessage, saleId);
+            }
+        }
     }
 
     public record ReceiptProcessingResult(

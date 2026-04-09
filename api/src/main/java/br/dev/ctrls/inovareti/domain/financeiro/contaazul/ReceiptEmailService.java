@@ -187,8 +187,7 @@ public class ReceiptEmailService {
                 + "<p>Prezado(a) " + safeDoctorName + ",</p>"
                 + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleIdentifier
                 + ". O seu recibo de quitação já está disponível e segue em anexo a este e-mail.</p>"
-                + "<p>Agradecemos a confiança.</p>"
-                + "<p>Atenciosamente,<br/>Equipe Administrativa<br/>Inovare Serviços de Saúde</p>"
+            + "<p>Atenciosamente,<br/>Administrativo Inovare</p>"
                 + "</body></html>";
     }
 

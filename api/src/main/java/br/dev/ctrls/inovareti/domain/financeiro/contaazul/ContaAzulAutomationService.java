@@ -33,7 +33,12 @@ public class ContaAzulAutomationService {
     public void processAcquittedSales() {
         log.info("Ciclo de busca ContaAzul iniciado. Intervalo configurado: {}ms", contaAzulPollingIntervalMs);
         log.info("Próxima execução prevista em {} minutos.", contaAzulPollingIntervalMs / 60000);
-        contaAzulReceiptProcessor.processCurrentMonthAcquittedSales();
+        try {
+            // Protege o ciclo agendado: falha externa da Conta Azul não deve derrubar a execução da API.
+            contaAzulReceiptProcessor.processCurrentMonthAcquittedSales();
+        } catch (RuntimeException ex) {
+            log.error("Falha na automação agendada da Conta Azul. A execução foi preservada e seguirá no próximo ciclo.", ex);
+        }
     }
 
     public ContaAzulReceiptProcessor.ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {

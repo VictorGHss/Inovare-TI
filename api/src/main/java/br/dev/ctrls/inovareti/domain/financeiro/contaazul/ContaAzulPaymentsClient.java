@@ -67,7 +67,8 @@ public class ContaAzulPaymentsClient {
         LocalDate janelaVencimentoDe = hoje.minusDays(90);
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
 
-        String uri = paymentsUrl
+        // Normaliza endpoint para garantir formato BASE_URL + /v1/... sem prefixo legado /api.
+        String uri = normalizeContaAzulUrl(paymentsUrl)
                 + "?pagina=" + page
                 + "&tamanho_pagina=" + pageSize
                 + "&data_vencimento_de=" + janelaVencimentoDe.format(DATE_FORMATTER)
@@ -117,7 +118,9 @@ public class ContaAzulPaymentsClient {
         headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM));
 
         List<String> candidateUrls = new ArrayList<>();
-        String primaryPdfUrl = receiptPdfUrlTemplate.replace("{parcelaId}", parcelaId);
+        String primaryPdfUrl = normalizeReceiptPdfUrlTemplate(receiptPdfUrlTemplate)
+            .replace("{parcelaId}", parcelaId)
+            .replace("{id}", parcelaId);
         candidateUrls.add(primaryPdfUrl);
 
         String fallbackPdfUrl = resolveReceiptPdfFallbackUrl(parcelaId);
@@ -183,13 +186,17 @@ public class ContaAzulPaymentsClient {
      */
     private String resolveParcelByIdUrl(String parcelaId) {
         if (StringUtils.hasText(parcelaByIdUrlTemplate)) {
-            return parcelaByIdUrlTemplate.replace("{parcelaId}", parcelaId);
+            // Nunca adiciona "/api" manualmente; apenas normaliza e substitui placeholders.
+            return normalizeContaAzulUrl(parcelaByIdUrlTemplate)
+                    .replace("{parcelaId}", parcelaId)
+                    .replace("{id}", parcelaId);
         }
 
         String basePath = "/contas-a-receber/buscar";
-        int suffixStart = paymentsUrl.indexOf(basePath);
+        String normalizedPaymentsUrl = normalizeContaAzulUrl(paymentsUrl);
+        int suffixStart = normalizedPaymentsUrl.indexOf(basePath);
         if (suffixStart > 0) {
-            String prefix = paymentsUrl.substring(0, suffixStart);
+            String prefix = normalizedPaymentsUrl.substring(0, suffixStart);
             return prefix + "/parcelas/" + parcelaId;
         }
 
@@ -207,7 +214,7 @@ public class ContaAzulPaymentsClient {
         LocalDate toDueDate = today.plusMonths(1);
 
         for (int page = 1; page <= SEARCH_MAX_PAGES; page++) {
-            String uri = paymentsUrl
+                String uri = normalizeContaAzulUrl(paymentsUrl)
                     + "?pagina=" + page
                     + "&tamanho_pagina=" + SEARCH_PAGE_SIZE
                     + "&data_vencimento_de=" + fromDueDate.format(DATE_FORMATTER)
@@ -233,13 +240,34 @@ public class ContaAzulPaymentsClient {
 
     private String resolveReceiptPdfFallbackUrl(String parcelaId) {
         String basePath = "/contas-a-receber/buscar";
-        int suffixStart = paymentsUrl.indexOf(basePath);
+        String normalizedPaymentsUrl = normalizeContaAzulUrl(paymentsUrl);
+        int suffixStart = normalizedPaymentsUrl.indexOf(basePath);
         if (suffixStart > 0) {
-            String prefix = paymentsUrl.substring(0, suffixStart);
+            String prefix = normalizedPaymentsUrl.substring(0, suffixStart);
             return prefix + "/parcelas/" + parcelaId + "/recibo.pdf";
         }
 
         return null;
+    }
+
+    // Padroniza host e path da Conta Azul para impedir envio indevido de /api/v1.
+    private String normalizeContaAzulUrl(String rawUrl) {
+        String normalized = StringUtils.hasText(rawUrl)
+                ? rawUrl.trim()
+                : "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
+        return normalized;
+    }
+
+    private String normalizeReceiptPdfUrlTemplate(String rawTemplate) {
+        if (StringUtils.hasText(rawTemplate)) {
+            return normalizeContaAzulUrl(rawTemplate);
+        }
+
+        return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{parcelaId}/recibo.pdf";
     }
 
     private boolean isMissingLinkIdentity(ContaAzulPaymentParcel parcel) {

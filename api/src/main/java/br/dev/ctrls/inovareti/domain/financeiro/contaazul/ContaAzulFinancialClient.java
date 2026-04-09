@@ -181,7 +181,8 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedId = personId.trim();
-        String uri = customerByIdV1UrlTemplate
+        String uri = normalizeContaAzulUrl(customerByIdV1UrlTemplate,
+                "https://api-v2.contaazul.com/v1/pessoas/{id}")
                 .replace("{id}", normalizedId)
                 .replace("{customerId}", normalizedId);
 
@@ -216,11 +217,9 @@ public class ContaAzulFinancialClient {
     }
 
     private String normalizeBaixaBaseUrl() {
-        if (!StringUtils.hasText(baixaDetailsUrl)) {
-            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa";
-        }
-
-        return baixaDetailsUrl.trim();
+        return normalizeContaAzulUrl(
+                baixaDetailsUrl,
+                "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa");
     }
 
     private String buildBaixaDetailsUri(String settlementId) {
@@ -237,12 +236,22 @@ public class ContaAzulFinancialClient {
     }
 
     private String buildParcelaByIdUri(String parcelaId) {
-        String template = StringUtils.hasText(parcelaByIdUrlTemplate)
-                ? parcelaByIdUrlTemplate.trim()
-                : "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}";
+        // O template vindo do .env é sempre normalizado para não carregar prefixo /api legado.
+        String template = normalizeContaAzulUrl(
+            parcelaByIdUrlTemplate,
+            "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}");
 
         return template
                 .replace("{id}", parcelaId)
                 .replace("{parcelaId}", parcelaId);
     }
+
+        // Garante padrão oficial da Conta Azul (BASE_URL + /v1/...) removendo qualquer /api indevido.
+        private String normalizeContaAzulUrl(String rawUrl, String fallback) {
+        String normalized = StringUtils.hasText(rawUrl) ? rawUrl.trim() : fallback;
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
+        return normalized;
+        }
 }

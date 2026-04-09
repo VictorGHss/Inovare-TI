@@ -28,38 +28,43 @@ public class EmailRetryScheduler {
 
     @Scheduled(fixedDelay = 900_000L, initialDelay = 240_000L)
     public void retryPendingReceipts() {
-        for (ProcessedReceipt receipt : processedReceiptRepository.findByStatus(ProcessedReceiptStatus.PENDING_RETRY)) {
-            int retries = receipt.getRetryCount();
-            if (retries >= MAX_RETRIES) {
-                handlePermanentFailure(receipt, "Limite de tentativas de reenvio excedido.");
-                continue;
-            }
+        try {
+            // Garante robustez do scheduler: falha externa da Conta Azul vira erro controlado em log.
+            for (ProcessedReceipt receipt : processedReceiptRepository.findByStatus(ProcessedReceiptStatus.PENDING_RETRY)) {
+                int retries = receipt.getRetryCount();
+                if (retries >= MAX_RETRIES) {
+                    handlePermanentFailure(receipt, "Limite de tentativas de reenvio excedido.");
+                    continue;
+                }
 
-            try {
-                byte[] pdf = paymentsClient.downloadReceiptPdf(receipt.getParcelaId());
-                String receiptHash = sha256(pdf);
+                try {
+                    byte[] pdf = paymentsClient.downloadReceiptPdf(receipt.getParcelaId());
+                    String receiptHash = sha256(pdf);
 
-                ContaAzulPaymentParcel parcel = new ContaAzulPaymentParcel(
-                        receipt.getParcelaId(),
-                        receipt.getFinancialLink().getContaAzulCustomerId(),
-                        receipt.getFinancialLink().getContaAzulCustomerName() != null
-                                ? receipt.getFinancialLink().getContaAzulCustomerName()
-                        : receipt.getFinancialLink().getNomeCliente(),
-                        receipt.getOriginalRecipientEmail());
+                    ContaAzulPaymentParcel parcel = new ContaAzulPaymentParcel(
+                            receipt.getParcelaId(),
+                            receipt.getFinancialLink().getContaAzulCustomerId(),
+                            receipt.getFinancialLink().getContaAzulCustomerName() != null
+                                    ? receipt.getFinancialLink().getContaAzulCustomerName()
+                            : receipt.getFinancialLink().getNomeCliente(),
+                            receipt.getOriginalRecipientEmail());
 
-                receiptDispatcher.dispatchReceipt(parcel, pdf, receiptHash);
-            } catch (RuntimeException ex) {
-                int nextAttempt = retries + 1;
-                if (nextAttempt >= MAX_RETRIES) {
-                    handlePermanentFailure(receipt, ex.getMessage());
-                } else {
-                    receiptDispatcher.markRetryFailure(receipt, ex.getMessage());
-                    log.warn("Retry financeiro {}/{} falhou para parcela {}",
-                            nextAttempt,
-                            MAX_RETRIES,
-                            receipt.getParcelaId());
+                    receiptDispatcher.dispatchReceipt(parcel, pdf, receiptHash);
+                } catch (RuntimeException ex) {
+                    int nextAttempt = retries + 1;
+                    if (nextAttempt >= MAX_RETRIES) {
+                        handlePermanentFailure(receipt, ex.getMessage());
+                    } else {
+                        receiptDispatcher.markRetryFailure(receipt, ex.getMessage());
+                        log.warn("Retry financeiro {}/{} falhou para parcela {}",
+                                nextAttempt,
+                                MAX_RETRIES,
+                                receipt.getParcelaId());
+                    }
                 }
             }
+        } catch (RuntimeException ex) {
+            log.error("Falha geral no scheduler de retry financeiro. O serviço continuará ativo para próxima execução.", ex);
         }
     }
 

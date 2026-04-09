@@ -171,7 +171,8 @@ public class ContaAzulFinancialSummaryService {
             status);
 
         // Envia explicitamente os parâmetros obrigatórios de vencimento no formato YYYY-MM-DD.
-        String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
+        // Normaliza a URL para impedir envio de /api/v1 e manter somente o formato oficial /v1.
+        String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
             .queryParam("pagina", 1)
             .queryParam("tamanho_pagina", 100)
             .queryParam("data_vencimento_de", dataVencimentoDe)
@@ -199,6 +200,18 @@ public class ContaAzulFinancialSummaryService {
     // Centraliza a formatação de data exigida pela API da Conta Azul (YYYY-MM-DD).
     private String formatDateForContaAzul(LocalDate date) {
         return date.format(DATE_FORMATTER);
+    }
+
+    private String normalizePaymentsUrl() {
+        String normalized = paymentsUrl != null ? paymentsUrl.trim() : "";
+        if (normalized.isBlank()) {
+            return "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+        }
+
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
+        return normalized;
     }
 
     // Extrai do JSON retornado o total (campo em path configurado) e converte para centavos.

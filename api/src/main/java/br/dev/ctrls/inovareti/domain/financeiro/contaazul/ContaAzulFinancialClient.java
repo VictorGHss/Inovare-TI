@@ -238,20 +238,20 @@ public class ContaAzulFinancialClient {
     private String buildParcelaByIdUri(String parcelaId) {
         // O template vindo do .env é sempre normalizado para não carregar prefixo /api legado.
         String template = normalizeContaAzulUrl(
-            parcelaByIdUrlTemplate,
-            "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}");
+                parcelaByIdUrlTemplate,
+                "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}");
 
         return template
                 .replace("{id}", parcelaId)
                 .replace("{parcelaId}", parcelaId);
     }
 
-        // Garante padrão oficial da Conta Azul (BASE_URL + /v1/...) removendo qualquer /api indevido.
-        private String normalizeContaAzulUrl(String rawUrl, String fallback) {
+    // Garante padrão oficial da Conta Azul (BASE_URL + /v1/...) removendo qualquer /api indevido.
+    private String normalizeContaAzulUrl(String rawUrl, String fallback) {
         String normalized = StringUtils.hasText(rawUrl) ? rawUrl.trim() : fallback;
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
-        }
+    }
 }

@@ -119,8 +119,8 @@ public class ContaAzulPaymentsClient {
 
         List<String> candidateUrls = new ArrayList<>();
         String primaryPdfUrl = normalizeReceiptPdfUrlTemplate(receiptPdfUrlTemplate)
-            .replace("{parcelaId}", parcelaId)
-            .replace("{id}", parcelaId);
+                .replace("{parcelaId}", parcelaId)
+                .replace("{id}", parcelaId);
         candidateUrls.add(primaryPdfUrl);
 
         String fallbackPdfUrl = resolveReceiptPdfFallbackUrl(parcelaId);
@@ -214,7 +214,7 @@ public class ContaAzulPaymentsClient {
         LocalDate toDueDate = today.plusMonths(1);
 
         for (int page = 1; page <= SEARCH_MAX_PAGES; page++) {
-                String uri = normalizeContaAzulUrl(paymentsUrl)
+            String uri = normalizeContaAzulUrl(paymentsUrl)
                     + "?pagina=" + page
                     + "&tamanho_pagina=" + SEARCH_PAGE_SIZE
                     + "&data_vencimento_de=" + fromDueDate.format(DATE_FORMATTER)

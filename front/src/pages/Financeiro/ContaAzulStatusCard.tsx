@@ -37,6 +37,9 @@ export default function ContaAzulStatusCard({
   integrationActive,
   onConnectContaAzul,
 }: ContaAzulStatusCardProps) {
+  const latestReceipt = receipts[0];
+  const latestDisplayIdentifier = latestReceipt?.displayIdentifier ?? latestReceipt?.commercialNumber ?? latestReceipt?.parcelaId;
+
   const items = [
     {
       label: 'Integração ContaAzul',
@@ -50,7 +53,7 @@ export default function ContaAzulStatusCard({
       label: 'Recibos sincronizados',
       value: String(summary?.syncedReceiptsCount ?? receipts.length),
       valueClass: 'text-slate-800',
-      sub: null,
+      sub: latestDisplayIdentifier ? `Último identificador: ${latestDisplayIdentifier}` : null,
     },
     {
       label: 'Alertas em aberto',

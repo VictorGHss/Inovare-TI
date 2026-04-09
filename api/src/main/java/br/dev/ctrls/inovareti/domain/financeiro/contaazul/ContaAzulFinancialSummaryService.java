@@ -3,9 +3,22 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -17,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpClientErrorException.Unauthorized;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -41,10 +55,14 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulFinancialSummaryService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final ZoneId BRASILIA_ZONE_ID = ZoneId.of("America/Sao_Paulo");
+    private static final int SUMMARY_PAGE_SIZE = 100;
+    private static final int SUMMARY_MAX_PAGES = 30;
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final JsonSafeReader jsonSafeReader;
     private final ProcessedSaleRepository processedSaleRepository;
 
     @Value("${app.contaazul.payments-url}")
@@ -68,24 +86,61 @@ public class ContaAzulFinancialSummaryService {
      */
     public FinancialSummary fetchSummary() {
         long syncedReceiptsCount = processedSaleRepository.count();
+        ExecutorService executor = buildSummaryExecutor();
 
         try {
             String accessToken = contaAzulTokenService.getValidAccessToken();
 
-            StatusResult paidResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.RECEBIDO);
+            // Busca parcelas recebidas para calcular total pago real por baixas.
+            ReceivedParcelsResult receivedParcelsResult = safeFetchReceivedParcels(accessToken);
             StatusResult pendingResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
+            StatusResult paidResult = safeFetchTotalPaidByBaixas(accessToken, receivedParcelsResult.parcels(), executor);
+            StatusResult balanceResult = safeFetchConsolidatedBalance(accessToken, executor);
 
             long totalPaidCents = paidResult.total();
             long totalPendingCents = pendingResult.total();
-            long balanceCents = totalPaidCents;
+            long balanceCents = balanceResult.total();
 
-            boolean externalServiceAvailable = paidResult.available() && pendingResult.available();
+            boolean externalServiceAvailable =
+                    receivedParcelsResult.available()
+                            && pendingResult.available()
+                            && paidResult.available()
+                            && balanceResult.available();
 
-            return new FinancialSummary(balanceCents, totalPendingCents, totalPaidCents, "BRL", syncedReceiptsCount, externalServiceAvailable);
+            return new FinancialSummary(
+                    balanceCents,
+                    totalPendingCents,
+                    totalPaidCents,
+                    "BRL",
+                    syncedReceiptsCount,
+                    externalServiceAvailable,
+                    resolveSummaryLastUpdatedAt(receivedParcelsResult.lastUpdatedAt()));
         } catch (Exception ex) {
             log.warn("Falha ao montar resumo financeiro da Conta Azul. Retornando fallback com serviço externo indisponível.", ex);
-            return new FinancialSummary(0L, 0L, 0L, "BRL", syncedReceiptsCount, false);
+            return new FinancialSummary(
+                    0L,
+                    0L,
+                    0L,
+                    "BRL",
+                    syncedReceiptsCount,
+                    false,
+                    resolveSummaryLastUpdatedAt(null));
+        } finally {
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException interruptedEx) {
+                Thread.currentThread().interrupt();
+                executor.shutdownNow();
+            }
         }
+    }
+
+    private ExecutorService buildSummaryExecutor() {
+        int poolSize = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        return Executors.newFixedThreadPool(poolSize);
     }
 
     private StatusResult safeFetchTotalByStatus(String accessToken, String status) {
@@ -97,11 +152,41 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
+    private ReceivedParcelsResult safeFetchReceivedParcels(String accessToken) {
+        try {
+            return fetchReceivedParcels(accessToken);
+        } catch (Exception ex) {
+            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
+            return new ReceivedParcelsResult(List.of(), false, null);
+        }
+    }
+
+    private StatusResult safeFetchConsolidatedBalance(String accessToken, ExecutorService executor) {
+        try {
+            return fetchConsolidatedBalance(accessToken, executor);
+        } catch (Exception ex) {
+            log.warn("Falha ao consolidar saldos das contas financeiras da Conta Azul.", ex);
+            return new StatusResult(0L, false);
+        }
+    }
+
+    private StatusResult safeFetchTotalPaidByBaixas(
+            String accessToken,
+            List<ReceivableParcelRef> parcels,
+            ExecutorService executor) {
+        try {
+            return fetchTotalPaidByBaixas(accessToken, parcels, executor);
+        } catch (Exception ex) {
+            log.warn("Falha ao calcular total pago com base nas baixas detalhadas das parcelas.", ex);
+            return new StatusResult(0L, false);
+        }
+    }
+
     // Recupera o total agregado (em centavos) para o `status` informado usando o accessToken.
     // Trata 401 autorizando refresh automático do token quando aplicável.
     private StatusResult fetchTotalByStatus(String accessToken, String status) {
         try {
-            ResponseEntity<String> response = executePaymentsRequest(status, accessToken);
+            ResponseEntity<String> response = executePaymentsRequest(status, accessToken, 1);
 
             long total = extractTotalCents(response.getBody(), status);
             return new StatusResult(total, true);
@@ -114,7 +199,7 @@ public class ContaAzulFinancialSummaryService {
 
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
-                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken);
+                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken, 1);
                 long total = extractTotalCents(retryResponse.getBody(), status);
                 return new StatusResult(total, true);
             } catch (Exception refreshEx) {
@@ -156,9 +241,370 @@ public class ContaAzulFinancialSummaryService {
 
     private static record StatusResult(long total, boolean available) {}
 
+    private static record ReceivedParcelsResult(
+            List<ReceivableParcelRef> parcels,
+            boolean available,
+            String lastUpdatedAt) {
+    }
+
+    private static record ReceivableParcelRef(String parcelaId, String commercialNumber) {
+    }
+
+    private static record ReceivablesPageData(
+            List<ReceivableParcelRef> parcels,
+            OffsetDateTime latestUpdate) {
+    }
+
+    private StatusResult fetchConsolidatedBalance(String accessToken, ExecutorService executor) {
+        List<String> financialAccountIds = fetchActiveFinancialAccountIds(accessToken);
+        if (financialAccountIds.isEmpty()) {
+            return new StatusResult(0L, true);
+        }
+
+        AtomicBoolean available = new AtomicBoolean(true);
+        List<CompletableFuture<Long>> futures = financialAccountIds.stream()
+                .map(accountId -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return fetchAccountCurrentBalanceCents(accessToken, accountId);
+                    } catch (Exception ex) {
+                        available.set(false);
+                        log.warn("Falha ao consultar saldo atual da conta financeira {}.", accountId, ex);
+                        return 0L;
+                    }
+                }, executor))
+                .toList();
+
+        long totalBalance = futures.stream()
+                .mapToLong(CompletableFuture::join)
+                .sum();
+
+        return new StatusResult(totalBalance, available.get());
+    }
+
+    private List<String> fetchActiveFinancialAccountIds(String accessToken) {
+        String uri = normalizeContaAzulBaseUrl() + "/v1/conta-financeira";
+        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
+
+        if (response.getBody() == null || response.getBody().isBlank()) {
+            return List.of();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
+            JsonNode entries = jsonSafeReader.resolveArrayNode(root);
+
+            List<String> accountIds = new ArrayList<>();
+            for (JsonNode accountNode : entries) {
+                String accountId = jsonSafeReader.readText(accountNode, "id", "conta_financeira_id", "contaFinanceiraId");
+                if (!StringUtils.hasText(accountId)) {
+                    continue;
+                }
+
+                if (isActiveFinancialAccount(accountNode)) {
+                    accountIds.add(accountId.trim());
+                }
+            }
+
+            return accountIds;
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Falha ao interpretar lista de contas financeiras da Conta Azul.", ex);
+        }
+    }
+
+    private boolean isActiveFinancialAccount(JsonNode accountNode) {
+        String status = jsonSafeReader.readText(accountNode, "status", "situacao", "state");
+        String activeAsText = jsonSafeReader.readText(accountNode, "ativo", "active", "is_active", "isActive");
+
+        if (StringUtils.hasText(status)) {
+            if ("INATIVO".equalsIgnoreCase(status) || "INACTIVE".equalsIgnoreCase(status)) {
+                return false;
+            }
+
+            if ("ATIVO".equalsIgnoreCase(status) || "ACTIVE".equalsIgnoreCase(status)) {
+                return true;
+            }
+        }
+
+        if (StringUtils.hasText(activeAsText)) {
+            return Boolean.parseBoolean(activeAsText.trim());
+        }
+
+        // Quando o campo de status não vier explícito, assume ativo para não perder saldo real.
+        return true;
+    }
+
+    private long fetchAccountCurrentBalanceCents(String accessToken, String accountId) {
+        String uri = normalizeContaAzulBaseUrl() + "/v1/conta-financeira/" + accountId + "/saldo-atual";
+        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
+
+        if (response.getBody() == null || response.getBody().isBlank()) {
+            return 0L;
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
+            BigDecimal balance = readDecimalFromPaths(
+                    root,
+                    "saldo.valor",
+                    "saldo",
+                    "saldo_atual.valor",
+                    "saldo_atual",
+                    "valor",
+                    "data.saldo",
+                    "data.valor");
+            return balance != null ? toCents(balance) : 0L;
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Falha ao interpretar saldo da conta financeira " + accountId + ".", ex);
+        }
+    }
+
+    private StatusResult fetchTotalPaidByBaixas(
+            String accessToken,
+            List<ReceivableParcelRef> parcels,
+            ExecutorService executor) {
+        if (parcels == null || parcels.isEmpty()) {
+            return new StatusResult(0L, true);
+        }
+
+        AtomicBoolean available = new AtomicBoolean(true);
+        List<CompletableFuture<Long>> futures = parcels.stream()
+                .map(parcel -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return fetchParcelaPaidCentsByBaixas(accessToken, parcel);
+                    } catch (Exception ex) {
+                        available.set(false);
+                        String displayId = StringUtils.hasText(parcel.commercialNumber())
+                                ? parcel.commercialNumber()
+                                : parcel.parcelaId();
+                        log.warn("Falha ao consultar baixas da parcela {}.", displayId, ex);
+                        return 0L;
+                    }
+                }, executor))
+                .toList();
+
+        long totalPaidCents = futures.stream()
+                .mapToLong(CompletableFuture::join)
+                .sum();
+
+        return new StatusResult(totalPaidCents, available.get());
+    }
+
+    private long fetchParcelaPaidCentsByBaixas(String accessToken, ReceivableParcelRef parcel) {
+        String uri = normalizeContaAzulBaseUrl() + "/v1/financeiro/eventos-financeiros/parcelas/" + parcel.parcelaId();
+        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
+
+        if (response.getBody() == null || response.getBody().isBlank()) {
+            return 0L;
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
+            JsonNode baixasNode = jsonSafeReader.readArrayNode(
+                    root,
+                    "baixas",
+                    "evento.baixas",
+                    "evento_financeiro.baixas",
+                    "data.baixas",
+                    "content.baixas");
+
+            if (baixasNode == null || !baixasNode.isArray() || baixasNode.isEmpty()) {
+                return 0L;
+            }
+
+            BigDecimal total = BigDecimal.ZERO;
+            for (JsonNode baixaNode : baixasNode) {
+                BigDecimal baixaAmount = readDecimalFromPaths(
+                        baixaNode,
+                        "valor",
+                        "valor_pago",
+                        "valorPago",
+                        "valor_recebido",
+                        "valorRecebido",
+                        "total",
+                        "total.valor");
+
+                if (baixaAmount == null) {
+                    // Fallback para casos em que a API retorna componentes separados.
+                    BigDecimal valorOriginal = readDecimalFromPaths(baixaNode, "valor_original", "valorOriginal", "valor");
+                    BigDecimal juros = readDecimalFromPaths(baixaNode, "juros", "juros.valor");
+                    BigDecimal multa = readDecimalFromPaths(baixaNode, "multa", "multa.valor");
+                    BigDecimal desconto = readDecimalFromPaths(baixaNode, "desconto", "desconto.valor");
+
+                    baixaAmount = defaultZero(valorOriginal)
+                            .add(defaultZero(juros))
+                            .add(defaultZero(multa))
+                            .subtract(defaultZero(desconto));
+                }
+
+                total = total.add(defaultZero(baixaAmount));
+            }
+
+            return toCents(total);
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Falha ao interpretar detalhe de baixas da parcela " + parcel.parcelaId() + ".", ex);
+        }
+    }
+
+    private BigDecimal defaultZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private ReceivedParcelsResult fetchReceivedParcels(String accessToken) {
+        Map<String, ReceivableParcelRef> parcelMap = new LinkedHashMap<>();
+        OffsetDateTime latestUpdate = null;
+
+        for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
+            ResponseEntity<String> response = executePaymentsRequest(ContaAzulStatus.RECEBIDO, accessToken, page);
+            ReceivablesPageData pageData = parseReceivablesPage(response.getBody());
+
+            if (pageData.latestUpdate() != null
+                    && (latestUpdate == null || pageData.latestUpdate().toInstant().isAfter(latestUpdate.toInstant()))) {
+                latestUpdate = pageData.latestUpdate();
+            }
+
+            if (pageData.parcels().isEmpty()) {
+                break;
+            }
+
+            for (ReceivableParcelRef currentParcel : pageData.parcels()) {
+                parcelMap.merge(
+                        currentParcel.parcelaId(),
+                        currentParcel,
+                        (existing, incoming) -> StringUtils.hasText(existing.commercialNumber()) ? existing : incoming);
+            }
+
+            if (pageData.parcels().size() < SUMMARY_PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return new ReceivedParcelsResult(
+                new ArrayList<>(parcelMap.values()),
+                true,
+                latestUpdate != null ? latestUpdate.toString() : null);
+    }
+
+    private ReceivablesPageData parseReceivablesPage(String jsonPayload) {
+        if (!StringUtils.hasText(jsonPayload)) {
+            return new ReceivablesPageData(List.of(), null);
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            JsonNode entries = jsonSafeReader.resolveArrayNode(root);
+
+            List<ReceivableParcelRef> parcels = new ArrayList<>();
+            OffsetDateTime latestUpdate = parseApiDateToBrasiliaOffsetDateTime(jsonSafeReader.readText(
+                    root,
+                    "atualizado_em",
+                    "updated_at",
+                    "ultima_atualizacao",
+                    "data_atualizacao"));
+
+            for (JsonNode parcelNode : entries) {
+                String parcelaId = jsonSafeReader.readText(parcelNode, "parcela_id", "id", "parcela.id");
+                if (!StringUtils.hasText(parcelaId)) {
+                    continue;
+                }
+
+                String commercialNumber = jsonSafeReader.readText(
+                        parcelNode,
+                        "numero",
+                        "numero_venda",
+                        "venda.numero",
+                        "evento_financeiro.referencia.numero",
+                        "referencia.numero");
+
+                parcels.add(new ReceivableParcelRef(parcelaId.trim(), StringUtils.hasText(commercialNumber) ? commercialNumber.trim() : null));
+
+                OffsetDateTime parcelUpdatedAt = parseApiDateToBrasiliaOffsetDateTime(jsonSafeReader.readText(
+                        parcelNode,
+                        "data_alteracao",
+                        "dataAlteracao",
+                        "updated_at",
+                        "atualizado_em",
+                        "evento.data_alteracao",
+                        "evento_financeiro.data_alteracao"));
+
+                if (parcelUpdatedAt != null
+                        && (latestUpdate == null || parcelUpdatedAt.toInstant().isAfter(latestUpdate.toInstant()))) {
+                    latestUpdate = parcelUpdatedAt;
+                }
+            }
+
+            return new ReceivablesPageData(parcels, latestUpdate);
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Falha ao interpretar payload de parcelas recebidas da Conta Azul.", ex);
+        }
+    }
+
+    private String resolveSummaryLastUpdatedAt(String rawLastUpdatedAt) {
+        OffsetDateTime parsed = parseApiDateToBrasiliaOffsetDateTime(rawLastUpdatedAt);
+        if (parsed != null) {
+            return parsed.toString();
+        }
+
+        return OffsetDateTime.now(BRASILIA_ZONE_ID).toString();
+    }
+
+    private OffsetDateTime parseApiDateToBrasiliaOffsetDateTime(String rawDate) {
+        if (!StringUtils.hasText(rawDate)) {
+            return null;
+        }
+
+        String trimmed = rawDate.trim();
+
+        try {
+            if (trimmed.endsWith("Z") || trimmed.endsWith("z")) {
+                // Se vier com Z, trata como UTC e converte para horário de Brasília.
+                return Instant.parse(trimmed)
+                        .atZone(BRASILIA_ZONE_ID)
+                        .toOffsetDateTime();
+            }
+        } catch (DateTimeParseException ignored) {
+            // Continua para os próximos parseadores.
+        }
+
+        try {
+            return OffsetDateTime.parse(trimmed)
+                    .atZoneSameInstant(BRASILIA_ZONE_ID)
+                    .toOffsetDateTime();
+        } catch (DateTimeParseException ignored) {
+            // Continua para parse sem offset.
+        }
+
+        try {
+            LocalDateTime localDateTime = LocalDateTime.parse(trimmed);
+            return localDateTime.atZone(BRASILIA_ZONE_ID).toOffsetDateTime();
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private ResponseEntity<String> executeGetWithRefresh(String uri, String accessToken) {
+        try {
+            return executeGetRequest(uri, accessToken);
+        } catch (Unauthorized ex) {
+            String refreshedToken = contaAzulTokenService.forceRefresh();
+            return executeGetRequest(uri, refreshedToken);
+        }
+    }
+
+    private ResponseEntity<String> executeGetRequest(String uri, String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        return restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+    }
+
     // Executa a requisição para o endpoint de pagamentos da Conta Azul com o status
     // e o token fornecidos. Retorna o corpo da resposta encapsulado em `ResponseEntity<String>`.
-    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken) {
+    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken, int page) {
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
         String dataVencimentoDe = formatDateForContaAzul(inicioMesAtual);
@@ -173,8 +619,8 @@ public class ContaAzulFinancialSummaryService {
         // Envia explicitamente os parâmetros obrigatórios de vencimento no formato YYYY-MM-DD.
         // Normaliza a URL para impedir envio de /api/v1 e manter somente o formato oficial /v1.
         String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
-            .queryParam("pagina", 1)
-            .queryParam("tamanho_pagina", 100)
+            .queryParam("pagina", page)
+            .queryParam("tamanho_pagina", SUMMARY_PAGE_SIZE)
             .queryParam("data_vencimento_de", dataVencimentoDe)
             .queryParam("data_vencimento_ate", dataVencimentoAte)
             .queryParam("status", status)
@@ -195,6 +641,17 @@ public class ContaAzulFinancialSummaryService {
 
         log.debug("ContaAzul response body (resumo, status={}): {}", status, responseEntity.getBody());
         return responseEntity;
+    }
+
+    private String normalizeContaAzulBaseUrl() {
+        String normalized = StringUtils.hasText(contaAzulApiV2BaseUrl)
+                ? contaAzulApiV2BaseUrl.trim()
+                : "https://api-v2.contaazul.com";
+
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replaceAll("/+$", "");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api$", "https://api-v2.contaazul.com");
+        return normalized;
     }
 
     // Centraliza a formatação de data exigida pela API da Conta Azul (YYYY-MM-DD).
@@ -293,6 +750,17 @@ public class ContaAzulFinancialSummaryService {
         return null;
     }
 
+    private BigDecimal readDecimalFromPaths(JsonNode node, String... paths) {
+        for (String path : paths) {
+            BigDecimal value = readDecimal(node, path);
+            if (value != null) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
     // Converte `BigDecimal` em centavos (long) arredondando HALF_UP.
     private long toCents(BigDecimal value) {
         return value
@@ -312,6 +780,7 @@ public class ContaAzulFinancialSummaryService {
             long totalPaidCents,
             String currency,
             long syncedReceiptsCount,
-            boolean externalServiceAvailable) {
+            boolean externalServiceAvailable,
+            String lastUpdatedAt) {
         }
 }

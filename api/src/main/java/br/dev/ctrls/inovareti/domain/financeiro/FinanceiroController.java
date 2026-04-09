@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
@@ -97,7 +98,8 @@ public class FinanceiroController {
                 "BRL",
                 0L,
                 false,
-                false));
+            false,
+            null));
         }
 
         ContaAzulFinancialSummaryService.FinancialSummary summary = contaAzulFinancialSummaryService.fetchSummary();
@@ -108,7 +110,8 @@ public class FinanceiroController {
                 summary.currency(),
                 summary.syncedReceiptsCount(),
             summary.externalServiceAvailable(),
-            true));
+            true,
+            summary.lastUpdatedAt()));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -200,14 +203,45 @@ public class FinanceiroController {
     }
 
     private FinanceReceiptResponseDTO mapReceipt(ProcessedReceipt receipt) {
+        String commercialNumber = extractCommercialNumber(receipt.getPayload());
+        String displayIdentifier = StringUtils.hasText(commercialNumber)
+                ? commercialNumber
+                : receipt.getParcelaId();
+
         return new FinanceReceiptResponseDTO(
                 receipt.getId(),
                 receipt.getParcelaId(),
+                commercialNumber,
+                displayIdentifier,
                 receipt.getOriginalRecipientEmail(),
                 receipt.getStatus(),
                 receipt.getRetryCount(),
                 receipt.getProcessedAt(),
                 receipt.getPayload());
+    }
+
+    private String extractCommercialNumber(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return null;
+        }
+
+        Object value = payload.get("numero");
+        if (value == null) {
+            value = payload.get("numero_venda");
+        }
+        if (value == null) {
+            value = payload.get("saleNumber");
+        }
+        if (value == null) {
+            value = payload.get("displayIdentifier");
+        }
+
+        if (value == null) {
+            return null;
+        }
+
+        String resolved = String.valueOf(value).trim();
+        return StringUtils.hasText(resolved) ? resolved : null;
     }
 
     private FinanceAlertResponseDTO mapAlert(SystemAlert alert) {
@@ -241,6 +275,8 @@ public class FinanceiroController {
     public record FinanceReceiptResponseDTO(
             UUID id,
             String parcelaId,
+            String commercialNumber,
+            String displayIdentifier,
             String originalRecipientEmail,
             ProcessedReceiptStatus status,
             int retryCount,
@@ -269,7 +305,8 @@ public class FinanceiroController {
             String currency,
             long syncedReceiptsCount,
             boolean externalServiceAvailable,
-            boolean integrationActive) {
+            boolean integrationActive,
+            String lastUpdatedAt) {
         }
 
         public record SyncDoctorsResponseDTO(

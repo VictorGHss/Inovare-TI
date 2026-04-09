@@ -14,7 +14,11 @@ function formatDate(value?: string | null): string {
     return '—';
   }
 
-  const date = new Date(value);
+  const normalized = value.trim();
+
+  // Quando o backend receber timestamp com Z, ele converte para Brasília.
+  // Aqui reforçamos a exibição fixa em America/Sao_Paulo para evitar horário futuro na UI.
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) {
     return '—';
   }
@@ -22,6 +26,7 @@ function formatDate(value?: string | null): string {
   return new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'America/Sao_Paulo',
   }).format(date);
 }
 
@@ -62,6 +67,7 @@ export default function FinancialDashboard() {
 
   const currency = summary?.currency ?? 'BRL';
   const integrationActive = summary?.integrationActive ?? hasContaAzulLinked;
+  const lastUpdatedAt = summary?.lastUpdatedAt ?? connectionStatus?.refreshedAt;
 
   function handleConnectContaAzul() {
     window.location.href = CONTA_AZUL_AUTHORIZE_URL;
@@ -174,7 +180,7 @@ export default function FinancialDashboard() {
             <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
               <span className={`h-2 w-2 rounded-full ${integrationActive ? 'bg-emerald-400' : 'bg-red-500'}`} />
               Última atualização:{' '}
-              <strong className="text-slate-900">{formatDate(connectionStatus?.refreshedAt)}</strong>
+              <strong className="text-slate-900">{formatDate(lastUpdatedAt)}</strong>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
@@ -246,7 +252,7 @@ export default function FinancialDashboard() {
                   },
                   {
                     label: 'Última renovação',
-                    value: formatDate(connectionStatus?.refreshedAt),
+                    value: formatDate(lastUpdatedAt),
                     valueClass: 'text-slate-800',
                     sub: null,
                   },

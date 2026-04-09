@@ -50,14 +50,14 @@ public class ReceiptDispatcher {
             receipt.setStatus(ProcessedReceiptStatus.SENT);
             receipt.setRetryCount(0);
             receipt.setProcessedAt(LocalDateTime.now());
-            receipt.setPayload(buildPayload(receipt, null, financialLink.getCanal().name(), false));
+            receipt.setPayload(buildPayload(receipt, null, financialLink.getCanal().name(), false, parcela.saleNumber()));
             processedReceiptRepository.save(receipt);
         } catch (RuntimeException ex) {
             int nextRetryCount = receipt.getRetryCount() + 1;
             receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
             receipt.setRetryCount(nextRetryCount);
             receipt.setProcessedAt(LocalDateTime.now());
-            receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getCanal().name(), true));
+            receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getCanal().name(), true, parcela.saleNumber()));
             processedReceiptRepository.save(receipt);
             throw ex;
         }
@@ -68,14 +68,14 @@ public class ReceiptDispatcher {
         receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
         receipt.setRetryCount(nextRetryCount);
         receipt.setProcessedAt(LocalDateTime.now());
-        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), true));
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), true, null));
         return processedReceiptRepository.save(receipt);
     }
 
     public ProcessedReceipt markPermanentFailure(ProcessedReceipt receipt, String errorMessage) {
         receipt.setStatus(ProcessedReceiptStatus.FAILED);
         receipt.setProcessedAt(LocalDateTime.now());
-        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), false));
+        receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), false, null));
         return processedReceiptRepository.save(receipt);
     }
 
@@ -83,7 +83,7 @@ public class ReceiptDispatcher {
         receipt.setStatus(ProcessedReceiptStatus.HISTORICO);
         receipt.setRetryCount(0);
         receipt.setProcessedAt(LocalDateTime.now());
-        receipt.setPayload(buildPayload(receipt, null, channel, false));
+        receipt.setPayload(buildPayload(receipt, null, channel, false, null));
         return processedReceiptRepository.save(receipt);
     }
 
@@ -125,12 +125,24 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             String errorMessage,
             String channel,
-            boolean includeRetryError) {
+            boolean includeRetryError,
+            String saleNumber) {
         Map<String, Object> payload = new HashMap<>(receipt.getPayload() != null ? receipt.getPayload() : Map.of());
 
         payload.put("retryCount", receipt.getRetryCount());
         payload.put("channel", channel);
         payload.put("updatedAt", LocalDateTime.now().toString());
+
+        if (StringUtils.hasText(saleNumber)) {
+            // Mantém o número comercial disponível para UI/DTO sem perder a chave UUID interna.
+            String normalizedSaleNumber = saleNumber.trim();
+            payload.put("numero", normalizedSaleNumber);
+            payload.put("numero_venda", normalizedSaleNumber);
+            payload.put("saleNumber", normalizedSaleNumber);
+            payload.put("displayIdentifier", normalizedSaleNumber);
+        } else if (!payload.containsKey("displayIdentifier") && StringUtils.hasText(receipt.getParcelaId())) {
+            payload.put("displayIdentifier", receipt.getParcelaId());
+        }
 
         if (includeRetryError && errorMessage != null) {
             payload.put("lastError", errorMessage);

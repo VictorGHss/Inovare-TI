@@ -32,6 +32,8 @@ export type FinanceReceiptStatus = 'SENT' | 'HISTORICO' | 'PENDING_RETRY' | 'FAI
 export interface FinanceReceipt {
   id: string;
   parcelaId: string;
+  commercialNumber?: string | null;
+  displayIdentifier?: string | null;
   originalRecipientEmail: string;
   status: FinanceReceiptStatus;
   processedAt: string;
@@ -95,6 +97,7 @@ export interface FinancialSummaryDTO {
   syncedReceiptsCount: number;
   externalServiceAvailable?: boolean;
   integrationActive?: boolean;
+  lastUpdatedAt?: string | null;
 }
 
 export interface FinancialTransactionLineDTO {

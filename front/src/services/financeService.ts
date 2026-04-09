@@ -43,6 +43,7 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
         syncedReceiptsCount: 0,
         externalServiceAvailable: false,
         integrationActive: true,
+        lastUpdatedAt: null,
       };
     }
 

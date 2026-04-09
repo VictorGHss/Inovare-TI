@@ -93,6 +93,9 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             byte[] pdfBytes,
             boolean includePdfAttachment) {
+        // Garante linguagem consistente no e-mail mesmo quando a API não retorna número comercial.
+        String saleNumber = StringUtils.hasText(parcela.saleNumber()) ? parcela.saleNumber().trim() : "N/D";
+
         if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
             throw new IllegalStateException(
                     "Canal DISCORD não possui destinatário vinculado no financial_link para customerId="
@@ -103,17 +106,19 @@ public class ReceiptDispatcher {
             financeEmailService.sendReceiptEmailWithPdf(
                 parcela.medicoNome(),
                 receipt.getOriginalRecipientEmail(),
-                "Olá " + parcela.medicoNome() + ", seu recibo financeiro está em anexo.",
+                "Olá " + parcela.medicoNome() + ", seu recibo financeiro referente à Venda " + saleNumber + " está em anexo.",
                 pdfBytes,
-                "recibo-" + parcela.parcelaId() + ".pdf");
+                "recibo-venda-" + saleNumber + ".pdf",
+                saleNumber);
             return;
         }
 
         financeEmailService.sendReceiptEmail(
             parcela.medicoNome(),
             receipt.getOriginalRecipientEmail(),
-            "Olá " + parcela.medicoNome() + ", registramos o recebimento financeiro da parcela "
-                + parcela.parcelaId() + ".");
+            "Olá " + parcela.medicoNome() + ", registramos o recebimento financeiro referente à Venda "
+                + saleNumber + ".",
+            saleNumber);
     }
 
     private Map<String, Object> buildPayload(

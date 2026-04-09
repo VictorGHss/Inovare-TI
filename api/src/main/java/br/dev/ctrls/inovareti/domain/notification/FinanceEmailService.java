@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class FinanceEmailService {
 
-    private static final Pattern NUMERIC_IDENTIFIER_PATTERN = Pattern.compile("(\\d+)");
+    private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final JavaMailSender mailSender;
 
@@ -43,13 +43,18 @@ public class FinanceEmailService {
     private String smtpUsername;
 
     public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText) {
-        sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null);
+        sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null, null);
+    }
+
+    public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText, String saleNumber) {
+        sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null, saleNumber);
     }
 
     public void sendReceiptEmail(ContaAzulPaymentParcel parcela) {
+        String saleNumber = resolveSaleNumber(parcela.saleNumber(), null, null);
         String bodyText = "Olá " + parcela.medicoNome()
-                + ", este é um disparo de teste de recibo financeiro. Valor: R$ 100,00. Referente a Março/2026.";
-        sendReceiptEmail(parcela.medicoNome(), parcela.recipientEmail(), bodyText);
+                + ", este é um disparo de teste de recibo financeiro. Referente à Venda " + saleNumber + ".";
+        sendReceiptEmail(parcela.medicoNome(), parcela.recipientEmail(), bodyText, saleNumber);
     }
 
     public void sendReceiptEmailWithPdf(
@@ -58,9 +63,21 @@ public class FinanceEmailService {
             String bodyText,
             byte[] pdfBytes,
             String attachmentFileName) {
-        validateConfiguration();
+        sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, pdfBytes, attachmentFileName, null);
+    }
 
-        EmailDispatch dispatch = resolveDispatch(medicoNome, destinationEmail);
+    public void sendReceiptEmailWithPdf(
+            String medicoNome,
+            String destinationEmail,
+            String bodyText,
+            byte[] pdfBytes,
+            String attachmentFileName,
+            String saleNumberHint) {
+        validateConfiguration();
+        // Prioriza número explícito da venda para impedir uso de UUID no assunto/corpo.
+        String saleNumber = resolveSaleNumber(saleNumberHint, bodyText, attachmentFileName);
+
+        EmailDispatch dispatch = resolveDispatch(medicoNome, destinationEmail, saleNumber);
 
         MimeMessage message = mailSender.createMimeMessage();
         try {
@@ -69,7 +86,7 @@ public class FinanceEmailService {
             helper.setFrom(resolveStrictFromEmail());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
-            helper.setText(buildEmailBodyHtml(medicoNome, bodyText, attachmentFileName), true);
+            helper.setText(buildEmailBodyHtml(medicoNome, saleNumber), true);
 
             if (pdfBytes != null && pdfBytes.length > 0) {
                 String resolvedFileName = StringUtils.hasText(attachmentFileName)
@@ -93,9 +110,9 @@ public class FinanceEmailService {
                 destinationEmail);
     }
 
-    private EmailDispatch resolveDispatch(String medicoNome, String destinationEmail) {
+    private EmailDispatch resolveDispatch(String medicoNome, String destinationEmail, String saleNumber) {
         String resolvedName = StringUtils.hasText(medicoNome) ? medicoNome.trim() : "Cliente";
-        String subject = "Recibo de Quitação - Inovare TI - " + resolvedName;
+        String subject = "Recibo de Quitação - Inovare TI - " + resolvedName + " - Venda " + saleNumber;
         boolean testMode = isTestModeEnabled();
         String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
         String devEmail = StringUtils.hasText(financeiroDeveloperEmail) ? financeiroDeveloperEmail.trim() : "";
@@ -125,29 +142,32 @@ public class FinanceEmailService {
         return financeiroFromEmail.trim();
     }
 
-    private String buildEmailBodyHtml(String medicoNome, String bodyText, String attachmentFileName) {
+    private String buildEmailBodyHtml(String medicoNome, String saleNumber) {
         String resolvedName = StringUtils.hasText(medicoNome) ? medicoNome.trim() : "Cliente";
-        String resolvedSaleId = resolveSaleIdentifier(bodyText, attachmentFileName);
 
         String safeName = HtmlUtils.htmlEscape(resolvedName);
-        String safeSaleId = HtmlUtils.htmlEscape(resolvedSaleId);
+        String safeSaleNumber = HtmlUtils.htmlEscape(saleNumber);
 
         return "<html><body>"
                 + "<p>Prezado(a) " + safeName + ",</p>"
-                + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleId
+                + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleNumber
                 + ". O seu recibo de quitação já está disponível e segue em anexo a este e-mail.</p>"
                 + "<p>Agradecemos a confiança.</p>"
                 + "<p>Atenciosamente,<br/>Equipe Administrativa<br/>Inovare Serviços de Saúde</p>"
                 + "</body></html>";
     }
 
-    private String resolveSaleIdentifier(String bodyText, String attachmentFileName) {
-        String fromBody = extractNumericIdentifier(bodyText);
+    private String resolveSaleNumber(String saleNumberHint, String bodyText, String attachmentFileName) {
+        if (StringUtils.hasText(saleNumberHint) && saleNumberHint.trim().matches("\\d{3,}")) {
+            return saleNumberHint.trim();
+        }
+
+        String fromBody = extractSaleNumber(bodyText);
         if (StringUtils.hasText(fromBody)) {
             return fromBody;
         }
 
-        String fromFileName = extractNumericIdentifier(attachmentFileName);
+        String fromFileName = extractSaleNumber(attachmentFileName);
         if (StringUtils.hasText(fromFileName)) {
             return fromFileName;
         }
@@ -155,12 +175,17 @@ public class FinanceEmailService {
         return "N/D";
     }
 
-    private String extractNumericIdentifier(String value) {
+    private String extractSaleNumber(String value) {
         if (!StringUtils.hasText(value)) {
             return null;
         }
 
-        Matcher matcher = NUMERIC_IDENTIFIER_PATTERN.matcher(value);
+        String normalized = value.trim();
+        if (normalized.matches("\\d{3,}")) {
+            return normalized;
+        }
+
+        Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
         return matcher.find() ? matcher.group(1) : null;
     }
 

@@ -40,7 +40,6 @@
         .logo-image {
             width: 300px;
             height: auto;
-            object-fit: contain;
             display: block;
         }
 
@@ -72,7 +71,7 @@
 
         .title {
             margin: 8px auto 24px;
-            width: fit-content;
+            display: inline-block;
             padding-bottom: 8px;
             border-bottom: 2px solid #feb56c;
             font-size: 30px;
@@ -80,6 +79,9 @@
             color: #b95e13;
             letter-spacing: 0.8px;
             text-align: center;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .content {
@@ -91,6 +93,19 @@
         .highlight {
             font-weight: 700;
             color: #b95e13;
+        }
+
+        .doctor-box {
+            margin: 0 0 18px;
+            padding: 12px 14px;
+            border: 1px solid #f4d8c1;
+            border-radius: 8px;
+            background: #fff8f2;
+        }
+
+        .doctor-value {
+            font-weight: 800;
+            color: #8d450f;
         }
 
         .meta {
@@ -148,15 +163,20 @@
         <div class="company">
             <h1>Condomínio Edifício Inovare</h1>
             <p>CNPJ: 13.481.879/0001-82</p>
+            <p>Endereço: Ponta Grossa/PR</p>
+            <p>IE: ISENTO</p>
             <p>Recibo</p>
         </div>
         <div class="title">RECIBO</div>
     </div>
 
     <div class="content">
-        Recebi de <span class="highlight" th:text="${doctorName}">Nome</span>, CPF/CNPJ
-        <span class="highlight" th:text="${doctorDocument}">Documento</span>,
-        a importância de <span class="highlight" th:text="${amountInWords}">Valor extenso</span>
+        <div class="doctor-box">
+            <div><strong>Médico:</strong> <span class="doctor-value" th:text="${doctorName}">Nome</span></div>
+            <div><strong>CPF/CNPJ:</strong> <span class="doctor-value" th:text="${doctorDocument}">Documento</span></div>
+        </div>
+
+        Recebi a importância de <span class="highlight" th:text="${amountInWords}">Valor extenso</span>
         referente à <span class="highlight" th:text="${parcela}">Parcela</span>.
 
         <div class="amount-box" th:text="${amountValue}">R$ 0,00</div>

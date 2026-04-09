@@ -47,6 +47,13 @@ public class ContaAzulPaymentsResponseMapper {
                 String customerId = jsonSafeReader.readText(node, "contaazul_customer_id", "customer.id", "cliente.id", "paciente.id");
                 String doctorName = jsonSafeReader.readText(node, "customer.name", "cliente.nome", "paciente.nome", "medico.nome", "nome");
                 String recipientEmail = jsonSafeReader.readText(node, "customer.email", "cliente.email", "paciente.email", "email");
+                String saleNumber = jsonSafeReader.readText(
+                    node,
+                    "numero_venda",
+                    "numero",
+                    "venda.numero",
+                    "evento_financeiro.referencia.numero",
+                    "referencia.numero");
 
                 if (!StringUtils.hasText(parcelaId) || !StringUtils.hasText(customerId)) {
                     continue;
@@ -56,7 +63,8 @@ public class ContaAzulPaymentsResponseMapper {
                         parcelaId,
                         customerId,
                         StringUtils.hasText(doctorName) ? doctorName : "Profissional",
-                        recipientEmail));
+                    recipientEmail,
+                    saleNumber));
             }
 
             return parcels;
@@ -125,7 +133,14 @@ public class ContaAzulPaymentsResponseMapper {
                             resolvedParcelaId,
                             customerId,
                             StringUtils.hasText(doctorName) ? doctorName : "Profissional",
-                            recipientEmail),
+                        recipientEmail,
+                        jsonSafeReader.readText(
+                            node,
+                            "numero_venda",
+                            "numero",
+                            "venda.numero",
+                            "evento_financeiro.referencia.numero",
+                            "referencia.numero")),
                     eventId,
                     status));
         } catch (IOException ex) {
@@ -155,12 +170,20 @@ public class ContaAzulPaymentsResponseMapper {
             String customerId = jsonSafeReader.readText(node, "contaazul_customer_id", "customer.id", "cliente.id", "paciente.id");
             String doctorName = jsonSafeReader.readText(node, "customer.name", "cliente.nome", "paciente.nome", "medico.nome", "nome");
             String recipientEmail = jsonSafeReader.readText(node, "customer.email", "cliente.email", "paciente.email", "email");
+                String saleNumber = jsonSafeReader.readText(
+                    node,
+                    "numero_venda",
+                    "numero",
+                    "venda.numero",
+                    "evento_financeiro.referencia.numero",
+                    "referencia.numero");
 
             return Optional.of(new ContaAzulPaymentParcel(
                     parcelaId,
                     customerId,
                     StringUtils.hasText(doctorName) ? doctorName : "Profissional",
-                    recipientEmail));
+                    recipientEmail,
+                    saleNumber));
         }
 
         return Optional.empty();

@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +37,7 @@ public class ContaAzulReceiptProcessor {
     private static final int MAX_ERROR_DETAILS = 200;
     private static final String ROBERTO_TETSUO_UUID = "b68a0402-6620-4890-af48-909d8b38362b";
     private static final String DOCUMENT_FALLBACK_UNDER_REVIEW = "CPF/CNPJ sob consulta";
+    private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
@@ -112,6 +115,7 @@ public class ContaAzulReceiptProcessor {
 
         // Usa endpoint oficial da parcela para mapear o sale_id em evento_financeiro.referencia.id (origem VENDA).
         String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
+        String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
 
         String baixaId = baixaIdOpt.get().trim();
         if (!StringUtils.hasText(baixaId)) {
@@ -127,10 +131,10 @@ public class ContaAzulReceiptProcessor {
         receiptEmailService.sendReceiptForRealSaleTest(
                 doctorName,
                 recipientEmail,
-            resolvedSaleId,
+            resolvedSaleNumber,
                 pdfBytes);
 
-        log.info("Teste real finalizado com sucesso para a venda {}.", resolvedSaleId);
+        log.info("Teste real finalizado com sucesso para a venda {}.", resolvedSaleNumber);
         return new TesteEnvioRealResult(resolvedSaleId, doctorName, recipientEmail, pdfBytes.length);
     }
 
@@ -231,6 +235,8 @@ public class ContaAzulReceiptProcessor {
 
                 // Garante sale_id oficial para origem VENDA via endpoint /v1/financeiro/eventos-financeiros/parcelas/{id}.
                 String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
+                String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
+                String saleDescriptionForReceipt = resolveSaleDescriptionForReceiptFlow(sale, resolvedSaleNumber);
 
                 Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
                 if (baixaIdOpt.isEmpty()) {
@@ -341,8 +347,9 @@ public class ContaAzulReceiptProcessor {
                         pdfBytes = generateInternalReceiptPdf(
                                 baixaId,
                                 doctorName,
-                                mapping.getDoctorCpfCnpj(),
-                                sale.descricao());
+                            mapping,
+                            customerUuidFromParcel,
+                            saleDescriptionForReceipt);
                         usedInternalFallback = true;
                     } catch (RuntimeException fallbackEx) {
                         failures++;
@@ -364,8 +371,9 @@ public class ContaAzulReceiptProcessor {
                             pdfBytes = generateInternalReceiptPdf(
                                     baixaId,
                                     doctorName,
-                                    mapping.getDoctorCpfCnpj(),
-                                    sale.descricao());
+                                    mapping,
+                                    customerUuidFromParcel,
+                                    saleDescriptionForReceipt);
                             usedInternalFallback = true;
                         } catch (RuntimeException fallbackEx) {
                             failures++;
@@ -461,7 +469,7 @@ public class ContaAzulReceiptProcessor {
                     receiptEmailService.sendReceiptForBaixa(
                             doctorName,
                             recipientEmail,
-                            resolvedSaleId,
+                            resolvedSaleNumber,
                             baixaId,
                             pdfBytes);
                 } catch (RuntimeException emailEx) {
@@ -612,7 +620,8 @@ public class ContaAzulReceiptProcessor {
     private byte[] generateInternalReceiptPdf(
             String baixaId,
             String doctorName,
-            String doctorCpfCnpj,
+            DoctorEmailMapping mapping,
+            String customerUuidFromSale,
             String saleDescription) {
         JsonNode settlementNode = null;
 
@@ -622,29 +631,7 @@ public class ContaAzulReceiptProcessor {
             log.warn("Nao foi possivel obter detalhes da baixa {} para montagem completa do recibo interno.", baixaId, ex);
         }
 
-        if (!StringUtils.hasText(doctorCpfCnpj)) {
-            log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
-        }
-
-        String documentForReceipt = StringUtils.hasText(doctorCpfCnpj)
-                ? doctorCpfCnpj.trim()
-                : DOCUMENT_FALLBACK_UNDER_REVIEW;
-
-        String clientId = extractClientIdFromSettlement(settlementNode);
-        if (StringUtils.hasText(clientId)) {
-            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(clientId);
-            if (apiDocument.isPresent()) {
-                documentForReceipt = apiDocument.get();
-                log.info("Documento obtido via API da pessoa {} para baixa {}.", clientId, baixaId);
-            } else {
-                documentForReceipt = DOCUMENT_FALLBACK_UNDER_REVIEW;
-                log.warn("Nao foi possivel obter documento via API para cliente_id {} (baixa {}). Usando fallback.",
-                        clientId,
-                        baixaId);
-            }
-        } else {
-            log.warn("cliente_id nao encontrado no JSON da baixa {}. Mantendo documento em fallback interno.", baixaId);
-        }
+        String documentForReceipt = resolveDoctorDocumentForReceipt(mapping, customerUuidFromSale, settlementNode, baixaId);
 
         byte[] pdfBytes = internalReceiptService.generateReceipt(
                 settlementNode,
@@ -656,6 +643,123 @@ public class ContaAzulReceiptProcessor {
         }
 
         return pdfBytes;
+    }
+
+    private String resolveDoctorDocumentForReceipt(
+            DoctorEmailMapping mapping,
+            String customerUuidFromSale,
+            JsonNode settlementNode,
+            String baixaId) {
+            String mappedDocument = mapping != null ? mapping.getDoctorCpfCnpj() : null;
+            if (mappedDocument != null) {
+                mappedDocument = mappedDocument.trim();
+            }
+            if (mappedDocument != null && !mappedDocument.isBlank()) {
+                return mappedDocument;
+        }
+
+        String doctorName = mapping != null ? mapping.getDoctorName() : "(médico não identificado)";
+        log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
+
+        // Prioriza cliente_id vindo da venda/parcela para reduzir dependência de campos da baixa.
+        if (StringUtils.hasText(customerUuidFromSale)) {
+            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(customerUuidFromSale.trim());
+            if (apiDocument.isPresent()) {
+                String resolvedDocument = apiDocument.get().trim();
+                persistDoctorDocumentOnMapping(mapping, resolvedDocument, customerUuidFromSale, baixaId);
+                log.info("Documento obtido via API da pessoa {} para baixa {}.", customerUuidFromSale, baixaId);
+                return resolvedDocument;
+            }
+            log.warn("Nao foi possivel obter documento via API para cliente_id da venda {} (baixa {}).",
+                    customerUuidFromSale,
+                    baixaId);
+        }
+
+        String clientIdFromSettlement = extractClientIdFromSettlement(settlementNode);
+        if (StringUtils.hasText(clientIdFromSettlement)) {
+            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(clientIdFromSettlement);
+            if (apiDocument.isPresent()) {
+                String resolvedDocument = apiDocument.get().trim();
+                persistDoctorDocumentOnMapping(mapping, resolvedDocument, clientIdFromSettlement, baixaId);
+                log.info("Documento obtido via API da pessoa {} para baixa {}.", clientIdFromSettlement, baixaId);
+                return resolvedDocument;
+            }
+
+            log.warn("Nao foi possivel obter documento via API para cliente_id {} (baixa {}). Usando fallback.",
+                    clientIdFromSettlement,
+                    baixaId);
+        } else {
+            log.warn("cliente_id nao encontrado no JSON da baixa {}. Mantendo documento em fallback interno.", baixaId);
+        }
+
+        return DOCUMENT_FALLBACK_UNDER_REVIEW;
+    }
+
+    private void persistDoctorDocumentOnMapping(
+            DoctorEmailMapping mapping,
+            String doctorDocument,
+            String clientId,
+            String baixaId) {
+        if (mapping == null || !StringUtils.hasText(doctorDocument)) {
+            return;
+        }
+
+        if (StringUtils.hasText(mapping.getDoctorCpfCnpj())
+                && doctorDocument.trim().equalsIgnoreCase(mapping.getDoctorCpfCnpj().trim())) {
+            return;
+        }
+
+        try {
+            mapping.setDoctorCpfCnpj(doctorDocument.trim());
+            doctorEmailMappingRepository.save(mapping);
+            log.info("CPF/CNPJ atualizado no doctor_email_mapping via API da pessoa {} (baixa {}).", clientId, baixaId);
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao persistir CPF/CNPJ no doctor_email_mapping para cliente_id {}.", clientId, ex);
+        }
+    }
+
+    private String resolveSaleNumberForReceiptFlow(ContaAzulClient.SaleItem sale, String resolvedSaleId) {
+        if (StringUtils.hasText(sale.saleNumber()) && sale.saleNumber().trim().matches("\\d{3,}")) {
+            return sale.saleNumber().trim();
+        }
+
+        String fromDescription = extractSaleNumber(sale.descricao());
+        if (StringUtils.hasText(fromDescription)) {
+            return fromDescription;
+        }
+
+        String fromResolvedSaleId = extractSaleNumber(resolvedSaleId);
+        if (StringUtils.hasText(fromResolvedSaleId)) {
+            return fromResolvedSaleId;
+        }
+
+        return "N/D";
+    }
+
+    private String resolveSaleDescriptionForReceiptFlow(ContaAzulClient.SaleItem sale, String resolvedSaleNumber) {
+        if (StringUtils.hasText(resolvedSaleNumber) && !"N/D".equalsIgnoreCase(resolvedSaleNumber)) {
+            return "Venda " + resolvedSaleNumber;
+        }
+
+        if (StringUtils.hasText(sale.descricao())) {
+            return sale.descricao().trim();
+        }
+
+        return "Venda N/D";
+    }
+
+    private String extractSaleNumber(String rawValue) {
+        if (!StringUtils.hasText(rawValue)) {
+            return null;
+        }
+
+        String normalized = rawValue.trim();
+        if (normalized.matches("\\d{3,}")) {
+            return normalized;
+        }
+
+        Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     private String extractClientIdFromSettlement(JsonNode settlementNode) {

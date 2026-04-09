@@ -47,7 +47,8 @@ public class EmailRetryScheduler {
                             receipt.getFinancialLink().getContaAzulCustomerName() != null
                                     ? receipt.getFinancialLink().getContaAzulCustomerName()
                             : receipt.getFinancialLink().getNomeCliente(),
-                            receipt.getOriginalRecipientEmail());
+                            receipt.getOriginalRecipientEmail(),
+                            null);
 
                     receiptDispatcher.dispatchReceipt(parcel, pdf, receiptHash);
                 } catch (RuntimeException ex) {

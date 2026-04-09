@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -34,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class ReceiptEmailService {
+
+    private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final JavaMailSender mailSender;
     private final RestTemplate restTemplate;
@@ -109,8 +113,10 @@ public class ReceiptEmailService {
             byte[] pdfBytes,
             String attachmentFileName) {
         validateConfiguration();
+        // Normaliza o identificador para exibir somente o número de venda no conteúdo enviado.
+        String saleNumber = resolveSaleNumber(saleIdentifier);
 
-        EmailDispatch dispatch = resolveDispatch(doctorName, destinationEmail);
+        EmailDispatch dispatch = resolveDispatch(doctorName, destinationEmail, saleNumber);
         MimeMessage message = mailSender.createMimeMessage();
 
         try {
@@ -119,7 +125,7 @@ public class ReceiptEmailService {
             helper.setFrom(financeiroFromEmail.trim());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
-            helper.setText(buildEmailBodyHtml(doctorName, saleIdentifier), true);
+            helper.setText(buildEmailBodyHtml(doctorName, saleNumber), true);
 
             if (pdfBytes != null && pdfBytes.length > 0) {
                 helper.addAttachment(
@@ -140,8 +146,8 @@ public class ReceiptEmailService {
         }
     }
 
-    private EmailDispatch resolveDispatch(String doctorName, String destinationEmail) {
-        String subject = buildEmailSubject(doctorName);
+    private EmailDispatch resolveDispatch(String doctorName, String destinationEmail, String saleNumber) {
+        String subject = buildEmailSubject(doctorName, saleNumber);
         boolean testMode = isTestModeEnabled();
         String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
         String devEmail = StringUtils.hasText(financeiroDeveloperEmail) ? financeiroDeveloperEmail.trim() : "";
@@ -158,9 +164,9 @@ public class ReceiptEmailService {
         return new EmailDispatch(destinoFinal, subject);
     }
 
-    private String buildEmailSubject(String doctorName) {
+    private String buildEmailSubject(String doctorName, String saleNumber) {
         String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName.trim() : "Cliente";
-        return "Recibo de Quitação - Inovare TI - " + resolvedDoctorName;
+        return "Recibo de Quitação - Inovare TI - " + resolvedDoctorName + " - Venda " + saleNumber;
     }
 
     private String buildEmailBodyHtml(String doctorName, String saleIdentifier) {
@@ -206,6 +212,25 @@ public class ReceiptEmailService {
                 || "yes".equalsIgnoreCase(normalized)
                 || "on".equalsIgnoreCase(normalized)
                 || "sim".equalsIgnoreCase(normalized);
+    }
+
+    private String resolveSaleNumber(String saleIdentifier) {
+        if (!StringUtils.hasText(saleIdentifier)) {
+            return "N/D";
+        }
+
+        String normalized = saleIdentifier.trim();
+        if (normalized.matches("\\d{3,}")) {
+            return normalized;
+        }
+
+        Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        // Evita exibir UUID no e-mail quando número de venda não estiver disponível.
+        return "N/D";
     }
 
     private record EmailDispatch(String to, String subject) {

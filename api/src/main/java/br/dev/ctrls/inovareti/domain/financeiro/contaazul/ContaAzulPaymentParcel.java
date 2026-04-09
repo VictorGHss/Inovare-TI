@@ -8,12 +8,14 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
  * - `customerId`: identificador do cliente/paciente na Conta Azul
  * - `medicoNome`: nome do profissional associado
  * - `recipientEmail`: e-mail do destinatário para envio de recibos
+ * - `saleNumber`: número comercial da venda (numero/numero_venda)
  */
 public record ContaAzulPaymentParcel(
         String parcelaId,
         String customerId,
         String medicoNome,
-        String recipientEmail) {
+        String recipientEmail,
+        String saleNumber) {
 }
 /**
  * Observação de uso: este record é um DTO simples e NÃO altera nomes de

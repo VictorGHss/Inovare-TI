@@ -188,7 +188,8 @@ public class FinanceiroController {
                 "TESTE-PARCELA-202603",
                 "TESTE-CUSTOMER-DR-VICTOR",
                 "Dr. Victor",
-                "destinatario.original@inovareti.local");
+            "destinatario.original@inovareti.local",
+            "10275");
 
         receiptService.sendReceiptEmail(parcelaTeste);
 

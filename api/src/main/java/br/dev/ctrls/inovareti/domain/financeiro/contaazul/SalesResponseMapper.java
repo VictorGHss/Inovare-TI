@@ -89,6 +89,15 @@ public class SalesResponseMapper {
                         "historico",
                         "observacao");
 
+                String saleNumber = jsonSafeReader.readText(
+                    node,
+                    "numero_venda",
+                    "numero",
+                    "evento_financeiro.referencia.numero",
+                    "referencia.numero",
+                    "venda.numero",
+                    "sale.number");
+
                 String baixaId = jsonSafeReader.readText(
                         node,
                         "baixas.0.id",
@@ -146,7 +155,7 @@ public class SalesResponseMapper {
                         origemSaleId,
                         vendaId,
                         descricao,
-                        null,
+                        saleNumber,
                         true,
                         baixaId,
                         idReciboDigital));
@@ -195,6 +204,7 @@ public class SalesResponseMapper {
 
                 String saleNumber = jsonSafeReader.readText(
                         saleNode,
+                    "numero_venda",
                         "number",
                         "numero",
                         "sale.number",

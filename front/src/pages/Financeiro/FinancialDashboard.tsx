@@ -8,6 +8,7 @@ import { useFinancialDashboard } from '../../hooks/useFinancialDashboard';
 import { useFinancialActions } from '../../hooks/useFinancialActions';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
+const ISO_DATETIME_PREFIX_REGEX = /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/;
 
 function formatDate(value?: string | null): string {
   if (!value) {
@@ -15,9 +16,14 @@ function formatDate(value?: string | null): string {
   }
 
   const normalized = value.trim();
+  const directMatch = normalized.match(ISO_DATETIME_PREFIX_REGEX);
+  if (directMatch) {
+    const [, year, month, day, hour, minute] = directMatch;
+    // Exibe o horário exatamente como veio do backend, sem reconverter fuso no navegador.
+    return `${day}/${month}/${year} ${hour}:${minute}`;
+  }
 
-  // Quando o backend receber timestamp com Z, ele converte para Brasília.
-  // Aqui reforçamos a exibição fixa em America/Sao_Paulo para evitar horário futuro na UI.
+  // Fallback para formatos fora do padrão ISO esperado.
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) {
     return '—';
@@ -26,7 +32,6 @@ function formatDate(value?: string | null): string {
   return new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
-    timeZone: 'America/Sao_Paulo',
   }).format(date);
 }
 

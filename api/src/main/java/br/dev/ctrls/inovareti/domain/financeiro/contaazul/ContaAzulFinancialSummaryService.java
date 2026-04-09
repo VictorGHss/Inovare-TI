@@ -7,13 +7,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,9 +56,18 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulFinancialSummaryService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final ZoneId BRASILIA_ZONE_ID = ZoneId.of("America/Sao_Paulo");
+    private static final ZoneOffset BRASILIA_OFFSET = ZoneOffset.ofHours(-3);
     private static final int SUMMARY_PAGE_SIZE = 100;
     private static final int SUMMARY_MAX_PAGES = 30;
+    private static final Set<String> ASSET_ACCOUNT_TYPES = Set.of(
+        "CONTA_CORRENTE",
+        "POUPANCA",
+        "INVESTIMENTO",
+        "APLICACAO",
+        "CAIXINHA");
+    private static final Set<String> LIABILITY_ACCOUNT_TYPES = Set.of(
+        "CARTAO_CREDITO",
+        "CARTAO_DE_CREDITO");
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
@@ -247,7 +257,7 @@ public class ContaAzulFinancialSummaryService {
             String lastUpdatedAt) {
     }
 
-    private static record ReceivableParcelRef(String parcelaId, String commercialNumber) {
+    private static record ReceivableParcelRef(String parcelaId, String displayIdentifier) {
     }
 
     private static record ReceivablesPageData(
@@ -255,20 +265,38 @@ public class ContaAzulFinancialSummaryService {
             OffsetDateTime latestUpdate) {
     }
 
+    private static record FinancialAccountRef(String accountId, String type, boolean active) {
+    }
+
     private StatusResult fetchConsolidatedBalance(String accessToken, ExecutorService executor) {
-        List<String> financialAccountIds = fetchActiveFinancialAccountIds(accessToken);
-        if (financialAccountIds.isEmpty()) {
+        List<FinancialAccountRef> financialAccounts = fetchFinancialAccounts(accessToken);
+        List<FinancialAccountRef> eligibleAccounts = financialAccounts.stream()
+                .filter(FinancialAccountRef::active)
+                .filter(account -> isAssetAccountType(account.type()))
+                .toList();
+
+        long ignoredLiabilityAccounts = financialAccounts.stream()
+                .filter(FinancialAccountRef::active)
+                .filter(account -> isLiabilityAccountType(account.type()))
+                .count();
+
+        if (ignoredLiabilityAccounts > 0) {
+            // Regra de negócio oficial: cartão de crédito é passivo e não entra no saldo consolidado de caixa.
+            log.info("Ignorando {} conta(s) do tipo CARTAO_CREDITO no saldo consolidado.", ignoredLiabilityAccounts);
+        }
+
+        if (eligibleAccounts.isEmpty()) {
             return new StatusResult(0L, true);
         }
 
         AtomicBoolean available = new AtomicBoolean(true);
-        List<CompletableFuture<Long>> futures = financialAccountIds.stream()
-                .map(accountId -> CompletableFuture.supplyAsync(() -> {
+        List<CompletableFuture<Long>> futures = eligibleAccounts.stream()
+                .map(account -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        return fetchAccountCurrentBalanceCents(accessToken, accountId);
+                        return fetchAccountCurrentBalanceCents(accessToken, account.accountId());
                     } catch (Exception ex) {
                         available.set(false);
-                        log.warn("Falha ao consultar saldo atual da conta financeira {}.", accountId, ex);
+                        log.warn("Falha ao consultar saldo atual da conta financeira {}.", account.accountId(), ex);
                         return 0L;
                     }
                 }, executor))
@@ -281,7 +309,7 @@ public class ContaAzulFinancialSummaryService {
         return new StatusResult(totalBalance, available.get());
     }
 
-    private List<String> fetchActiveFinancialAccountIds(String accessToken) {
+    private List<FinancialAccountRef> fetchFinancialAccounts(String accessToken) {
         String uri = normalizeContaAzulBaseUrl() + "/v1/conta-financeira";
         ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
 
@@ -293,44 +321,78 @@ public class ContaAzulFinancialSummaryService {
             JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
             JsonNode entries = jsonSafeReader.resolveArrayNode(root);
 
-            List<String> accountIds = new ArrayList<>();
+            List<FinancialAccountRef> accounts = new ArrayList<>();
             for (JsonNode accountNode : entries) {
                 String accountId = jsonSafeReader.readText(accountNode, "id", "conta_financeira_id", "contaFinanceiraId");
                 if (!StringUtils.hasText(accountId)) {
                     continue;
                 }
 
-                if (isActiveFinancialAccount(accountNode)) {
-                    accountIds.add(accountId.trim());
-                }
+                boolean active = readBooleanFromPaths(accountNode, "ativo", "active", "is_active", "isActive");
+                String accountType = normalizeAccountType(jsonSafeReader.readText(accountNode, "tipo", "type", "categoria"));
+                accounts.add(new FinancialAccountRef(accountId.trim(), accountType, active));
             }
 
-            return accountIds;
+            return accounts;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar lista de contas financeiras da Conta Azul.", ex);
         }
     }
 
-    private boolean isActiveFinancialAccount(JsonNode accountNode) {
-        String status = jsonSafeReader.readText(accountNode, "status", "situacao", "state");
-        String activeAsText = jsonSafeReader.readText(accountNode, "ativo", "active", "is_active", "isActive");
+    private String normalizeAccountType(String rawType) {
+        if (!StringUtils.hasText(rawType)) {
+            return "";
+        }
 
-        if (StringUtils.hasText(status)) {
-            if ("INATIVO".equalsIgnoreCase(status) || "INACTIVE".equalsIgnoreCase(status)) {
-                return false;
+        return rawType.trim().toUpperCase()
+                .replace('-', '_')
+                .replace(' ', '_');
+    }
+
+    private boolean isAssetAccountType(String accountType) {
+        return ASSET_ACCOUNT_TYPES.contains(accountType);
+    }
+
+    private boolean isLiabilityAccountType(String accountType) {
+        return LIABILITY_ACCOUNT_TYPES.contains(accountType);
+    }
+
+    private boolean readBooleanFromPaths(JsonNode node, String... paths) {
+        for (String path : paths) {
+            JsonNode valueNode = readNode(node, path);
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
             }
 
-            if ("ATIVO".equalsIgnoreCase(status) || "ACTIVE".equalsIgnoreCase(status)) {
-                return true;
+            if (valueNode.isBoolean()) {
+                return valueNode.booleanValue();
+            }
+
+            if (valueNode.isTextual()) {
+                String raw = valueNode.asText().trim();
+                if ("true".equalsIgnoreCase(raw)) {
+                    return true;
+                }
+                if ("false".equalsIgnoreCase(raw)) {
+                    return false;
+                }
             }
         }
 
-        if (StringUtils.hasText(activeAsText)) {
-            return Boolean.parseBoolean(activeAsText.trim());
+        // Filtro rigoroso: somente contas explicitamente ativas entram no saldo.
+        return false;
+    }
+
+    private JsonNode readNode(JsonNode node, String path) {
+        JsonNode current = node;
+        for (String segment : path.split("\\.")) {
+            if (current == null) {
+                return null;
+            }
+            current = current.get(segment);
         }
 
-        // Quando o campo de status não vier explícito, assume ativo para não perder saldo real.
-        return true;
+        return current;
     }
 
     private long fetchAccountCurrentBalanceCents(String accessToken, String accountId) {
@@ -373,8 +435,8 @@ public class ContaAzulFinancialSummaryService {
                         return fetchParcelaPaidCentsByBaixas(accessToken, parcel);
                     } catch (Exception ex) {
                         available.set(false);
-                        String displayId = StringUtils.hasText(parcel.commercialNumber())
-                                ? parcel.commercialNumber()
+                        String displayId = StringUtils.hasText(parcel.displayIdentifier())
+                                ? parcel.displayIdentifier()
                                 : parcel.parcelaId();
                         log.warn("Falha ao consultar baixas da parcela {}.", displayId, ex);
                         return 0L;
@@ -415,38 +477,21 @@ public class ContaAzulFinancialSummaryService {
             for (JsonNode baixaNode : baixasNode) {
                 BigDecimal baixaAmount = readDecimalFromPaths(
                         baixaNode,
-                        "valor",
-                        "valor_pago",
-                        "valorPago",
-                        "valor_recebido",
-                        "valorRecebido",
-                        "total",
-                        "total.valor");
+                        "valor_liquido",
+                        "valorLiquido",
+                        "valor_liquido.valor",
+                        "liquido.valor");
 
-                if (baixaAmount == null) {
-                    // Fallback para casos em que a API retorna componentes separados.
-                    BigDecimal valorOriginal = readDecimalFromPaths(baixaNode, "valor_original", "valorOriginal", "valor");
-                    BigDecimal juros = readDecimalFromPaths(baixaNode, "juros", "juros.valor");
-                    BigDecimal multa = readDecimalFromPaths(baixaNode, "multa", "multa.valor");
-                    BigDecimal desconto = readDecimalFromPaths(baixaNode, "desconto", "desconto.valor");
-
-                    baixaAmount = defaultZero(valorOriginal)
-                            .add(defaultZero(juros))
-                            .add(defaultZero(multa))
-                            .subtract(defaultZero(desconto));
+                // Regra oficial V2: total pago deve refletir exclusivamente a soma de valor_liquido das baixas.
+                if (baixaAmount != null) {
+                    total = total.add(baixaAmount);
                 }
-
-                total = total.add(defaultZero(baixaAmount));
             }
 
             return toCents(total);
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar detalhe de baixas da parcela " + parcel.parcelaId() + ".", ex);
         }
-    }
-
-    private BigDecimal defaultZero(BigDecimal value) {
-        return value != null ? value : BigDecimal.ZERO;
     }
 
     private ReceivedParcelsResult fetchReceivedParcels(String accessToken) {
@@ -470,7 +515,7 @@ public class ContaAzulFinancialSummaryService {
                 parcelMap.merge(
                         currentParcel.parcelaId(),
                         currentParcel,
-                        (existing, incoming) -> StringUtils.hasText(existing.commercialNumber()) ? existing : incoming);
+                    (existing, incoming) -> StringUtils.hasText(existing.displayIdentifier()) ? existing : incoming);
             }
 
             if (pageData.parcels().size() < SUMMARY_PAGE_SIZE) {
@@ -515,7 +560,16 @@ public class ContaAzulFinancialSummaryService {
                         "evento_financeiro.referencia.numero",
                         "referencia.numero");
 
-                parcels.add(new ReceivableParcelRef(parcelaId.trim(), StringUtils.hasText(commercialNumber) ? commercialNumber.trim() : null));
+                String referenceCode = jsonSafeReader.readText(
+                    parcelNode,
+                    "codigo_referencia",
+                    "codigoReferencia",
+                    "referencia.codigo",
+                    "evento_financeiro.referencia.codigo");
+
+                String displayIdentifier = firstNonBlank(commercialNumber, referenceCode);
+
+                parcels.add(new ReceivableParcelRef(parcelaId.trim(), displayIdentifier));
 
                 OffsetDateTime parcelUpdatedAt = parseApiDateToBrasiliaOffsetDateTime(jsonSafeReader.readText(
                         parcelNode,
@@ -541,10 +595,10 @@ public class ContaAzulFinancialSummaryService {
     private String resolveSummaryLastUpdatedAt(String rawLastUpdatedAt) {
         OffsetDateTime parsed = parseApiDateToBrasiliaOffsetDateTime(rawLastUpdatedAt);
         if (parsed != null) {
-            return parsed.toString();
+            return parsed.withOffsetSameInstant(BRASILIA_OFFSET).toString();
         }
 
-        return OffsetDateTime.now(BRASILIA_ZONE_ID).toString();
+        return OffsetDateTime.now(BRASILIA_OFFSET).toString();
     }
 
     private OffsetDateTime parseApiDateToBrasiliaOffsetDateTime(String rawDate) {
@@ -557,28 +611,34 @@ public class ContaAzulFinancialSummaryService {
         try {
             if (trimmed.endsWith("Z") || trimmed.endsWith("z")) {
                 // Se vier com Z, trata como UTC e converte para horário de Brasília.
-                return Instant.parse(trimmed)
-                        .atZone(BRASILIA_ZONE_ID)
-                        .toOffsetDateTime();
+                return Instant.parse(trimmed).atOffset(BRASILIA_OFFSET);
             }
         } catch (DateTimeParseException ignored) {
             // Continua para os próximos parseadores.
         }
 
         try {
-            return OffsetDateTime.parse(trimmed)
-                    .atZoneSameInstant(BRASILIA_ZONE_ID)
-                    .toOffsetDateTime();
+            return OffsetDateTime.parse(trimmed).withOffsetSameInstant(BRASILIA_OFFSET);
         } catch (DateTimeParseException ignored) {
             // Continua para parse sem offset.
         }
 
         try {
             LocalDateTime localDateTime = LocalDateTime.parse(trimmed);
-            return localDateTime.atZone(BRASILIA_ZONE_ID).toOffsetDateTime();
+            return localDateTime.atOffset(BRASILIA_OFFSET);
         } catch (DateTimeParseException ignored) {
             return null;
         }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+
+        return null;
     }
 
     private ResponseEntity<String> executeGetWithRefresh(String uri, String accessToken) {

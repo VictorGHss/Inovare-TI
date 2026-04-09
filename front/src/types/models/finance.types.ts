@@ -33,6 +33,7 @@ export interface FinanceReceipt {
   id: string;
   parcelaId: string;
   commercialNumber?: string | null;
+  referenceCode?: string | null;
   displayIdentifier?: string | null;
   originalRecipientEmail: string;
   status: FinanceReceiptStatus;

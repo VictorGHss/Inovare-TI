@@ -203,15 +203,17 @@ public class FinanceiroController {
     }
 
     private FinanceReceiptResponseDTO mapReceipt(ProcessedReceipt receipt) {
-        String commercialNumber = extractCommercialNumber(receipt.getPayload());
+        String commercialNumber = resolvePayloadText(receipt.getPayload(), "numero", "numero_venda", "saleNumber");
+        String referenceCode = resolvePayloadText(receipt.getPayload(), "codigo_referencia", "codigoReferencia", "referenceCode");
         String displayIdentifier = StringUtils.hasText(commercialNumber)
                 ? commercialNumber
-                : receipt.getParcelaId();
+                : (StringUtils.hasText(referenceCode) ? referenceCode : receipt.getParcelaId());
 
         return new FinanceReceiptResponseDTO(
                 receipt.getId(),
                 receipt.getParcelaId(),
                 commercialNumber,
+                referenceCode,
                 displayIdentifier,
                 receipt.getOriginalRecipientEmail(),
                 receipt.getStatus(),
@@ -220,28 +222,24 @@ public class FinanceiroController {
                 receipt.getPayload());
     }
 
-    private String extractCommercialNumber(Map<String, Object> payload) {
+    private String resolvePayloadText(Map<String, Object> payload, String... keys) {
         if (payload == null || payload.isEmpty()) {
             return null;
         }
 
-        Object value = payload.get("numero");
-        if (value == null) {
-            value = payload.get("numero_venda");
-        }
-        if (value == null) {
-            value = payload.get("saleNumber");
-        }
-        if (value == null) {
-            value = payload.get("displayIdentifier");
+        for (String key : keys) {
+            Object value = payload.get(key);
+            if (value == null) {
+                continue;
+            }
+
+            String resolved = String.valueOf(value).trim();
+            if (StringUtils.hasText(resolved)) {
+                return resolved;
+            }
         }
 
-        if (value == null) {
-            return null;
-        }
-
-        String resolved = String.valueOf(value).trim();
-        return StringUtils.hasText(resolved) ? resolved : null;
+        return null;
     }
 
     private FinanceAlertResponseDTO mapAlert(SystemAlert alert) {
@@ -276,6 +274,7 @@ public class FinanceiroController {
             UUID id,
             String parcelaId,
             String commercialNumber,
+            String referenceCode,
             String displayIdentifier,
             String originalRecipientEmail,
             ProcessedReceiptStatus status,

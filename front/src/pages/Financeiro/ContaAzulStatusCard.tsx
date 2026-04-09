@@ -38,7 +38,11 @@ export default function ContaAzulStatusCard({
   onConnectContaAzul,
 }: ContaAzulStatusCardProps) {
   const latestReceipt = receipts[0];
-  const latestDisplayIdentifier = latestReceipt?.displayIdentifier ?? latestReceipt?.commercialNumber ?? latestReceipt?.parcelaId;
+  const latestDisplayIdentifier =
+    latestReceipt?.commercialNumber
+    ?? latestReceipt?.referenceCode
+    ?? latestReceipt?.displayIdentifier
+    ?? latestReceipt?.parcelaId;
 
   const items = [
     {

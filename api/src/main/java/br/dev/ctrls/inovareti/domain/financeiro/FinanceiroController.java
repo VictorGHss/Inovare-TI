@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulHttpException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulTokenService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
@@ -151,11 +152,29 @@ public class FinanceiroController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/medicos/sincronizar-base")
     public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
-        SyncDoctorsResult result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
+        SyncDoctorsResult result;
+        try {
+            result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
+        } catch (ContaAzulHttpException ex) {
+            if (ex.isStatus(403) && isPlanIneligibleResponse(ex.getResponseBody())) {
+                log.warn("Sincronização de médicos indisponível: conta Conta Azul sem elegibilidade de API (END_TRIAL). Retornando resultado vazio.");
+                return ResponseEntity.ok(new SyncDoctorsResponseDTO(0, 0));
+            }
+            throw ex;
+        }
 
         return ResponseEntity.ok(new SyncDoctorsResponseDTO(
                 result.novos(),
                 result.atualizados()));
+    }
+
+    private boolean isPlanIneligibleResponse(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return false;
+        }
+
+        String normalized = responseBody.toUpperCase();
+        return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 
     @GetMapping("/trigger-test-receipt")

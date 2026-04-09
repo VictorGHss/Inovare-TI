@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulHttpException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -112,6 +113,36 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(ContaAzulHttpException.class)
+    public ProblemDetail handleContaAzulHttpException(ContaAzulHttpException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode());
+        if (status == null) {
+            status = HttpStatus.BAD_GATEWAY;
+        }
+
+        String requestId = request != null ? request.getHeader("X-Request-Id") : null;
+        if (requestId == null || requestId.isBlank()) {
+            requestId = "-";
+        }
+
+        String responseBody = ex.getResponseBody();
+        boolean planIneligible = isPlanIneligibleResponse(responseBody);
+
+        if (status.is5xxServerError()) {
+            log.error("ContaAzul HTTP error request_id={} status={} body={}", requestId, status.value(), responseBody);
+        } else {
+            log.warn("ContaAzul HTTP client error request_id={} status={} body={}", requestId, status.value(), responseBody);
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatus(status);
+        problem.setTitle("ContaAzul external service error");
+        problem.setDetail(planIneligible
+                ? "Conta Azul sem elegibilidade para API no plano atual (END_TRIAL)."
+                : ex.getMessage());
+        problem.setProperty("request_id", requestId);
+        return problem;
+    }
+
     /**
      * Trata exceções genéricas não capturadas pelos handlers específicos.
      * Retorna HTTP 500 Internal Server Error.
@@ -157,5 +188,14 @@ public class GlobalExceptionHandler {
         problem.setDetail(ex.getMessage());
         problem.setProperty("request_id", requestId);
         return problem;
+    }
+
+    private boolean isPlanIneligibleResponse(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return false;
+        }
+
+        String normalized = responseBody.toUpperCase();
+        return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 }

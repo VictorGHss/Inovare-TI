@@ -196,7 +196,8 @@ public class ContaAzulSalesClient {
         // Normaliza host/caminho para evitar regressão com endpoints legados contendo /api.
         String normalized = receivableEventsSearchUrl.trim();
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        normalized = normalized.replace("/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
     }
 
@@ -208,7 +209,8 @@ public class ContaAzulSalesClient {
         String normalized = rawUrl.trim();
         // Força domínio oficial v2 e remove prefixo /api legado quando presente.
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        normalized = normalized.replace("/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         if (normalized.contains("/v1/sales")) {
             return normalized.replace("/v1/sales", "/v1/venda/busca");
         }

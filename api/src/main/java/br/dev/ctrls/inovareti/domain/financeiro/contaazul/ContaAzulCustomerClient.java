@@ -128,7 +128,8 @@ public class ContaAzulCustomerClient {
                 : "https://api-v2.contaazul.com/v1/pessoas";
 
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        normalized = normalized.replace("/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
     }
 
@@ -138,7 +139,8 @@ public class ContaAzulCustomerClient {
                 : "https://api-v2.contaazul.com/v1/pessoas/{id}";
 
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        normalized = normalized.replace("/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
+        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
     }
 }

@@ -152,20 +152,23 @@ public class FinanceiroController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/medicos/sincronizar-base")
     public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
-        SyncDoctorsResult result;
         try {
-            result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
-        } catch (ContaAzulHttpException ex) {
-            if (ex.isStatus(403) && isPlanIneligibleResponse(ex.getResponseBody())) {
+            SyncDoctorsResult result = contaAzulAutomationService.syncAllDoctorsFromContaAzul();
+            return ResponseEntity.ok(new SyncDoctorsResponseDTO(
+                    result.novos(),
+                    result.atualizados()));
+        } catch (RuntimeException ex) {
+            // Blindagem obrigatória do endpoint de sincronização: erro externo não derruba o processo da API.
+            if (ex instanceof ContaAzulHttpException httpEx
+                    && httpEx.isStatus(403)
+                    && isPlanIneligibleResponse(httpEx.getResponseBody())) {
                 log.warn("Sincronização de médicos indisponível: conta Conta Azul sem elegibilidade de API (END_TRIAL). Retornando resultado vazio.");
-                return ResponseEntity.ok(new SyncDoctorsResponseDTO(0, 0));
+            } else {
+                log.error("Falha de integração ao sincronizar base de médicos com a Conta Azul. Retornando resultado vazio para manter serviço ativo.", ex);
             }
-            throw ex;
-        }
 
-        return ResponseEntity.ok(new SyncDoctorsResponseDTO(
-                result.novos(),
-                result.atualizados()));
+            return ResponseEntity.ok(new SyncDoctorsResponseDTO(0, 0));
+        }
     }
 
     private boolean isPlanIneligibleResponse(String responseBody) {

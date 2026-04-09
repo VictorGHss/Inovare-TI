@@ -17,7 +17,13 @@ public class ContaAzulAutomationService {
     private final ContaAzulReceiptProcessor contaAzulReceiptProcessor;
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
-        return contaAzulSyncService.syncAllDoctorsFromContaAzul();
+        try {
+            // Protege a sincronização de médicos para que falhas externas não interrompam o serviço.
+            return contaAzulSyncService.syncAllDoctorsFromContaAzul();
+        } catch (RuntimeException ex) {
+            log.error("Falha ao sincronizar médicos na Conta Azul. Retornando resultado vazio para manter API viva.", ex);
+            return new SyncDoctorsResult(0, 0);
+        }
     }
 
     public TesteEnvioRealResult processRealSaleTest(String saleId) {
@@ -42,6 +48,12 @@ public class ContaAzulAutomationService {
     }
 
     public ContaAzulReceiptProcessor.ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
-        return contaAzulReceiptProcessor.processAcquittedSales(dataInicio, dataFim);
+        try {
+            // Blindagem da execução manual: integração indisponível não deve propagar IllegalStateException.
+            return contaAzulReceiptProcessor.processAcquittedSales(dataInicio, dataFim);
+        } catch (RuntimeException ex) {
+            log.error("Falha ao processar automação financeira no período [{} - {}]. Retornando resultado vazio.", dataInicio, dataFim, ex);
+            return ContaAzulReceiptProcessor.ReceiptProcessingResult.empty();
+        }
     }
 }

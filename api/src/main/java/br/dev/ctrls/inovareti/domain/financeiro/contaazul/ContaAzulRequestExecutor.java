@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -70,7 +71,9 @@ public class ContaAzulRequestExecutor {
                 sanitizeTokenPrefix(token.getAccessToken()));
         log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
 
-        URI externalUri = URI.create(url);
+        // Validação final em nível de URI para impedir envio real com prefixo /api.
+        URI externalUri = buildContaAzulUri(url);
+        log.info("ContaAzul external request path final: host={} path={}", externalUri.getHost(), externalUri.getPath());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(externalUri)
@@ -116,7 +119,7 @@ public class ContaAzulRequestExecutor {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        URI externalUri = URI.create(sanitizedUri);
+        URI externalUri = buildContaAzulUri(sanitizedUri);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(externalUri)
@@ -146,7 +149,7 @@ public class ContaAzulRequestExecutor {
         }
 
         String sanitizedUri = sanitizeContaAzulUri(url.trim());
-        URI externalUri = URI.create(sanitizedUri);
+        URI externalUri = buildContaAzulUri(sanitizedUri);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(externalUri)
@@ -247,5 +250,41 @@ public class ContaAzulRequestExecutor {
         // Corrige casos raros onde o endpoint venha como /api/... sem versão explícita.
         sanitized = sanitized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return sanitized;
+    }
+
+    private URI buildContaAzulUri(String sanitizedUrl) {
+        URI candidate = URI.create(sanitizedUrl);
+
+        if (!isContaAzulHost(candidate.getHost()) || !hasLegacyApiPrefix(candidate.getPath())) {
+            return candidate;
+        }
+
+        String normalizedPath = candidate.getPath()
+                .replaceFirst("(?i)^/api/v1/", "/v1/")
+                .replaceFirst("(?i)^/api/", "/");
+
+        try {
+            URI normalized = new URI(
+                    candidate.getScheme(),
+                    candidate.getUserInfo(),
+                    candidate.getHost(),
+                    candidate.getPort(),
+                    normalizedPath,
+                    candidate.getRawQuery(),
+                    candidate.getRawFragment());
+            log.warn("URI da Conta Azul foi corrigida em nível final para remover /api: original={} normalized={}", candidate, normalized);
+            return normalized;
+        } catch (URISyntaxException ex) {
+            log.warn("Falha ao corrigir URI final da Conta Azul. Usando URI sanitizada por string: {}", sanitizedUrl, ex);
+            return candidate;
+        }
+    }
+
+    private boolean isContaAzulHost(String host) {
+        return StringUtils.hasText(host) && host.toLowerCase().contains("contaazul.com");
+    }
+
+    private boolean hasLegacyApiPrefix(String path) {
+        return StringUtils.hasText(path) && path.toLowerCase().startsWith("/api/");
     }
 }

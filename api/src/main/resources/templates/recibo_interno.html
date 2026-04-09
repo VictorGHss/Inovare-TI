@@ -32,13 +32,19 @@
             margin-bottom: 60px;
         }
 
+        .header-top {
+            display: table;
+            width: 100%;
+        }
+
         .logo-box {
-            display: block;
-            margin-bottom: 30px;
+            display: table-cell;
+            width: 180px;
+            vertical-align: middle;
         }
 
         .logo-image {
-            width: 300px;
+            width: 160px;
             height: auto;
             object-fit: contain;
             display: block;
@@ -54,8 +60,9 @@
         }
 
         .company {
-            display: inline-block;
-            vertical-align: top;
+            display: table-cell;
+            vertical-align: middle;
+            padding-left: 8px;
         }
 
         .company h1 {
@@ -116,7 +123,8 @@
 
         .footer {
             text-align: center;
-            margin-bottom: 60px;
+            margin-top: 44px;
+            margin-bottom: 0;
         }
 
         .line {
@@ -131,24 +139,28 @@
         }
 
         .date {
-            margin-top: 22px;
+            margin-top: 24px;
             text-align: right;
             font-size: 13px;
             color: #555;
+            clear: both;
         }
     </style>
 </head>
 <body>
 <div class="sheet">
     <div class="header">
-        <div class="logo-box">
-            <img class="logo-image" th:if="${logoBase64 != null}" th:src="|data:image/png;base64,${logoBase64}|" alt="Logo Inovare" />
-            <div class="logo-fallback" th:if="${logoBase64 == null}">INOVARE</div>
-        </div>
-        <div class="company">
-            <h1>Condomínio Edifício Inovare</h1>
-            <p>CNPJ: 13.481.879/0001-82</p>
-            <p>Recibo</p>
+        <div class="header-top">
+            <div class="logo-box">
+                <img class="logo-image" th:if="${logoBase64 != null}" th:src="|data:image/png;base64,${logoBase64}|" alt="Logo Inovare" />
+                <div class="logo-fallback" th:if="${logoBase64 == null}">INOVARE</div>
+            </div>
+            <div class="company">
+                <h1>Condomínio Edifício Inovare</h1>
+                <p>CNPJ: 13.481.879/0001-82&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IE: ISENTO</p>
+                <p>Rua Carlos Osternack, 111, Ponta Grossa - PR</p>
+                <p>CEP: 84040-120</p>
+            </div>
         </div>
         <div class="title">RECIBO</div>
     </div>
@@ -167,12 +179,12 @@
         <div><strong>Data de pagamento:</strong> <span th:text="${paymentDate}">01/01/2026</span></div>
     </div>
 
-    <div class="date" th:text="${city} + ', ' + ${issueDate}">Ponta Grossa(PR), 01 de janeiro de 2026</div>
-
     <div class="footer">
         <div class="line"></div>
         <div class="sign">Administração - Condomínio Edifício Inovare</div>
     </div>
+
+    <div class="date" th:text="${city} + ', ' + ${issueDate}">Ponta Grossa(PR), 01 de janeiro de 2026</div>
 </div>
 </body>
 </html>

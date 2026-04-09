@@ -196,8 +196,19 @@ public class ContaAzulSalesClient {
         // Normaliza host/caminho para evitar regressão com endpoints legados contendo /api.
         String normalized = receivableEventsSearchUrl.trim();
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replaceAll("/+$", "");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
+
+        // Garante endpoint V2 de busca com filtros, mesmo quando vier configuração antiga.
+        if (normalized.matches("(?i).*/v1/financeiro/contas-a-receber$")) {
+            normalized = normalized.replaceAll(
+                    "(?i)/v1/financeiro/contas-a-receber$",
+                    "/v1/financeiro/eventos-financeiros/contas-a-receber/buscar");
+        } else if (normalized.matches("(?i).*/v1/financeiro/eventos-financeiros/contas-a-receber$")) {
+            normalized = normalized + "/buscar";
+        }
+
         return normalized;
     }
 

@@ -254,11 +254,23 @@ public class ContaAzulPaymentsClient {
     private String normalizeContaAzulUrl(String rawUrl) {
         String normalized = StringUtils.hasText(rawUrl)
                 ? rawUrl.trim()
-                : "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber";
+                : "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
 
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        // Remove barra final para reduzir risco de path divergente entre ambientes.
+        normalized = normalized.replaceAll("/+$", "");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
+
+        // Migra automaticamente configuração antiga sem /eventos-financeiros e/ou sem /buscar.
+        if (normalized.matches("(?i).*/v1/financeiro/contas-a-receber$")) {
+            normalized = normalized.replaceAll(
+                    "(?i)/v1/financeiro/contas-a-receber$",
+                    "/v1/financeiro/eventos-financeiros/contas-a-receber/buscar");
+        } else if (normalized.matches("(?i).*/v1/financeiro/eventos-financeiros/contas-a-receber$")) {
+            normalized = normalized + "/buscar";
+        }
+
         return normalized;
     }
 

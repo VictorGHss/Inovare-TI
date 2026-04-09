@@ -43,7 +43,8 @@ public class ContaAzulCustomerClient {
 
         String normalizedEmail = email.trim();
 
-        String uri = UriComponentsBuilder.fromUriString(customersV1Url)
+        // Garante endpoint oficial /v1/pessoas no host api-v2.contaazul.com.
+        String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(customersV1Url))
                 .queryParam("emails", normalizedEmail)
                 .build()
                 .encode(StandardCharsets.UTF_8)
@@ -67,7 +68,8 @@ public class ContaAzulCustomerClient {
         }
 
         String normalizedId = customerId.trim();
-        String uri = customerByIdV1UrlTemplate
+        // Garante endpoint oficial /v1/pessoas/{id} para consulta individual.
+        String uri = normalizePeopleByIdTemplate(customerByIdV1UrlTemplate)
                 .replace("{id}", normalizedId)
                 .replace("{customerId}", normalizedId);
 
@@ -88,7 +90,8 @@ public class ContaAzulCustomerClient {
         Long totalExpected = null;
 
         for (int page = 1; page <= MAX_PAGES; page++) {
-            String uri = UriComponentsBuilder.fromUriString(customersV1Url)
+            // Usa base normalizada para impedir chamadas legadas com /api/v1.
+            String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(customersV1Url))
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
                     .build()
@@ -117,5 +120,25 @@ public class ContaAzulCustomerClient {
         }
 
         return pessoas;
+    }
+
+    private String normalizePeopleBaseUrl(String rawUrl) {
+        String normalized = StringUtils.hasText(rawUrl)
+                ? rawUrl.trim()
+                : "https://api-v2.contaazul.com/v1/pessoas";
+
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replace("/api/v1/", "/v1/");
+        return normalized;
+    }
+
+    private String normalizePeopleByIdTemplate(String rawTemplate) {
+        String normalized = StringUtils.hasText(rawTemplate)
+                ? rawTemplate.trim()
+                : "https://api-v2.contaazul.com/v1/pessoas/{id}";
+
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replace("/api/v1/", "/v1/");
+        return normalized;
     }
 }

@@ -26,6 +26,9 @@ public class ContaAzulFinancialClient {
     @Value("${app.contaazul.baixa-details-url}")
     private String baixaDetailsUrl;
 
+    @Value("${app.contaazul.parcela-by-id-url-template:https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}}")
+    private String parcelaByIdUrlTemplate;
+
     @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
     private String customerByIdV1UrlTemplate;
 
@@ -99,6 +102,13 @@ public class ContaAzulFinancialClient {
             return Optional.empty();
         }
 
+        // Primeiro tenta pelo endpoint oficial da parcela para manter o mapeamento alinhado com a API atual.
+        Optional<ContaAzulClient.ParcelaDetailDTO> parcelaDetailOpt = fetchParcelaDetail(parcelaId);
+        if (parcelaDetailOpt.isPresent() && StringUtils.hasText(parcelaDetailOpt.get().baixaId())) {
+            return Optional.of(parcelaDetailOpt.get().baixaId().trim());
+        }
+
+        // Fallback de compatibilidade com endpoint de baixa legado ainda aceito em algumas contas.
         String uri = "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/"
                 + parcelaId.trim()
                 + "/baixa";
@@ -124,7 +134,8 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        String uri = "https://api-v2.contaazul.com/v1/financeiro/contas-a-receber/" + normalizedParcelaUuid;
+        // Endpoint oficial para parcela financeira, usado para obter referência da venda.
+        String uri = buildParcelaByIdUri(normalizedParcelaUuid);
 
         try {
             String payload = requestExecutor.executeJsonGetWithRefresh(uri);
@@ -223,5 +234,15 @@ public class ContaAzulFinancialClient {
                 : baseUrl;
 
         return normalizedBase + "/" + settlementId;
+    }
+
+    private String buildParcelaByIdUri(String parcelaId) {
+        String template = StringUtils.hasText(parcelaByIdUrlTemplate)
+                ? parcelaByIdUrlTemplate.trim()
+                : "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}";
+
+        return template
+                .replace("{id}", parcelaId)
+                .replace("{parcelaId}", parcelaId);
     }
 }

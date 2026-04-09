@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpClientErrorException.Unauthorized;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -160,8 +161,8 @@ public class ContaAzulFinancialSummaryService {
     private ResponseEntity<String> executePaymentsRequest(String status, String accessToken) {
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-        String dataVencimentoDe = inicioMesAtual.format(DATE_FORMATTER);
-        String dataVencimentoAte = hoje.format(DATE_FORMATTER);
+        String dataVencimentoDe = formatDateForContaAzul(inicioMesAtual);
+        String dataVencimentoAte = formatDateForContaAzul(hoje);
 
         log.debug(
             "Parâmetros ContaAzul (resumo mensal): vencimento_de={}, vencimento_ate={}, status={}",
@@ -169,12 +170,15 @@ public class ContaAzulFinancialSummaryService {
             dataVencimentoAte,
             status);
 
-        String uri = paymentsUrl
-                + "?pagina=1"
-                + "&tamanho_pagina=100"
-                + "&data_vencimento_de=" + dataVencimentoDe
-                + "&data_vencimento_ate=" + dataVencimentoAte
-                + "&status=" + status;
+        // Envia explicitamente os parâmetros obrigatórios de vencimento no formato YYYY-MM-DD.
+        String uri = UriComponentsBuilder.fromUriString(paymentsUrl)
+            .queryParam("pagina", 1)
+            .queryParam("tamanho_pagina", 100)
+            .queryParam("data_vencimento_de", dataVencimentoDe)
+            .queryParam("data_vencimento_ate", dataVencimentoAte)
+            .queryParam("status", status)
+            .build()
+            .toUriString();
 
         log.debug("Chamando ContaAzul: {}", uri);
 
@@ -190,6 +194,11 @@ public class ContaAzulFinancialSummaryService {
 
         log.debug("ContaAzul response body (resumo, status={}): {}", status, responseEntity.getBody());
         return responseEntity;
+    }
+
+    // Centraliza a formatação de data exigida pela API da Conta Azul (YYYY-MM-DD).
+    private String formatDateForContaAzul(LocalDate date) {
+        return date.format(DATE_FORMATTER);
     }
 
     // Extrai do JSON retornado o total (campo em path configurado) e converte para centavos.

@@ -110,6 +110,9 @@ public class ContaAzulReceiptProcessor {
             throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
         }
 
+        // Usa endpoint oficial da parcela para mapear o sale_id em evento_financeiro.referencia.id (origem VENDA).
+        String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
+
         String baixaId = baixaIdOpt.get().trim();
         if (!StringUtils.hasText(baixaId)) {
             throw new IllegalStateException("baixaId inválido (nulo/vazio) para a parcela da venda informada.");
@@ -124,11 +127,11 @@ public class ContaAzulReceiptProcessor {
         receiptEmailService.sendReceiptForRealSaleTest(
                 doctorName,
                 recipientEmail,
-                sale.saleId(),
+            resolvedSaleId,
                 pdfBytes);
 
-        log.info("Teste real finalizado com sucesso para a venda {}.", sale.saleId());
-        return new TesteEnvioRealResult(sale.saleId(), doctorName, recipientEmail, pdfBytes.length);
+        log.info("Teste real finalizado com sucesso para a venda {}.", resolvedSaleId);
+        return new TesteEnvioRealResult(resolvedSaleId, doctorName, recipientEmail, pdfBytes.length);
     }
 
     public void processCurrentMonthAcquittedSales() {
@@ -226,6 +229,9 @@ public class ContaAzulReceiptProcessor {
                 log.info("Parcela recebida para processamento: parcelaId={}",
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
+                // Garante sale_id oficial para origem VENDA via endpoint /v1/financeiro/eventos-financeiros/parcelas/{id}.
+                String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
+
                 Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
                 if (baixaIdOpt.isEmpty()) {
                     log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.",
@@ -234,7 +240,7 @@ public class ContaAzulReceiptProcessor {
                         "Nenhuma baixa encontrada para a parcela " + sale.parcelaId() + ". Item não processado.");
                     String markId = StringUtils.hasText(sale.parcelaId())
                             ? sale.parcelaId()
-                            : (StringUtils.hasText(sale.saleId()) ? sale.saleId() : null);
+                            : (StringUtils.hasText(resolvedSaleId) ? resolvedSaleId : null);
 
                     if (markId != null) {
                         try {
@@ -386,7 +392,7 @@ public class ContaAzulReceiptProcessor {
                                         + " tentativas. Erro: " + ex.getMessage();
                                 receiptAlertService.notifyPermanentReceiptFailure(
                                     baixaId,
-                                    sale.saleId(),
+                                    resolvedSaleId,
                                     mapping.getDoctorName(),
                                     attempts,
                                     details);
@@ -424,7 +430,7 @@ public class ContaAzulReceiptProcessor {
                                         + " tentativas. Marcado como processado.";
                                 receiptAlertService.notifyPermanentReceiptFailure(
                                     baixaId,
-                                    sale.saleId(),
+                                    resolvedSaleId,
                                     mapping.getDoctorName(),
                                     attempts,
                                     details);
@@ -454,7 +460,7 @@ public class ContaAzulReceiptProcessor {
                 receiptEmailService.sendReceiptForBaixa(
                         doctorName,
                         recipientEmail,
-                    sale.saleId(),
+                    resolvedSaleId,
                         baixaId,
                         pdfBytes);
 
@@ -498,6 +504,26 @@ public class ContaAzulReceiptProcessor {
                 noAttachmentWarnings,
                 mappingWarnings,
                 List.copyOf(errors));
+    }
+
+    // Resolve o sale_id com prioridade para referência oficial da parcela quando a origem for VENDA.
+    private String resolveSaleIdForReceiptFlow(ContaAzulClient.SaleItem sale) {
+        String fallbackSaleId = StringUtils.hasText(sale.saleId()) ? sale.saleId().trim() : null;
+
+        if (!"VENDA".equalsIgnoreCase(sale.origem()) || !StringUtils.hasText(sale.parcelaId())) {
+            return fallbackSaleId;
+        }
+
+        try {
+            Optional<ContaAzulClient.ParcelaDetailDTO> detailOpt = contaAzulClient.fetchParcelaDetail(sale.parcelaId());
+            if (detailOpt.isPresent() && StringUtils.hasText(detailOpt.get().saleId())) {
+                return detailOpt.get().saleId().trim();
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Não foi possível resolver sale_id pela parcela {}. Mantendo fallback do item.", sale.parcelaId(), ex);
+        }
+
+        return fallbackSaleId;
     }
 
     private boolean isPlanIneligibleResponse(String responseBody) {

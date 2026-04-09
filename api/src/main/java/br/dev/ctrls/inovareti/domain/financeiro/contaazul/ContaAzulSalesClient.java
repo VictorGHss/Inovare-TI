@@ -40,7 +40,7 @@ public class ContaAzulSalesClient {
     @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/venda/busca}")
     private String salesV2Url;
 
-    @Value("${app.contaazul.sales-v2-stable-url:https://api.contaazul.com/v2/sales}")
+    @Value("${app.contaazul.sales-v2-stable-url:https://api-v2.contaazul.com/v1/venda/busca}")
     private String salesV2StableUrl;
 
     /**
@@ -192,7 +192,12 @@ public class ContaAzulSalesClient {
         if (!StringUtils.hasText(receivableEventsSearchUrl)) {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }
-        return receivableEventsSearchUrl.trim();
+
+        // Normaliza host/caminho para evitar regressão com endpoints legados contendo /api.
+        String normalized = receivableEventsSearchUrl.trim();
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replace("/api/v1/", "/v1/");
+        return normalized;
     }
 
     private String normalizeSaleSearchBaseUrl(String rawUrl) {
@@ -201,6 +206,9 @@ public class ContaAzulSalesClient {
         }
 
         String normalized = rawUrl.trim();
+        // Força domínio oficial v2 e remove prefixo /api legado quando presente.
+        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
+        normalized = normalized.replace("/api/v1/", "/v1/");
         if (normalized.contains("/v1/sales")) {
             return normalized.replace("/v1/sales", "/v1/venda/busca");
         }

@@ -235,9 +235,17 @@ public class ContaAzulRequestExecutor {
         }
 
         String sanitized = uri.trim();
+
+        // Garante host oficial atual da Conta Azul para as integrações da API v2.
         sanitized = sanitized.replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
         sanitized = sanitized.replace("https://api.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
         sanitized = sanitized.replace("api.contaazul.com", "api-v2.contaazul.com");
+
+        // Remove prefixo /api legado em qualquer variação de caixa, mantendo path final como /v1/...
+        sanitized = sanitized.replaceAll("(?i)/api/v1/", "/v1/");
+
+        // Corrige casos raros onde o endpoint venha como /api/... sem versão explícita.
+        sanitized = sanitized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return sanitized;
     }
 }

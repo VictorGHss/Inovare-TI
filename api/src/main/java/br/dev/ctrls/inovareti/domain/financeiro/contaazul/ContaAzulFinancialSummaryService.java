@@ -103,6 +103,7 @@ public class ContaAzulFinancialSummaryService {
 
             // Busca parcelas recebidas para calcular total pago real por baixas.
             ReceivedParcelsResult receivedParcelsResult = safeFetchReceivedParcels(accessToken);
+            log.info("Resumo financeiro: parcelas recebidas identificadas no período = {}", receivedParcelsResult.parcels().size());
             StatusResult pendingResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
             StatusResult paidResult = safeFetchTotalPaidByBaixas(accessToken, receivedParcelsResult.parcels(), executor);
             StatusResult balanceResult = safeFetchConsolidatedBalance(accessToken, executor);
@@ -265,45 +266,61 @@ public class ContaAzulFinancialSummaryService {
             OffsetDateTime latestUpdate) {
     }
 
-    private static record FinancialAccountRef(String accountId, String type, boolean active) {
+        private static record FinancialAccountRef(String accountId, String name, String type, boolean active) {
+        }
+
+        private static record AccountBalanceAudit(FinancialAccountRef account, long balanceCents, boolean includedInBalance) {
     }
 
     private StatusResult fetchConsolidatedBalance(String accessToken, ExecutorService executor) {
         List<FinancialAccountRef> financialAccounts = fetchFinancialAccounts(accessToken);
-        List<FinancialAccountRef> eligibleAccounts = financialAccounts.stream()
-                .filter(FinancialAccountRef::active)
-                .filter(account -> isAssetAccountType(account.type()))
-                .toList();
-
-        long ignoredLiabilityAccounts = financialAccounts.stream()
-                .filter(FinancialAccountRef::active)
-                .filter(account -> isLiabilityAccountType(account.type()))
-                .count();
-
-        if (ignoredLiabilityAccounts > 0) {
-            // Regra de negócio oficial: cartão de crédito é passivo e não entra no saldo consolidado de caixa.
-            log.info("Ignorando {} conta(s) do tipo CARTAO_CREDITO no saldo consolidado.", ignoredLiabilityAccounts);
-        }
-
-        if (eligibleAccounts.isEmpty()) {
+        if (financialAccounts.isEmpty()) {
             return new StatusResult(0L, true);
         }
 
         AtomicBoolean available = new AtomicBoolean(true);
-        List<CompletableFuture<Long>> futures = eligibleAccounts.stream()
+        List<CompletableFuture<AccountBalanceAudit>> futures = financialAccounts.stream()
                 .map(account -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        return fetchAccountCurrentBalanceCents(accessToken, account.accountId());
+                        long accountBalanceCents = fetchAccountCurrentBalanceCents(accessToken, account.accountId());
+                        boolean includeInBalance = account.active() && isAssetAccountType(account.type());
+
+                        // Log de auditoria para cada conta retornada pela API da Conta Azul.
+                        log.info(
+                                "Processando conta: Nome={}, Tipo={}, Saldo={}",
+                                account.name(),
+                                account.type(),
+                                accountBalanceCents);
+
+                        if (account.active() && isLiabilityAccountType(account.type())) {
+                            // Regra de negócio: cartão de crédito representa passivo e não compõe saldo consolidado de caixa.
+                            log.info("Conta {} ignorada no consolidado por ser passivo (tipo {}).", account.name(), account.type());
+                        }
+
+                        if (!account.active()) {
+                            log.info("Conta {} ignorada no consolidado por estar inativa.", account.name());
+                        }
+
+                        if (account.active() && !isAssetAccountType(account.type()) && !isLiabilityAccountType(account.type())) {
+                            log.info("Conta {} ignorada por tipo fora da whitelist de ativos: {}.", account.name(), account.type());
+                        }
+
+                        return new AccountBalanceAudit(account, accountBalanceCents, includeInBalance);
                     } catch (Exception ex) {
                         available.set(false);
                         log.warn("Falha ao consultar saldo atual da conta financeira {}.", account.accountId(), ex);
-                        return 0L;
+                        return new AccountBalanceAudit(account, 0L, false);
                     }
                 }, executor))
                 .toList();
 
-        long totalBalance = futures.stream()
-                .mapToLong(CompletableFuture::join)
+        List<AccountBalanceAudit> audits = futures.stream()
+                .map(CompletableFuture::join)
+                .toList();
+
+        long totalBalance = audits.stream()
+                .filter(AccountBalanceAudit::includedInBalance)
+                .mapToLong(AccountBalanceAudit::balanceCents)
                 .sum();
 
         return new StatusResult(totalBalance, available.get());
@@ -328,9 +345,14 @@ public class ContaAzulFinancialSummaryService {
                     continue;
                 }
 
+                String accountName = jsonSafeReader.readText(accountNode, "nome", "name", "descricao", "description");
                 boolean active = readBooleanFromPaths(accountNode, "ativo", "active", "is_active", "isActive");
                 String accountType = normalizeAccountType(jsonSafeReader.readText(accountNode, "tipo", "type", "categoria"));
-                accounts.add(new FinancialAccountRef(accountId.trim(), accountType, active));
+                accounts.add(new FinancialAccountRef(
+                        accountId.trim(),
+                        StringUtils.hasText(accountName) ? accountName.trim() : accountId.trim(),
+                        accountType,
+                        active));
             }
 
             return accounts;
@@ -405,16 +427,17 @@ public class ContaAzulFinancialSummaryService {
 
         try {
             JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
-            BigDecimal balance = readDecimalFromPaths(
+            Long balanceCents = readAmountCentsFromPaths(
                     root,
                     "saldo.valor",
-                    "saldo",
+                    "saldo_em_centavos",
                     "saldo_atual.valor",
-                    "saldo_atual",
+                    "saldo_atual_em_centavos",
+                    "valor_em_centavos",
                     "valor",
                     "data.saldo",
                     "data.valor");
-            return balance != null ? toCents(balance) : 0L;
+            return balanceCents != null ? balanceCents : 0L;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar saldo da conta financeira " + accountId + ".", ex);
         }
@@ -475,20 +498,25 @@ public class ContaAzulFinancialSummaryService {
 
             BigDecimal total = BigDecimal.ZERO;
             for (JsonNode baixaNode : baixasNode) {
-                BigDecimal baixaAmount = readDecimalFromPaths(
+                Long baixaAmountCents = readAmountCentsFromPaths(
                         baixaNode,
                         "valor_liquido",
                         "valorLiquido",
+                        "valor_liquido_em_centavos",
+                        "valorLiquidoEmCentavos",
                         "valor_liquido.valor",
+                        "valor_liquido.centavos",
                         "liquido.valor");
 
                 // Regra oficial V2: total pago deve refletir exclusivamente a soma de valor_liquido das baixas.
-                if (baixaAmount != null) {
-                    total = total.add(baixaAmount);
+                if (baixaAmountCents != null) {
+                    String vendaId = StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
+                    log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaAmountCents);
+                    total = total.add(BigDecimal.valueOf(baixaAmountCents));
                 }
             }
 
-            return toCents(total);
+            return total.longValue();
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar detalhe de baixas da parcela " + parcel.parcelaId() + ".", ex);
         }
@@ -497,6 +525,11 @@ public class ContaAzulFinancialSummaryService {
     private ReceivedParcelsResult fetchReceivedParcels(String accessToken) {
         Map<String, ReceivableParcelRef> parcelMap = new LinkedHashMap<>();
         OffsetDateTime latestUpdate = null;
+
+        // Período oficial do resumo: do primeiro dia do mês atual até hoje.
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
 
         for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
             ResponseEntity<String> response = executePaymentsRequest(ContaAzulStatus.RECEBIDO, accessToken, page);
@@ -761,34 +794,36 @@ public class ContaAzulFinancialSummaryService {
                 default -> throw new IllegalStateException("Status não suportado para cálculo do resumo: " + status);
             }
 
-            BigDecimal total = readDecimal(root, totalPath);
-            return total != null ? toCents(total) : 0L;
+            Long totalCents = readAmountCentsFromPaths(root, totalPath);
+            return totalCents != null ? totalCents : 0L;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao calcular resumo financeiro da Conta Azul.", ex);
         }
     }
 
-    // Lê um valor decimal a partir do `JsonNode` navegando pelo `path` (pontos como separador).
-    // Suporta números e strings com formatação localizada (R$ 1.234,56).
-    private BigDecimal readDecimal(JsonNode node, String path) {
-        JsonNode current = node;
-        for (String segment : path.split("\\.")) {
-            if (current == null) {
-                return null;
+    private Long readAmountCentsFromPaths(JsonNode node, String... paths) {
+        for (String path : paths) {
+            JsonNode valueNode = readNode(node, path);
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
             }
-            current = current.get(segment);
+
+            Long normalizedCents = normalizeAmountNodeToCents(valueNode, path);
+            if (normalizedCents != null) {
+                return normalizedCents;
+            }
         }
 
-        if (current == null || current.isNull()) {
-            return null;
+        return null;
+    }
+
+    private Long normalizeAmountNodeToCents(JsonNode valueNode, String sourcePath) {
+        if (valueNode.isNumber()) {
+            return normalizeAmountToCents(valueNode.decimalValue(), sourcePath);
         }
 
-        if (current.isNumber()) {
-            return current.decimalValue();
-        }
-
-        if (current.isTextual()) {
-            String raw = current.asText().trim();
+        if (valueNode.isTextual()) {
+            String raw = valueNode.asText().trim();
             if (raw.isBlank()) {
                 return null;
             }
@@ -801,7 +836,7 @@ public class ContaAzulFinancialSummaryService {
             }
 
             try {
-                return new BigDecimal(normalized);
+                return normalizeAmountToCents(new BigDecimal(normalized), sourcePath);
             } catch (NumberFormatException ex) {
                 return null;
             }
@@ -810,15 +845,25 @@ public class ContaAzulFinancialSummaryService {
         return null;
     }
 
-    private BigDecimal readDecimalFromPaths(JsonNode node, String... paths) {
-        for (String path : paths) {
-            BigDecimal value = readDecimal(node, path);
-            if (value != null) {
-                return value;
-            }
+    private Long normalizeAmountToCents(BigDecimal amount, String sourcePath) {
+        if (amount == null) {
+            return null;
         }
 
-        return null;
+        String normalizedPath = sourcePath != null ? sourcePath.toLowerCase() : "";
+        boolean explicitCents = normalizedPath.contains("centavo") || normalizedPath.contains("centavos");
+
+        if (explicitCents) {
+            // Quando o campo já indica centavos, evita multiplicação por 100 (erro de escala).
+            return amount.setScale(0, RoundingMode.HALF_UP).longValue();
+        }
+
+        if (amount.scale() > 0) {
+            return toCents(amount);
+        }
+
+        // Na API financeira V2 da Conta Azul, valores integrais geralmente já são retornados em centavos.
+        return amount.longValue();
     }
 
     // Converte `BigDecimal` em centavos (long) arredondando HALF_UP.

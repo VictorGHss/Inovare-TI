@@ -23,16 +23,8 @@ function formatDate(value?: string | null): string {
     return `${day}/${month}/${year} ${hour}:${minute}`;
   }
 
-  // Fallback para formatos fora do padrão ISO esperado.
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
+  // Fallback: mantém o valor original do servidor quando não casar no ISO padrão.
+  return normalized;
 }
 
 export default function FinancialDashboard() {

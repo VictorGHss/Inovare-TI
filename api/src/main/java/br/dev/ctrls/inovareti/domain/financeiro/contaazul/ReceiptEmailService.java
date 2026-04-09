@@ -9,6 +9,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -134,7 +135,7 @@ public class ReceiptEmailService {
             // Blindagem do fluxo financeiro: falha SMTP não deve interromper sincronização de parcelas.
             mailSender.send(message);
             log.info("Recibo enviado por e-mail para {} (destino original: {})", dispatch.to(), destinationEmail);
-        } catch (Exception e) {
+        } catch (MailException e) {
             log.error("Falha ao enviar e-mail de recibo para {}. Processamento seguirá sem crash.", dispatch.to(), e);
         }
     }

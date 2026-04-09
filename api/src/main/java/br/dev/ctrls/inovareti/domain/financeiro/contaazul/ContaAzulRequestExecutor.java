@@ -83,11 +83,19 @@ public class ContaAzulRequestExecutor {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.error(
-                        "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
-                        response.statusCode(),
-                        url,
-                        response.body());
+                if (response.statusCode() == 403) {
+                    log.warn(
+                            "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
+                            response.statusCode(),
+                            url,
+                            response.body());
+                } else {
+                    log.error(
+                            "Conta Azul retornou {} ao consultar URI {}. Corpo do erro: {}",
+                            response.statusCode(),
+                            url,
+                            response.body());
+                }
                 throw new ContaAzulHttpException(response.statusCode(), response.body());
             }
             return response;

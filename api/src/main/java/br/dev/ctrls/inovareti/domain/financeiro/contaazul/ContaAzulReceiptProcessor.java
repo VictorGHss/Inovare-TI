@@ -174,6 +174,22 @@ public class ContaAzulReceiptProcessor {
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
         } catch (RuntimeException ex) {
+            if (ex instanceof ContaAzulHttpException httpEx
+                    && httpEx.isStatus(403)
+                    && isPlanIneligibleResponse(httpEx.getResponseBody())) {
+                String message = "Conta Azul indisponível para automação: conta sem elegibilidade de API (END_TRIAL).";
+                log.warn(message);
+                return new ReceiptProcessingResult(
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        List.of(message));
+            }
+
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
             return new ReceiptProcessingResult(
                     0,
@@ -482,6 +498,15 @@ public class ContaAzulReceiptProcessor {
                 noAttachmentWarnings,
                 mappingWarnings,
                 List.copyOf(errors));
+    }
+
+    private boolean isPlanIneligibleResponse(String responseBody) {
+        if (!StringUtils.hasText(responseBody)) {
+            return false;
+        }
+
+        String normalized = responseBody.toUpperCase();
+        return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 
     /**

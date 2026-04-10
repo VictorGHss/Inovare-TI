@@ -18,6 +18,9 @@ RUN npm run build
 # Stage 2: Runtime stage with Nginx
 FROM nginx:alpine
 
+# Limpa a pasta de publicação para evitar sobras de assets antigos entre versões.
+RUN rm -rf /usr/share/nginx/html/*
+
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 

@@ -19,7 +19,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -112,11 +111,8 @@ public class ContaAzulFinancialSummaryService {
             long totalPendingCents = pendingResult.total();
             long balanceCents = balanceResult.total();
 
-            boolean externalServiceAvailable =
-                    receivedParcelsResult.available()
-                            && pendingResult.available()
-                            && paidResult.available()
-                            && balanceResult.available();
+                // Regra de robustez: disponibilidade externa só cai quando falha a listagem inicial de contas.
+                boolean externalServiceAvailable = balanceResult.available();
 
             return new FinancialSummary(
                     balanceCents,
@@ -150,7 +146,8 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private ExecutorService buildSummaryExecutor() {
-        int poolSize = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        // Limita concorrência para reduzir risco de rate limit na Conta Azul.
+        int poolSize = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
         return Executors.newFixedThreadPool(poolSize);
     }
 
@@ -173,12 +170,7 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private StatusResult safeFetchConsolidatedBalance(String accessToken, ExecutorService executor) {
-        try {
-            return fetchConsolidatedBalance(accessToken, executor);
-        } catch (Exception ex) {
-            log.warn("Falha ao consolidar saldos das contas financeiras da Conta Azul.", ex);
-            return new StatusResult(0L, false);
-        }
+        return fetchConsolidatedBalance(accessToken, executor);
     }
 
     private StatusResult safeFetchTotalPaidByBaixas(
@@ -273,24 +265,33 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private StatusResult fetchConsolidatedBalance(String accessToken, ExecutorService executor) {
-        List<FinancialAccountRef> financialAccounts = fetchFinancialAccounts(accessToken);
+        List<FinancialAccountRef> financialAccounts;
+        try {
+            financialAccounts = fetchFinancialAccounts(accessToken);
+        } catch (Exception ex) {
+            // Só marca indisponível quando a listagem inicial de contas falha por completo.
+            log.warn("Falha ao listar contas financeiras na Conta Azul. Dashboard seguirá indisponível até nova leitura.", ex);
+            return new StatusResult(0L, false);
+        }
+
         if (financialAccounts.isEmpty()) {
             return new StatusResult(0L, true);
         }
 
-        AtomicBoolean available = new AtomicBoolean(true);
         List<CompletableFuture<AccountBalanceAudit>> futures = financialAccounts.stream()
                 .map(account -> CompletableFuture.supplyAsync(() -> {
                     try {
+                        applyThrottlingDelay();
                         long accountBalanceCents = fetchAccountCurrentBalanceCents(accessToken, account.accountId());
                         boolean includeInBalance = account.active() && isAssetAccountType(account.type());
 
-                        // Log de auditoria para cada conta retornada pela API da Conta Azul.
+                        // Auditoria fixa para identificar rapidamente contas que distorcem o saldo.
                         log.info(
-                                "Processando conta: Nome={}, Tipo={}, Saldo={}",
+                                "CONTA DETECTADA: Nome={}, Tipo={}, Saldo={}, Ativa={}",
                                 account.name(),
                                 account.type(),
-                                accountBalanceCents);
+                                accountBalanceCents,
+                                account.active());
 
                         if (account.active() && isLiabilityAccountType(account.type())) {
                             // Regra de negócio: cartão de crédito representa passivo e não compõe saldo consolidado de caixa.
@@ -307,7 +308,7 @@ public class ContaAzulFinancialSummaryService {
 
                         return new AccountBalanceAudit(account, accountBalanceCents, includeInBalance);
                     } catch (Exception ex) {
-                        available.set(false);
+                        // Falha individual não pode derrubar o dashboard.
                         log.warn("Falha ao consultar saldo atual da conta financeira {}.", account.accountId(), ex);
                         return new AccountBalanceAudit(account, 0L, false);
                     }
@@ -323,7 +324,7 @@ public class ContaAzulFinancialSummaryService {
                 .mapToLong(AccountBalanceAudit::balanceCents)
                 .sum();
 
-        return new StatusResult(totalBalance, available.get());
+        return new StatusResult(totalBalance, true);
     }
 
     private List<FinancialAccountRef> fetchFinancialAccounts(String accessToken) {
@@ -451,13 +452,13 @@ public class ContaAzulFinancialSummaryService {
             return new StatusResult(0L, true);
         }
 
-        AtomicBoolean available = new AtomicBoolean(true);
         List<CompletableFuture<Long>> futures = parcels.stream()
                 .map(parcel -> CompletableFuture.supplyAsync(() -> {
                     try {
+                        applyThrottlingDelay();
                         return fetchParcelaPaidCentsByBaixas(accessToken, parcel);
                     } catch (Exception ex) {
-                        available.set(false);
+                        // Falha individual de parcela não deve zerar nem indisponibilizar o resumo inteiro.
                         String displayId = StringUtils.hasText(parcel.displayIdentifier())
                                 ? parcel.displayIdentifier()
                                 : parcel.parcelaId();
@@ -471,7 +472,7 @@ public class ContaAzulFinancialSummaryService {
                 .mapToLong(CompletableFuture::join)
                 .sum();
 
-        return new StatusResult(totalPaidCents, available.get());
+        return new StatusResult(totalPaidCents, true);
     }
 
     private long fetchParcelaPaidCentsByBaixas(String accessToken, ReceivableParcelRef parcel) {
@@ -864,6 +865,15 @@ public class ContaAzulFinancialSummaryService {
 
         // Na API financeira V2 da Conta Azul, valores integrais geralmente já são retornados em centavos.
         return amount.longValue();
+    }
+
+    private void applyThrottlingDelay() {
+        try {
+            // Delay curto para suavizar rajadas e reduzir chance de bloqueio por rate limit.
+            Thread.sleep(100L);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // Converte `BigDecimal` em centavos (long) arredondando HALF_UP.

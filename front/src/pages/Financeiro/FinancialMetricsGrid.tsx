@@ -4,7 +4,7 @@ import type { FinancialSummaryDTO } from '../../types/models';
 interface FinancialMetricsGridProps {
   summary: FinancialSummaryDTO | null;
   unresolvedAlertsCount: number;
-  showValues: boolean;
+  isPrivate: boolean;
 }
 
 function formatCurrency(value: number | null | undefined, currency = 'BRL'): string {
@@ -21,7 +21,7 @@ function formatCurrency(value: number | null | undefined, currency = 'BRL'): str
 export default function FinancialMetricsGrid({
   summary,
   unresolvedAlertsCount,
-  showValues,
+  isPrivate,
 }: FinancialMetricsGridProps) {
   const currency = summary?.currency ?? 'BRL';
 
@@ -72,7 +72,7 @@ export default function FinancialMetricsGrid({
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {metricCards.map((card) => {
         const Icon = card.icon;
-        const hiddenValue = card.isMonetary && !showValues;
+        const hiddenValue = card.isMonetary && isPrivate;
         return (
           <article
             key={card.title}
@@ -87,7 +87,7 @@ export default function FinancialMetricsGrid({
               </span>
             </div>
             <strong className={`mt-4 block text-2xl font-extrabold text-slate-900 ${hiddenValue ? 'select-none tracking-[0.12em]' : ''}`}>
-              {hiddenValue ? '********' : card.value}
+              {hiddenValue ? '••••' : card.value}
             </strong>
             <p className="mt-2 text-xs leading-5 text-slate-400">{card.helper}</p>
           </article>

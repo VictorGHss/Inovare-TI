@@ -189,7 +189,7 @@ public class ContaAzulFinancialSummaryService {
     // Trata 401 autorizando refresh automático do token quando aplicável.
     private StatusResult fetchTotalByStatus(String accessToken, String status) {
         try {
-            ResponseEntity<String> response = executePaymentsRequest(status, accessToken, 1);
+            ResponseEntity<String> response = executePaymentsRequestByStatus(status, accessToken, 1);
 
             long total = extractTotalCents(response.getBody(), status);
             return new StatusResult(total, true);
@@ -202,7 +202,7 @@ public class ContaAzulFinancialSummaryService {
 
             try {
                 String newToken = contaAzulTokenService.forceRefresh();
-                ResponseEntity<String> retryResponse = executePaymentsRequest(status, newToken, 1);
+                ResponseEntity<String> retryResponse = executePaymentsRequestByStatus(status, newToken, 1);
                 long total = extractTotalCents(retryResponse.getBody(), status);
                 return new StatusResult(total, true);
             } catch (Exception refreshEx) {
@@ -283,7 +283,10 @@ public class ContaAzulFinancialSummaryService {
                     try {
                         applyThrottlingDelay();
                         long accountBalanceCents = fetchAccountCurrentBalanceCents(accessToken, account.accountId());
-                        boolean includeInBalance = account.active() && isAssetAccountType(account.type());
+                        // Regra de negócio: saldo negativo não compõe balanceCents consolidado por padrão.
+                        boolean includeInBalance = account.active()
+                                && isAssetAccountType(account.type())
+                                && accountBalanceCents >= 0;
 
                         // Auditoria fixa para identificar rapidamente contas que distorcem o saldo.
                         log.info(
@@ -304,6 +307,10 @@ public class ContaAzulFinancialSummaryService {
 
                         if (account.active() && !isAssetAccountType(account.type()) && !isLiabilityAccountType(account.type())) {
                             log.info("Conta {} ignorada por tipo fora da whitelist de ativos: {}.", account.name(), account.type());
+                        }
+
+                        if (account.active() && isAssetAccountType(account.type()) && accountBalanceCents < 0) {
+                            log.info("Conta {} ignorada por saldo negativo.", account.name());
                         }
 
                         return new AccountBalanceAudit(account, accountBalanceCents, includeInBalance);
@@ -735,11 +742,26 @@ public class ContaAzulFinancialSummaryService {
         return responseEntity;
     }
 
+    private ResponseEntity<String> executePaymentsRequestByStatus(String status, String accessToken, int page) {
+        if (ContaAzulStatus.RECEBIDO.equals(status)) {
+            // RECEBIDO deve sempre consultar por janela de pagamento para refletir o caixa real.
+            return executePaymentsRequestByPaymentDate(status, accessToken, page);
+        }
+
+        return executePaymentsRequest(status, accessToken, page);
+    }
+
     private ResponseEntity<String> executePaymentsRequestByPaymentDate(String status, String accessToken, int page) {
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
         String dataPagamentoDe = formatDateForContaAzul(inicioMesAtual);
         String dataPagamentoAte = formatDateForContaAzul(hoje);
+
+        log.debug(
+            "Parâmetros ContaAzul (resumo mensal): pagamento_de={}, pagamento_ate={}, status={}",
+            dataPagamentoDe,
+            dataPagamentoAte,
+            status);
 
         // Especificação final V2: para total pago usar data de pagamento (não vencimento).
         String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())

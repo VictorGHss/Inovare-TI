@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,13 +68,55 @@ public class DoctorMappingController {
                 .doctorName(doctorName)
                 .contaAzulCustomerUuid(customerUuid)
                 .doctorEmail(doctorEmail)
-            .doctorCpfCnpj(doctorCpfCnpj)
+                .doctorCpfCnpj(doctorCpfCnpj)
                 .build());
 
         log.info("Mapeamento de médico criado com sucesso. customerUuid={}, userId={}, emailFallback={}",
                 customerUuid,
                 linkedUser != null ? linkedUser.getId() : null,
                 doctorEmail);
+        return ResponseEntity.ok(toResponse(saved));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<DoctorMappingResponseDTO> updateMapping(
+            @PathVariable UUID id,
+            @RequestBody @Valid UpsertDoctorMappingRequest request) {
+        DoctorEmailMapping mapping = doctorEmailMappingRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Mapeamento de médico não encontrado."));
+
+        String customerUuid = request.contaAzulCustomerUuid().trim();
+        String doctorName = normalizeNullable(request.doctorName());
+        String doctorEmail = normalizeNullable(request.doctorEmail());
+
+        doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuid)
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new BadRequestException("Já existe mapeamento para o UUID informado.");
+                });
+
+        User linkedUser = resolveLinkedUser(request.userId());
+        if (linkedUser == null && !StringUtils.hasText(doctorEmail)) {
+            throw new BadRequestException("Informe um usuário vinculado ou um e-mail de fallback.");
+        }
+
+        mapping.setUser(linkedUser);
+        mapping.setDoctorName(doctorName);
+        mapping.setContaAzulCustomerUuid(customerUuid);
+        mapping.setDoctorEmail(doctorEmail);
+
+        if (request.doctorCpfCnpj() != null) {
+            mapping.setDoctorCpfCnpj(normalizeNullable(request.doctorCpfCnpj()));
+        }
+
+        DoctorEmailMapping saved = doctorEmailMappingRepository.save(mapping);
+        log.info("Mapeamento de médico atualizado com sucesso. id={}, customerUuid={}, userId={}, emailFallback={}",
+                id,
+                customerUuid,
+                linkedUser != null ? linkedUser.getId() : null,
+                doctorEmail);
+
         return ResponseEntity.ok(toResponse(saved));
     }
 
@@ -105,7 +148,7 @@ public class DoctorMappingController {
                 resolvedDoctorName,
                 mapping.getContaAzulCustomerUuid(),
                 resolvedDoctorEmail,
-            mapping.getDoctorCpfCnpj(),
+                mapping.getDoctorCpfCnpj(),
                 mapping.getCreatedAt(),
                 mapping.getUpdatedAt());
     }

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Stethoscope, UserPlus2, X, RefreshCw, SearchCheck, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { checkContaAzulCustomerByEmail, getUsers } from '../../services/userService';
-import { createDoctorMapping, getContaAzulCustomerEmailById } from '../../services/financeService';
-import type { User } from '../../types/models';
+import { createDoctorMapping, getContaAzulCustomerEmailById, updateDoctorMapping } from '../../services/financeService';
+import type { DoctorMapping, User } from '../../types/models';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition';
@@ -16,7 +16,8 @@ const customerNotFoundMessage =
 interface NewDoctorMappingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: () => Promise<void>;
+  onSaved: () => Promise<void>;
+  mappingToEdit?: DoctorMapping | null;
 }
 
 interface FormState {
@@ -29,7 +30,8 @@ interface FormState {
 export default function NewDoctorMappingModal({
   isOpen,
   onClose,
-  onCreated,
+  onSaved,
+  mappingToEdit,
 }: NewDoctorMappingModalProps) {
   const [formState, setFormState] = useState<FormState>({
     userId: '',
@@ -43,15 +45,30 @@ export default function NewDoctorMappingModal({
   const [pullingContaAzulEmail, setPullingContaAzulEmail] = useState(false);
   const [checkingContaAzulCustomer, setCheckingContaAzulCustomer] = useState(false);
 
-  const selectedUser = useMemo(
-    () => users.find((user) => user.id === formState.userId) ?? null,
-    [users, formState.userId],
-  );
-
   useEffect(() => {
     if (!isOpen) return;
     void loadUsers();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (mappingToEdit) {
+      setFormState({
+        userId: mappingToEdit.userId ?? '',
+        doctorName: mappingToEdit.doctorName ?? '',
+        contaAzulCustomerUuid: mappingToEdit.contaAzulCustomerUuid ?? '',
+        doctorEmail: mappingToEdit.doctorEmail ?? '',
+      });
+      return;
+    }
+
+    resetForm();
+  }, [isOpen, mappingToEdit]);
+
+  const editMode = Boolean(mappingToEdit);
 
   async function loadUsers() {
     try {
@@ -104,18 +121,25 @@ export default function NewDoctorMappingModal({
 
     try {
       setSubmitting(true);
-      await createDoctorMapping({
+      const payload = {
         userId: userId || undefined,
         doctorName: doctorName || undefined,
         contaAzulCustomerUuid,
         doctorEmail: doctorEmail || undefined,
-      });
+      };
 
-      await onCreated();
-      toast.success('Novo mapeamento de médico criado com sucesso.');
+      if (mappingToEdit) {
+        await updateDoctorMapping(mappingToEdit.id, payload);
+        toast.success('Mapeamento de médico atualizado com sucesso.');
+      } else {
+        await createDoctorMapping(payload);
+        toast.success('Novo mapeamento de médico criado com sucesso.');
+      }
+
+      await onSaved();
       handleClose();
     } catch {
-      toast.error('Não foi possível criar o mapeamento de médico.');
+      toast.error(editMode ? 'Não foi possível atualizar o mapeamento de médico.' : 'Não foi possível criar o mapeamento de médico.');
     } finally {
       setSubmitting(false);
     }
@@ -186,9 +210,9 @@ export default function NewDoctorMappingModal({
               <UserRound size={18} className="text-brand-primary-dark" />
             </span>
             <div>
-              <h2 className="text-base font-bold text-slate-800">Novo Mapeamento</h2>
+              <h2 className="text-base font-bold text-slate-800">{editMode ? 'Editar Mapeamento' : 'Novo Mapeamento'}</h2>
               <p className="mt-0.5 text-xs text-slate-400">
-                Integração de médico para envio automático de recibos
+                {editMode ? 'Atualize vínculo e e-mail do médico no financeiro.' : 'Integração de médico para envio automático de recibos'}
               </p>
             </div>
           </div>
@@ -244,7 +268,7 @@ export default function NewDoctorMappingModal({
                 className={`${inputClassName} pl-9`}
                 placeholder="Ex.: Dr. João Silva"
                 maxLength={160}
-                disabled={submitting || Boolean(selectedUser)}
+                disabled={submitting}
               />
             </div>
           </div>
@@ -275,12 +299,12 @@ export default function NewDoctorMappingModal({
                   className={inputClassName}
                   placeholder="medico@clinica.com"
                   maxLength={255}
-                  disabled={submitting || Boolean(selectedUser)}
+                  disabled={submitting}
                 />
                 <button
                   type="button"
                   onClick={() => { void handleCheckContaAzulCustomerByEmail(); }}
-                  disabled={submitting || Boolean(selectedUser) || checkingContaAzulCustomer}
+                  disabled={submitting || checkingContaAzulCustomer}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {checkingContaAzulCustomer
@@ -292,7 +316,7 @@ export default function NewDoctorMappingModal({
               <button
                 type="button"
                 onClick={() => { void handlePullContaAzulEmail(); }}
-                disabled={submitting || Boolean(selectedUser) || pullingContaAzulEmail}
+                disabled={submitting || pullingContaAzulEmail}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-brand-primary/30 bg-brand-secondary/30 px-3 py-2 text-xs font-semibold text-brand-primary-dark transition-colors hover:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {pullingContaAzulEmail
@@ -320,7 +344,7 @@ export default function NewDoctorMappingModal({
               {submitting
                 ? <Loader2 size={15} className="animate-spin" />
                 : <UserPlus2 size={15} />}
-              {submitting ? 'Salvando...' : 'Salvar Mapeamento'}
+              {submitting ? 'Salvando...' : editMode ? 'Salvar Alterações' : 'Salvar Mapeamento'}
             </button>
           </footer>
         </form>

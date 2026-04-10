@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { BadgeDollarSign, Loader2, Mail, PlusCircle, RefreshCcw, UserRound } from 'lucide-react';
+import { BadgeDollarSign, Loader2, Mail, Pencil, PlusCircle, RefreshCcw, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { syncDoctorsBaseFromContaAzul } from '../../services/financeService';
+import { deleteDoctorMapping, syncDoctorsBaseFromContaAzul } from '../../services/financeService';
 import type { DoctorMapping } from '../../types/models';
 import NewDoctorMappingModal from './NewDoctorMappingModal';
 
@@ -27,7 +27,9 @@ export default function DoctorMappingPanel({
   onConnectContaAzul,
 }: DoctorMappingPanelProps) {
   const [showNovoMapeamentoModal, setShowNovoMapeamentoModal] = useState(false);
+  const [mapeamentoEmEdicao, setMapeamentoEmEdicao] = useState<DoctorMapping | null>(null);
   const [syncingBase, setSyncingBase] = useState(false);
+  const [deletingMappingId, setDeletingMappingId] = useState<string | null>(null);
 
   const mapeamentosOrdenados = useMemo(() => ordenarPorNomeMedico(mapeamentos ?? []), [mapeamentos]);
 
@@ -41,6 +43,39 @@ export default function DoctorMappingPanel({
       toast.error('Não foi possível sincronizar a base de médicos do Conta Azul.');
     } finally {
       setSyncingBase(false);
+    }
+  }
+
+  function handleOpenCreateModal() {
+    setMapeamentoEmEdicao(null);
+    setShowNovoMapeamentoModal(true);
+  }
+
+  function handleOpenEditModal(mapeamento: DoctorMapping) {
+    setMapeamentoEmEdicao(mapeamento);
+    setShowNovoMapeamentoModal(true);
+  }
+
+  function handleCloseModal() {
+    setShowNovoMapeamentoModal(false);
+    setMapeamentoEmEdicao(null);
+  }
+
+  async function handleDeleteMapping(mapeamento: DoctorMapping) {
+    const confirmou = window.confirm(`Deseja remover o mapeamento de ${mapeamento.doctorName ?? 'médico sem nome'}?`);
+    if (!confirmou) {
+      return;
+    }
+
+    try {
+      setDeletingMappingId(mapeamento.id);
+      await deleteDoctorMapping(mapeamento.id);
+      await onAtualizar();
+      toast.success('Mapeamento removido com sucesso.');
+    } catch {
+      toast.error('Não foi possível remover o mapeamento de médico.');
+    } finally {
+      setDeletingMappingId(null);
     }
   }
 
@@ -88,7 +123,7 @@ export default function DoctorMappingPanel({
 
             <button
               type="button"
-              onClick={() => setShowNovoMapeamentoModal(true)}
+              onClick={handleOpenCreateModal}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
             >
               <PlusCircle size={15} />
@@ -103,7 +138,7 @@ export default function DoctorMappingPanel({
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID Conta Azul', 'Nome', 'Email', 'Status de Vínculo'].map((col) => (
+              {['ID Conta Azul', 'Nome', 'Email', 'Status de Vínculo', 'Ações'].map((col) => (
                 <th
                   key={col}
                   className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400"
@@ -117,7 +152,7 @@ export default function DoctorMappingPanel({
           <tbody className="divide-y divide-slate-100">
             {carregando ? (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-400">
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-400">
                   <div className="flex items-center justify-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
                     Carregando mapeamentos...
@@ -126,7 +161,7 @@ export default function DoctorMappingPanel({
               </tr>
             ) : mapeamentosOrdenados.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-400 italic">
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-400 italic">
                   Nenhum mapeamento cadastrado até o momento.
                 </td>
               </tr>
@@ -170,6 +205,30 @@ export default function DoctorMappingPanel({
                       {mapeamento.userId ? 'Vinculado ao usuário' : 'Fallback por e-mail'}
                     </span>
                   </td>
+
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(mapeamento)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                        title="Editar mapeamento"
+                      >
+                        <Pencil size={13} />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { void handleDeleteMapping(mapeamento); }}
+                        disabled={deletingMappingId === mapeamento.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        title="Remover mapeamento"
+                      >
+                        {deletingMappingId === mapeamento.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        Remover
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -179,8 +238,9 @@ export default function DoctorMappingPanel({
 
       <NewDoctorMappingModal
         isOpen={showNovoMapeamentoModal}
-        onClose={() => setShowNovoMapeamentoModal(false)}
-        onCreated={onAtualizar}
+        onClose={handleCloseModal}
+        onSaved={onAtualizar}
+        mappingToEdit={mapeamentoEmEdicao}
       />
     </section>
   );

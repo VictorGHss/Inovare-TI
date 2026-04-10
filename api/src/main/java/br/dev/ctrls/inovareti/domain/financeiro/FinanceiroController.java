@@ -6,11 +6,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,6 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/financeiro")
 @RequiredArgsConstructor
 public class FinanceiroController {
+
+    private static final String RESUMO_FINANCEIRO_CACHE = "resumoFinanceiro";
 
     private final FinanceiroOperationsService financeiroOperationsService;
     private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
@@ -87,6 +92,7 @@ public class FinanceiroController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/resumo")
+    @Cacheable(cacheNames = RESUMO_FINANCEIRO_CACHE)
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
         boolean integrationActive = contaAzulTokenService.hasPersistedTokenRecord();
 
@@ -112,6 +118,13 @@ public class FinanceiroController {
             summary.externalServiceAvailable(),
             true,
             summary.lastUpdatedAt()));
+    }
+
+    @Scheduled(fixedRateString = "${app.financeiro.resumo.cache-ttl-ms:600000}")
+    @CacheEvict(cacheNames = RESUMO_FINANCEIRO_CACHE, allEntries = true)
+    public void evictResumoFinanceiroCache() {
+        // Mantém cache do resumo por 10 minutos para respostas instantâneas em F5 e troca de abas.
+        log.debug("Cache '{}' do resumo financeiro invalidado por TTL.", RESUMO_FINANCEIRO_CACHE);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

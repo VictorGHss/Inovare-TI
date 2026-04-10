@@ -74,6 +74,13 @@ export interface CreateDoctorMappingDTO {
   doctorEmail?: string;
 }
 
+export interface UpdateDoctorMappingDTO {
+  userId?: string;
+  doctorName?: string;
+  contaAzulCustomerUuid: string;
+  doctorEmail?: string;
+}
+
 export interface ContaAzulCustomerCheckResponse {
   email: string;
   customerId: string | null;

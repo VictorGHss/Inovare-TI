@@ -115,7 +115,7 @@ export default function FinancialDashboard() {
           <button
             type="button"
             onClick={() => setIsPrivate((current) => !current)}
-            className="mb-0.5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-800"
+            className="inline-flex h-[42px] w-[42px] items-center justify-center self-end rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-800"
             aria-label={isPrivate ? 'Exibir valores financeiros' : 'Ocultar valores financeiros'}
             title={isPrivate ? 'Exibir valores financeiros' : 'Ocultar valores financeiros'}
           >

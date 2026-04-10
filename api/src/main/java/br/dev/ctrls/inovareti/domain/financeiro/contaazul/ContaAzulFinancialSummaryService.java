@@ -60,6 +60,7 @@ public class ContaAzulFinancialSummaryService {
     private static final int SUMMARY_MAX_PAGES = 30;
     private static final LocalDate RECEIVED_DUE_DATE_FROM = LocalDate.of(2000, 1, 1);
     private static final LocalDate RECEIVED_DUE_DATE_TO = LocalDate.of(2099, 12, 31);
+    private static final LocalDate DIAGNOSTIC_PAYMENT_DATE_FROM = LocalDate.of(2026, 1, 1);
     private static final Set<String> ASSET_ACCOUNT_TYPES = Set.of(
         "CONTA_CORRENTE",
         "POUPANCA",
@@ -532,6 +533,7 @@ public class ContaAzulFinancialSummaryService {
                 if (baixaValorLiquido != null) {
                     String vendaId = StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
                     log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaValorLiquido);
+                    log.info("Somando Baixa: Valor Líquido detectado = {}", baixaValorLiquido);
                     totalLiquido = totalLiquido.add(baixaValorLiquido);
                 }
             }
@@ -546,13 +548,74 @@ public class ContaAzulFinancialSummaryService {
         Map<String, ReceivableParcelRef> parcelMap = new LinkedHashMap<>();
         OffsetDateTime latestUpdate = null;
 
-        // Diagnóstico temporário: amplia a janela para os últimos 30 dias.
+        // Produção: mantém a busca do primeiro dia do mês atual até hoje.
         LocalDate hoje = LocalDate.now();
-        LocalDate inicioJanelaDiagnostica = hoje.minusDays(30);
-        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioJanelaDiagnostica, hoje);
+        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
 
+        latestUpdate = collectReceivedParcelsByStatusAndRange(
+            accessToken,
+            ContaAzulStatus.RECEBIDO,
+            inicioMesAtual,
+            hoje,
+            parcelMap,
+            latestUpdate);
+
+        if (parcelMap.isEmpty()) {
+            // Diagnóstico: força janela maior para validar se o cálculo está correto fora do mês corrente.
+            log.warn("Nenhuma parcela RECEBIDO encontrada no mês atual. Reexecutando diagnóstico com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
+            latestUpdate = collectReceivedParcelsByStatusAndRange(
+                accessToken,
+                ContaAzulStatus.RECEBIDO,
+                DIAGNOSTIC_PAYMENT_DATE_FROM,
+                hoje,
+                parcelMap,
+                latestUpdate);
+        }
+
+        if (parcelMap.isEmpty()) {
+            // Compatibilidade: algumas versões da API V2 usam QUITADO no lugar de RECEBIDO.
+            log.warn("Nenhuma parcela com status RECEBIDO. Tentando fallback com status QUITADO no mês atual.");
+            latestUpdate = collectReceivedParcelsByStatusAndRange(
+                accessToken,
+                ContaAzulStatus.QUITADO,
+                inicioMesAtual,
+                hoje,
+                parcelMap,
+                latestUpdate);
+        }
+
+        if (parcelMap.isEmpty()) {
+            log.warn("Nenhuma parcela QUITADO no mês atual. Reexecutando QUITADO com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
+            latestUpdate = collectReceivedParcelsByStatusAndRange(
+                accessToken,
+                ContaAzulStatus.QUITADO,
+                DIAGNOSTIC_PAYMENT_DATE_FROM,
+                hoje,
+                parcelMap,
+                latestUpdate);
+        }
+
+        return new ReceivedParcelsResult(
+            new ArrayList<>(parcelMap.values()),
+            true,
+            latestUpdate != null ? latestUpdate.toString() : null);
+        }
+
+        private OffsetDateTime collectReceivedParcelsByStatusAndRange(
+            String accessToken,
+            String status,
+            LocalDate dataPagamentoDe,
+            LocalDate dataPagamentoAte,
+            Map<String, ReceivableParcelRef> parcelMap,
+            OffsetDateTime latestUpdate) {
         for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
-            ResponseEntity<String> response = executePaymentsRequestByPaymentDate(ContaAzulStatus.RECEBIDO, accessToken, page);
+            ResponseEntity<String> response = executePaymentsRequestByPaymentDate(
+                status,
+                accessToken,
+                page,
+                dataPagamentoDe,
+                dataPagamentoAte);
             ReceivablesPageData pageData = parseReceivablesPage(response.getBody());
 
             if (pageData.latestUpdate() != null
@@ -576,10 +639,7 @@ public class ContaAzulFinancialSummaryService {
             }
         }
 
-        return new ReceivedParcelsResult(
-                new ArrayList<>(parcelMap.values()),
-                true,
-                latestUpdate != null ? latestUpdate.toString() : null);
+        return latestUpdate;
     }
 
     private ReceivablesPageData parseReceivablesPage(String jsonPayload) {
@@ -621,6 +681,25 @@ public class ContaAzulFinancialSummaryService {
                     "evento_financeiro.referencia.codigo");
 
                 String displayIdentifier = firstNonBlank(commercialNumber, referenceCode);
+                String descricaoParcela = firstNonBlank(
+                    jsonSafeReader.readText(
+                        parcelNode,
+                        "descricao",
+                        "description",
+                        "referencia.descricao",
+                        "evento_financeiro.referencia.descricao"),
+                    displayIdentifier,
+                    parcelaId);
+                BigDecimal valorBruto = readDecimalFromPaths(
+                    parcelNode,
+                    "total",
+                    "valor",
+                    "valor_total",
+                    "valorTotal",
+                    "valor_bruto",
+                    "valorBruto");
+
+                log.info("Parcela encontrada: ID={}, Descrição={}, Valor Bruto={}", parcelaId, descricaoParcela, valorBruto);
 
                 parcels.add(new ReceivableParcelRef(parcelaId.trim(), displayIdentifier));
 
@@ -759,20 +838,30 @@ public class ContaAzulFinancialSummaryService {
     private ResponseEntity<String> executePaymentsRequestByStatus(String status, String accessToken, int page) {
         if (ContaAzulStatus.RECEBIDO.equals(status)) {
             // RECEBIDO deve sempre consultar por janela de pagamento para refletir o caixa real.
-            return executePaymentsRequestByPaymentDate(status, accessToken, page);
+            LocalDate hoje = LocalDate.now();
+            LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+            return executePaymentsRequestByPaymentDate(status, accessToken, page, inicioMesAtual, hoje);
+        }
+
+        if (ContaAzulStatus.QUITADO.equals(status)) {
+            LocalDate hoje = LocalDate.now();
+            LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+            return executePaymentsRequestByPaymentDate(status, accessToken, page, inicioMesAtual, hoje);
         }
 
         return executePaymentsRequest(status, accessToken, page);
     }
 
-    private ResponseEntity<String> executePaymentsRequestByPaymentDate(String status, String accessToken, int page) {
-        LocalDate hoje = LocalDate.now();
-        // Janela estendida para diagnóstico de filtros: últimos 30 dias até hoje.
-        LocalDate inicioJanelaDiagnostica = hoje.minusDays(30);
+    private ResponseEntity<String> executePaymentsRequestByPaymentDate(
+            String status,
+            String accessToken,
+            int page,
+            LocalDate dataPagamentoDeDate,
+            LocalDate dataPagamentoAteDate) {
         String dataVencimentoDe = formatDateForContaAzul(RECEIVED_DUE_DATE_FROM);
         String dataVencimentoAte = formatDateForContaAzul(RECEIVED_DUE_DATE_TO);
-        String dataPagamentoDe = formatDateForContaAzul(inicioJanelaDiagnostica);
-        String dataPagamentoAte = formatDateForContaAzul(hoje);
+        String dataPagamentoDe = formatDateForContaAzul(dataPagamentoDeDate);
+        String dataPagamentoAte = formatDateForContaAzul(dataPagamentoAteDate);
 
         log.debug(
             "Parâmetros ContaAzul (resumo mensal): data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, status={}",

@@ -1,4 +1,5 @@
-import { Activity, BadgeDollarSign, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
+import { Activity, BadgeDollarSign, Eye, EyeOff, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import DoctorMappingPanel from './DoctorMappingPanel.tsx';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 import FinancialMetricsGrid from './FinancialMetricsGrid';
@@ -9,6 +10,7 @@ import { useFinancialActions } from '../../hooks/useFinancialActions';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
 const ISO_DATETIME_PREFIX_REGEX = /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/;
+const PRIVACY_STORAGE_KEY = '@InovareTI:financeiro:show-values';
 
 function formatDate(value?: string | null): string {
   if (!value) {
@@ -65,6 +67,15 @@ export default function FinancialDashboard() {
   const currency = summary?.currency ?? 'BRL';
   const integrationActive = summary?.integrationActive ?? hasContaAzulLinked;
   const lastUpdatedAt = summary?.lastUpdatedAt ?? connectionStatus?.refreshedAt;
+  const [showValues, setShowValues] = useState<boolean>(() => {
+    // Persiste preferência do usuário para não exigir novo clique a cada reload.
+    const saved = localStorage.getItem(PRIVACY_STORAGE_KEY);
+    return saved == null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(PRIVACY_STORAGE_KEY, String(showValues));
+  }, [showValues]);
 
   function handleConnectContaAzul() {
     window.location.href = CONTA_AZUL_AUTHORIZE_URL;
@@ -101,6 +112,15 @@ export default function FinancialDashboard() {
 
         {/* Date range pickers */}
         <div className="flex items-end gap-3">
+          <button
+            type="button"
+            onClick={() => setShowValues((current) => !current)}
+            className="mb-0.5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-800"
+            aria-label={showValues ? 'Ocultar valores financeiros' : 'Exibir valores financeiros'}
+            title={showValues ? 'Ocultar valores financeiros' : 'Exibir valores financeiros'}
+          >
+            {showValues ? <Eye size={18} /> : <EyeOff size={18} />}
+          </button>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
               Data Início
@@ -228,7 +248,7 @@ export default function FinancialDashboard() {
             </div>
           </div>
 
-          <FinancialMetricsGrid summary={summary} unresolvedAlertsCount={unresolvedAlerts.length} />
+          <FinancialMetricsGrid summary={summary} unresolvedAlertsCount={unresolvedAlerts.length} showValues={showValues} />
 
           <section className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
             <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -4,6 +4,7 @@ import type { FinancialSummaryDTO } from '../../types/models';
 interface FinancialMetricsGridProps {
   summary: FinancialSummaryDTO | null;
   unresolvedAlertsCount: number;
+  showValues: boolean;
 }
 
 function formatCurrency(value: number | null | undefined, currency = 'BRL'): string {
@@ -20,6 +21,7 @@ function formatCurrency(value: number | null | undefined, currency = 'BRL'): str
 export default function FinancialMetricsGrid({
   summary,
   unresolvedAlertsCount,
+  showValues,
 }: FinancialMetricsGridProps) {
   const currency = summary?.currency ?? 'BRL';
 
@@ -32,6 +34,7 @@ export default function FinancialMetricsGrid({
       iconBg: 'bg-brand-secondary',
       iconColor: 'text-brand-primary-dark',
       accent: 'border-l-brand-primary',
+      isMonetary: true,
     },
     {
       title: 'Total Pendente',
@@ -41,6 +44,7 @@ export default function FinancialMetricsGrid({
       iconBg: 'bg-sky-50',
       iconColor: 'text-sky-600',
       accent: 'border-l-sky-400',
+      isMonetary: true,
     },
     {
       title: 'Total Pago',
@@ -50,6 +54,7 @@ export default function FinancialMetricsGrid({
       iconBg: 'bg-emerald-50',
       iconColor: 'text-emerald-600',
       accent: 'border-l-emerald-400',
+      isMonetary: true,
     },
     {
       title: 'Alertas Pendentes',
@@ -59,6 +64,7 @@ export default function FinancialMetricsGrid({
       iconBg: 'bg-amber-50',
       iconColor: 'text-amber-600',
       accent: 'border-l-amber-400',
+      isMonetary: false,
     },
   ];
 
@@ -66,6 +72,7 @@ export default function FinancialMetricsGrid({
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {metricCards.map((card) => {
         const Icon = card.icon;
+        const hiddenValue = card.isMonetary && !showValues;
         return (
           <article
             key={card.title}
@@ -79,8 +86,8 @@ export default function FinancialMetricsGrid({
                 <Icon size={18} />
               </span>
             </div>
-            <strong className="mt-4 block text-2xl font-extrabold text-slate-900">
-              {card.value}
+            <strong className={`mt-4 block text-2xl font-extrabold text-slate-900 ${hiddenValue ? 'select-none tracking-[0.12em]' : ''}`}>
+              {hiddenValue ? '********' : card.value}
             </strong>
             <p className="mt-2 text-xs leading-5 text-slate-400">{card.helper}</p>
           </article>

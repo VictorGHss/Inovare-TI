@@ -428,17 +428,15 @@ public class ContaAzulFinancialSummaryService {
 
         try {
             JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
-            Long balanceCents = readAmountCentsFromPaths(
+            // Especificação final V2: saldo deve vir da chave saldo_atual (decimal) e virar centavos.
+            BigDecimal saldoAtual = readDecimalFromPaths(
                     root,
-                    "saldo.valor",
-                    "saldo_em_centavos",
+                    "saldo_atual",
                     "saldo_atual.valor",
-                    "saldo_atual_em_centavos",
-                    "valor_em_centavos",
-                    "valor",
-                    "data.saldo",
-                    "data.valor");
-            return balanceCents != null ? balanceCents : 0L;
+                    "data.saldo_atual",
+                    "data.saldo_atual.valor");
+
+            return saldoAtual != null ? toCents(saldoAtual) : 0L;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar saldo da conta financeira " + accountId + ".", ex);
         }
@@ -497,27 +495,27 @@ public class ContaAzulFinancialSummaryService {
                 return 0L;
             }
 
-            BigDecimal total = BigDecimal.ZERO;
+            BigDecimal totalLiquido = BigDecimal.ZERO;
             for (JsonNode baixaNode : baixasNode) {
-                Long baixaAmountCents = readAmountCentsFromPaths(
+                // Especificação final V2: usar baixas -> composicao_valor -> valor_liquido.
+                BigDecimal baixaValorLiquido = readDecimalFromPaths(
                         baixaNode,
+                        "composicao_valor.valor_liquido",
+                        "composicaoValor.valorLiquido",
+                        "valor_composicao.valor_liquido",
+                        "valorComposicao.valorLiquido",
                         "valor_liquido",
-                        "valorLiquido",
-                        "valor_liquido_em_centavos",
-                        "valorLiquidoEmCentavos",
-                        "valor_liquido.valor",
-                        "valor_liquido.centavos",
-                        "liquido.valor");
+                        "valorLiquido");
 
                 // Regra oficial V2: total pago deve refletir exclusivamente a soma de valor_liquido das baixas.
-                if (baixaAmountCents != null) {
+                if (baixaValorLiquido != null) {
                     String vendaId = StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
-                    log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaAmountCents);
-                    total = total.add(BigDecimal.valueOf(baixaAmountCents));
+                    log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaValorLiquido);
+                    totalLiquido = totalLiquido.add(baixaValorLiquido);
                 }
             }
 
-            return total.longValue();
+            return toCents(totalLiquido);
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar detalhe de baixas da parcela " + parcel.parcelaId() + ".", ex);
         }
@@ -533,7 +531,7 @@ public class ContaAzulFinancialSummaryService {
         log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
 
         for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
-            ResponseEntity<String> response = executePaymentsRequest(ContaAzulStatus.RECEBIDO, accessToken, page);
+            ResponseEntity<String> response = executePaymentsRequestByPaymentDate(ContaAzulStatus.RECEBIDO, accessToken, page);
             ReceivablesPageData pageData = parseReceivablesPage(response.getBody());
 
             if (pageData.latestUpdate() != null
@@ -737,6 +735,36 @@ public class ContaAzulFinancialSummaryService {
         return responseEntity;
     }
 
+    private ResponseEntity<String> executePaymentsRequestByPaymentDate(String status, String accessToken, int page) {
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        String dataPagamentoDe = formatDateForContaAzul(inicioMesAtual);
+        String dataPagamentoAte = formatDateForContaAzul(hoje);
+
+        // Especificação final V2: para total pago usar data de pagamento (não vencimento).
+        String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
+            .queryParam("pagina", page)
+            .queryParam("tamanho_pagina", SUMMARY_PAGE_SIZE)
+            .queryParam("data_pagamento_de", dataPagamentoDe)
+            .queryParam("data_pagamento_ate", dataPagamentoAte)
+            .queryParam("status", status)
+            .build()
+            .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        ResponseEntity<String> responseEntity = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+
+        log.debug("ContaAzul response body (pagamento, status={}): {}", status, responseEntity.getBody());
+        return responseEntity;
+    }
+
     private String normalizeContaAzulBaseUrl() {
         String normalized = StringUtils.hasText(contaAzulApiV2BaseUrl)
                 ? contaAzulApiV2BaseUrl.trim()
@@ -816,6 +844,50 @@ public class ContaAzulFinancialSummaryService {
         }
 
         return null;
+    }
+
+    private BigDecimal readDecimalFromPaths(JsonNode node, String... paths) {
+        for (String path : paths) {
+            JsonNode valueNode = readNode(node, path);
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
+            }
+
+            BigDecimal parsed = parseDecimalValue(valueNode);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private BigDecimal parseDecimalValue(JsonNode valueNode) {
+        if (valueNode.isNumber()) {
+            return valueNode.decimalValue();
+        }
+
+        if (!valueNode.isTextual()) {
+            return null;
+        }
+
+        String raw = valueNode.asText().trim();
+        if (raw.isBlank()) {
+            return null;
+        }
+
+        String normalized = raw.replace("R$", "").replace(" ", "");
+        if (normalized.contains(",") && normalized.contains(".")) {
+            normalized = normalized.replace(".", "").replace(",", ".");
+        } else if (normalized.contains(",")) {
+            normalized = normalized.replace(",", ".");
+        }
+
+        try {
+            return new BigDecimal(normalized);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private Long normalizeAmountNodeToCents(JsonNode valueNode, String sourcePath) {

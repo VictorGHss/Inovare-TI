@@ -148,9 +148,8 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private ExecutorService buildSummaryExecutor() {
-        // Limita concorrência para reduzir risco de rate limit na Conta Azul.
-        int poolSize = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
-        return Executors.newFixedThreadPool(poolSize);
+        // Limita o pool em 2 para reduzir spikes e evitar bloqueio 429 (Spike Arrest).
+        return Executors.newFixedThreadPool(2);
     }
 
     private StatusResult safeFetchTotalByStatus(String accessToken, String status) {
@@ -547,10 +546,10 @@ public class ContaAzulFinancialSummaryService {
         Map<String, ReceivableParcelRef> parcelMap = new LinkedHashMap<>();
         OffsetDateTime latestUpdate = null;
 
-        // Período oficial do resumo: do primeiro dia do mês atual até hoje.
+        // Diagnóstico temporário: amplia a janela para os últimos 30 dias.
         LocalDate hoje = LocalDate.now();
-        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
+        LocalDate inicioJanelaDiagnostica = hoje.minusDays(30);
+        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioJanelaDiagnostica, hoje);
 
         for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
             ResponseEntity<String> response = executePaymentsRequestByPaymentDate(ContaAzulStatus.RECEBIDO, accessToken, page);
@@ -768,10 +767,11 @@ public class ContaAzulFinancialSummaryService {
 
     private ResponseEntity<String> executePaymentsRequestByPaymentDate(String status, String accessToken, int page) {
         LocalDate hoje = LocalDate.now();
-        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        // Janela estendida para diagnóstico de filtros: últimos 30 dias até hoje.
+        LocalDate inicioJanelaDiagnostica = hoje.minusDays(30);
         String dataVencimentoDe = formatDateForContaAzul(RECEIVED_DUE_DATE_FROM);
         String dataVencimentoAte = formatDateForContaAzul(RECEIVED_DUE_DATE_TO);
-        String dataPagamentoDe = formatDateForContaAzul(inicioMesAtual);
+        String dataPagamentoDe = formatDateForContaAzul(inicioJanelaDiagnostica);
         String dataPagamentoAte = formatDateForContaAzul(hoje);
 
         log.debug(
@@ -793,6 +793,9 @@ public class ContaAzulFinancialSummaryService {
             .queryParam("status", status)
             .build()
             .toUriString();
+
+        // Log de diagnóstico para auditar a URL completa enviada na busca de recebidos.
+        log.debug("Chamando ContaAzul (recebidos por pagamento): {}", uri);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
@@ -1002,8 +1005,8 @@ public class ContaAzulFinancialSummaryService {
 
     private void applyThrottlingDelay() {
         try {
-            // Delay curto para suavizar rajadas e reduzir chance de bloqueio por rate limit.
-            Thread.sleep(100L);
+            // Delay de 300ms para reduzir agressividade e evitar 429 Spike Arrest.
+            Thread.sleep(300L);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

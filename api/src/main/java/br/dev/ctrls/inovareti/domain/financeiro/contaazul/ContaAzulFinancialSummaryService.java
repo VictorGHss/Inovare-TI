@@ -58,6 +58,8 @@ public class ContaAzulFinancialSummaryService {
     private static final ZoneOffset BRASILIA_OFFSET = ZoneOffset.ofHours(-3);
     private static final int SUMMARY_PAGE_SIZE = 100;
     private static final int SUMMARY_MAX_PAGES = 30;
+    private static final LocalDate RECEIVED_DUE_DATE_FROM = LocalDate.of(2000, 1, 1);
+    private static final LocalDate RECEIVED_DUE_DATE_TO = LocalDate.of(2099, 12, 31);
     private static final Set<String> ASSET_ACCOUNT_TYPES = Set.of(
         "CONTA_CORRENTE",
         "POUPANCA",
@@ -443,7 +445,10 @@ public class ContaAzulFinancialSummaryService {
                     "data.saldo_atual",
                     "data.saldo_atual.valor");
 
-            return saldoAtual != null ? toCents(saldoAtual) : 0L;
+            long saldoAtualCents = saldoAtual != null ? toCents(saldoAtual) : 0L;
+            // Log de auditoria para confirmar se a escala do decimal -> centavos está correta.
+            log.info("Conta {} saldo_atual bruto={} convertido_para_centavos={}", accountId, saldoAtual, saldoAtualCents);
+            return saldoAtualCents;
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Falha ao interpretar saldo da conta financeira " + accountId + ".", ex);
         }
@@ -476,6 +481,8 @@ public class ContaAzulFinancialSummaryService {
         long totalPaidCents = futures.stream()
                 .mapToLong(CompletableFuture::join)
                 .sum();
+
+        log.info("Soma total de baixas calculada: {}", totalPaidCents);
 
         return new StatusResult(totalPaidCents, true);
     }
@@ -754,19 +761,25 @@ public class ContaAzulFinancialSummaryService {
     private ResponseEntity<String> executePaymentsRequestByPaymentDate(String status, String accessToken, int page) {
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
+        String dataVencimentoDe = formatDateForContaAzul(RECEIVED_DUE_DATE_FROM);
+        String dataVencimentoAte = formatDateForContaAzul(RECEIVED_DUE_DATE_TO);
         String dataPagamentoDe = formatDateForContaAzul(inicioMesAtual);
         String dataPagamentoAte = formatDateForContaAzul(hoje);
 
         log.debug(
-            "Parâmetros ContaAzul (resumo mensal): pagamento_de={}, pagamento_ate={}, status={}",
+            "Parâmetros ContaAzul (resumo mensal): data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, status={}",
+            dataVencimentoDe,
+            dataVencimentoAte,
             dataPagamentoDe,
             dataPagamentoAte,
             status);
 
-        // Especificação final V2: para total pago usar data de pagamento (não vencimento).
+        // Conta Azul exige data de vencimento mesmo quando filtramos por data de pagamento.
         String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
             .queryParam("pagina", page)
             .queryParam("tamanho_pagina", SUMMARY_PAGE_SIZE)
+            .queryParam("data_vencimento_de", dataVencimentoDe)
+            .queryParam("data_vencimento_ate", dataVencimentoAte)
             .queryParam("data_pagamento_de", dataPagamentoDe)
             .queryParam("data_pagamento_ate", dataPagamentoAte)
             .queryParam("status", status)

@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -96,6 +98,7 @@ public class ContaAzulFinancialSummaryService {
      * - `totalPaidCents`: total pago em centavos;
      * - `syncedReceiptsCount`: quantidade de recibos já registrados localmente.
      */
+    @Cacheable(value = "financialSummary", key = "'dashboard'")
     public FinancialSummary fetchSummary() {
         long syncedReceiptsCount = processedSaleRepository.count();
         ExecutorService executor = buildSummaryExecutor();
@@ -1121,6 +1124,8 @@ public class ContaAzulFinancialSummaryService {
             String currency,
             long syncedReceiptsCount,
             boolean externalServiceAvailable,
-            String lastUpdatedAt) {
+            String lastUpdatedAt) implements Serializable {
+
+            private static final long serialVersionUID = 1L;
         }
 }

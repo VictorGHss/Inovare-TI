@@ -22,6 +22,9 @@ public final class ContaAzulStatus {
     /** Status que indica pagamento parcial. */
     public static final String RECEBIDO_PARCIAL = "RECEBIDO_PARCIAL";
 
+    /** Algumas contas usam QUITADO como status de pagamento confirmado. */
+    public static final String QUITADO = "QUITADO";
+
     /** Status que indica que o item foi perdido/cancelado. */
     public static final String PERDIDO = "PERDIDO";
 

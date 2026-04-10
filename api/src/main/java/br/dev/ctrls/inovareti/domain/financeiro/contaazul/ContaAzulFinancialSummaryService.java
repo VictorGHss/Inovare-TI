@@ -166,7 +166,15 @@ public class ContaAzulFinancialSummaryService {
         try {
             return fetchReceivedParcels(accessToken);
         } catch (Exception ex) {
-            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
+            if (ex instanceof HttpClientErrorException httpEx) {
+                log.error(
+                    "Falha HTTP ao consultar parcelas RECEBIDO para cálculo por baixas [httpStatus={}, responseBody={}].",
+                    httpEx.getStatusCode(),
+                    httpEx.getResponseBodyAsString(),
+                    ex);
+            } else {
+                log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
+            }
             return new ReceivedParcelsResult(List.of(), false, null);
         }
     }
@@ -790,11 +798,29 @@ public class ContaAzulFinancialSummaryService {
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> responseEntity = restTemplate.exchange(
+        ResponseEntity<String> responseEntity;
+        try {
+            responseEntity = restTemplate.exchange(
                 uri,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class);
+        } catch (HttpClientErrorException ex) {
+            // Log detalhado para diagnosticar 400 da Conta Azul por parâmetros obrigatórios.
+            log.error(
+                "Erro ao buscar recebidos na ContaAzul [httpStatus={}, status={}, pagina={}, data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, uri={}, body={}]",
+                ex.getStatusCode(),
+                status,
+                page,
+                dataVencimentoDe,
+                dataVencimentoAte,
+                dataPagamentoDe,
+                dataPagamentoAte,
+                uri,
+                ex.getResponseBodyAsString(),
+                ex);
+            throw ex;
+        }
 
         log.debug("ContaAzul response body (pagamento, status={}): {}", status, responseEntity.getBody());
         return responseEntity;

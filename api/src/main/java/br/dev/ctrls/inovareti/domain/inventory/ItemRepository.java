@@ -32,14 +32,12 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     @Query(value = """
             SELECT i
             FROM Item i
+            LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            GROUP BY i
             ORDER BY
-            CASE WHEN (SELECT MIN(sb.entryDate)
-                   FROM StockBatch sb
-                   WHERE sb.item = i AND sb.remainingQuantity > 0) IS NULL THEN 1 ELSE 0 END,
-            (SELECT MIN(sb.entryDate)
-             FROM StockBatch sb
-             WHERE sb.item = i AND sb.remainingQuantity > 0) ASC,
+            CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
+            MIN(sb.entryDate) ASC,
             i.name ASC
             """,
             countQuery = """
@@ -56,14 +54,12 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     @Query(value = """
             SELECT i
             FROM Item i
+            LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            GROUP BY i
             ORDER BY
-            CASE WHEN (SELECT MIN(sb.entryDate)
-                   FROM StockBatch sb
-                   WHERE sb.item = i AND sb.remainingQuantity > 0) IS NULL THEN 1 ELSE 0 END,
-            (SELECT MIN(sb.entryDate)
-             FROM StockBatch sb
-             WHERE sb.item = i AND sb.remainingQuantity > 0) DESC,
+            CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
+            MIN(sb.entryDate) DESC,
             i.name ASC
             """,
             countQuery = """

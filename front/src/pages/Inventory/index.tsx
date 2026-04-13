@@ -7,6 +7,7 @@ import {
   ArrowUpAZ,
   ArrowUpNarrowWide,
   Clock3,
+  Search,
   PlusCircle,
   Package,
   PackagePlus,
@@ -43,12 +44,13 @@ function mapSortOptionToApi(sortOption: InventorySortOption): {
 
 export default function Inventory() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [preselectedItemId, setPreselectedItemId] = useState<string | undefined>(undefined);
   const [sortOption, setSortOption] = useState<InventorySortOption>('name-asc');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const lowStockOnly = searchParams.get('status') === LOW_STOCK_STATUS_PARAM;
 
@@ -89,6 +91,23 @@ export default function Inventory() {
     setShowBatchModal(true);
   }
 
+  // Filtro textual leve no frontend para agilizar a localização visual de itens.
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredItems = normalizedSearchTerm
+    ? items.filter((item) => item.name.toLowerCase().includes(normalizedSearchTerm)
+      || item.itemCategoryName.toLowerCase().includes(normalizedSearchTerm))
+    : items;
+
+  const hasActiveFilters = lowStockOnly || sortOption !== 'name-asc' || normalizedSearchTerm.length > 0;
+
+  function clearFilters() {
+    setSortOption('name-asc');
+    setSearchTerm('');
+    if (lowStockOnly) {
+      setSearchParams({}, { replace: true });
+    }
+  }
+
   const sortDirectionIcon =
     sortOption === 'name-asc' ? <ArrowUpAZ size={16} className="text-cyan-700" />
       : sortOption === 'name-desc' ? <ArrowDownAZ size={16} className="text-cyan-700" />
@@ -124,30 +143,53 @@ export default function Inventory() {
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
             {lowStockOnly && (
               <span className="inline-flex items-center rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
                 Filtro ativo: Estoque baixo (&lt;= {LOW_STOCK_THRESHOLD})
               </span>
             )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center rounded-lg border border-brand-primary/20 bg-brand-secondary/30 px-3 py-1.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-secondary/50"
+              >
+                Limpar Filtros
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-2 text-xs font-semibold text-cyan-700">
-              {sortDirectionIcon}
-              Ordenação
-            </span>
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
-              className="rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
-            >
-              <option value="name-asc">A-Z</option>
-              <option value="name-desc">Z-A</option>
-              <option value="stock-desc">Maior Estoque</option>
-              <option value="stock-asc">Menor Estoque</option>
-              <option value="oldest-batch-asc">Mais Antigos no Estoque</option>
-            </select>
+
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <div className="relative min-w-[260px]">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nome ou categoria"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-2 text-xs font-semibold text-cyan-700">
+                {sortDirectionIcon}
+                Ordenação
+              </span>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary"
+              >
+                <option value="name-asc">Nome (A-Z)</option>
+                <option value="name-desc">Nome (Z-A)</option>
+                <option value="stock-desc">Maior Estoque</option>
+                <option value="stock-asc">Menor Estoque</option>
+                <option value="oldest-batch-asc">Mais Antigos no Estoque</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -158,7 +200,7 @@ export default function Inventory() {
               <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto" />
             </div>
           </div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <p className="text-center text-slate-400 py-12 text-sm">
             Nenhum item cadastrado.
           </p>
@@ -175,7 +217,7 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr
                     key={item.id}
                     onClick={() => navigate(`/inventory/${item.id}`)}

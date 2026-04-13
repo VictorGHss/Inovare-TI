@@ -41,9 +41,9 @@ export default function FinancialMetricsGrid({
       value: formatCurrency(summary?.totalPendingCents, currency),
       helper: 'Valores ainda pendentes de quitação.',
       icon: DollarSign,
-      iconBg: 'bg-sky-50',
-      iconColor: 'text-sky-600',
-      accent: 'border-l-sky-400',
+      iconBg: 'bg-slate-100',
+      iconColor: 'text-slate-700',
+      accent: 'border-l-slate-400',
       isMonetary: true,
     },
     {

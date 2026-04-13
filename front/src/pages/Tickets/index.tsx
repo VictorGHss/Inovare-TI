@@ -119,12 +119,12 @@ export default function Tickets() {
         ))}
       </div>
 
-      {/* Advanced Filter Bar */}
+      {/* Barra de filtros padronizada com foco em consistência visual entre módulos */}
       <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex flex-wrap items-end gap-3">
           {/* Search by Title */}
-          <div className="relative">
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+          <div className="relative w-full max-w-md">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Buscar por Título
             </label>
             <div className="relative flex items-center">
@@ -134,7 +134,7 @@ export default function Tickets() {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
                 placeholder="Digite o título do chamado..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
               />
               {searchTitle && (
                 <button
@@ -148,14 +148,14 @@ export default function Tickets() {
           </div>
 
           {/* Priority Filter */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+          <div className="w-full sm:w-56">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Prioridade
             </label>
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
             >
               <option value="all">Todas as Prioridades</option>
               {priorities.map((priority) => (
@@ -167,14 +167,14 @@ export default function Tickets() {
           </div>
 
           {/* Category Filter */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+          <div className="w-full sm:w-56">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Categoria
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
             >
               <option value="all">Todas as Categorias</option>
               {categories.map((category) => (
@@ -186,14 +186,14 @@ export default function Tickets() {
           </div>
 
           {/* Sort Order */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+          <div className="w-full sm:w-56">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Ordenar por Data
             </label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
             >
               <option value="newest">Mais Recentes</option>
               <option value="oldest">Mais Antigos</option>
@@ -203,10 +203,10 @@ export default function Tickets() {
 
         {/* Active Filters Indicator */}
         {(searchTitle || selectedPriority !== 'all' || selectedCategory !== 'all') && (
-          <div className="mt-3 pt-3 border-t border-slate-200 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">
             <span className="text-xs text-slate-600 font-medium">Filtros ativos:</span>
             {searchTitle && (
-              <span className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-2.5 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-2.5 py-0.5 text-xs font-medium text-brand-primary">
                 Título: "{searchTitle}"
                 <button onClick={() => setSearchTitle('')} className="hover:text-brand-primary">
                   <X size={14} />
@@ -214,15 +214,15 @@ export default function Tickets() {
               </span>
             )}
             {selectedPriority !== 'all' && (
-              <span className="inline-flex items-center gap-2 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                 {priorities.find(p => p.value === selectedPriority)?.label}
-                <button onClick={() => setSelectedPriority('all')} className="hover:text-orange-900">
+                <button onClick={() => setSelectedPriority('all')} className="hover:text-amber-900">
                   <X size={14} />
                 </button>
               </span>
             )}
             {selectedCategory !== 'all' && (
-              <span className="inline-flex items-center gap-2 bg-brand-secondary text-brand-primary px-2.5 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-2.5 py-0.5 text-xs font-medium text-brand-primary">
                 {categories.find(c => c.id === selectedCategory)?.name}
                 <button onClick={() => setSelectedCategory('all')} className="hover:text-brand-primary-dark">
                   <X size={14} />

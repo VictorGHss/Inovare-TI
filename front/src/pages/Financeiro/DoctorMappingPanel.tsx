@@ -141,7 +141,7 @@ export default function DoctorMappingPanel({
               {['ID Conta Azul', 'Nome', 'Email', 'Status de Vínculo', 'Ações'].map((col) => (
                 <th
                   key={col}
-                  className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400"
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
                 >
                   {col}
                 </th>
@@ -152,7 +152,7 @@ export default function DoctorMappingPanel({
           <tbody className="divide-y divide-slate-100">
             {carregando ? (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
                   <div className="flex items-center justify-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-primary border-t-transparent" />
                     Carregando mapeamentos...
@@ -161,7 +161,7 @@ export default function DoctorMappingPanel({
               </tr>
             ) : mapeamentosOrdenados.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-400 italic">
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400 italic">
                   Nenhum mapeamento cadastrado até o momento.
                 </td>
               </tr>
@@ -169,9 +169,9 @@ export default function DoctorMappingPanel({
               mapeamentosOrdenados.map((mapeamento) => (
                 <tr
                   key={mapeamento.id}
-                  className="transition-colors hover:bg-orange-50/40"
+                  className="transition-colors hover:bg-slate-50"
                 >
-                  <td className="max-w-[260px] px-5 py-3.5">
+                  <td className="max-w-[260px] px-4 py-3">
                     <span
                       className="block truncate rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-500"
                       title={mapeamento.contaAzulCustomerUuid}
@@ -180,7 +180,7 @@ export default function DoctorMappingPanel({
                     </span>
                   </td>
 
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-secondary/60">
                         <UserRound size={13} className="text-brand-primary-dark" />
@@ -191,27 +191,27 @@ export default function DoctorMappingPanel({
                     </div>
                   </td>
 
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2 text-slate-600">
                       <Mail size={13} className="shrink-0 text-slate-400" />
                       <span className="text-sm">{mapeamento.doctorEmail ?? 'Sem e-mail de fallback'}</span>
                     </div>
                   </td>
 
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-3">
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${mapeamento.userId ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${mapeamento.userId ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
                     >
                       {mapeamento.userId ? 'Vinculado ao usuário' : 'Fallback por e-mail'}
                     </span>
                   </td>
 
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(mapeamento)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
                         title="Editar mapeamento"
                       >
                         <Pencil size={13} />
@@ -221,7 +221,7 @@ export default function DoctorMappingPanel({
                         type="button"
                         onClick={() => { void handleDeleteMapping(mapeamento); }}
                         disabled={deletingMappingId === mapeamento.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                         title="Remover mapeamento"
                       >
                         {deletingMappingId === mapeamento.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}

@@ -20,7 +20,7 @@ const priorityLabelMap: Record<Ticket['priority'], string> = {
 const priorityClassMap: Record<Ticket['priority'], string> = {
   LOW: 'bg-slate-100 text-slate-600',
   NORMAL: 'bg-brand-secondary/30 text-brand-primary',
-  HIGH: 'bg-orange-100 text-orange-700',
+    HIGH: 'bg-amber-100 text-amber-700 border border-amber-200',
   URGENT: 'bg-red-100 text-red-600',
 };
 
@@ -97,7 +97,7 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
                 <div className="flex items-center gap-2">
                   <span>{String(ticket.title ?? '-')}</span>
                   {ticket.isFromDiscord && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-brand-secondary px-2 py-0.5 text-xs font-medium text-brand-primary-dark">
                       <Bot size={12} />
                       Discord
                     </span>
@@ -111,7 +111,7 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
                 {String(ticket.categoryName ?? '-')}
               </td>
               <td className="px-4 py-3">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityClassMap[ticket.priority]}`}>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${priorityClassMap[ticket.priority]}`}>
                   {priorityLabelMap[ticket.priority]}
                 </span>
               </td>

@@ -130,7 +130,7 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
                   {['Data', 'Destino', 'Item', 'Qtd', 'Valor Total'].map((col) => (
                     <th
                       key={col}
-                      className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400"
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
                     >
                       {col}
                     </th>
@@ -158,7 +158,7 @@ export default function InternalConsumptionPanel({ startDate, endDate }: { start
                 {!loading && lines.map((l) => (
                   <tr
                     key={l.transactionId + l.item + l.date}
-                    className="transition-colors hover:bg-orange-50/40"
+                    className="transition-colors hover:bg-slate-50"
                   >
                     <td className="px-4 py-3 text-slate-500 text-xs">{formatDateTime(l.date)}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{l.destination}</td>

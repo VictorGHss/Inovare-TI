@@ -83,12 +83,12 @@ export default function FinancialDashboard() {
 
   if (loading) {
     return (
-      <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8 bg-orange-50/30 min-h-screen">
+      <main className="min-h-screen w-full max-w-full bg-slate-50/40 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="h-36 animate-pulse rounded-3xl border border-orange-100 bg-white shadow-sm"
+              className="h-36 animate-pulse rounded-3xl border border-slate-200 bg-white shadow-sm"
             />
           ))}
         </div>
@@ -97,7 +97,7 @@ export default function FinancialDashboard() {
   }
 
   return (
-    <main className="w-full max-w-full px-4 py-8 sm:px-6 lg:px-8 bg-orange-50/20 min-h-screen">
+    <main className="min-h-screen w-full max-w-full bg-slate-50/40 px-4 py-8 sm:px-6 lg:px-8">
       {/* ── Page Header ── */}
       <section className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -250,7 +250,7 @@ export default function FinancialDashboard() {
 
           <FinancialMetricsGrid summary={summary} unresolvedAlertsCount={unresolvedAlerts.length} isPrivate={isPrivate} />
 
-          <section className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
+          <section className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
             <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-bold text-slate-800">Resumo operacional</h2>
               <p className="mt-0.5 text-sm text-slate-500">Indicadores financeiros retornados pela API.</p>
@@ -286,10 +286,10 @@ export default function FinancialDashboard() {
                     sub: `Baixa: ${analytics?.inventorySummary?.lowStockItems ?? '—'} · Zerados: ${analytics?.inventorySummary?.outOfStockItems ?? '—'}`,
                   },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-xl bg-orange-50/60 border border-orange-100 p-4">
+                  <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</p>
                     <strong className={`mt-2 block text-base font-bold ${item.valueClass}`}>{item.value}</strong>
-                    {item.sub && <p className="mt-1 text-xs text-amber-600">{item.sub}</p>}
+                    {item.sub && <p className="mt-1 text-xs text-slate-500">{item.sub}</p>}
                   </div>
                 ))}
               </div>

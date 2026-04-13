@@ -189,7 +189,7 @@ export default function Inventory() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por nome ou categoria"
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
               />
           </div>
 
@@ -244,11 +244,11 @@ export default function Inventory() {
             <table className="w-full table-auto text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Categoria</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Estoque Atual</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Nome</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Categoria</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Estoque Atual</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -256,7 +256,7 @@ export default function Inventory() {
                   <tr
                     key={item.id}
                     onClick={() => navigate(`/inventory/${item.id}`)}
-                    className="cursor-pointer transition-colors hover:bg-cyan-50/40"
+                    className="cursor-pointer transition-colors hover:bg-slate-50"
                   >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {item.name}
@@ -277,7 +277,7 @@ export default function Inventory() {
                           Estoque Baixo
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-medium text-cyan-700">
+                        <span className="inline-flex items-center rounded-full bg-brand-secondary px-2.5 py-0.5 text-xs font-medium text-brand-primary-dark">
                           Em Estoque
                         </span>
                       )}

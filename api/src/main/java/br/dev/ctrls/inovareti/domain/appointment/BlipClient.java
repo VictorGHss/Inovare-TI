@@ -109,7 +109,7 @@ public class BlipClient {
                     .map(template -> new BlipTemplateDto(template.id(), template.name()))
                     .collect(Collectors.toList());
 
-        } catch (HttpClientErrorException | HttpServerErrorException | org.springframework.web.client.ResourceAccessException ex) {
+        } catch (HttpClientErrorException | HttpServerErrorException ex) {
             log.error("Erro ao buscar templates do Blip", ex);
             return List.of();
         }

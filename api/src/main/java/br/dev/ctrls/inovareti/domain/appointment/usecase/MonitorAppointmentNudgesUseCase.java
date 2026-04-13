@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionStatus;
@@ -25,6 +26,7 @@ public class MonitorAppointmentNudgesUseCase {
 
     private final AppointmentSessionRepository appointmentSessionRepository;
     private final AppointmentConfigRepository appointmentConfigRepository;
+    private final AppointmentMotorProperties appointmentMotorProperties;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final FeegowClient feegowClient;
@@ -33,11 +35,11 @@ public class MonitorAppointmentNudgesUseCase {
     public void execute() {
         int xHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_1)
                 .map(config -> config.getTimingHours())
-                .orElse(4);
+                .orElse(appointmentMotorProperties.getNudge1WaitHours());
 
         int yHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_FINAL)
                 .map(config -> config.getTimingHours())
-                .orElse(4);
+                .orElse(appointmentMotorProperties.getNudgeFinalWaitHours());
 
         LocalDateTime pendingThreshold = LocalDateTime.now().minusHours(xHours);
         List<AppointmentSession> pendingSessions = appointmentSessionRepository

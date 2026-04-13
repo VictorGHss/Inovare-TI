@@ -25,5 +25,7 @@ public class AppointmentMotorProperties {
     private String blipSendMessagePath = "/messages";
     private String blipSetContextPath = "/contexts";
     private long blipRateLimitMs = 200L;
+    private int nudge1WaitHours = 4;
+    private int nudgeFinalWaitHours = 4;
     private long webhookIdempotencyHours = 48L;
 }

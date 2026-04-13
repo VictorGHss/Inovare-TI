@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 interface PageHeroProps {
-  title: string;
+  title: ReactNode;
   description?: string;
   eyebrow?: string;
   actions?: ReactNode;
@@ -36,7 +36,7 @@ export default function PageHero({
               {eyebrow}
             </span>
           )}
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="mt-3 flex flex-wrap items-center gap-2 text-3xl font-bold tracking-tight text-slate-900">{title}</h1>
           {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>}
         </div>
 

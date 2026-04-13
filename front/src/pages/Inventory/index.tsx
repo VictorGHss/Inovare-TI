@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  X,
   ArrowDownWideNarrow,
   ChevronDown,
   Search,
@@ -105,17 +106,14 @@ export default function Inventory() {
       || item.itemCategoryName.toLowerCase().includes(normalizedSearchTerm))
     : items;
 
-  const isSortActive = sortOption !== 'name-asc';
+  // A ordenação sempre está ativa na listagem, inclusive no modo padrão (Nome A-Z).
+  const isSortActive = true;
   const currentSortLabel = SORT_OPTIONS.find((option) => option.value === sortOption)?.label ?? 'Nome (A-Z)';
 
-  // Alterna o filtro de estoque baixo diretamente pela URL para manter o estado navegável.
-  function toggleLowStockFilter() {
+  // Remove somente o filtro vindo da URL, mantendo os demais parâmetros de busca.
+  function clearLowStockFilter() {
     const nextParams = new URLSearchParams(searchParams);
-    if (lowStockOnly) {
-      nextParams.delete('status');
-    } else {
-      nextParams.set('status', LOW_STOCK_STATUS_PARAM);
-    }
+    nextParams.delete('status');
     setSearchParams(nextParams, { replace: true });
   }
 
@@ -143,7 +141,24 @@ export default function Inventory() {
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <PageHero
         eyebrow="Suprimentos"
-        title="Inventário"
+        title={(
+          <>
+            <span>Inventário</span>
+            {lowStockOnly && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
+                Filtro: Estoque Baixo
+                <button
+                  type="button"
+                  onClick={clearLowStockFilter}
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-brand-primary transition-colors hover:bg-brand-primary/20"
+                  aria-label="Remover filtro de estoque baixo"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+          </>
+        )}
         description="Controle de estoque, entradas de lote e disponibilidade de itens para atendimento dos chamados."
         actions={(
           <>
@@ -167,7 +182,7 @@ export default function Inventory() {
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
           <div className="relative w-full md:max-w-md">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -179,18 +194,8 @@ export default function Inventory() {
               />
           </div>
 
-          <button
-            type="button"
-            onClick={toggleLowStockFilter}
-            className={`inline-flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors md:shrink-0 ${lowStockOnly
-              ? 'border-brand-primary bg-amber-50 text-brand-primary'
-              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-          >
-            Estoque Baixo (&lt;= {LOW_STOCK_THRESHOLD})
-          </button>
-
           {/* Dropdown único de ordenação com ícone e rótulo no mesmo alvo de clique. */}
-          <div ref={sortMenuRef} className="relative w-full md:w-72">
+          <div ref={sortMenuRef} className="relative w-full md:w-80 md:shrink-0">
             <button
               type="button"
               onClick={() => setIsSortMenuOpen((previousState) => !previousState)}

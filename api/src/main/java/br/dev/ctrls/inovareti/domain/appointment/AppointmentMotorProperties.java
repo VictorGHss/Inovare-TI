@@ -12,20 +12,20 @@ import lombok.Setter;
 @ConfigurationProperties(prefix = "app.appointment.motor")
 public class AppointmentMotorProperties {
 
-    private boolean enabled = true;
-    private String ingestionCron = "0 0 8 * * *";
-    private String monitorCron = "0 */30 * * * *";
+    private boolean enabled;
+    private String ingestionCron;
+    private String monitorCron;
     private String feegowBaseUrl;
     private String feegowToken;
-    private String feegowSearchPath = "/api/appointments/search";
-    private String feegowPatientPath = "/api/patients/{id}";
-    private String feegowUpdateStatusPath = "/api/appointments/{id}/status";
+    private String feegowSearchPath;
+    private String feegowPatientPath;
+    private String feegowUpdateStatusPath;
     private String blipBaseUrl;
     private String blipAuthorizationKey;
-    private String blipSendMessagePath = "/messages";
-    private String blipSetContextPath = "/contexts";
-    private long blipRateLimitMs = 200L;
-    private int nudge1WaitHours = 4;
-    private int nudgeFinalWaitHours = 4;
-    private long webhookIdempotencyHours = 48L;
+    private String blipSendMessagePath;
+    private String blipSetContextPath;
+    private long blipRateLimitMs;
+    private int nudge1WaitHours;
+    private int nudgeFinalWaitHours;
+    private long webhookIdempotencyHours;
 }

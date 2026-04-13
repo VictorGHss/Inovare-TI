@@ -17,7 +17,7 @@ public class AppointmentMotorScheduler {
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final MonitorAppointmentNudgesUseCase monitorAppointmentNudgesUseCase;
 
-    @Scheduled(cron = "${app.appointment.motor.ingestion-cron:0 0 8 * * *}")
+    @Scheduled(cron = "${app.appointment.motor.ingestion-cron}")
     public void ingestDPlusOneAppointments() {
         if (!properties.isEnabled()) {
             return;
@@ -27,7 +27,7 @@ public class AppointmentMotorScheduler {
         ingestAppointmentsUseCase.execute();
     }
 
-    @Scheduled(cron = "${app.appointment.motor.monitor-cron:0 */30 * * * *}")
+    @Scheduled(cron = "${app.appointment.motor.monitor-cron}")
     public void monitorNudges() {
         if (!properties.isEnabled()) {
             return;

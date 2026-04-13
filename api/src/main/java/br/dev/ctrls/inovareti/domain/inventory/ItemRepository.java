@@ -29,6 +29,7 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     Page<Item> findByCurrentStockLessThanEqual(int threshold, Pageable pageable);
 
     @EntityGraph(attributePaths = "itemCategory")
+        // No Postgres, os campos da categoria materializados no SELECT precisam constar no GROUP BY.
     @Query(value = """
             SELECT i
             FROM Item i
@@ -51,6 +52,7 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             Pageable pageable);
 
     @EntityGraph(attributePaths = "itemCategory")
+        // Mantém o mesmo critério de GROUP BY para a variante de ordenação descendente.
     @Query(value = """
             SELECT i
             FROM Item i

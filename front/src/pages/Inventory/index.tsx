@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  ArrowDownWideNarrow,
   ChevronDown,
-  SlidersHorizontal,
   Search,
   PlusCircle,
   Package,
@@ -95,15 +95,17 @@ export default function Inventory() {
       || item.itemCategoryName.toLowerCase().includes(normalizedSearchTerm))
     : items;
 
-  const hasActiveFilters = lowStockOnly || sortOption !== 'name-asc' || normalizedSearchTerm.length > 0;
   const isSortActive = sortOption !== 'name-asc';
 
-  function clearFilters() {
-    setSortOption('name-asc');
-    setSearchTerm('');
+  // Alterna o filtro de estoque baixo diretamente pela URL para manter o estado navegável.
+  function toggleLowStockFilter() {
+    const nextParams = new URLSearchParams(searchParams);
     if (lowStockOnly) {
-      setSearchParams({}, { replace: true });
+      nextParams.delete('status');
+    } else {
+      nextParams.set('status', LOW_STOCK_STATUS_PARAM);
     }
+    setSearchParams(nextParams, { replace: true });
   }
 
   return (
@@ -134,17 +136,8 @@ export default function Inventory() {
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
-            {lowStockOnly && (
-              <span className="inline-flex items-center rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
-                Filtro ativo: Estoque baixo (&lt;= {LOW_STOCK_THRESHOLD})
-              </span>
-            )}
-          </div>
-
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
-            <div className="relative min-w-[260px]">
+        <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="relative min-w-[260px] flex-1">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -153,39 +146,38 @@ export default function Inventory() {
                 placeholder="Buscar por nome ou categoria"
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
               />
-            </div>
+          </div>
 
-            {/* Controle único de ordenação para evitar ações duplicadas na UI */}
-            <div
-              className={`relative min-w-[250px] rounded-xl border bg-white shadow-sm transition-colors ${isSortActive ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'}`}
+          <button
+            type="button"
+            onClick={toggleLowStockFilter}
+            className={`inline-flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${lowStockOnly
+              ? 'border-brand-primary bg-brand-secondary/30 text-brand-primary'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+          >
+            Estoque Baixo (&lt;= {LOW_STOCK_THRESHOLD})
+          </button>
+
+          {/* Seletor único de ordenação: ícone e rótulo no mesmo controle clicável. */}
+          <div
+            className={`relative min-w-[260px] rounded-xl border bg-white shadow-sm transition-colors ${isSortActive ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'}`}
+          >
+            <ArrowDownWideNarrow
+              size={16}
+              className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isSortActive ? 'text-brand-primary' : 'text-slate-500'}`}
+            />
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
+              className="w-full appearance-none rounded-xl bg-transparent py-2.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none"
             >
-              <SlidersHorizontal
-                size={16}
-                className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isSortActive ? 'text-brand-primary' : 'text-slate-500'}`}
-              />
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
-                className="w-full appearance-none rounded-xl bg-transparent py-2.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none"
-              >
-                <option value="name-asc">Nome (A-Z)</option>
-                <option value="name-desc">Nome (Z-A)</option>
-                <option value="stock-desc">Maior Estoque</option>
-                <option value="stock-asc">Menor Estoque</option>
-                <option value="oldest-batch-asc">Mais Antigos no Estoque</option>
-              </select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center justify-center rounded-xl border border-brand-primary/20 bg-brand-secondary/30 px-3 py-2.5 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-secondary/50"
-              >
-                Limpar Filtros
-              </button>
-            )}
+              <option value="name-asc">Nome (A-Z)</option>
+              <option value="name-desc">Nome (Z-A)</option>
+              <option value="stock-desc">Maior Estoque</option>
+              <option value="stock-asc">Menor Estoque</option>
+              <option value="oldest-batch-asc">Mais Antigos</option>
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
           </div>
         </div>
 

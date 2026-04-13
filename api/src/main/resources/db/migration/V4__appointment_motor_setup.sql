@@ -69,29 +69,6 @@ CREATE TABLE appointment_doctor_mapping (
     CONSTRAINT uq_appointment_doctor_mapping_profissional_id UNIQUE (profissional_id)
 );
 
-INSERT INTO appointment_configs(category, template_id, timing_hours)
-VALUES
-    ('CONFIRMATION', 'confirmacao_consulta_v1', 0),
-    ('NUDGE_1', 'aviso_interacao_necessariav1', 4),
-    ('NUDGE_FINAL', 'aviso_final_cancelamento', 4)
-ON CONFLICT (category) DO NOTHING;
-
-INSERT INTO appointment_template_variable_mapping(config_id, placeholder_index, dictionary_key)
-SELECT cfg.id, map.placeholder_index, map.dictionary_key
-FROM appointment_configs cfg
-JOIN (
-    VALUES
-        ('CONFIRMATION', 1, 'PACIENTE_NOME'),
-        ('CONFIRMATION', 2, 'AGENDAMENTO_DATA'),
-        ('CONFIRMATION', 3, 'MEDICO_NOME'),
-        ('NUDGE_1', 1, 'PACIENTE_NOME'),
-        ('NUDGE_1', 2, 'AGENDAMENTO_DATA'),
-        ('NUDGE_FINAL', 1, 'PACIENTE_NOME'),
-        ('NUDGE_FINAL', 2, 'AGENDAMENTO_DATA')
-) AS map(category, placeholder_index, dictionary_key)
-    ON map.category = cfg.category
-ON CONFLICT (config_id, placeholder_index) DO NOTHING;
-
 INSERT INTO appointment_doctor_mapping(profissional_id, secretary_names, blip_queue_id, is_external)
 VALUES ('EXTERNAL', 'Atendimento Externo', 'queue-external', true)
 ON CONFLICT (profissional_id) DO NOTHING;

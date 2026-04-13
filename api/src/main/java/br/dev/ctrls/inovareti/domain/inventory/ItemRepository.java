@@ -34,7 +34,7 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             FROM Item i
             LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
-            GROUP BY i
+            GROUP BY i, i.itemCategory.id, i.itemCategory.name, i.itemCategory.isConsumable
             ORDER BY
             CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
             MIN(sb.entryDate) ASC,
@@ -56,7 +56,7 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             FROM Item i
             LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
-            GROUP BY i
+            GROUP BY i, i.itemCategory.id, i.itemCategory.name, i.itemCategory.isConsumable
             ORDER BY
             CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
             MIN(sb.entryDate) DESC,

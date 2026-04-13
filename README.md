@@ -14,6 +14,12 @@ O Inovare TI é uma aplicação full‑stack que automatiza a operação do supo
 - **Automação Financeira:** Integração OAuth2 com ContaAzul para vínculo de clientes e envio automatizado de recibos.
 - **Auditoria 360:** Trilha de compliance imutável registrando todas as ações críticas do sistema.
 
+## 🚀 Novidades Recentes (Abr/2026)
+
+- **Dashboard com integração Conta Azul:** painel financeiro consolidado com status da integração, sincronização de recibos, alertas operacionais e visão de consumo local/integrado.
+- **Filtros avançados de Inventário:** ordenação por Nome (A-Z/Z-A), Maior/Menor Estoque e FIFO (itens mais antigos), além de atalho de Estoque Baixo direto no dashboard (`/inventory?status=low-stock`).
+- **Design System Inovare padronizado:** unificação visual entre Tickets, Financeiro, Inventário e Base de Conhecimento com o mesmo padrão de largura, `PageHero`, inputs, tabelas, badges e hovers.
+
 ---
 
 ## 🛠️ Stack Tecnológica
@@ -56,6 +62,11 @@ ENCRYPTION_SECRET=ChaveMestraParaCriptografiaVault2024!
 # Redis (cache / rate-limiter)
 SPRING_REDIS_HOST=redis
 SPRING_REDIS_PORT=6379
+SPRING_REDIS_TIMEOUT=60000
+
+# Compatibilidade com propriedades spring.data.redis.* (docker-compose)
+SPRING_DATA_REDIS_HOST=redis
+SPRING_DATA_REDIS_PORT=6379
 
 # Discord (operational webhook + bot)
 DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/...
@@ -67,6 +78,13 @@ FRONTEND_URL=http://localhost:5173/
 ```
 
 Observação: nunca versionar o arquivo `.env` com segredos. Use `/.env.example` como referência e preencha valores sensíveis no ambiente (Vault/Secrets Manager) em produção.
+
+### Variáveis Redis (cache)
+
+- `SPRING_REDIS_HOST`: host do Redis utilizado pelo cache/rate-limiter distribuído.
+- `SPRING_REDIS_PORT`: porta do Redis.
+- `SPRING_REDIS_TIMEOUT`: timeout de conexão/operações Redis em milissegundos (ex.: `60000`).
+- `SPRING_DATA_REDIS_HOST` e `SPRING_DATA_REDIS_PORT`: aliases compatíveis com Spring Boot e utilizados em alguns ambientes (ex.: `docker-compose.yml`).
 
 ### 3) Rodar o Projeto
 

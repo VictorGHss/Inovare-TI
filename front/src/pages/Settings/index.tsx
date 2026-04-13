@@ -7,6 +7,7 @@ import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../s
 import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
+import AppointmentControlPanel from './AppointmentControlPanel';
 
 type TabType = 'system' | 'profile';
 
@@ -324,6 +325,7 @@ export default function Settings() {
 
               {/* Agendamentos (extraído para componente separado) */}
               <ReportSchedulesSection />
+              <AppointmentControlPanel />
             </>
           )}
         </div>

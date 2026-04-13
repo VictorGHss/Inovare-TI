@@ -15,6 +15,8 @@ public class AppointmentMotorProperties {
     private boolean enabled;
     private String ingestionCron;
     private String monitorCron;
+    private boolean testMode;
+    private String testDoctorId;
     private String feegowBaseUrl;
     private String feegowToken;
     private String feegowSearchPath;
@@ -27,5 +29,6 @@ public class AppointmentMotorProperties {
     private long blipRateLimitMs;
     private int nudge1WaitHours;
     private int nudgeFinalWaitHours;
+    private long sendIdempotencyHours;
     private long webhookIdempotencyHours;
 }

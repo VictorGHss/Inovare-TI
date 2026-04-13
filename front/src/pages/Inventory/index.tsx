@@ -106,7 +106,7 @@ export default function Inventory() {
       || item.itemCategoryName.toLowerCase().includes(normalizedSearchTerm))
     : items;
 
-  // A ordenação sempre está ativa na listagem, inclusive no modo padrão (Nome A-Z).
+  // A ordenação está sempre ativa na listagem (incluindo o padrão Nome A-Z).
   const isSortActive = true;
   const currentSortLabel = SORT_OPTIONS.find((option) => option.value === sortOption)?.label ?? 'Nome (A-Z)';
 
@@ -141,24 +141,7 @@ export default function Inventory() {
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <PageHero
         eyebrow="Suprimentos"
-        title={(
-          <>
-            <span>Inventário</span>
-            {lowStockOnly && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
-                Filtro: Estoque Baixo
-                <button
-                  type="button"
-                  onClick={clearLowStockFilter}
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-brand-primary transition-colors hover:bg-brand-primary/20"
-                  aria-label="Remover filtro de estoque baixo"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-          </>
-        )}
+        title="Inventário"
         description="Controle de estoque, entradas de lote e disponibilidade de itens para atendimento dos chamados."
         actions={(
           <>
@@ -180,10 +163,26 @@ export default function Inventory() {
         )}
       />
 
+      {lowStockOnly && (
+        <div className="mb-4">
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
+            Estoque Baixo
+            <button
+              type="button"
+              onClick={clearLowStockFilter}
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-brand-primary transition-colors hover:bg-brand-primary/20"
+              aria-label="Remover filtro de estoque baixo"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-3">
-          <div className="relative w-full md:max-w-md">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative w-full max-w-md">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -195,7 +194,7 @@ export default function Inventory() {
           </div>
 
           {/* Dropdown único de ordenação com ícone e rótulo no mesmo alvo de clique. */}
-          <div ref={sortMenuRef} className="relative w-full md:w-80 md:shrink-0">
+          <div ref={sortMenuRef} className="relative w-full max-w-xs">
             <button
               type="button"
               onClick={() => setIsSortMenuOpen((previousState) => !previousState)}
@@ -205,7 +204,7 @@ export default function Inventory() {
             >
               <span className="inline-flex items-center gap-2">
                 <ArrowDownWideNarrow size={16} />
-                {currentSortLabel}
+                {`Ordenar por: ${currentSortLabel}`}
               </span>
               <ChevronDown size={16} className={isSortMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>

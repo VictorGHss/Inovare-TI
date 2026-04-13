@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, PlayCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+import BlipTemplateSelector from './BlipTemplateSelector';
 import {
   getAppointmentMotorConfig,
   triggerAppointmentMotorManual,
@@ -57,7 +58,7 @@ export default function AppointmentControlPanel() {
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Controle do Motor de Agendamentos</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Disparo manual e verificação do modo atual de execução.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Disparo manual, verificação do modo e configuração de templates.</p>
           </div>
           <button
             type="button"
@@ -69,26 +70,52 @@ export default function AppointmentControlPanel() {
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Modo Atual</span>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${modeBadgeClass}`}>
-              {mode === 'TEST' ? 'TEST MODE' : 'PRODUCTION'}
-            </span>
-            {mode === 'TEST' && config?.testDoctorId && (
-              <span className="text-xs text-amber-700">Médico de teste: {config.testDoctorId}</span>
-            )}
+        <div className="px-6 py-5 space-y-6">
+          {/* Seção de Status do Motor */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Status do Motor</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${modeBadgeClass}`}>
+                {mode === 'TEST' ? 'TEST MODE' : 'PRODUCTION'}
+              </span>
+              {mode === 'TEST' && config?.testDoctorId && (
+                <span className="text-xs text-amber-700">Médico de teste: {config.testDoctorId}</span>
+              )}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setConfirmOpen(true)}
-            disabled={loading || running}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <PlayCircle size={16} />
-            {running ? 'Executando...' : 'Executar Motor de Confirmação Agora'}
-          </button>
+          {/* Seção de Execução Manual */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Execução Manual</h3>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              disabled={loading || running}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <PlayCircle size={16} />
+              {running ? 'Executando...' : 'Executar Motor de Confirmação Agora'}
+            </button>
+          </div>
+
+          {/* Seção de Configuração de Templates */}
+          <div className="border-t border-slate-100 pt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">Configuração de Templates</h3>
+            <div className="space-y-4">
+              <BlipTemplateSelector
+                category="CONFIRMATION"
+                categoryLabel="Template de Confirmação"
+              />
+              <BlipTemplateSelector
+                category="NUDGE_1"
+                categoryLabel="Template de 1º Lembrete (Nudge)"
+              />
+              <BlipTemplateSelector
+                category="NUDGE_FINAL"
+                categoryLabel="Template de Último Lembrete"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

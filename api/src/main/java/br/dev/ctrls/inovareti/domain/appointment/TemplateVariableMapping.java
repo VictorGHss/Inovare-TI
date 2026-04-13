@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "template_variable_mapping")
+@Table(name = "appointment_template_variable_mapping")
 @Getter
 @Setter
 @Builder

@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "doctor_mapping")
+@Table(name = "appointment_doctor_mapping")
 @Getter
 @Setter
 @Builder

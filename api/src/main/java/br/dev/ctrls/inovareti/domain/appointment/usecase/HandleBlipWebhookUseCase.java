@@ -59,7 +59,7 @@ public class HandleBlipWebhookUseCase {
             case "ALTERAR" -> {
                 DoctorMapping mapping = doctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
                         .orElseGet(() -> doctorMappingRepository.findByProfissionalId("EXTERNAL")
-                                .orElseThrow(() -> new NotFoundException("Fila externa não encontrada no doctor_mapping")));
+                        .orElseThrow(() -> new NotFoundException("Fila externa não encontrada no appointment_doctor_mapping")));
                 blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
             }
             default -> log.info("Webhook recebido com ação sem transição configurada. action={}", action);

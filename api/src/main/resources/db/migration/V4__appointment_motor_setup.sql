@@ -13,15 +13,15 @@ CREATE TABLE appointment_configs (
     CONSTRAINT ck_appointment_configs_timing CHECK (timing_hours >= 0)
 );
 
-CREATE TABLE template_variable_mapping (
+CREATE TABLE appointment_template_variable_mapping (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     config_id uuid NOT NULL,
     placeholder_index integer NOT NULL,
     dictionary_key varchar(80) NOT NULL,
     created_at timestamp NOT NULL DEFAULT now(),
-    CONSTRAINT pk_template_variable_mapping PRIMARY KEY (id),
-    CONSTRAINT fk_template_variable_mapping_config FOREIGN KEY (config_id) REFERENCES appointment_configs(id) ON DELETE CASCADE,
-    CONSTRAINT uq_template_variable_mapping_config_placeholder UNIQUE (config_id, placeholder_index)
+    CONSTRAINT pk_appointment_template_variable_mapping PRIMARY KEY (id),
+    CONSTRAINT fk_appointment_template_variable_mapping_config FOREIGN KEY (config_id) REFERENCES appointment_configs(id) ON DELETE CASCADE,
+    CONSTRAINT uq_appointment_template_variable_mapping_config_placeholder UNIQUE (config_id, placeholder_index)
 );
 
 CREATE TABLE appointment_sessions (
@@ -57,7 +57,7 @@ CREATE TABLE appointment_variable_logs (
     CONSTRAINT ck_appointment_variable_logs_category CHECK (category IN ('CONFIRMATION', 'NUDGE_1', 'NUDGE_FINAL'))
 );
 
-CREATE TABLE doctor_mapping (
+CREATE TABLE appointment_doctor_mapping (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     profissional_id varchar(64) NOT NULL,
     secretary_names varchar(255),
@@ -65,8 +65,8 @@ CREATE TABLE doctor_mapping (
     is_external boolean NOT NULL DEFAULT false,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp NOT NULL DEFAULT now(),
-    CONSTRAINT pk_doctor_mapping PRIMARY KEY (id),
-    CONSTRAINT uq_doctor_mapping_profissional_id UNIQUE (profissional_id)
+    CONSTRAINT pk_appointment_doctor_mapping PRIMARY KEY (id),
+    CONSTRAINT uq_appointment_doctor_mapping_profissional_id UNIQUE (profissional_id)
 );
 
 INSERT INTO appointment_configs(category, template_id, timing_hours)
@@ -76,7 +76,7 @@ VALUES
     ('NUDGE_FINAL', 'aviso_final_cancelamento', 4)
 ON CONFLICT (category) DO NOTHING;
 
-INSERT INTO template_variable_mapping(config_id, placeholder_index, dictionary_key)
+INSERT INTO appointment_template_variable_mapping(config_id, placeholder_index, dictionary_key)
 SELECT cfg.id, map.placeholder_index, map.dictionary_key
 FROM appointment_configs cfg
 JOIN (
@@ -92,6 +92,6 @@ JOIN (
     ON map.category = cfg.category
 ON CONFLICT (config_id, placeholder_index) DO NOTHING;
 
-INSERT INTO doctor_mapping(profissional_id, secretary_names, blip_queue_id, is_external)
+INSERT INTO appointment_doctor_mapping(profissional_id, secretary_names, blip_queue_id, is_external)
 VALUES ('EXTERNAL', 'Atendimento Externo', 'queue-external', true)
 ON CONFLICT (profissional_id) DO NOTHING;

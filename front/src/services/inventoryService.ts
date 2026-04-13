@@ -3,9 +3,19 @@ import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, A
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
+export interface GetItemsParams {
+  sortField?: 'name' | 'currentStock' | 'oldestBatchEntryDate';
+  sortDirection?: 'ASC' | 'DESC';
+  lowStockOnly?: boolean;
+  page?: number;
+  size?: number;
+}
+
 // Busca todos os itens de inventário disponíveis
-export async function getItems(): Promise<Item[]> {
-  const { data } = await api.get<Item[]>('/api/items');
+export async function getItems(params?: GetItemsParams): Promise<Item[]> {
+  const { data } = await api.get<Item[]>('/api/items', {
+    params,
+  });
   return data;
 }
 

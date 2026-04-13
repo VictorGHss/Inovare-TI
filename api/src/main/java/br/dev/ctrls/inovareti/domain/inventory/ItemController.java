@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.inventory;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,8 +58,13 @@ public class ItemController {
      * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
      */
     @GetMapping
-    public ResponseEntity<List<ItemResponseDTO>> listAll() {
-        return ResponseEntity.ok(listAllItemsUseCase.execute());
+    public ResponseEntity<List<ItemResponseDTO>> listAll(
+            @RequestParam(defaultValue = "name") String sortField,
+            @RequestParam(defaultValue = "ASC") Sort.Direction sortDirection,
+            @RequestParam(defaultValue = "false") boolean lowStockOnly,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "200") int size) {
+        return ResponseEntity.ok(listAllItemsUseCase.execute(sortField, sortDirection, lowStockOnly, page, size));
     }
 
     /**

@@ -4,9 +4,10 @@ import type { InventorySummaryDTO } from '../types/models';
 
 interface InventorySummaryCardProps {
   data: InventorySummaryDTO;
+  onLowStockClick?: () => void;
 }
 
-export default function InventorySummaryCard({ data }: InventorySummaryCardProps) {
+export default function InventorySummaryCard({ data, onLowStockClick }: InventorySummaryCardProps) {
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -48,7 +49,19 @@ export default function InventorySummaryCard({ data }: InventorySummaryCardProps
 
         <motion.div
           variants={cardVariants}
-          className="group flex items-start gap-4 p-4 bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-xl"
+          onClick={onLowStockClick}
+          onKeyDown={(event) => {
+            if (!onLowStockClick) {
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onLowStockClick();
+            }
+          }}
+          role={onLowStockClick ? 'button' : undefined}
+          tabIndex={onLowStockClick ? 0 : -1}
+          className={`group flex items-start gap-4 p-4 bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-xl ${onLowStockClick ? 'cursor-pointer ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-300' : ''}`}
         >
           <div className="flex-shrink-0 rounded-xl bg-amber-100 p-2">
             <Zap className="w-6 h-6 text-amber-600" />
@@ -56,6 +69,11 @@ export default function InventorySummaryCard({ data }: InventorySummaryCardProps
           <div>
             <p className="text-sm font-medium text-slate-600">Estoque Baixo</p>
             <p className="text-2xl font-bold text-slate-800">{data.lowStockItems}</p>
+            {onLowStockClick && (
+              <span className="mt-2 inline-flex items-center rounded-lg bg-cyan-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors group-hover:bg-cyan-700">
+                Ver itens
+              </span>
+            )}
           </div>
         </motion.div>
 

@@ -129,6 +129,7 @@ export default function Dashboard() {
             totalTickets={analytics?.totalTickets ?? 0}
             closedTickets={analytics?.totalClosedTickets ?? 0}
             isAdmin={isAdmin}
+            onLowStockClick={() => navigate('/inventory?status=low-stock')}
           />
         )}
       </div>
@@ -150,7 +151,12 @@ export default function Dashboard() {
                 <div className="lg:col-span-2">
                   <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
                 </div>
-                {analytics && <InventorySummaryCard data={analytics.inventorySummary} />}
+                {analytics && (
+                  <InventorySummaryCard
+                    data={analytics.inventorySummary}
+                    onLowStockClick={() => navigate('/inventory?status=low-stock')}
+                  />
+                )}
               </>
             )}
           </div>

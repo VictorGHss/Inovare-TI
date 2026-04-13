@@ -1,28 +1,64 @@
 // Página de listagem de inventário com tabela e ações
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Package, PackagePlus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowDownAZ,
+  ArrowDownWideNarrow,
+  ArrowUpAZ,
+  ArrowUpNarrowWide,
+  Clock3,
+  PlusCircle,
+  Package,
+  PackagePlus,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItems } from '../../services/inventoryService';
 import type { Item } from '../../types/models';
 import AddBatchModal from './AddBatchModal';
 import PageHero from '../../components/PageHero';
 
+type InventorySortOption = 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'oldest-batch-asc';
+
+const LOW_STOCK_STATUS_PARAM = 'low-stock';
+const LOW_STOCK_THRESHOLD = 3;
+
+function mapSortOptionToApi(sortOption: InventorySortOption): {
+  sortField: 'name' | 'currentStock' | 'oldestBatchEntryDate';
+  sortDirection: 'ASC' | 'DESC';
+} {
+  switch (sortOption) {
+    case 'name-desc':
+      return { sortField: 'name', sortDirection: 'DESC' };
+    case 'stock-desc':
+      return { sortField: 'currentStock', sortDirection: 'DESC' };
+    case 'stock-asc':
+      return { sortField: 'currentStock', sortDirection: 'ASC' };
+    case 'oldest-batch-asc':
+      return { sortField: 'oldestBatchEntryDate', sortDirection: 'ASC' };
+    case 'name-asc':
+    default:
+      return { sortField: 'name', sortDirection: 'ASC' };
+  }
+}
+
 export default function Inventory() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [preselectedItemId, setPreselectedItemId] = useState<string | undefined>(undefined);
+  const [sortOption, setSortOption] = useState<InventorySortOption>('name-asc');
 
-  useEffect(() => {
-    loadItems();
-  }, []);
+  const lowStockOnly = searchParams.get('status') === LOW_STOCK_STATUS_PARAM;
 
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getItems();
+      const data = await getItems({
+        ...mapSortOptionToApi(sortOption),
+        lowStockOnly,
+      });
       setItems(data);
     } catch {
       toast.error('Erro ao carregar itens do inventário.');
@@ -30,12 +66,16 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [sortOption, lowStockOnly]);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
 
   function handleBatchAdded() {
     setShowBatchModal(false);
     setPreselectedItemId(undefined);
-    loadItems(); // Recarrega a lista após adicionar lote
+    void loadItems(); // Recarrega a lista após adicionar lote
   }
 
   function openBatchModalForItem(itemId: string, e: React.MouseEvent) {
@@ -48,6 +88,13 @@ export default function Inventory() {
     setPreselectedItemId(undefined);
     setShowBatchModal(true);
   }
+
+  const sortDirectionIcon =
+    sortOption === 'name-asc' ? <ArrowUpAZ size={16} className="text-cyan-700" />
+      : sortOption === 'name-desc' ? <ArrowDownAZ size={16} className="text-cyan-700" />
+        : sortOption === 'stock-desc' ? <ArrowDownWideNarrow size={16} className="text-cyan-700" />
+          : sortOption === 'stock-asc' ? <ArrowUpNarrowWide size={16} className="text-cyan-700" />
+            : <Clock3 size={16} className="text-cyan-700" />;
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -77,6 +124,33 @@ export default function Inventory() {
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            {lowStockOnly && (
+              <span className="inline-flex items-center rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+                Filtro ativo: Estoque baixo (&lt;= {LOW_STOCK_THRESHOLD})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-2 text-xs font-semibold text-cyan-700">
+              {sortDirectionIcon}
+              Ordenação
+            </span>
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
+              className="rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+            >
+              <option value="name-asc">A-Z</option>
+              <option value="name-desc">Z-A</option>
+              <option value="stock-desc">Maior Estoque</option>
+              <option value="stock-asc">Menor Estoque</option>
+              <option value="oldest-batch-asc">Mais Antigos no Estoque</option>
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="p-12 text-center">
             <div className="animate-pulse space-y-3">
@@ -105,7 +179,7 @@ export default function Inventory() {
                   <tr
                     key={item.id}
                     onClick={() => navigate(`/inventory/${item.id}`)}
-                    className="cursor-pointer transition-colors hover:bg-orange-50/40"
+                    className="cursor-pointer transition-colors hover:bg-cyan-50/40"
                   >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {item.name}
@@ -121,8 +195,12 @@ export default function Inventory() {
                         <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
                           Sem Estoque
                         </span>
+                      ) : item.currentStock <= LOW_STOCK_THRESHOLD ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                          Estoque Baixo
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-brand-secondary/40 px-2.5 py-0.5 text-xs font-medium text-brand-primary-dark">
+                        <span className="inline-flex items-center rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-medium text-cyan-700">
                           Em Estoque
                         </span>
                       )}

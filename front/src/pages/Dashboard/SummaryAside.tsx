@@ -11,6 +11,7 @@ interface SummaryAsideProps {
   totalTickets?: number;
   closedTickets?: number;
   isAdmin?: boolean;
+  onLowStockClick?: () => void;
 }
 
 interface SummaryItem {
@@ -29,6 +30,7 @@ export default function SummaryAside({
   totalTickets,
   closedTickets = 0,
   isAdmin = true,
+  onLowStockClick,
 }: SummaryAsideProps) {
   const summaryItems: SummaryItem[] = [
     {
@@ -96,7 +98,19 @@ export default function SummaryAside({
             <motion.article
               key={item.label}
               variants={itemVariants}
-              className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl"
+              onClick={item.label === 'Itens Baixo Estoque' ? onLowStockClick : undefined}
+              onKeyDown={(event) => {
+                if (item.label !== 'Itens Baixo Estoque' || !onLowStockClick) {
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onLowStockClick();
+                }
+              }}
+              role={item.label === 'Itens Baixo Estoque' && onLowStockClick ? 'button' : undefined}
+              tabIndex={item.label === 'Itens Baixo Estoque' && onLowStockClick ? 0 : -1}
+              className={`group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl ${item.label === 'Itens Baixo Estoque' && onLowStockClick ? 'cursor-pointer ring-offset-2 focus:outline-none focus:ring-2 focus:ring-cyan-300' : ''}`}
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${item.iconBgClass}`}>

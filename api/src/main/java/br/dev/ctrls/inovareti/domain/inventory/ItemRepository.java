@@ -1,11 +1,14 @@
 package br.dev.ctrls.inovareti.domain.inventory;
 
-import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
@@ -18,12 +21,60 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     boolean existsByNameAndItemCategory(String name, ItemCategory itemCategory);
 
-    /**
-     * Busca todos os itens com a categoria carregada via JOIN FETCH,
-     * evitando o problema N+1 durante a serialização.
-     */
-    @Query("SELECT i FROM Item i JOIN FETCH i.itemCategory")
-    List<Item> findAllWithCategory();
+    @Override
+    @EntityGraph(attributePaths = "itemCategory")
+    Page<Item> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = "itemCategory")
+    Page<Item> findByCurrentStockLessThanEqual(int threshold, Pageable pageable);
+
+    @EntityGraph(attributePaths = "itemCategory")
+    @Query(value = """
+            SELECT i
+            FROM Item i
+            WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            ORDER BY
+            CASE WHEN (SELECT MIN(sb.entryDate)
+                   FROM StockBatch sb
+                   WHERE sb.item = i AND sb.remainingQuantity > 0) IS NULL THEN 1 ELSE 0 END,
+            (SELECT MIN(sb.entryDate)
+             FROM StockBatch sb
+             WHERE sb.item = i AND sb.remainingQuantity > 0) ASC,
+            i.name ASC
+            """,
+            countQuery = """
+            SELECT COUNT(i)
+            FROM Item i
+            WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            """)
+    Page<Item> findAllOrderByOldestBatchEntryDateAsc(
+            @Param("lowStockOnly") boolean lowStockOnly,
+            @Param("threshold") int threshold,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = "itemCategory")
+    @Query(value = """
+            SELECT i
+            FROM Item i
+            WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            ORDER BY
+            CASE WHEN (SELECT MIN(sb.entryDate)
+                   FROM StockBatch sb
+                   WHERE sb.item = i AND sb.remainingQuantity > 0) IS NULL THEN 1 ELSE 0 END,
+            (SELECT MIN(sb.entryDate)
+             FROM StockBatch sb
+             WHERE sb.item = i AND sb.remainingQuantity > 0) DESC,
+            i.name ASC
+            """,
+            countQuery = """
+            SELECT COUNT(i)
+            FROM Item i
+            WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
+            """)
+    Page<Item> findAllOrderByOldestBatchEntryDateDesc(
+            @Param("lowStockOnly") boolean lowStockOnly,
+            @Param("threshold") int threshold,
+            Pageable pageable);
 
     /**
      * Busca um item por ID com a categoria carregada via JOIN FETCH.

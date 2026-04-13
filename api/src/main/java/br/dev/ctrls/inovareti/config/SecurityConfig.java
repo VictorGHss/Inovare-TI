@@ -58,6 +58,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**", "/api/actuator/**").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
                                  "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
+                .requestMatchers("/v1/webhook/blip", "/api/v1/webhook/blip").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

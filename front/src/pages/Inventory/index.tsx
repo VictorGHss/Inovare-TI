@@ -2,11 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowDownAZ,
-  ArrowDownWideNarrow,
-  ArrowUpAZ,
-  ArrowUpNarrowWide,
-  Clock3,
+  ChevronDown,
+  SlidersHorizontal,
   Search,
   PlusCircle,
   Package,
@@ -99,6 +96,7 @@ export default function Inventory() {
     : items;
 
   const hasActiveFilters = lowStockOnly || sortOption !== 'name-asc' || normalizedSearchTerm.length > 0;
+  const isSortActive = sortOption !== 'name-asc';
 
   function clearFilters() {
     setSortOption('name-asc');
@@ -107,13 +105,6 @@ export default function Inventory() {
       setSearchParams({}, { replace: true });
     }
   }
-
-  const sortDirectionIcon =
-    sortOption === 'name-asc' ? <ArrowUpAZ size={16} className="text-cyan-700" />
-      : sortOption === 'name-desc' ? <ArrowDownAZ size={16} className="text-cyan-700" />
-        : sortOption === 'stock-desc' ? <ArrowDownWideNarrow size={16} className="text-cyan-700" />
-          : sortOption === 'stock-asc' ? <ArrowUpNarrowWide size={16} className="text-cyan-700" />
-            : <Clock3 size={16} className="text-cyan-700" />;
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -144,24 +135,15 @@ export default function Inventory() {
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
             {lowStockOnly && (
               <span className="inline-flex items-center rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
                 Filtro ativo: Estoque baixo (&lt;= {LOW_STOCK_THRESHOLD})
               </span>
             )}
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center rounded-lg border border-brand-primary/20 bg-brand-secondary/30 px-3 py-1.5 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-secondary/50"
-              >
-                Limpar Filtros
-              </button>
-            )}
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
             <div className="relative min-w-[260px]">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -173,15 +155,18 @@ export default function Inventory() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-2 text-xs font-semibold text-cyan-700">
-                {sortDirectionIcon}
-                Ordenação
-              </span>
+            {/* Controle único de ordenação para evitar ações duplicadas na UI */}
+            <div
+              className={`relative min-w-[250px] rounded-xl border bg-white shadow-sm transition-colors ${isSortActive ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'}`}
+            >
+              <SlidersHorizontal
+                size={16}
+                className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isSortActive ? 'text-brand-primary' : 'text-slate-500'}`}
+              />
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary"
+                className="w-full appearance-none rounded-xl bg-transparent py-2.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none"
               >
                 <option value="name-asc">Nome (A-Z)</option>
                 <option value="name-desc">Nome (Z-A)</option>
@@ -189,7 +174,18 @@ export default function Inventory() {
                 <option value="stock-asc">Menor Estoque</option>
                 <option value="oldest-batch-asc">Mais Antigos no Estoque</option>
               </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
             </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center justify-center rounded-xl border border-brand-primary/20 bg-brand-secondary/30 px-3 py-2.5 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-secondary/50"
+              >
+                Limpar Filtros
+              </button>
+            )}
           </div>
         </div>
 

@@ -28,14 +28,15 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     @EntityGraph(attributePaths = "itemCategory")
     Page<Item> findByCurrentStockLessThanEqual(int threshold, Pageable pageable);
 
-    @EntityGraph(attributePaths = "itemCategory")
-        // No Postgres, os campos da categoria materializados no SELECT precisam constar no GROUP BY.
+    // No Postgres, todos os campos projetados de Item e ItemCategory precisam estar no GROUP BY.
     @Query(value = """
             SELECT i
             FROM Item i
+            JOIN FETCH i.itemCategory ic
             LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
-            GROUP BY i, i.itemCategory.id, i.itemCategory.name, i.itemCategory.isConsumable
+            GROUP BY i.id, i.name, i.currentStock, i.specifications,
+                     ic.id, ic.name, ic.isConsumable
             ORDER BY
             CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
             MIN(sb.entryDate) ASC,
@@ -51,14 +52,15 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             @Param("threshold") int threshold,
             Pageable pageable);
 
-    @EntityGraph(attributePaths = "itemCategory")
-        // Mantém o mesmo critério de GROUP BY para a variante de ordenação descendente.
+    // Mantém o mesmo critério de GROUP BY completo para a variante de ordenação descendente.
     @Query(value = """
             SELECT i
             FROM Item i
+            JOIN FETCH i.itemCategory ic
             LEFT JOIN StockBatch sb ON sb.item = i AND sb.remainingQuantity > 0
             WHERE (:lowStockOnly = false OR i.currentStock <= :threshold)
-            GROUP BY i, i.itemCategory.id, i.itemCategory.name, i.itemCategory.isConsumable
+            GROUP BY i.id, i.name, i.currentStock, i.specifications,
+                     ic.id, ic.name, ic.isConsumable
             ORDER BY
             CASE WHEN MIN(sb.entryDate) IS NULL THEN 1 ELSE 0 END,
             MIN(sb.entryDate) DESC,

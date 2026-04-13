@@ -1,5 +1,5 @@
 // Página de listagem de inventário com tabela e ações
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDownWideNarrow,
@@ -16,6 +16,14 @@ import AddBatchModal from './AddBatchModal';
 import PageHero from '../../components/PageHero';
 
 type InventorySortOption = 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'oldest-batch-asc';
+
+const SORT_OPTIONS: Array<{ value: InventorySortOption; label: string }> = [
+  { value: 'name-asc', label: 'Nome (A-Z)' },
+  { value: 'name-desc', label: 'Nome (Z-A)' },
+  { value: 'stock-desc', label: 'Maior Estoque' },
+  { value: 'stock-asc', label: 'Menor Estoque' },
+  { value: 'oldest-batch-asc', label: 'Mais Antigos' },
+];
 
 const LOW_STOCK_STATUS_PARAM = 'low-stock';
 const LOW_STOCK_THRESHOLD = 3;
@@ -48,6 +56,8 @@ export default function Inventory() {
   const [preselectedItemId, setPreselectedItemId] = useState<string | undefined>(undefined);
   const [sortOption, setSortOption] = useState<InventorySortOption>('name-asc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement | null>(null);
 
   const lowStockOnly = searchParams.get('status') === LOW_STOCK_STATUS_PARAM;
 
@@ -96,6 +106,7 @@ export default function Inventory() {
     : items;
 
   const isSortActive = sortOption !== 'name-asc';
+  const currentSortLabel = SORT_OPTIONS.find((option) => option.value === sortOption)?.label ?? 'Nome (A-Z)';
 
   // Alterna o filtro de estoque baixo diretamente pela URL para manter o estado navegável.
   function toggleLowStockFilter() {
@@ -107,6 +118,26 @@ export default function Inventory() {
     }
     setSearchParams(nextParams, { replace: true });
   }
+
+  function handleSelectSort(nextSortOption: InventorySortOption) {
+    setSortOption(nextSortOption);
+    setIsSortMenuOpen(false);
+  }
+
+  useEffect(() => {
+    // Fecha o menu de ordenação quando o usuário clicar fora da área do dropdown.
+    function handleOutsideClick(event: MouseEvent) {
+      if (!sortMenuRef.current) {
+        return;
+      }
+      if (event.target instanceof Node && !sortMenuRef.current.contains(event.target)) {
+        setIsSortMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -136,8 +167,8 @@ export default function Inventory() {
 
       {/* Tabela de itens */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center">
-          <div className="relative min-w-[260px] flex-1">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
+          <div className="relative w-full md:max-w-md">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -151,33 +182,45 @@ export default function Inventory() {
           <button
             type="button"
             onClick={toggleLowStockFilter}
-            className={`inline-flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${lowStockOnly
-              ? 'border-brand-primary bg-brand-secondary/30 text-brand-primary'
+            className={`inline-flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors md:shrink-0 ${lowStockOnly
+              ? 'border-brand-primary bg-amber-50 text-brand-primary'
               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
           >
             Estoque Baixo (&lt;= {LOW_STOCK_THRESHOLD})
           </button>
 
-          {/* Seletor único de ordenação: ícone e rótulo no mesmo controle clicável. */}
-          <div
-            className={`relative min-w-[260px] rounded-xl border bg-white shadow-sm transition-colors ${isSortActive ? 'border-brand-primary ring-1 ring-brand-primary/20' : 'border-slate-200'}`}
-          >
-            <ArrowDownWideNarrow
-              size={16}
-              className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${isSortActive ? 'text-brand-primary' : 'text-slate-500'}`}
-            />
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value as InventorySortOption)}
-              className="w-full appearance-none rounded-xl bg-transparent py-2.5 pl-9 pr-9 text-sm font-medium text-slate-700 outline-none"
+          {/* Dropdown único de ordenação com ícone e rótulo no mesmo alvo de clique. */}
+          <div ref={sortMenuRef} className="relative w-full md:w-72">
+            <button
+              type="button"
+              onClick={() => setIsSortMenuOpen((previousState) => !previousState)}
+              className={`inline-flex w-full items-center justify-between rounded-xl border bg-white px-3 py-2.5 text-sm font-medium shadow-sm transition-colors ${isSortActive || isSortMenuOpen
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
             >
-              <option value="name-asc">Nome (A-Z)</option>
-              <option value="name-desc">Nome (Z-A)</option>
-              <option value="stock-desc">Maior Estoque</option>
-              <option value="stock-asc">Menor Estoque</option>
-              <option value="oldest-batch-asc">Mais Antigos</option>
-            </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <span className="inline-flex items-center gap-2">
+                <ArrowDownWideNarrow size={16} />
+                {currentSortLabel}
+              </span>
+              <ChevronDown size={16} className={isSortMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+
+            {isSortMenuOpen && (
+              <div className="absolute right-0 z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleSelectSort(option.value)}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${sortOption === option.value
+                      ? 'bg-brand-primary/10 text-brand-primary'
+                      : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 // Layout padrão compartilhado entre todas as páginas autenticadas
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { toast } from 'react-toastify';
 import {
   BookOpen,
   Building2,
@@ -19,6 +20,8 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import UserDropdown from '../../components/UserDropdown';
+import { connectAppointmentEvents } from '../../services/appointmentRealtimeService';
+import type { AppointmentRealtimeEvent } from '../../types/models';
 
 const LOGO_URL = 'https://inovare.med.br/wp-content/uploads/2023/01/Logo.png';
 
@@ -74,6 +77,30 @@ export default function DefaultLayout() {
     isActive ? 'text-brand-primary' : 'text-slate-400';
 
   const isPathActive = (path: string) => location.pathname.startsWith(path);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    // Listener global para eventos de confirmação/alteração vindos do webhook.
+    const disconnect = connectAppointmentEvents((event: AppointmentRealtimeEvent) => {
+      const status = (event.status || '').toUpperCase();
+      const patientName = event.patientName || 'Paciente';
+      const doctorName = event.doctorName || 'Médico';
+
+      if (status.includes('CONFIRM')) {
+        toast.success(`Consulta confirmada: ${patientName} com ${doctorName}.`);
+        return;
+      }
+
+      if (status.includes('ALTER')) {
+        toast.info(`Consulta com solicitação de alteração: ${patientName} com ${doctorName}.`);
+      }
+    });
+
+    return () => disconnect();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

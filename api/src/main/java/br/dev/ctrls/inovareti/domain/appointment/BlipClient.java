@@ -69,6 +69,27 @@ public class BlipClient {
     }
 
     /**
+     * Envia mensagem textual direta para o usuário no Blip.
+     * Usado quando o redirecionamento precisa ocorrer por link externo.
+     */
+    public void sendTextMessage(String destination, String text) {
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+                .path(properties.getBlipSendMessagePath())
+                .build()
+                .toUriString();
+
+        Map<String, Object> payload = Map.of(
+                "to", destination,
+                "type", "text/plain",
+                "content", text);
+
+        restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
+        log.info("Mensagem textual enviada ao Blip. destination={}", destination);
+    }
+
+    /**
      * Busca templates de mensagens aprovados na API do Blip
      * Envia comando JSON-RPC para obter lista de templates
      * @return Lista de templates (id, nome) apenas dos aprovados

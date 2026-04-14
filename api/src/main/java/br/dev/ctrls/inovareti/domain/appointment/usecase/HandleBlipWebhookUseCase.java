@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentRealtimeNotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentVariableLogRepository;
 import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.DoctorMapping;
@@ -30,6 +32,8 @@ public class HandleBlipWebhookUseCase {
     private final FeegowClient feegowClient;
     private final BlipClient blipClient;
     private final DoctorMappingRepository doctorMappingRepository;
+    private final AppointmentVariableLogRepository appointmentVariableLogRepository;
+    private final AppointmentRealtimeNotificationService appointmentRealtimeNotificationService;
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
@@ -55,15 +59,47 @@ public class HandleBlipWebhookUseCase {
                 feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_CONFIRMADO);
                 confirmationStateMachineService.markConfirmed(session);
                 appointmentSessionRepository.save(session);
+
+                String patientName = resolvePatientName(session);
+                String doctorName = resolveDoctorName(session);
+                appointmentRealtimeNotificationService.publish(patientName, doctorName, "CONFIRMADO");
             }
             case "ALTERAR" -> {
                 DoctorMapping mapping = doctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
                         .orElseGet(() -> doctorMappingRepository.findByProfissionalId("EXTERNAL")
                         .orElseThrow(() -> new NotFoundException("Fila externa não encontrada no appointment_doctor_mapping")));
-                blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
+
+                if (mapping.isExternal()) {
+                    // Para médicos externos, o blip_queue_id armazena o link de WhatsApp.
+                    blipClient.sendTextMessage(payload.from(), buildExternalRedirectMessage(mapping.getBlipQueueId()));
+                } else {
+                    blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
+                }
+
+                String patientName = resolvePatientName(session);
+                String doctorName = resolveDoctorName(session);
+                appointmentRealtimeNotificationService.publish(patientName, doctorName, "ALTERACAO_SOLICITADA");
             }
             default -> log.info("Webhook recebido com ação sem transição configurada. action={}", action);
         }
+    }
+
+    private String buildExternalRedirectMessage(String whatsappLink) {
+        return "Para solicitar alteração da sua consulta, fale com nosso atendimento externo: " + whatsappLink;
+    }
+
+    private String resolvePatientName(AppointmentSession session) {
+        return Optional.ofNullable(feegowClient.patientInfo(session.getPatientId()).name())
+                .filter(name -> !name.isBlank())
+                .orElse("Paciente " + session.getPatientId());
+    }
+
+    private String resolveDoctorName(AppointmentSession session) {
+        return appointmentVariableLogRepository
+                .findFirstBySessionIdAndDictionaryKeyOrderBySentAtDesc(session.getId(), "MEDICO_NOME")
+                .map(logEntry -> logEntry.getResolvedValue())
+                .filter(name -> !name.isBlank())
+                .orElse("Profissional " + session.getDoctorProfissionalId());
     }
 
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from) {

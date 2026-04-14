@@ -1,4 +1,11 @@
 {
+  "groups": [
+    {
+      "name": "app.appointment.motor",
+      "type": "br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties",
+      "sourceType": "br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties"
+    }
+  ],
   "properties": [
     {
       "name": "DISCORD_BOT_ENABLED",
@@ -19,6 +26,101 @@
       "name": "contaazul.redirect-uri",
       "type": "java.lang.String",
       "description": "ContaAzul redirect URI for local tests"
+    },
+    {
+      "name": "app.appointment.motor.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Habilita ou desabilita o motor de agendamentos"
+    },
+    {
+      "name": "app.appointment.motor.ingestion-cron",
+      "type": "java.lang.String",
+      "description": "Cron de ingestão dos agendamentos"
+    },
+    {
+      "name": "app.appointment.motor.monitor-cron",
+      "type": "java.lang.String",
+      "description": "Cron de monitoramento dos lembretes"
+    },
+    {
+      "name": "app.appointment.motor.test-mode",
+      "type": "java.lang.Boolean",
+      "description": "Ativa o modo de teste do motor"
+    },
+    {
+      "name": "app.appointment.motor.test-doctor-id",
+      "type": "java.lang.String",
+      "description": "Identificador do médico usado no modo de teste"
+    },
+    {
+      "name": "app.appointment.motor.feegow-base-url",
+      "type": "java.lang.String",
+      "description": "URL base da integração com Feegow"
+    },
+    {
+      "name": "app.appointment.motor.feegow-token",
+      "type": "java.lang.String",
+      "description": "Token da integração com Feegow"
+    },
+    {
+      "name": "app.appointment.motor.feegow-search-path",
+      "type": "java.lang.String",
+      "description": "Caminho de busca de consultas no Feegow"
+    },
+    {
+      "name": "app.appointment.motor.feegow-patient-path",
+      "type": "java.lang.String",
+      "description": "Caminho de busca de paciente no Feegow"
+    },
+    {
+      "name": "app.appointment.motor.feegow-update-status-path",
+      "type": "java.lang.String",
+      "description": "Caminho de atualização de status de consulta no Feegow"
+    },
+    {
+      "name": "app.appointment.motor.blip-base-url",
+      "type": "java.lang.String",
+      "description": "URL base da integração com Blip"
+    },
+    {
+      "name": "app.appointment.motor.blip-authorization-key",
+      "type": "java.lang.String",
+      "description": "Chave de autorização da integração com Blip"
+    },
+    {
+      "name": "app.appointment.motor.blip-send-message-path",
+      "type": "java.lang.String",
+      "description": "Caminho para envio de mensagens no Blip"
+    },
+    {
+      "name": "app.appointment.motor.blip-set-context-path",
+      "type": "java.lang.String",
+      "description": "Caminho para definição de contexto no Blip"
+    },
+    {
+      "name": "app.appointment.motor.blip-rate-limit-ms",
+      "type": "java.lang.Long",
+      "description": "Intervalo mínimo entre chamadas ao Blip em milissegundos"
+    },
+    {
+      "name": "app.appointment.motor.nudge-1-wait-hours",
+      "type": "java.lang.Integer",
+      "description": "Tempo de espera do primeiro lembrete em horas"
+    },
+    {
+      "name": "app.appointment.motor.nudge-final-wait-hours",
+      "type": "java.lang.Integer",
+      "description": "Tempo de espera do lembrete final em horas"
+    },
+    {
+      "name": "app.appointment.motor.send-idempotency-hours",
+      "type": "java.lang.Long",
+      "description": "Janela de idempotência para envio em horas"
+    },
+    {
+      "name": "app.appointment.motor.webhook-idempotency-hours",
+      "type": "java.lang.Long",
+      "description": "Janela de idempotência para webhook em horas"
     }
   ]
 }

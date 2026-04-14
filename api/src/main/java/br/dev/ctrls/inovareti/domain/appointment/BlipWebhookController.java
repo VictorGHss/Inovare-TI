@@ -10,7 +10,9 @@ import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCas
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/v1/webhook/blip")
 @RequiredArgsConstructor
@@ -20,6 +22,7 @@ public class BlipWebhookController {
 
     @PostMapping
     public ResponseEntity<Void> consume(@RequestBody @Valid BlipWebhookRequest request) {
+        log.info("Webhook received: {}", request);
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 request.messageId(),
                 request.appointmentId(),

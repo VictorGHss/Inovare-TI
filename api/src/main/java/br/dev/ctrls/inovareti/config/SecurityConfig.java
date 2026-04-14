@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -47,17 +48,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                // Considerando que a aplicação define `server.servlet.context-path=/api`,
-                // as rotas podem chegar ao Security com ou sem o prefixo "/api".
-                // Liberamos ambas as formas para garantir que o endpoint de login funcione.
-                .requestMatchers(HttpMethod.OPTIONS, "/admin/config", "/api/admin/config").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/v1/appointments/**", "/api/v1/appointments/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Regra explícita para facilitar debug local de 403 no selector de templates.
+                .requestMatchers(HttpMethod.OPTIONS, "/admin/config", "/api/admin/config").permitAll()
+                .requestMatchers(HttpMethod.GET, "/admin/config", "/api/admin/config").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/config/**").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
@@ -89,7 +86,7 @@ public class SecurityConfig {
             "http://172.25.0.171",
             "https://itsm-inovare.ctrls.dev.br"
         ));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
         config.setAllowCredentials(true);

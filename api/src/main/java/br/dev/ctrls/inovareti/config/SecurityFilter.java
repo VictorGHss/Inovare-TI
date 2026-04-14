@@ -51,6 +51,8 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.contains("/auth/reset-initial-password")
             || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
             || requestUri.contains(CONTA_AZUL_CALLBACK_PATH)
+            || requestUri.contains("/v1/webhook/blip")
+            || requestUri.contains("/api/v1/webhook/blip")
             || requestUri.contains("/actuator/")
             || requestUri.startsWith("/api/actuator/")
             || requestUri.contains("/ws/")

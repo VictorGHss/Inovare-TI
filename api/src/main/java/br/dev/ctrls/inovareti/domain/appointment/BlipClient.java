@@ -115,6 +115,8 @@ public class BlipClient {
                 "method", "get",
                 "uri", "/message-templates");
 
+        log.info("Comando JSON-RPC enviado ao Blip: {}", command);
+
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, buildHeaders());
 
         try {
@@ -125,22 +127,37 @@ public class BlipClient {
                     new ParameterizedTypeReference<BlipTemplateResponse>() {
                     });
 
-                log.info("Resposta bruta do Blip para /message-templates: {}", response.getBody());
+            BlipTemplateResponse responseBody = response.getBody();
+            log.info("Blip Raw Response: {}", responseBody);
 
-            if (response.getBody() == null || response.getBody().resource() == null || 
-                response.getBody().resource().documents() == null) {
+            if (responseBody == null || responseBody.resource() == null || 
+                responseBody.resource().documents() == null) {
                 log.warn("Resposta vazia ao buscar templates do Blip");
                 return List.of();
             }
 
+            int total = responseBody.resource().total() == null
+                    ? responseBody.resource().documents().size()
+                    : responseBody.resource().total();
+
+            long approvedCount = responseBody.resource().documents().stream()
+                    .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                    .count();
+
+            log.info("Resumo de templates no Blip. total={}, approvedCount={}", total, approvedCount);
+
             // Filtra apenas templates aprovados e converte para DTO
-            return response.getBody().resource().documents().stream()
+            return responseBody.resource().documents().stream()
                     .filter(template -> "Approved".equalsIgnoreCase(template.status()))
                     .map(template -> new BlipTemplateDto(template.id(), template.name()))
                     .collect(Collectors.toList());
 
         } catch (HttpClientErrorException | HttpServerErrorException ex) {
-            log.error("Erro ao buscar templates do Blip", ex);
+            log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
+                    ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+            return List.of();
+        } catch (Exception ex) {
+            log.error("Erro inesperado ao buscar templates do Blip", ex);
             return List.of();
         }
     }

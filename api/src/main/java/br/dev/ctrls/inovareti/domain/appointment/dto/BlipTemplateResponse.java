@@ -17,6 +17,7 @@ public record BlipTemplateResponse(
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record BlipTemplateResource(
+            Integer total,
             List<BlipTemplate> documents) {
     }
 

@@ -125,6 +125,8 @@ public class BlipClient {
                     new ParameterizedTypeReference<BlipTemplateResponse>() {
                     });
 
+                log.info("Resposta bruta do Blip para /message-templates: {}", response.getBody());
+
             if (response.getBody() == null || response.getBody().resource() == null || 
                 response.getBody().resource().documents() == null) {
                 log.warn("Resposta vazia ao buscar templates do Blip");

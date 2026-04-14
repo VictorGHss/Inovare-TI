@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.UpdateAppointmentConfigRequest;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/appointments/config")
+@CrossOrigin(origins = "http://localhost:5173")
 @RequiredArgsConstructor
 public class AppointmentConfigController {
 

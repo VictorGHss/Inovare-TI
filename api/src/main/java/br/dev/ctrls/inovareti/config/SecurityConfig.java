@@ -57,6 +57,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/admin/config", "/api/admin/config").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/v1/appointments/**", "/api/v1/appointments/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Regra explícita para facilitar debug local de 403 no selector de templates.
+                .requestMatchers(HttpMethod.GET, "/api/v1/appointments/config/**").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /api/actuator/** sem JWT.

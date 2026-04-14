@@ -112,8 +112,9 @@ public class BlipClient {
         // Comando JSON-RPC conforme especificação do Blip
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
+            "to", "postmaster@wa.gw.msging.net",
                 "method", "get",
-                "uri", "/message-templates");
+            "uri", "/message-templates?status=Approved");
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
@@ -166,6 +167,9 @@ public class BlipClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        if (properties.getBlipAuthorizationKey() == null || properties.getBlipAuthorizationKey().isBlank()) {
+            log.warn("Chave de autorização do Blip está vazia. Verifique APP_APPOINTMENT_BLIP_BOT_KEY (Router Key).");
+        }
         headers.set("Authorization", properties.getBlipAuthorizationKey());
         return headers;
     }

@@ -22,11 +22,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws/appointment-events")
-                .setAllowedOriginPatterns(
-                        "http://localhost:5173",
-                        "http://172.25.0.171:5173",
-                        "http://172.25.0.171",
-                        "https://itsm-inovare.ctrls.dev.br")
+            .setAllowedOrigins(
+                "http://localhost:5173",
+                "https://itsm-inovare.ctrls.dev.br")
+            .setAllowedOriginPatterns("*")
                 .withSockJS();
     }
 }

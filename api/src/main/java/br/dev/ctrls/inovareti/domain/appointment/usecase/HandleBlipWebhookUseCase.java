@@ -15,7 +15,6 @@ import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.DoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.DoctorMappingRepository;
-import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +28,7 @@ public class HandleBlipWebhookUseCase {
     private static final int FEEGOW_STATUS_CONFIRMADO = 7;
 
     private final AppointmentSessionRepository appointmentSessionRepository;
-    private final FeegowClient feegowClient;
+    private final br.dev.ctrls.inovareti.domain.appointment.FeegowClient feegowClient;
     private final BlipClient blipClient;
     private final DoctorMappingRepository doctorMappingRepository;
     private final AppointmentVariableLogRepository appointmentVariableLogRepository;

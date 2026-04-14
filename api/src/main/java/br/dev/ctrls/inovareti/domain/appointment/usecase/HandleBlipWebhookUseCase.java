@@ -15,6 +15,7 @@ import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.DoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.DoctorMappingRepository;
+import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class HandleBlipWebhookUseCase {
     private static final int FEEGOW_STATUS_CONFIRMADO = 7;
 
     private final AppointmentSessionRepository appointmentSessionRepository;
-    private final br.dev.ctrls.inovareti.domain.appointment.FeegowClient feegowClient;
+    private final FeegowClient feegowClient;
     private final BlipClient blipClient;
     private final DoctorMappingRepository doctorMappingRepository;
     private final AppointmentVariableLogRepository appointmentVariableLogRepository;
@@ -61,7 +62,8 @@ public class HandleBlipWebhookUseCase {
 
                 String patientName = resolvePatientName(session);
                 String doctorName = resolveDoctorName(session);
-                appointmentRealtimeNotificationService.publish(patientName, doctorName, "CONFIRMADO");
+                // Publica o evento em tempo real imediatamente após confirmação bem-sucedida.
+                appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "CONFIRMADO");
             }
             case "ALTERAR" -> {
                 DoctorMapping mapping = doctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
@@ -69,22 +71,18 @@ public class HandleBlipWebhookUseCase {
                         .orElseThrow(() -> new NotFoundException("Fila externa não encontrada no appointment_doctor_mapping")));
 
                 if (mapping.isExternal()) {
-                    // Para médicos externos, o blip_queue_id armazena o link de WhatsApp.
-                    blipClient.sendTextMessage(payload.from(), buildExternalRedirectMessage(mapping.getBlipQueueId()));
+                    // Para médicos externos, envia texto simples com o link presente em blip_queue_id.
+                    blipClient.sendPlainText(payload.from(), mapping.getBlipQueueId());
                 } else {
                     blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
                 }
 
                 String patientName = resolvePatientName(session);
                 String doctorName = resolveDoctorName(session);
-                appointmentRealtimeNotificationService.publish(patientName, doctorName, "ALTERACAO_SOLICITADA");
+                appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "ALTERACAO_SOLICITADA");
             }
             default -> log.info("Webhook recebido com ação sem transição configurada. action={}", action);
         }
-    }
-
-    private String buildExternalRedirectMessage(String whatsappLink) {
-        return "Para solicitar alteração da sua consulta, fale com nosso atendimento externo: " + whatsappLink;
     }
 
     private String resolvePatientName(AppointmentSession session) {

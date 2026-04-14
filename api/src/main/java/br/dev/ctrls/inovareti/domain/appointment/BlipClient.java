@@ -73,6 +73,13 @@ public class BlipClient {
      * Usado quando o redirecionamento precisa ocorrer por link externo.
      */
     public void sendTextMessage(String destination, String text) {
+        sendPlainText(destination, text);
+    }
+
+    /**
+     * Envia texto puro para o destino informado.
+     */
+    public void sendPlainText(String destination, String text) {
         rateLimit();
 
         String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())

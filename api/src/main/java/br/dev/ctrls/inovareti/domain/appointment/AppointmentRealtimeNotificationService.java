@@ -19,10 +19,17 @@ public class AppointmentRealtimeNotificationService {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void publish(String patientName, String doctorName, String status) {
+    /**
+     * Método de envio usado pelo fluxo de webhook de confirmação.
+     */
+    public void sendNotification(String patientName, String doctorName, String status) {
         AppointmentEventMessage payload = new AppointmentEventMessage(patientName, doctorName, status);
         messagingTemplate.convertAndSend(APPOINTMENT_EVENTS_TOPIC, payload);
         log.debug("Evento de agendamento publicado. patientName={}, doctorName={}, status={}",
                 patientName, doctorName, status);
+    }
+
+    public void publish(String patientName, String doctorName, String status) {
+        sendNotification(patientName, doctorName, status);
     }
 }

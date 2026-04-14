@@ -52,7 +52,9 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
             || requestUri.contains(CONTA_AZUL_CALLBACK_PATH)
             || requestUri.contains("/actuator/")
-            || requestUri.startsWith("/api/actuator/");
+            || requestUri.startsWith("/api/actuator/")
+            || requestUri.contains("/ws/")
+            || requestUri.startsWith("/api/ws/");
     }
 
     @Override

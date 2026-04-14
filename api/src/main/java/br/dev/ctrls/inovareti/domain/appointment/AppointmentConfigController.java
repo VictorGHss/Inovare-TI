@@ -4,14 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.CrossOrigin;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.UpdateAppointmentConfigRequest;
@@ -43,7 +42,6 @@ public class AppointmentConfigController {
      * @return Lista de templates com id e nome
      */
     @GetMapping("/blip-templates")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<BlipTemplateDto>> blipTemplates() {
         List<BlipTemplateDto> templates = blipClient.fetchTemplatesFromBlip();
         return ResponseEntity.ok(templates);
@@ -55,7 +53,6 @@ public class AppointmentConfigController {
      * @param request Contém o templateId a ser associado
      */
     @PutMapping("/{category}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> updateConfig(
             @PathVariable String category,
             @RequestBody @Valid UpdateAppointmentConfigRequest request) {

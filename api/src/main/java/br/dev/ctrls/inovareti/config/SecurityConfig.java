@@ -64,6 +64,8 @@ public class SecurityConfig {
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
                                  "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
                 .requestMatchers("/v1/webhook/blip", "/api/v1/webhook/blip").permitAll()
+                // Liberação temporária para desenvolvimento local dos endpoints de configuração.
+                .requestMatchers("/v1/appointments/config/**", "/api/v1/appointments/config/**").permitAll()
                 .requestMatchers("/ws/**", "/api/ws/**").permitAll()
                 .anyRequest().authenticated()
             )

@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.config;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -52,6 +54,7 @@ public class SecurityConfig {
                 // Considerando que a aplicação define `server.servlet.context-path=/api`,
                 // as rotas podem chegar ao Security com ou sem o prefixo "/api".
                 // Liberamos ambas as formas para garantir que o endpoint de login funcione.
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /api/actuator/** sem JWT.
@@ -80,8 +83,9 @@ public class SecurityConfig {
             "http://172.25.0.171",
             "https://itsm-inovare.ctrls.dev.br"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        config.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

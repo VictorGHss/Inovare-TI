@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -14,10 +15,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateResponse;
@@ -30,11 +32,15 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(value = "app.appointment.motor.enabled", havingValue = "true", matchIfMissing = true)
 public class BlipClient {
 
+    private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
+
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
 
     public void sendTemplateMessage(String destination, String templateId, List<String> variables) {
+        // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
+        pullUserToAgendamentoBot(destination);
         rateLimit();
 
         String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
@@ -97,6 +103,20 @@ public class BlipClient {
     }
 
     /**
+     * Direciona o usuário para o sub-bot de agendamentos (Master-State).
+     */
+    public void pullUserToAgendamentoBot(String userEmail) {
+        setMasterState(userEmail, properties.getBlipAgendamentoBotId(), "agendamentos");
+    }
+
+    /**
+     * Retorna o usuário para o bot principal (Builder) via Master-State.
+     */
+    public void pushUserBackToBuilder(String userEmail) {
+        setMasterState(userEmail, properties.getBlipBuilderBotId(), "builder");
+    }
+
+    /**
      * Busca templates de mensagens aprovados na API do Blip
      * Envia comando JSON-RPC para obter lista de templates
      * @return Lista de templates (id, nome) apenas dos aprovados
@@ -112,9 +132,9 @@ public class BlipClient {
         // Comando JSON-RPC conforme especificação do Blip
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
-            "to", "postmaster@wa.gw.msging.net",
+                "to", resolveRouterIdentity(),
                 "method", "get",
-            "uri", "/message-templates?status=Approved");
+                "uri", "/message-templates?status=Approved");
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
@@ -137,9 +157,10 @@ public class BlipClient {
                 return List.of();
             }
 
-            int total = responseBody.resource().total() == null
-                    ? responseBody.resource().documents().size()
-                    : responseBody.resource().total();
+            Integer totalFromResponse = responseBody.resource().total();
+            Integer total = totalFromResponse != null
+                    ? totalFromResponse
+                    : responseBody.resource().documents().size();
 
             long approvedCount = responseBody.resource().documents().stream()
                     .filter(template -> "Approved".equalsIgnoreCase(template.status()))
@@ -153,11 +174,13 @@ public class BlipClient {
                     .map(template -> new BlipTemplateDto(template.id(), template.name()))
                     .collect(Collectors.toList());
 
-        } catch (HttpClientErrorException | HttpServerErrorException ex) {
-            log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
-                    ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
-            return List.of();
-        } catch (Exception ex) {
+        } catch (RestClientException ex) {
+            if (ex instanceof HttpStatusCodeException httpEx) {
+                log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
+                        httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), ex);
+                return List.of();
+            }
+
             log.error("Erro inesperado ao buscar templates do Blip", ex);
             return List.of();
         }
@@ -172,6 +195,70 @@ public class BlipClient {
         }
         headers.set("Authorization", properties.getBlipAuthorizationKey());
         return headers;
+    }
+
+    private void setMasterState(String userIdentity, String botIdentity, String operation) {
+        if (botIdentity == null || botIdentity.isBlank()) {
+            log.warn("Master-State não executado para {}: botIdentity não configurado.", operation);
+            return;
+        }
+
+        String normalizedIdentity = normalizeUserIdentity(userIdentity);
+        String encodedIdentity = UriUtils.encodePathSegment(normalizedIdentity, StandardCharsets.UTF_8);
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+                .path(properties.getBlipSetContextPath())
+                .build()
+                .toUriString();
+
+        Map<String, Object> command = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "to", resolveRouterIdentity(),
+                "method", "set",
+                "uri", "/contexts/" + encodedIdentity + "/Master-State",
+                "type", "text/plain",
+                "resource", botIdentity);
+
+        try {
+            rateLimit();
+            restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(command, buildHeaders()), Void.class);
+            log.info("Master-State atualizado com sucesso. operation={}, userIdentity={}, targetBot={}",
+                    operation, normalizedIdentity, botIdentity);
+        } catch (RestClientException ex) {
+            if (ex instanceof HttpStatusCodeException httpEx) {
+                log.error("Erro HTTP ao atualizar Master-State. operation={}, statusCode={}, responseBody={}",
+                        operation, httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), ex);
+                return;
+            }
+
+            log.error("Erro inesperado ao atualizar Master-State. operation={}", operation, ex);
+        }
+    }
+
+    private String resolveRouterIdentity() {
+        String configuredIdentity = properties.getBlipRouterIdentity();
+        if (configuredIdentity == null || configuredIdentity.isBlank()) {
+            return DEFAULT_ROUTER_IDENTITY;
+        }
+        return configuredIdentity;
+    }
+
+    private String normalizeUserIdentity(String userIdentity) {
+        if (userIdentity == null || userIdentity.isBlank()) {
+            return "unknown@wa.gw.msging.net";
+        }
+
+        String sanitized = userIdentity.trim();
+        if (sanitized.contains("@")) {
+            return sanitized;
+        }
+
+        String digitsOnly = sanitized.replaceAll("[^0-9]", "");
+        if (digitsOnly.isBlank()) {
+            return sanitized + "@wa.gw.msging.net";
+        }
+
+        return digitsOnly + "@wa.gw.msging.net";
     }
 
     private void rateLimit() {

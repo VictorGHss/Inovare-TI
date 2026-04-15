@@ -12,6 +12,7 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionStatus;
+import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class MonitorAppointmentNudgesUseCase {
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final FeegowClient feegowClient;
+    private final BlipClient blipClient;
 
     @Transactional
     public void execute() {
@@ -69,6 +71,7 @@ public class MonitorAppointmentNudgesUseCase {
             feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
             confirmationStateMachineService.markCanceledByNoResponse(session);
             appointmentSessionRepository.save(session);
+            blipClient.pushUserBackToBuilder(session.getPatientPhone());
         }
 
         log.info("Monitor de nudges executado. pendingParaNudge1={}, nudge1ParaFinal={}, finalParaCancelado={}",

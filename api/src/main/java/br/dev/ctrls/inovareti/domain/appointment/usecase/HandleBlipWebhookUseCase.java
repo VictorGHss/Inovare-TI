@@ -59,6 +59,7 @@ public class HandleBlipWebhookUseCase {
                 feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_CONFIRMADO);
                 confirmationStateMachineService.markConfirmed(session);
                 appointmentSessionRepository.save(session);
+                blipClient.pushUserBackToBuilder(payload.from());
 
                 String patientName = resolvePatientName(session);
                 String doctorName = resolveDoctorName(session);
@@ -76,6 +77,8 @@ public class HandleBlipWebhookUseCase {
                 } else {
                     blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
                 }
+
+                blipClient.pushUserBackToBuilder(payload.from());
 
                 String patientName = resolvePatientName(session);
                 String doctorName = resolveDoctorName(session);

@@ -26,6 +26,9 @@ public class AppointmentMotorProperties {
     private String blipAuthorizationKey;
     private String blipSendMessagePath;
     private String blipSetContextPath;
+    private String blipRouterIdentity;
+    private String blipBuilderBotId;
+    private String blipAgendamentoBotId;
     private long blipRateLimitMs;
     private int nudge1WaitHours;
     private int nudgeFinalWaitHours;

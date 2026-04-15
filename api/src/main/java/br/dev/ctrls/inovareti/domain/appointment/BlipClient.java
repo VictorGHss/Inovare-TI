@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BlipClient {
 
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
+    private static final String DEFAULT_BUILDER_BOT_IDENTITY = "fluxov1@msging.net";
 
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
@@ -223,8 +224,10 @@ public class BlipClient {
 
     private List<String> buildTemplateFetchIdentities() {
         Set<String> identities = new LinkedHashSet<>();
-        identities.add(resolveRouterIdentity());
+        // Em arquitetura Router + Shared WABA, consultar como sub-bot pode expor templates do namespace.
+        identities.add(DEFAULT_BUILDER_BOT_IDENTITY);
         addIfNotBlank(identities, properties.getBlipBuilderBotId());
+        identities.add(resolveRouterIdentity());
         addIfNotBlank(identities, properties.getBlipAgendamentoBotId());
         return new ArrayList<>(identities);
     }

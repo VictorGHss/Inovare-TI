@@ -122,54 +122,35 @@ public class BlipClient {
      * @return Lista de templates (id, nome) apenas dos aprovados
      */
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
-        rateLimit();
-
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
-
-        // Comando JSON-RPC conforme especificação do Blip
-        Map<String, Object> command = Map.of(
-                "id", UUID.randomUUID().toString(),
-                "to", resolveRouterIdentity(),
-                "method", "get",
-                "uri", "/message-templates?status=Approved");
-
-        log.info("Comando JSON-RPC enviado ao Blip: {}", command);
-
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, buildHeaders());
+        BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved");
 
         try {
-            ResponseEntity<BlipTemplateResponse> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request,
-                    new ParameterizedTypeReference<BlipTemplateResponse>() {
-                    });
+            if (approvedResponse == null
+                || approvedResponse.resource() == null
+                || approvedResponse.resource().documents() == null
+                || approvedResponse.resource().documents().isEmpty()) {
+            log.warn("Sem documentos em /message-templates?status=Approved. Tentando fallback sem filtro de status.");
 
-            BlipTemplateResponse responseBody = response.getBody();
-            log.info("Blip Raw Response: {}", responseBody);
-
-            if (responseBody == null || responseBody.resource() == null || 
-                responseBody.resource().documents() == null) {
-                log.warn("Resposta vazia ao buscar templates do Blip");
+            BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates");
+            if (allStatusesResponse == null
+                || allStatusesResponse.resource() == null
+                || allStatusesResponse.resource().documents() == null
+                || allStatusesResponse.resource().documents().isEmpty()) {
+                log.warn("Fallback /message-templates também retornou vazio.");
                 return List.of();
             }
 
-            Integer totalFromResponse = responseBody.resource().total();
-            Integer total = totalFromResponse != null
-                    ? totalFromResponse
-                    : responseBody.resource().documents().size();
+            logTemplateSummary(allStatusesResponse, "fallback-sem-filtro");
 
-            long approvedCount = responseBody.resource().documents().stream()
-                    .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-                    .count();
+            return allStatusesResponse.resource().documents().stream()
+                .map(template -> new BlipTemplateDto(template.id(), template.name()))
+                .collect(Collectors.toList());
+            }
 
-            log.info("Resumo de templates no Blip. total={}, approvedCount={}", total, approvedCount);
+            logTemplateSummary(approvedResponse, "status-approved");
 
             // Filtra apenas templates aprovados e converte para DTO
-            return responseBody.resource().documents().stream()
+            return approvedResponse.resource().documents().stream()
                     .filter(template -> "Approved".equalsIgnoreCase(template.status()))
                     .map(template -> new BlipTemplateDto(template.id(), template.name()))
                     .collect(Collectors.toList());
@@ -185,6 +166,53 @@ public class BlipClient {
             return List.of();
         }
     }
+
+        private BlipTemplateResponse fetchTemplatesByUri(String commandUri) {
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", resolveRouterIdentity(),
+            "method", "get",
+            "uri", commandUri);
+
+        log.info("Comando JSON-RPC enviado ao Blip: {}", command);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, buildHeaders());
+
+        ResponseEntity<BlipTemplateResponse> response = restTemplate.exchange(
+            url,
+            HttpMethod.POST,
+            request,
+            new ParameterizedTypeReference<BlipTemplateResponse>() {
+            });
+
+        BlipTemplateResponse responseBody = response.getBody();
+        log.info("Blip Raw Response [{}]: {}", commandUri, responseBody);
+        return responseBody;
+        }
+
+        private void logTemplateSummary(BlipTemplateResponse responseBody, String source) {
+        Integer totalFromResponse = responseBody.resource().total();
+        int total = totalFromResponse != null
+            ? totalFromResponse
+            : responseBody.resource().documents().size();
+
+        long approvedCount = responseBody.resource().documents().stream()
+            .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+            .count();
+
+        Map<String, Long> statusBreakdown = responseBody.resource().documents().stream()
+            .collect(Collectors.groupingBy(template -> String.valueOf(template.status()), Collectors.counting()));
+
+        log.info("Resumo de templates no Blip. source={}, total={}, approvedCount={}, statusBreakdown={}",
+            source, total, approvedCount, statusBreakdown);
+        }
 
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();

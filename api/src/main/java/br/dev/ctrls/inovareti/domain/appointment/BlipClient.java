@@ -1,8 +1,11 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -122,38 +125,36 @@ public class BlipClient {
      * @return Lista de templates (id, nome) apenas dos aprovados
      */
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
-        BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved");
+        List<String> candidateIdentities = buildTemplateFetchIdentities();
+        log.info("Iniciando diagnóstico de templates com identidades candidatas: {}", candidateIdentities);
 
         try {
-            if (approvedResponse == null
-                || approvedResponse.resource() == null
-                || approvedResponse.resource().documents() == null
-                || approvedResponse.resource().documents().isEmpty()) {
-            log.warn("Sem documentos em /message-templates?status=Approved. Tentando fallback sem filtro de status.");
+            for (String identity : candidateIdentities) {
+                BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved", identity);
 
-            BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates");
-            if (allStatusesResponse == null
-                || allStatusesResponse.resource() == null
-                || allStatusesResponse.resource().documents() == null
-                || allStatusesResponse.resource().documents().isEmpty()) {
-                log.warn("Fallback /message-templates também retornou vazio.");
-                return List.of();
+                if (hasDocuments(approvedResponse)) {
+                    logTemplateSummary(approvedResponse, "status-approved:" + identity);
+                    return approvedResponse.resource().documents().stream()
+                            .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                            .map(template -> new BlipTemplateDto(template.id(), template.name()))
+                            .collect(Collectors.toList());
+                }
+
+                log.warn("Sem documentos em /message-templates?status=Approved para identity={}. Tentando fallback sem filtro.",
+                        identity);
+
+                BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates", identity);
+                if (hasDocuments(allStatusesResponse)) {
+                    logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + identity);
+                    return allStatusesResponse.resource().documents().stream()
+                            .map(template -> new BlipTemplateDto(template.id(), template.name()))
+                            .collect(Collectors.toList());
+                }
             }
 
-            logTemplateSummary(allStatusesResponse, "fallback-sem-filtro");
-
-            return allStatusesResponse.resource().documents().stream()
-                .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                .collect(Collectors.toList());
-            }
-
-            logTemplateSummary(approvedResponse, "status-approved");
-
-            // Filtra apenas templates aprovados e converte para DTO
-            return approvedResponse.resource().documents().stream()
-                    .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-                    .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                    .collect(Collectors.toList());
+            log.warn("Nenhuma identidade retornou templates. Executando diagnóstico de WABA/namespace.");
+            probeWabaAccountInfo(candidateIdentities);
+            return List.of();
 
         } catch (RestClientException ex) {
             if (ex instanceof HttpStatusCodeException httpEx) {
@@ -167,52 +168,109 @@ public class BlipClient {
         }
     }
 
-        private BlipTemplateResponse fetchTemplatesByUri(String commandUri) {
+    private BlipTemplateResponse fetchTemplatesByUri(String commandUri, String toIdentity) {
         rateLimit();
 
         String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-            .path(properties.getBlipSetContextPath())
-            .build()
-            .toUriString();
+                .path(properties.getBlipSetContextPath())
+                .build()
+                .toUriString();
 
         Map<String, Object> command = Map.of(
-            "id", UUID.randomUUID().toString(),
-            "to", resolveRouterIdentity(),
-            "method", "get",
-            "uri", commandUri);
+                "id", UUID.randomUUID().toString(),
+                "to", toIdentity,
+                "method", "get",
+                "uri", commandUri);
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, buildHeaders());
 
         ResponseEntity<BlipTemplateResponse> response = restTemplate.exchange(
-            url,
-            HttpMethod.POST,
-            request,
-            new ParameterizedTypeReference<BlipTemplateResponse>() {
-            });
+                url,
+                HttpMethod.POST,
+                request,
+                new ParameterizedTypeReference<BlipTemplateResponse>() {
+                });
+
+        logNamespaceHeaders(response.getHeaders(), commandUri, toIdentity);
 
         BlipTemplateResponse responseBody = response.getBody();
-        log.info("Blip Raw Response [{}]: {}", commandUri, responseBody);
+        log.info("Blip Raw Response [uri={}, to={}]: {}", commandUri, toIdentity, responseBody);
         return responseBody;
+    }
+
+    private void probeWabaAccountInfo(List<String> candidateIdentities) {
+        String[] diagnosticUris = {"/wa-accounts", "/whatsapp-accounts", "/wa-account"};
+
+        for (String uri : diagnosticUris) {
+            for (String identity : candidateIdentities) {
+                try {
+                    BlipTemplateResponse diagnosticResponse = fetchTemplatesByUri(uri, identity);
+                    log.info("Diagnóstico WABA executado. uri={}, to={}, responseStatus={}",
+                            uri, identity, diagnosticResponse != null ? diagnosticResponse.status() : "null");
+                } catch (RestClientException ex) {
+                    if (ex instanceof HttpStatusCodeException httpEx) {
+                        log.warn("Diagnóstico WABA falhou. uri={}, to={}, statusCode={}, responseBody={}",
+                                uri, identity, httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
+                    } else {
+                        log.warn("Diagnóstico WABA falhou. uri={}, to={}, mensagem={}", uri, identity, ex.getMessage());
+                    }
+                }
+            }
+        }
+    }
+
+    private List<String> buildTemplateFetchIdentities() {
+        Set<String> identities = new LinkedHashSet<>();
+        identities.add(resolveRouterIdentity());
+        addIfNotBlank(identities, properties.getBlipBuilderBotId());
+        addIfNotBlank(identities, properties.getBlipAgendamentoBotId());
+        return new ArrayList<>(identities);
+    }
+
+    private void addIfNotBlank(Set<String> identities, String candidate) {
+        if (candidate != null && !candidate.isBlank()) {
+            identities.add(candidate.trim());
+        }
+    }
+
+    private boolean hasDocuments(BlipTemplateResponse response) {
+        return response != null
+                && response.resource() != null
+                && response.resource().documents() != null
+                && !response.resource().documents().isEmpty();
+    }
+
+    private void logNamespaceHeaders(HttpHeaders headers, String commandUri, String toIdentity) {
+        if (headers == null || headers.isEmpty()) {
+            return;
         }
 
-        private void logTemplateSummary(BlipTemplateResponse responseBody, String source) {
+        headers.forEach((headerName, values) -> {
+            if (headerName != null && headerName.toLowerCase().contains("namespace")) {
+                log.info("Namespace header detectado. uri={}, to={}, header={}, values={}",
+                        commandUri, toIdentity, headerName, values);
+            }
+        });
+    }
+
+    private void logTemplateSummary(BlipTemplateResponse responseBody, String source) {
         Integer totalFromResponse = responseBody.resource().total();
         int total = totalFromResponse != null
-            ? totalFromResponse
-            : responseBody.resource().documents().size();
+                ? totalFromResponse
+                : responseBody.resource().documents().size();
 
         long approvedCount = responseBody.resource().documents().stream()
-            .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-            .count();
+                .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                .count();
 
         Map<String, Long> statusBreakdown = responseBody.resource().documents().stream()
-            .collect(Collectors.groupingBy(template -> String.valueOf(template.status()), Collectors.counting()));
+                .collect(Collectors.groupingBy(template -> String.valueOf(template.status()), Collectors.counting()));
 
         log.info("Resumo de templates no Blip. source={}, total={}, approvedCount={}, statusBreakdown={}",
-            source, total, approvedCount, statusBreakdown);
-        }
+                source, total, approvedCount, statusBreakdown);
+    }
 
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();

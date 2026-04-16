@@ -38,14 +38,15 @@ public class FeegowClient {
 
     @PostConstruct
     public void logFeegowApiKeyStatus() {
-        if (apiKey == null || apiKey.isBlank()) {
+        String normalizedApiKey = normalizeApiKey(apiKey);
+        if (normalizedApiKey == null || normalizedApiKey.isBlank()) {
             log.warn("Chave da Feegow não foi carregada. Verifique a variável de ambiente APP_FEEGOW_API_KEY.");
             return;
         }
 
-        int visibleCharacters = Math.min(4, apiKey.length());
-        String suffix = apiKey.substring(apiKey.length() - visibleCharacters);
-        log.info("Chave da Feegow carregada com sucesso. tamanho={}, sufixo={}", apiKey.length(), suffix);
+        int visibleCharacters = Math.min(4, normalizedApiKey.length());
+        String suffix = normalizedApiKey.substring(normalizedApiKey.length() - visibleCharacters);
+        log.info("Chave da Feegow carregada com sucesso. tamanho={}, sufixo={}", normalizedApiKey.length(), suffix);
     }
 
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId) {
@@ -118,10 +119,24 @@ public class FeegowClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        if (apiKey != null && !apiKey.isBlank()) {
-            headers.set("x-api-key", apiKey);
+        String normalizedApiKey = normalizeApiKey(apiKey);
+        if (normalizedApiKey != null && !normalizedApiKey.isBlank()) {
+            headers.set("x-api-key", normalizedApiKey);
         }
         return headers;
+    }
+
+    private String normalizeApiKey(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            normalized = normalized.substring(7).trim();
+        }
+
+        return normalized;
     }
 
     private FeegowAppointment parseAppointment(Map<String, Object> row) {

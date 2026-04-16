@@ -9,5 +9,5 @@ public interface AppointmentTemplateMappingRepository extends JpaRepository<Appo
 
     List<AppointmentTemplateMapping> findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(String templateName);
 
-    void deleteByTemplateNameIgnoreCase(String templateName);
+    void deleteByTemplateName(String templateName);
 }

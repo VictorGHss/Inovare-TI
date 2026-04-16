@@ -325,11 +325,26 @@ public class BlipClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        if (properties.getBlipAuthorizationKey() == null || properties.getBlipAuthorizationKey().isBlank()) {
-            log.warn("Chave de autorização do Blip está vazia. Verifique APP_APPOINTMENT_BLIP_BOT_KEY (Router Key).");
+        String authorizationKey = normalizeAuthorizationKey(properties.getBlipAuthorizationKey());
+        if (authorizationKey == null || authorizationKey.isBlank()) {
+            log.warn("Chave de autorização do Blip está vazia. Verifique a propriedade app.appointment.motor.blip-authorization-key.");
+            return headers;
         }
-        headers.set("Authorization", properties.getBlipAuthorizationKey());
+        headers.set("Authorization", authorizationKey);
         return headers;
+    }
+
+    private String normalizeAuthorizationKey(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            normalized = normalized.substring(7).trim();
+        }
+
+        return normalized;
     }
 
     private void setMasterState(String userIdentity, String botIdentity, String operation) {

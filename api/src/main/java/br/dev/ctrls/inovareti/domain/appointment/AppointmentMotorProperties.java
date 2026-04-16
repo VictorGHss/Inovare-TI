@@ -18,7 +18,6 @@ public class AppointmentMotorProperties {
     private boolean testMode;
     private String testDoctorId;
     private String feegowBaseUrl;
-    private String feegowToken;
     private String feegowSearchPath;
     private String feegowPatientPath;
     private String feegowUpdateStatusPath;

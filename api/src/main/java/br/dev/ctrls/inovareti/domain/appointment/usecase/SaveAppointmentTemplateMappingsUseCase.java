@@ -34,7 +34,7 @@ public class SaveAppointmentTemplateMappingsUseCase {
             throw new IllegalArgumentException("mappings é obrigatório");
         }
 
-        appointmentTemplateMappingRepository.deleteByTemplateNameIgnoreCase(templateName);
+        appointmentTemplateMappingRepository.deleteByTemplateName(templateName);
         appointmentTemplateMappingRepository.flush();
 
         Map<Integer, SaveAppointmentTemplateMappingsRequest.TemplateMappingItem> normalizedMappings = mappings.stream()

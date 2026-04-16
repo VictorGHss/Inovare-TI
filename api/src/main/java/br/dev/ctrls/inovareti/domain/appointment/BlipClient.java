@@ -330,7 +330,7 @@ public class BlipClient {
             log.warn("Chave de autorização do Blip está vazia. Verifique a propriedade app.appointment.motor.blip-authorization-key.");
             return headers;
         }
-        headers.set("Authorization", authorizationKey);
+        headers.set("Authorization", "Key " + authorizationKey);
         return headers;
     }
 
@@ -340,6 +340,9 @@ public class BlipClient {
         }
 
         String normalized = value.trim();
+        if (normalized.regionMatches(true, 0, "Key ", 0, 4)) {
+            normalized = normalized.substring(4).trim();
+        }
         if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
             normalized = normalized.substring(7).trim();
         }

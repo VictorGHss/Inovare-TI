@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(value = "app.appointment.motor.enabled", havingValue = "true", matchIfMissing = true)
 public class BlipClient {
 
+    private static final String FIXED_WABA_NAMESPACE = "63a9b11b_7f32_4ca2_8da1_60b6a41de39e";
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
     private static final String DEFAULT_BUILDER_BOT_IDENTITY = "fluxov1@msging.net";
 
@@ -55,12 +56,12 @@ public class BlipClient {
         Map<String, Object> payload = Map.of(
             "to", destination,
             "templateName", templateName,
-            "namespace", properties.getBlipWabaNamespace(),
+            "namespace", resolveWabaNamespace(),
             "variables", variables);
 
         restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
         log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}",
-            destination, templateName, properties.getBlipWabaNamespace());
+            destination, templateName, resolveWabaNamespace());
     }
 
     public void setHandoffContext(String destination, String queueId) {
@@ -155,19 +156,18 @@ public class BlipClient {
                 }
             }
 
-            log.warn("Nenhuma identidade retornou templates. Executando diagnóstico de WABA/namespace.");
-            probeWabaAccountInfo(candidateIdentities);
-            return List.of();
+            log.warn("Nenhuma identidade retornou templates. Aplicando fallback estático.");
+            return staticTemplateFallback();
 
         } catch (RestClientException ex) {
             if (ex instanceof HttpStatusCodeException httpEx) {
                 log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
                         httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), ex);
-                return List.of();
+                return staticTemplateFallback();
             }
 
             log.error("Erro inesperado ao buscar templates do Blip", ex);
-            return List.of();
+            return staticTemplateFallback();
         }
     }
 
@@ -203,25 +203,11 @@ public class BlipClient {
         return responseBody;
     }
 
-    private void probeWabaAccountInfo(List<String> candidateIdentities) {
-        String[] diagnosticUris = {"/wa-accounts", "/whatsapp-accounts", "/wa-account"};
-
-        for (String uri : diagnosticUris) {
-            for (String identity : candidateIdentities) {
-                try {
-                    BlipTemplateResponse diagnosticResponse = fetchTemplatesByUri(uri, identity);
-                    log.info("Diagnóstico WABA executado. uri={}, to={}, responseStatus={}",
-                            uri, identity, diagnosticResponse != null ? diagnosticResponse.status() : "null");
-                } catch (RestClientException ex) {
-                    if (ex instanceof HttpStatusCodeException httpEx) {
-                        log.warn("Diagnóstico WABA falhou. uri={}, to={}, statusCode={}, responseBody={}",
-                                uri, identity, httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
-                    } else {
-                        log.warn("Diagnóstico WABA falhou. uri={}, to={}, mensagem={}", uri, identity, ex.getMessage());
-                    }
-                }
-            }
-        }
+    private List<BlipTemplateDto> staticTemplateFallback() {
+        return List.of(
+                new BlipTemplateDto("confirmacao_consulta_v5", "confirmacao_consulta_v5"),
+                new BlipTemplateDto("aviso_interacao_necessariav1", "aviso_interacao_necessariav1"),
+                new BlipTemplateDto("aviso_final_cancelamento", "aviso_final_cancelamento"));
     }
 
     private List<String> buildTemplateFetchIdentities() {
@@ -332,6 +318,14 @@ public class BlipClient {
             return DEFAULT_ROUTER_IDENTITY;
         }
         return configuredIdentity;
+    }
+
+    private String resolveWabaNamespace() {
+        String configuredNamespace = properties.getBlipWabaNamespace();
+        if (configuredNamespace == null || configuredNamespace.isBlank()) {
+            return FIXED_WABA_NAMESPACE;
+        }
+        return configuredNamespace;
     }
 
     private String normalizeUserIdentity(String userIdentity) {

@@ -131,7 +131,7 @@ export default function TemplateMappingPanel() {
   }
 
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
-  const canSave = Boolean(selectedTemplateId) && currentDraft.every((field) => field.trim().length > 0) && !saving && !loadingMappings;
+  const canSave = Boolean(selectedTemplateId) && currentDraft.some((field) => field.trim().length > 0) && !saving && !loadingMappings;
 
   async function handleSave() {
     if (!selectedTemplateId) {
@@ -139,8 +139,8 @@ export default function TemplateMappingPanel() {
       return;
     }
 
-    if (!currentDraft.every((field) => field.trim().length > 0)) {
-      toast.error('Preencha todos os 4 campos do mapeamento.');
+    if (!currentDraft.some((field) => field.trim().length > 0)) {
+      toast.error('Preencha pelo menos um campo do mapeamento.');
       return;
     }
 
@@ -148,10 +148,12 @@ export default function TemplateMappingPanel() {
     try {
       const response = await saveAppointmentTemplateMappings({
         templateName: selectedTemplateId,
-        mappings: currentDraft.map((fieldName, index) => ({
-          placeholderIndex: index + 1,
-          feegowFieldName: fieldName.trim(),
-        })),
+        mappings: currentDraft
+          .map((fieldName, index) => ({
+            placeholderIndex: index + 1,
+            feegowFieldName: fieldName.trim(),
+          }))
+          .filter((mapping) => mapping.feegowFieldName.length > 0),
       });
 
       if (response.status === 'success') {

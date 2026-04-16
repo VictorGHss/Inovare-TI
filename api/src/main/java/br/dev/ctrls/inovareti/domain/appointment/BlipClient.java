@@ -395,11 +395,12 @@ public class BlipClient {
                 .build()
                 .toUriString();
 
+        // Expiração de 86400 segundos (24h) pro Master-State.
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
                 "to", resolveRouterIdentity(),
                 "method", "set",
-                "uri", "/contexts/" + encodedIdentity + "/Master-State",
+                "uri", "/contexts/" + encodedIdentity + "/Master-State?expiration=86400",
                 "type", "text/plain",
                 "resource", botIdentity);
 

@@ -19,7 +19,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SendAppointmentTemplateUseCase {
 
-        private static final DateTimeFormatter BRAZILIAN_DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        private static final DateTimeFormatter BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        private static final DateTimeFormatter BRAZILIAN_TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private final AppointmentConfigRepository appointmentConfigRepository;
     private final FeegowClient feegowClient;
@@ -46,8 +47,11 @@ public class SendAppointmentTemplateUseCase {
                 patient.phone(),
                 appointment.doctorId(),
                 appointment.doctorName(),
+                "",
                 appointment.unitName(),
-                appointment.startAt() != null ? appointment.startAt().format(BRAZILIAN_DATE_TIME) : "");
+                appointment.startAt() != null ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE) : "",
+                appointment.startAt() != null ? appointment.startAt().toLocalTime().format(BRAZILIAN_TIME) : "",
+                appointment.startAt() != null ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE) : "");
 
         blipClient.sendTemplateMessage(session.getPatientPhone(), config.getTemplateId(), templateData);
     }

@@ -53,8 +53,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/admin/config", "/api/admin/config").permitAll()
-                .requestMatchers(HttpMethod.GET, "/admin/config", "/api/admin/config").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/admin/**", "/api/admin/**").permitAll()
+                .requestMatchers("/admin/**", "/api/admin/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/config/**").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores

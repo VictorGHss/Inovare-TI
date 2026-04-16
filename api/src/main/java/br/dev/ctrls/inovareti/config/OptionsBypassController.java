@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OptionsBypassController {
 
     @RequestMapping(
-            value = {"/admin/config", "/api/admin/config", "/v1/appointments/**", "/api/v1/appointments/**"},
+            value = {"/admin/**", "/api/admin/**", "/admin/config", "/api/admin/config", "/v1/appointments/**", "/api/v1/appointments/**"},
             method = RequestMethod.OPTIONS)
     public ResponseEntity<Void> handleOptions() {
         HttpHeaders headers = new HttpHeaders();

@@ -125,19 +125,27 @@ public class GlobalExceptionHandler {
             requestId = "-";
         }
 
+        String requestUri = request != null ? request.getRequestURI() : "";
         String responseBody = ex.getResponseBody();
         boolean planIneligible = isPlanIneligibleResponse(responseBody);
+        
+        String logPrefix = "[CONTA AZUL ERROR]";
+        if (requestUri.contains("feegow")) {
+            logPrefix = "[FEEGOW ERROR]";
+        } else if (requestUri.contains("blip") || requestUri.contains("messages")) {
+            logPrefix = "[BLIP ERROR]";
+        }
 
         if (status.is5xxServerError()) {
-            log.error("ContaAzul HTTP error request_id={} status={} body={}", requestId, status.value(), responseBody);
+            log.error("{} request_id={} status={} body={}", logPrefix, requestId, status.value(), responseBody);
         } else {
-            log.warn("ContaAzul HTTP client error request_id={} status={} body={}", requestId, status.value(), responseBody);
+            log.warn("{} request_id={} status={} body={}", logPrefix, requestId, status.value(), responseBody);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(status);
-        problem.setTitle("ContaAzul external service error");
+        problem.setTitle("External service error");
         problem.setDetail(planIneligible
-                ? "Conta Azul sem elegibilidade para API no plano atual (END_TRIAL)."
+                ? "Sem elegibilidade para API no plano atual (END_TRIAL)."
                 : ex.getMessage());
         problem.setProperty("request_id", requestId);
         return problem;

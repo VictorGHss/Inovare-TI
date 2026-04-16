@@ -123,6 +123,7 @@ public class FeegowClient {
         if (normalizedApiKey != null && !normalizedApiKey.isBlank()) {
             log.info("Utilizando x-api-key para Feegow: {}", normalizedApiKey.substring(0, Math.min(5, normalizedApiKey.length())));
             headers.set("x-api-key", normalizedApiKey);
+            headers.set("Authorization", "Bearer " + normalizedApiKey);
         }
         
         log.debug("Headers enviados para Feegow: {}", headers.toSingleValueMap().keySet());

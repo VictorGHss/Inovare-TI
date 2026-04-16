@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateResponse;
 import lombok.RequiredArgsConstructor;
@@ -41,9 +43,10 @@ public class BlipClient {
 
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
+    private final AppointmentTemplateMappingRepository appointmentTemplateMappingRepository;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
 
-    public void sendTemplateMessage(String destination, String templateName, List<String> variables) {
+    public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
         pullUserToAgendamentoBot(destination);
         rateLimit();
@@ -53,15 +56,55 @@ public class BlipClient {
                 .build()
                 .toUriString();
 
+        List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
+        List<Map<String, Object>> components = parameters.isEmpty()
+                ? List.of()
+                : List.of(Map.of("type", "body", "parameters", parameters));
+
         Map<String, Object> payload = Map.of(
             "to", destination,
             "templateName", templateName,
             "namespace", resolveWabaNamespace(),
-            "variables", variables);
+            "components", components);
 
         restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
-        log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}",
-            destination, templateName, resolveWabaNamespace());
+        log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}, components={}",
+            destination, templateName, resolveWabaNamespace(), components.size());
+    }
+
+    private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {
+        List<AppointmentTemplateMapping> mappings = appointmentTemplateMappingRepository
+                .findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateName);
+
+        if (mappings.isEmpty()) {
+            log.warn("Nenhum mapeamento dinâmico encontrado para templateName={}", templateName);
+            return List.of();
+        }
+
+        List<Map<String, String>> parameters = new ArrayList<>();
+        for (AppointmentTemplateMapping mapping : mappings) {
+            String value = resolveDynamicFieldValue(appointmentData, mapping.getFeegowFieldName());
+            parameters.add(Map.of(
+                    "type", "text",
+                    "text", value));
+        }
+
+        return parameters;
+    }
+
+    private String resolveDynamicFieldValue(AppointmentTemplateData appointmentData, String fieldName) {
+        if (appointmentData == null || fieldName == null || fieldName.isBlank()) {
+            return "";
+        }
+
+        try {
+            Method accessor = AppointmentTemplateData.class.getMethod(fieldName.trim());
+            Object value = accessor.invoke(appointmentData);
+            return value == null ? "" : String.valueOf(value);
+        } catch (ReflectiveOperationException ex) {
+            log.warn("Campo dinâmico inválido no mapeamento. fieldName={}", fieldName, ex);
+            return "";
+        }
     }
 
     public void setHandoffContext(String destination, String queueId) {

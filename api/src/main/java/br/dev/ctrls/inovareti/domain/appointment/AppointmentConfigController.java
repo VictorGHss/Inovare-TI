@@ -8,14 +8,18 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
+import br.dev.ctrls.inovareti.domain.appointment.dto.SaveAppointmentTemplateMappingsRequest;
 import br.dev.ctrls.inovareti.domain.appointment.dto.UpdateAppointmentConfigRequest;
+import br.dev.ctrls.inovareti.domain.appointment.usecase.ListFeegowFieldsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.ListAppointmentDictionaryUseCase;
+import br.dev.ctrls.inovareti.domain.appointment.usecase.SaveAppointmentTemplateMappingsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.UpdateAppointmentConfigUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,8 @@ public class AppointmentConfigController {
     private final ListAppointmentDictionaryUseCase listAppointmentDictionaryUseCase;
     private final BlipClient blipClient;
     private final UpdateAppointmentConfigUseCase updateAppointmentConfigUseCase;
+    private final ListFeegowFieldsUseCase listFeegowFieldsUseCase;
+    private final SaveAppointmentTemplateMappingsUseCase saveAppointmentTemplateMappingsUseCase;
 
     /**
      * Retorna o dicionário de variáveis disponíveis para templates
@@ -36,6 +42,14 @@ public class AppointmentConfigController {
     @GetMapping("/dictionary")
     public ResponseEntity<List<ListAppointmentDictionaryUseCase.DictionaryItem>> dictionary() {
         return ResponseEntity.ok(listAppointmentDictionaryUseCase.execute());
+    }
+
+    /**
+     * Lista os campos disponíveis do AppointmentTemplateData para o frontend montar os mapeamentos.
+     */
+    @GetMapping("/feegow-fields")
+    public ResponseEntity<List<String>> feegowFields() {
+        return ResponseEntity.ok(listFeegowFieldsUseCase.execute());
     }
 
     /**
@@ -77,6 +91,25 @@ public class AppointmentConfigController {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "error",
                     "message", "Categoria inválida: " + category));
+        }
+    }
+
+    /**
+     * Salva o mapeamento dinâmico de placeholders para campos do Feegow por template.
+     */
+    @PostMapping("/template-mappings")
+    public ResponseEntity<Map<String, Object>> saveTemplateMappings(
+            @RequestBody @Valid SaveAppointmentTemplateMappingsRequest request) {
+        try {
+            int savedCount = saveAppointmentTemplateMappingsUseCase.execute(request);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "templateName", request.templateName(),
+                    "savedMappings", savedCount));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", ex.getMessage()));
         }
     }
 }

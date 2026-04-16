@@ -1,0 +1,13 @@
+package br.dev.ctrls.inovareti.domain.appointment;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface AppointmentTemplateMappingRepository extends JpaRepository<AppointmentTemplateMapping, UUID> {
+
+    List<AppointmentTemplateMapping> findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(String templateName);
+
+    void deleteByTemplateNameIgnoreCase(String templateName);
+}

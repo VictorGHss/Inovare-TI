@@ -11,6 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -51,6 +53,28 @@ public class BlipClient {
 
     @Value("${app.appointment.motor.blip-fallback-templates:}")
     private String blipFallbackTemplates;
+
+    @Value("${app.appointment.motor.blip-authorization-key:}")
+    private String fallbackAuthKey;
+
+    @PostConstruct
+    public void logBlipAuthKeyStatus() {
+        String keyToLog = properties.getBlipAuthorizationKey();
+        if (keyToLog == null || keyToLog.isBlank()) {
+            keyToLog = fallbackAuthKey;
+        }
+        
+        String logKey = normalizeAuthorizationKey(keyToLog);
+
+        if (logKey == null || logKey.isBlank()) {
+            log.warn("Chave do Blip não foi carregada. Verifique a variável de ambiente APP_APPOINTMENT_BLIP_BOT_KEY.");
+            return;
+        }
+
+        int visibleCharacters = Math.min(5, logKey.length());
+        String prefix = logKey.substring(0, visibleCharacters);
+        log.info("Configuração carregada: app.appointment.motor.blip-authorization-key = {}", prefix);
+    }
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
@@ -325,7 +349,13 @@ public class BlipClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        String authorizationKey = normalizeAuthorizationKey(properties.getBlipAuthorizationKey());
+        
+        String keyToUse = properties.getBlipAuthorizationKey();
+        if (keyToUse == null || keyToUse.isBlank()) {
+            keyToUse = fallbackAuthKey;
+        }
+
+        String authorizationKey = normalizeAuthorizationKey(keyToUse);
         if (authorizationKey == null || authorizationKey.isBlank()) {
             log.warn("Chave de autorização do Blip está vazia. Verifique a propriedade app.appointment.motor.blip-authorization-key.");
             return headers;

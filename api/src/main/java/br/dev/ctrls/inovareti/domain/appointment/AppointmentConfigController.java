@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,7 +51,7 @@ public class AppointmentConfigController {
     /**
      * Atualiza o template associado a uma categoria de agendamento
      * @param category Categoria (CONFIRMATION, NUDGE_1, NUDGE_FINAL)
-     * @param request Contém o templateId a ser associado
+     * @param request Contém o template name/id a ser associado
      */
     @PutMapping("/{category}")
     public ResponseEntity<Map<String, Object>> updateConfig(
@@ -58,12 +59,20 @@ public class AppointmentConfigController {
             @RequestBody @Valid UpdateAppointmentConfigRequest request) {
         try {
             AppointmentCategory appointmentCategory = AppointmentCategory.valueOf(category.toUpperCase());
-            AppointmentConfig updated = updateAppointmentConfigUseCase.execute(appointmentCategory, request.templateId());
+            String templateName = request.resolvedTemplateName();
+            if (!StringUtils.hasText(templateName)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", "error",
+                        "message", "templateName é obrigatório"));
+            }
+
+            AppointmentConfig updated = updateAppointmentConfigUseCase.execute(appointmentCategory, templateName);
             
             return ResponseEntity.ok(Map.of(
                     "status", "success",
                     "category", appointmentCategory,
-                    "templateId", updated.getTemplateId()));
+                "templateName", updated.getTemplateId(),
+                "templateId", updated.getTemplateId()));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "error",

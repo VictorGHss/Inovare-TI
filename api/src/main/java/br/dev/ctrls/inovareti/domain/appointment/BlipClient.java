@@ -42,7 +42,7 @@ public class BlipClient {
     private final AppointmentMotorProperties properties;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
 
-    public void sendTemplateMessage(String destination, String templateId, List<String> variables) {
+    public void sendTemplateMessage(String destination, String templateName, List<String> variables) {
         // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
         pullUserToAgendamentoBot(destination);
         rateLimit();
@@ -53,12 +53,14 @@ public class BlipClient {
                 .toUriString();
 
         Map<String, Object> payload = Map.of(
-                "to", destination,
-                "templateId", templateId,
-                "variables", variables);
+            "to", destination,
+            "templateName", templateName,
+            "namespace", properties.getBlipWabaNamespace(),
+            "variables", variables);
 
         restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
-        log.info("Template enviado ao Blip. destination={}, templateId={}", destination, templateId);
+        log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}",
+            destination, templateName, properties.getBlipWabaNamespace());
     }
 
     public void setHandoffContext(String destination, String queueId) {

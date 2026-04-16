@@ -27,6 +27,7 @@ public class AppointmentMotorProperties {
     private String blipSendMessagePath;
     private String blipSetContextPath;
     private String blipRouterIdentity;
+    private String blipWabaNamespace;
     private String blipBuilderBotId;
     private String blipAgendamentoBotId;
     private long blipRateLimitMs;

@@ -2,11 +2,12 @@ package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,22 +26,26 @@ public class UpdateAppointmentConfigUseCase {
     /**
      * Atualiza o template_id associado a uma categoria
      * @param category Categoria (CONFIRMATION, NUDGE_1, NUDGE_FINAL)
-     * @param templateId ID do template no Blip
+     * @param templateName Nome do template no Blip
      * @return Configuração atualizada
      */
     @Transactional
-    public AppointmentConfig execute(AppointmentCategory category, String templateId) {
+    public AppointmentConfig execute(AppointmentCategory category, String templateName) {
+        if (!StringUtils.hasText(templateName)) {
+            throw new IllegalArgumentException("templateName é obrigatório");
+        }
+
         AppointmentConfig config = appointmentConfigRepository.findByCategory(category)
             .orElseGet(() -> AppointmentConfig.builder()
                 .category(category)
-                .templateId(templateId)
+                .templateId(templateName)
                 .timingHours(defaultTimingHours(category))
                 .build());
 
-        config.setTemplateId(templateId);
+        config.setTemplateId(templateName);
         AppointmentConfig updated = appointmentConfigRepository.save(config);
 
-        log.info("Configuração de template atualizada. category={}, templateId={}", category, templateId);
+        log.info("Configuração de template atualizada. category={}, templateName={}", category, templateName);
         return updated;
     }
 

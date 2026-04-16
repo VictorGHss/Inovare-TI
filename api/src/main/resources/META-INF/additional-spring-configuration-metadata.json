@@ -305,6 +305,11 @@
     "description": "Lista de templates de fallback separados por vírgula quando a descoberta dinâmica falhar."
   },
   {
+    "name": "app.feegow.api-key",
+    "type": "java.lang.String",
+    "description": "Chave de API enviada no header x-api-key para autenticação com o Feegow."
+  },
+  {
     "name": "app.appointment.motor.blip-builder-bot-id",
     "type": "java.lang.String",
     "description": "A description for 'app.appointment.motor.blip-builder-bot-id'"

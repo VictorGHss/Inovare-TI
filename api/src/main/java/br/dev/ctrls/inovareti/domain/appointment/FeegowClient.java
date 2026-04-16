@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,9 @@ public class FeegowClient {
 
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
+
+    @Value("${app.feegow.api-key:}")
+    private String apiKey;
 
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId) {
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
@@ -100,7 +104,12 @@ public class FeegowClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        headers.setBearerAuth(properties.getFeegowToken());
+        if (apiKey != null && !apiKey.isBlank()) {
+            headers.set("x-api-key", apiKey);
+        }
+        if (properties.getFeegowToken() != null && !properties.getFeegowToken().isBlank()) {
+            headers.setBearerAuth(properties.getFeegowToken());
+        }
         return headers;
     }
 

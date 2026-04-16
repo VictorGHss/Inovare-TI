@@ -331,6 +331,7 @@ public class BlipClient {
             return headers;
         }
         headers.set("Authorization", "Key " + authorizationKey);
+        log.debug("Headers enviados para Blip: {}", headers.toSingleValueMap().keySet());
         return headers;
     }
 

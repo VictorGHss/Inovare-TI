@@ -1,7 +1,11 @@
 package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,9 +35,17 @@ public class SaveAppointmentTemplateMappingsUseCase {
         }
 
         appointmentTemplateMappingRepository.deleteByTemplateNameIgnoreCase(templateName);
+        appointmentTemplateMappingRepository.flush();
 
-        List<AppointmentTemplateMapping> entities = mappings.stream()
-                .filter(item -> item != null && item.placeholderIndex() != null && StringUtils.hasText(item.feegowFieldName()))
+        Map<Integer, SaveAppointmentTemplateMappingsRequest.TemplateMappingItem> normalizedMappings = mappings.stream()
+            .filter(item -> item != null && item.placeholderIndex() != null && StringUtils.hasText(item.feegowFieldName()))
+            .collect(Collectors.toMap(
+                SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex,
+                Function.identity(),
+                (previous, current) -> current,
+                LinkedHashMap::new));
+
+        List<AppointmentTemplateMapping> entities = normalizedMappings.values().stream()
                 .sorted(Comparator.comparing(SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex))
                 .map(item -> AppointmentTemplateMapping.builder()
                         .templateName(templateName)
@@ -42,7 +54,7 @@ public class SaveAppointmentTemplateMappingsUseCase {
                         .build())
                 .toList();
 
-        appointmentTemplateMappingRepository.saveAll(entities);
+        appointmentTemplateMappingRepository.saveAllAndFlush(entities);
         return entities.size();
     }
 

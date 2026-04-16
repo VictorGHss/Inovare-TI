@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -31,8 +33,20 @@ public class FeegowClient {
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
 
-    @Value("${app.feegow.api-key:}")
+    @Value("${app.feegow.api-key}")
     private String apiKey;
+
+    @PostConstruct
+    public void logFeegowApiKeyStatus() {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Chave da Feegow não foi carregada. Verifique a variável de ambiente APP_FEEGOW_API_KEY.");
+            return;
+        }
+
+        int visibleCharacters = Math.min(4, apiKey.length());
+        String suffix = apiKey.substring(apiKey.length() - visibleCharacters);
+        log.info("Chave da Feegow carregada com sucesso. tamanho={}, sufixo={}", apiKey.length(), suffix);
+    }
 
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId) {
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
@@ -106,9 +120,6 @@ public class FeegowClient {
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         if (apiKey != null && !apiKey.isBlank()) {
             headers.set("x-api-key", apiKey);
-        }
-        if (properties.getFeegowToken() != null && !properties.getFeegowToken().isBlank()) {
-            headers.setBearerAuth(properties.getFeegowToken());
         }
         return headers;
     }

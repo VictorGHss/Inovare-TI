@@ -18,6 +18,29 @@ export interface BlipTemplate {
   name: string;
 }
 
+export interface AppointmentTemplateMappingItem {
+  placeholderIndex: number;
+  feegowFieldName: string;
+}
+
+export interface SaveAppointmentTemplateMappingsRequest {
+  templateName: string;
+  mappings: AppointmentTemplateMappingItem[];
+}
+
+export interface SaveAppointmentTemplateMappingsResponse {
+  status: 'success' | 'error';
+  templateName?: string;
+  savedMappings?: number;
+  message?: string;
+}
+
+export interface AppointmentTemplateMappingResponse {
+  templateName: string;
+  placeholderIndex: number;
+  feegowFieldName: string;
+}
+
 export interface AppointmentConfigUpdateResponse {
   status: 'success' | 'error';
   category?: string;
@@ -40,6 +63,27 @@ export async function triggerAppointmentMotorManual(): Promise<AppointmentManual
  */
 export async function getBlipTemplates(): Promise<BlipTemplate[]> {
   const { data } = await api.get<BlipTemplate[]>('/api/v1/appointments/config/blip-templates');
+  return data;
+}
+
+export async function getFeegowFields(): Promise<string[]> {
+  const { data } = await api.get<string[]>('/api/v1/appointments/config/feegow-fields');
+  return data;
+}
+
+export async function saveAppointmentTemplateMappings(
+  payload: SaveAppointmentTemplateMappingsRequest,
+): Promise<SaveAppointmentTemplateMappingsResponse> {
+  const { data } = await api.post<SaveAppointmentTemplateMappingsResponse>('/api/v1/appointments/config/template-mappings', payload);
+  return data;
+}
+
+export async function getAppointmentTemplateMappings(
+  templateName: string,
+): Promise<AppointmentTemplateMappingResponse[]> {
+  const { data } = await api.get<AppointmentTemplateMappingResponse[]>('/api/v1/appointments/config/template-mappings', {
+    params: { templateName },
+  });
   return data;
 }
 

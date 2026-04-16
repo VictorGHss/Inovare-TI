@@ -11,14 +11,17 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateMappingResponse;
 import br.dev.ctrls.inovareti.domain.appointment.dto.SaveAppointmentTemplateMappingsRequest;
 import br.dev.ctrls.inovareti.domain.appointment.dto.UpdateAppointmentConfigRequest;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.ListFeegowFieldsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.ListAppointmentDictionaryUseCase;
+import br.dev.ctrls.inovareti.domain.appointment.usecase.ListAppointmentTemplateMappingsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.SaveAppointmentTemplateMappingsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.UpdateAppointmentConfigUseCase;
 import jakarta.validation.Valid;
@@ -35,6 +38,7 @@ public class AppointmentConfigController {
     private final UpdateAppointmentConfigUseCase updateAppointmentConfigUseCase;
     private final ListFeegowFieldsUseCase listFeegowFieldsUseCase;
     private final SaveAppointmentTemplateMappingsUseCase saveAppointmentTemplateMappingsUseCase;
+    private final ListAppointmentTemplateMappingsUseCase listAppointmentTemplateMappingsUseCase;
 
     /**
      * Retorna o dicionário de variáveis disponíveis para templates
@@ -110,6 +114,19 @@ public class AppointmentConfigController {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "error",
                     "message", ex.getMessage()));
+        }
+    }
+
+    /**
+     * Retorna os mapeamentos salvos para um template específico.
+     */
+    @GetMapping("/template-mappings")
+    public ResponseEntity<List<AppointmentTemplateMappingResponse>> templateMappings(
+            @RequestParam String templateName) {
+        try {
+            return ResponseEntity.ok(listAppointmentTemplateMappingsUseCase.execute(templateName));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
         }
     }
 }

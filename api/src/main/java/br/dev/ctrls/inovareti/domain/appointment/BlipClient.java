@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -37,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(value = "app.appointment.motor.enabled", havingValue = "true", matchIfMissing = true)
 public class BlipClient {
 
-    private static final String FIXED_WABA_NAMESPACE = "63a9b11b_7f32_4ca2_8da1_60b6a41de39e";
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
     private static final String DEFAULT_BUILDER_BOT_IDENTITY = "fluxov1@msging.net";
 
@@ -45,6 +45,12 @@ public class BlipClient {
     private final AppointmentMotorProperties properties;
     private final AppointmentTemplateMappingRepository appointmentTemplateMappingRepository;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
+
+    @Value("${app.appointment.motor.blip-waba-namespace}")
+    private String blipWabaNamespace;
+
+    @Value("${app.appointment.motor.blip-fallback-templates:}")
+    private String blipFallbackTemplates;
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
@@ -251,10 +257,15 @@ public class BlipClient {
     }
 
     private List<BlipTemplateDto> staticTemplateFallback() {
-        return List.of(
-                new BlipTemplateDto("confirmacao_consulta_v5", "confirmacao_consulta_v5"),
-                new BlipTemplateDto("aviso_interacao_necessariav1", "aviso_interacao_necessariav1"),
-                new BlipTemplateDto("aviso_final_cancelamento", "aviso_final_cancelamento"));
+        if (blipFallbackTemplates == null || blipFallbackTemplates.isBlank()) {
+            return List.of();
+        }
+
+        return java.util.Arrays.stream(blipFallbackTemplates.split(","))
+                .map(String::trim)
+                .filter(name -> !name.isBlank())
+                .map(name -> new BlipTemplateDto(name, name))
+                .toList();
     }
 
     private List<String> buildTemplateFetchIdentities() {
@@ -368,9 +379,9 @@ public class BlipClient {
     }
 
     private String resolveWabaNamespace() {
-        String configuredNamespace = properties.getBlipWabaNamespace();
+        String configuredNamespace = blipWabaNamespace;
         if (configuredNamespace == null || configuredNamespace.isBlank()) {
-            return FIXED_WABA_NAMESPACE;
+            return "";
         }
         return configuredNamespace;
     }

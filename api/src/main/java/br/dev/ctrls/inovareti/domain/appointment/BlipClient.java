@@ -67,7 +67,7 @@ public class BlipClient {
         String logKey = normalizeAuthorizationKey(keyToLog);
 
         if (logKey == null || logKey.isBlank()) {
-            log.warn("Chave do Blip não foi carregada. Verifique a variável de ambiente APP_APPOINTMENT_BLIP_BOT_KEY.");
+            log.error("Chave do Blip não foi carregada. Verifique a variável de ambiente APP_APPOINTMENT_BLIP_BOT_KEY.");
             return;
         }
 

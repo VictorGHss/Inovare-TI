@@ -54,14 +54,14 @@ public class BlipClient {
     @Value("${app.appointment.motor.blip-fallback-templates:}")
     private String blipFallbackTemplates;
 
-    @Value("${app.appointment.motor.blip-authorization-key:}")
-    private String fallbackAuthKey;
+    @Value("${app.appointment.motor.blip-authorization-key}")
+    private String blipAuthorizationKey;
 
     @PostConstruct
     public void logBlipAuthKeyStatus() {
-        String keyToLog = properties.getBlipAuthorizationKey();
+        String keyToLog = blipAuthorizationKey;
         if (keyToLog == null || keyToLog.isBlank()) {
-            keyToLog = fallbackAuthKey;
+            keyToLog = properties.getBlipAuthorizationKey();
         }
         
         String logKey = normalizeAuthorizationKey(keyToLog);
@@ -350,9 +350,9 @@ public class BlipClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         
-        String keyToUse = properties.getBlipAuthorizationKey();
+        String keyToUse = blipAuthorizationKey;
         if (keyToUse == null || keyToUse.isBlank()) {
-            keyToUse = fallbackAuthKey;
+            keyToUse = properties.getBlipAuthorizationKey();
         }
 
         String authorizationKey = normalizeAuthorizationKey(keyToUse);

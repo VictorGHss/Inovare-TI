@@ -177,6 +177,14 @@ public class GlobalExceptionHandler {
             requestId = "-";
         }
 
+        String requestUri = request != null ? request.getRequestURI() : "";
+        String logPrefix = "[CONTA AZUL ERROR]";
+        if (requestUri.contains("feegow")) {
+            logPrefix = "[FEEGOW ERROR]";
+        } else if (requestUri.contains("blip") || requestUri.contains("messages")) {
+            logPrefix = "[BLIP ERROR]";
+        }
+
         int status = ex.getStatusCode().value();
         String body = "";
         try {
@@ -186,9 +194,9 @@ public class GlobalExceptionHandler {
         }
 
         if (status >= 500) {
-            log.error("External service error (ContaAzul) request_id={} status={} body={}", requestId, status, body, ex);
+            log.error("{} request_id={} status={} body={}", logPrefix, requestId, status, body, ex);
         } else {
-            log.warn("External service client error (ContaAzul) request_id={} status={} body={}", requestId, status, body);
+            log.warn("{} request_id={} status={} body={}", logPrefix, requestId, status, body);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));

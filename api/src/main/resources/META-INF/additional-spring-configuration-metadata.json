@@ -288,5 +288,25 @@
     "name": "app.automation.cron",
     "type": "java.lang.String",
     "description": "A description for 'app.automation.cron'"
+  },
+  {
+    "name": "app.appointment.motor.blip-router-identity",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-router-identity'"
+  },
+  {
+    "name": "app.appointment.motor.blip-waba-namespace",
+    "type": "java.lang.String",
+    "description": "Namespace WABA usado no envio manual de templates do Blip."
+  },
+  {
+    "name": "app.appointment.motor.blip-builder-bot-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-builder-bot-id'"
+  },
+  {
+    "name": "app.appointment.motor.blip-agendamento-bot-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-agendamento-bot-id'"
   }
 ]}

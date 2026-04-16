@@ -60,16 +60,20 @@ public class BlipClient {
         List<Map<String, Object>> components = parameters.isEmpty()
                 ? List.of()
                 : List.of(Map.of("type", "body", "parameters", parameters));
+        String appointmentId = appointmentData != null && appointmentData.appointmentId() != null
+                ? appointmentData.appointmentId()
+                : "";
 
         Map<String, Object> payload = Map.of(
             "to", destination,
             "templateName", templateName,
             "namespace", resolveWabaNamespace(),
-            "components", components);
+            "components", components,
+            "metadata", Map.of("appointmentId", appointmentId));
 
         restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
-        log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}, components={}",
-            destination, templateName, resolveWabaNamespace(), components.size());
+        log.info("Template enviado ao Blip. destination={}, templateName={}, namespace={}, components={}, appointmentId={}",
+            destination, templateName, resolveWabaNamespace(), components.size(), appointmentId);
     }
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {

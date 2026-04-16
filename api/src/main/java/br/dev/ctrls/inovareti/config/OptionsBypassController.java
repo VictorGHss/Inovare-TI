@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class OptionsBypassController {
 
-    @RequestMapping(value = "/**", method = RequestMethod.OPTIONS)
+    @RequestMapping(value = {"/admin/**", "/api/**", "/**"}, method = RequestMethod.OPTIONS)
     public ResponseEntity<Void> handleOptions() {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Access-Control-Allow-Origin", "http://localhost:5173");

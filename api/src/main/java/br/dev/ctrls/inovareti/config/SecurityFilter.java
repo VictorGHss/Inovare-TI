@@ -56,7 +56,8 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.contains("/actuator/")
             || requestUri.startsWith("/api/actuator/")
             || requestUri.contains("/ws/")
-            || requestUri.startsWith("/api/ws/");
+            || requestUri.startsWith("/api/ws/")
+            || requestUri.startsWith("/ws/");
     }
 
     @Override

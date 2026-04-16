@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -40,6 +41,8 @@ public class BlipWebhookController {
 
             String appointmentId = firstNonBlank(
                     root.path("appointmentId").asText(null),
+                    root.path("metadata").path("appointmentId").asText(null),
+                    root.path("envelope").path("metadata").path("appointmentId").asText(null),
                     resource.path("appointmentId").asText(null),
                     resource.path("metadata").path("appointmentId").asText(null),
                     resource.path("content").path("appointmentId").asText(null));
@@ -55,7 +58,7 @@ public class BlipWebhookController {
                     resource.path("from").asText(null));
 
             if (isBlank(appointmentId) || isBlank(action) || isBlank(from)) {
-                log.warn("Webhook recebido sem campos obrigatórios para processamento. appointmentId={}, action={}, from={}",
+                log.debug("Webhook recebido sem campos obrigatórios para processamento. appointmentId={}, action={}, from={}",
                         appointmentId, action, from);
                 return ResponseEntity.accepted().build();
             }
@@ -65,7 +68,9 @@ public class BlipWebhookController {
                     appointmentId,
                     action,
                     from));
-        } catch (Exception ex) {
+        } catch (JsonProcessingException ex) {
+            log.error("Payload JSON inválido recebido no webhook Blip", ex);
+        } catch (RuntimeException ex) {
             log.error("Falha ao interpretar/processar webhook Blip", ex);
         }
 

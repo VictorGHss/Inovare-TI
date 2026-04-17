@@ -40,7 +40,7 @@ public class FeegowClient {
     public void logFeegowApiKeyStatus() {
         String normalizedApiKey = normalizeApiKey(apiKey);
         if (normalizedApiKey == null || normalizedApiKey.isBlank()) {
-            log.warn("Chave da Feegow não foi carregada. Verifique a variável de ambiente APP_FEEGOW_API_KEY.");
+            log.error("ERRO FATAL NO BOOT: Chave da Feegow (x-api-key) está nula ou vazia. Verifique a variável APP_FEEGOW_API_KEY!");
             return;
         }
 
@@ -117,12 +117,12 @@ public class FeegowClient {
 
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         String normalizedApiKey = normalizeApiKey(apiKey);
         if (normalizedApiKey != null && !normalizedApiKey.isBlank()) {
             log.info("Utilizando x-api-key para Feegow: {}", normalizedApiKey.substring(0, Math.min(5, normalizedApiKey.length())));
             headers.set("x-api-key", normalizedApiKey);
+        } else {
+            log.error("ERRO: Chave x-api-key nula ou vazia no momento de montar os headers!");
         }
         
         log.debug("Headers enviados para Feegow: {}", headers.toSingleValueMap().keySet());

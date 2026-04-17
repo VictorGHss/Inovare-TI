@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AppointmentTemplateMappingRepository extends JpaRepository<AppointmentTemplateMapping, UUID> {
 
+    List<AppointmentTemplateMapping> findByTemplateNameOrderByPlaceholderIndexAsc(String templateName);
+
     List<AppointmentTemplateMapping> findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(String templateName);
 
     void deleteAllByTemplateName(String templateName);

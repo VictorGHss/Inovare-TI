@@ -3,8 +3,10 @@ package br.dev.ctrls.inovareti.config;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -28,12 +30,22 @@ public class RestTemplateConfig {
      * @return instância configurada de RestTemplate
      */
     @Bean
+    @Primary
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
 
         // Blindagem global de saída: impede prefixo fantasma /api para host da Conta Azul.
         restTemplate.getInterceptors().add(new ContaAzulPathSanitizerInterceptor());
         return restTemplate;
+    }
+
+    /**
+     * RestTemplate dedicado para Feegow, sem interceptores de outras integrações.
+     */
+    @Bean
+    @Qualifier("feegowRestTemplate")
+    public RestTemplate feegowRestTemplate() {
+        return new RestTemplate();
     }
 
     private static final class ContaAzulPathSanitizerInterceptor implements ClientHttpRequestInterceptor {

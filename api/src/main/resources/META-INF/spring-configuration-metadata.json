@@ -53,6 +53,11 @@
       "description": "Identificador do médico usado no modo de teste"
     },
     {
+      "name": "app.appointment.motor.feegow-startup-probe-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Ativa a busca de diagnóstico na Feegow na inicialização"
+    },
+    {
       "name": "app.appointment.motor.feegow-base-url",
       "type": "java.lang.String",
       "description": "URL base da integração com Feegow"
@@ -116,6 +121,11 @@
       "name": "app.appointment.motor.send-idempotency-hours",
       "type": "java.lang.Long",
       "description": "Janela de idempotência para envio em horas"
+    },
+    {
+      "name": "app.appointment.webhook-idempotency-hours",
+      "type": "java.lang.Long",
+      "description": "Janela de idempotência de webhook em horas"
     },
     {
       "name": "app.appointment.motor.webhook-idempotency-hours",

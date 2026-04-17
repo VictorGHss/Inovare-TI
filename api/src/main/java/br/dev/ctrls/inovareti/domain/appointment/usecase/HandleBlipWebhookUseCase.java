@@ -56,6 +56,7 @@ public class HandleBlipWebhookUseCase {
 
         switch (action) {
             case "CONFIRMAR" -> {
+                log.info("Ação CONFIRMAR recebida. Atualizando status na Feegow com código {}.", FEEGOW_STATUS_CONFIRMADO);
                 feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_CONFIRMADO);
                 confirmationStateMachineService.markConfirmed(session);
                 appointmentSessionRepository.save(session);

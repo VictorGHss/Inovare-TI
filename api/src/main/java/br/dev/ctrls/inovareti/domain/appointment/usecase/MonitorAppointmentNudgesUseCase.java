@@ -43,12 +43,17 @@ public class MonitorAppointmentNudgesUseCase {
                 .map(config -> config.getTimingHours())
                 .orElse(appointmentMotorProperties.getNudgeFinalWaitHours());
 
-        LocalDateTime pendingThreshold = LocalDateTime.now().minusHours(xHours);
+        LocalDateTime pendingThreshold = resolvePendingThreshold(xHours);
         List<AppointmentSession> pendingSessions = appointmentSessionRepository
                 .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.PENDING, pendingThreshold);
 
         for (AppointmentSession session : pendingSessions) {
-            sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_1);
+                        boolean sent = sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_1);
+                        if (!sent) {
+                                log.warn("NUDGE_1 não enviado. Mantendo sessão pendente. sessionId={}", session.getId());
+                                continue;
+                        }
+
             confirmationStateMachineService.markNudge1Sent(session);
             appointmentSessionRepository.save(session);
         }
@@ -58,7 +63,12 @@ public class MonitorAppointmentNudgesUseCase {
                 .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, nudge1Threshold);
 
         for (AppointmentSession session : nudge1Sessions) {
-            sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_FINAL);
+                        boolean sent = sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_FINAL);
+                        if (!sent) {
+                                log.warn("NUDGE_FINAL não enviado. Mantendo sessão no estado atual. sessionId={}", session.getId());
+                                continue;
+                        }
+
             confirmationStateMachineService.markNudgeFinalSent(session);
             appointmentSessionRepository.save(session);
         }
@@ -71,10 +81,21 @@ public class MonitorAppointmentNudgesUseCase {
             feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
             confirmationStateMachineService.markCanceledByNoResponse(session);
             appointmentSessionRepository.save(session);
-            blipClient.pushUserBackToBuilder(session.getPatientPhone());
+            blipClient.pushUserBackToBuilder(session.getPhoneNumber());
         }
 
         log.info("Monitor de nudges executado. pendingParaNudge1={}, nudge1ParaFinal={}, finalParaCancelado={}",
                 pendingSessions.size(), nudge1Sessions.size(), finalSessions.size());
     }
+
+        private LocalDateTime resolvePendingThreshold(int xHours) {
+                if (!appointmentMotorProperties.isTestMode()) {
+                        return LocalDateTime.now().minusHours(xHours);
+                }
+
+                // Em modo de teste, libera NUDGE_1 imediatamente para facilitar validação com consulta de hoje/amanhã.
+                LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
+                log.warn("[TEST MODE ACTIVE] NUDGE_1 liberado imediatamente. pendingThreshold={}", immediateThreshold);
+                return immediateThreshold;
+        }
 }

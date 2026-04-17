@@ -40,7 +40,7 @@ public class AppointmentSession {
     private String patientId;
 
     @Column(name = "patient_phone", length = 40)
-    private String patientPhone;
+    private String phoneNumber;
 
     @Column(name = "doctor_profissional_id", length = 64)
     private String doctorProfissionalId;
@@ -57,6 +57,9 @@ public class AppointmentSession {
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
+
+    @Column(name = "status_details", length = 500)
+    private String statusDetails;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

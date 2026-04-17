@@ -1,7 +1,8 @@
 package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -34,28 +35,50 @@ public class SaveAppointmentTemplateMappingsUseCase {
             throw new IllegalArgumentException("mappings é obrigatório");
         }
 
-        appointmentTemplateMappingRepository.deleteAllByTemplateName(templateName);
-        appointmentTemplateMappingRepository.flush();
-
         Map<Integer, SaveAppointmentTemplateMappingsRequest.TemplateMappingItem> normalizedMappings = mappings.stream()
-            .filter(item -> item != null && item.placeholderIndex() != null && StringUtils.hasText(item.feegowFieldName()))
-            .collect(Collectors.toMap(
-                SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex,
-                Function.identity(),
-                (previous, current) -> current,
-                LinkedHashMap::new));
+                .filter(item -> item != null && item.placeholderIndex() != null && StringUtils.hasText(item.feegowFieldName()))
+                .collect(Collectors.toMap(
+                        SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex,
+                        Function.identity(),
+                        (previous, current) -> current,
+                        LinkedHashMap::new));
 
-        List<AppointmentTemplateMapping> entities = normalizedMappings.values().stream()
+        List<AppointmentTemplateMapping> existingMappings = appointmentTemplateMappingRepository
+                .findByTemplateNameOrderByPlaceholderIndexAsc(templateName);
+
+        Map<Integer, AppointmentTemplateMapping> existingByPlaceholderIndex = existingMappings.stream()
+                .collect(Collectors.toMap(
+                        AppointmentTemplateMapping::getPlaceholderIndex,
+                        Function.identity(),
+                        (previous, current) -> previous,
+                        LinkedHashMap::new));
+
+        List<AppointmentTemplateMapping> entitiesToPersist = new ArrayList<>();
+        normalizedMappings.values().stream()
                 .sorted(Comparator.comparing(SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex))
-                .map(item -> AppointmentTemplateMapping.builder()
-                        .templateName(templateName)
-                        .placeholderIndex(item.placeholderIndex())
-                        .feegowFieldName(item.feegowFieldName().trim())
-                        .build())
-                .toList();
+                .forEach(item -> {
+                    AppointmentTemplateMapping existing = existingByPlaceholderIndex.remove(item.placeholderIndex());
+                    if (existing != null) {
+                        existing.setTemplateName(templateName);
+                        existing.setFeegowFieldName(item.feegowFieldName().trim());
+                        entitiesToPersist.add(existing);
+                        return;
+                    }
 
-        appointmentTemplateMappingRepository.saveAllAndFlush(entities);
-        return entities.size();
+                    entitiesToPersist.add(AppointmentTemplateMapping.builder()
+                            .templateName(templateName)
+                            .placeholderIndex(item.placeholderIndex())
+                            .feegowFieldName(item.feegowFieldName().trim())
+                            .build());
+                });
+
+        if (!existingByPlaceholderIndex.isEmpty()) {
+            appointmentTemplateMappingRepository.deleteAll(existingByPlaceholderIndex.values());
+            appointmentTemplateMappingRepository.flush();
+        }
+
+        appointmentTemplateMappingRepository.saveAllAndFlush(entitiesToPersist);
+        return entitiesToPersist.size();
     }
 
     private String normalizeTemplateName(String templateName) {

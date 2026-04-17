@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,9 +26,19 @@ public class BlipWebhookController {
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final ObjectMapper objectMapper;
 
-    @PostMapping
-    public ResponseEntity<Void> consume(@RequestBody String rawBody) {
-        log.info("RAW WEBHOOK BODY: {}", rawBody);
+    @PostMapping({ "", "/" })
+    public ResponseEntity<Void> consume(HttpServletRequest request, @RequestBody(required = false) String rawBody) {
+        log.info("Webhook Blip recebido. method={}, uri={}, contentType={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getContentType());
+
+        if (isBlank(rawBody)) {
+            log.warn("Webhook Blip recebido sem body. uri={}", request.getRequestURI());
+            return ResponseEntity.accepted().build();
+        }
+
+        log.debug("RAW WEBHOOK BODY: {}", rawBody);
 
         try {
             JsonNode root = objectMapper.readTree(rawBody);

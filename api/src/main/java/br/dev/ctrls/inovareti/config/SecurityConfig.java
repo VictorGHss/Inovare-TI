@@ -55,45 +55,36 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf
+                .csrf(csrf -> csrf
                 .ignoringRequestMatchers(
-                        BLIP_WEBHOOK_PATH,
-                        BLIP_WEBHOOK_PATH + "/",
-                        "/api" + BLIP_WEBHOOK_PATH,
-                        "/api" + BLIP_WEBHOOK_PATH + "/",
-                        APPOINTMENT_BLIP_WEBHOOK_PATH,
-                        APPOINTMENT_BLIP_WEBHOOK_PATH + "/",
-                        "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH,
-                        "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+                    BLIP_WEBHOOK_PATH,
+                    BLIP_WEBHOOK_PATH + "/",
+                    APPOINTMENT_BLIP_WEBHOOK_PATH,
+                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/admin/**", "/api/admin/**").permitAll()
-                .requestMatchers("/admin/**", "/api/admin/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/appointments/config/**").permitAll()
-                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH, "/api" + APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
-                .requestMatchers(APPOINTMENT_ADMIN_PATH, "/api" + APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
-                .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()
+                .requestMatchers("/admin/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/appointments/config/**").permitAll()
+                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
+                .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
+                .requestMatchers("/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
-                // de métricas (ex: Prometheus) possam ler /api/actuator/** sem JWT.
-                .requestMatchers("/actuator/**", "/api/actuator/**").permitAll()
-                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
-                                 "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
+                // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
+                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(
                     HttpMethod.POST,
                     BLIP_WEBHOOK_PATH,
                     BLIP_WEBHOOK_PATH + "/",
-                    "/api" + BLIP_WEBHOOK_PATH,
-                    "/api" + BLIP_WEBHOOK_PATH + "/",
                     APPOINTMENT_BLIP_WEBHOOK_PATH,
-                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/",
-                    "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH,
-                    "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .permitAll()
                 // Liberação temporária para desenvolvimento local dos endpoints de configuração.
-                .requestMatchers("/v1/appointments/config/**", "/api/v1/appointments/config/**").permitAll()
-                .requestMatchers("/ws/**", "/api/ws/**").permitAll()
+                .requestMatchers("/v1/appointments/config/**").permitAll()
+                .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

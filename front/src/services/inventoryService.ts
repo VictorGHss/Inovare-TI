@@ -13,7 +13,7 @@ export interface GetItemsParams {
 
 // Busca todos os itens de inventário disponíveis
 export async function getItems(params?: GetItemsParams): Promise<Item[]> {
-  const { data } = await api.get<Item[]>('/api/items', {
+  const { data } = await api.get<Item[]>('/items', {
     params,
   });
   return data;
@@ -21,74 +21,74 @@ export async function getItems(params?: GetItemsParams): Promise<Item[]> {
 
 // Busca um item de inventário específico pelo UUID
 export async function getItemById(id: string): Promise<Item> {
-  const { data } = await api.get<Item>(`/api/items/${id}`);
+  const { data } = await api.get<Item>(`/items/${id}`);
   return data;
 }
 
 // Busca todos os lotes de estoque de um item específico
 export async function getItemBatches(id: string): Promise<Batch[]> {
-  const { data } = await api.get<Batch[]>(`/api/items/${id}/batches`);
+  const { data } = await api.get<Batch[]>(`/items/${id}/batches`);
   return data;
 }
 
 export async function getItemOutMovements(id: string): Promise<StockMovement[]> {
-  const { data } = await api.get<StockMovement[]>(`/api/items/${id}/movements/out`);
+  const { data } = await api.get<StockMovement[]>(`/items/${id}/movements/out`);
   return data;
 }
 
 // Busca todas as categorias de item de inventário
 export async function getItemCategories(): Promise<ItemCategory[]> {
-  const { data } = await api.get<ItemCategory[]>('/api/item-categories');
+  const { data } = await api.get<ItemCategory[]>('/item-categories');
   return data;
 }
 
 export async function createItemCategory(dto: CreateItemCategoryDto): Promise<ItemCategory> {
-  const { data } = await api.post<ItemCategory>('/api/item-categories', dto);
+  const { data } = await api.post<ItemCategory>('/item-categories', dto);
   return data;
 }
 
 // Cria um novo item de inventário
 export async function createItem(dto: CreateItemDto): Promise<Item> {
-  const { data } = await api.post<Item>('/api/items', dto);
+  const { data } = await api.post<Item>('/items', dto);
   return data;
 }
 
 // Registra um lote de entrada de estoque para um item
 export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<Batch> {
-  const { data } = await api.post<Batch>(`/api/items/${itemId}/batches`, dto);
+  const { data } = await api.post<Batch>(`/items/${itemId}/batches`, dto);
   return data;
 }
 
 export async function getReportSchedules(): Promise<ReportSchedule[]> {
-  const { data } = await api.get<ReportSchedule[]>('/api/report-schedules');
+  const { data } = await api.get<ReportSchedule[]>('/report-schedules');
   return data;
 }
 
 export async function createReportSchedule(payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.post<ReportSchedule>('/api/report-schedules', payload);
+  const { data } = await api.post<ReportSchedule>('/report-schedules', payload);
   return data;
 }
 
 export async function updateReportSchedule(id: string, payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.put<ReportSchedule>(`/api/report-schedules/${id}`, payload);
+  const { data } = await api.put<ReportSchedule>(`/report-schedules/${id}`, payload);
   return data;
 }
 
 export async function deleteReportSchedule(id: string): Promise<void> {
-  await api.delete(`/api/report-schedules/${id}`);
+  await api.delete(`/report-schedules/${id}`);
 }
 
 export async function triggerReportScheduleTest(id: string): Promise<void> {
-  await api.post(`/api/report-schedules/${id}/trigger-test`);
+  await api.post(`/report-schedules/${id}/trigger-test`);
 }
 
 // Deleção de categorias (frontend chama essas rotas — backend deve expor DELETE /api/item-categories/{id} e /api/asset-categories/{id})
 export async function deleteItemCategory(id: string): Promise<void> {
-  await api.delete(`/api/item-categories/${id}`);
+  await api.delete(`/item-categories/${id}`);
 }
 
 export async function deleteAssetCategory(id: string): Promise<void> {
-  await api.delete(`/api/asset-categories/${id}`);
+  await api.delete(`/asset-categories/${id}`);
 }
 
 export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
@@ -96,70 +96,70 @@ export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
     Object.entries(params ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ''),
   );
 
-  const { data } = await api.get<Asset[]>('/api/assets', {
+  const { data } = await api.get<Asset[]>('/assets', {
     params: sanitizedParams,
   });
   return data;
 }
 
 export async function getAssetById(id: string): Promise<Asset> {
-  const { data } = await api.get<Asset>(`/api/assets/${id}`);
+  const { data } = await api.get<Asset>(`/assets/${id}`);
   return data;
 }
 
 export async function getAssetsByUser(userId: string): Promise<Asset[]> {
-  const { data } = await api.get<Asset[]>(`/api/assets/user/${userId}`);
+  const { data } = await api.get<Asset[]>(`/assets/user/${userId}`);
   return data;
 }
 
 export async function getAssetCategories(): Promise<AssetCategory[]> {
-  const { data } = await api.get<AssetCategory[]>('/api/asset-categories');
+  const { data } = await api.get<AssetCategory[]>('/asset-categories');
   return data;
 }
 
 export async function createAssetCategory(dto: CreateAssetCategoryDto): Promise<AssetCategory> {
-  const { data } = await api.post<AssetCategory>('/api/asset-categories', dto);
+  const { data } = await api.post<AssetCategory>('/asset-categories', dto);
   return data;
 }
 
 export async function createAsset(dto: CreateAssetDto): Promise<Asset> {
-  const { data } = await api.post<Asset>('/api/assets', dto);
+  const { data } = await api.post<Asset>('/assets', dto);
   return data;
 }
 
 export async function updateAsset(id: string, dto: CreateAssetDto): Promise<Asset> {
-  const { data } = await api.patch<Asset>(`/api/assets/${id}`, dto);
+  const { data } = await api.patch<Asset>(`/assets/${id}`, dto);
   return data;
 }
 
 export async function deleteAsset(id: string): Promise<void> {
-  await api.delete(`/api/assets/${id}`);
+  await api.delete(`/assets/${id}`);
 }
 
 // Asset Maintenance methods
 export async function getAssetMaintenances(assetId: string): Promise<AssetMaintenance[]> {
-  const { data } = await api.get<AssetMaintenance[]>(`/api/assets/${assetId}/maintenances`);
+  const { data } = await api.get<AssetMaintenance[]>(`/assets/${assetId}/maintenances`);
   return data;
 }
 
 export async function createAssetMaintenance(assetId: string, dto: CreateAssetMaintenanceData): Promise<AssetMaintenance> {
-  const { data } = await api.post<AssetMaintenance>(`/api/assets/${assetId}/maintenances`, dto);
+  const { data } = await api.post<AssetMaintenance>(`/assets/${assetId}/maintenances`, dto);
   return data;
 }
 
 export async function transferAsset(assetId: string, dto: TransferAssetData): Promise<Asset> {
-  const { data } = await api.patch<Asset>(`/api/assets/${assetId}/transfer`, dto);
+  const { data } = await api.patch<Asset>(`/assets/${assetId}/transfer`, dto);
   return data;
 }
 
 // Lista transações de consumo interno por período.
 export async function getFinancialTransactions(params?: { startDate?: string; endDate?: string }): Promise<FinancialTransactionLineDTO[]> {
-  const { data } = await api.get<FinancialTransactionLineDTO[]>('/api/financial/transactions', { params });
+  const { data } = await api.get<FinancialTransactionLineDTO[]>('/financial/transactions', { params });
   return data;
 }
 
 export async function getVaultItems(): Promise<VaultItem[]> {
-  const { data } = await api.get<VaultItem[]>('/api/vault');
+  const { data } = await api.get<VaultItem[]>('/vault');
   return data;
 }
 
@@ -174,7 +174,7 @@ export async function createVaultItem(
     formData.append('file', file);
   }
 
-  const { data } = await api.post<VaultItem>('/api/vault', formData, {
+  const { data } = await api.post<VaultItem>('/vault', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -195,7 +195,7 @@ export async function updateVaultItem(
     formData.append('file', file);
   }
 
-  const { data } = await api.patch<VaultItem>(`/api/vault/${vaultItemId}`, formData, {
+  const { data } = await api.patch<VaultItem>(`/vault/${vaultItemId}`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -205,20 +205,20 @@ export async function updateVaultItem(
 }
 
 export async function deleteVaultItem(vaultItemId: string): Promise<void> {
-  await api.delete(`/api/vault/${vaultItemId}`);
+  await api.delete(`/vault/${vaultItemId}`);
 }
 
 export async function shareVaultItem(vaultItemId: string, userId: string): Promise<void> {
-  await api.post(`/api/vault/${vaultItemId}/share`, { userId });
+  await api.post(`/vault/${vaultItemId}/share`, { userId });
 }
 
 export async function getVaultItemSecret(vaultItemId: string): Promise<VaultSecretResponseDTO> {
-  const { data } = await api.get<VaultSecretResponseDTO>(`/api/vault/${vaultItemId}/secret`);
+  const { data } = await api.get<VaultSecretResponseDTO>(`/vault/${vaultItemId}/secret`);
   return data;
 }
 
 export async function getVaultItemFileBlob(vaultItemId: string): Promise<Blob> {
-  const { data } = await api.get(`/api/vault/${vaultItemId}/file`, {
+  const { data } = await api.get(`/vault/${vaultItemId}/file`, {
     responseType: 'blob',
   });
   return data;
@@ -226,7 +226,7 @@ export async function getVaultItemFileBlob(vaultItemId: string): Promise<Blob> {
 
 // Exporta relatório de tickets em Excel
 export async function exportTicketsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/api/reports/tickets', {
+  const { data } = await api.get('/reports/tickets', {
     params,
     responseType: 'blob',
   });
@@ -235,7 +235,7 @@ export async function exportTicketsReport(params?: { startDate?: string; endDate
 
 // Exporta relatório de entradas de estoque (compras)
 export async function exportInventoryEntriesReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/api/reports/inventory/entries', {
+  const { data } = await api.get('/reports/inventory/entries', {
     params,
     responseType: 'blob',
   });
@@ -244,7 +244,7 @@ export async function exportInventoryEntriesReport(params?: { startDate?: string
 
 // Exporta relatório de saídas de estoque (consumo)
 export async function exportInventoryExitsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/api/reports/inventory/exits', {
+  const { data } = await api.get('/reports/inventory/exits', {
     params,
     responseType: 'blob',
   });
@@ -255,24 +255,24 @@ export async function exportInventoryExitsReport(params?: { startDate?: string; 
 
 // Busca todos os artigos da base de conhecimento
 export async function getArticles(): Promise<Article[]> {
-  const { data } = await api.get<Article[]>('/api/articles');
+  const { data } = await api.get<Article[]>('/articles');
   return data;
 }
 
 // Busca um artigo específico pelo ID
 export async function getArticleById(id: string): Promise<Article> {
-  const { data } = await api.get<Article>(`/api/articles/${id}`);
+  const { data } = await api.get<Article>(`/articles/${id}`);
   return data;
 }
 
 // Cria um novo artigo (requer ADMIN ou TECHNICIAN)
 export async function createArticle(dto: CreateArticleDto): Promise<Article> {
-  const { data } = await api.post<Article>('/api/articles', dto);
+  const { data } = await api.post<Article>('/articles', dto);
   return data;
 }
 
 export async function updateArticle(id: string, dto: CreateArticleDto): Promise<Article> {
-  const { data } = await api.put<Article>(`/api/articles/${id}`, dto);
+  const { data } = await api.put<Article>(`/articles/${id}`, dto);
   return data;
 }
 
@@ -281,7 +281,7 @@ export async function searchArticles(query: string): Promise<ArticleSearchResult
   if (!query || query.trim().length === 0) {
     return [];
   }
-  const { data } = await api.get<ArticleSearchResult[]>('/api/articles/search', {
+  const { data } = await api.get<ArticleSearchResult[]>('/articles/search', {
     params: { query: query.trim() },
   });
   return data;
@@ -294,7 +294,7 @@ export async function uploadGenericFile(file: File): Promise<GenericAttachmentRe
   const formData = new FormData();
   formData.append('file', file);
   
-  const { data } = await api.post<GenericAttachmentResponse>('/api/attachments/upload', formData, {
+  const { data } = await api.post<GenericAttachmentResponse>('/attachments/upload', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -306,19 +306,19 @@ export async function uploadGenericFile(file: File): Promise<GenericAttachmentRe
 
 // Busca todas as notificações do usuário autenticado (lidas e não lidas)
 export async function getNotifications(): Promise<Notification[]> {
-  const { data } = await api.get<Notification[]>('/api/notifications');
+  const { data } = await api.get<Notification[]>('/notifications');
   return data;
 }
 
 // Busca todas as notificações não lidas do usuário autenticado
 export async function getUnreadNotifications(): Promise<Notification[]> {
-  const { data } = await api.get<Notification[]>('/api/notifications/unread');
+  const { data } = await api.get<Notification[]>('/notifications/unread');
   return data;
 }
 
 // Marca uma notificação como lida
 export async function markNotificationAsRead(id: string): Promise<Notification> {
-  const { data } = await api.patch<Notification>(`/api/notifications/${id}/read`);
+  const { data } = await api.patch<Notification>(`/notifications/${id}/read`);
   return data;
 }
 
@@ -334,7 +334,7 @@ export async function uploadAssetInvoice(assetId: string, file: File): Promise<A
   const formData = new FormData();
   formData.append('file', file);
 
-  const { data } = await api.post<Asset>(`/api/assets/${assetId}/invoice`, formData, {
+  const { data } = await api.post<Asset>(`/assets/${assetId}/invoice`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -348,7 +348,7 @@ export async function uploadAssetInvoice(assetId: string, file: File): Promise<A
  * @returns       Blob com o arquivo (PDF ou imagem)
  */
 export async function downloadAssetInvoice(assetId: string): Promise<Blob> {
-  const { data } = await api.get(`/api/assets/${assetId}/invoice`, {
+  const { data } = await api.get(`/assets/${assetId}/invoice`, {
     responseType: 'blob',
   });
   return data;
@@ -370,7 +370,7 @@ export async function uploadBatchInvoice(
   formData.append('file', file);
 
   const { data } = await api.post<Batch>(
-    `/api/items/${itemId}/batches/${batchId}/invoice`,
+    `/items/${itemId}/batches/${batchId}/invoice`,
     formData,
     {
       headers: {
@@ -388,7 +388,7 @@ export async function uploadBatchInvoice(
  * @returns       Blob com o arquivo (PDF ou imagem)
  */
 export async function downloadBatchInvoice(itemId: string, batchId: string): Promise<Blob> {
-  const { data } = await api.get(`/api/items/${itemId}/batches/${batchId}/invoice`, {
+  const { data } = await api.get(`/items/${itemId}/batches/${batchId}/invoice`, {
     responseType: 'blob',
   });
   return data;
@@ -400,17 +400,17 @@ export async function getAdminConfig(): Promise<AdminConfig> {
 }
 
 export async function getSystemSettings(): Promise<SystemSetting[]> {
-  const { data } = await api.get<SystemSetting[]>('/api/admin/settings');
+  const { data } = await api.get<SystemSetting[]>('/admin/settings');
   return data;
 }
 
 export async function updateSystemSettings(payload: UpdateSystemSettingsPayload): Promise<SystemSetting[]> {
-  const { data } = await api.put<SystemSetting[]>('/api/admin/settings', payload);
+  const { data } = await api.put<SystemSetting[]>('/admin/settings', payload);
   return data;
 }
 
 export async function logQrScan(scannedPath: string): Promise<void> {
-  await api.post('/api/audit-logs/qr-scan', { scannedPath });
+  await api.post('/audit-logs/qr-scan', { scannedPath });
 }
 
 // Busca logs de auditoria com filtros opcionais (requer ADMIN)
@@ -418,7 +418,7 @@ export async function getAuditLogs(params?: GetAuditLogsParams): Promise<AuditLo
   const sanitized = Object.fromEntries(
     Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== ''),
   );
-  const { data } = await api.get<AuditLogPage>('/api/audit-logs', { params: sanitized });
+  const { data } = await api.get<AuditLogPage>('/audit-logs', { params: sanitized });
   return data;
 }
 

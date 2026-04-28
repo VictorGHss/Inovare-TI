@@ -1,31 +1,26 @@
 import axios from 'axios';
 
-const rawApiBaseUrl = import.meta.env.VITE_API_URL?.trim();
-
-// Normaliza a base removendo sufixo /api para evitar duplicacao quando as rotas ja usam /api/...
-const normalizedApiBaseUrl = rawApiBaseUrl
-  ? rawApiBaseUrl.replace(/\/+$/, '').replace(/\/api$/, '')
-  : undefined;
+// Use exatamente o valor fornecido via VITE_API_URL como baseURL.
+// A variável de ambiente deve conter o sufixo '/api' (ex: http://localhost:8085/api).
+const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
 
 export function buildApiUrl(path: string): string {
-  if (!path) {
-    return path;
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+
+  // concatena preservando uma única barra entre base e path
+  if (apiBaseUrl.endsWith('/') && path.startsWith('/')) {
+    return `${apiBaseUrl}${path.substring(1)}`;
   }
 
-  if (/^https?:\/\//i.test(path)) {
-    return path;
+  if (!apiBaseUrl.endsWith('/') && !path.startsWith('/')) {
+    return `${apiBaseUrl}/${path}`;
   }
 
-  if (!normalizedApiBaseUrl) {
-    return path;
-  }
-
-  return `${normalizedApiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  return `${apiBaseUrl}${path}`;
 }
 
-const api = axios.create({
-  baseURL: normalizedApiBaseUrl,
-});
+const api = axios.create({ baseURL: apiBaseUrl });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('@InovareTI:token');

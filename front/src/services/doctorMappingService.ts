@@ -1,12 +1,12 @@
 import api, { buildApiUrl } from './api';
 import type { AxiosResponse } from 'axios';
 
-const APPOINTMENT_ADMIN_MAPPINGS_URL = buildApiUrl('/api/v1/appointments/admin/mappings');
-const APPOINTMENT_ADMIN_SYNC_MAPPINGS_URL = buildApiUrl('/api/v1/appointments/admin/sync-mappings');
-const APPOINTMENT_ADMIN_DEBUG_QUEUES_URL = buildApiUrl('/api/v1/appointments/admin/debug-queues');
-const APPOINTMENT_PROFESSIONALS_URL = buildApiUrl('/api/v1/appointments/professionals');
-const APPOINTMENT_BLIP_QUEUES_URL = buildApiUrl('/api/v1/appointments/blip/queues');
-const APPOINTMENT_ADMIN_UPSERT_MAPPING_URL = buildApiUrl('/api/v1/appointments/admin/doctor-mapping');
+const APPOINTMENT_ADMIN_MAPPINGS_URL = buildApiUrl('/v1/appointments/admin/mappings');
+const APPOINTMENT_ADMIN_SYNC_MAPPINGS_URL = buildApiUrl('/v1/appointments/admin/sync-mappings');
+const APPOINTMENT_ADMIN_DEBUG_QUEUES_URL = buildApiUrl('/v1/appointments/admin/debug-queues');
+const APPOINTMENT_PROFESSIONALS_URL = buildApiUrl('/v1/appointments/professionals');
+const APPOINTMENT_BLIP_QUEUES_URL = buildApiUrl('/v1/appointments/blip/queues');
+const APPOINTMENT_ADMIN_UPSERT_MAPPING_URL = buildApiUrl('/v1/appointments/admin/doctor-mapping');
 
 export interface DoctorMapping {
   profissionalId: string;

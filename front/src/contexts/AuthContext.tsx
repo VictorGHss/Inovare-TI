@@ -65,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Realiza login e persiste credenciais no localStorage
   const signIn = useCallback(async ({ email, password }: SignInCredentials) => {
     const { data } = await api.post<AuthResponseDTO>(
-      '/api/auth/login',
+      '/auth/login',
       { email, password },
     );
 

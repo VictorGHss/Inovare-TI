@@ -22,7 +22,7 @@ export function useFinancialActions({
   const handleTriggerTestReceipt = useCallback(async () => {
     try {
       setTriggeringTestReceipt(true);
-      await api.get('/api/financeiro/trigger-test-receipt');
+      await api.get('/financeiro/trigger-test-receipt');
       toast.success('Recibo de teste enviado com sucesso.');
     } catch {
       toast.error('Falha ao enviar recibo de teste.');

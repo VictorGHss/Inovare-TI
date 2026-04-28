@@ -35,7 +35,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowPatientDetailsDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowSearchResponseDto;
-import jakarta.annotation.PostConstruct;
+// removed PostConstruct diagnostic usage (startup unit discovery removed)
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -77,17 +77,15 @@ public class FeegowClient {
     @Value("${app.feegow.api-key}")
     private String apiKey;
 
-    @Value("${FEEGOW_UNIDADE_ID:1}")
+    @Value("${app.feegow.unidade-id:${FEEGOW_UNIDADE_ID:1}}")
     private String feegowUnidadeId;
 
-    @PostConstruct
     public void logFeegowApiKeyStatus() {
         String normalizedApiKey = normalizeApiKey(apiKey);
         if (normalizedApiKey == null || normalizedApiKey.isBlank()) {
             log.error("ERRO FATAL NO BOOT: Token da Feegow (x-access-token) está nulo ou vazio. Verifique a variável APP_FEEGOW_API_KEY!");
             return;
         }
-
         log.info("Configuração carregada: token de autenticação Feegow disponível para x-access-token.");
     }
 
@@ -245,7 +243,7 @@ public class FeegowClient {
             .path(resolvedPath)
             .queryParam("profissional_id", id)
             .queryParam("ativo", "1")
-            .queryParam("unidade_id", feegowUnidadeId);
+            .queryParam("pagina", "1");
 
         String url = uriBuilder.build().toUriString();
 
@@ -290,6 +288,29 @@ public class FeegowClient {
             // Log body and headers to aid diagnosis and rethrow to be handled globally when appropriate
             log.error("Falha HTTP ao buscar nome do profissional na Feegow para id={}. status={}, responseBody={}, responseHeaders={}",
                     id, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
+            // If Feegow returned 422, retry once with empty unidade_id (some instances expect unidade_id=)
+            try {
+                if (ex.getStatusCode() != null && ex.getStatusCode().value() == 422) {
+                    String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                            .path(resolvedPath)
+                            .queryParam("profissional_id", id)
+                            .queryParam("ativo", "1")
+                            .queryParam("pagina", "1")
+                            .queryParam("unidade_id", "")
+                            .build()
+                            .toUriString();
+
+                    log.info("Feegow returned 422 for professional lookup; retrying with empty unidade_id. retryUrl={}", retryUrl);
+                    ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    String retryBody = retryResponse.getBody();
+                    if (retryBody == null || retryBody.isBlank()) return null;
+                    JsonNode root = objectMapper.readTree(retryBody);
+                    return extractProfessionalName(root);
+                }
+            } catch (Exception retryEx) {
+                log.warn("Retry with empty unidade_id failed for professional id={}: {}", id, retryEx.getMessage());
+            }
+
             throw ex;
         } catch (RestClientException ex) {
             log.warn("Falha ao buscar nome do profissional na Feegow para id={}: {}", id, ex.getMessage());
@@ -328,7 +349,7 @@ public class FeegowClient {
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("ativo", "1")
-            .queryParam("unidade_id", feegowUnidadeId)
+            .queryParam("pagina", "1")
             .build()
             .toUriString();
 
@@ -392,14 +413,65 @@ public class FeegowClient {
             log.error("Falha HTTP ao buscar lista de profissionais na Feegow. status={}, responseBody={}, responseHeaders={}",
                     ex.getStatusCode().value(), abbreviateResponseBody(raw), ex.getResponseHeaders());
             log.debug("Resposta completa da Feegow ao listar profissionais: {}", raw);
+            // If Feegow returned 422, attempt a retry with empty unidade_id (some instances expect unidade_id=)
+            try {
+                if (ex.getStatusCode() != null && ex.getStatusCode().value() == 422) {
+                    String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                            .path(resolvedPath)
+                            .queryParam("ativo", "1")
+                            .queryParam("pagina", "1")
+                            .queryParam("unidade_id", "")
+                            .build()
+                            .toUriString();
 
-            // Try a common alternate endpoint in case Feegow instance uses a localized path
+                    log.info("Feegow returned 422 when listing professionals; retrying with empty unidade_id. retryUrl={}", retryUrl);
+                    ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    String retryBody = retryResponse.getBody();
+                    if (retryBody == null || retryBody.isBlank()) return List.of();
+
+                    try {
+                        FeegowResponseDTO dto = objectMapper.readValue(retryBody, FeegowResponseDTO.class);
+                        List<ProfessionalDTO> items = List.of();
+                        if (dto != null && dto.content() != null && !dto.content().isEmpty()) {
+                            items = dto.content();
+                        } else {
+                            JsonNode root = objectMapper.readTree(retryBody);
+                            if (root.hasNonNull("dados") && root.get("dados").isArray()) {
+                                items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
+                            } else if (root.isArray()) {
+                                items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
+                            }
+                        }
+
+                        if (items == null || items.isEmpty()) return List.of();
+
+                        List<FeegowProfessional> professionals = new ArrayList<>();
+                        for (ProfessionalDTO p : items) {
+                            if (p == null) continue;
+                            String id = p.id() == null ? null : String.valueOf(p.id());
+                            String name = p.nome() == null ? null : p.nome();
+                            if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
+                                professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
+                            }
+                        }
+
+                        return professionals;
+                    } catch (JsonProcessingException jex) {
+                        log.warn("Falha ao parsear resposta Feegow (lista profissionais) do retry como JSON via DTO: {}. Raw body: {}", jex.getMessage(), abbreviateResponseBody(retryBody));
+                        return List.of();
+                    }
+                }
+            } catch (Exception retryEx) {
+                log.warn("Retry with empty unidade_id failed when listing professionals: {}", retryEx.getMessage());
+            }
+
+            // Try a common alternate endpoint in case Feegow instance uses a localized path (no unidade_id)
             String altPath = "/profissionais/listar";
             if (!resolvedPath.equals(altPath)) {
                 String altUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                         .path(altPath)
                         .queryParam("ativo", "1")
-                        .queryParam("unidade_id", feegowUnidadeId)
+                        .queryParam("pagina", "1")
                         .build()
                         .toUriString();
 
@@ -463,7 +535,9 @@ public class FeegowClient {
         return List.of();
     }
 
-    // legacy JSON-node helpers removed: using typed DTO parsing with @JsonIgnoreProperties
+        // Diagnostic startup unit discovery removed from production code.
+
+        // legacy JSON-node helpers removed: using typed DTO parsing with @JsonIgnoreProperties
 
     private String resolvePatientDetailsPath() {
         String configuredPatientPath = properties.getFeegowPatientPath();

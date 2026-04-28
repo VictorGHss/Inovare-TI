@@ -4,42 +4,42 @@ import type { AuthResponseDTO, ChangePasswordRequestDTO, ContaAzulCustomerCheckR
 
 // Busca todos os usuários cadastrados (requer ADMIN)
 export async function getUsers(): Promise<User[]> {
-  const { data } = await api.get<User[]>('/api/users');
+  const { data } = await api.get<User[]>('/users');
   return data;
 }
 
 // Cria um novo usuário (requer ADMIN)
 export async function createUser(dto: CreateUserDto): Promise<User> {
-  const { data } = await api.post<User>('/api/users', dto);
+  const { data } = await api.post<User>('/users', dto);
   return data;
 }
 
 // Atualiza dados de um usuário (requer ADMIN)
 export async function updateUser(id: string, dto: UpdateUserDto): Promise<User> {
-  const { data } = await api.put<User>(`/api/users/${id}`, dto);
+  const { data } = await api.put<User>(`/users/${id}`, dto);
   return data;
 }
 
 // Redefine a senha de um usuário para o padrão Mudar@123 (requer ADMIN)
 export async function resetUserPassword(id: string): Promise<void> {
-  await api.post(`/api/users/${id}/reset-password`);
+  await api.post(`/users/${id}/reset-password`);
 }
 
 // Busca todos os setores cadastrados (requer ADMIN)
 export async function getSectors(): Promise<Sector[]> {
-  const { data } = await api.get<Sector[]>('/api/sectors');
+  const { data } = await api.get<Sector[]>('/sectors');
   return data;
 }
 
 // Cria um novo setor (requer ADMIN)
 export async function createSector(dto: CreateSectorDto): Promise<Sector> {
-  const { data } = await api.post<Sector>('/api/sectors', dto);
+  const { data } = await api.post<Sector>('/sectors', dto);
   return data;
 }
 
 export async function checkContaAzulCustomerByEmail(email: string): Promise<ContaAzulCustomerCheckResponse> {
   try {
-    const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/api/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
+    const { data } = await api.get<ContaAzulCustomerCheckResponse>(`/financeiro/contaazul/check-customer/${encodeURIComponent(email)}`);
 
     if (!data?.customerId) {
       return {
@@ -69,40 +69,40 @@ export async function checkContaAzulCustomerByEmail(email: string): Promise<Cont
 export async function resetInitialPassword(
   payload: ResetInitialPasswordRequestDTO,
 ): Promise<AuthResponseDTO> {
-  const { data } = await api.post<AuthResponseDTO>('/api/auth/reset-initial-password', payload);
+  const { data } = await api.post<AuthResponseDTO>('/auth/reset-initial-password', payload);
   return data;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   const payload: ChangePasswordRequestDTO = { currentPassword, newPassword };
-  await api.put('/api/users/me/password', payload);
+  await api.put('/users/me/password', payload);
 }
 
 export async function generate2FA(): Promise<TwoFactorGenerateResponseDTO> {
-  const { data } = await api.post<TwoFactorGenerateResponseDTO>('/api/auth/2fa/generate');
+  const { data } = await api.post<TwoFactorGenerateResponseDTO>('/auth/2fa/generate');
   return data;
 }
 
 export async function verify2FA(code: string): Promise<AuthResponseDTO> {
   const payload: TwoFactorVerifyRequestDTO = { code };
-  const { data } = await api.post<AuthResponseDTO>('/api/auth/2fa/verify', payload);
+  const { data } = await api.post<AuthResponseDTO>('/auth/2fa/verify', payload);
   return data;
 }
 
 // Solicita o código de recuperação do 2FA — código enviado ao Discord do usuário
 export async function request2FAReset(): Promise<void> {
-  await api.post('/api/auth/2fa/reset-request');
+  await api.post('/auth/2fa/reset-request');
 }
 
 // Confirma a recuperação do 2FA com código + senha atual; retorna novo JWT com 2FA limpo
 export async function confirm2FAReset(code: string, password: string): Promise<AuthResponseDTO> {
-  const { data } = await api.post<AuthResponseDTO>('/api/auth/2fa/reset-confirm', { code, password });
+  const { data } = await api.post<AuthResponseDTO>('/auth/2fa/reset-confirm', { code, password });
   return data;
 }
 
 // Reseta o 2FA de outro usuário diretamente (somente ADMIN)
 export async function adminReset2FA(userId: string): Promise<void> {
-  await api.patch(`/api/users/${userId}/2fa/reset`);
+  await api.patch(`/users/${userId}/2fa/reset`);
 }
 
 /**
@@ -112,7 +112,7 @@ export async function importCsv(file: File): Promise<ImportResult> {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await api.post<ImportResult>('/api/admin/import/csv', formData, {
+  const response = await api.post<ImportResult>('/admin/import/csv', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

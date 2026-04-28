@@ -6,28 +6,28 @@ import type { ContaAzulCustomerEmailResponse, CreateDoctorMappingDTO, DashboardA
 
 // Busca métricas agregadas do dashboard
 export async function getDashboardAnalytics(): Promise<DashboardAnalyticsDTO> {
-  const { data } = await api.get<DashboardAnalyticsDTO>('/api/analytics/dashboard');
+  const { data } = await api.get<DashboardAnalyticsDTO>('/analytics/dashboard');
   return data;
 }
 
 export async function getFinanceConnectionStatus(): Promise<FinanceConnectionStatus> {
-  const { data } = await api.get<FinanceConnectionStatus>('/api/financeiro/contaazul/status');
+  const { data } = await api.get<FinanceConnectionStatus>('/financeiro/contaazul/status');
   return data;
 }
 
 export async function getFinanceReceipts(): Promise<FinanceReceipt[]> {
-  const { data } = await api.get<FinanceReceipt[]>('/api/financeiro/recibos');
+  const { data } = await api.get<FinanceReceipt[]>('/financeiro/recibos');
   return data;
 }
 
 export async function getFinanceAlerts(): Promise<FinanceAlert[]> {
-  const { data } = await api.get<FinanceAlert[]>('/api/financeiro/alertas');
+  const { data } = await api.get<FinanceAlert[]>('/financeiro/alertas');
   return data;
 }
 
 export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null> {
   try {
-    const { data } = await api.get<FinancialSummaryDTO>('/api/financeiro/resumo');
+    const { data } = await api.get<FinancialSummaryDTO>('/financeiro/resumo');
     return data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -54,7 +54,7 @@ export async function getFinancialSummary(): Promise<FinancialSummaryDTO | null>
 export async function executeFinanceAutomationNow(
   params: ExecuteFinanceAutomationNowParams,
 ): Promise<FinanceAutomationExecutionResponse> {
-  const { data } = await api.post<FinanceAutomationExecutionResponse>('/api/financeiro/autonacao/executar', null, {
+  const { data } = await api.post<FinanceAutomationExecutionResponse>('/financeiro/autonacao/executar', null, {
     params,
   });
 
@@ -62,31 +62,31 @@ export async function executeFinanceAutomationNow(
 }
 
 export async function getDoctorMappings(): Promise<DoctorMapping[]> {
-  const { data } = await api.get<DoctorMapping[]>('/api/financeiro/doctor-mappings');
+  const { data } = await api.get<DoctorMapping[]>('/financeiro/doctor-mappings');
   return data;
 }
 
 export async function createDoctorMapping(payload: CreateDoctorMappingDTO): Promise<DoctorMapping> {
-  const { data } = await api.post<DoctorMapping>('/api/financeiro/doctor-mappings', payload);
+  const { data } = await api.post<DoctorMapping>('/financeiro/doctor-mappings', payload);
   return data;
 }
 
 export async function updateDoctorMapping(id: string, payload: CreateDoctorMappingDTO): Promise<DoctorMapping> {
-  const { data } = await api.put<DoctorMapping>(`/api/financeiro/doctor-mappings/${id}`, payload);
+  const { data } = await api.put<DoctorMapping>(`/financeiro/doctor-mappings/${id}`, payload);
   return data;
 }
 
 export async function deleteDoctorMapping(id: string): Promise<void> {
-  await api.delete(`/api/financeiro/doctor-mappings/${id}`);
+  await api.delete(`/financeiro/doctor-mappings/${id}`);
 }
 
 export async function syncDoctorsBaseFromContaAzul(): Promise<SyncDoctorsResponse> {
-  const { data } = await api.post<SyncDoctorsResponse>('/api/financeiro/medicos/sincronizar-base');
+  const { data } = await api.post<SyncDoctorsResponse>('/financeiro/medicos/sincronizar-base');
   return data;
 }
 
 export async function getContaAzulCustomerEmailById(customerId: string): Promise<ContaAzulCustomerEmailResponse> {
-  const { data } = await api.get<ContaAzulCustomerEmailResponse>(`/api/financeiro/contaazul/customer-email/${encodeURIComponent(customerId)}`);
+  const { data } = await api.get<ContaAzulCustomerEmailResponse>(`/financeiro/contaazul/customer-email/${encodeURIComponent(customerId)}`);
   return data;
 }
 

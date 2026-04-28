@@ -49,12 +49,12 @@ export interface AppointmentConfigUpdateResponse {
 }
 
 export async function getAppointmentMotorConfig(): Promise<AppointmentMotorConfig> {
-  const { data } = await api.get<AppointmentMotorConfig>('/api/v1/appointments/motor-config');
+  const { data } = await api.get<AppointmentMotorConfig>('/v1/appointments/motor-config');
   return data;
 }
 
 export async function triggerAppointmentMotorManual(): Promise<AppointmentManualTriggerResponse> {
-  const { data } = await api.post<AppointmentManualTriggerResponse>('/api/v1/appointments/trigger-manual');
+  const { data } = await api.post<AppointmentManualTriggerResponse>('/v1/appointments/trigger-manual');
   return data;
 }
 
@@ -62,26 +62,26 @@ export async function triggerAppointmentMotorManual(): Promise<AppointmentManual
  * Busca templates aprovados disponíveis na API do Blip
  */
 export async function getBlipTemplates(): Promise<BlipTemplate[]> {
-  const { data } = await api.get<BlipTemplate[]>('/api/v1/appointments/config/blip-templates');
+  const { data } = await api.get<BlipTemplate[]>('/v1/appointments/config/blip-templates');
   return data;
 }
 
 export async function getFeegowFields(): Promise<string[]> {
-  const { data } = await api.get<string[]>('/api/v1/appointments/config/feegow-fields');
+  const { data } = await api.get<string[]>('/v1/appointments/config/feegow-fields');
   return data;
 }
 
 export async function saveAppointmentTemplateMappings(
   payload: SaveAppointmentTemplateMappingsRequest,
 ): Promise<SaveAppointmentTemplateMappingsResponse> {
-  const { data } = await api.post<SaveAppointmentTemplateMappingsResponse>('/api/v1/appointments/config/template-mappings', payload);
+  const { data } = await api.post<SaveAppointmentTemplateMappingsResponse>('/v1/appointments/config/template-mappings', payload);
   return data;
 }
 
 export async function getAppointmentTemplateMappings(
   templateName: string,
 ): Promise<AppointmentTemplateMappingResponse[]> {
-  const { data } = await api.get<AppointmentTemplateMappingResponse[]>('/api/v1/appointments/config/template-mappings', {
+  const { data } = await api.get<AppointmentTemplateMappingResponse[]>('/v1/appointments/config/template-mappings', {
     params: { templateName },
   });
   return data;
@@ -96,8 +96,8 @@ export async function updateAppointmentConfig(
   category: string,
   templateId: string
 ): Promise<AppointmentConfigUpdateResponse> {
-  const { data } = await api.put<AppointmentConfigUpdateResponse>(
-    `/api/v1/appointments/config/${category}`,
+    const { data } = await api.put<AppointmentConfigUpdateResponse>(
+    `/v1/appointments/config/${category}`,
     { templateId }
   );
   return data;

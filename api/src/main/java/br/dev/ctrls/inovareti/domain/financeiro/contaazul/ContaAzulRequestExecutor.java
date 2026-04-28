@@ -99,7 +99,7 @@ public class ContaAzulRequestExecutor {
                             url,
                             response.body());
                 }
-                throw new ContaAzulHttpException(response.statusCode(), response.body());
+                throw new ContaAzulHttpException(response.statusCode(), response.body(), externalUri.toString());
             }
             return response;
         } catch (IOException | InterruptedException ex) {
@@ -129,7 +129,7 @@ public class ContaAzulRequestExecutor {
         try {
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()), externalUri.toString());
             }
             return response.body() != null ? response.body() : new byte[0];
         } catch (IOException | InterruptedException ex) {
@@ -164,7 +164,7 @@ public class ContaAzulRequestExecutor {
         try {
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()));
+                throw new ContaAzulHttpException(response.statusCode(), toUtf8String(response.body()), externalUri.toString());
             }
             return response.body() != null ? response.body() : new byte[0];
         } catch (IOException | InterruptedException ex) {

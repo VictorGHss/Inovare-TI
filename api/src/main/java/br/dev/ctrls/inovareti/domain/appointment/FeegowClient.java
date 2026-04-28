@@ -14,19 +14,24 @@ import java.util.Map;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowPatientDetailsDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowSearchResponseDto;
@@ -45,6 +50,7 @@ public class FeegowClient {
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate stringRedisTemplate;
 
     public FeegowClient(
             @Qualifier("feegowRestTemplate") RestTemplate restTemplate,
@@ -53,6 +59,19 @@ public class FeegowClient {
         this.restTemplate = restTemplate;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.stringRedisTemplate = null;
+    }
+
+    @Autowired
+    public FeegowClient(
+            @Qualifier("feegowRestTemplate") RestTemplate restTemplate,
+            AppointmentMotorProperties properties,
+            ObjectMapper objectMapper,
+            StringRedisTemplate stringRedisTemplate) {
+        this.restTemplate = restTemplate;
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @Value("${app.feegow.api-key}")
@@ -192,6 +211,217 @@ public class FeegowClient {
         return extractPatientDetails(response.getBody());
     }
 
+    /**
+     * Busca o nome do profissional na API da Feegow e faz cache em Redis por 24h.
+     */
+    public String getProfessionalName(String professionalId) {
+        if (professionalId == null || professionalId.isBlank()) {
+            return null;
+        }
+
+        String id = professionalId.trim();
+        String cacheKey = "feegow:professional:name:" + id;
+
+        try {
+            if (stringRedisTemplate != null) {
+                String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+                if (cached != null && !cached.isBlank()) {
+                    return cached;
+                }
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Falha ao verificar cache Redis para professional name id={}: {}", id, ex.getMessage());
+        }
+
+        String configuredPath = properties.getFeegowProfessionalPath();
+        String resolvedPath = (configuredPath == null || configuredPath.isBlank())
+            ? "/profissionais/listar"
+            : configuredPath;
+
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+            .path(resolvedPath)
+            .queryParam("profissional_id", id)
+            .queryParam("ativo", "1");
+
+        String url = uriBuilder.build().toUriString();
+
+        HttpHeaders headers = buildHeaders();
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            String body = response.getBody();
+            if (body == null || body.isBlank()) {
+                return null;
+            }
+
+            JsonNode root;
+            try {
+                root = objectMapper.readTree(body);
+            } catch (JsonProcessingException jex) {
+                log.warn("Falha ao parsear resposta Feegow (professional id={}) como JSON: {}", id, jex.getMessage());
+                return null;
+            }
+
+            String resolved = extractProfessionalName(root);
+            if (resolved != null && !resolved.isBlank()) {
+                try {
+                    if (stringRedisTemplate != null) {
+                        stringRedisTemplate.opsForValue().set(cacheKey, resolved.trim(), java.time.Duration.ofHours(24));
+                    }
+                } catch (RuntimeException ex) {
+                    log.warn("Falha ao gravar cache Redis para professional name id={}: {}", id, ex.getMessage());
+                }
+                return resolved.trim();
+            }
+        } catch (RestClientResponseException ex) {
+            // If Feegow returned 422, try a fallback including unidade_id=1
+            if (ex.getStatusCode().value() == 404) {
+                log.debug("Profissional não encontrado na Feegow para id={}", id);
+            } else if (ex.getStatusCode().value() == 422) {
+                log.warn("Feegow retornou 422 ao buscar profissional id={}. Tentando fallback com unidade_id=1", id);
+                try {
+                    String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                            .path(resolvedPath)
+                            .queryParam("profissional_id", id)
+                            .queryParam("ativo", "1")
+                            .queryParam("unidade_id", "1")
+                            .build()
+                            .toUriString();
+
+                    ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    String retryBody = retryResponse.getBody();
+                    if (retryBody != null && !retryBody.isBlank()) {
+                        try {
+                            JsonNode retryRoot = objectMapper.readTree(retryBody);
+                            String resolved = extractProfessionalName(retryRoot);
+                            if (resolved != null && !resolved.isBlank()) {
+                                try {
+                                    if (stringRedisTemplate != null) {
+                                        stringRedisTemplate.opsForValue().set(cacheKey, resolved.trim(), java.time.Duration.ofHours(24));
+                                    }
+                                } catch (RuntimeException rex) {
+                                    log.warn("Falha ao gravar cache Redis para professional name id={}: {}", id, rex.getMessage());
+                                }
+                                return resolved.trim();
+                            }
+                        } catch (JsonProcessingException jex) {
+                            log.warn("Falha ao parsear resposta de retry Feegow (professional id={}) como JSON: {}. Raw body: {}", id, jex.getMessage(), abbreviateResponseBody(retryBody));
+                        }
+                    }
+                } catch (RestClientResponseException rex) {
+                    log.error("Retry HTTP falhou ao buscar profissional na Feegow. status={}, responseBody={}, responseHeaders={}", rex.getStatusCode().value(), abbreviateResponseBody(rex.getResponseBodyAsString()), rex.getResponseHeaders());
+                } catch (RestClientException rex) {
+                    log.warn("Retry falhou ao buscar nome do profissional na Feegow para id={}: {}", id, rex.getMessage());
+                }
+            } else {
+                // Log body and headers to aid diagnosis
+                log.error("Falha HTTP ao buscar nome do profissional na Feegow para id={}. status={}, responseBody={}, responseHeaders={}",
+                        id, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
+            }
+        } catch (RestClientException ex) {
+            log.warn("Falha ao buscar nome do profissional na Feegow para id={}: {}", id, ex.getMessage());
+        }
+
+        return null;
+    }
+
+    private String extractProfessionalName(JsonNode root) {
+        if (root == null || root.isNull()) return null;
+
+        try {
+            if (root.hasNonNull("content") && root.get("content").isArray() && !root.get("content").isEmpty()) {
+                return root.get("content").get(0).get("nome").asText(null);
+            }
+
+            if (root.hasNonNull("dados") && root.get("dados").isArray() && !root.get("dados").isEmpty()) {
+                return root.get("dados").get(0).get("nome").asText(null);
+            }
+        } catch (Exception e) {
+            log.warn("Erro ao extrair nome do profissional da resposta Feegow: {}", e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Lista todos os profissionais disponíveis na Feegow (id + nome).
+     */
+    public List<FeegowProfessional> listProfessionals() {
+        String configuredPath = properties.getFeegowProfessionalPath();
+        String resolvedPath = (configuredPath == null || configuredPath.isBlank())
+            ? "/profissionais/listar"
+            : configuredPath;
+
+        String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path(resolvedPath)
+                .queryParam("ativo", "1")
+                .build()
+                .toUriString();
+
+        HttpHeaders headers = buildHeaders();
+
+        // Log token presence (masked) to help diagnose permission issues without printing secret
+        String token = headers.getFirst("x-access-token");
+        if (token == null || token.isBlank()) {
+            log.warn("Token Feegow ausente ao listar profissionais; verifique permissões da chave de API.");
+        } else {
+            log.debug("Token Feegow presente (masked={}) ao listar profissionais", maskToken(token));
+        }
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            String body = response.getBody();
+            if (body == null || body.isBlank()) {
+                return List.of();
+            }
+
+            try {
+                FeegowResponseDTO dto = objectMapper.readValue(body, FeegowResponseDTO.class);
+                if (dto == null) {
+                    return List.of();
+                }
+
+                List<ProfessionalDTO> items = List.of();
+                if (dto.content() != null && !dto.content().isEmpty()) {
+                    items = dto.content();
+                } else if (dto.dados() != null && !dto.dados().isEmpty()) {
+                    items = dto.dados();
+                }
+
+                if (items == null || items.isEmpty()) {
+                    return List.of();
+                }
+
+                List<FeegowProfessional> professionals = new ArrayList<>();
+                for (ProfessionalDTO p : items) {
+                    if (p == null) continue;
+                    String id = p.id() == null ? null : String.valueOf(p.id());
+                    String name = p.nome() == null ? null : p.nome();
+                    if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
+                        professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
+                    }
+                }
+
+                return professionals;
+            } catch (JsonProcessingException ex) {
+                log.warn("Falha ao parsear resposta Feegow (lista profissionais) como JSON via DTO: {}. Raw body: {}", ex.getMessage(), abbreviateResponseBody(body));
+            }
+
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            // Log full response body and headers to help diagnose Feegow 4xx/5xx errors
+            log.error("Falha HTTP ao buscar lista de profissionais na Feegow. status={}, responseBody={}, responseHeaders={}",
+                    ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
+            // Re-throw so callers (controllers) can decide how to translate HTTP errors to client responses
+            throw ex;
+        } catch (RestClientException ex) {
+            log.warn("Falha ao buscar lista de profissionais na Feegow: {}", ex.getMessage());
+            throw ex;
+        }
+
+        return List.of();
+    }
+
+    // legacy JSON-node helpers removed: using typed DTO parsing with @JsonIgnoreProperties
+
     private String resolvePatientDetailsPath() {
         String configuredPatientPath = properties.getFeegowPatientPath();
         if (configuredPatientPath == null || configuredPatientPath.isBlank()) {
@@ -270,6 +500,96 @@ public class FeegowClient {
         }
 
         return null;
+    }
+
+    public void updateAppointmentStatus(String appointmentId, String statusId) {
+        String normalizedAppointmentId = appointmentId == null ? "" : appointmentId.trim();
+        if (normalizedAppointmentId.isBlank()) {
+            throw new IllegalArgumentException("appointmentId não pode ser vazio");
+        }
+
+        String normalizedStatusId = statusId == null ? "" : statusId.trim();
+        if (normalizedStatusId.isBlank()) {
+            normalizedStatusId = resolveConfirmedStatusId();
+        }
+
+        String configuredStatusPath = properties.getFeegowStatusPath();
+        String resolvedStatusPath = configuredStatusPath == null || configuredStatusPath.isBlank()
+                ? "/v1/api/appoints/status"
+                : configuredStatusPath;
+
+        String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path(resolvedStatusPath)
+                .build()
+                .toUriString();
+
+        HttpHeaders headers = buildHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("agendamento_id", normalizeAppointmentIdForPayload(normalizedAppointmentId));
+        payload.put("status_id", normalizedStatusId);
+
+        if (tryUpdateAppointmentStatus(url, HttpMethod.POST, headers, payload, normalizedAppointmentId, normalizedStatusId)) {
+            return;
+        }
+
+        if (tryUpdateAppointmentStatus(url, HttpMethod.PUT, headers, payload, normalizedAppointmentId, normalizedStatusId)) {
+            return;
+        }
+
+        throw new IllegalStateException(
+                "Não foi possível atualizar status do agendamento na Feegow. appointmentId=" + normalizedAppointmentId
+                        + ", statusId=" + normalizedStatusId);
+    }
+
+    private boolean tryUpdateAppointmentStatus(
+            String url,
+            HttpMethod method,
+            HttpHeaders headers,
+            Map<String, Object> payload,
+            String appointmentId,
+            String statusId) {
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    method,
+                    new HttpEntity<>(payload, headers),
+                    String.class);
+
+            int statusCode = response.getStatusCode().value();
+            if (statusCode >= 200 && statusCode < 300) {
+                log.info("Status do agendamento {} atualizado para {} na Feegow", appointmentId, statusId);
+                return true;
+            }
+
+            log.error(
+                    "Resposta inesperada ao atualizar status na Feegow. appointmentId={}, statusId={}, method={}, statusCode={}, responseBody={}",
+                    appointmentId,
+                    statusId,
+                    method,
+                    statusCode,
+                    abbreviateResponseBody(response.getBody()));
+            return false;
+        } catch (RestClientResponseException ex) {
+            log.error(
+                    "Falha HTTP ao atualizar status na Feegow. appointmentId={}, statusId={}, method={}, statusCode={}, responseBody={}",
+                    appointmentId,
+                    statusId,
+                    method,
+                    ex.getStatusCode().value(),
+                    abbreviateResponseBody(ex.getResponseBodyAsString()));
+            return false;
+        }
+    }
+
+    private String resolveConfirmedStatusId() {
+        String configuredConfirmedStatusId = properties.getFeegowConfirmedStatusId();
+        if (configuredConfirmedStatusId == null || configuredConfirmedStatusId.isBlank()) {
+            return "2";
+        }
+
+        return configuredConfirmedStatusId.trim();
     }
 
     public void updateStatus(String appointmentId, int statusId) {
@@ -403,12 +723,20 @@ public class FeegowClient {
         return normalized;
     }
 
+    private String maskToken(String token) {
+        if (token == null) return "[none]";
+        String t = token.trim();
+        if (t.length() <= 8) return "****";
+        return t.substring(0, 4) + "..." + t.substring(t.length() - 4);
+    }
+
     private FeegowAppointment parseAppointment(FeegowSearchResponseDto.FeegowSearchAppointmentDto row) {
         String appointmentId = normalizeFeegowIdentifier(row.appointmentId());
         String patientId = row.patientId() == null ? "" : row.patientId();
         String doctorId = row.doctorId() == null ? "" : row.doctorId();
-        String doctorName = row.doctorName();
+        String doctorName = row.doctorName(); // Agora mapeado para 'nome' do JSON
         String unit = row.unitName();
+        String statusId = row.statusId() == null ? "" : row.statusId();
 
         String dateRaw = row.appointmentDate() == null ? "" : row.appointmentDate().trim();
         String timeRaw = row.appointmentTime() == null ? "" : row.appointmentTime().trim();
@@ -439,7 +767,8 @@ public class FeegowClient {
                 doctorId,
                 doctorName,
                 unit,
-                startAt);
+                startAt,
+                statusId);
     }
 
     private String normalizeFeegowIdentifier(Object identifierValue) {
@@ -469,9 +798,21 @@ public class FeegowClient {
             String doctorId,
             String doctorName,
             String unitName,
-            LocalDateTime startAt) {
+            LocalDateTime startAt,
+            String statusId) {
     }
 
     public record FeegowPatient(String id, String name, String phone) {
+    }
+
+    public record FeegowProfessional(String id, String name) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ProfessionalDTO(Long id, String nome) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record FeegowResponseDTO(Boolean success, List<ProfessionalDTO> content, List<ProfessionalDTO> dados) {
     }
 }

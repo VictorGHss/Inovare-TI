@@ -9,11 +9,17 @@ public class ContaAzulHttpException extends RuntimeException {
 
     private final int statusCode;
     private final String responseBody;
+    private final String externalUrl;
 
     public ContaAzulHttpException(int statusCode, String responseBody) {
-        super("Conta Azul retornou erro HTTP " + statusCode);
+        this(statusCode, responseBody, null);
+    }
+
+    public ContaAzulHttpException(int statusCode, String responseBody, String externalUrl) {
+        super(buildMessage(statusCode, externalUrl));
         this.statusCode = statusCode;
         this.responseBody = responseBody;
+        this.externalUrl = externalUrl;
     }
 
     public boolean isStatus(int expectedStatus) {
@@ -26,5 +32,17 @@ public class ContaAzulHttpException extends RuntimeException {
 
     public String getResponseBody() {
         return responseBody;
+    }
+
+    public String getExternalUrl() {
+        return externalUrl;
+    }
+
+    private static String buildMessage(int statusCode, String externalUrl) {
+        if (externalUrl == null || externalUrl.isBlank()) {
+            return "Conta Azul retornou erro HTTP " + statusCode;
+        }
+
+        return "Conta Azul retornou erro HTTP " + statusCode + " na URL " + externalUrl;
     }
 }

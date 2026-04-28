@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.appointment;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,26 +36,99 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 @ConditionalOnProperty(value = "app.appointment.motor.enabled", havingValue = "true", matchIfMissing = true)
 public class BlipClient {
 
+    /**
+     * Realiza merge de extras no contato do Blip via JSON-RPC (/contacts).
+     * identity: número do usuário (ex: 554199999999@wa.gw.msging.net)
+     * extras: mapa de chaves e valores a serem persistidos no contato
+     */
+    public void mergeContactExtras(String identity, Map<String, String> extras) {
+        if (identity == null || identity.isBlank() || extras == null || extras.isEmpty()) {
+            log.warn("mergeContactExtras chamado com parâmetros inválidos. identity={}, extras={}", identity, extras);
+            return;
+        }
+
+        String normalizedIdentity = normalizeUserIdentity(identity);
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+                .path(properties.getBlipSetContextPath())
+                .build()
+                .toUriString();
+
+        Map<String, Object> resource = Map.of(
+            "identity", normalizedIdentity,
+            "extras", extras
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", MASTER_STATE_COMMAND_TO,
+            "method", "merge",
+            "uri", "/contacts",
+            "type", "application/vnd.lime.contact+json",
+            "resource", resource
+        );
+
+        try {
+            ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                new HttpEntity<>(payload, buildHeaders(AuthorizationScope.ROUTER)),
+                new ParameterizedTypeReference<>() {}
+            );
+            log.info("Merge de extras enviado ao Blip. identity={}, extras={}, status={}, body={}",
+                normalizedIdentity, extras, response.getStatusCode(), response.getBody());
+        } catch (RestClientException ex) {
+            log.error("Erro ao enviar mergeContactExtras para Blip. identity={}, extras={}", normalizedIdentity, extras, ex);
+        }
+    }
+
+    /**
+     * Loga bloqueio de envio por trava de segurança física.
+     */
+    public void logSecurityBlock(String phoneNumber, String appMode) {
+        log.warn("BLOQUEIO DE SEGURANÇA: Tentativa de envio para {} ignorada (modo: {})", phoneNumber, appMode);
+    }
+
+    private enum AuthorizationScope {
+        ROUTER,
+        DESK
+    }
+
     private static final String MASTER_STATE_COMMAND_TO = "postmaster@msging.net";
+    private static final String THREAD_TRANSFER_COMMAND_TO = "postmaster@desk.msging.net";
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
     private static final String DEFAULT_BUILDER_BOT_IDENTITY = "fluxov1@msging.net";
     private static final String DEFAULT_TEMPLATE_PARAMETER_VALUE = "Informação não disponível";
-    private static final String DEFAULT_PROVIDER_PARAMETER_VALUE = "Clínica Inovare";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final AppointmentMotorProperties properties;
     private final AppointmentTemplateMappingRepository appointmentTemplateMappingRepository;
+    private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
+    private RestTemplate blipRestTemplate;
+
+    // Explicit constructor to avoid Lombok constructor dependency in IDEs without annotation processing
+    public BlipClient(RestTemplate restTemplate,
+                      ObjectMapper objectMapper,
+                      AppointmentMotorProperties properties,
+                      AppointmentTemplateMappingRepository appointmentTemplateMappingRepository,
+                      AppointmentDoctorMappingRepository appointmentDoctorMappingRepository) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+        this.properties = properties;
+        this.appointmentTemplateMappingRepository = appointmentTemplateMappingRepository;
+        this.appointmentDoctorMappingRepository = appointmentDoctorMappingRepository;
+    }
+
+    @Value("${APP_BLIP_APPOINTMENT_ID:itsminovare@msging.net}")
+    private String blipAppointmentId;
 
     @Value("${app.appointment.motor.blip-waba-namespace}")
     private String blipWabaNamespace;
@@ -61,26 +136,30 @@ public class BlipClient {
     @Value("${app.appointment.motor.blip-fallback-templates:}")
     private String blipFallbackTemplates;
 
-    @Value("${app.appointment.motor.blip-authorization-key}")
-    private String blipAuthorizationKey;
+    @Value("${app.appointment.motor.blip-router-key:}")
+    private String routerKey;
+
+    @Value("${app.appointment.motor.blip-desk-key:}")
+    private String deskKey;
 
     @PostConstruct
     public void logBlipAuthKeyStatus() {
-        String keyToLog = blipAuthorizationKey;
-        if (keyToLog == null || keyToLog.isBlank()) {
-            keyToLog = properties.getBlipAuthorizationKey();
+        logAuthorizationKeyStatus(AuthorizationScope.ROUTER);
+        logAuthorizationKeyStatus(AuthorizationScope.DESK);
+        try {
+            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+            requestFactory.setConnectTimeout(5000);
+            requestFactory.setReadTimeout(5000);
+            blipRestTemplate = new RestTemplate(requestFactory);
+            // copy converters/interceptors/error handler from injected RestTemplate where possible
+            blipRestTemplate.setMessageConverters(new ArrayList<>(restTemplate.getMessageConverters()));
+            blipRestTemplate.setInterceptors(new ArrayList<>(restTemplate.getInterceptors()));
+            blipRestTemplate.setErrorHandler(restTemplate.getErrorHandler());
+            log.info("Blip RestTemplate configurado com timeout de 5s");
+        } catch (Exception ex) {
+            log.warn("Falha ao configurar Blip RestTemplate com timeout; usando RestTemplate injetado", ex);
+            blipRestTemplate = restTemplate;
         }
-        
-        String logKey = normalizeAuthorizationKey(keyToLog);
-
-        if (logKey == null || logKey.isBlank()) {
-            log.error("Chave do Blip não foi carregada. Verifique a variável de ambiente APP_APPOINTMENT_BLIP_BOT_KEY.");
-            return;
-        }
-
-        int visibleCharacters = Math.min(5, logKey.length());
-        String prefix = logKey.substring(0, visibleCharacters);
-        log.info("Configuração carregada: app.appointment.motor.blip-authorization-key = {}", prefix);
     }
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
@@ -95,13 +174,31 @@ public class BlipClient {
                 .build()
                 .toUriString();
 
+
         List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
-        String appointmentId = appointmentData != null && appointmentData.appointmentId() != null
-                ? appointmentData.appointmentId()
-                : "";
-        List<Map<String, Object>> components = List.of(Map.of(
+        String appointmentId = appointmentData == null
+            ? ""
+            : Objects.toString(appointmentData.appointmentId(), "");
+
+        // Adiciona botão com payload
+        Map<String, Object> button = Map.of(
+            "type", "button",
+            "sub_type", "quick_reply",
+            "index", 0,
+            "parameters", List.of(
+                Map.of(
+                    "type", "payload",
+                    "payload", "confirm_" + appointmentId
+                )
+            )
+        );
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        components.add(Map.of(
             "type", "body",
             "parameters", parameters));
+        components.add(button);
+
         Map<String, Object> content = Map.of(
             "type", "template",
             "template", Map.of(
@@ -115,11 +212,11 @@ public class BlipClient {
         Map<String, Object> payload = Map.of(
             "id", UUID.randomUUID().toString(),
             "to", normalizedDestination,
-            "type", "application/vnd.iris.message.template+json",
+            "type", "application/json",
             "content", content,
             "metadata", Map.of("appointmentId", appointmentId));
 
-        HttpHeaders headers = buildHeaders();
+        HttpHeaders headers = buildHeaders(AuthorizationScope.ROUTER);
         if (log.isDebugEnabled()) {
             log.debug("Template payload enviado ao Blip. url={}, headers={}, body={}",
                     url,
@@ -127,7 +224,7 @@ public class BlipClient {
                     toDebugJson(payload));
         }
 
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
             url,
             HttpMethod.POST,
             new HttpEntity<>(payload, headers),
@@ -147,7 +244,7 @@ public class BlipClient {
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {
         List<AppointmentTemplateMapping> mappings = appointmentTemplateMappingRepository
-                .findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateName);
+            .findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateName);
 
         if (mappings.isEmpty()) {
             log.warn("Nenhum mapeamento dinâmico encontrado para templateName={}", templateName);
@@ -162,18 +259,39 @@ public class BlipClient {
         for (AppointmentTemplateMapping mapping : orderedMappings) {
             String value = resolveDynamicFieldValue(appointmentData, mapping.getFeegowFieldName());
             String safeValue = applyTemplateParameterFallback(value, mapping.getFeegowFieldName(),
-                    mapping.getPlaceholderIndex());
+                mapping.getPlaceholderIndex());
             parameters.add(Map.of(
-                    "type", "text",
-                    "text", safeValue));
+                "type", "text",
+                "text", safeValue));
         }
 
+        String feegowAppointmentId = appointmentData == null ? null : Objects.toString(appointmentData.appointmentId(), null);
+        log.debug("Parâmetros do template enviados ao Blip (templateName={}, feegow_appointment_id={}): {}", templateName, feegowAppointmentId, parameters);
         return parameters;
     }
 
     private String resolveDynamicFieldValue(AppointmentTemplateData appointmentData, String fieldName) {
         if (appointmentData == null || fieldName == null || fieldName.isBlank()) {
             return null;
+        }
+
+        // Special handling for local professional name: fetch from appointment_doctor_mapping
+        if ("profissionalNome".equalsIgnoreCase(fieldName.trim())) {
+            try {
+                String doctorId = appointmentData.doctorId();
+                if (doctorId == null || doctorId.isBlank()) {
+                    return null;
+                }
+
+                return appointmentDoctorMappingRepository
+                        .findByProfissionalId(doctorId)
+                        .map(AppointmentDoctorMapping::getProfissionalNome)
+                        .filter(nome -> nome != null && !nome.isBlank())
+                        .orElse(null);
+            } catch (Exception ex) {
+                log.warn("Falha ao recuperar profissionalNome local para doctorId={}: {}", appointmentData.doctorId(), ex.getMessage());
+                return null;
+            }
         }
 
         try {
@@ -191,37 +309,26 @@ public class BlipClient {
             return value.trim();
         }
 
-        String fallback = isProviderOrSectorField(fieldName, placeholderIndex)
-                ? DEFAULT_PROVIDER_PARAMETER_VALUE
-                : DEFAULT_TEMPLATE_PARAMETER_VALUE;
-
         log.warn(
-                "Valor vazio em variável de template. placeholderIndex={}, fieldName={}, fallback={}.",
-                placeholderIndex,
-                fieldName,
-                fallback);
-
-        return fallback;
-    }
-
-    private boolean isProviderOrSectorField(String fieldName, Integer placeholderIndex) {
-        if (fieldName == null || fieldName.isBlank()) {
-            return placeholderIndex != null && placeholderIndex == 2;
-        }
-
-        String normalized = fieldName.trim().toLowerCase();
-        return placeholderIndex != null && placeholderIndex == 2
-                || normalized.contains("doctor")
-                || normalized.contains("medic")
-                || normalized.contains("specialty")
-                || normalized.contains("unit")
-                || normalized.contains("setor")
-                || normalized.contains("especialidade")
-                || normalized.contains("unidade");
+            "Valor vazio em variável de template. placeholderIndex={}, fieldName={}, fallback={}",
+            placeholderIndex,
+            fieldName,
+            DEFAULT_TEMPLATE_PARAMETER_VALUE);
+        return DEFAULT_TEMPLATE_PARAMETER_VALUE;
     }
 
     public void setHandoffContext(String destination, String queueId) {
+        log.info("Iniciando Handoff (Transferência para Desk) para destination={}, queueId={}", destination, queueId);
+        transferThreadToQueue(destination, queueId);
+    }
+
+    public void transferThreadToQueue(String destination, String queueId) {
         String normalizedDestination = normalizeUserIdentity(destination);
+        if (queueId == null || queueId.isBlank()) {
+            log.warn("Transferência de thread ignorada: queueId vazio. destination={}", normalizedDestination);
+            return;
+        }
+
         rateLimit();
 
         String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
@@ -230,12 +337,25 @@ public class BlipClient {
                 .toUriString();
 
         Map<String, Object> payload = Map.of(
-            "to", normalizedDestination,
-                "queueId", queueId,
-                "handoff", true);
+            "id", UUID.randomUUID().toString(),
+            "to", THREAD_TRANSFER_COMMAND_TO,
+            "method", "set",
+            "uri", "/threads/" + normalizedDestination,
+            "type", "application/vnd.iris.thread+json",
+            "resource", Map.of("ownerIdentity", queueId.trim()));
 
-        restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
-        log.info("Contexto de handoff enviado ao Blip. destination={}, queueId={}", normalizedDestination, queueId);
+        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+            url,
+            HttpMethod.POST,
+            new HttpEntity<>(payload, buildHeaders(AuthorizationScope.DESK)),
+            new ParameterizedTypeReference<>() {
+            });
+
+        log.info("Comando /threads enviado ao Blip. destination={}, queueId={}, status={}, body={}",
+            normalizedDestination,
+            queueId,
+            response.getStatusCode(),
+            response.getBody());
     }
 
     /**
@@ -263,7 +383,7 @@ public class BlipClient {
                 "type", "text/plain",
                 "content", text);
 
-        restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders()), Void.class);
+        blipRestTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(payload, buildHeaders(AuthorizationScope.ROUTER)), Void.class);
         log.info("Mensagem textual enviada ao Blip. destination={}", normalizedDestination);
     }
 
@@ -271,7 +391,9 @@ public class BlipClient {
      * Direciona o usuário para o sub-bot de agendamentos (Master-State).
      */
     public void pullUserToAgendamentoBot(String userEmail) {
-        setMasterState(userEmail, properties.getBlipAgendamentoBotId(), "agendamentos");
+        // Use APP_BLIP_APPOINTMENT_ID as the target bot for appointment master-state
+        setMasterState(userEmail, null, "agendamentos");
+        setUserState(userEmail, "9bc2484e-fbfc-4c9d-9a19-a20be6286b1b");
     }
 
     /**
@@ -288,7 +410,7 @@ public class BlipClient {
      */
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
         List<String> candidateIdentities = buildTemplateFetchIdentities();
-        log.info("Iniciando diagnóstico de templates com identidades candidatas: {}", candidateIdentities);
+        log.debug("Iniciando diagnóstico de templates com identidades candidatas: {}", candidateIdentities);
 
         try {
             for (String identity : candidateIdentities) {
@@ -317,16 +439,183 @@ public class BlipClient {
             log.warn("Nenhuma identidade retornou templates. Aplicando fallback estático.");
             return staticTemplateFallback();
 
+        } catch (HttpStatusCodeException httpEx) {
+            log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
+                    httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+            return staticTemplateFallback();
         } catch (RestClientException ex) {
-            if (ex instanceof HttpStatusCodeException httpEx) {
-                log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
-                        httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), ex);
-                return staticTemplateFallback();
-            }
-
             log.error("Erro inesperado ao buscar templates do Blip", ex);
             return staticTemplateFallback();
         }
+    }
+
+    public Map<String, Object> getBlipQueues() {
+        Map<String, Object> response = sendDeskCommand("/attendance-queues");
+
+        if (isResponseEmptyOrFailed(response)) {
+            log.info("Comando /attendance-queues falhou ou retornou vazio. Tentando fallback para /queues...");
+            Map<String, Object> fallbackResponse = sendDeskCommand("/queues");
+            if (isResponseEmptyOrFailed(fallbackResponse)) {
+                log.info("Fallback /queues também falhou. Tentando /teams...");
+                Map<String, Object> teamsFallback = sendDeskCommand("/teams");
+                if (teamsFallback != null) return teamsFallback;
+            } else {
+                return fallbackResponse;
+            }
+        }
+
+        return response != null ? response : Map.of("status", "error", "reason", "failed-to-retrieve");
+    }
+
+    public record BlipQueue(String id, String name) {}
+
+    public List<BlipQueue> listBlipQueues() {
+        Map<String, Object> raw = getBlipQueues();
+        if (raw == null) return List.of();
+
+        Object resource = raw.get("resource");
+        List<BlipQueue> result = new ArrayList<>();
+
+        switch (resource) {
+            case Map<?, ?> resourceMap -> {
+                Object itemsObj = resourceMap.get("items");
+                if (itemsObj instanceof List<?> items) {
+                    for (Object item : items) {
+                        if (!(item instanceof Map<?, ?> itemMap)) continue;
+                        String id = valueAsString(itemMap.get("id"));
+                        String name = valueAsString(itemMap.get("name"));
+                        if (name == null) name = valueAsString(itemMap.get("title"));
+                        if (name == null && id != null) name = id;
+                        if (name != null) result.add(new BlipQueue(id == null ? "" : id, name));
+                    }
+                }
+            }
+            case List<?> resourceList -> {
+                for (Object item : resourceList) {
+                    if (!(item instanceof Map<?, ?> itemMap)) continue;
+                    String id = valueAsString(itemMap.get("id"));
+                    String name = valueAsString(itemMap.get("name"));
+                    if (name == null) name = valueAsString(itemMap.get("title"));
+                    if (name == null && id != null) name = id;
+                    if (name != null) result.add(new BlipQueue(id == null ? "" : id, name));
+                }
+            }
+            default -> {}
+        }
+
+        return result.stream()
+                .sorted(Comparator.comparing(BlipQueue::name, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> sendDeskCommand(String uri) {
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+                .path(properties.getBlipSetContextPath())
+                .build()
+                .toUriString();
+
+        Map<String, Object> command = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "to", THREAD_TRANSFER_COMMAND_TO,
+                "method", "get",
+                "uri", uri);
+
+        try {
+            ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(command, buildHeaders(AuthorizationScope.DESK)),
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+            return response.getBody();
+        } catch (RestClientException ex) {
+            log.warn("Erro ao buscar {} do Blip Desk.", uri, ex);
+            return null;
+        }
+    }
+
+    /**
+     * Recupera os 'extras' do contato no Blip (se houver).
+     */
+    public Map<String, String> getContactExtras(String identity) {
+        if (identity == null || identity.isBlank()) {
+            return Map.of();
+        }
+
+        String normalized = normalizeUserIdentity(identity);
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+                .path(properties.getBlipSetContextPath())
+                .build()
+                .toUriString();
+
+        Map<String, Object> command = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "to", resolveRouterIdentity(),
+                "method", "get",
+                "uri", "/contacts/" + normalized);
+
+        try {
+                ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(command, buildHeaders(AuthorizationScope.ROUTER)),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            Map<String, Object> body = response.getBody();
+            if (body == null) return Map.of();
+
+            Object resource = body.get("resource");
+            if (!(resource instanceof Map<?, ?> resourceMap)) return Map.of();
+
+            Object extrasObj = resourceMap.get("extras");
+            if (!(extrasObj instanceof Map<?, ?> extrasMap)) return Map.of();
+
+            Map<String, String> result = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : extrasMap.entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) {
+                    result.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+                }
+            }
+
+            return result;
+        } catch (RestClientException ex) {
+            log.warn("Erro ao recuperar contact extras do Blip para {}: {}", normalized, ex.getMessage());
+            return Map.of();
+        }
+    }
+
+    private boolean isResponseEmptyOrFailed(Map<String, Object> response) {
+        if (response == null) {
+            return true;
+        }
+        if (!"success".equalsIgnoreCase(String.valueOf(response.get("status")))) {
+            return true;
+        }
+
+        Object resource = response.get("resource");
+        if (resource == null) {
+            return true;
+        }
+
+        if (resource instanceof Map) {
+            Map<?, ?> resourceMap = (Map<?, ?>) resource;
+            Object items = resourceMap.get("items");
+            if (items instanceof List) {
+                List<?> itemsList = (List<?>) items;
+                return itemsList.isEmpty();
+            }
+            return resourceMap.isEmpty();
+        } else if (resource instanceof List) {
+            List<?> resourceList = (List<?>) resource;
+            return resourceList.isEmpty();
+        }
+
+        return false;
     }
 
     private BlipTemplateResponse fetchTemplatesByUri(String commandUri, String toIdentity) {
@@ -345,19 +634,31 @@ public class BlipClient {
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, buildHeaders());
+        HttpHeaders headers = buildHeaders(AuthorizationScope.ROUTER);
+        // Log which (masked) key is being used and the target identity to aid diagnostics
+        String resolvedKey = normalizeAuthorizationKey(resolveAuthorizationKey(AuthorizationScope.ROUTER));
+        String maskedKey = resolvedKey == null ? "[none]" : maskAuthorizationToken("Key " + resolvedKey);
+        log.info("Buscando templates no Blip. uri={}, toIdentity={}, usedAuthMasked={}, headers={}", commandUri, toIdentity, maskedKey, sanitizeHeadersForDebug(headers));
 
-        ResponseEntity<BlipTemplateResponse> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                request,
-                new ParameterizedTypeReference<BlipTemplateResponse>() {
-                });
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, headers);
+
+        ResponseEntity<BlipTemplateResponse> response = blipRestTemplate.exchange(
+            url,
+            HttpMethod.POST,
+            request,
+            new ParameterizedTypeReference<BlipTemplateResponse>() {
+            });
 
         logNamespaceHeaders(response.getHeaders(), commandUri, toIdentity);
 
         BlipTemplateResponse responseBody = response.getBody();
-        log.info("Blip Raw Response [uri={}, to={}]: {}", commandUri, toIdentity, responseBody);
+        log.debug("Blip Raw Response [uri={}, to={}]: {}", commandUri, toIdentity, responseBody);
+
+        if (responseBody != null && "failure".equalsIgnoreCase(responseBody.status())) {
+            log.warn("Blip retornou status=failure para uri={} toIdentity={}. responseHeaders={}, usedHeaders={}. Suggestion: verify the router key has admin rights and that identity {} exposes /message-templates for the namespace.",
+                commandUri, toIdentity, response.getHeaders(), sanitizeHeadersForDebug(headers), toIdentity);
+        }
+
         return responseBody;
     }
 
@@ -465,24 +766,52 @@ public class BlipClient {
                 source, total, approvedCount, statusBreakdown);
     }
 
-    private HttpHeaders buildHeaders() {
+    private HttpHeaders buildHeaders(AuthorizationScope scope) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        
-        String keyToUse = blipAuthorizationKey;
-        if (keyToUse == null || keyToUse.isBlank()) {
-            keyToUse = properties.getBlipAuthorizationKey();
-        }
 
-        String authorizationKey = normalizeAuthorizationKey(keyToUse);
+        String authorizationKey = normalizeAuthorizationKey(resolveAuthorizationKey(scope));
         if (authorizationKey == null || authorizationKey.isBlank()) {
-            log.warn("Chave de autorização do Blip está vazia. Verifique a propriedade app.appointment.motor.blip-authorization-key.");
+            log.warn("Chave de autorização do Blip está vazia para scope={}. Verifique as propriedades app.appointment.motor.blip-router-key e app.appointment.motor.blip-desk-key.", scope);
             return headers;
         }
         headers.set("Authorization", "Key " + authorizationKey);
-        log.debug("Headers enviados para Blip: {}", headers.toSingleValueMap().keySet());
+        log.debug("Headers enviados para Blip. scope={}, keys={}", scope, headers.toSingleValueMap().keySet());
         return headers;
+    }
+
+    private void logAuthorizationKeyStatus(AuthorizationScope scope) {
+        String resolved = normalizeAuthorizationKey(resolveAuthorizationKey(scope));
+        if (resolved == null || resolved.isBlank()) {
+            log.error("Chave do Blip não foi carregada para scope={}. Verifique as variáveis APP_APPOINTMENT_BLIP_ROUTER_KEY e APP_APPOINTMENT_BLIP_DESK_KEY.", scope);
+            return;
+        }
+
+        int visibleCharacters = Math.min(5, resolved.length());
+        String prefix = resolved.substring(0, visibleCharacters);
+        log.info("Configuração carregada para scope={}: {}", scope, prefix);
+    }
+
+    private String resolveAuthorizationKey(AuthorizationScope scope) {
+        return switch (scope) {
+            case ROUTER -> firstNonBlank(routerKey, properties.getBlipRouterKey());
+            case DESK -> firstNonBlank(deskKey, properties.getBlipDeskKey());
+        };
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null || values.length == 0) {
+            return null;
+        }
+
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     private String normalizeAuthorizationKey(String value) {
@@ -537,12 +866,52 @@ public class BlipClient {
     }
 
     private void setMasterState(String userIdentity, String botIdentity, String operation) {
-        if (botIdentity == null || botIdentity.isBlank()) {
-            log.warn("Master-State não executado para {}: botIdentity não configurado.", operation);
-            return;
-        }
+        // TargetBot dinâmico: se botIdentity for passado (ex: voltar para o builder), usa ele. 
+        // Caso contrário, usa a variável de ambiente APP_BLIP_APPOINTMENT_ID.
+        String targetBot = firstNonBlank(botIdentity, blipAppointmentId);
 
         String normalizedIdentity = normalizeUserIdentity(userIdentity);
+
+        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
+
+        // Build the context state URI in the form /contexts/{identity}/<stateId%40flowId>
+        String stateId = firstNonBlank(operation, "stateid");
+        String flowIdentity = firstNonBlank(targetBot, "");
+        String flowId = flowIdentity.contains("@") ? flowIdentity.substring(0, flowIdentity.indexOf('@')) : flowIdentity;
+        String combined = stateId + "@" + flowId;
+        String encodedState = java.net.URLEncoder.encode(combined, java.nio.charset.StandardCharsets.UTF_8);
+
+        String uri = "/contexts/" + normalizedIdentity + "/" + encodedState;
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", MASTER_STATE_COMMAND_TO,
+            "method", "set",
+            "uri", uri,
+            "type", "text/plain",
+            "metadata", Map.of("expiration", "86400"),
+            "resource", targetBot);
+
+        try {
+            rateLimit();
+            blipRestTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(command, buildHeaders(AuthorizationScope.ROUTER)), Void.class);
+            log.info("Master-State atualizado com sucesso. operation={}, userIdentity={}, targetBot={}",
+                    operation, normalizedIdentity, targetBot);
+        } catch (HttpStatusCodeException httpEx) {
+            log.error("Erro HTTP ao atualizar Master-State. operation={}, statusCode={}, responseBody={}",
+                    operation, httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+        } catch (RestClientException ex) {
+            log.error("Erro inesperado ao atualizar Master-State. operation={}", operation, ex);
+        }
+    }
+
+    private void setUserState(String userIdentity, String stateName) {
+        String normalizedIdentity = normalizeUserIdentity(userIdentity);
+        
+        log.info("Enviando comando de estado ({}) para a identidade do usuário: {}", stateName, normalizedIdentity);
 
         String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
                 .path(properties.getBlipSetContextPath())
@@ -551,26 +920,18 @@ public class BlipClient {
 
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
-            "to", MASTER_STATE_COMMAND_TO,
+                "to", MASTER_STATE_COMMAND_TO,
                 "method", "set",
-            "uri", "/contexts/" + normalizedIdentity + "/master-state",
+                "uri", "/contexts/" + normalizedIdentity + "/state",
                 "type", "text/plain",
-                "metadata", Map.of("expiration", "86400"),
-                "resource", botIdentity);
+                "resource", stateName);
 
         try {
             rateLimit();
-            restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(command, buildHeaders()), Void.class);
-            log.info("Master-State atualizado com sucesso. operation={}, userIdentity={}, targetBot={}",
-                    operation, normalizedIdentity, botIdentity);
+            blipRestTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(command, buildHeaders(AuthorizationScope.ROUTER)), Void.class);
+            log.info("User State atualizado com sucesso. userIdentity={}, stateName={}", normalizedIdentity, stateName);
         } catch (RestClientException ex) {
-            if (ex instanceof HttpStatusCodeException httpEx) {
-                log.error("Erro HTTP ao atualizar Master-State. operation={}, statusCode={}, responseBody={}",
-                        operation, httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), ex);
-                return;
-            }
-
-            log.error("Erro inesperado ao atualizar Master-State. operation={}", operation, ex);
+            log.error("Erro inesperado ao atualizar User State. userIdentity={}, stateName={}", normalizedIdentity, stateName, ex);
         }
     }
 

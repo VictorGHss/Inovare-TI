@@ -7,16 +7,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentRealtimeNotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentVariableLogRepository;
 import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
-import br.dev.ctrls.inovareti.domain.appointment.DoctorMapping;
-import br.dev.ctrls.inovareti.domain.appointment.DoctorMappingRepository;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
+import java.util.Map;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
+import br.dev.ctrls.inovareti.domain.appointment.NotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,15 +29,15 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HandleBlipWebhookUseCase {
 
-    private static final int FEEGOW_STATUS_CONFIRMADO = 7;
-
     private final AppointmentSessionRepository appointmentSessionRepository;
+    private final AppointmentMotorProperties appointmentMotorProperties;
     private final FeegowClient feegowClient;
     private final BlipClient blipClient;
-    private final DoctorMappingRepository doctorMappingRepository;
+    private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
     private final AppointmentVariableLogRepository appointmentVariableLogRepository;
     private final AppointmentRealtimeNotificationService appointmentRealtimeNotificationService;
     private final ConfirmationStateMachineService confirmationStateMachineService;
+    private final NotificationService notificationService;
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
 
@@ -49,44 +52,84 @@ public class HandleBlipWebhookUseCase {
             return;
         }
 
-        AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(payload.appointmentId())
-                .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + payload.appointmentId()));
+        // Suporte ao botão com payload confirm_*
+        String action = payload.action() != null ? payload.action().trim().toUpperCase(Locale.ROOT) : "";
 
-        String action = payload.action().trim().toUpperCase(Locale.ROOT);
+        // Ignora qualquer outra tentativa ou mensagem do bot (ex: perguntando nome) que não seja o botão confirm_
+        if (!action.startsWith("CONFIRM_")) {
+            log.info("Ação ignorada no webhook (focando apenas em botões confirm_). action={}", action);
+            return;
+        }
 
-        switch (action) {
-            case "CONFIRMAR" -> {
-                log.info("Ação CONFIRMAR recebida. Atualizando status na Feegow com código {}.", FEEGOW_STATUS_CONFIRMADO);
-                feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_CONFIRMADO);
-                confirmationStateMachineService.markConfirmed(session);
-                appointmentSessionRepository.save(session);
-                blipClient.pushUserBackToBuilder(payload.from());
-
-                String patientName = resolvePatientName(session);
-                String doctorName = resolveDoctorName(session);
-                // Publica o evento em tempo real imediatamente após confirmação bem-sucedida.
-                appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "CONFIRMADO");
+        // Se o action for um payload do botão
+        if (action.startsWith("CONFIRM_")) {
+            String confirmIdRaw = action.substring("CONFIRM_".length());
+            String confirmId = normalizeFeegowAppointmentId(confirmIdRaw);
+            if (confirmId == null || confirmId.isBlank()) {
+                log.warn("Payload CONFIRM_ recebido sem id válido. action={}", action);
+                return;
             }
-            case "ALTERAR" -> {
-                DoctorMapping mapping = doctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
-                        .orElseGet(() -> doctorMappingRepository.findByProfissionalId("EXTERNAL")
-                        .orElseThrow(() -> new NotFoundException("Fila externa não encontrada no appointment_doctor_mapping")));
 
-                if (mapping.isExternal()) {
-                    // Para médicos externos, envia texto simples com o link presente em blip_queue_id.
-                    blipClient.sendPlainText(payload.from(), mapping.getBlipQueueId());
-                } else {
-                    blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
+            log.info("Processando clique do agendamento ID: " + confirmId);
+
+            AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(confirmId)
+                    .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + confirmId));
+            String confirmedStatusId = resolveConfirmedStatusId();
+            log.info("Payload de botão CONFIRM_ recebido. Atualizando status na Feegow com código {}.", confirmedStatusId);
+            feegowClient.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
+            notificationService.notifySecretary(session, null);
+            confirmationStateMachineService.markConfirmed(session);
+            appointmentSessionRepository.save(session);
+            // Tenta recuperar a fila de atendimento salva nos extras do contato (mergeContactExtras)
+            try {
+                log.info("Buscando extras do contato para handoff. payload.from={}", payload.from());
+                Map<String, String> extras = blipClient.getContactExtras(payload.from());
+                String queueId = null;
+                if (extras != null && !extras.isEmpty()) {
+                    String filaDestino = extras.get("fila_destino");
+                    String filaNome = extras.get("fila_nome");
+                    if (filaDestino != null && !filaDestino.isBlank()) {
+                        queueId = filaDestino.trim();
+                    } else if (filaNome != null && !filaNome.isBlank()) {
+                        queueId = filaNome.trim();
+                    }
                 }
 
-                blipClient.pushUserBackToBuilder(payload.from());
+                if (queueId != null && !queueId.isBlank()) {
+                    log.info("Executando handoff para fila salva nos extras do contato: {}", queueId);
+                    blipClient.setHandoffContext(payload.from(), queueId);
+                } else {
+                    // fallback: tenta basear-se no mapeamento do médico
+                    AppointmentDoctorMapping mapping = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
+                            .orElseGet(() -> appointmentDoctorMappingRepository.findByProfissionalId("EXTERNAL")
+                                    .orElse(null));
 
-                String patientName = resolvePatientName(session);
-                String doctorName = resolveDoctorName(session);
-                appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "ALTERACAO_SOLICITADA");
+                    if (mapping != null) {
+                        if (mapping.isExternal()) {
+                            blipClient.sendPlainText(payload.from(), mapping.getExternalWaLink());
+                        } else {
+                            blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Falha ao recuperar extras do contato ou executar handoff: {}", ex.getMessage());
+                blipClient.pushUserBackToBuilder(payload.from());
             }
-            default -> log.info("Webhook recebido com ação sem transição configurada. action={}", action);
+
+            String patientName = resolvePatientName(session);
+            String doctorName = resolveDoctorName(session);
+            appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "CONFIRMADO");
         }
+    }
+
+    private String resolveConfirmedStatusId() {
+        String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
+        if (configuredStatusId == null || configuredStatusId.isBlank()) {
+            return "2";
+        }
+
+        return configuredStatusId.trim();
     }
 
     private String resolvePatientName(AppointmentSession session) {
@@ -101,6 +144,19 @@ public class HandleBlipWebhookUseCase {
                 .map(logEntry -> logEntry.getResolvedValue())
                 .filter(name -> !name.isBlank())
                 .orElse("Profissional " + session.getDoctorProfissionalId());
+    }
+
+    private String normalizeFeegowAppointmentId(String feegowAppointmentId) {
+        if (feegowAppointmentId == null) {
+            return "";
+        }
+
+        String normalized = feegowAppointmentId.trim();
+        if (normalized.matches("^\\d+\\.0+$")) {
+            return normalized.substring(0, normalized.indexOf('.'));
+        }
+
+        return normalized;
     }
 
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from) {

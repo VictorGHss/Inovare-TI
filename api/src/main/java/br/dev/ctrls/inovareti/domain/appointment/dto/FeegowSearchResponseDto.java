@@ -31,14 +31,15 @@ public record FeegowSearchResponseDto(
         return List.of();
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record FeegowSearchAppointmentDto(
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record FeegowSearchAppointmentDto(
             @JsonProperty("agendamento_id") @JsonAlias("id") Object appointmentId,
             @JsonProperty("paciente_id") String patientId,
             @JsonProperty("profissional_id") String doctorId,
-            @JsonProperty("profissional_nome") String doctorName,
+            @JsonProperty("nome") String doctorName, // Mapeia para a chave 'nome' do JSON
             @JsonProperty("unidade") String unitName,
             @JsonProperty("data") String appointmentDate,
-            @JsonProperty("horario") String appointmentTime) {
-    }
+            @JsonProperty("horario") String appointmentTime,
+            @JsonProperty("status_id") String statusId) {
+        }
 }

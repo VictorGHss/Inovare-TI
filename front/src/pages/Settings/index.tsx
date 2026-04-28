@@ -8,6 +8,7 @@ import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/mod
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 import AppointmentControlPanel from './AppointmentControlPanel';
+import ProfessionalMappingPanel from './ProfessionalMappingPanel';
 
 type TabType = 'system' | 'profile';
 
@@ -215,7 +216,7 @@ export default function Settings() {
 
       {/* ── TAB: SISTEMA ── */}
       {activeTab === 'system' && isAdmin && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {loading ? (
             <div className="space-y-3">
               <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
@@ -326,6 +327,8 @@ export default function Settings() {
               {/* Agendamentos (extraído para componente separado) */}
               <ReportSchedulesSection />
               <AppointmentControlPanel />
+              {/* Unified mapping UI: only ProfessionalMappingPanel is rendered here */}
+              <ProfessionalMappingPanel />
             </>
           )}
         </div>

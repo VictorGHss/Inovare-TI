@@ -34,6 +34,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
+    private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
+    private static final String APPOINTMENT_ADMIN_PATH = "/v1/appointments/admin/**";
+    private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
+
     private final SecurityFilter securityFilter;
 
     /**
@@ -47,22 +52,46 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // Ensure CORS is applied early
+        http.cors(Customizer.withDefaults());
+
         http
-            .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers(
+                        BLIP_WEBHOOK_PATH,
+                        BLIP_WEBHOOK_PATH + "/",
+                        "/api" + BLIP_WEBHOOK_PATH,
+                        "/api" + BLIP_WEBHOOK_PATH + "/",
+                        APPOINTMENT_BLIP_WEBHOOK_PATH,
+                        APPOINTMENT_BLIP_WEBHOOK_PATH + "/",
+                        "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH,
+                        "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+                .disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/admin/**", "/api/admin/**").permitAll()
                 .requestMatchers("/admin/**", "/api/admin/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/config/**").permitAll()
+                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH, "/api" + APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
+                .requestMatchers(APPOINTMENT_ADMIN_PATH, "/api" + APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /api/actuator/** sem JWT.
                 .requestMatchers("/actuator/**", "/api/actuator/**").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback",
                                  "/api/financeiro/contaazul/authorize", "/api/financeiro/contaazul/callback").permitAll()
-                .requestMatchers("/v1/webhook/blip", "/api/v1/webhook/blip").permitAll()
+                .requestMatchers(
+                    HttpMethod.POST,
+                    BLIP_WEBHOOK_PATH,
+                    BLIP_WEBHOOK_PATH + "/",
+                    "/api" + BLIP_WEBHOOK_PATH,
+                    "/api" + BLIP_WEBHOOK_PATH + "/",
+                    APPOINTMENT_BLIP_WEBHOOK_PATH,
+                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/",
+                    "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH,
+                    "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+                .permitAll()
                 // Liberação temporária para desenvolvimento local dos endpoints de configuração.
                 .requestMatchers("/v1/appointments/config/**", "/api/v1/appointments/config/**").permitAll()
                 .requestMatchers("/ws/**", "/api/ws/**").permitAll()
@@ -87,7 +116,7 @@ public class SecurityConfig {
             "https://itsm-inovare.ctrls.dev.br"
         ));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-access-token", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 

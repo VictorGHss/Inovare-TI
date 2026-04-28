@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.config;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -11,15 +13,14 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.client.RestClientResponseException;
-
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulHttpException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -29,6 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Pattern REST_TEMPLATE_QUOTED_URL_PATTERN = Pattern.compile("for \\\"([^\\\"]+)\\\"");
+    private static final Pattern GENERIC_HTTP_URL_PATTERN = Pattern.compile("https?://[^\\s]+", Pattern.CASE_INSENSITIVE);
 
     /**
      * Trata erros de validação de campos (@Valid / @Validated).
@@ -125,21 +129,16 @@ public class GlobalExceptionHandler {
             requestId = "-";
         }
 
-        String requestUri = request != null ? request.getRequestURI() : "";
+        String requestUrl = resolveOutboundUrl(ex.getExternalUrl(), request);
         String responseBody = ex.getResponseBody();
         boolean planIneligible = isPlanIneligibleResponse(responseBody);
-        
-        String logPrefix = "[CONTA AZUL ERROR]";
-        if (requestUri.contains("feegow")) {
-            logPrefix = "[FEEGOW ERROR]";
-        } else if (requestUri.contains("blip") || requestUri.contains("messages")) {
-            logPrefix = "[BLIP ERROR]";
-        }
 
         if (status.is5xxServerError()) {
-            log.error("{} request_id={} status={} body={}", logPrefix, requestId, status.value(), responseBody);
+            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
+                    status.value(), requestUrl, responseBody, requestId);
         } else {
-            log.warn("{} request_id={} status={} body={}", logPrefix, requestId, status.value(), responseBody);
+            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
+                    status.value(), requestUrl, responseBody, requestId);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(status);
@@ -177,13 +176,7 @@ public class GlobalExceptionHandler {
             requestId = "-";
         }
 
-        String requestUri = request != null ? request.getRequestURI() : "";
-        String logPrefix = "[CONTA AZUL ERROR]";
-        if (requestUri.contains("feegow")) {
-            logPrefix = "[FEEGOW ERROR]";
-        } else if (requestUri.contains("blip") || requestUri.contains("messages")) {
-            logPrefix = "[BLIP ERROR]";
-        }
+        String requestUrl = resolveOutboundUrl(extractUrlFromRestClientException(ex), request);
 
         int status = ex.getStatusCode().value();
         String body = "";
@@ -194,9 +187,11 @@ public class GlobalExceptionHandler {
         }
 
         if (status >= 500) {
-            log.error("{} request_id={} status={} body={}", logPrefix, requestId, status, body, ex);
+            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
+                    status, requestUrl, body, requestId, ex);
         } else {
-            log.warn("{} request_id={} status={} body={}", logPrefix, requestId, status, body);
+            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
+                    status, requestUrl, body, requestId);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
@@ -213,5 +208,58 @@ public class GlobalExceptionHandler {
 
         String normalized = responseBody.toUpperCase();
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
+    }
+
+    private String extractUrlFromRestClientException(RestClientResponseException ex) {
+        if (ex == null || ex.getMessage() == null || ex.getMessage().isBlank()) {
+            return null;
+        }
+
+        String message = ex.getMessage();
+
+        Matcher quotedMatcher = REST_TEMPLATE_QUOTED_URL_PATTERN.matcher(message);
+        if (quotedMatcher.find()) {
+            return trimTrailingPunctuation(quotedMatcher.group(1));
+        }
+
+        Matcher genericMatcher = GENERIC_HTTP_URL_PATTERN.matcher(message);
+        if (genericMatcher.find()) {
+            return trimTrailingPunctuation(genericMatcher.group());
+        }
+
+        return null;
+    }
+
+    private String trimTrailingPunctuation(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+
+        return value.replaceAll("[,:;]+$", "");
+    }
+
+    private String resolveOutboundUrl(String outboundUrl, HttpServletRequest request) {
+        if (outboundUrl != null && !outboundUrl.isBlank()) {
+            return outboundUrl;
+        }
+
+        return resolveRequestUrl(request);
+    }
+
+    private String resolveRequestUrl(HttpServletRequest request) {
+        if (request == null) {
+            return "-";
+        }
+
+        String baseUrl = request.getRequestURL() != null
+                ? request.getRequestURL().toString()
+                : request.getRequestURI();
+        String query = request.getQueryString();
+
+        if (query == null || query.isBlank()) {
+            return baseUrl;
+        }
+
+        return baseUrl + "?" + query;
     }
 }

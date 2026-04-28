@@ -24,7 +24,7 @@ public class DiscordEventListener extends ListenerAdapter {
      * Registra os slash commands globais quando o bot fica pronto.
      */
     @Override
-    public void onReady(ReadyEvent event) {
+    public void onReady(@javax.annotation.Nonnull ReadyEvent event) {
         log.info("✅ Bot do Discord pronto! Registrando slash commands...");
 
         try {
@@ -70,7 +70,7 @@ public class DiscordEventListener extends ListenerAdapter {
      * Encaminha as interações de slash command para os handlers.
      */
     @Override
-    public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
+    public void onSlashCommandInteraction(@javax.annotation.Nonnull SlashCommandInteractionEvent event) {
         String commandName = event.getName();
         log.info("📨 Slash command recebido: /{} do usuário {}", commandName, event.getUser().getAsTag());
 
@@ -101,7 +101,8 @@ public class DiscordEventListener extends ListenerAdapter {
                     : "NORMAL";
 
             String message = discordTicketService.createTicketFromDiscord(discordUserId, descricao, prioridadeStr);
-            event.reply(message).queue();
+            String safeMessage = message != null ? message : "❌ Erro ao criar seu chamado. Entre em contato com um administrador.";
+            event.reply(safeMessage).queue();
 
         } catch (Exception e) {
             log.error("❌ Erro ao processar o comando /chamado", e);
@@ -127,7 +128,8 @@ public class DiscordEventListener extends ListenerAdapter {
             log.debug("Tentando vincular o usuário do Discord {} ao e-mail {}", discordUserId, email);
 
             String message = discordUserLinkingService.linkDiscordToUserAndBuildMessage(email, discordUserId);
-            event.reply(message).queue();
+            String safeMessage = message != null ? message : "❌ Erro ao vincular sua conta. Entre em contato com um administrador.";
+            event.reply(safeMessage).queue();
 
         } catch (Exception e) {
             log.error("❌ Erro ao processar o comando /vincular", e);
@@ -149,7 +151,8 @@ public class DiscordEventListener extends ListenerAdapter {
 
             String ticketIdStr = idOption.getAsString().trim();
             String message = discordTicketService.getTicketStatusFromDiscord(ticketIdStr);
-            event.reply(message).queue();
+            String safeMessage = message != null ? message : "❌ Erro ao consultar o status do chamado. Entre em contato com um administrador.";
+            event.reply(safeMessage).queue();
 
         } catch (Exception e) {
             log.error("❌ Erro ao processar o comando /status", e);
@@ -165,7 +168,8 @@ public class DiscordEventListener extends ListenerAdapter {
         try {
             String discordUserId = event.getUser().getId();
             String message = discordTicketService.listMyActiveTicketsFromDiscord(discordUserId);
-            event.reply(message).setEphemeral(true).queue();
+            String safeMessage = message != null ? message : "Nenhum chamado encontrado.";
+            event.reply(safeMessage).setEphemeral(true).queue();
 
         } catch (Exception e) {
             log.error("❌ Erro ao processar o comando /meuschamados", e);

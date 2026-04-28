@@ -48,13 +48,10 @@ services:
     environment:
       - SERVER_PORT=8085
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/inovareti
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/inovareti
-      - APP_FEEGOW_API_KEY=${APP_FEEGOW_API_KEY}
-      - APP_APPOINTMENT_BLIP_BOT_KEY=${APP_APPOINTMENT_BLIP_BOT_KEY}
     expose:
       - "8085"
+    ports:
+      - "8085:8085"
     volumes:
       - ./uploads:/app/uploads
       - ${BACKUP_HDD_PATH}:/app/backups
@@ -76,7 +73,7 @@ services:
     restart: always
     ports:
       - "5173:80"
-      - "8085:80"
+      # - "8085:80"
     depends_on:
       - api
     networks:

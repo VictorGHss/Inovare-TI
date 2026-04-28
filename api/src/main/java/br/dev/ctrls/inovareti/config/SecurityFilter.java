@@ -28,6 +28,9 @@ public class SecurityFilter extends OncePerRequestFilter {
     // Usar os mesmos caminhos expostos pelos controllers (sem prefixo "/api").
     private static final String CONTA_AZUL_AUTHORIZE_PATH = "/financeiro/contaazul/authorize";
     private static final String CONTA_AZUL_CALLBACK_PATH = "/financeiro/contaazul/callback";
+    private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
+    private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
+    private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
 
     private final TokenService tokenService;
     private final UserRepository userRepository;
@@ -51,8 +54,16 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.contains("/auth/reset-initial-password")
             || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
             || requestUri.contains(CONTA_AZUL_CALLBACK_PATH)
-            || requestUri.contains("/v1/webhook/blip")
-            || requestUri.contains("/api/v1/webhook/blip")
+            || requestUri.equals(BLIP_WEBHOOK_PATH)
+            || requestUri.equals(BLIP_WEBHOOK_PATH + "/")
+            || requestUri.equals("/api" + BLIP_WEBHOOK_PATH)
+            || requestUri.equals("/api" + BLIP_WEBHOOK_PATH + "/")
+            || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH)
+            || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+            || requestUri.equals("/api" + APPOINTMENT_BLIP_WEBHOOK_PATH)
+            || requestUri.equals("/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
+            || requestUri.equals(APPOINTMENT_DEBUG_QUEUES_PATH)
+            || requestUri.equals("/api" + APPOINTMENT_DEBUG_QUEUES_PATH)
             || requestUri.contains("/actuator/")
             || requestUri.startsWith("/api/actuator/")
             || requestUri.contains("/ws/")
@@ -65,6 +76,14 @@ public class SecurityFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+        
+        // Libera a passagem direta para os Webhooks do Blip sem exigir JWT
+        if (path.contains("/v1/appointments/blip/webhook") || path.contains("/v1/webhook/blip")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String token = extractToken(request);
 

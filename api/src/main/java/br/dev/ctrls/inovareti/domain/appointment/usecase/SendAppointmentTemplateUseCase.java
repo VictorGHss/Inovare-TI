@@ -14,6 +14,8 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
@@ -38,20 +40,46 @@ public class SendAppointmentTemplateUseCase {
     private final FeegowClient feegowClient;
     private final BlipClient blipClient;
     private final ObjectMapper objectMapper;
+    private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
 
     @Transactional
     public boolean execute(AppointmentSession session, AppointmentCategory category) {
-        AppointmentConfig config = appointmentConfigRepository.findByCategory(category)
-                .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category));
 
-        FeegowClient.FeegowAppointment appointment = new FeegowClient.FeegowAppointment(
-                session.getFeegowAppointmentId(),
-                session.getPatientId(),
-                session.getDoctorProfissionalId(),
-                null,
-                null,
-                session.getAppointmentAt());
+        AppointmentConfig config = appointmentConfigRepository.findByCategory(category)
+            .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category));
+
+        // Busca o agendamento real
+        FeegowClient.FeegowAppointment appointment = feegowClient.searchAppointments(
+            session.getAppointmentAt().toLocalDate(),
+            1, // status Marcado
+            session.getDoctorProfissionalId()
+        ).stream()
+         .filter(a -> a.id().equals(session.getFeegowAppointmentId()))
+         .findFirst()
+         .orElse(new FeegowClient.FeegowAppointment(
+            session.getFeegowAppointmentId(),
+            session.getPatientId(),
+            session.getDoctorProfissionalId(),
+            null,
+            null,
+            session.getAppointmentAt(),
+            null));
+
         FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+
+        // Inversão de prioridade: busca no banco primeiro usando String.valueOf()
+        String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(String.valueOf(session.getDoctorProfissionalId()))
+            .map(AppointmentDoctorMapping::getProfissionalNome)
+            .filter(nome -> !nome.isBlank())
+            .orElse(null);
+            
+        if (doctorName == null || doctorName.isBlank()) {
+            doctorName = appointment.doctorName(); // Fallback para a API da Feegow
+        }
+        
+        if (doctorName == null || doctorName.isBlank()) {
+            doctorName = "Doutor(a)";
+        }
 
         String appointmentDate = appointment.startAt() != null
             ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE)
@@ -66,7 +94,7 @@ public class SendAppointmentTemplateUseCase {
             fallbackValue(patient != null ? patient.name() : null),
             fallbackValue(patient != null ? patient.phone() : null),
             fallbackValue(appointment.doctorId()),
-            fallbackProviderValue(appointment.doctorName()),
+            fallbackProviderValue(doctorName),
             DEFAULT_PROVIDER_VALUE,
             fallbackProviderValue(appointment.unitName()),
             appointmentDate,

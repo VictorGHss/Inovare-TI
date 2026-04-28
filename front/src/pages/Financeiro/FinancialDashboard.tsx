@@ -1,6 +1,6 @@
 import { Activity, BadgeDollarSign, Eye, EyeOff, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import DoctorMappingPanel from './DoctorMappingPanel.tsx';
+import ProfessionalMappingPanel from '../Settings/ProfessionalMappingPanel';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 import FinancialMetricsGrid from './FinancialMetricsGrid';
 import FinancialAlertsList from './FinancialAlertsList';
@@ -37,8 +37,6 @@ export default function FinancialDashboard() {
     analytics,
     receipts,
     alerts,
-    doctorMappings,
-    loadingDoctorMappings,
     startDate,
     endDate,
     setStartDate,
@@ -48,7 +46,6 @@ export default function FinancialDashboard() {
     hasContaAzulLinked,
     unresolvedAlerts,
     reloadDashboardData,
-    reloadDoctorMappings,
   } = useFinancialDashboard();
 
   const {
@@ -308,13 +305,7 @@ export default function FinancialDashboard() {
           <FinancialAlertsList alerts={alerts} />
 
           <section>
-            <DoctorMappingPanel
-              mapeamentos={doctorMappings}
-              carregando={loadingDoctorMappings}
-              onAtualizar={reloadDoctorMappings}
-              integrationActive={integrationActive}
-              onConnectContaAzul={handleConnectContaAzul}
-            />
+            <ProfessionalMappingPanel />
           </section>
         </section>
       )}

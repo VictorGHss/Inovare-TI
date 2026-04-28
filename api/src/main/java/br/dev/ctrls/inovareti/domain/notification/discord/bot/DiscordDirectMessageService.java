@@ -173,6 +173,11 @@ public class DiscordDirectMessageService {
             return;
         }
 
+        if (pdfBytes == null || pdfBytes.length == 0 || filename == null || filename.isBlank()) {
+            log.warn("Ignoring report PDF DM: invalid pdf bytes or filename for user {}", discordUserId);
+            return;
+        }
+
         jda.retrieveUserById(discordUserId).queue(
             user -> user.openPrivateChannel().queue(
                 channel -> {

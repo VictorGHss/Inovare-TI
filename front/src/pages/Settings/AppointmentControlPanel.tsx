@@ -3,6 +3,7 @@ import { AlertTriangle, PlayCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import BlipTemplateSelector from './BlipTemplateSelector';
+import { getApiErrorMessage } from '../../lib/apiError';
 import {
   getAppointmentMotorConfig,
   triggerAppointmentMotorManual,
@@ -39,8 +40,8 @@ export default function AppointmentControlPanel() {
       toast.success(`Motor executado com sucesso. Mensagens enviadas: ${result.messages_sent}.`);
       setConfirmOpen(false);
       await loadConfig();
-    } catch {
-      toast.error('Falha ao executar o motor de confirmação manualmente.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Falha ao executar o motor de confirmação manualmente.'));
     } finally {
       setRunning(false);
     }

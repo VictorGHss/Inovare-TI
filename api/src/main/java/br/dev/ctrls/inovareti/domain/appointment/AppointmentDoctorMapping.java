@@ -25,7 +25,7 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DoctorMapping {
+public class AppointmentDoctorMapping {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -33,6 +33,9 @@ public class DoctorMapping {
 
     @Column(name = "profissional_id", nullable = false, length = 64, unique = true)
     private String profissionalId;
+
+    @Column(name = "profissional_nome", length = 255)
+    private String profissionalNome;
 
     @Column(name = "secretary_names", length = 255)
     private String secretaryNames;
@@ -42,6 +45,15 @@ public class DoctorMapping {
 
     @Column(name = "is_external", nullable = false)
     private boolean external;
+
+    @Column(name = "itsm_user_id", length = 120)
+    private String itsmUserId;
+
+    @Column(name = "discord_webhook_url", length = 500)
+    private String discordWebhookUrl;
+
+    @Column(name = "external_wa_link", length = 500)
+    private String externalWaLink;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -318,5 +318,45 @@
     "name": "app.appointment.motor.blip-agendamento-bot-id",
     "type": "java.lang.String",
     "description": "A description for 'app.appointment.motor.blip-agendamento-bot-id'"
+  },
+  {
+    "name": "app.blip.bot-identity",
+    "type": "java.lang.String",
+    "description": "A description for 'app.blip.bot-identity'"
+  },
+  {
+    "name": "app.appointment.motor.feegow-confirmed-status-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.feegow-confirmed-status-id'"
+  },
+  {
+    "name": "app.notification.discord-webhook",
+    "type": "java.lang.String",
+    "description": "A description for 'app.notification.discord-webhook'"
+  },
+  {
+    "name": "app.notification.itsm-bot-api-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.notification.itsm-bot-api-url'"
+  },
+  {
+    "name": "app.notification.itsm-bot-api-token",
+    "type": "java.lang.String",
+    "description": "A description for 'app.notification.itsm-bot-api-token'"
+  },
+  {
+    "name": "app.appointment.motor.feegow-status-path",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.feegow-status-path'"
+  },
+  {
+    "name": "app.appointment.motor.blip-desk-key",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-desk-key'"
+  },
+  {
+    "name": "app.appointment.motor.blip-router-key",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-router-key'"
   }
 ]}

@@ -21,9 +21,14 @@ public class AppointmentMotorProperties {
     private String feegowBaseUrl;
     private String feegowSearchPath;
     private String feegowPatientPath;
+    private String feegowProfessionalPath;
+    private String feegowStatusPath;
+    private String feegowConfirmedStatusId;
     private String feegowUpdateStatusPath;
     private String blipBaseUrl;
     private String blipAuthorizationKey;
+    private String blipRouterKey;
+    private String blipDeskKey;
     private String blipSendMessagePath;
     private String blipSetContextPath;
     private String blipRouterIdentity;

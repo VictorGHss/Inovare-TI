@@ -1,4 +1,5 @@
 import api, { buildApiUrl } from './api';
+import type { AxiosResponse } from 'axios';
 
 const APPOINTMENT_ADMIN_MAPPINGS_URL = buildApiUrl('/api/v1/appointments/admin/mappings');
 const APPOINTMENT_ADMIN_SYNC_MAPPINGS_URL = buildApiUrl('/api/v1/appointments/admin/sync-mappings');
@@ -77,9 +78,8 @@ export async function getMappings(): Promise<DoctorMapping[]> {
   return data;
 }
 
-export async function syncMappings(data: DoctorMapping[]): Promise<SyncMappingsResponse> {
-  const { data: response } = await api.patch<SyncMappingsResponse>(APPOINTMENT_ADMIN_SYNC_MAPPINGS_URL, data);
-  return response;
+export async function syncMappings(data: DoctorMapping[]): Promise<AxiosResponse<SyncMappingsResponse>> {
+  return await api.patch<SyncMappingsResponse>(APPOINTMENT_ADMIN_SYNC_MAPPINGS_URL, data);
 }
 
 export async function getBlipQueuesDebug(): Promise<BlipDebugQueuesPayload> {

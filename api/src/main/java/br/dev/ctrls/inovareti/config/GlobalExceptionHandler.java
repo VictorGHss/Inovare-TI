@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.config;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -7,14 +8,17 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
@@ -24,8 +28,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Tratamento centralizado de exceções da API.
- * Padroniza as respostas de erro no formato RFC 7807 (Problem Details).
+ * Centralized exception handling for the API. Produces RFC7807 Problem Details
+ * responses for client-visible errors and logs external service failures.
  */
 @Slf4j
 @RestControllerAdvice
@@ -34,10 +38,6 @@ public class GlobalExceptionHandler {
     private static final Pattern REST_TEMPLATE_QUOTED_URL_PATTERN = Pattern.compile("for \\\"([^\\\"]+)\\\"");
     private static final Pattern GENERIC_HTTP_URL_PATTERN = Pattern.compile("https?://[^\\s]+", Pattern.CASE_INSENSITIVE);
 
-    /**
-     * Trata erros de validação de campos (@Valid / @Validated).
-     * Retorna HTTP 400 com o mapa de campos inválidos.
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = ex.getBindingResult()
@@ -55,10 +55,6 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /**
-     * Trata conflitos de unicidade (ex.: nome duplicado).
-     * Retorna HTTP 409 Conflict.
-     */
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
@@ -67,10 +63,6 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /**
-     * Trata recursos não encontrados (ex.: setor inexistente).
-     * Retorna HTTP 404 Not Found.
-     */
     @ExceptionHandler(NotFoundException.class)
     public ProblemDetail handleNotFound(NotFoundException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
@@ -79,13 +71,9 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /**
-     * Trata violações de regras de negócio (ex.: estoque insuficiente).
-     * Retorna HTTP 422 Unprocessable Entity.
-     */
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(422));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_CONTENT);
         problem.setTitle("Business rule violated");
         problem.setDetail(ex.getMessage());
         return problem;
@@ -93,7 +81,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(FileSizeLimitExceededException.class)
     public ProblemDetail handleFileSizeLimitExceeded(FileSizeLimitExceededException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
         problem.setTitle("File exceeds size limit");
         problem.setDetail(ex.getMessage());
         return problem;
@@ -101,7 +89,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(org.springframework.http.HttpStatusCode.valueOf(413));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
         problem.setTitle("File exceeds size limit");
         problem.setDetail("The file exceeds the maximum allowed size of 5MB");
         return problem;
@@ -150,25 +138,34 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /**
-     * Trata exceções genéricas não capturadas pelos handlers específicos.
-     * Retorna HTTP 500 Internal Server Error.
-     * IMPORTANTE: Registra o stack trace completo no log para debug.
-     */
-    @ExceptionHandler(Exception.class)
-    public ProblemDetail handleGenericException(Exception ex) {
-        log.error("Unexpected system error:", ex);
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-        problem.setTitle("Internal Server Error");
-        problem.setDetail("An unexpected error occurred. Please contact support.");
+    @ExceptionHandler(HttpStatusCodeException.class)
+    public ProblemDetail handleHttpStatusCodeException(HttpStatusCodeException ex, HttpServletRequest request) {
+        int status = ex.getStatusCode().value();
+        String requestId = request != null ? request.getHeader("X-Request-Id") : null;
+        if (requestId == null || requestId.isBlank()) {
+            requestId = "-";
+        }
+
+        String requestUrl = resolveOutboundUrl(extractUrlFromRestClientException(ex), request);
+        String body = "";
+        try {
+            body = ex.getResponseBodyAsString();
+        } catch (Exception ignore) {
+        }
+
+        if (status >= 500) {
+            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId, ex);
+        } else {
+            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId);
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
+        problem.setTitle("External service error");
+        problem.setDetail(body != null && !body.isBlank() ? body : ex.getMessage());
+        problem.setProperty("request_id", requestId);
         return problem;
     }
 
-    /**
-     * Trata erros originados de chamadas HTTP a serviços externos (ex.: ContaAzul).
-     * Garante que corpo/HTTP status e `X-Request-Id` (quando presente) sejam logados
-     * para facilitar rastreio das requisições externas.
-     */
     @ExceptionHandler(RestClientResponseException.class)
     public ProblemDetail handleExternalServiceError(RestClientResponseException ex, HttpServletRequest request) {
         String requestId = request != null ? request.getHeader("X-Request-Id") : null;
@@ -201,6 +198,47 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(WebClientResponseException.class)
+    public ProblemDetail handleWebClientResponseException(WebClientResponseException ex, HttpServletRequest request) {
+        String requestId = request != null ? request.getHeader("X-Request-Id") : null;
+        if (requestId == null || requestId.isBlank()) {
+            requestId = "-";
+        }
+
+        int status = ex.getStatusCode() != null ? ex.getStatusCode().value() : 0;
+        String requestUrl = resolveOutboundUrl(null, request);
+        String body = "";
+        try {
+            body = ex.getResponseBodyAsString();
+        } catch (Exception ignore) {
+        }
+
+        if (status >= 500) {
+            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId, ex);
+        } else {
+            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId);
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
+        problem.setTitle("External service error");
+        problem.setDetail(body != null && !body.isBlank() ? body : ex.getMessage());
+        problem.setProperty("request_id", requestId);
+        return problem;
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponseDTO> handleGenericException(Exception ex, HttpServletRequest request) {
+        log.error("Unexpected system error:", ex);
+        ErrorResponseDTO body = new ErrorResponseDTO(
+                LocalDateTime.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                "An unexpected error occurred. Please contact support.",
+                resolveRequestUrl(request)
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
     private boolean isPlanIneligibleResponse(String responseBody) {
         if (responseBody == null || responseBody.isBlank()) {
             return false;
@@ -210,7 +248,7 @@ public class GlobalExceptionHandler {
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 
-    private String extractUrlFromRestClientException(RestClientResponseException ex) {
+    private String extractUrlFromRestClientException(Exception ex) {
         if (ex == null || ex.getMessage() == null || ex.getMessage().isBlank()) {
             return null;
         }
@@ -261,5 +299,8 @@ public class GlobalExceptionHandler {
         }
 
         return baseUrl + "?" + query;
+    }
+
+    public static record ErrorResponseDTO(LocalDateTime timestamp, int status, String error, String message, String path) {
     }
 }

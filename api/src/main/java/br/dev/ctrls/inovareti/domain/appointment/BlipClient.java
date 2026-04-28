@@ -627,10 +627,11 @@ public class BlipClient {
                 .toUriString();
 
         Map<String, Object> command = Map.of(
-                "id", UUID.randomUUID().toString(),
-                "to", toIdentity,
-                "method", "get",
-                "uri", commandUri);
+            "id", UUID.randomUUID().toString(),
+            // For WhatsApp templates fetch, always target the WA gateway identity
+            "to", DEFAULT_ROUTER_IDENTITY,
+            "method", "get",
+            "uri", commandUri);
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 

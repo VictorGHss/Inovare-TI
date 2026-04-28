@@ -235,13 +235,14 @@ public class FeegowClient {
 
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
-            ? "/profissionais/listar"
+            ? "/professional/list"
             : configuredPath;
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("profissional_id", id)
-            .queryParam("ativo", "1");
+            .queryParam("ativo", "1")
+            .queryParam("unidade_id", "1");
 
         String url = uriBuilder.build().toUriString();
 
@@ -273,50 +274,10 @@ public class FeegowClient {
                 return resolved.trim();
             }
         } catch (RestClientResponseException ex) {
-            // If Feegow returned 422, try a fallback including unidade_id=1
-            if (ex.getStatusCode().value() == 404) {
-                log.debug("Profissional não encontrado na Feegow para id={}", id);
-            } else if (ex.getStatusCode().value() == 422) {
-                log.warn("Feegow retornou 422 ao buscar profissional id={}. Tentando fallback com unidade_id=1", id);
-                try {
-                    String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
-                            .path(resolvedPath)
-                            .queryParam("profissional_id", id)
-                            .queryParam("ativo", "1")
-                            .queryParam("unidade_id", "1")
-                            .build()
-                            .toUriString();
-
-                    ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-                    String retryBody = retryResponse.getBody();
-                    if (retryBody != null && !retryBody.isBlank()) {
-                        try {
-                            JsonNode retryRoot = objectMapper.readTree(retryBody);
-                            String resolved = extractProfessionalName(retryRoot);
-                            if (resolved != null && !resolved.isBlank()) {
-                                try {
-                                    if (stringRedisTemplate != null) {
-                                        stringRedisTemplate.opsForValue().set(cacheKey, resolved.trim(), java.time.Duration.ofHours(24));
-                                    }
-                                } catch (RuntimeException rex) {
-                                    log.warn("Falha ao gravar cache Redis para professional name id={}: {}", id, rex.getMessage());
-                                }
-                                return resolved.trim();
-                            }
-                        } catch (JsonProcessingException jex) {
-                            log.warn("Falha ao parsear resposta de retry Feegow (professional id={}) como JSON: {}. Raw body: {}", id, jex.getMessage(), abbreviateResponseBody(retryBody));
-                        }
-                    }
-                } catch (RestClientResponseException rex) {
-                    log.error("Retry HTTP falhou ao buscar profissional na Feegow. status={}, responseBody={}, responseHeaders={}", rex.getStatusCode().value(), abbreviateResponseBody(rex.getResponseBodyAsString()), rex.getResponseHeaders());
-                } catch (RestClientException rex) {
-                    log.warn("Retry falhou ao buscar nome do profissional na Feegow para id={}: {}", id, rex.getMessage());
-                }
-            } else {
-                // Log body and headers to aid diagnosis
-                log.error("Falha HTTP ao buscar nome do profissional na Feegow para id={}. status={}, responseBody={}, responseHeaders={}",
-                        id, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
-            }
+            // Log body and headers to aid diagnosis and rethrow to be handled globally when appropriate
+            log.error("Falha HTTP ao buscar nome do profissional na Feegow para id={}. status={}, responseBody={}, responseHeaders={}",
+                    id, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
+            throw ex;
         } catch (RestClientException ex) {
             log.warn("Falha ao buscar nome do profissional na Feegow para id={}: {}", id, ex.getMessage());
         }
@@ -348,12 +309,13 @@ public class FeegowClient {
     public List<FeegowProfessional> listProfessionals() {
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
-            ? "/profissionais/listar"
+            ? "/professional/list"
             : configuredPath;
 
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                 .path(resolvedPath)
                 .queryParam("ativo", "1")
+                .queryParam("unidade_id", "1")
                 .build()
                 .toUriString();
 
@@ -376,15 +338,17 @@ public class FeegowClient {
 
             try {
                 FeegowResponseDTO dto = objectMapper.readValue(body, FeegowResponseDTO.class);
-                if (dto == null) {
-                    return List.of();
-                }
-
                 List<ProfessionalDTO> items = List.of();
-                if (dto.content() != null && !dto.content().isEmpty()) {
+                if (dto != null && dto.content() != null && !dto.content().isEmpty()) {
                     items = dto.content();
-                } else if (dto.dados() != null && !dto.dados().isEmpty()) {
-                    items = dto.dados();
+                } else {
+                    // fallback: attempt to parse legacy shapes (dados or raw array)
+                    JsonNode root = objectMapper.readTree(body);
+                    if (root.hasNonNull("dados") && root.get("dados").isArray()) {
+                        items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
+                    } else if (root.isArray()) {
+                        items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
+                    }
                 }
 
                 if (items == null || items.isEmpty()) {
@@ -813,6 +777,6 @@ public class FeegowClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record FeegowResponseDTO(Boolean success, List<ProfessionalDTO> content, List<ProfessionalDTO> dados) {
+    public record FeegowResponseDTO(boolean success, List<ProfessionalDTO> content) {
     }
 }

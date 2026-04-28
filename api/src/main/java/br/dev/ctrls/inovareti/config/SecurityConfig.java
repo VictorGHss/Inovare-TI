@@ -52,9 +52,6 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Ensure CORS is applied early
-        http.cors(Customizer.withDefaults());
-
         http
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers(
@@ -67,6 +64,8 @@ public class SecurityConfig {
                         "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH,
                         "/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .disable())
+            // Apply CORS right after disabling CSRF so preflight requests are handled before auth checks
+            .cors(Customizer.withDefaults())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

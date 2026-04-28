@@ -124,13 +124,20 @@ export default function ProfessionalMappingPanel() {
         profissionalNome: String(m.profissionalNome ?? '').trim(),
         isExternal: Boolean(m.isExternal),
       }));
-
-      const resp = await syncMappings(payload);
-      if (resp && resp.status === 'success') {
-        toast.success('Mapeamentos salvos com sucesso.');
-      } else {
-        const reason = (resp as any)?.reason ?? 'Falha desconhecida';
-        toast.error(`Falha ao salvar mapeamentos: ${reason}`);
+      try {
+        const resp = await syncMappings(payload);
+        const status = resp?.status ?? 0;
+        if (status >= 200 && status < 300) {
+          toast.success('Mapeamentos salvos com sucesso.');
+        } else {
+          // If the API client returns a non-2xx response without throwing, ensure we show the real API message
+          const fakeError = { response: { data: resp?.data } } as unknown;
+          const reason = getApiErrorMessage(fakeError, resp?.data?.reason ?? resp?.statusText ?? `HTTP ${status}`);
+          toast.error(reason);
+        }
+      } catch (err) {
+        // axios throws for non-2xx; extract server message when available and show as error
+        toast.error(getApiErrorMessage(err, 'Falha ao salvar mapeamentos.'));
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Falha ao salvar mapeamentos.'));

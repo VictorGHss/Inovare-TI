@@ -77,6 +77,9 @@ public class FeegowClient {
     @Value("${app.feegow.api-key}")
     private String apiKey;
 
+    @Value("${app.appointment.motor.feegow-unidade-id:1}")
+    private String feegowUnidadeId;
+
     @PostConstruct
     public void logFeegowApiKeyStatus() {
         String normalizedApiKey = normalizeApiKey(apiKey);
@@ -238,11 +241,11 @@ public class FeegowClient {
             ? "/professional/list"
             : configuredPath;
 
-        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("profissional_id", id)
             .queryParam("ativo", "1")
-            .queryParam("unidade_id", "1");
+            .queryParam("unidade_id", feegowUnidadeId);
 
         String url = uriBuilder.build().toUriString();
 
@@ -313,11 +316,11 @@ public class FeegowClient {
             : configuredPath;
 
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
-                .path(resolvedPath)
-                .queryParam("ativo", "1")
-                .queryParam("unidade_id", "1")
-                .build()
-                .toUriString();
+            .path(resolvedPath)
+            .queryParam("ativo", "1")
+            .queryParam("unidade_id", feegowUnidadeId)
+            .build()
+            .toUriString();
 
         HttpHeaders headers = buildHeaders();
 
@@ -371,10 +374,73 @@ public class FeegowClient {
             }
 
         } catch (org.springframework.web.client.RestClientResponseException ex) {
-            // Log full response body and headers to help diagnose Feegow 4xx/5xx errors
+            // Log full response body and headers to help diagnose Feegow 4xx/5xx errors (include raw body for debugging)
+            String raw = ex.getResponseBodyAsString();
             log.error("Falha HTTP ao buscar lista de profissionais na Feegow. status={}, responseBody={}, responseHeaders={}",
-                    ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()), ex.getResponseHeaders());
-            // Re-throw so callers (controllers) can decide how to translate HTTP errors to client responses
+                    ex.getStatusCode().value(), abbreviateResponseBody(raw), ex.getResponseHeaders());
+            log.debug("Resposta completa da Feegow ao listar profissionais: {}", raw);
+
+            // Try a common alternate endpoint in case Feegow instance uses a localized path
+            String altPath = "/profissionais/listar";
+            if (!resolvedPath.equals(altPath)) {
+                String altUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                        .path(altPath)
+                        .queryParam("ativo", "1")
+                        .queryParam("unidade_id", feegowUnidadeId)
+                        .build()
+                        .toUriString();
+
+                log.info("Tentando endpoint alternativo Feegow para listar profissionais: {}", altUrl);
+                try {
+                    ResponseEntity<String> altResponse = restTemplate.exchange(altUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    String altBody = altResponse.getBody();
+                    if (altBody == null || altBody.isBlank()) {
+                        return List.of();
+                    }
+
+                    try {
+                        FeegowResponseDTO dto = objectMapper.readValue(altBody, FeegowResponseDTO.class);
+                        List<ProfessionalDTO> items = List.of();
+                        if (dto != null && dto.content() != null && !dto.content().isEmpty()) {
+                            items = dto.content();
+                        } else {
+                            JsonNode root = objectMapper.readTree(altBody);
+                            if (root.hasNonNull("dados") && root.get("dados").isArray()) {
+                                items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
+                            } else if (root.isArray()) {
+                                items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
+                            }
+                        }
+
+                        if (items == null || items.isEmpty()) {
+                            return List.of();
+                        }
+
+                        List<FeegowProfessional> professionals = new ArrayList<>();
+                        for (ProfessionalDTO p : items) {
+                            if (p == null) continue;
+                            String id = p.id() == null ? null : String.valueOf(p.id());
+                            String name = p.nome() == null ? null : p.nome();
+                            if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
+                                professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
+                            }
+                        }
+
+                        return professionals;
+                    } catch (JsonProcessingException jex) {
+                        log.warn("Falha ao parsear resposta Feegow (lista profissionais) do endpoint alternativo como JSON via DTO: {}. Raw body: {}", jex.getMessage(), abbreviateResponseBody(altBody));
+                        return List.of();
+                    }
+                } catch (org.springframework.web.client.RestClientResponseException altEx) {
+                    String altRaw = altEx.getResponseBodyAsString();
+                    log.error("Falha HTTP no endpoint alternativo Feegow. status={}, responseBody={}", altEx.getStatusCode().value(), abbreviateResponseBody(altRaw));
+                    log.debug("Resposta completa do endpoint alternativo: {}", altRaw);
+                } catch (RestClientException altEx) {
+                    log.warn("Erro ao chamar endpoint alternativo Feegow: {}", altEx.getMessage());
+                }
+            }
+
+            // Re-throw original exception so callers can handle mapping to API responses
             throw ex;
         } catch (RestClientException ex) {
             log.warn("Falha ao buscar lista de profissionais na Feegow: {}", ex.getMessage());

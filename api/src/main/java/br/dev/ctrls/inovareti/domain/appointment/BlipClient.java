@@ -436,8 +436,20 @@ public class BlipClient {
                 }
             }
 
-            log.warn("Nenhuma identidade retornou templates. Aplicando fallback estático.");
-            return staticTemplateFallback();
+                log.warn("Nenhuma identidade retornou templates. Aplicando fallback estático.");
+
+                // Diagnóstico adicional: mostrar se há chaves configuradas e uma versão mascarada delas
+                String routerResolved = normalizeAuthorizationKey(firstNonBlank(routerKey, properties.getBlipRouterKey()));
+                String deskResolved = normalizeAuthorizationKey(firstNonBlank(deskKey, properties.getBlipDeskKey()));
+                String routerMasked = routerResolved == null ? "[none]" : maskAuthorizationToken("Key " + routerResolved);
+                String deskMasked = deskResolved == null ? "[none]" : maskAuthorizationToken("Key " + deskResolved);
+                log.info("Blip templates diagnostics: routerKeyPresent={}, deskKeyPresent={}, routerKeyMasked={}, deskKeyMasked={}",
+                    routerResolved != null && !routerResolved.isBlank(),
+                    deskResolved != null && !deskResolved.isBlank(),
+                    routerMasked,
+                    deskMasked);
+
+                return staticTemplateFallback();
 
         } catch (HttpStatusCodeException httpEx) {
             log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",

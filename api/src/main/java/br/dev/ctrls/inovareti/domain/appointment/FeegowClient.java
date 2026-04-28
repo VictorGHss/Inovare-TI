@@ -77,7 +77,7 @@ public class FeegowClient {
     @Value("${app.feegow.api-key}")
     private String apiKey;
 
-    @Value("${app.appointment.motor.feegow-unidade-id:1}")
+    @Value("${FEEGOW_UNIDADE_ID:1}")
     private String feegowUnidadeId;
 
     @PostConstruct
@@ -250,6 +250,16 @@ public class FeegowClient {
         String url = uriBuilder.build().toUriString();
 
         HttpHeaders headers = buildHeaders();
+        // Log sanitized outgoing headers to aid diagnosis (mask x-access-token)
+        try {
+            Map<String, String> sanitized = new java.util.LinkedHashMap<>(headers.toSingleValueMap());
+            if (sanitized.containsKey("x-access-token")) {
+                sanitized.put("x-access-token", maskToken(sanitized.get("x-access-token")));
+            }
+            log.info("Feegow outgoing headers (sanitized) for professional lookup: {}", sanitized);
+        } catch (Exception e) {
+            log.warn("Falha ao serializar headers para log de diagnóstico Feegow: {}", e.getMessage());
+        }
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
             String body = response.getBody();
@@ -324,12 +334,15 @@ public class FeegowClient {
 
         HttpHeaders headers = buildHeaders();
 
-        // Log token presence (masked) to help diagnose permission issues without printing secret
-        String token = headers.getFirst("x-access-token");
-        if (token == null || token.isBlank()) {
-            log.warn("Token Feegow ausente ao listar profissionais; verifique permissões da chave de API.");
-        } else {
-            log.debug("Token Feegow presente (masked={}) ao listar profissionais", maskToken(token));
+        // Log sanitized outgoing headers (mask token) to help diagnose Feegow errors
+        try {
+            Map<String, String> sanitized = new java.util.LinkedHashMap<>(headers.toSingleValueMap());
+            if (sanitized.containsKey("x-access-token")) {
+                sanitized.put("x-access-token", maskToken(sanitized.get("x-access-token")));
+            }
+            log.info("Feegow outgoing headers (sanitized) for listing professionals: {}", sanitized);
+        } catch (Exception e) {
+            log.warn("Falha ao serializar headers para log de diagnóstico Feegow: {}", e.getMessage());
         }
 
         try {

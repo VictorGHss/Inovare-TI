@@ -12,4 +12,8 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
     List<StockMovement> findByItemIdAndTypeOrderByDateDesc(UUID itemId, StockMovementType type);
 
     List<StockMovement> findByReferenceStartingWithOrderByDateDesc(String referencePrefix);
+
+    // Busca movimentos por prefixo de referência e por tipo (IN/OUT).
+    // Usado em relatórios que devem considerar apenas saídas (OUT).
+    List<StockMovement> findByReferenceStartingWithAndTypeOrderByDateDesc(String referencePrefix, StockMovementType type);
 }

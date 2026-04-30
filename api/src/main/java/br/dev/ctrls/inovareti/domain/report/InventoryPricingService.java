@@ -15,6 +15,7 @@ import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockMovement;
 import br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository;
+import br.dev.ctrls.inovareti.domain.inventory.StockMovementType;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,7 +89,8 @@ public class InventoryPricingService {
         // 2) Fallback: somar unit_price_at_time dos movimentos de estoque referenciando o ticket
         try {
             String prefix = "TICKET:" + ticket.getId();
-            List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithOrderByDateDesc(prefix);
+            // Busca apenas movimentos do tipo OUT referenciando o chamado
+            List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(prefix, StockMovementType.OUT);
             if (movements != null && !movements.isEmpty()) {
                 BigDecimal sum = BigDecimal.ZERO;
                 for (StockMovement movement : movements) {

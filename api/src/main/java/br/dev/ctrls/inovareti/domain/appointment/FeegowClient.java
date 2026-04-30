@@ -83,8 +83,6 @@ public class FeegowClient {
     @Value("${app.feegow.unidade-id}")
     private String feegowUnidadeId;
 
-    @Value("${FEEGOW_LOCAL_ID}")
-    private String feegowLocalId;
 
     public void logFeegowApiKeyStatus() {
         String normalizedApiKey = normalizeApiKey(apiKey);
@@ -617,20 +615,10 @@ public class FeegowClient {
     }
 
     private String resolveLocalId() {
-        // Prefer explicit FEEGOW_LOCAL_ID. If not present, fall back to the canonical
-        // FEEGOW_UNIDADE_ID for compatibility, then to configured properties.
-        String env = System.getenv("FEEGOW_LOCAL_ID");
-        if (env != null && !env.isBlank() && !"0".equals(env.trim())) {
-            return env.trim();
-        }
-
+        // Use canonical FEEGOW_UNIDADE_ID only (env or configured property).
         String unidadeEnv = System.getenv("FEEGOW_UNIDADE_ID");
         if (unidadeEnv != null && !unidadeEnv.isBlank() && !"0".equals(unidadeEnv.trim())) {
             return unidadeEnv.trim();
-        }
-
-        if (feegowLocalId != null && !feegowLocalId.isBlank() && !"0".equals(feegowLocalId.trim())) {
-            return feegowLocalId.trim();
         }
 
         if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {

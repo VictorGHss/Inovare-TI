@@ -734,21 +734,7 @@ public class BlipClient {
         return String.valueOf(value);
     }
 
-    private List<String> buildTemplateFetchIdentities() {
-        Set<String> identities = new LinkedHashSet<>();
-        // Em arquitetura Router + Shared WABA, consultar como sub-bot pode expor templates do namespace.
-        identities.add(DEFAULT_BUILDER_BOT_IDENTITY);
-        addIfNotBlank(identities, properties.getBlipBuilderBotId());
-        identities.add(resolveRouterIdentity());
-        addIfNotBlank(identities, properties.getBlipAgendamentoBotId());
-        return new ArrayList<>(identities);
-    }
-
-    private void addIfNotBlank(Set<String> identities, String candidate) {
-        if (candidate != null && !candidate.isBlank()) {
-            identities.add(candidate.trim());
-        }
-    }
+    // Removed unused template identity helpers (buildTemplateFetchIdentities / addIfNotBlank)
 
     private boolean hasDocuments(BlipTemplateResponse response) {
         return response != null
@@ -817,25 +803,24 @@ public class BlipClient {
     private String resolveAuthorizationKey(AuthorizationScope scope) {
         // Prefer explicit environment variables when present to avoid
         // ambiguity with property name mappings in different deployers.
-        switch (scope) {
-            case ROUTER: {
+        return switch (scope) {
+            case ROUTER -> {
                 // Support both legacy and current env var names
                 String env1 = System.getenv("APP_BLIP_ROUTER_KEY");
-                if (env1 != null && !env1.isBlank()) return env1.trim();
+                if (env1 != null && !env1.isBlank()) yield env1.trim();
                 String env2 = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
-                if (env2 != null && !env2.isBlank()) return env2.trim();
-                return firstNonBlank(routerKey, properties.getBlipRouterKey());
+                if (env2 != null && !env2.isBlank()) yield env2.trim();
+                yield firstNonBlank(routerKey, properties.getBlipRouterKey());
             }
-            case DESK: {
+            case DESK -> {
                 String env1 = System.getenv("APP_BLIP_DESK_KEY");
-                if (env1 != null && !env1.isBlank()) return env1.trim();
+                if (env1 != null && !env1.isBlank()) yield env1.trim();
                 String env2 = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
-                if (env2 != null && !env2.isBlank()) return env2.trim();
-                return firstNonBlank(deskKey, properties.getBlipDeskKey());
+                if (env2 != null && !env2.isBlank()) yield env2.trim();
+                yield firstNonBlank(deskKey, properties.getBlipDeskKey());
             }
-            default:
-                return null;
-        }
+            default -> null;
+        };
     }
 
     private String firstNonBlank(String... values) {

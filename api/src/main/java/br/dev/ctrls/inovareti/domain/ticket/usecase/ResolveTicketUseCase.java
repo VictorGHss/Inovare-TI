@@ -90,38 +90,47 @@ public class ResolveTicketUseCase {
         }
 
         // Debita estoque se o chamado tiver item solicitado
-                if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
-                        String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
-                        java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                                        ticket.getRequestedItem().getId(),
-                                        ticket.getRequestedQuantity(),
-                                        reference
-                        );
-                        // Registra débito financeiro com base no valor apurado pela dedução FIFO
-                        financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-                        log.info("Stock debited with FIFO for requested item in ticket {}", ticketId);
+        // Observações em Português: garantimos aqui que a dedução de estoque
+        // será realizada dentro da mesma transação que marca o chamado como RESOLVED.
+        // O parâmetro `reference` segue o padrão: "TICKET:{ticketId}" para garantir
+        // que relatórios que buscam por prefixo (ex.: TICKET:{id}) encontrem o movimento.
+        if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
+            if (ticket.getRequestedQuantity() <= 0) {
+                throw new IllegalStateException("Quantidade solicitada deve ser maior ou igual a 1.");
+            }
 
-                        // Garantia adicional: se por algum motivo o serviço de dedução não persistiu
-                        // o movimento de estoque, criaremos um fallback para não perder a trilha.
-                        // Isso assegura que o Relatório de Saídas veja o movimento associado ao Chamado.
-                        try {
-                                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
-                                if (movements == null || movements.isEmpty()) {
-                                        StockMovement movement = StockMovement.builder()
-                                                        .itemId(ticket.getRequestedItem().getId())
-                                                        .type(StockMovementType.OUT)
-                                                        .quantity(ticket.getRequestedQuantity())
-                                                        .reference(reference)
-                                                        .date(LocalDateTime.now())
-                                                        .unitPriceAtTime(totalDeduction)
-                                                        .build();
-                                        stockMovementRepository.save(movement);
-                                        log.info("Fallback: StockMovement criado para ticket {} (requestedItem)", ticketId);
-                                }
-                        } catch (Exception e) {
-                                log.warn("Falha ao verificar/criar fallback de StockMovement para ticket {}: {}", ticketId, e.getMessage());
-                        }
+            String reference = "TICKET:" + ticketId;
+            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
+                    ticket.getRequestedItem().getId(),
+                    ticket.getRequestedQuantity(),
+                    reference
+            );
+
+            // Registra débito financeiro com base no valor apurado pela dedução FIFO
+            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
+            log.info("Stock debited with FIFO for requested item in ticket {}", ticketId);
+
+            // Fallback de segurança: caso o StockDeductionService não tenha persistido
+            // o movimento (situação incomum), cria-se um registro adicional para
+            // preservar a trilha de auditoria e permitir que relatórios encontrem a saída.
+            try {
+                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
+                if (movements == null || movements.isEmpty()) {
+                    StockMovement movement = StockMovement.builder()
+                            .itemId(ticket.getRequestedItem().getId())
+                            .type(StockMovementType.OUT)
+                            .quantity(ticket.getRequestedQuantity())
+                            .reference(reference)
+                            .date(LocalDateTime.now())
+                            .unitPriceAtTime(totalDeduction)
+                            .build();
+                    stockMovementRepository.save(movement);
+                    log.info("Fallback: StockMovement criado para ticket {} (requestedItem)", ticketId);
                 }
+            } catch (Exception e) {
+                log.warn("Falha ao verificar/criar fallback de StockMovement para ticket {}: {}", ticketId, e.getMessage());
+            }
+        }
 
         if (request.assetIdToDeliver() != null && request.newAssetToDeliver() != null) {
             throw new IllegalStateException(
@@ -206,36 +215,43 @@ public class ResolveTicketUseCase {
         }
 
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
-                if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
-                        String reference = "TICKET:" + ticketId + "|REQUESTER:" + ticket.getRequester().getId();
-                        java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                                        request.inventoryItemIdToDeliver(),
-                                        request.quantityToDeliver(),
-                                        reference
-                        );
-                        // Registra débito financeiro para a entrega manual de item (INVENTORY)
-                        financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-                        log.info("Stock debited with FIFO for manual item delivery in ticket {}", ticketId);
+        // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
+        // Garantimos quantidade mínima e uso do padrão de referência `TICKET:{id}`
+        if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
+            if (request.quantityToDeliver() <= 0) {
+                throw new IllegalStateException("Quantidade para entrega deve ser maior ou igual a 1.");
+            }
 
-                        // Mesmo fallback para entregas manuais: garante persistência do movimento OUT
-                        try {
-                                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
-                                if (movements == null || movements.isEmpty()) {
-                                        StockMovement movement = StockMovement.builder()
-                                                        .itemId(request.inventoryItemIdToDeliver())
-                                                        .type(StockMovementType.OUT)
-                                                        .quantity(request.quantityToDeliver())
-                                                        .reference(reference)
-                                                        .date(LocalDateTime.now())
-                                                        .unitPriceAtTime(totalDeduction)
-                                                        .build();
-                                        stockMovementRepository.save(movement);
-                                        log.info("Fallback: StockMovement criado para ticket {} (manual delivery)", ticketId);
-                                }
-                        } catch (Exception e) {
-                                log.warn("Falha ao verificar/criar fallback de StockMovement para entrega manual no ticket {}: {}", ticketId, e.getMessage());
-                        }
+            String reference = "TICKET:" + ticketId;
+            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
+                    request.inventoryItemIdToDeliver(),
+                    request.quantityToDeliver(),
+                    reference
+            );
+
+            // Registra débito financeiro para a entrega manual de item (INVENTORY)
+            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
+            log.info("Stock debited with FIFO for manual item delivery in ticket {}", ticketId);
+
+            // Mesmo fallback para entregas manuais: garante persistência do movimento OUT
+            try {
+                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
+                if (movements == null || movements.isEmpty()) {
+                    StockMovement movement = StockMovement.builder()
+                            .itemId(request.inventoryItemIdToDeliver())
+                            .type(StockMovementType.OUT)
+                            .quantity(request.quantityToDeliver())
+                            .reference(reference)
+                            .date(LocalDateTime.now())
+                            .unitPriceAtTime(totalDeduction)
+                            .build();
+                    stockMovementRepository.save(movement);
+                    log.info("Fallback: StockMovement criado para ticket {} (manual delivery)", ticketId);
                 }
+            } catch (Exception e) {
+                log.warn("Falha ao verificar/criar fallback de StockMovement para entrega manual no ticket {}: {}", ticketId, e.getMessage());
+            }
+        }
 
         // Marca o chamado como resolvido
         ticket.setStatus(TicketStatus.RESOLVED);

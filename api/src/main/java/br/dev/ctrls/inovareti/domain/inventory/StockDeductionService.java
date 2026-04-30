@@ -29,6 +29,12 @@ public class StockDeductionService {
      * `unit_price_at_time` do `StockMovement` para registrar a "verdade financeira"
      * do custo por lote na saída.
      *
+     * IMPORTANTE: este método exige que exista uma transação ativa no caller.
+     * A anotação `@Transactional(propagation = Propagation.MANDATORY)` força que
+     * a dedução ocorra na mesma transação que a operação de fechamento do chamado
+     * (por exemplo, `ResolveTicketUseCase.execute(...)`), garantindo atomicidade
+     * entre a redução de `current_stock` e a persistência do `StockMovement`.
+     *
      * Retorna o valor total (BigDecimal) da dedução, que pode ser utilizado para
      * gerar lançamentos financeiros por centro de custo.
      */

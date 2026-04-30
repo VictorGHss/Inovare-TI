@@ -92,15 +92,18 @@ public class InventoryPricingService {
             // Busca apenas movimentos do tipo OUT referenciando o chamado
             List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(prefix, StockMovementType.OUT);
             if (movements != null && !movements.isEmpty()) {
+                // Se existirem movimentos vinculados ao ticket, somamos seus valores.
+                // Observação: alguns movimentos gerados automaticamente podem ter
+                // `unit_price_at_time` nulo. Tratamos nulos como zero para que o
+                // relatório inclua as saídas do ticket (mesmo com preço não registrado).
                 BigDecimal sum = BigDecimal.ZERO;
                 for (StockMovement movement : movements) {
-                    if (movement.getUnitPriceAtTime() != null) {
-                        sum = sum.add(movement.getUnitPriceAtTime());
-                    }
+                    BigDecimal price = Optional.ofNullable(movement.getUnitPriceAtTime()).orElse(BigDecimal.ZERO);
+                    sum = sum.add(price);
                 }
-                if (sum.compareTo(BigDecimal.ZERO) > 0) {
-                    return sum;
-                }
+                // Retornamos a soma mesmo que seja zero — isso garante que tickets
+                // com movimentos registrados apareçam no Relatório de Saídas.
+                return sum;
             }
         } catch (Exception e) {
             log.warn("Erro ao buscar movimentos para ticket {}: {}", ticket.getId(), e.getMessage());

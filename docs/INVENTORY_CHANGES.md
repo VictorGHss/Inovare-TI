@@ -32,6 +32,14 @@ Transacionalidade:
   lotes (`stock_batch`) e persistência do `stock_movement` são comprometidos
   ou revertidos juntos.
 
+Relatórios:
+- O cálculo de valor do relatório de saídas agora aceita movimentos onde
+  `unit_price_at_time` é nulo. Nesses casos, o valor é tratado como zero e,
+  se houver ao menos um movimento referenciando o `TICKET:{id}`, o total do
+  ticket será a soma dos `unit_price_at_time` (com nulos = 0). Isso evita que
+  saídas de tickets sejam ignoradas pelo relatório apenas por falta do preço
+  registrado no movimento.
+
 Arquivos alterados:
 - `ResolveTicketUseCase.java` — fallback de persistência e comentários em PT-BR
 - `InventoryPricingService.java` — filtra movimentos por `StockMovementType.OUT`

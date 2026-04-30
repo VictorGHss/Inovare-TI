@@ -234,6 +234,7 @@ export default function ProfessionalMappingPanel() {
                   <td className="px-4 py-3 align-middle">
                     <button
                       type="button"
+                      disabled={!row.id}
                       onClick={async () => {
                         if (!confirm(`Confirma excluir mapeamento para ID ${row.profissionalId}?`)) return;
                         try {
@@ -248,7 +249,7 @@ export default function ProfessionalMappingPanel() {
                           toast.error(getApiErrorMessage(err, 'Falha ao excluir mapeamento.'));
                         }
                       }}
-                      className="inline-flex items-center gap-2 rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                      className="inline-flex items-center gap-2 rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 size={14} />
                       Excluir

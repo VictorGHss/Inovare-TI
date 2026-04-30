@@ -53,10 +53,10 @@ public class BlipClient {
         }
 
         String normalizedIdentity = normalizeUserIdentity(identity);
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         Map<String, Object> resource = Map.of(
             "identity", normalizedIdentity,
@@ -101,6 +101,7 @@ public class BlipClient {
     private static final String MASTER_STATE_COMMAND_TO = "postmaster@msging.net";
     private static final String THREAD_TRANSFER_COMMAND_TO = "postmaster@desk.msging.net";
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
+    private static final String ROTEADOR_PRINCIPAL_IDENTITY = "roteadorprincipal57@msging.net";
     private static final String DEFAULT_TEMPLATE_PARAMETER_VALUE = "Informação não disponível";
 
     private final RestTemplate restTemplate;
@@ -124,19 +125,19 @@ public class BlipClient {
         this.appointmentDoctorMappingRepository = appointmentDoctorMappingRepository;
     }
 
-    @Value("${APP_BLIP_APPOINTMENT_ID:itsminovare@msging.net}")
+    @Value("${APP_BLIP_APPOINTMENT_ID}")
     private String blipAppointmentId;
 
     @Value("${app.appointment.motor.blip-waba-namespace}")
     private String blipWabaNamespace;
 
-    @Value("${app.appointment.motor.blip-fallback-templates:}")
+    @Value("${app.appointment.motor.blip-fallback-templates}")
     private String blipFallbackTemplates;
 
-    @Value("${app.appointment.motor.blip-router-key:}")
+    @Value("${app.appointment.motor.blip-router-key}")
     private String routerKey;
 
-    @Value("${app.appointment.motor.blip-desk-key:}")
+    @Value("${app.appointment.motor.blip-desk-key}")
     private String deskKey;
 
     @PostConstruct
@@ -159,6 +160,22 @@ public class BlipClient {
         }
     }
 
+    private String resolveBlipBaseUrl() {
+        String configured = properties.getBlipBaseUrl();
+        if (configured != null && !configured.isBlank()) {
+            return configured.trim();
+        }
+
+        if (blipAppointmentId != null && blipAppointmentId.contains("@")) {
+            String org = blipAppointmentId.split("@")[0];
+            if (org != null && !org.isBlank()) {
+                return "https://" + org.trim() + ".http.msging.net";
+            }
+        }
+
+        return configured;
+    }
+
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = normalizeUserIdentity(destination);
 
@@ -166,10 +183,10 @@ public class BlipClient {
         pullUserToAgendamentoBot(normalizedDestination);
         rateLimit();
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSendMessagePath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSendMessagePath())
+            .build()
+            .toUriString();
 
 
         List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
@@ -328,10 +345,10 @@ public class BlipClient {
 
         rateLimit();
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         Map<String, Object> payload = Map.of(
             "id", UUID.randomUUID().toString(),
@@ -520,10 +537,10 @@ public class BlipClient {
     private Map<String, Object> sendDeskCommand(String uri) {
         rateLimit();
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
@@ -556,10 +573,10 @@ public class BlipClient {
         String normalized = normalizeUserIdentity(identity);
         rateLimit();
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
@@ -630,16 +647,16 @@ public class BlipClient {
     private BlipTemplateResponse fetchTemplatesByUri(String commandUri, String toIdentity) {
         rateLimit();
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         // Force target to the Blip gateway router identity (gateway address)
         String target = DEFAULT_ROUTER_IDENTITY;
 
-        // Ensure 'from' is explicitly the router identity (use provided toIdentity or resolve fallback)
-        String fromIdentity = firstNonBlank(toIdentity, resolveRouterIdentity(), DEFAULT_ROUTER_IDENTITY);
+        // Ensure 'from' is explicitly the designated router identity
+        String fromIdentity = ROTEADOR_PRINCIPAL_IDENTITY;
 
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
@@ -947,10 +964,10 @@ public class BlipClient {
         
         log.info("Enviando comando de estado ({}) para a identidade do usuário: {}", stateName, normalizedIdentity);
 
-        String url = UriComponentsBuilder.fromUriString(properties.getBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build()
-                .toUriString();
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
 
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),

@@ -80,10 +80,10 @@ public class FeegowClient {
     @Value("${app.feegow.api-key}")
     private String apiKey;
 
-    @Value("${app.feegow.unidade-id:${FEEGOW_UNIDADE_ID:1}}")
+    @Value("${app.feegow.unidade-id}")
     private String feegowUnidadeId;
 
-    @Value("${FEEGOW_LOCAL_ID:}")
+    @Value("${FEEGOW_LOCAL_ID}")
     private String feegowLocalId;
 
     public void logFeegowApiKeyStatus() {

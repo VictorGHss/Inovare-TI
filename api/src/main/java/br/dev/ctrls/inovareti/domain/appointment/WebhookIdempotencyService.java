@@ -19,7 +19,7 @@ public class WebhookIdempotencyService {
 
     private final StringRedisTemplate redis;
 
-    @Value("${app.appointment.webhook-idempotency-hours:${app.appointment.motor.webhook-idempotency-hours:24}}")
+    @Value("${app.appointment.webhook-idempotency-hours}")
     private long webhookIdempotencyHours;
 
     public boolean registerIfFirstTime(String messageId) {

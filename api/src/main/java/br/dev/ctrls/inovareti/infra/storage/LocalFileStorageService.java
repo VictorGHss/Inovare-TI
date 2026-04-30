@@ -28,7 +28,7 @@ public class LocalFileStorageService {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${app.upload.max-file-size-bytes:5242880}")
+    @Value("${app.upload.max-file-size-bytes}")
     private long maxFileSizeBytes;
 
     private Path uploadPath;

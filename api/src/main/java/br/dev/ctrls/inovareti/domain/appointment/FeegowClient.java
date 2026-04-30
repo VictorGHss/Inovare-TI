@@ -617,9 +617,26 @@ public class FeegowClient {
     }
 
     private String resolveLocalId() {
+        // Prefer explicit FEEGOW_LOCAL_ID. If not present, fall back to the canonical
+        // FEEGOW_UNIDADE_ID for compatibility, then to configured properties.
         String env = System.getenv("FEEGOW_LOCAL_ID");
-        if (env != null && !env.isBlank() && !"0".equals(env.trim())) return env.trim();
-        if (feegowLocalId != null && !feegowLocalId.isBlank() && !"0".equals(feegowLocalId.trim())) return feegowLocalId.trim();
+        if (env != null && !env.isBlank() && !"0".equals(env.trim())) {
+            return env.trim();
+        }
+
+        String unidadeEnv = System.getenv("FEEGOW_UNIDADE_ID");
+        if (unidadeEnv != null && !unidadeEnv.isBlank() && !"0".equals(unidadeEnv.trim())) {
+            return unidadeEnv.trim();
+        }
+
+        if (feegowLocalId != null && !feegowLocalId.isBlank() && !"0".equals(feegowLocalId.trim())) {
+            return feegowLocalId.trim();
+        }
+
+        if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {
+            return feegowUnidadeId.trim();
+        }
+
         return "";
     }
 
@@ -929,16 +946,10 @@ public class FeegowClient {
     }
 
     private String resolveUnidadeId() {
-        // Prefer explicit FEEGOW_UNIDADE_ID env var. Fall back to the configured property
-        // or APP_APPOINTMENT_FEEGOW_UNIDADE_ID for compatibility.
+        // Use a single canonical environment variable for unidade: FEEGOW_UNIDADE_ID.
         String env = System.getenv("FEEGOW_UNIDADE_ID");
         if (env != null && !env.isBlank() && !"0".equals(env.trim())) {
             return env.trim();
-        }
-
-        String altEnv = System.getenv("APP_APPOINTMENT_FEEGOW_UNIDADE_ID");
-        if (altEnv != null && !altEnv.isBlank() && !"0".equals(altEnv.trim())) {
-            return altEnv.trim();
         }
 
         if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {

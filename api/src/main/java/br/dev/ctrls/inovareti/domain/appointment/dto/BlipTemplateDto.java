@@ -5,5 +5,6 @@ package br.dev.ctrls.inovareti.domain.appointment.dto;
  */
 public record BlipTemplateDto(
         String id,
-        String name) {
+        String name,
+        String body) {
 }

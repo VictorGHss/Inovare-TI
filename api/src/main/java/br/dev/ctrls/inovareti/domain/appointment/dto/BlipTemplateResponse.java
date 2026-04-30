@@ -26,6 +26,7 @@ public record BlipTemplateResponse(
             String id,
             String name,
             String status,
-            String content) {
+            String content,
+            String body) {
     }
 }

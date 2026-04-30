@@ -411,26 +411,32 @@ public class BlipClient {
 
         try {
             // Always use router identity + router key when fetching templates
-            String namespace = resolveWabaNamespace();
-            String approvedUri = "/message-templates?status=Approved" + (namespace != null && !namespace.isBlank() ? "&namespace=" + namespace : "");
+            // Temporarily remove namespace filter to test template availability
+            String approvedUri = "/message-templates?status=Approved";
             BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
             if (hasDocuments(approvedResponse)) {
-                logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
-                return approvedResponse.resource().documents().stream()
-                        .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-                        .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                        .collect(Collectors.toList());
+            logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
+            return approvedResponse.resource().documents().stream()
+                .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                .map(template -> new BlipTemplateDto(
+                    template.id(),
+                    template.name(),
+                    (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
+                .collect(Collectors.toList());
             }
 
             log.warn("Sem documentos aprovados via Router ({}). Tentando sem filtro.", routerIdentity);
 
-            String allUri = "/message-templates" + (namespace != null && !namespace.isBlank() ? "?namespace=" + namespace : "");
+            String allUri = "/message-templates";
             BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri(allUri, routerIdentity);
             if (hasDocuments(allStatusesResponse)) {
-                logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
-                return allStatusesResponse.resource().documents().stream()
-                        .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                        .collect(Collectors.toList());
+            logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
+            return allStatusesResponse.resource().documents().stream()
+                .map(template -> new BlipTemplateDto(
+                    template.id(),
+                    template.name(),
+                    (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
+                .collect(Collectors.toList());
             }
 
             log.warn("Router identity {} não retornou templates. Aplicando fallback estático.", routerIdentity);
@@ -632,8 +638,13 @@ public class BlipClient {
         // Force target to the Blip gateway router identity (gateway address)
         String target = DEFAULT_ROUTER_IDENTITY;
 
+        // Ensure 'from' is explicitly the router identity (use provided toIdentity or resolve fallback)
+        String fromIdentity = firstNonBlank(toIdentity, resolveRouterIdentity(), DEFAULT_ROUTER_IDENTITY);
+
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
+            // Explicit envelope 'from' set to the router identity
+            "from", fromIdentity,
             // For WhatsApp templates fetch, always target the Router gateway
             "to", target,
             "method", "get",
@@ -689,10 +700,10 @@ public class BlipClient {
         }
 
         return java.util.Arrays.stream(blipFallbackTemplates.split(","))
-                .map(String::trim)
-                .filter(name -> !name.isBlank())
-                .map(name -> new BlipTemplateDto(name, name))
-                .toList();
+            .map(String::trim)
+            .filter(name -> !name.isBlank())
+            .map(name -> new BlipTemplateDto(name, name, null))
+            .toList();
     }
 
     private String extractBlipMessageId(Map<String, Object> responseBody) {

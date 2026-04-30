@@ -14,11 +14,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,7 +74,38 @@ public class AppointmentMotorController {
     @GetMapping("/admin/mappings")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AppointmentDoctorMapping>> getMappings() {
-        return ResponseEntity.ok(appointmentDoctorMappingRepository.findAll());
+        try {
+            List<AppointmentDoctorMapping> mappings = appointmentDoctorMappingRepository.findAll();
+
+            // Attempt to enrich profissionalNome from Feegow where missing
+            try {
+                List<FeegowClient.FeegowProfessional> pros = feegowClient.listProfessionals();
+                if (pros != null && !pros.isEmpty()) {
+                    Map<String, String> idToName = pros.stream()
+                            .filter(p -> p.id() != null)
+                            .collect(Collectors.toMap(p -> String.valueOf(p.id()), p -> p.name(), (a, b) -> a));
+
+                    for (AppointmentDoctorMapping m : mappings) {
+                        if (!StringUtils.hasText(m.getProfissionalNome())) {
+                            String candidate = idToName.get(m.getProfissionalId());
+                            if (StringUtils.hasText(candidate)) {
+                                m.setProfissionalNome(formatProperName(candidate));
+                            }
+                        }
+                    }
+                }
+            } catch (RestClientResponseException ex) {
+                int status = ex.getStatusCode() != null ? ex.getStatusCode().value() : 500;
+                log.warn("Falha ao consultar Feegow para enriquecimento de nomes: status={}, body={}", status, ex.getResponseBodyAsString());
+            } catch (Exception ex) {
+                log.warn("Erro inesperado ao enriquecer nomes de profissionais: {}", ex.getMessage());
+            }
+
+            return ResponseEntity.ok(mappings);
+        } catch (Exception ex) {
+            log.error("Erro inesperado ao listar mappings: {}", ex.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/admin/debug-queues")

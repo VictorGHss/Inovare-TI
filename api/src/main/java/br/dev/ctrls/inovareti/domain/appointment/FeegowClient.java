@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -79,6 +80,9 @@ public class FeegowClient {
 
     @Value("${app.feegow.unidade-id:${FEEGOW_UNIDADE_ID:1}}")
     private String feegowUnidadeId;
+
+    @Value("${FEEGOW_LOCAL_ID:}")
+    private String feegowLocalId;
 
     public void logFeegowApiKeyStatus() {
         String normalizedApiKey = normalizeApiKey(apiKey);
@@ -366,6 +370,8 @@ public class FeegowClient {
             : configuredPath;
 
         String unidadeId = resolveUnidadeId();
+        String localId = resolveLocalId();
+
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("ativo", "1")
@@ -375,6 +381,10 @@ public class FeegowClient {
 
         if (unidadeId != null && !unidadeId.isBlank()) {
             uriBuilder.queryParam("unidade_id", unidadeId);
+        }
+
+        if (localId != null && !localId.isBlank()) {
+            uriBuilder.queryParam("local_id", localId);
         }
 
         String url = uriBuilder.build().toUriString();
@@ -568,6 +578,48 @@ public class FeegowClient {
         }
 
         return List.of();
+    }
+
+    @PostConstruct
+    public void discoverFeegowLocalsOnStartup() {
+        try {
+            if (!properties.isFeegowStartupProbeEnabled()) return;
+            String json = listLocals();
+            if (json != null) {
+                log.info("Feegow locals discovery (startup): {}", json);
+            } else {
+                log.warn("Feegow locals discovery returned empty response at startup.");
+            }
+        } catch (Exception ex) {
+            log.warn("Falha ao executar discovery de locais Feegow no startup: {}", ex.getMessage());
+        }
+    }
+
+    /**
+     * Temporary discovery endpoint to list 'locals' in Feegow for troubleshooting.
+     */
+    public String listLocals() {
+        String path = "/v1/api/company/list-local";
+        String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path(path)
+                .build()
+                .toUriString();
+
+        HttpHeaders headers = buildHeaders();
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            return response.getBody();
+        } catch (RestClientException ex) {
+            log.warn("Erro ao descobrir locais Feegow: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private String resolveLocalId() {
+        String env = System.getenv("FEEGOW_LOCAL_ID");
+        if (env != null && !env.isBlank() && !"0".equals(env.trim())) return env.trim();
+        if (feegowLocalId != null && !feegowLocalId.isBlank() && !"0".equals(feegowLocalId.trim())) return feegowLocalId.trim();
+        return "";
     }
 
         // Diagnostic startup unit discovery removed from production code.

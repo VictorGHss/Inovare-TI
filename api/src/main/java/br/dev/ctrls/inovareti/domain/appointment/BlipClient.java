@@ -409,48 +409,39 @@ public class BlipClient {
      * @return Lista de templates (id, nome) apenas dos aprovados
      */
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
-        List<String> candidateIdentities = buildTemplateFetchIdentities();
-        log.debug("Iniciando diagnóstico de templates com identidades candidatas: {}", candidateIdentities);
+        String routerIdentity = resolveRouterIdentity();
+        log.debug("Buscando templates via Router identity: {}", routerIdentity);
 
         try {
-            for (String identity : candidateIdentities) {
-                BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved", identity);
-
-                if (hasDocuments(approvedResponse)) {
-                    logTemplateSummary(approvedResponse, "status-approved:" + identity);
-                    return approvedResponse.resource().documents().stream()
-                            .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-                            .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                            .collect(Collectors.toList());
-                }
-
-                log.warn("Sem documentos em /message-templates?status=Approved para identity={}. Tentando fallback sem filtro.",
-                        identity);
-
-                BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates", identity);
-                if (hasDocuments(allStatusesResponse)) {
-                    logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + identity);
-                    return allStatusesResponse.resource().documents().stream()
-                            .map(template -> new BlipTemplateDto(template.id(), template.name()))
-                            .collect(Collectors.toList());
-                }
+            // Always use router identity + router key when fetching templates
+            BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved", routerIdentity);
+            if (hasDocuments(approvedResponse)) {
+                logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
+                return approvedResponse.resource().documents().stream()
+                        .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                        .map(template -> new BlipTemplateDto(template.id(), template.name()))
+                        .collect(Collectors.toList());
             }
 
-                log.warn("Nenhuma identidade retornou templates. Aplicando fallback estático.");
+            log.warn("Sem documentos aprovados via Router ({}). Tentando sem filtro.", routerIdentity);
 
-                // Diagnóstico adicional: mostrar se há chaves configuradas e uma versão mascarada delas
-                String routerResolved = normalizeAuthorizationKey(firstNonBlank(routerKey, properties.getBlipRouterKey()));
-                String deskResolved = normalizeAuthorizationKey(firstNonBlank(deskKey, properties.getBlipDeskKey()));
-                String routerMasked = routerResolved == null ? "[none]" : maskAuthorizationToken("Key " + routerResolved);
-                String deskMasked = deskResolved == null ? "[none]" : maskAuthorizationToken("Key " + deskResolved);
-                log.info("Blip templates diagnostics: routerKeyPresent={}, deskKeyPresent={}, routerKeyMasked={}, deskKeyMasked={}",
-                    routerResolved != null && !routerResolved.isBlank(),
-                    deskResolved != null && !deskResolved.isBlank(),
-                    routerMasked,
-                    deskMasked);
+            BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates", routerIdentity);
+            if (hasDocuments(allStatusesResponse)) {
+                logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
+                return allStatusesResponse.resource().documents().stream()
+                        .map(template -> new BlipTemplateDto(template.id(), template.name()))
+                        .collect(Collectors.toList());
+            }
 
-                return staticTemplateFallback();
+            log.warn("Router identity {} não retornou templates. Aplicando fallback estático.", routerIdentity);
 
+            // Diagnostics: masked router key
+            String routerResolved = normalizeAuthorizationKey(resolveAuthorizationKey(AuthorizationScope.ROUTER));
+            String routerMasked = routerResolved == null ? "[none]" : maskAuthorizationToken("Key " + routerResolved);
+            log.info("Blip templates diagnostics: routerKeyPresent={}, routerKeyMasked={}, routerIdentity={}",
+                    routerResolved != null && !routerResolved.isBlank(), routerMasked, routerIdentity);
+
+            return staticTemplateFallback();
         } catch (HttpStatusCodeException httpEx) {
             log.error("Erro HTTP ao buscar templates do Blip. statusCode={}, responseBody={}",
                     httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
@@ -638,20 +629,23 @@ public class BlipClient {
                 .build()
                 .toUriString();
 
+        String target = firstNonBlank(toIdentity, resolveRouterIdentity(), DEFAULT_ROUTER_IDENTITY);
+
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
-            // For WhatsApp templates fetch, always target the WA gateway identity
-            "to", DEFAULT_ROUTER_IDENTITY,
+            // For WhatsApp templates fetch, always target the Router identity
+            "to", target,
             "method", "get",
             "uri", commandUri);
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
+        // Force router authorization scope when fetching templates
         HttpHeaders headers = buildHeaders(AuthorizationScope.ROUTER);
         // Log which (masked) key is being used and the target identity to aid diagnostics
         String resolvedKey = normalizeAuthorizationKey(resolveAuthorizationKey(AuthorizationScope.ROUTER));
         String maskedKey = resolvedKey == null ? "[none]" : maskAuthorizationToken("Key " + resolvedKey);
-        log.info("Buscando templates no Blip. uri={}, toIdentity={}, usedAuthMasked={}, headers={}", commandUri, toIdentity, maskedKey, sanitizeHeadersForDebug(headers));
+        log.info("Buscando templates no Blip. uri={}, toIdentity={}, usedAuthMasked={}, headers={}", commandUri, target, maskedKey, sanitizeHeadersForDebug(headers));
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, headers);
 
@@ -662,10 +656,10 @@ public class BlipClient {
             new ParameterizedTypeReference<BlipTemplateResponse>() {
             });
 
-        logNamespaceHeaders(response.getHeaders(), commandUri, toIdentity);
+        logNamespaceHeaders(response.getHeaders(), commandUri, target);
 
         BlipTemplateResponse responseBody = response.getBody();
-        log.debug("Blip Raw Response [uri={}, to={}]: {}", commandUri, toIdentity, responseBody);
+        log.debug("Blip Raw Response [uri={}, to={}]: {}", commandUri, target, responseBody);
 
         if (responseBody != null && "failure".equalsIgnoreCase(responseBody.status())) {
             log.warn("Blip retornou status=failure para uri={} toIdentity={}. responseHeaders={}, usedHeaders={}. Suggestion: verify the router key has admin rights and that identity {} exposes /message-templates for the namespace.",
@@ -811,13 +805,18 @@ public class BlipClient {
         // ambiguity with property name mappings in different deployers.
         switch (scope) {
             case ROUTER: {
-                String env = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
-                if (env != null && !env.isBlank()) return env.trim();
+                // Support both legacy and current env var names
+                String env1 = System.getenv("APP_BLIP_ROUTER_KEY");
+                if (env1 != null && !env1.isBlank()) return env1.trim();
+                String env2 = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
+                if (env2 != null && !env2.isBlank()) return env2.trim();
                 return firstNonBlank(routerKey, properties.getBlipRouterKey());
             }
             case DESK: {
-                String env = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
-                if (env != null && !env.isBlank()) return env.trim();
+                String env1 = System.getenv("APP_BLIP_DESK_KEY");
+                if (env1 != null && !env1.isBlank()) return env1.trim();
+                String env2 = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
+                if (env2 != null && !env2.isBlank()) return env2.trim();
                 return firstNonBlank(deskKey, properties.getBlipDeskKey());
             }
             default:
@@ -961,6 +960,13 @@ public class BlipClient {
     }
 
     private String resolveRouterIdentity() {
+        // Prefer explicit env var for router id to override property sources when needed
+        String env = System.getenv("APP_BLIP_ROUTER_ID");
+        if (env != null && !env.isBlank()) return env.trim();
+
+        String altEnv = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_IDENTITY");
+        if (altEnv != null && !altEnv.isBlank()) return altEnv.trim();
+
         String configuredIdentity = properties.getBlipRouterIdentity();
         if (configuredIdentity == null || configuredIdentity.isBlank()) {
             return DEFAULT_ROUTER_IDENTITY;

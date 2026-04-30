@@ -17,6 +17,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -347,6 +349,25 @@ public class AppointmentMotorController {
         appointmentDoctorMappingRepository.save(mapping);
 
         return ResponseEntity.ok(Map.of("status", "success", "profissionalId", profissionalId));
+    }
+
+    @DeleteMapping("/mapping/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public ResponseEntity<Void> deleteMapping(@PathVariable("id") String id) {
+        try {
+            UUID uuid = UUID.fromString(id);
+            if (!appointmentDoctorMappingRepository.existsById(uuid)) {
+                return ResponseEntity.notFound().build();
+            }
+            appointmentDoctorMappingRepository.deleteById(uuid);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception ex) {
+            log.error("Erro ao deletar mapeamento {}: {}", id, ex.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping("/blip/webhook")

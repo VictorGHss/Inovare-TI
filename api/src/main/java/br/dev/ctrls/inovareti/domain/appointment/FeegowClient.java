@@ -15,6 +15,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -1031,9 +1033,14 @@ public class FeegowClient {
     public record FeegowProfessional(String id, String name) {
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ProfessionalDTO(Long id, String nome) {
-    }
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public record ProfessionalDTO(
+            @JsonProperty("profissional_id")
+            @JsonAlias({"id", "profissionalId"})
+            String id,
+            @JsonProperty("nome")
+            String nome) {
+        }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record FeegowResponseDTO(boolean success, List<ProfessionalDTO> content) {

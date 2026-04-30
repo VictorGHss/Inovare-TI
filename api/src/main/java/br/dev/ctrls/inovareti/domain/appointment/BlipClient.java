@@ -411,7 +411,9 @@ public class BlipClient {
 
         try {
             // Always use router identity + router key when fetching templates
-            BlipTemplateResponse approvedResponse = fetchTemplatesByUri("/message-templates?status=Approved", routerIdentity);
+            String namespace = resolveWabaNamespace();
+            String approvedUri = "/message-templates?status=Approved" + (namespace != null && !namespace.isBlank() ? "&namespace=" + namespace : "");
+            BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
             if (hasDocuments(approvedResponse)) {
                 logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
                 return approvedResponse.resource().documents().stream()
@@ -422,7 +424,8 @@ public class BlipClient {
 
             log.warn("Sem documentos aprovados via Router ({}). Tentando sem filtro.", routerIdentity);
 
-            BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri("/message-templates", routerIdentity);
+            String allUri = "/message-templates" + (namespace != null && !namespace.isBlank() ? "?namespace=" + namespace : "");
+            BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri(allUri, routerIdentity);
             if (hasDocuments(allStatusesResponse)) {
                 logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
                 return allStatusesResponse.resource().documents().stream()

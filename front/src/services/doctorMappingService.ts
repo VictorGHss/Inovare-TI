@@ -9,6 +9,7 @@ const APPOINTMENT_BLIP_QUEUES_URL = buildApiUrl('/v1/appointments/blip/queues');
 const APPOINTMENT_ADMIN_UPSERT_MAPPING_URL = buildApiUrl('/v1/appointments/admin/doctor-mapping');
 
 export interface DoctorMapping {
+  id?: string;
   profissionalId: string;
   blipQueueId: string;
   itsmUserId: string;
@@ -105,4 +106,8 @@ export interface UpsertMappingResponse {
 export async function updateDoctorMapping(mapping: Partial<DoctorMapping>): Promise<UpsertMappingResponse> {
   const { data } = await api.patch<UpsertMappingResponse>(APPOINTMENT_ADMIN_UPSERT_MAPPING_URL, mapping);
   return data;
+}
+
+export async function deleteMappingById(id: string): Promise<void> {
+  await api.delete(buildApiUrl(`/v1/appointments/mapping/${id}`));
 }

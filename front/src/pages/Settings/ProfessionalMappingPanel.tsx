@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { getApiErrorMessage } from '../../lib/apiError';
@@ -8,6 +8,7 @@ import {
   getMappings,
   getBlipQueuesList,
   syncMappings,
+  deleteMappingById,
   type FeegowProfessional,
   type DoctorMapping,
   type BlipQueue,
@@ -46,6 +47,7 @@ export default function ProfessionalMappingPanel() {
         const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
           const existing = mappingById.get(String(p.id));
           return {
+            id: existing?.id,
             profissionalId: String(p.id ?? ''),
             blipQueueId: existing?.blipQueueId ?? '',
             itsmUserId: existing?.itsmUserId ?? '',
@@ -87,6 +89,7 @@ export default function ProfessionalMappingPanel() {
       const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
         const existing = mappingById.get(String(p.id));
         return {
+          id: existing?.id,
           profissionalId: String(p.id ?? ''),
           blipQueueId: existing?.blipQueueId ?? '',
           itsmUserId: existing?.itsmUserId ?? '',
@@ -187,7 +190,7 @@ export default function ProfessionalMappingPanel() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Is External', 'WA Link'].map((col) => (
+              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Is External', 'WA Link', 'Ações'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -196,11 +199,11 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : mappings.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
               mappings.map((row, idx) => (
@@ -226,6 +229,30 @@ export default function ProfessionalMappingPanel() {
 
                   <td className="px-4 py-3 align-middle">
                     <input value={row.externalWaLink} onChange={(e) => updateField(idx, 'externalWaLink', e.target.value)} className={inlineInputClass} />
+                  </td>
+
+                  <td className="px-4 py-3 align-middle">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm(`Confirma excluir mapeamento para ID ${row.profissionalId}?`)) return;
+                        try {
+                          if (!row.id) {
+                            toast.error('Mapping inacessível: id ausente.');
+                            return;
+                          }
+                          await deleteMappingById(row.id);
+                          setMappings((current) => current.filter((m) => m.profissionalId !== row.profissionalId));
+                          toast.success('Mapeamento removido com sucesso.');
+                        } catch (err) {
+                          toast.error(getApiErrorMessage(err, 'Falha ao excluir mapeamento.'));
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                    >
+                      <Trash2 size={14} />
+                      Excluir
+                    </button>
                   </td>
                 </tr>
               ))

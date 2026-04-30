@@ -358,5 +358,35 @@
     "name": "app.appointment.motor.blip-router-key",
     "type": "java.lang.String",
     "description": "A description for 'app.appointment.motor.blip-router-key'"
+  },
+  {
+    "name": "app.feegow.unidade-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.feegow.unidade-id'"
+  },
+  {
+    "name": "app.appointment.motor.feegow-professional-path",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.feegow-professional-path'"
+  },
+  {
+    "name": "spring.flyway.validate",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.flyway.validate'"
+  },
+  {
+    "name": "flyway.validate",
+    "type": "java.lang.String",
+    "description": "A description for 'flyway.validate'"
+  },
+  {
+    "name": "FRONTEND_URL",
+    "type": "java.lang.String",
+    "description": "A description for 'FRONTEND_URL'"
+  },
+  {
+    "name": "app.appointment.motor.feegow-unidade-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.feegow-unidade-id'"
   }
 ]}

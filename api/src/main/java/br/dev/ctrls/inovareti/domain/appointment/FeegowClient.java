@@ -330,7 +330,7 @@ public class FeegowClient {
                     JsonNode root = objectMapper.readTree(retryBody);
                     return extractProfessionalName(root);
                 }
-            } catch (Exception retryEx) {
+            } catch (org.springframework.web.client.RestClientException | com.fasterxml.jackson.core.JsonProcessingException retryEx) {
                 log.warn("Retry with empty unidade_id failed for professional id={}: {}", id, retryEx.getMessage());
             }
 
@@ -504,7 +504,7 @@ public class FeegowClient {
                         return List.of();
                     }
                 }
-            } catch (Exception retryEx) {
+            } catch (org.springframework.web.client.RestClientException retryEx) {
                 log.warn("Retry with empty unidade_id failed when listing professionals: {}", retryEx.getMessage());
             }
 

@@ -5,10 +5,8 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -103,7 +101,6 @@ public class BlipClient {
     private static final String MASTER_STATE_COMMAND_TO = "postmaster@msging.net";
     private static final String THREAD_TRANSFER_COMMAND_TO = "postmaster@desk.msging.net";
     private static final String DEFAULT_ROUTER_IDENTITY = "postmaster@wa.gw.msging.net";
-    private static final String DEFAULT_BUILDER_BOT_IDENTITY = "fluxov1@msging.net";
     private static final String DEFAULT_TEMPLATE_PARAMETER_VALUE = "Informação não disponível";
 
     private final RestTemplate restTemplate;

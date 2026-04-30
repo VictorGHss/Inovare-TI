@@ -199,13 +199,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(WebClientResponseException.class)
-    public ProblemDetail handleWebClientResponseException(WebClientResponseException ex, HttpServletRequest request) {
+    public ResponseEntity<String> handleWebClientResponseException(WebClientResponseException ex, HttpServletRequest request) {
         String requestId = request != null ? request.getHeader("X-Request-Id") : null;
         if (requestId == null || requestId.isBlank()) {
             requestId = "-";
         }
 
-        int status = ex.getStatusCode() != null ? ex.getStatusCode().value() : 0;
+        int status = ex.getStatusCode() != null ? ex.getStatusCode().value() : 502;
         String requestUrl = resolveOutboundUrl(null, request);
         String body = "";
         try {
@@ -219,11 +219,9 @@ public class GlobalExceptionHandler {
             log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId);
         }
 
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
-        problem.setTitle("External service error");
-        problem.setDetail(body != null && !body.isBlank() ? body : ex.getMessage());
-        problem.setProperty("request_id", requestId);
-        return problem;
+        // Propagate the original status and body from the external API to the frontend
+        String responseBody = body != null && !body.isBlank() ? body : ex.getMessage();
+        return ResponseEntity.status(HttpStatus.valueOf(status)).body(responseBody);
     }
 
     @ExceptionHandler(Exception.class)

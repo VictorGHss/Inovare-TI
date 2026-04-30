@@ -240,7 +240,7 @@ public class FeegowClient {
 
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
-            ? "/professional/list"
+            ? "/v1/api/professional/list"
             : configuredPath;
 
         String unidadeId = resolveUnidadeId();
@@ -366,23 +366,20 @@ public class FeegowClient {
     public List<FeegowProfessional> listProfessionals() {
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
-            ? "/professional/list"
+            ? "/v1/api/professional/list"
             : configuredPath;
 
-        String unidadeId = resolveUnidadeId();
+        // Always send unidade_id=0 and pagination params required by Feegow v1
         String localId = resolveLocalId();
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
+            .queryParam("unidade_id", "0")
             .queryParam("ativo", "1")
-            .queryParam("pagina", "1")
             .queryParam("start", "0")
             .queryParam("offset", "50");
 
-        if (unidadeId != null && !unidadeId.isBlank()) {
-            uriBuilder.queryParam("unidade_id", unidadeId);
-        }
-
+        // local_id remains optional and will be appended when present
         if (localId != null && !localId.isBlank()) {
             uriBuilder.queryParam("local_id", localId);
         }
@@ -461,15 +458,16 @@ public class FeegowClient {
                     } catch (Exception diagEx) {
                         log.warn("Falha ao montar diagnóstico adicional para 422 Feegow (professionals): {}", diagEx.getMessage());
                     }
-                    String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                        String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                             .path(resolvedPath)
                             .queryParam("ativo", "1")
-                            .queryParam("pagina", "1")
+                            .queryParam("start", "0")
+                            .queryParam("offset", "50")
                             .queryParam("unidade_id", "")
                             .build()
                             .toUriString();
 
-                    log.info("Feegow returned 422 when listing professionals; retrying with empty unidade_id. retryUrl={}", retryUrl);
+                        log.info("Feegow returned 422 when listing professionals; retrying with empty unidade_id. retryUrl={}", retryUrl);
                     ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
                     String retryBody = retryResponse.getBody();
                     if (retryBody == null || retryBody.isBlank()) return List.of();
@@ -516,7 +514,8 @@ public class FeegowClient {
                 String altUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                         .path(altPath)
                         .queryParam("ativo", "1")
-                        .queryParam("pagina", "1")
+                        .queryParam("start", "0")
+                        .queryParam("offset", "50")
                         .build()
                         .toUriString();
 

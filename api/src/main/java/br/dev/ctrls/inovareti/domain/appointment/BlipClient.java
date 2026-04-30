@@ -629,22 +629,36 @@ public class BlipClient {
                 .build()
                 .toUriString();
 
-        String target = firstNonBlank(toIdentity, resolveRouterIdentity(), DEFAULT_ROUTER_IDENTITY);
+        // Force target to the Blip gateway router identity (gateway address)
+        String target = DEFAULT_ROUTER_IDENTITY;
 
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
-            // For WhatsApp templates fetch, always target the Router identity
+            // For WhatsApp templates fetch, always target the Router gateway
             "to", target,
             "method", "get",
             "uri", commandUri);
 
         log.info("Comando JSON-RPC enviado ao Blip: {}", command);
 
-        // Force router authorization scope when fetching templates
-        HttpHeaders headers = buildHeaders(AuthorizationScope.ROUTER);
+        // Prefer explicit APP_APPOINTMENT_BLIP_ROUTER_KEY when present for template fetches
+        String envAppointmentRouterKey = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
+        String keyToUse = (envAppointmentRouterKey != null && !envAppointmentRouterKey.isBlank())
+            ? envAppointmentRouterKey.trim()
+            : resolveAuthorizationKey(AuthorizationScope.ROUTER);
+
+        String normalizedKey = normalizeAuthorizationKey(keyToUse);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        if (normalizedKey == null || normalizedKey.isBlank()) {
+            log.warn("Chave de autorização do Blip está vazia ao buscar templates. Verifique variáveis de ambiente.");
+        } else {
+            headers.set("Authorization", "Key " + normalizedKey);
+        }
+
         // Log which (masked) key is being used and the target identity to aid diagnostics
-        String resolvedKey = normalizeAuthorizationKey(resolveAuthorizationKey(AuthorizationScope.ROUTER));
-        String maskedKey = resolvedKey == null ? "[none]" : maskAuthorizationToken("Key " + resolvedKey);
+        String maskedKey = normalizedKey == null ? "[none]" : maskAuthorizationToken("Key " + normalizedKey);
         log.info("Buscando templates no Blip. uri={}, toIdentity={}, usedAuthMasked={}, headers={}", commandUri, target, maskedKey, sanitizeHeadersForDebug(headers));
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(command, headers);

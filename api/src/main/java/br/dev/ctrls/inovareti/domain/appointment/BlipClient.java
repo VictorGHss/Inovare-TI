@@ -807,10 +807,22 @@ public class BlipClient {
     }
 
     private String resolveAuthorizationKey(AuthorizationScope scope) {
-        return switch (scope) {
-            case ROUTER -> firstNonBlank(routerKey, properties.getBlipRouterKey());
-            case DESK -> firstNonBlank(deskKey, properties.getBlipDeskKey());
-        };
+        // Prefer explicit environment variables when present to avoid
+        // ambiguity with property name mappings in different deployers.
+        switch (scope) {
+            case ROUTER: {
+                String env = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
+                if (env != null && !env.isBlank()) return env.trim();
+                return firstNonBlank(routerKey, properties.getBlipRouterKey());
+            }
+            case DESK: {
+                String env = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
+                if (env != null && !env.isBlank()) return env.trim();
+                return firstNonBlank(deskKey, properties.getBlipDeskKey());
+            }
+            default:
+                return null;
+        }
     }
 
     private String firstNonBlank(String... values) {

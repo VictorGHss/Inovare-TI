@@ -63,6 +63,7 @@ public class SecurityConfig {
                     APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()

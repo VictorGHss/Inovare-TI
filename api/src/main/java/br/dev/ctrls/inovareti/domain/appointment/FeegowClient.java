@@ -239,11 +239,19 @@ public class FeegowClient {
             ? "/professional/list"
             : configuredPath;
 
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+        String unidadeId = resolveUnidadeId();
+
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("profissional_id", id)
             .queryParam("ativo", "1")
-            .queryParam("pagina", "1");
+            .queryParam("pagina", "1")
+            .queryParam("start", "0")
+            .queryParam("offset", "50");
+
+        if (unidadeId != null && !unidadeId.isBlank()) {
+            uriBuilder.queryParam("unidade_id", unidadeId);
+        }
 
         String url = uriBuilder.build().toUriString();
 
@@ -291,6 +299,17 @@ public class FeegowClient {
             // If Feegow returned 422, retry once with empty unidade_id (some instances expect unidade_id=)
             try {
                 if (ex.getStatusCode() != null && ex.getStatusCode().value() == 422) {
+                    // Detailed diagnostic to help identify if token lacks required scopes
+                    try {
+                        Map<String, String> sanitizedOutgoing = new java.util.LinkedHashMap<>(headers.toSingleValueMap());
+                        if (sanitizedOutgoing.containsKey("x-access-token")) {
+                            sanitizedOutgoing.put("x-access-token", maskToken(sanitizedOutgoing.get("x-access-token")));
+                        }
+                        log.error("Feegow returned 422 (Unprocessable Entity) for professional lookup id={}. Possible missing token scope or permissions. responseHeaders={}, sanitizedOutgoingHeaders={}",
+                                id, ex.getResponseHeaders(), sanitizedOutgoing);
+                    } catch (Exception diagEx) {
+                        log.warn("Falha ao montar diagnóstico adicional para 422 Feegow: {}", diagEx.getMessage());
+                    }
                     String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                             .path(resolvedPath)
                             .queryParam("profissional_id", id)
@@ -346,12 +365,19 @@ public class FeegowClient {
             ? "/professional/list"
             : configuredPath;
 
-        String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+        String unidadeId = resolveUnidadeId();
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
             .path(resolvedPath)
             .queryParam("ativo", "1")
             .queryParam("pagina", "1")
-            .build()
-            .toUriString();
+            .queryParam("start", "0")
+            .queryParam("offset", "50");
+
+        if (unidadeId != null && !unidadeId.isBlank()) {
+            uriBuilder.queryParam("unidade_id", unidadeId);
+        }
+
+        String url = uriBuilder.build().toUriString();
 
         HttpHeaders headers = buildHeaders();
 
@@ -416,6 +442,15 @@ public class FeegowClient {
             // If Feegow returned 422, attempt a retry with empty unidade_id (some instances expect unidade_id=)
             try {
                 if (ex.getStatusCode() != null && ex.getStatusCode().value() == 422) {
+                    try {
+                        Map<String, String> sanitizedOutgoing = new java.util.LinkedHashMap<>(headers.toSingleValueMap());
+                        if (sanitizedOutgoing.containsKey("x-access-token")) {
+                            sanitizedOutgoing.put("x-access-token", maskToken(sanitizedOutgoing.get("x-access-token")));
+                        }
+                        log.error("Feegow returned 422 when listing professionals. Possible missing token scope or permissions. responseHeaders={}, sanitizedOutgoingHeaders={}", ex.getResponseHeaders(), sanitizedOutgoing);
+                    } catch (Exception diagEx) {
+                        log.warn("Falha ao montar diagnóstico adicional para 422 Feegow (professionals): {}", diagEx.getMessage());
+                    }
                     String retryUrl = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                             .path(resolvedPath)
                             .queryParam("ativo", "1")
@@ -838,6 +873,26 @@ public class FeegowClient {
         }
 
         return normalized;
+    }
+
+    private String resolveUnidadeId() {
+        // Prefer explicit FEEGOW_UNIDADE_ID env var. Fall back to the configured property
+        // or APP_APPOINTMENT_FEEGOW_UNIDADE_ID for compatibility.
+        String env = System.getenv("FEEGOW_UNIDADE_ID");
+        if (env != null && !env.isBlank() && !"0".equals(env.trim())) {
+            return env.trim();
+        }
+
+        String altEnv = System.getenv("APP_APPOINTMENT_FEEGOW_UNIDADE_ID");
+        if (altEnv != null && !altEnv.isBlank() && !"0".equals(altEnv.trim())) {
+            return altEnv.trim();
+        }
+
+        if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {
+            return feegowUnidadeId.trim();
+        }
+
+        return "";
     }
 
     private String maskToken(String token) {

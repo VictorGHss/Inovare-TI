@@ -68,11 +68,23 @@ public class SendAppointmentTemplateUseCase {
 
         FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
 
-        // Inversão de prioridade: busca no banco primeiro usando String.valueOf()
-        String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(String.valueOf(session.getDoctorProfissionalId()))
-            .map(AppointmentDoctorMapping::getProfissionalNome)
-            .filter(nome -> !nome.isBlank())
-            .orElse(null);
+        String normalizedProfissionalId = session.getDoctorProfissionalId();
+        if (normalizedProfissionalId != null) {
+            normalizedProfissionalId = normalizedProfissionalId.trim();
+        }
+
+        log.info("[DIAGNOSTICO MÉDICO] Buscando nome para ProfissionalID: {} | Nome vindo da Feegow: {}",
+            normalizedProfissionalId,
+            appointment.doctorName());
+
+        // Inversão de prioridade: busca no banco primeiro
+        String doctorName = null;
+        if (normalizedProfissionalId != null && !normalizedProfissionalId.isBlank()) {
+            doctorName = appointmentDoctorMappingRepository.findByProfissionalId(normalizedProfissionalId)
+                .map(AppointmentDoctorMapping::getProfissionalNome)
+                .filter(nome -> !nome.isBlank())
+                .orElse(null);
+        }
             
         if (doctorName == null || doctorName.isBlank()) {
             doctorName = appointment.doctorName(); // Fallback para a API da Feegow

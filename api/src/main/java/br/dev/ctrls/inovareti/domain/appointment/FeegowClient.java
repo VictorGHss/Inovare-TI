@@ -1019,8 +1019,8 @@ public class FeegowClient {
     public record FeegowAppointment(
             String id,
             String patientId,
-            String doctorId,
-            String doctorName,
+            @JsonProperty("profissional_id") String doctorId,
+            @JsonProperty("nome") String doctorName,
             String unitName,
             LocalDateTime startAt,
             String statusId) {
@@ -1029,7 +1029,9 @@ public class FeegowClient {
     public record FeegowPatient(String id, String name, String phone) {
     }
 
-    public record FeegowProfessional(String id, String name) {
+        public record FeegowProfessional(
+            @JsonProperty("profissional_id") String id,
+            @JsonProperty("nome") String name) {
     }
 
         @JsonIgnoreProperties(ignoreUnknown = true)

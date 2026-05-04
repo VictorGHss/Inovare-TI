@@ -91,6 +91,7 @@ public class SendAppointmentTemplateUseCase {
         }
         
         if (doctorName == null || doctorName.isBlank()) {
+            log.debug("[FEEGOW] Nome do médico não encontrado para ID: {}", normalizedProfissionalId);
             doctorName = "Doutor(a)";
         }
 

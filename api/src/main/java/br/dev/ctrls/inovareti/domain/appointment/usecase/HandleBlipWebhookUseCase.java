@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -87,51 +86,31 @@ public class HandleBlipWebhookUseCase {
             notificationService.notifySecretary(session, null);
             confirmationStateMachineService.markConfirmed(session);
             appointmentSessionRepository.save(session);
-            // Tenta recuperar a fila de atendimento salva nos extras do contato (mergeContactExtras)
             try {
+                String profissionalId = session.getDoctorProfissionalId();
+                String resolvedProfissionalId = profissionalId == null ? null : profissionalId.trim();
+                String queueId = null;
+                if (resolvedProfissionalId != null && !resolvedProfissionalId.isBlank()) {
+                    queueId = appointmentDoctorMappingRepository.findByProfissionalId(resolvedProfissionalId)
+                        .map(AppointmentDoctorMapping::getBlipQueueId)
+                        .filter(id -> !id.isBlank())
+                        .orElse(null);
+                }
+
                 if (dispatchIdentity == null) {
-                    log.warn("Identidade de disparo ausente no webhook. Handoff ignorado. from={}, sessionId={}",
+                    log.warn("Identidade de disparo ausente no webhook. Redirecionamento ignorado. from={}, sessionId={}",
                         payload.from(),
                         session.getId());
+                } else if (queueId == null || queueId.isBlank()) {
+                    log.warn("Fila não encontrada para redirecionamento. profissionalId={}, sessionId={}",
+                        resolvedProfissionalId,
+                        session.getId());
                 } else {
-                    log.info("Buscando extras do contato para handoff. dispatchIdentity={}", dispatchIdentity);
-                }
-
-                Map<String, String> extras = dispatchIdentity == null
-                    ? Map.of()
-                    : blipClient.getContactExtras(dispatchIdentity);
-                String queueId = null;
-                if (extras != null && !extras.isEmpty()) {
-                    String filaDestino = extras.get("fila_destino");
-                    String filaNome = extras.get("fila_nome");
-                    if (filaDestino != null && !filaDestino.isBlank()) {
-                        queueId = filaDestino.trim();
-                    } else if (filaNome != null && !filaNome.isBlank()) {
-                        queueId = filaNome.trim();
-                    }
-                }
-
-                if (queueId != null && !queueId.isBlank() && dispatchIdentity != null) {
-                    log.info("Executando handoff para fila salva nos extras do contato: {}", queueId);
-                    blipClient.setHandoffContext(dispatchIdentity, queueId);
-                } else {
-                    // fallback: tenta basear-se no mapeamento do médico
-                    AppointmentDoctorMapping mapping = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
-                            .orElseGet(() -> appointmentDoctorMappingRepository.findByProfissionalId("EXTERNAL")
-                                    .orElse(null));
-
-                    if (mapping != null) {
-                        if (dispatchIdentity == null) {
-                            log.warn("Identidade de disparo ausente no webhook. Handoff/redirect ignorado. sessionId={}", session.getId());
-                        } else if (mapping.isExternal()) {
-                            blipClient.sendPlainText(dispatchIdentity, mapping.getExternalWaLink());
-                        } else {
-                            blipClient.setHandoffContext(dispatchIdentity, mapping.getBlipQueueId());
-                        }
-                    }
+                    blipClient.prepareRedirectToQueue(dispatchIdentity, queueId);
+                    blipClient.pullUserToAgendamentoBot(dispatchIdentity);
                 }
             } catch (Exception ex) {
-                log.warn("Falha ao recuperar extras do contato ou executar handoff: {}", ex.getMessage());
+                log.warn("Falha ao preparar redirecionamento de fila: {}", ex.getMessage());
                 if (dispatchIdentity != null) {
                     blipClient.pushUserBackToBuilder(dispatchIdentity);
                 }

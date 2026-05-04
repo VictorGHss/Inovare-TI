@@ -409,6 +409,68 @@ public class BlipClient {
         transferThreadToQueue(destination, queueId);
     }
 
+    public void prepareRedirectToQueue(String identity, String queueName) {
+        if (identity == null || identity.isBlank()) {
+            log.warn("prepareRedirectToQueue ignorado: identity vazio.");
+            return;
+        }
+
+        String trimmedIdentity = identity.trim();
+        if (trimmedIdentity.endsWith("@tunnel.msging.net")) {
+            log.warn("prepareRedirectToQueue ignorado: identity do tunnel detectada. identity={}", trimmedIdentity);
+            return;
+        }
+
+        String normalizedIdentity = normalizeUserIdentity(trimmedIdentity);
+        String normalizedQueueName = queueName == null ? "" : queueName.trim();
+
+        // Passo 1: buscar tickets abertos para o customerIdentity
+        String ticketsQuery = "/tickets?$filter=customerIdentity eq '" + normalizedIdentity + "' and status eq 'Open'";
+        Map<String, Object> ticketsResponse = sendDeskCommand(ticketsQuery);
+        String openTicketId = extractOpenTicketId(ticketsResponse);
+
+        // Passo 2: fechar ticket aberto, se existir
+        if (openTicketId != null && !openTicketId.isBlank()) {
+            closeDeskTicket(openTicketId);
+        } else {
+            log.debug("Nenhum ticket aberto encontrado para identity={}", normalizedIdentity);
+        }
+
+        if (normalizedQueueName.isBlank()) {
+            log.warn("Fila de redirecionamento ausente para identity={}. Redirecionamento ignorado.", normalizedIdentity);
+            return;
+        }
+
+        // Passo 3: definir fila de redirecionamento via postmaster@msging.net
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", MASTER_STATE_COMMAND_TO,
+            "method", "set",
+            "uri", "/contexts/" + normalizedIdentity + "/attendanceQueueToRedirect",
+            "type", "text/plain",
+            "resource", normalizedQueueName
+        );
+
+        try {
+            rateLimit();
+            blipRestTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                new HttpEntity<>(command, buildHeaders(AuthorizationScope.ROUTER)),
+                new ParameterizedTypeReference<Map<String, Object>>() {
+                }
+            );
+            log.info("Fila de redirecionamento configurada. identity={}, queueName={}", normalizedIdentity, normalizedQueueName);
+        } catch (RestClientException ex) {
+            log.warn("Falha ao configurar fila de redirecionamento. identity={}, queueName={}", normalizedIdentity, normalizedQueueName, ex);
+        }
+    }
+
     public void transferThreadToQueue(String destination, String queueId) {
         String normalizedDestination = normalizeUserIdentity(destination);
         if (queueId == null || queueId.isBlank()) {
@@ -754,6 +816,81 @@ public class BlipClient {
         } catch (RestClientException ex) {
             log.warn("Erro ao buscar {} do Blip Desk.", uri, ex);
             return null;
+        }
+    }
+
+    private String extractOpenTicketId(Map<String, Object> response) {
+        if (response == null) {
+            return null;
+        }
+
+        Object resource = response.get("resource");
+        if (resource instanceof Map<?, ?> resourceMap) {
+            Object items = resourceMap.get("items");
+            if (items == null) {
+                items = resourceMap.get("tickets");
+            }
+            if (items == null) {
+                items = resourceMap.get("data");
+            }
+            if (items instanceof List<?> list) {
+                return extractTicketIdFromList(list);
+            }
+
+            String directId = valueAsString(resourceMap.get("id"));
+            if (directId != null && !directId.isBlank()) {
+                return directId;
+            }
+        } else if (resource instanceof List<?> list) {
+            return extractTicketIdFromList(list);
+        }
+
+        return null;
+    }
+
+    private String extractTicketIdFromList(List<?> list) {
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> itemMap) {
+                String id = valueAsString(itemMap.get("id"));
+                if (id == null || id.isBlank()) {
+                    id = valueAsString(itemMap.get("ticketId"));
+                }
+                if (id != null && !id.isBlank()) {
+                    return id;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void closeDeskTicket(String ticketId) {
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", THREAD_TRANSFER_COMMAND_TO,
+            "method", "set",
+            "uri", "/tickets/" + ticketId + "/status",
+            "type", "text/plain",
+            "resource", "ClosedAttendant"
+        );
+
+        try {
+            rateLimit();
+            blipRestTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                new HttpEntity<>(command, buildHeaders(AuthorizationScope.DESK)),
+                new ParameterizedTypeReference<Map<String, Object>>() {
+                }
+            );
+            log.info("Ticket fechado via Desk. ticketId={}", ticketId);
+        } catch (RestClientException ex) {
+            log.warn("Falha ao fechar ticket via Desk. ticketId={}", ticketId, ex);
         }
     }
 

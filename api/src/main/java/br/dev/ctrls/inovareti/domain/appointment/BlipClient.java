@@ -176,6 +176,69 @@ public class BlipClient {
         return configured;
     }
 
+    public void sendAppointmentNotification(String destination, AppointmentTemplateData appointmentData) {
+        String templateName = "confirmacao_consulta_v5";
+        String normalizedDestination = normalizeUserIdentity(destination);
+
+        // Força o usuário para o sub-bot de agendamentos antes de disparar.
+        pullUserToAgendamentoBot(normalizedDestination);
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSendMessagePath())
+            .build()
+            .toUriString();
+
+        // Mapeamento estrito das 4 variáveis obrigatórias do confirmacao_consulta_v5
+        List<Map<String, String>> parameters = List.of(
+            Map.of("type", "text", "text", fallbackTemplateParameter(appointmentData.patientName())), // {{1}}
+            Map.of("type", "text", "text", fallbackTemplateParameter(appointmentData.doctorName())),  // {{2}}
+            Map.of("type", "text", "text", fallbackTemplateParameter(appointmentData.appointmentDateShort())), // {{3}}
+            Map.of("type", "text", "text", fallbackTemplateParameter(appointmentData.appointmentTime())) // {{4}}
+        );
+
+        String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
+
+        Map<String, Object> button = Map.of(
+            "type", "button", "sub_type", "quick_reply", "index", 0,
+            "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
+        );
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        components.add(Map.of("type", "body", "parameters", parameters));
+        components.add(button);
+
+        Map<String, Object> content = Map.of(
+            "type", "template",
+            "template", Map.of(
+                "name", templateName,
+                "namespace", resolveWabaNamespace(),
+                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
+                "components", components
+            )
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "type", "application/json",
+            "content", content,
+            "metadata", Map.of("appointmentId", appointmentId)
+        );
+
+        HttpHeaders headers = buildHeaders(AuthorizationScope.ROUTER);
+        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+            url, HttpMethod.POST, new HttpEntity<>(payload, headers), new ParameterizedTypeReference<>() {}
+        );
+
+        log.info("Notificação (v5) enviada para {}. Status: {}", normalizedDestination, response.getStatusCode());
+    }
+
+    private String fallbackTemplateParameter(String value) {
+        if (value != null && !value.isBlank()) return value.trim();
+        return DEFAULT_TEMPLATE_PARAMETER_VALUE;
+    }
+
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = normalizeUserIdentity(destination);
 
@@ -559,7 +622,7 @@ public class BlipClient {
         }
 
         if (isResponseEmptyOrFailed(response)) {
-            log.warn("Comando /configurations retornou vazio/falhou. status={}, reason={}, description={}",
+            log.debug("Comando /configurations retornou vazio/falhou. status={}, reason={}, description={}",
                     response.get("status"),
                     response.get("reason"),
                     response.get("description"));

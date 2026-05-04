@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SendAppointmentTemplateUseCase {
 
     private static final DateTimeFormatter BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter SHORT_BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM");
     private static final DateTimeFormatter BRAZILIAN_TIME = DateTimeFormatter.ofPattern("HH:mm");
     private static final String DEFAULT_TEMPLATE_VALUE = "Informação não disponível";
     private static final String DEFAULT_PROVIDER_VALUE = "Clínica Inovare";
@@ -84,6 +85,9 @@ public class SendAppointmentTemplateUseCase {
         String appointmentDate = appointment.startAt() != null
             ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE)
             : DEFAULT_TEMPLATE_VALUE;
+        String appointmentDateShort = appointment.startAt() != null
+            ? appointment.startAt().toLocalDate().format(SHORT_BRAZILIAN_DATE)
+            : DEFAULT_TEMPLATE_VALUE;
         String appointmentTime = appointment.startAt() != null
             ? appointment.startAt().toLocalTime().format(BRAZILIAN_TIME)
             : DEFAULT_TEMPLATE_VALUE;
@@ -98,11 +102,16 @@ public class SendAppointmentTemplateUseCase {
             DEFAULT_PROVIDER_VALUE,
             fallbackProviderValue(appointment.unitName()),
             appointmentDate,
+            appointmentDateShort,
             appointmentTime,
             appointmentDate);
 
         try {
-            blipClient.sendTemplateMessage(session.getPhoneNumber(), config.getTemplateId(), templateData);
+            if ("confirmacao_consulta_v5".equalsIgnoreCase(config.getTemplateId())) {
+                blipClient.sendAppointmentNotification(session.getPhoneNumber(), templateData);
+            } else {
+                blipClient.sendTemplateMessage(session.getPhoneNumber(), config.getTemplateId(), templateData);
+            }
             session.setStatusDetails(null);
             appointmentSessionRepository.save(session);
             return true;
@@ -116,12 +125,13 @@ public class SendAppointmentTemplateUseCase {
             session.setStatusDetails(statusDetails);
             appointmentSessionRepository.save(session);
 
-            log.error("Falha ao enviar template para Blip. sessionId={}, category={}, statusHttp={}, blipCode={}, details={}",
+            log.error("Falha ao enviar template para Blip. sessionId={}, category={}, statusHttp={}, blipCode={}, details={}, responseBody={}",
                     session.getId(),
                     category,
                     ex.getStatusCode().value(),
                     blipCode,
                     statusDetails,
+                    ex.getResponseBodyAsString(),
                     ex);
             return false;
         } catch (RuntimeException ex) {

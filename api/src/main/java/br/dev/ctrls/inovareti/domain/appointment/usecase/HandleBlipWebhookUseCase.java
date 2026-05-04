@@ -74,6 +74,12 @@ public class HandleBlipWebhookUseCase {
 
             AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(confirmId)
                     .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + confirmId));
+            
+            // Atualiza a sessão garantindo a coleta do telefone real desmascarado
+            if (payload.from() != null && !payload.from().endsWith("@tunnel.msging.net")) {
+                session.setPhoneNumber(payload.from());
+            }
+
             String confirmedStatusId = resolveConfirmedStatusId();
             log.info("Payload de botão CONFIRM_ recebido. Atualizando status na Feegow com código {}.", confirmedStatusId);
             feegowClient.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);

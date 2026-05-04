@@ -59,6 +59,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers(
                     BLIP_WEBHOOK_PATH,
                     BLIP_WEBHOOK_PATH + "/",
+                    "/v1/webhook/**",
                     APPOINTMENT_BLIP_WEBHOOK_PATH,
                     APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .disable())
@@ -72,6 +73,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/v1/webhook/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
                 .requestMatchers("/actuator/**").permitAll()

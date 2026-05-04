@@ -431,7 +431,7 @@ public class BlipClient {
                 logRouterConfigurationBuckets();
             }
             // Always use router identity + router key when fetching templates
-            String approvedUri = "/message-templates?status=Approved&namespace=" + resolveWabaNamespace();
+            String approvedUri = "/message-templates?status=Approved";
             BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
             if (hasDocuments(approvedResponse)) {
                 logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
@@ -586,7 +586,7 @@ public class BlipClient {
             .toUriString();
 
         String target = "/configurations".equalsIgnoreCase(uri)
-                ? MASTER_STATE_COMMAND_TO
+                ? "postmaster@msging.net"
                 : DEFAULT_ROUTER_IDENTITY;
 
         Map<String, Object> command = Map.of(

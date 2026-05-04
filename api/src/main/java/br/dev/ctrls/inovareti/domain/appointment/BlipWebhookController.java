@@ -83,8 +83,7 @@ public class BlipWebhookController {
             payload.path("resource").path("envelope").path("metadata").path("#tunnel.originator").asText(null),
             payload.path("resource").path("message").path("metadata").path("#tunnel.originator").asText(null));
 
-        if (StringUtils.hasText(originator)
-            && (from == null || from.endsWith("@tunnel.msging.net"))) {
+        if (StringUtils.hasText(originator)) {
             return originator;
         }
 

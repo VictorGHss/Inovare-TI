@@ -26,6 +26,7 @@ public class BlipWebhookController {
 
     @PostMapping("/blip")
     public ResponseEntity<Map<String, Object>> blipWebhook(@RequestBody(required = false) JsonNode payload) {
+        log.info("Webhook do Blip recebido com sucesso!");
         log.info("Blip webhook received: {}", payload);
 
         if (payload == null || payload.isNull()) {

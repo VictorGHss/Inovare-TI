@@ -25,7 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.IngestAppointmentsUseCase;
@@ -40,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AppointmentMotorController {
 
-
+    private final ObjectMapper objectMapper;
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
@@ -402,8 +404,9 @@ public class AppointmentMotorController {
     }
 
     @PostMapping("/blip/webhook")
-    public ResponseEntity<Map<String, Object>> blipWebhook(@RequestBody(required = false) JsonNode payload) {
-        log.error("RECEIVED IN WEBHOOK: " + payload);
+    public ResponseEntity<Map<String, Object>> blipWebhook(@RequestBody(required = false) String rawPayload) {
+        JsonNode payload = parsePayload(rawPayload);
+        log.debug("RECEIVED IN WEBHOOK: " + payload);
 
         if (payload == null || payload.isNull()) {
             log.warn("Webhook Blip recebido sem body em /v1/appointments/blip/webhook.");
@@ -428,11 +431,39 @@ public class AppointmentMotorController {
                 "status", "processed"));
     }
 
+    private JsonNode parsePayload(String rawPayload) {
+        if (!StringUtils.hasText(rawPayload)) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readTree(rawPayload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Falha ao parsear payload do webhook do Blip: {}", ex.getMessage());
+            return null;
+        }
+    }
+
     private String extractFrom(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("from").asText(null),
-                payload.path("resource").path("from").asText(null),
-                payload.path("message").path("from").asText(null));
+        String from = firstNonBlank(
+            payload.path("from").asText(null),
+            payload.path("resource").path("from").asText(null),
+            payload.path("message").path("from").asText(null));
+
+        String originator = firstNonBlank(
+            payload.path("metadata").path("#tunnel.originator").asText(null),
+            payload.path("envelope").path("metadata").path("#tunnel.originator").asText(null),
+            payload.path("message").path("metadata").path("#tunnel.originator").asText(null),
+            payload.path("resource").path("metadata").path("#tunnel.originator").asText(null),
+            payload.path("resource").path("envelope").path("metadata").path("#tunnel.originator").asText(null),
+            payload.path("resource").path("message").path("metadata").path("#tunnel.originator").asText(null));
+
+        if (StringUtils.hasText(originator)
+            && (from == null || from.endsWith("@tunnel.msging.net"))) {
+            return originator;
+        }
+
+        return from;
     }
 
     private String extractActionText(JsonNode payload) {

@@ -48,7 +48,7 @@ public class HandleBlipWebhookUseCase {
                 .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.registerIfFirstTime(payload.messageId())).orElse(true));
 
         if (!fresh) {
-            log.info("Webhook ignorado por idempotencia. messageId={}", payload.messageId());
+            log.debug("Ação ignorada no webhook (idempotência). messageId={}", payload.messageId());
             return;
         }
 

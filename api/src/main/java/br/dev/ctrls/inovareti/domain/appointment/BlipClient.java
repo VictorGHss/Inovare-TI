@@ -427,6 +427,9 @@ public class BlipClient {
         log.debug("Buscando templates via Router identity: {}", routerIdentity);
 
         try {
+            if (log.isDebugEnabled()) {
+                logRouterConfigurationBuckets();
+            }
             // Always use router identity + router key when fetching templates
             String approvedUri = "/message-templates?status=Approved&namespace=" + resolveWabaNamespace();
             BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
@@ -520,12 +523,13 @@ public class BlipClient {
                 Object itemsObj = resourceMap.get("items");
                 if (itemsObj instanceof List<?> items) {
                     for (Object item : items) {
-                        if (!(item instanceof Map<?, ?> itemMap)) continue;
-                        String id = valueAsString(itemMap.get("id"));
-                        String name = valueAsString(itemMap.get("name"));
-                        if (name == null) name = valueAsString(itemMap.get("title"));
-                        if (name == null && id != null) name = id;
-                        if (name != null) result.add(new BlipQueue(id == null ? "" : id, name));
+                        if (item instanceof Map<?, ?> itemMap) {
+                            String id = valueAsString(itemMap.get("id"));
+                            String name = valueAsString(itemMap.get("name"));
+                            if (name == null) name = valueAsString(itemMap.get("title"));
+                            if (name == null && id != null) name = id;
+                            if (name != null) result.add(new BlipQueue(id == null ? "" : id, name));
+                        }
                     }
                 }
             }
@@ -555,7 +559,10 @@ public class BlipClient {
         }
 
         if (isResponseEmptyOrFailed(response)) {
-            log.warn("Comando /configurations retornou vazio/falhou. status={}", response.get("status"));
+            log.warn("Comando /configurations retornou vazio/falhou. status={}, reason={}, description={}",
+                    response.get("status"),
+                    response.get("reason"),
+                    response.get("description"));
         }
 
         Object resource = response.get("resource");
@@ -578,10 +585,14 @@ public class BlipClient {
             .build()
             .toUriString();
 
+        String target = "/configurations".equalsIgnoreCase(uri)
+                ? MASTER_STATE_COMMAND_TO
+                : DEFAULT_ROUTER_IDENTITY;
+
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
                 "from", ROTEADOR_PRINCIPAL_IDENTITY,
-                "to", DEFAULT_ROUTER_IDENTITY,
+                "to", target,
                 "method", "get",
                 "uri", uri);
 
@@ -594,7 +605,12 @@ public class BlipClient {
                     });
             return response.getBody();
         } catch (RestClientException ex) {
-            log.warn("Erro ao buscar {} do Blip Router.", uri, ex);
+            if (ex instanceof HttpStatusCodeException httpEx) {
+                log.error("Erro HTTP ao buscar {} do Blip Router. statusCode={}, responseBody={}",
+                        uri, httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+            } else {
+                log.error("Erro inesperado ao buscar {} do Blip Router.", uri, ex);
+            }
             return null;
         }
     }
@@ -604,6 +620,10 @@ public class BlipClient {
             return null;
         }
 
+        // Handle cases where the resource itself is a simple string value
+        if (node instanceof String && String.valueOf(node).equalsIgnoreCase(targetKey)) {
+            return String.valueOf(node);
+        }
         if (node instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 if (entry.getKey() == null) {
@@ -936,24 +956,21 @@ public class BlipClient {
     private String resolveAuthorizationKey(AuthorizationScope scope) {
         // Prefer explicit environment variables when present to avoid
         // ambiguity with property name mappings in different deployers.
-        return switch (scope) {
-            case ROUTER -> {
-                // Support both legacy and current env var names
-                String env1 = System.getenv("APP_BLIP_ROUTER_KEY");
-                if (env1 != null && !env1.isBlank()) yield env1.trim();
-                String env2 = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
-                if (env2 != null && !env2.isBlank()) yield env2.trim();
-                yield firstNonBlank(routerKey, properties.getBlipRouterKey());
-            }
-            case DESK -> {
-                String env1 = System.getenv("APP_BLIP_DESK_KEY");
-                if (env1 != null && !env1.isBlank()) yield env1.trim();
-                String env2 = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
-                if (env2 != null && !env2.isBlank()) yield env2.trim();
-                yield firstNonBlank(deskKey, properties.getBlipDeskKey());
-            }
-            default -> null;
-        };
+        if (scope == AuthorizationScope.ROUTER) {
+            // Support both legacy and current env var names
+            String env1 = System.getenv("APP_BLIP_ROUTER_KEY");
+            if (env1 != null && !env1.isBlank()) return env1.trim();
+            String env2 = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
+            if (env2 != null && !env2.isBlank()) return env2.trim();
+            return firstNonBlank(routerKey, properties.getBlipRouterKey());
+        } else if (scope == AuthorizationScope.DESK) {
+            String env1 = System.getenv("APP_BLIP_DESK_KEY");
+            if (env1 != null && !env1.isBlank()) return env1.trim();
+            String env2 = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
+            if (env2 != null && !env2.isBlank()) return env2.trim();
+            return firstNonBlank(deskKey, properties.getBlipDeskKey());
+        }
+        return null;
     }
 
     private String firstNonBlank(String... values) {
@@ -1094,23 +1111,17 @@ public class BlipClient {
     private String resolveRouterIdentity() {
         // Prefer explicit env var for router id to override property sources when needed
         String env = System.getenv("APP_BLIP_ROUTER_ID");
-        if (env != null && !env.isBlank()) return env.trim();
-
-        String altEnv = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_IDENTITY");
-        if (altEnv != null && !altEnv.isBlank()) return altEnv.trim();
-
-        String configuredIdentity = properties.getBlipRouterIdentity();
-        if (configuredIdentity == null || configuredIdentity.isBlank()) {
-            return DEFAULT_ROUTER_IDENTITY;
+        if (env != null && !env.isBlank()) {
+            return env.trim();
         }
-        return configuredIdentity;
+        // Fallback to a default if no specific router ID is configured via environment
+        return DEFAULT_ROUTER_IDENTITY;
     }
 
     private String resolveWabaNamespace() {
-        String envNamespace = System.getenv("APP_BLIP_WABA_NAMESPACE");
-        if (envNamespace != null && !envNamespace.isBlank()) {
-            return envNamespace.trim();
-        }
+        // The canonical namespace is injected via @Value("${app.appointment.motor.blip-waba-namespace}")
+        // which maps to APP_APPOINTMENT_BLIP_WABA_NAMESPACE from environment or application.properties.
+        // Removing direct System.getenv("APP_BLIP_WABA_NAMESPACE") to enforce single source of truth.
 
         String configuredNamespace = blipWabaNamespace;
         if (configuredNamespace == null || configuredNamespace.isBlank()) {

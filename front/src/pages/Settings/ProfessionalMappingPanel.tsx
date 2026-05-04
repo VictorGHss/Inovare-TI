@@ -238,11 +238,13 @@ export default function ProfessionalMappingPanel() {
                       onClick={async () => {
                         if (!confirm(`Confirma excluir mapeamento para ID ${row.profissionalId}?`)) return;
                         try {
-                          if (!row.id) {
+                          const mappingId = row.id;
+                          if (!mappingId) {
                             toast.error('Mapping inacessível: id ausente.');
                             return;
                           }
-                          await deleteMappingById(row.id);
+                          console.log('Deletando mapeamento UUID:', mappingId);
+                          await deleteMappingById(mappingId);
                           setMappings((current) => current.filter((m) => m.profissionalId !== row.profissionalId));
                           toast.success('Mapeamento removido com sucesso.');
                         } catch (err) {

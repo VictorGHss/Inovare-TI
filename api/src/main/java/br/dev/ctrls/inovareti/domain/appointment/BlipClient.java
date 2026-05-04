@@ -427,19 +427,20 @@ public class BlipClient {
         log.debug("Buscando templates via Router identity: {}", routerIdentity);
 
         try {
+            logRouterConfigurationBuckets();
             // Always use router identity + router key when fetching templates
             // Temporarily remove namespace filter to test template availability
             String approvedUri = "/message-templates?status=Approved";
             BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
             if (hasDocuments(approvedResponse)) {
-            logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
-            return approvedResponse.resource().documents().stream()
-                .filter(template -> "Approved".equalsIgnoreCase(template.status()))
-                .map(template -> new BlipTemplateDto(
-                    template.id(),
-                    template.name(),
-                    (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
-                .collect(Collectors.toList());
+                logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
+                return approvedResponse.resource().documents().stream()
+                    .filter(template -> "Approved".equalsIgnoreCase(template.status()))
+                    .map(template -> new BlipTemplateDto(
+                        template.id(),
+                        template.name(),
+                        (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
+                    .collect(Collectors.toList());
             }
 
             log.warn("Sem documentos aprovados via Router ({}). Tentando sem filtro.", routerIdentity);
@@ -447,16 +448,30 @@ public class BlipClient {
             String allUri = "/message-templates";
             BlipTemplateResponse allStatusesResponse = fetchTemplatesByUri(allUri, routerIdentity);
             if (hasDocuments(allStatusesResponse)) {
-            logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
-            return allStatusesResponse.resource().documents().stream()
-                .map(template -> new BlipTemplateDto(
-                    template.id(),
-                    template.name(),
-                    (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
-                .collect(Collectors.toList());
+                logTemplateSummary(allStatusesResponse, "fallback-sem-filtro:" + routerIdentity);
+                return allStatusesResponse.resource().documents().stream()
+                    .map(template -> new BlipTemplateDto(
+                        template.id(),
+                        template.name(),
+                        (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
+                    .collect(Collectors.toList());
             }
 
-            log.warn("Router identity {} não retornou templates. Aplicando fallback estático.", routerIdentity);
+            log.warn("Sem documentos via /message-templates. Tentando endpoint /message-templates-attachment. identity={}", routerIdentity);
+
+            String attachmentUri = "/message-templates-attachment";
+            BlipTemplateResponse attachmentResponse = fetchTemplatesByUri(attachmentUri, routerIdentity);
+            if (hasDocuments(attachmentResponse)) {
+                logTemplateSummary(attachmentResponse, "fallback-attachment:" + routerIdentity);
+                return attachmentResponse.resource().documents().stream()
+                    .map(template -> new BlipTemplateDto(
+                        template.id(),
+                        template.name(),
+                        (template.body() == null || template.body().isBlank()) ? template.content() : template.body()))
+                    .collect(Collectors.toList());
+            }
+
+            log.warn("Router identity {} não retornou templates em /message-templates-attachment. Aplicando fallback estático.", routerIdentity);
 
             // Diagnostics: masked router key
             String routerResolved = normalizeAuthorizationKey(resolveAuthorizationKey(AuthorizationScope.ROUTER));
@@ -532,6 +547,98 @@ public class BlipClient {
         return result.stream()
                 .sorted(Comparator.comparing(BlipQueue::name, Comparator.nullsLast(String::compareToIgnoreCase)))
                 .collect(Collectors.toList());
+    }
+
+    private void logRouterConfigurationBuckets() {
+        Map<String, Object> response = sendRouterCommand("/configurations");
+        if (response == null) {
+            log.warn("Comando /configurations retornou nulo ao consultar buckets do roteador.");
+            return;
+        }
+
+        if (isResponseEmptyOrFailed(response)) {
+            log.warn("Comando /configurations retornou vazio/falhou. status={}", response.get("status"));
+        }
+
+        Object resource = response.get("resource");
+        String wabaId = findConfigValue(resource, "WhatsAppBusinessAccountId");
+        String systemUserToken = findConfigValue(resource, "BusinessSystemUserAccessToken");
+        String maskedToken = (systemUserToken == null || systemUserToken.isBlank())
+                ? "[not-found]"
+                : maskAuthorizationToken("Bearer " + systemUserToken);
+
+        log.info("Blip Router configs: WhatsAppBusinessAccountId={}, BusinessSystemUserAccessToken={}",
+                Objects.toString(wabaId, "[not-found]"),
+                maskedToken);
+    }
+
+    private Map<String, Object> sendRouterCommand(String uri) {
+        rateLimit();
+
+        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+            .path(properties.getBlipSetContextPath())
+            .build()
+            .toUriString();
+
+        Map<String, Object> command = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "from", ROTEADOR_PRINCIPAL_IDENTITY,
+                "to", DEFAULT_ROUTER_IDENTITY,
+                "method", "get",
+                "uri", uri);
+
+        try {
+            ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(command, buildHeaders(AuthorizationScope.ROUTER)),
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
+            return response.getBody();
+        } catch (RestClientException ex) {
+            log.warn("Erro ao buscar {} do Blip Router.", uri, ex);
+            return null;
+        }
+    }
+
+    private String findConfigValue(Object node, String targetKey) {
+        if (node == null || targetKey == null || targetKey.isBlank()) {
+            return null;
+        }
+
+        if (node instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() == null) {
+                    continue;
+                }
+                String key = String.valueOf(entry.getKey());
+                if (key.equalsIgnoreCase(targetKey)) {
+                    return valueAsString(entry.getValue());
+                }
+            }
+
+            Object keyField = map.get("key");
+            Object valueField = map.get("value");
+            if (keyField != null && valueField != null && targetKey.equalsIgnoreCase(String.valueOf(keyField))) {
+                return valueAsString(valueField);
+            }
+
+            for (Object value : map.values()) {
+                String found = findConfigValue(value, targetKey);
+                if (found != null) {
+                    return found;
+                }
+            }
+        } else if (node instanceof List<?> list) {
+            for (Object item : list) {
+                String found = findConfigValue(item, targetKey);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
     }
 
     private Map<String, Object> sendDeskCommand(String uri) {

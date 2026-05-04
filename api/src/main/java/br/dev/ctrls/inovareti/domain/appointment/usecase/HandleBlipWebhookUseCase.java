@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -17,7 +18,6 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentVariableLogRepositor
 import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
-import java.util.Map;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.NotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
@@ -57,7 +57,7 @@ public class HandleBlipWebhookUseCase {
 
         // Ignora qualquer outra tentativa ou mensagem do bot (ex: perguntando nome) que não seja o botão confirm_
         if (!action.startsWith("CONFIRM_")) {
-            log.info("Ação ignorada no webhook (focando apenas em botões confirm_). action={}", action);
+            log.debug("Ação ignorada no webhook (focando apenas em botões confirm_). action={}", action);
             return;
         }
 

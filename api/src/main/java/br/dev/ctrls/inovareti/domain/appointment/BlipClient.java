@@ -427,10 +427,8 @@ public class BlipClient {
         log.debug("Buscando templates via Router identity: {}", routerIdentity);
 
         try {
-            logRouterConfigurationBuckets();
             // Always use router identity + router key when fetching templates
-            // Temporarily remove namespace filter to test template availability
-            String approvedUri = "/message-templates?status=Approved";
+            String approvedUri = "/message-templates?status=Approved&namespace=" + resolveWabaNamespace();
             BlipTemplateResponse approvedResponse = fetchTemplatesByUri(approvedUri, routerIdentity);
             if (hasDocuments(approvedResponse)) {
                 logTemplateSummary(approvedResponse, "status-approved:" + routerIdentity);
@@ -1109,6 +1107,11 @@ public class BlipClient {
     }
 
     private String resolveWabaNamespace() {
+        String envNamespace = System.getenv("APP_BLIP_WABA_NAMESPACE");
+        if (envNamespace != null && !envNamespace.isBlank()) {
+            return envNamespace.trim();
+        }
+
         String configuredNamespace = blipWabaNamespace;
         if (configuredNamespace == null || configuredNamespace.isBlank()) {
             return "";

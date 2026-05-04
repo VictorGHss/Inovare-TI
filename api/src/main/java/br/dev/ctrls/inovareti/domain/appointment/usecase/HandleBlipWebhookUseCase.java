@@ -75,9 +75,10 @@ public class HandleBlipWebhookUseCase {
             AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(confirmId)
                     .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + confirmId));
             
-            // Atualiza a sessão garantindo a coleta do telefone real desmascarado
-            if (payload.from() != null && !payload.from().endsWith("@tunnel.msging.net")) {
-                session.setPhoneNumber(payload.from());
+            String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
+            if (dispatchIdentity != null) {
+                // Atualiza a sessão garantindo a coleta do telefone real desmascarado
+                session.setPhoneNumber(dispatchIdentity);
             }
 
             String confirmedStatusId = resolveConfirmedStatusId();
@@ -88,8 +89,17 @@ public class HandleBlipWebhookUseCase {
             appointmentSessionRepository.save(session);
             // Tenta recuperar a fila de atendimento salva nos extras do contato (mergeContactExtras)
             try {
-                log.info("Buscando extras do contato para handoff. payload.from={}", payload.from());
-                Map<String, String> extras = blipClient.getContactExtras(payload.from());
+                if (dispatchIdentity == null) {
+                    log.warn("Identidade de disparo ausente no webhook. Handoff ignorado. from={}, sessionId={}",
+                        payload.from(),
+                        session.getId());
+                } else {
+                    log.info("Buscando extras do contato para handoff. dispatchIdentity={}", dispatchIdentity);
+                }
+
+                Map<String, String> extras = dispatchIdentity == null
+                    ? Map.of()
+                    : blipClient.getContactExtras(dispatchIdentity);
                 String queueId = null;
                 if (extras != null && !extras.isEmpty()) {
                     String filaDestino = extras.get("fila_destino");
@@ -101,9 +111,9 @@ public class HandleBlipWebhookUseCase {
                     }
                 }
 
-                if (queueId != null && !queueId.isBlank()) {
+                if (queueId != null && !queueId.isBlank() && dispatchIdentity != null) {
                     log.info("Executando handoff para fila salva nos extras do contato: {}", queueId);
-                    blipClient.setHandoffContext(payload.from(), queueId);
+                    blipClient.setHandoffContext(dispatchIdentity, queueId);
                 } else {
                     // fallback: tenta basear-se no mapeamento do médico
                     AppointmentDoctorMapping mapping = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
@@ -111,16 +121,20 @@ public class HandleBlipWebhookUseCase {
                                     .orElse(null));
 
                     if (mapping != null) {
-                        if (mapping.isExternal()) {
-                            blipClient.sendPlainText(payload.from(), mapping.getExternalWaLink());
+                        if (dispatchIdentity == null) {
+                            log.warn("Identidade de disparo ausente no webhook. Handoff/redirect ignorado. sessionId={}", session.getId());
+                        } else if (mapping.isExternal()) {
+                            blipClient.sendPlainText(dispatchIdentity, mapping.getExternalWaLink());
                         } else {
-                            blipClient.setHandoffContext(payload.from(), mapping.getBlipQueueId());
+                            blipClient.setHandoffContext(dispatchIdentity, mapping.getBlipQueueId());
                         }
                     }
                 }
             } catch (Exception ex) {
                 log.warn("Falha ao recuperar extras do contato ou executar handoff: {}", ex.getMessage());
-                blipClient.pushUserBackToBuilder(payload.from());
+                if (dispatchIdentity != null) {
+                    blipClient.pushUserBackToBuilder(dispatchIdentity);
+                }
             }
 
             String patientName = resolvePatientName(session);
@@ -163,6 +177,33 @@ public class HandleBlipWebhookUseCase {
         }
 
         return normalized;
+    }
+
+    private String resolveDispatchIdentity(String from, AppointmentSession session) {
+        String direct = normalizeDispatchIdentity(from);
+        if (direct != null) {
+            return direct;
+        }
+
+        String sessionPhone = session != null ? session.getPhoneNumber() : null;
+        String fallback = normalizeDispatchIdentity(sessionPhone);
+        if (fallback == null) {
+            log.warn("Identidade de disparo inválida. from={}, sessionPhone={}", from, sessionPhone);
+        }
+        return fallback;
+    }
+
+    private String normalizeDispatchIdentity(String identity) {
+        if (identity == null || identity.isBlank()) {
+            return null;
+        }
+
+        String trimmed = identity.trim();
+        if (trimmed.endsWith("@tunnel.msging.net")) {
+            return null;
+        }
+
+        return trimmed;
     }
 
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from) {

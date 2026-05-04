@@ -180,6 +180,11 @@ public class BlipClient {
         String templateName = "confirmacao_consulta_v5";
         String normalizedDestination = normalizeUserIdentity(destination);
 
+        if (!normalizedDestination.contains("42991617187")) {
+            log.warn("[SANDBOX] Disparo bloqueado para número real: {}. Apenas o número do Victor é permitido.", destination);
+            return;
+        }
+
         // Força o usuário para o sub-bot de agendamentos antes de disparar.
         pullUserToAgendamentoBot(normalizedDestination);
         rateLimit();
@@ -241,6 +246,11 @@ public class BlipClient {
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = normalizeUserIdentity(destination);
+
+        if (!normalizedDestination.contains("42991617187")) {
+            log.warn("[SANDBOX] Disparo bloqueado para número real: {}. Apenas o número do Victor é permitido.", destination);
+            return;
+        }
 
         // Antes de enviar o template, força o usuário para o sub-bot de agendamentos.
         pullUserToAgendamentoBot(normalizedDestination);
@@ -649,8 +659,8 @@ public class BlipClient {
             .toUriString();
 
         String target = "/configurations".equalsIgnoreCase(uri)
-                ? "postmaster@msging.net"
-                : DEFAULT_ROUTER_IDENTITY;
+            ? MASTER_STATE_COMMAND_TO
+            : DEFAULT_ROUTER_IDENTITY;
 
         Map<String, Object> command = Map.of(
                 "id", UUID.randomUUID().toString(),
@@ -683,40 +693,37 @@ public class BlipClient {
             return null;
         }
 
-        // Handle cases where the resource itself is a simple string value
-        if (node instanceof String && String.valueOf(node).equalsIgnoreCase(targetKey)) {
-            return String.valueOf(node);
-        }
-        if (node instanceof Map<?, ?> map) {
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                if (entry.getKey() == null) {
-                    continue;
-                }
-                String key = String.valueOf(entry.getKey());
-                if (key.equalsIgnoreCase(targetKey)) {
-                    return valueAsString(entry.getValue());
-                }
+        switch (node) {
+            case String str when str.equalsIgnoreCase(targetKey) -> {
+                return str;
             }
+            case Map<?, ?> map -> {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    if (entry.getKey() == null) continue;
+                    String key = String.valueOf(entry.getKey());
+                    if (key.equalsIgnoreCase(targetKey)) {
+                        return valueAsString(entry.getValue());
+                    }
+                }
 
-            Object keyField = map.get("key");
-            Object valueField = map.get("value");
-            if (keyField != null && valueField != null && targetKey.equalsIgnoreCase(String.valueOf(keyField))) {
-                return valueAsString(valueField);
-            }
+                Object keyField = map.get("key");
+                Object valueField = map.get("value");
+                if (keyField != null && valueField != null && targetKey.equalsIgnoreCase(String.valueOf(keyField))) {
+                    return valueAsString(valueField);
+                }
 
-            for (Object value : map.values()) {
-                String found = findConfigValue(value, targetKey);
-                if (found != null) {
-                    return found;
+                for (Object value : map.values()) {
+                    String found = findConfigValue(value, targetKey);
+                    if (found != null) return found;
                 }
             }
-        } else if (node instanceof List<?> list) {
-            for (Object item : list) {
-                String found = findConfigValue(item, targetKey);
-                if (found != null) {
-                    return found;
+            case List<?> list -> {
+                for (Object item : list) {
+                    String found = findConfigValue(item, targetKey);
+                    if (found != null) return found;
                 }
             }
+            default -> {}
         }
 
         return null;
@@ -816,20 +823,17 @@ public class BlipClient {
             return true;
         }
 
-        if (resource instanceof Map) {
-            Map<?, ?> resourceMap = (Map<?, ?>) resource;
-            Object items = resourceMap.get("items");
-            if (items instanceof List) {
-                List<?> itemsList = (List<?>) items;
-                return itemsList.isEmpty();
+        return switch (resource) {
+            case Map<?, ?> resourceMap -> {
+                Object items = resourceMap.get("items");
+                if (items instanceof List<?> itemsList) {
+                    yield itemsList.isEmpty();
+                }
+                yield resourceMap.isEmpty();
             }
-            return resourceMap.isEmpty();
-        } else if (resource instanceof List) {
-            List<?> resourceList = (List<?>) resource;
-            return resourceList.isEmpty();
-        }
-
-        return false;
+            case List<?> resourceList -> resourceList.isEmpty();
+            default -> false;
+        };
     }
 
     private BlipTemplateResponse fetchTemplatesByUri(String commandUri, String toIdentity) {

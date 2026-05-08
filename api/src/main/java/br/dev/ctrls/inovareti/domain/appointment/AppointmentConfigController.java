@@ -24,6 +24,7 @@ import br.dev.ctrls.inovareti.domain.appointment.usecase.ListAppointmentDictiona
 import br.dev.ctrls.inovareti.domain.appointment.usecase.ListAppointmentTemplateMappingsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.SaveAppointmentTemplateMappingsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.UpdateAppointmentConfigUseCase;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class AppointmentConfigController {
 
     private final ListAppointmentDictionaryUseCase listAppointmentDictionaryUseCase;
-    private final BlipClient blipClient;
+    private final BlipNotificationService blipNotificationService;
     private final UpdateAppointmentConfigUseCase updateAppointmentConfigUseCase;
     private final ListFeegowFieldsUseCase listFeegowFieldsUseCase;
     private final SaveAppointmentTemplateMappingsUseCase saveAppointmentTemplateMappingsUseCase;
@@ -62,7 +63,7 @@ public class AppointmentConfigController {
      */
     @GetMapping("/blip-templates")
     public ResponseEntity<List<BlipTemplateDto>> blipTemplates() {
-        List<BlipTemplateDto> templates = blipClient.fetchTemplatesFromBlip();
+        List<BlipTemplateDto> templates = blipNotificationService.fetchTemplatesFromBlip();
         return ResponseEntity.ok(templates);
     }
 

@@ -388,5 +388,10 @@
     "name": "app.appointment.motor.feegow-unidade-id",
     "type": "java.lang.String",
     "description": "A description for 'app.appointment.motor.feegow-unidade-id'"
+  },
+  {
+    "name": "app.appointment.motor.blip-landing-confirmacao-itsm-state-id",
+    "type": "java.lang.String",
+    "description": "A description for 'app.appointment.motor.blip-landing-confirmacao-itsm-state-id'"
   }
 ]}

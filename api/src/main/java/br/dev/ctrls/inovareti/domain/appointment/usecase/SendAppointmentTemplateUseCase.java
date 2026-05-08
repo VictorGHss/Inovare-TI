@@ -18,9 +18,9 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
-import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.BlipErrorMapper;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class SendAppointmentTemplateUseCase {
     private final AppointmentConfigRepository appointmentConfigRepository;
     private final AppointmentSessionRepository appointmentSessionRepository;
     private final FeegowClient feegowClient;
-    private final BlipClient blipClient;
+    private final BlipNotificationService blipNotificationService;
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
 
@@ -120,11 +120,8 @@ public class SendAppointmentTemplateUseCase {
             appointmentDate);
 
         try {
-            if ("confirmacao_consulta_v5".equalsIgnoreCase(config.getTemplateId())) {
-                blipClient.sendAppointmentNotification(session.getPhoneNumber(), templateData);
-            } else {
-                blipClient.sendTemplateMessage(session.getPhoneNumber(), config.getTemplateId(), templateData);
-            }
+            String templateId = config.getTemplateId();
+            blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             session.setStatusDetails(null);
             appointmentSessionRepository.save(session);
             return true;

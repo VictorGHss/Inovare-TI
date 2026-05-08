@@ -23,9 +23,9 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentSendIdempotencyServi
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionStatus;
-import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopAppointmentSendIdempotencyService;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipLIMEClient;
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowPatientDetailsDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,7 @@ public class IngestAppointmentsUseCase {
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
     private final AppointmentSessionRepository appointmentSessionRepository;
-    private final BlipClient blipClient;
+    private final BlipLIMEClient blipLIMEClient;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final Optional<AppointmentSendIdempotencyService> appointmentSendIdempotencyService;
     private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;
@@ -200,7 +200,6 @@ public class IngestAppointmentsUseCase {
                 phoneSourceField = "telefones";
             }
 
-
                 String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
                 if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
                 log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId);
@@ -211,7 +210,7 @@ public class IngestAppointmentsUseCase {
                 String appMode = System.getenv("APP_MODE");
                 if (appMode == null) appMode = "";
                 if (!"PRODUCTION".equalsIgnoreCase(appMode) && !"+5542991617187".equals(phoneNumber)) {
-                blipClient.logSecurityBlock(phoneNumber, appMode);
+                blipLIMEClient.logSecurityBlock(phoneNumber, appMode);
                 continue;
                 }
 
@@ -265,7 +264,7 @@ public class IngestAppointmentsUseCase {
                 extras.put("fila_nome", mappingQueue);
             }
 
-            blipClient.mergeContactExtras(phoneNumber, extras);
+            blipLIMEClient.mergeContactExtras(phoneNumber, extras);
 
             boolean templateSent = sendAppointmentTemplateUseCase.execute(saved, AppointmentCategory.CONFIRMATION);
             created++;

@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -35,9 +36,20 @@ public class AppointmentMotorProperties {
     private String blipWabaNamespace;
     private String blipBuilderBotId;
     private String blipAgendamentoBotId;
+
+    @Value("${app.appointment.motor.blip-landing-confirmacao-itsm-stateid:#{null}}")
+    private String blipLandingConfirmacaoItsmStateid;
+
     private long blipRateLimitMs;
     private int nudge1WaitHours;
     private int nudgeFinalWaitHours;
     private long sendIdempotencyHours;
     private long webhookIdempotencyHours;
+
+    public String getBlipLandingConfirmacaoItsmStateId() {
+        if (blipLandingConfirmacaoItsmStateid == null || blipLandingConfirmacaoItsmStateid.trim().startsWith("${")) {
+            return "";
+        }
+        return blipLandingConfirmacaoItsmStateid;
+    }
 }

@@ -14,12 +14,13 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentRealtimeNotification
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentVariableLogRepository;
-import br.dev.ctrls.inovareti.domain.appointment.BlipClient;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.NotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipTicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,7 +32,8 @@ public class HandleBlipWebhookUseCase {
     private final AppointmentSessionRepository appointmentSessionRepository;
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final FeegowClient feegowClient;
-    private final BlipClient blipClient;
+    private final BlipContextService blipContextService;
+    private final BlipTicketService blipTicketService;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
     private final AppointmentVariableLogRepository appointmentVariableLogRepository;
     private final AppointmentRealtimeNotificationService appointmentRealtimeNotificationService;
@@ -106,13 +108,15 @@ public class HandleBlipWebhookUseCase {
                         resolvedProfissionalId,
                         session.getId());
                 } else {
-                    blipClient.prepareRedirectToQueue(dispatchIdentity, queueId);
-                    blipClient.pullUserToAgendamentoBot(dispatchIdentity);
+                    blipTicketService.closeOpenDeskTicketIfNeeded(dispatchIdentity);
+                    blipContextService.setUserContext(dispatchIdentity, "attendanceQueueToRedirect", queueId);
+                    blipContextService.setMasterState(dispatchIdentity, null, "agendamentos");
+                    blipContextService.setUserState(dispatchIdentity, appointmentMotorProperties.getBlipLandingConfirmacaoItsmStateId());
                 }
             } catch (Exception ex) {
                 log.warn("Falha ao preparar redirecionamento de fila: {}", ex.getMessage());
                 if (dispatchIdentity != null) {
-                    blipClient.pushUserBackToBuilder(dispatchIdentity);
+                    blipContextService.setMasterState(dispatchIdentity, appointmentMotorProperties.getBlipBuilderBotId(), "builder");
                 }
             }
 

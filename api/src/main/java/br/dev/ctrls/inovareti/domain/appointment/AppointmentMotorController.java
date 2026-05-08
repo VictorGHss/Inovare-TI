@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.IngestAppointmentsUseCase;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipLIMEClient;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,7 @@ public class AppointmentMotorController {
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
-    private final BlipClient blipClient;
+    private final BlipLIMEClient blipLIMEClient;
     private final FeegowClient feegowClient;
     private final UserRepository userRepository;
 
@@ -112,7 +113,7 @@ public class AppointmentMotorController {
 
     @GetMapping("/admin/debug-queues")
     public ResponseEntity<Map<String, Object>> debugQueues() {
-        return ResponseEntity.ok(blipClient.getBlipQueues());
+        return ResponseEntity.ok(blipLIMEClient.getBlipQueues());
     }
 
     @GetMapping("/professionals")
@@ -138,7 +139,7 @@ public class AppointmentMotorController {
     @GetMapping("/blip/queues")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Map<String, String>>> blipQueues() {
-        List<BlipClient.BlipQueue> queues = blipClient.listBlipQueues();
+        List<BlipLIMEClient.BlipQueue> queues = blipLIMEClient.listBlipQueues();
         List<Map<String, String>> out = queues.stream()
                 .map(q -> Map.of("id", q.id(), "name", q.name()))
                 .collect(Collectors.toList());

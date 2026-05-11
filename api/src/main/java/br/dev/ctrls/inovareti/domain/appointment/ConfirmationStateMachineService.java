@@ -13,6 +13,7 @@ public class ConfirmationStateMachineService {
     public AppointmentSession markNudge1Sent(AppointmentSession session) {
         session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
         session.setLastInteractionAt(LocalDateTime.now());
+        session.setLastNotificationSentAt(LocalDateTime.now());
         log.info("Transicao de estado aplicada. appointmentId={} novoEstado={}",
                 session.getFeegowAppointmentId(), session.getStatus());
         return session;
@@ -21,6 +22,7 @@ public class ConfirmationStateMachineService {
     public AppointmentSession markNudgeFinalSent(AppointmentSession session) {
         session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
         session.setLastInteractionAt(LocalDateTime.now());
+        session.setLastNotificationSentAt(LocalDateTime.now());
         log.info("Transicao de estado aplicada. appointmentId={} novoEstado={}",
                 session.getFeegowAppointmentId(), session.getStatus());
         return session;

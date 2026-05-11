@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
@@ -17,6 +16,7 @@ import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Component
@@ -32,8 +32,8 @@ public class MonitorAppointmentNudgesUseCase {
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final FeegowClient feegowClient;
     private final BlipContextService blipContextService;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public void execute() {
         int xHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_1)
                 .map(config -> config.getTimingHours())
@@ -44,44 +44,56 @@ public class MonitorAppointmentNudgesUseCase {
                 .orElse(appointmentMotorProperties.getNudgeFinalWaitHours());
 
         LocalDateTime pendingThreshold = resolvePendingThreshold(xHours);
+        LocalDateTime nudge1Threshold = LocalDateTime.now().minusHours(yHours);
+        LocalDateTime finalThreshold = LocalDateTime.now().minusHours(24);
+
         List<AppointmentSession> pendingSessions = appointmentSessionRepository
                 .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.PENDING, pendingThreshold);
+        List<AppointmentSession> nudge1Sessions = appointmentSessionRepository
+                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, nudge1Threshold);
+        List<AppointmentSession> finalSessions = appointmentSessionRepository
+                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_FINAL_SENT, finalThreshold);
 
         for (AppointmentSession session : pendingSessions) {
-                        boolean sent = sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_1);
-                        if (!sent) {
-                                log.warn("NUDGE_1 não enviado. Mantendo sessão pendente. sessionId={}", session.getId());
-                                continue;
-                        }
-
-            confirmationStateMachineService.markNudge1Sent(session);
-            appointmentSessionRepository.save(session);
+            transactionTemplate.executeWithoutResult(status -> {
+                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.PENDING) {
+                    boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_1);
+                    if (!sent) {
+                        log.warn("NUDGE_1 não enviado. Mantendo sessão pendente. sessionId={}", lockedSession.getId());
+                        return;
+                    }
+                    confirmationStateMachineService.markNudge1Sent(lockedSession);
+                    appointmentSessionRepository.save(lockedSession);
+                }
+            });
         }
-
-        LocalDateTime nudge1Threshold = LocalDateTime.now().minusHours(yHours);
-        List<AppointmentSession> nudge1Sessions = appointmentSessionRepository
-                .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, nudge1Threshold);
 
         for (AppointmentSession session : nudge1Sessions) {
-                        boolean sent = sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.NUDGE_FINAL);
-                        if (!sent) {
-                                log.warn("NUDGE_FINAL não enviado. Mantendo sessão no estado atual. sessionId={}", session.getId());
-                                continue;
-                        }
-
-            confirmationStateMachineService.markNudgeFinalSent(session);
-            appointmentSessionRepository.save(session);
+            transactionTemplate.executeWithoutResult(status -> {
+                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_1_SENT) {
+                    boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_FINAL);
+                    if (!sent) {
+                        log.warn("NUDGE_FINAL não enviado. Mantendo sessão no estado atual. sessionId={}", lockedSession.getId());
+                        return;
+                    }
+                    confirmationStateMachineService.markNudgeFinalSent(lockedSession);
+                    appointmentSessionRepository.save(lockedSession);
+                }
+            });
         }
 
-        LocalDateTime finalThreshold = LocalDateTime.now().minusHours(24);
-        List<AppointmentSession> finalSessions = appointmentSessionRepository
-                .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.NUDGE_FINAL_SENT, finalThreshold);
-
         for (AppointmentSession session : finalSessions) {
-            feegowClient.updateStatus(session.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
-            confirmationStateMachineService.markCanceledByNoResponse(session);
-            appointmentSessionRepository.save(session);
-            blipContextService.setMasterState(session.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");
+            transactionTemplate.executeWithoutResult(status -> {
+                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
+                    feegowClient.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    confirmationStateMachineService.markCanceledByNoResponse(lockedSession);
+                    appointmentSessionRepository.save(lockedSession);
+                    blipContextService.setMasterState(lockedSession.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");
+                }
+            });
         }
 
         log.info("Monitor de nudges executado. pendingParaNudge1={}, nudge1ParaFinal={}, finalParaCancelado={}",

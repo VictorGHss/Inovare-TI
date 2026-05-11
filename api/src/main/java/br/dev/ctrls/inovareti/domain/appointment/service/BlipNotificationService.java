@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.domain.appointment.service;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -14,10 +13,7 @@ import org.springframework.stereotype.Service;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentTemplateMapping;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentTemplateMappingRepository;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
-
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,20 +24,17 @@ public class BlipNotificationService {
 
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepository templateMappingRepository;
-    private final AppointmentDoctorMappingRepository doctorMappingRepository;
     private final AppointmentMotorProperties properties;
 
     @Value("${app.appointment.motor.blip-waba-namespace}")
     private String blipWabaNamespace;
 
     public BlipNotificationService(
-            BlipLIMEClient limeClient, 
-            AppointmentTemplateMappingRepository templateMappingRepository, 
-            AppointmentDoctorMappingRepository doctorMappingRepository,
+            BlipLIMEClient limeClient,
+            AppointmentTemplateMappingRepository templateMappingRepository,
             AppointmentMotorProperties properties) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
-        this.doctorMappingRepository = doctorMappingRepository;
         this.properties = properties;
     }
 
@@ -102,6 +95,13 @@ public class BlipNotificationService {
         List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
         String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
 
+        log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", normalizedDestination, templateName, parameters);
+
+        if (parameters.isEmpty()) {
+            log.error("[ABORT] Parâmetros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteúdo. destination={}",
+                templateName, normalizedDestination);
+            return;
+        }
         Map<String, Object> button = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,
             "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
@@ -138,7 +138,10 @@ public class BlipNotificationService {
         List<AppointmentTemplateMapping> mappings = templateMappingRepository
             .findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateName);
 
-        if (mappings.isEmpty()) return List.of();
+        if (mappings.isEmpty()) {
+            log.warn("[TEMPLATE MAPPING] Nenhum mapeamento encontrado para o template: '{}'. Verifique a tabela appointment_template_mapping.", templateName);
+            return List.of();
+        }
 
         List<Map<String, String>> parameters = new ArrayList<>();
         mappings.stream()
@@ -147,43 +150,62 @@ public class BlipNotificationService {
                 String fieldName = mapping.getFeegowFieldName();
                 String value = resolveDynamicFieldValue(appointmentData, fieldName);
                 
-                String safeValue = "Informado na Recepção";
-                if (value != null && !value.isBlank() && !"Informação não disponível".equals(value.trim())) {
+                String safeValue = "Recepção";
+                if (value != null && !value.isBlank() && !"null".equalsIgnoreCase(value.trim()) && !"Informação não disponível".equalsIgnoreCase(value.trim())) {
                     safeValue = value.trim();
                 } else {
                     if (fieldName != null) {
-                        if (fieldName.toLowerCase().contains("profissional") || fieldName.toLowerCase().contains("doctor")) {
-                            safeValue = "Médico";
+                        if (fieldName.toLowerCase().contains("profissional") || fieldName.toLowerCase().contains("doctor") || fieldName.toLowerCase().contains("medico")) {
+                            safeValue = "Clínica Inovare";
                         } else if (fieldName.toLowerCase().contains("patient") || fieldName.toLowerCase().contains("paciente")) {
                             safeValue = "Paciente";
                         }
                     }
                 }
                 
+                safeValue = br.dev.ctrls.inovareti.domain.appointment.utils.StringSanitizer.sanitize(safeValue);
                 parameters.add(Map.of("type", "text", "text", safeValue));
             });
 
+        log.debug("[PARAMS] Template [{}]: {} parâmetro(s) mapeados", templateName, parameters.size());
         return parameters;
     }
 
-    private String resolveDynamicFieldValue(AppointmentTemplateData appointmentData, String fieldName) {
-        if (appointmentData == null || fieldName == null || fieldName.isBlank()) return null;
+    private String resolveDynamicFieldValue(AppointmentTemplateData data, String fieldName) {
+        if (data == null || fieldName == null || fieldName.isBlank()) return null;
 
-        if ("profissionalNome".equalsIgnoreCase(fieldName.trim())) {
-            try {
-                String doctorId = appointmentData.doctorId();
-                if (doctorId == null || doctorId.isBlank() || "Informação não disponível".equals(doctorId.trim())) return null;
-                return doctorMappingRepository.findByProfissionalId(doctorId.trim())
-                        .map(AppointmentDoctorMapping::getProfissionalNome)
-                        .orElse(null);
-            } catch (Exception ex) { return null; }
-        }
+        // Mapa explícito: nome do campo no banco → extrator do record.
+        // Aceita tanto snake_case quanto camelCase para resiliência.
+        String key = fieldName.trim().toLowerCase();
+        return switch (key) {
+            // Paciente
+            case "patientname", "patient_name", "nome_paciente", "paciente"   -> data.patientName();
+            case "patientphone", "patient_phone", "telefone_paciente"          -> data.patientPhone();
+            case "patientid", "patient_id"                                     -> data.patientId();
 
-        try {
-            Method accessor = AppointmentTemplateData.class.getMethod(fieldName.trim());
-            Object value = accessor.invoke(appointmentData);
-            return value == null ? null : String.valueOf(value);
-        } catch (ReflectiveOperationException ex) { return null; }
+            // Médico — usa o doctorName JA resolvido no SendAppointmentTemplateUseCase
+            case "doctorname", "doctor_name",
+                 "profissionalnome", "profissional_nome",
+                 "nome_medico", "medico", "professional_name"                  -> data.doctorName();
+            case "doctorid", "doctor_id", "profissional_id"                    -> data.doctorId();
+            case "specialty", "especialidade"                                  -> data.specialty();
+
+            // Agenda
+            case "appointmentdate", "appointment_date", "data_consulta",
+                 "data"                                                         -> data.appointmentDate();
+            case "appointmentdateshort", "appointment_date_short", "data_curta" -> data.appointmentDateShort();
+            case "appointmenttime", "appointment_time", "hora", "hora_consulta" -> data.appointmentTime();
+            case "appointmentdatetime", "appointment_date_time", "data_hora"    -> data.appointmentDateTime();
+            case "appointmentid", "appointment_id"                             -> data.appointmentId();
+
+            // Unidade
+            case "unitname", "unit_name", "unidade", "local"                   -> data.unitName();
+
+            default -> {
+                log.warn("[FIELD MAPPING] Campo '{}' não mapeado em AppointmentTemplateData. Revise a tabela appointment_template_mapping.", fieldName);
+                yield null;
+            }
+        };
     }
 
     private String resolveWabaNamespace() {

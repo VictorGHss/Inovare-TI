@@ -114,21 +114,32 @@ public class BlipContextService {
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 
+        // Sanitização da fila: o char \u200E (LTR Mark) e valores vazios quebram o Desk.
+        // Nunca enviar o caractere invisível para variáveis de roteamento.
+        String safeQueueName = queueName;
+        if (safeQueueName == null
+                || safeQueueName.isBlank()
+                || "null".equalsIgnoreCase(safeQueueName.trim())
+                || safeQueueName.contains("\u200E")) {
+            safeQueueName = "Recepção Central";
+            log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueName, safeQueueName);
+        }
+
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
             "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
             "method", "set",
             "uri", "/contexts/" + normalizedIdentity + "/attendanceQueueToRedirect",
             "type", "text/plain",
-            "resource", queueName
+            "resource", safeQueueName
         );
 
         try {
             limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("Fila de redirecionamento configurada no contexto. identity={}, fila={}", normalizedIdentity, queueName);
+            log.info("Fila de redirecionamento configurada no contexto. identity={}, fila={}", normalizedIdentity, safeQueueName);
             return true;
         } catch (RestClientException ex) {
-            log.warn("Falha ao configurar fila no contexto. identity={}, fila={}", normalizedIdentity, queueName, ex);
+            log.warn("Falha ao configurar fila no contexto. identity={}, fila={}", normalizedIdentity, safeQueueName, ex);
             return false;
         }
     }

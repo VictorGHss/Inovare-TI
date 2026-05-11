@@ -27,6 +27,8 @@ import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopAppointmentSendIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipLIMEClient;
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowPatientDetailsDto;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentDispatchContext;
+import br.dev.ctrls.inovareti.domain.appointment.utils.StringSanitizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,6 +48,7 @@ public class IngestAppointmentsUseCase {
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final Optional<AppointmentSendIdempotencyService> appointmentSendIdempotencyService;
     private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Transactional
     public IngestionSummary execute() {
@@ -132,29 +135,48 @@ public class IngestAppointmentsUseCase {
             String patientId = appointment.patientId();
             FeegowPatientDetailsDto.PatientItem patientDetails;
 
-            // Lookup mapping early to obtain destination queue and any stored professional name
-            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(appointment.doctorId());
-            String mappingQueue = mappingOpt.map(m -> m.getBlipQueueId()).orElse(null);
+            // Lookup mapping early to obtain destination queue and any stored professional name.
+            // IMUTABILIDADE: extraímos apenas Strings finais ANTES de entrar nas Virtual Threads.
+            // Isso impede que o contexto Hibernate vaze entre threads e troque o nome do médico.
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
+            final String mappingQueue = mappingOpt.map(m -> m.getBlipQueueId()).orElse(null);
             final String mappingProfessionalNameLocal = mappingOpt.map(m -> m.getProfissionalNome()).orElse(null);
+            final String appointmentDoctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : null;
 
-            String resolvedProfessionalName = mappingProfessionalNameLocal;
+            log.info("[MAPEAMENTO MÉDICO] profissional_id={} | mapeamento encontrado={} | nome_mapeado={} | fila_mapeada={}",
+                appointmentDoctorId, mappingOpt.isPresent(), mappingProfessionalNameLocal, mappingQueue);
 
-            // Use virtual threads for I/O-bound calls: patient details and professional name lookup
+            // resolvedProfessionalName é uma String final simples — nunca um proxy Hibernate
+            String resolvedProfessionalName;
+            if (mappingProfessionalNameLocal != null
+                && !mappingProfessionalNameLocal.isBlank()
+                && !"null".equalsIgnoreCase(mappingProfessionalNameLocal.trim())) {
+                resolvedProfessionalName = mappingProfessionalNameLocal.trim();
+            } else {
+                resolvedProfessionalName = "Clínica Inovare";
+            }
+
+            // Use virtual threads APENAS para I/O puro (dados do paciente)
+            // O nome do profissional já está resolvido e imutável acima — NÃO reutilize mappingOpt dentro da lambda
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                var patientFuture = CompletableFuture.supplyAsync(() -> {
-                    return feegowClient.getPatientDetails(patientId);
-                }, executor);
+                var patientFuture = CompletableFuture.supplyAsync(() ->
+                    feegowClient.getPatientDetails(patientId), executor);
+
+                // Tenta enriquecer o nome via Feegow apenas se o mapeamento não encontrou um nome
+                final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
+                final String currentResolvedName = resolvedProfessionalName; // captura para lambda
 
                 var professionalFuture = CompletableFuture.supplyAsync(() -> {
+                    if (!needFeegowName) return currentResolvedName; // já temos o nome do banco, não consulta
                     try {
-                        String feegowName = feegowClient.getProfessionalName(appointment.doctorId());
-                        if (feegowName != null && !feegowName.isBlank()) {
-                            return feegowName;
+                        String feegowName = feegowClient.getProfessionalName(appointmentDoctorId);
+                        if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
+                            return feegowName.trim();
                         }
                     } catch (Exception e) {
-                        log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointment.doctorId(), e.getMessage());
+                        log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointmentDoctorId, e.getMessage());
                     }
-                    return mappingProfessionalNameLocal;
+                    return currentResolvedName;
                 }, executor);
 
                 try {
@@ -225,6 +247,7 @@ public class IngestAppointmentsUseCase {
                     phoneNumber);
 
             AppointmentSession session = existingSessionOpt.orElseGet(AppointmentSession::new);
+
             session.setFeegowAppointmentId(feegowAppointmentId);
             session.setPatientId(appointment.patientId());
             session.setPhoneNumber(phoneNumber);
@@ -236,6 +259,7 @@ public class IngestAppointmentsUseCase {
             session.setStatusDetails(null);
 
             AppointmentSession saved = appointmentSessionRepository.save(session);
+            entityManager.flush(); // Garante que a inserção/atualização vá pro banco antes do findByIdLocked na próxima etapa
             log.info("Agendamento salvo localmente: ID Feegow = {}", saved.getFeegowAppointmentId());
 
             // Merge extras no contato do Blip antes do envio da mensagem
@@ -253,20 +277,57 @@ public class IngestAppointmentsUseCase {
                 }
             }
             extras.put("cpf", cpf);
-            // profissional_nome vem preferencialmente do mapeamento (coluna profissional_nome),
-            // caso contrário usamos o valor obtido da Feegow via chamada assíncrona.
-            extras.put("profissional_nome", resolvedProfessionalName != null ? resolvedProfessionalName : "");
 
-            // fila_destino vem da tabela de mapeamento quando disponível
-            if (mappingQueue != null && !mappingQueue.isBlank()) {
-                extras.put("fila_destino", mappingQueue);
-                // mantemos também fila_nome por compatibilidade
-                extras.put("fila_nome", mappingQueue);
-            }
+            // Sanitiza profissional_nome: nunca enviar null ou string vazia
+            String safeProfissionalNome = (resolvedProfessionalName != null
+                && !resolvedProfessionalName.isBlank()
+                && !"null".equalsIgnoreCase(resolvedProfessionalName.trim()))
+                ? resolvedProfessionalName.trim()
+                : "Clínica Inovare";
+            extras.put("profissional_nome", StringSanitizer.sanitize(safeProfissionalNome));
+
+            // Sanitiza fila_destino: nunca enviar null ou string vazia
+            String safeFilaDestino = (mappingQueue != null
+                && !mappingQueue.isBlank()
+                && !"null".equalsIgnoreCase(mappingQueue.trim()))
+                ? mappingQueue.trim()
+                : StringSanitizer.UNICODE_LTR_MARK;
+            extras.put("fila_destino", safeFilaDestino);
+            extras.put("fila_nome", safeFilaDestino);
+
+            log.info("[EXTRAS CONTATO] profissional_nome='{}' | fila_destino='{}'", safeProfissionalNome, safeFilaDestino);
 
             blipLIMEClient.mergeContactExtras(phoneNumber, extras);
 
-            boolean templateSent = sendAppointmentTemplateUseCase.execute(saved, AppointmentCategory.CONFIRMATION);
+            // Monta contexto imutável com todos os dados já resolvidos
+            // Nenhuma entidade JPA é passada — apenas Strings finais
+            final String finalPatientName = (patientDetails != null && patientDetails.getNome() != null)
+                ? patientDetails.getNome().trim() : "Paciente";
+            final String finalPatientPhone = (patientDetails != null)
+                ? firstNonBlank(patientDetails.getCelulares() != null ? patientDetails.getCelulares() : patientDetails.getTelefones()) : null;
+            final String finalDate = saved.getAppointmentAt() != null
+                ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+            final String finalDateShort = saved.getAppointmentAt() != null
+                ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")) : "";
+            final String finalTime = saved.getAppointmentAt() != null
+                ? saved.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) : "";
+
+            AppointmentDispatchContext ctx = new AppointmentDispatchContext(
+                saved.getId(),
+                feegowAppointmentId,
+                finalPatientName,
+                finalPatientPhone,
+                saved.getPatientId(),
+                appointmentDoctorId,
+                resolvedProfessionalName,  // já resolvido: banco → Feegow → fallback
+                safeFilaDestino,
+                finalDate,
+                finalDateShort,
+                finalTime,
+                phoneNumber
+            );
+
+            boolean templateSent = sendAppointmentTemplateUseCase.execute(ctx, AppointmentCategory.CONFIRMATION);
             created++;
             if (templateSent) {
                 messagesSent++;
@@ -305,7 +366,7 @@ public class IngestAppointmentsUseCase {
             return false;
         }
 
-        return appointmentDoctorMappingRepository.findByProfissionalId(profissionalId.trim()).isPresent();
+        return appointmentDoctorMappingRepository.findByProfissionalIdLocked(profissionalId.trim()).isPresent();
     }
 
     private String normalizePhoneNumberForBlip(String originalPhone) {

@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface AppointmentDoctorMappingRepository extends JpaRepository<AppointmentDoctorMapping, UUID> {
+public interface AppointmentDoctorMappingRepository extends JpaRepository<AppointmentDoctorMapping, UUID>, AppointmentDoctorMappingRepositoryCustom {
 
     Optional<AppointmentDoctorMapping> findByProfissionalId(String profissionalId);
 }

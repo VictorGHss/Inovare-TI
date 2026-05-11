@@ -55,6 +55,9 @@ public class AppointmentSession {
     @Column(name = "last_interaction_at", nullable = false)
     private LocalDateTime lastInteractionAt;
 
+    @Column(name = "last_notification_sent_at")
+    private LocalDateTime lastNotificationSentAt;
+
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 

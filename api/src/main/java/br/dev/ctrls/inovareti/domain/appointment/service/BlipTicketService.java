@@ -19,7 +19,7 @@ public class BlipTicketService {
         this.limeClient = limeClient;
     }
 
-    public void closeOpenDeskTicketIfNeeded(String tunnelOriginator) {
+    public void closeActiveTickets(String tunnelOriginator) {
         if (tunnelOriginator == null || tunnelOriginator.isBlank()) return;
 
         String ticketsQuery = "/tickets?$filter=customerIdentity%20eq%20'" + tunnelOriginator + "'%20and%20status%20eq%20'Open'";

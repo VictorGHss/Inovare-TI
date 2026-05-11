@@ -45,7 +45,7 @@ public class BlipLIMEClient {
             "id", UUID.randomUUID().toString(),
             "to", "postmaster@desk.msging.net",
             "method", "get",
-            "uri", "/attendance-queues"
+            "uri", "/teams"
         );
         try {
             return executeCommand(command, AuthorizationScope.ROUTER).getBody();
@@ -127,22 +127,77 @@ public class BlipLIMEClient {
 
     public ResponseEntity<Map<String, Object>> executeCommand(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
-        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build().toUriString();
+        
+        AuthorizationScope actualScope = scope;
+        Map<String, Object> finalPayload = payload;
+        
+        if (payload != null && payload.containsKey("uri")) {
+            String uri = String.valueOf(payload.get("uri"));
+            finalPayload = new java.util.HashMap<>(payload);
+            
+            if (uri.contains("/teams") || uri.contains("/threads") || uri.contains("/attendance-queues") || uri.contains("/buckets")) {
+                finalPayload.put("to", "postmaster@desk.msging.net");
+                actualScope = AuthorizationScope.DESK;
+                if (uri.contains("/teams")) {
+                    finalPayload.put("uri", "/teams");
+                } else if (uri.contains("/threads")) {
+                    finalPayload.put("uri", "/threads");
+                }
+            } else if (uri.contains("/message-templates")) {
+                finalPayload.put("to", "postmaster@wa.gw.msging.net");
+                finalPayload.put("uri", "/message-templates");
+                actualScope = AuthorizationScope.ROUTER;
+            } else {
+                finalPayload.put("to", "postmaster@msging.net");
+                actualScope = AuthorizationScope.ROUTER;
+            }
+        }
 
-        return blipRestTemplate.exchange(
+        java.net.URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+                .path(properties.getBlipSetContextPath())
+                .build().toUri();
+
+        try {
+            log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(finalPayload));
+        } catch (Exception ignored) {
+            log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, finalPayload);
+        }
+
+        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
                 url, HttpMethod.POST,
-                new HttpEntity<>(payload, buildHeaders(scope)),
+                new HttpEntity<>(finalPayload, buildHeaders(actualScope)),
                 new ParameterizedTypeReference<Map<String, Object>>() {}
         );
+
+        Map<String, Object> body = response.getBody();
+        if (body == null) {
+            log.debug("Blip retornou body null no executeCommand. Payload enviado: {}", finalPayload);
+        } else {
+            Object resource = body.get("resource");
+            boolean isEmpty = resource == null;
+            
+            if (resource instanceof java.util.List<?> list && list.isEmpty()) {
+                isEmpty = true;
+            } else if (resource instanceof Map<?, ?> map) {
+                Object items = map.get("items");
+                if (items instanceof java.util.List<?> list && list.isEmpty()) {
+                    isEmpty = true;
+                }
+            }
+            
+            if (isEmpty) {
+                log.debug("Blip retornou recurso vazio ou nulo no executeCommand. Body completo: {}", body);
+            }
+        }
+
+        return response;
     }
 
     public ResponseEntity<Map<String, Object>> executeMessage(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
-        String url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+        java.net.URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
                 .path(properties.getBlipSendMessagePath())
-                .build().toUriString();
+                .build().toUri();
 
         return blipRestTemplate.exchange(
                 url, HttpMethod.POST,
@@ -193,10 +248,10 @@ public class BlipLIMEClient {
     private String resolveAuthorizationKey(AuthorizationScope scope) {
         if (scope == AuthorizationScope.ROUTER) {
             String env = System.getenv("APP_APPOINTMENT_BLIP_ROUTER_KEY");
-            return env != null && !env.isBlank() ? env : properties.getBlipRouterKey();
+            return env != null && !env.isBlank() ? env : properties.getBot().getBlipRouterKey();
         } else {
             String env = System.getenv("APP_APPOINTMENT_BLIP_DESK_KEY");
-            return env != null && !env.isBlank() ? env : properties.getBlipDeskKey();
+            return env != null && !env.isBlank() ? env : properties.getBot().getBlipDeskKey();
         }
     }
 

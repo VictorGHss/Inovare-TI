@@ -405,18 +405,30 @@ public class DiscordWebhookService {
             return sendEmbedWithRetry(webhook, embed, "chamado", ticketContext);
         }
 
+        private String lastWebhookStatus = "UNKNOWN";
+        private long lastWebhookStatusCheck = 0L;
+
         public String getDefaultWebhookStatus() {
             String webhook = resolveWebhookUrl(defaultWebhookUrl, "discord.webhook.url");
             if (!StringUtils.hasText(webhook)) return "MISSING";
+            
+            long now = System.currentTimeMillis();
+            if (now - lastWebhookStatusCheck < 15 * 60 * 1000) {
+                return lastWebhookStatus;
+            }
+
             try {
                 restTemplate.headForHeaders(webhook);
-                return "PRESENT";
+                lastWebhookStatus = "PRESENT";
             } catch (HttpClientErrorException.NotFound nf) {
-                return "INVALID";
+                lastWebhookStatus = "INVALID";
             } catch (RestClientException ex) {
                 log.warn("Não foi possível verificar status do webhook: {}", ex.getMessage());
-                return "UNKNOWN";
+                lastWebhookStatus = "UNKNOWN";
             }
+            
+            lastWebhookStatusCheck = now;
+            return lastWebhookStatus;
         }
 
     private List<User> resolveRecipients(Ticket ticket) {

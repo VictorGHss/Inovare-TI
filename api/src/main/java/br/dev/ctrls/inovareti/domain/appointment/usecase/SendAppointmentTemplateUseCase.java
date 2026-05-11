@@ -80,7 +80,7 @@ public class SendAppointmentTemplateUseCase {
         // Inversão de prioridade: busca no banco primeiro
         String doctorName = null;
         if (normalizedProfissionalId != null && !normalizedProfissionalId.isBlank()) {
-            doctorName = appointmentDoctorMappingRepository.findByProfissionalId(normalizedProfissionalId)
+            doctorName = appointmentDoctorMappingRepository.findByProfissionalId(normalizedProfissionalId.trim())
                 .map(AppointmentDoctorMapping::getProfissionalNome)
                 .filter(nome -> !nome.isBlank())
                 .orElse(null);

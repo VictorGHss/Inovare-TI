@@ -405,7 +405,9 @@ public class AppointmentMotorController {
     }
 
     @PostMapping("/blip/webhook")
-    public ResponseEntity<Map<String, Object>> blipWebhook(@RequestBody(required = false) String rawPayload) {
+    public ResponseEntity<Map<String, Object>> blipWebhook(
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
+            @RequestBody(required = false) String rawPayload) {
         JsonNode payload = parsePayload(rawPayload);
         log.debug("RECEIVED IN WEBHOOK: " + payload);
 
@@ -425,7 +427,8 @@ public class AppointmentMotorController {
                 messageId,
                 appointmentId,
                 action,
-                from
+                from,
+                inovareToken
         ));
 
         return ResponseEntity.accepted().body(Map.of(

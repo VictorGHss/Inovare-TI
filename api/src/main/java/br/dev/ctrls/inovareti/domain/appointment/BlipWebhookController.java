@@ -28,7 +28,9 @@ public class BlipWebhookController {
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
 
     @PostMapping("/blip")
-    public ResponseEntity<Map<String, Object>> blipWebhook(@RequestBody(required = false) String rawPayload) {
+    public ResponseEntity<Map<String, Object>> blipWebhook(
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
+            @RequestBody(required = false) String rawPayload) {
         log.debug("Webhook do Blip recebido com sucesso!");
         JsonNode payload = parsePayload(rawPayload);
         log.debug("Blip webhook received: {}", payload);
@@ -49,7 +51,8 @@ public class BlipWebhookController {
                 messageId,
                 appointmentId,
                 action,
-                from
+                from,
+                inovareToken
         ));
 
         return ResponseEntity.accepted().body(Map.of(

@@ -48,29 +48,41 @@ public class DiscordBotConfig {
         }
 
         try {
-            log.info("Inicializando JDA com token do bot Discord...");
+            log.info("Inicializando JDA com token do bot Discord (timeout de 10s)...");
 
-            JDA jda = JDABuilder.createDefault(discordBotToken)
-                    // Gateway intents necessários para o bot funcionar
-                    .enableIntents(
-                            GatewayIntent.GUILD_MEMBERS,
-                            GatewayIntent.GUILD_MESSAGES,
-                            GatewayIntent.MESSAGE_CONTENT,
-                            GatewayIntent.DIRECT_MESSAGES,
-                            GatewayIntent.GUILD_VOICE_STATES
-                    )
-                    // Define a atividade do bot
-                    .setActivity(Activity.playing("Suporte de TI | /chamado"))
-                    // Registra o listener de eventos
-                    .addEventListeners(eventListener)
-                    // Constrói sem bloquear — conexão ocorre em background; ReadyEvent é disparado ao DiscordEventListener
-                    .build();
+            JDA jda = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    return JDABuilder.createDefault(discordBotToken)
+                            // Gateway intents necessários para o bot funcionar
+                            .enableIntents(
+                                    GatewayIntent.GUILD_MEMBERS,
+                                    GatewayIntent.GUILD_MESSAGES,
+                                    GatewayIntent.MESSAGE_CONTENT,
+                                    GatewayIntent.DIRECT_MESSAGES,
+                                    GatewayIntent.GUILD_VOICE_STATES
+                            )
+                            // Define a atividade do bot
+                            .setActivity(Activity.playing("Suporte de TI | /chamado"))
+                            // Configurações de conexão solicitadas
+                            .setAutoReconnect(false)
+                            .setEnableShutdownHook(true)
+                            // Registra o listener de eventos
+                            .addEventListeners(eventListener)
+                            // Constrói sem bloquear infinitamente
+                            .build();
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+            }).get(10, java.util.concurrent.TimeUnit.SECONDS);
 
-            log.info("JDA iniciado de forma assíncrona. Bot será marcado como pronto ao receber ReadyEvent.");
+            log.info("JDA iniciado com sucesso. Bot será marcado como pronto ao receber ReadyEvent.");
             return jda;
+        } catch (java.util.concurrent.TimeoutException e) {
+            log.error("❌ Timeout (10s) ao inicializar bot Discord (provável Rate Limit 429). A API continuará subindo sem o bot ativo.");
+            return null;
         } catch (Exception e) {
-            log.error("❌ Erro ao inicializar bot Discord", e);
-            throw new RuntimeException("Falha ao inicializar bot Discord: " + e.getMessage(), e);
+            log.error("❌ Erro ao inicializar bot Discord. A API continuará subindo sem o bot ativo.", e);
+            return null;
         }
     }
 }

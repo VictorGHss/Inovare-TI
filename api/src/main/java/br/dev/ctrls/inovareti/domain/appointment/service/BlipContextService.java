@@ -89,4 +89,47 @@ public class BlipContextService {
             log.error("Erro ao atualizar User State. stateName={}", stateName, ex);
         }
     }
+
+    public void setUserState(String userIdentity, String flowId, String blockId) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        String uri = "/contexts/" + normalizedIdentity + "/stateid@" + flowId;
+
+        Map<String, Object> command = Map.of(
+                "id", UUID.randomUUID().toString(),
+                "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+                "method", "set",
+                "uri", uri,
+                "type", "text/plain",
+                "resource", blockId
+        );
+
+        try {
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("User State (Teletransporte Interno) atualizado. flowId={}, blockId={}", flowId, blockId);
+        } catch (RestClientException ex) {
+            log.error("Erro ao atualizar User State (Teletransporte Interno). flowId={}", flowId, ex);
+        }
+    }
+
+    public boolean setQueueRedirect(String userIdentity, String queueName) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "method", "set",
+            "uri", "/contexts/" + normalizedIdentity + "/attendanceQueueToRedirect",
+            "type", "text/plain",
+            "resource", queueName
+        );
+
+        try {
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("Fila de redirecionamento configurada no contexto. identity={}, fila={}", normalizedIdentity, queueName);
+            return true;
+        } catch (RestClientException ex) {
+            log.warn("Falha ao configurar fila no contexto. identity={}, fila={}", normalizedIdentity, queueName, ex);
+            return false;
+        }
+    }
 }

@@ -18,6 +18,8 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentTemplateMappingRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
 
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -27,18 +29,20 @@ public class BlipNotificationService {
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepository templateMappingRepository;
     private final AppointmentDoctorMappingRepository doctorMappingRepository;
+    private final AppointmentMotorProperties properties;
 
     @Value("${app.appointment.motor.blip-waba-namespace}")
     private String blipWabaNamespace;
 
-    // Construtor explícito
     public BlipNotificationService(
             BlipLIMEClient limeClient, 
             AppointmentTemplateMappingRepository templateMappingRepository, 
-            AppointmentDoctorMappingRepository doctorMappingRepository) {
+            AppointmentDoctorMappingRepository doctorMappingRepository,
+            AppointmentMotorProperties properties) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
         this.doctorMappingRepository = doctorMappingRepository;
+        this.properties = properties;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
@@ -120,6 +124,7 @@ public class BlipNotificationService {
         Map<String, Object> payload = Map.of(
             "id", UUID.randomUUID().toString(),
             "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
             "type", "application/json",
             "content", content,
             "metadata", Map.of("appointmentId", appointmentId)
@@ -139,8 +144,22 @@ public class BlipNotificationService {
         mappings.stream()
             .sorted(Comparator.comparing(AppointmentTemplateMapping::getPlaceholderIndex))
             .forEach(mapping -> {
-                String value = resolveDynamicFieldValue(appointmentData, mapping.getFeegowFieldName());
-                String safeValue = (value != null && !value.isBlank()) ? value.trim() : "Informação não disponível";
+                String fieldName = mapping.getFeegowFieldName();
+                String value = resolveDynamicFieldValue(appointmentData, fieldName);
+                
+                String safeValue = "Informado na Recepção";
+                if (value != null && !value.isBlank() && !"Informação não disponível".equals(value.trim())) {
+                    safeValue = value.trim();
+                } else {
+                    if (fieldName != null) {
+                        if (fieldName.toLowerCase().contains("profissional") || fieldName.toLowerCase().contains("doctor")) {
+                            safeValue = "Médico";
+                        } else if (fieldName.toLowerCase().contains("patient") || fieldName.toLowerCase().contains("paciente")) {
+                            safeValue = "Paciente";
+                        }
+                    }
+                }
+                
                 parameters.add(Map.of("type", "text", "text", safeValue));
             });
 
@@ -153,8 +172,8 @@ public class BlipNotificationService {
         if ("profissionalNome".equalsIgnoreCase(fieldName.trim())) {
             try {
                 String doctorId = appointmentData.doctorId();
-                if (doctorId == null || doctorId.isBlank()) return null;
-                return doctorMappingRepository.findByProfissionalId(doctorId)
+                if (doctorId == null || doctorId.isBlank() || "Informação não disponível".equals(doctorId.trim())) return null;
+                return doctorMappingRepository.findByProfissionalId(doctorId.trim())
                         .map(AppointmentDoctorMapping::getProfissionalNome)
                         .orElse(null);
             } catch (Exception ex) { return null; }

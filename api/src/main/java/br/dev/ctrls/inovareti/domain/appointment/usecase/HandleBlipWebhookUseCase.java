@@ -200,9 +200,6 @@ public class HandleBlipWebhookUseCase {
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 
-        // Disparo de notificação assíncrona (Separation of Notification)
-        triggerAsyncNotification(session, patient, actionType, doctorName);
-
         return new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
     }
 
@@ -377,37 +374,7 @@ public class HandleBlipWebhookUseCase {
         return clean;
     }
 
-    private void triggerAsyncNotification(AppointmentSession session, FeegowClient.FeegowPatient patient, String actionType, String doctorName) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                AppointmentTemplateData templateData = new AppointmentTemplateData(
-                    session.getFeegowAppointmentId(),
-                    session.getPatientId(),
-                    patient.name(),
-                    patient.phone(),
-                    session.getDoctorProfissionalId(),
-                    doctorName,
-                    "Inovare",
-                    "Inovare",
-                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")),
-                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
-                    session.getAppointmentAt().toString()
-                );
 
-                // Usa o template de confirmação padrão para ambos por enquanto, 
-                // ou um específico se configurado.
-                String templateName = appointmentConfigRepository.findByCategory(AppointmentCategory.CONFIRMATION)
-                    .map(AppointmentConfig::getTemplateId)
-                    .orElse("confirmacao_consulta_v6_itsm");
-
-                blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateName, templateData);
-                log.info("[ASYNC NOTIFY] Notificação enviada após webhook. action={}, phone={}", actionType, session.getPhoneNumber());
-            } catch (Exception ex) {
-                log.error("[ASYNC NOTIFY] Falha ao enviar notificação assíncrona.", ex);
-            }
-        });
-    }
 
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content) {
     }

@@ -1,26 +1,31 @@
 package br.dev.ctrls.inovareti.domain.appointment.usecase;
 
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentRealtimeNotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentVariableLogRepository;
 import br.dev.ctrls.inovareti.domain.appointment.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
-import br.dev.ctrls.inovareti.domain.appointment.NotificationService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
-import br.dev.ctrls.inovareti.domain.appointment.service.BlipTicketService;
-import br.dev.ctrls.inovareti.domain.appointment.service.BlipLIMEClient;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,22 +38,36 @@ public class HandleBlipWebhookUseCase {
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final FeegowClient feegowClient;
     private final BlipContextService blipContextService;
-    private final BlipTicketService blipTicketService;
-    private final BlipLIMEClient blipLIMEClient;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
-    private final AppointmentVariableLogRepository appointmentVariableLogRepository;
-    private final AppointmentRealtimeNotificationService appointmentRealtimeNotificationService;
     private final ConfirmationStateMachineService confirmationStateMachineService;
-    private final NotificationService notificationService;
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
+    private final ObjectMapper objectMapper;
+    private final BlipNotificationService blipNotificationService;
+    private final AppointmentConfigRepository appointmentConfigRepository;
 
+    /**
+     * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado
+     *         (idempotência, ação não reconhecida, etc.)
+     */
     @Transactional
-    public void execute(BlipWebhookPayload payload) {
-        String expectedToken = appointmentMotorProperties.getSecurity().getWebhookToken();
-        if (expectedToken != null && !expectedToken.isBlank() && !expectedToken.equals(payload.token())) {
-            log.warn("Token de webhook inválido.");
-            throw new SecurityException("Invalid token");
+    public WebhookResult execute(BlipWebhookPayload payload) {
+        return execute(payload, false);
+    }
+
+    /**
+     * @return nome da fila Blip resolvida após processar o médico (ex.: profissional {@code 70} no manual-trigger
+     *         retorna {@code Endocrinologia} em fluxo {@code confirm}). No manual-trigger, os comandos LIME são
+     *         disparados após o commit da transação, em thread separada, para não atrasar a resposta HTTP síncrona.
+     */
+    @Transactional
+    public WebhookResult execute(BlipWebhookPayload payload, boolean skipTokenValidation) {
+        if (!skipTokenValidation) {
+            String expectedToken = appointmentMotorProperties.getSecurity().getWebhookToken();
+            if (expectedToken != null && !expectedToken.isBlank() && !expectedToken.equals(payload.token())) {
+                log.warn("Token de webhook inválido.");
+                throw new SecurityException("Invalid token");
+            }
         }
 
         boolean fresh = webhookIdempotencyService
@@ -57,10 +76,16 @@ public class HandleBlipWebhookUseCase {
 
         if (!fresh) {
             log.debug("Ação ignorada no webhook (idempotência). messageId={}", payload.messageId());
-            return;
+            return null;
         }
 
         String action = payload.action() != null ? payload.action().trim() : "";
+        if (action.isBlank()) {
+            String fallbackAction = resolveActionFromContent(payload.content());
+            if (fallbackAction != null && !fallbackAction.isBlank()) {
+                action = fallbackAction.trim();
+            }
+        }
 
         // Intercepção de texto livre: "Solicitar Alteração" sem payload de botão
         // Resolve o ID da sessão ativa mais recente para o telefone do usuário
@@ -80,11 +105,11 @@ public class HandleBlipWebhookUseCase {
                     action = "alter_" + resolvedId;
                 } else {
                     log.warn("[WEBHOOK] Texto livre '{}' recebido mas nenhuma sessão ativa encontrada para {}", action, normalizedPhone);
-                    return;
+                    return null;
                 }
             } else {
                 log.warn("[WEBHOOK] Texto livre '{}' recebido sem 'from' identificável.", action);
-                return;
+                return null;
             }
         }
 
@@ -94,7 +119,7 @@ public class HandleBlipWebhookUseCase {
 
         if (!matcher.find()) {
             log.debug("[WEBHOOK] Ação ignorada (não é confirm_ nem alter_). action='{}'", action);
-            return;
+            return null;
         }
 
         String actionType   = matcher.group(1).toLowerCase(); // "confirm" ou "alter"
@@ -103,7 +128,7 @@ public class HandleBlipWebhookUseCase {
 
         if (appointmentId == null || appointmentId.isBlank()) {
             log.warn("[WEBHOOK] Payload {}_  recebido sem ID válido. action={}", actionType, action);
-            return;
+            return null;
         }
 
         log.info("[WEBHOOK] Processando ação '{}' para agendamento ID={}", actionType, appointmentId);
@@ -111,108 +136,107 @@ public class HandleBlipWebhookUseCase {
         AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
                 .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
 
+        // 1. Bloqueio de Duplicidade
+        if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
+            log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
+            
+            // Retornamos a fila atual do médico para que o manualTrigger/Blip ainda tenha o dado síncrono
+            String queue = resolveQueueForSession(session, actionType, skipTokenValidation);
+            FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+            String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
+            String formattedBirthdate = formatBirthdate(patient.birthdate());
+            return new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType);
+        }
+
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
         if (dispatchIdentity != null) {
             session.setPhoneNumber(dispatchIdentity);
         }
 
+        String attendanceQueueToRedirect = null;
+        if (payload.from() != null && payload.from().contains("@tunnel.msging.net")) {
+            attendanceQueueToRedirect = payload.from().trim();
+        }
+
         if ("confirm".equals(actionType)) {
             String confirmedStatusId = resolveConfirmedStatusId();
             log.info("[CONFIRM] Atualizando status na Feegow com código {}.", confirmedStatusId);
-            feegowClient.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
-            notificationService.notifySecretary(session, null);
+            try {
+                feegowClient.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
+            } catch (Exception ex) {
+                log.error(
+                    "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
+                    session.getFeegowAppointmentId(),
+                    ex.getMessage(),
+                    ex);
+            }
             confirmationStateMachineService.markConfirmed(session);
             appointmentSessionRepository.save(session);
         } else {
-            // alter_ — apenas notifica e salva sem mudar status na Feegow
-            log.info("[ALTER] Solicitação de alteração para agendamento {}. Encaminhando para atendimento humano.", appointmentId);
-            notificationService.notifySecretary(session, "SOLICITAÇÃO DE ALTERAÇÃO");
+            // alter_ — apenas salva sem mudar status na Feegow
+            log.info("[ALTERAR] Paciente solicita alteração. Redirecionando para fila humana.");
         }
 
-        try {
-            String profissionalId = session.getDoctorProfissionalId();
-            String resolvedProfissionalId = profissionalId == null ? null : profissionalId.trim();
+        String processedQueueName = resolveQueueForSession(session, actionType, skipTokenValidation);
+        
+        // Removidos comandos LIME (teletransporte e mensagens) - o Builder cuidará do fluxo via resposta HTTP
+        log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, processedQueueName);
 
-            // Busca fila do médico no banco — NUNCA usa caractere invisível aqui
-            String queueId = null;
-            if (resolvedProfissionalId != null && !resolvedProfissionalId.isBlank()) {
-                queueId = appointmentDoctorMappingRepository.findByProfissionalId(resolvedProfissionalId)
-                    .map(AppointmentDoctorMapping::getBlipQueueId)
-                    .filter(id -> id != null && !id.isBlank()
-                               && !"null".equalsIgnoreCase(id.trim())
-                               && !id.contains("\u200E")) // nunca aceitar o char invisível
-                    .orElse(null);
-            }
+        FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+        String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
+        String formattedBirthdate = formatBirthdate(patient.birthdate());
 
-            // Para alter_: força fila de Recepção/Agendamento
-            if ("alter".equals(actionType)) {
-                queueId = "Recepção";
-                log.info("[ALTER] Fila forcçada para Recepção por solicitação de alteração.");
-            } else if (queueId == null || queueId.isBlank()) {
-                queueId = "Recepção Central";
-                log.info("[CONFIRM] Fila não encontrada para profissional {}. Usando fallback: '{}'",
-                    resolvedProfissionalId, queueId);
-            }
+        // Disparo de notificação assíncrona (Separation of Notification)
+        triggerAsyncNotification(session, patient, actionType);
 
-            log.info("[WEBHOOK] Fila resolvida: '{}' para profissional={}", queueId, resolvedProfissionalId);
-
-            if (dispatchIdentity == null) {
-                log.warn("[CONFIRMATION] Identidade de disparo ausente. Teletransporte ignorado.");
-            } else {
-                blipTicketService.closeActiveTickets(dispatchIdentity);
-                boolean queueSet = blipContextService.setQueueRedirect(dispatchIdentity, queueId);
-
-                String flowId     = appointmentMotorProperties.getState().getBlipFluxov1FlowId();
-                String stateId    = appointmentMotorProperties.getState().getBlipLandingConfirmacaoItsmStateId();
-                String blockId    = appointmentMotorProperties.getState().getBlipLandingBlockId();
-
-                // Prioridade: usar o estado específico de confirmação se configurado,
-                // caso contrário usa o bloco de aterrissagem genérico
-                String targetState = (stateId != null && !stateId.isBlank()) ? stateId : blockId;
-
-                log.info("[CONFIRMATION] Agendamento {} confirmado. Teletransportando usuário {} → flowId={}, state={}",
-                    appointmentId, dispatchIdentity, flowId, targetState);
-
-                if (queueSet && flowId != null && !flowId.isBlank() && targetState != null && !targetState.isBlank()) {
-                    blipContextService.setUserState(dispatchIdentity, flowId, targetState);
-                } else {
-                    log.warn("[CONFIRMATION] Teletransporte parcial: queueSet={}, flowId={}, targetState={}",
-                        queueSet, flowId, targetState);
-                }
-
-                // Envia feedback visual ao paciente
-                sendConfirmationFeedback(dispatchIdentity);
-            }
-        } catch (Exception ex) {
-            log.warn("[CONFIRMATION] Falha ao preparar redirecionamento: {}", ex.getMessage());
-        }
-
-        String patientName = resolvePatientName(session);
-        String doctorName = resolveDoctorName(session);
-        appointmentRealtimeNotificationService.sendNotification(patientName, doctorName, "CONFIRMADO");
+        return new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType);
     }
+
+    private String resolveQueueForSession(AppointmentSession session, String actionType, boolean skipTokenValidation) {
+        String profissionalId = session.getDoctorProfissionalId();
+        String resolvedProfissionalId = profissionalId == null ? null : profissionalId.trim();
+
+        // Busca fila do médico no banco — NUNCA usa caractere invisível aqui
+        String queueId = null;
+        if (resolvedProfissionalId != null && !resolvedProfissionalId.isBlank()) {
+            queueId = appointmentDoctorMappingRepository.findByProfissionalId(resolvedProfissionalId)
+                .map(AppointmentDoctorMapping::getBlipQueueId)
+                .filter(id -> id != null && !id.isBlank()
+                           && !"null".equalsIgnoreCase(id.trim())
+                           && !id.contains("\u200E")) // nunca aceitar o char invisível
+                .orElse(null);
+        }
+
+        // Para alter_: força fila de Recepção/Agendamento
+        if ("alter".equals(actionType)) {
+            queueId = "Recepção Central / Suporte";
+            log.info("[ALTER] Fila forçada para Recepção Central / Suporte por solicitação de alteração.");
+        } else if (queueId == null || queueId.isBlank()) {
+            queueId = "Recepção Central / Suporte";
+            log.info("[WEBHOOK] Fila não encontrada para profissional {}. Usando fallback: '{}'",
+                resolvedProfissionalId, queueId);
+        }
+
+        queueId = blipContextService.cleanQueueName(queueId);
+        if (queueId.isBlank()) {
+            queueId = "Recepção Central / Suporte";
+            log.warn("[QUEUE] Fila limpa ficou vazia. Usando fallback: '{}'", queueId);
+        }
+
+        return queueId;
+    }
+
+
 
     private String resolveConfirmedStatusId() {
         String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
         if (configuredStatusId == null || configuredStatusId.isBlank()) {
-            return "2";
+            return "7";
         }
         return configuredStatusId.trim();
     }
 
-    private String resolvePatientName(AppointmentSession session) {
-        return Optional.ofNullable(feegowClient.patientInfo(session.getPatientId()).name())
-                .filter(name -> !name.isBlank())
-                .orElse("Paciente " + session.getPatientId());
-    }
 
-    private String resolveDoctorName(AppointmentSession session) {
-        return appointmentVariableLogRepository
-                .findFirstBySessionIdAndDictionaryKeyOrderBySentAtDesc(session.getId(), "MEDICO_NOME")
-                .map(logEntry -> logEntry.getResolvedValue())
-                .filter(name -> !name.isBlank())
-                .orElse("Profissional " + session.getDoctorProfissionalId());
-    }
 
     private String normalizeFeegowAppointmentId(String feegowAppointmentId) {
         if (feegowAppointmentId == null) {
@@ -242,33 +266,143 @@ public class HandleBlipWebhookUseCase {
         if (identity == null || identity.isBlank()) {
             return null;
         }
-        String trimmed = identity.trim();
-        if (trimmed.endsWith("@tunnel.msging.net")) {
+        return identity.trim();
+    }
+
+    private String resolveActionFromContent(Object content) {
+        if (content == null) {
             return null;
         }
-        return trimmed;
+        if (content instanceof String text) {
+            return text;
+        }
+        Map<String, Object> contentMap = toMap(content);
+        if (contentMap == null) {
+            return null;
+        }
+        String replyValue = null;
+        Object replied = contentMap.get("replied");
+        if (replied instanceof Map<?, ?> repliedMap) {
+            replyValue = asText(repliedMap.get("value"));
+        }
+        return firstNonBlank(
+            replyValue,
+            asText(contentMap.get("text")),
+            asText(contentMap.get("value")),
+            asText(contentMap.get("payload")),
+            asText(contentMap.get("id"))
+        );
     }
 
-    /**
-     * Envia mensagem de texto simples ao paciente confirmando a presença.
-     * Não bloqueia nem lança exceção — falhas são apenas logadas.
-     */
-    private void sendConfirmationFeedback(String dispatchIdentity) {
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank() && !"null".equalsIgnoreCase(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String asText(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String text) {
+            return text;
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return value.toString();
+        }
+        return null;
+    }
+
+    private Map<String, Object> toMap(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Map<?, ?> map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cast = (Map<String, Object>) map;
+            return cast;
+        }
         try {
-            String normalizedIdentity = blipLIMEClient.normalizeUserIdentity(dispatchIdentity);
-            java.util.Map<String, Object> message = new java.util.HashMap<>();
-            message.put("id", java.util.UUID.randomUUID().toString());
-            message.put("to", normalizedIdentity);
-            message.put("type", "text/plain");
-            message.put("content", "Obrigado! Sua presença foi confirmada. ✅ Aguardamos você!");
-            blipLIMEClient.executeMessage(message, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("[CONFIRMATION] Mensagem de feedback enviada para {}", normalizedIdentity);
-        } catch (Exception ex) {
-            log.warn("[CONFIRMATION] Falha ao enviar feedback de confirmação para {}. Teletransporte já foi realizado.",
-                dispatchIdentity, ex);
+            return objectMapper.convertValue(value, new TypeReference<Map<String, Object>>() { });
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 
-    public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token) {
+
+
+    private String formatBirthdate(String birthdate) {
+        if (birthdate == null || birthdate.isBlank()) {
+            return "";
+        }
+        String clean = birthdate.trim();
+        // Se já estiver no formato DD/MM/AAAA, retorna
+        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
+            return clean;
+        }
+        // Tenta converter de AAAA-MM-DD ou DD-MM-AAAA para DD/MM/AAAA
+        try {
+            java.time.LocalDate date;
+            if (clean.contains("-")) {
+                if (clean.indexOf('-') == 4) { // AAAA-MM-DD
+                    date = java.time.LocalDate.parse(clean);
+                } else { // DD-MM-AAAA
+                    date = java.time.LocalDate.parse(clean, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                }
+                return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        } catch (Exception e) {
+            log.warn("Falha ao formatar data de nascimento: {}", birthdate);
+        }
+        return clean;
+    }
+
+    private void triggerAsyncNotification(AppointmentSession session, FeegowClient.FeegowPatient patient, String actionType) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Busca o médico para compor os dados do template
+                String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
+                    .map(AppointmentDoctorMapping::getProfissionalNome)
+                    .orElse("Clínica Inovare");
+
+                AppointmentTemplateData templateData = new AppointmentTemplateData(
+                    session.getFeegowAppointmentId(),
+                    session.getPatientId(),
+                    patient.name(),
+                    patient.phone(),
+                    session.getDoctorProfissionalId(),
+                    doctorName,
+                    "Inovare",
+                    "Inovare",
+                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")),
+                    session.getAppointmentAt().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                    session.getAppointmentAt().toString()
+                );
+
+                // Usa o template de confirmação padrão para ambos por enquanto, 
+                // ou um específico se configurado.
+                String templateName = appointmentConfigRepository.findByCategory(AppointmentCategory.CONFIRMATION)
+                    .map(AppointmentConfig::getTemplateId)
+                    .orElse("confirmacao_consulta_v6_itsm");
+
+                blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateName, templateData);
+                log.info("[ASYNC NOTIFY] Notificação enviada após webhook. action={}, phone={}", actionType, session.getPhoneNumber());
+            } catch (Exception ex) {
+                log.error("[ASYNC NOTIFY] Falha ao enviar notificação assíncrona.", ex);
+            }
+        });
+    }
+
+    public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content) {
+    }
+
+    public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action) {
     }
 }

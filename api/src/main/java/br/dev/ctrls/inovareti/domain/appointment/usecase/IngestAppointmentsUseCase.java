@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -262,29 +261,12 @@ public class IngestAppointmentsUseCase {
             entityManager.flush(); // Garante que a inserção/atualização vá pro banco antes do findByIdLocked na próxima etapa
             log.info("Agendamento salvo localmente: ID Feegow = {}", saved.getFeegowAppointmentId());
 
-            // Merge extras no contato do Blip antes do envio da mensagem
-            Map<String, String> extras = new java.util.HashMap<>();
-            // Busca CPF do paciente se existir no JsonNode
-            String cpf = "";
-            if (patientDetails != null) {
-                try {
-                    java.lang.reflect.Field contentField = patientDetails.getClass().getDeclaredField("cpf");
-                    contentField.setAccessible(true);
-                    Object cpfValue = contentField.get(patientDetails);
-                    if (cpfValue != null) cpf = cpfValue.toString();
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    // fallback: tenta buscar via reflection ou ignora
-                }
-            }
-            extras.put("cpf", cpf);
-
             // Sanitiza profissional_nome: nunca enviar null ou string vazia
             String safeProfissionalNome = (resolvedProfessionalName != null
                 && !resolvedProfessionalName.isBlank()
                 && !"null".equalsIgnoreCase(resolvedProfessionalName.trim()))
                 ? resolvedProfessionalName.trim()
                 : "Clínica Inovare";
-            extras.put("profissional_nome", StringSanitizer.sanitize(safeProfissionalNome));
 
             // Sanitiza fila_destino: nunca enviar null ou string vazia
             String safeFilaDestino = (mappingQueue != null
@@ -292,12 +274,8 @@ public class IngestAppointmentsUseCase {
                 && !"null".equalsIgnoreCase(mappingQueue.trim()))
                 ? mappingQueue.trim()
                 : StringSanitizer.UNICODE_LTR_MARK;
-            extras.put("fila_destino", safeFilaDestino);
-            extras.put("fila_nome", safeFilaDestino);
 
             log.info("[EXTRAS CONTATO] profissional_nome='{}' | fila_destino='{}'", safeProfissionalNome, safeFilaDestino);
-
-            blipLIMEClient.mergeContactExtras(phoneNumber, extras);
 
             // Monta contexto imutável com todos os dados já resolvidos
             // Nenhuma entidade JPA é passada — apenas Strings finais

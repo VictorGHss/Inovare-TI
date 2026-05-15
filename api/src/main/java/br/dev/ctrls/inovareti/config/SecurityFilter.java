@@ -29,6 +29,8 @@ public class SecurityFilter extends OncePerRequestFilter {
     private static final String CONTA_AZUL_AUTHORIZE_PATH = "/financeiro/contaazul/authorize";
     private static final String CONTA_AZUL_CALLBACK_PATH = "/financeiro/contaazul/callback";
     private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
+    private static final String BLIP_WEBHOOK_ALIAS_PATH = "/webhooks/blip";
+    private static final String BLIP_MANUAL_TRIGGER_PATH = "/webhooks/blip/manual-trigger";
     private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
     private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
 
@@ -58,6 +60,16 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.equals(BLIP_WEBHOOK_PATH + "/")
             || requestUri.equals("/api" + BLIP_WEBHOOK_PATH)
             || requestUri.equals("/api" + BLIP_WEBHOOK_PATH + "/")
+            || requestUri.equals(BLIP_WEBHOOK_ALIAS_PATH)
+            || requestUri.equals(BLIP_WEBHOOK_ALIAS_PATH + "/")
+            || requestUri.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH)
+            || requestUri.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH + "/")
+            || requestUri.startsWith("/webhooks/")
+            || requestUri.startsWith("/api/webhooks/")
+            || requestUri.equals(BLIP_MANUAL_TRIGGER_PATH)
+            || requestUri.equals(BLIP_MANUAL_TRIGGER_PATH + "/")
+            || requestUri.equals("/api" + BLIP_MANUAL_TRIGGER_PATH)
+            || requestUri.equals("/api" + BLIP_MANUAL_TRIGGER_PATH + "/")
             || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH)
             || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
             || requestUri.equals("/api" + APPOINTMENT_BLIP_WEBHOOK_PATH)
@@ -80,7 +92,10 @@ public class SecurityFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         
         // Libera a passagem direta para os Webhooks do Blip sem exigir JWT
-        if (path.contains("/v1/appointments/blip/webhook") || path.contains("/v1/webhook/blip")) {
+        if (path.contains("/v1/appointments/blip/webhook")
+            || path.contains("/v1/webhook/blip")
+            || path.contains(BLIP_WEBHOOK_ALIAS_PATH)
+            || path.contains(BLIP_MANUAL_TRIGGER_PATH)) {
             filterChain.doFilter(request, response);
             return;
         }

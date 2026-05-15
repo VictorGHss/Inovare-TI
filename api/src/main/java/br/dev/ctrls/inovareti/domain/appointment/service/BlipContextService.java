@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 
@@ -18,9 +19,50 @@ public class BlipContextService {
     @Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    // Construtor explícito
     public BlipContextService(BlipLIMEClient limeClient) {
         this.limeClient = limeClient;
+    }
+
+    public void setUserContextForUser(String userIdentity, String key, String value) {
+        if (userIdentity == null || userIdentity.isBlank()) return;
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        setUserContext(normalizedIdentity, key, value);
+    }
+
+    public String getUserContext(String userIdentity, String key) {
+        if (userIdentity == null || userIdentity.isBlank() || key == null || key.isBlank()) return null;
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "method", "get",
+            "uri", "/contexts/" + normalizedIdentity + "/" + key
+        );
+
+        try {
+            ResponseEntity<Map<String, Object>> response = limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            Map<String, Object> body = response != null ? response.getBody() : null;
+            if (body == null) return null;
+            Object resource = body.get("resource");
+            if (resource == null) return null;
+
+            String value;
+            if (resource instanceof Map<?, ?> map) {
+                Object rawValue = map.get("value");
+                value = rawValue != null ? String.valueOf(rawValue) : null;
+            } else {
+                value = String.valueOf(resource);
+            }
+
+            if (value == null) return null;
+            String normalizedValue = value.trim();
+            if (normalizedValue.isBlank() || "null".equalsIgnoreCase(normalizedValue)) return null;
+            return normalizedValue;
+        } catch (RestClientException ex) {
+            log.warn("Falha ao consultar contexto. identity={}, key={}", normalizedIdentity, key, ex);
+            return null;
+        }
     }
 
     public void setUserContext(String normalizedIdentity, String key, String value) {
@@ -28,10 +70,11 @@ public class BlipContextService {
 
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
-            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "to", "postmaster@msging.net",
             "method", "set",
             "uri", "/contexts/" + normalizedIdentity + "/" + key,
             "type", "text/plain",
+            "metadata", Map.of("expiration", "86400"),
             "resource", value
         );
 
@@ -114,15 +157,31 @@ public class BlipContextService {
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 
-        // Sanitização da fila: o char \u200E (LTR Mark) e valores vazios quebram o Desk.
-        // Nunca enviar o caractere invisível para variáveis de roteamento.
-        String safeQueueName = queueName;
-        if (safeQueueName == null
-                || safeQueueName.isBlank()
-                || "null".equalsIgnoreCase(safeQueueName.trim())
-                || safeQueueName.contains("\u200E")) {
-            safeQueueName = "Recepção Central";
+        String safeQueueName = cleanQueueName(queueName);
+        if (safeQueueName.isBlank()) {
+            safeQueueName = "Recepção Central / Suporte";
             log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueName, safeQueueName);
+        }
+
+        if (!safeQueueName.isBlank()
+                && !"Recepção Central / Suporte".equalsIgnoreCase(safeQueueName)
+                && !"Recepção".equalsIgnoreCase(safeQueueName)
+                && !safeQueueName.contains(" - ")) {
+            log.warn("[QUEUE WARNING] Nome da fila pode estar incompleto para o Desk. fila='{}'", safeQueueName);
+        }
+
+        Map<String, Object> deleteCommand = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "method", "delete",
+            "uri", "/contexts/" + normalizedIdentity + "/attendanceQueueToRedirect"
+        );
+
+        try {
+            limeClient.executeCommand(deleteCommand, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.debug("[QUEUE] Contexto anterior removido. identity={}", normalizedIdentity);
+        } catch (RestClientException ex) {
+            log.warn("[QUEUE] Falha ao limpar contexto anterior. identity={}", normalizedIdentity, ex);
         }
 
         Map<String, Object> command = Map.of(
@@ -142,5 +201,14 @@ public class BlipContextService {
             log.warn("Falha ao configurar fila no contexto. identity={}, fila={}", normalizedIdentity, safeQueueName, ex);
             return false;
         }
+    }
+
+    public String cleanQueueName(String queueName) {
+        if (queueName == null) return "";
+        String cleaned = queueName.replace("\u200E", "");
+        cleaned = cleaned.replaceAll("(?i)null", "");
+        cleaned = cleaned.replaceAll("\\s+", " ");
+        cleaned = cleaned.trim();
+        return cleaned;
     }
 }

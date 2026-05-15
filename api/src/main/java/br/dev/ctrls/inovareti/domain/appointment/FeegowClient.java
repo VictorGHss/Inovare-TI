@@ -1,26 +1,25 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -30,6 +29,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -53,28 +53,20 @@ public class FeegowClient {
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
     private final ObjectMapper objectMapper;
+    private final RestClient feegowRestClient;
     private final StringRedisTemplate stringRedisTemplate;
 
     public FeegowClient(
             @Qualifier("feegowRestTemplate") RestTemplate restTemplate,
             AppointmentMotorProperties properties,
-            ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
-        this.properties = properties;
-        this.objectMapper = objectMapper;
-        this.stringRedisTemplate = null;
-    }
-
-    @Autowired
-    public FeegowClient(
-            @Qualifier("feegowRestTemplate") RestTemplate restTemplate,
-            AppointmentMotorProperties properties,
             ObjectMapper objectMapper,
-            StringRedisTemplate stringRedisTemplate) {
+            @Qualifier("feegowRestClient") ObjectProvider<RestClient> feegowRestClientProvider,
+            ObjectProvider<StringRedisTemplate> stringRedisTemplateProvider) {
         this.restTemplate = restTemplate;
         this.properties = properties;
         this.objectMapper = objectMapper;
-        this.stringRedisTemplate = stringRedisTemplate;
+        this.feegowRestClient = feegowRestClientProvider.getIfAvailable();
+        this.stringRedisTemplate = stringRedisTemplateProvider.getIfAvailable();
     }
 
     @Value("${app.feegow.api-key}")
@@ -144,48 +136,50 @@ public class FeegowClient {
         }
 
         try {
-            JsonNode root = objectMapper.readTree(responseBody);
+            Object root = objectMapper.readValue(responseBody, Object.class);
 
-            if (root.isArray()) {
-                return objectMapper.convertValue(
-                        root,
+            if (root instanceof List<?> listRoot) {
+                List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> converted = objectMapper.convertValue(
+                        listRoot,
                         new TypeReference<List<FeegowSearchResponseDto.FeegowSearchAppointmentDto>>() {
                         });
+                return converted != null ? converted : List.of();
             }
 
-            FeegowSearchResponseDto mappedResponse = objectMapper.treeToValue(root, FeegowSearchResponseDto.class);
-            List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> appointments = mappedResponse != null
-                    ? mappedResponse.appointments()
-                    : List.of();
+            if (root instanceof Map<?, ?> mapObj) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> rootMap = (Map<String, Object>) mapObj;
+                FeegowSearchResponseDto mappedResponse = objectMapper.convertValue(rootMap, FeegowSearchResponseDto.class);
+                List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> appointments = mappedResponse != null
+                        ? mappedResponse.appointments()
+                        : List.of();
 
-            if (appointments.isEmpty()) {
-                log.warn("Resposta da busca Feegow sem itens em 'content' ou 'data'. keys={}", topLevelKeys(root));
+                if (appointments.isEmpty()) {
+                    log.warn("Resposta da busca Feegow sem itens em 'content' ou 'data'. keys={}", topLevelKeys(rootMap));
+                }
+
+                return appointments;
             }
 
-            return appointments;
+            log.warn("Formato raiz JSON da busca Feegow inesperado: {}", root.getClass().getName());
+            return List.of();
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Falha ao converter JSON da busca Feegow.", ex);
         }
     }
 
-    private List<String> topLevelKeys(JsonNode root) {
-        if (root == null || !root.isObject()) {
+    private List<String> topLevelKeys(Map<String, Object> root) {
+        if (root == null || root.isEmpty()) {
             return List.of();
         }
 
-        List<String> keys = new ArrayList<>();
-        Iterator<String> fieldNames = root.fieldNames();
-        while (fieldNames.hasNext()) {
-            keys.add(fieldNames.next());
-        }
-
-        return keys;
+        return new ArrayList<>(root.keySet());
     }
 
     public FeegowPatient patientInfo(String patientId) {
         FeegowPatientDetailsDto.PatientItem patientDetails = getPatientDetails(patientId);
         if (patientDetails == null) {
-            return new FeegowPatient(patientId, null, null);
+            return new FeegowPatient(patientId, null, null, null, null);
         }
 
         String resolvedPatientId = patientDetails.getId() == null || patientDetails.getId().isBlank()
@@ -195,15 +189,25 @@ public class FeegowClient {
         return new FeegowPatient(
                 resolvedPatientId,
                 patientDetails.getNome(),
-            resolvePreferredPhone(patientDetails));
+                resolvePreferredPhone(patientDetails),
+                sanitizeCpf(patientDetails.getCpf()),
+                patientDetails.getNascimento());
+    }
+
+    public String sanitizeCpf(String cpf) {
+        if (cpf == null || cpf.isBlank()) {
+            return "";
+        }
+        return cpf.replaceAll("\\D", "");
     }
 
     public FeegowPatientDetailsDto.PatientItem getPatientDetails(String patientId) {
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                 .path(resolvePatientDetailsPath())
                 .queryParam("paciente_id", patientId)
-                .build()
                 .toUriString();
+
+        log.info("[FEEGOW] Buscando detalhes do paciente ID: {} na URL: {}", patientId, url);
 
         HttpHeaders headers = buildHeaders();
 
@@ -277,9 +281,9 @@ public class FeegowClient {
                 return null;
             }
 
-            JsonNode root;
+            Object root;
             try {
-                root = objectMapper.readTree(body);
+                root = objectMapper.readValue(body, Object.class);
             } catch (JsonProcessingException jex) {
                 log.warn("Falha ao parsear resposta Feegow (professional id={}) como JSON: {}", id, jex.getMessage());
                 return null;
@@ -326,9 +330,11 @@ public class FeegowClient {
                     log.info("Feegow returned 422 for professional lookup; retrying with empty unidade_id. retryUrl={}", retryUrl);
                     ResponseEntity<String> retryResponse = restTemplate.exchange(retryUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
                     String retryBody = retryResponse.getBody();
-                    if (retryBody == null || retryBody.isBlank()) return null;
-                    JsonNode root = objectMapper.readTree(retryBody);
-                    return extractProfessionalName(root);
+                    if (retryBody == null || retryBody.isBlank()) {
+                        return null;
+                    }
+                    Object retryRoot = objectMapper.readValue(retryBody, Object.class);
+                    return extractProfessionalName(retryRoot);
                 }
             } catch (org.springframework.web.client.RestClientException | com.fasterxml.jackson.core.JsonProcessingException retryEx) {
                 log.warn("Retry with empty unidade_id failed for professional id={}: {}", id, retryEx.getMessage());
@@ -342,22 +348,57 @@ public class FeegowClient {
         return null;
     }
 
-    private String extractProfessionalName(JsonNode root) {
-        if (root == null || root.isNull()) return null;
+    private String extractProfessionalName(Object root) {
+        if (root == null) {
+            return null;
+        }
 
         try {
-            if (root.hasNonNull("content") && root.get("content").isArray() && !root.get("content").isEmpty()) {
-                return root.get("content").get(0).get("nome").asText(null);
-            }
+            if (root instanceof Map<?, ?> map) {
+                Object content = map.get("content");
+                if (content instanceof List<?> list && !list.isEmpty()) {
+                    Object first = list.get(0);
+                    if (first instanceof Map<?, ?> row) {
+                        Object nome = row.get("nome");
+                        return nome != null ? nome.toString() : null;
+                    }
+                }
 
-            if (root.hasNonNull("dados") && root.get("dados").isArray() && !root.get("dados").isEmpty()) {
-                return root.get("dados").get(0).get("nome").asText(null);
+                Object dados = map.get("dados");
+                if (dados instanceof List<?> dlist && !dlist.isEmpty()) {
+                    Object first = dlist.get(0);
+                    if (first instanceof Map<?, ?> row) {
+                        Object nome = row.get("nome");
+                        return nome != null ? nome.toString() : null;
+                    }
+                }
             }
         } catch (Exception e) {
             log.warn("Erro ao extrair nome do profissional da resposta Feegow: {}", e.getMessage());
         }
 
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ProfessionalDTO> extractProfessionalItemsFromLooseJson(Object root) {
+        if (root == null) {
+            return List.of();
+        }
+        try {
+            if (root instanceof Map<?, ?> map) {
+                Object dados = ((Map<String, Object>) map).get("dados");
+                if (dados instanceof List<?>) {
+                    return objectMapper.convertValue(dados, new TypeReference<List<ProfessionalDTO>>() { });
+                }
+            }
+            if (root instanceof List<?>) {
+                return objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() { });
+            }
+        } catch (IllegalArgumentException ex) {
+            log.warn("Falha ao converter lista de profissionais (fallback JSON): {}", ex.getMessage());
+        }
+        return List.of();
     }
 
     /**
@@ -413,12 +454,8 @@ public class FeegowClient {
                     items = dto.content();
                 } else {
                     // fallback: attempt to parse legacy shapes (dados or raw array)
-                    JsonNode root = objectMapper.readTree(body);
-                    if (root.hasNonNull("dados") && root.get("dados").isArray()) {
-                        items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
-                    } else if (root.isArray()) {
-                        items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
-                    }
+                    Object root = objectMapper.readValue(body, Object.class);
+                    items = extractProfessionalItemsFromLooseJson(root);
                 }
 
                 if (items == null || items.isEmpty()) {
@@ -478,12 +515,8 @@ public class FeegowClient {
                         if (dto != null && dto.content() != null && !dto.content().isEmpty()) {
                             items = dto.content();
                         } else {
-                            JsonNode root = objectMapper.readTree(retryBody);
-                            if (root.hasNonNull("dados") && root.get("dados").isArray()) {
-                                items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
-                            } else if (root.isArray()) {
-                                items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
-                            }
+                            Object root = objectMapper.readValue(retryBody, Object.class);
+                            items = extractProfessionalItemsFromLooseJson(root);
                         }
 
                         if (items == null || items.isEmpty()) return List.of();
@@ -533,12 +566,8 @@ public class FeegowClient {
                         if (dto != null && dto.content() != null && !dto.content().isEmpty()) {
                             items = dto.content();
                         } else {
-                            JsonNode root = objectMapper.readTree(altBody);
-                            if (root.hasNonNull("dados") && root.get("dados").isArray()) {
-                                items = objectMapper.convertValue(root.get("dados"), new TypeReference<List<ProfessionalDTO>>() {});
-                            } else if (root.isArray()) {
-                                items = objectMapper.convertValue(root, new TypeReference<List<ProfessionalDTO>>() {});
-                            }
+                            Object root = objectMapper.readValue(altBody, Object.class);
+                            items = extractProfessionalItemsFromLooseJson(root);
                         }
 
                         if (items == null || items.isEmpty()) {
@@ -649,39 +678,45 @@ public class FeegowClient {
         }
 
         try {
-            FeegowPatientDetailsDto response = objectMapper.readValue(responseBody, FeegowPatientDetailsDto.class);
-            if (response == null || response.getContent() == null || response.getContent().isNull()) {
+            Object root = objectMapper.readValue(responseBody, Object.class);
+            Object contentObj = null;
+
+            if (root instanceof Map<?, ?> map) {
+                contentObj = map.get("content");
+                if (contentObj == null) {
+                    contentObj = map.get("data");
+                }
+                // Se não tem content nem data, mas tem campos de paciente, o próprio root é o paciente
+                if (contentObj == null && map.containsKey("id") && (map.containsKey("nome") || map.containsKey("cpf"))) {
+                    contentObj = map;
+                }
+            } else if (root instanceof List<?> list) {
+                contentObj = list;
+            }
+
+            if (contentObj == null) {
+                log.warn("[FEEGOW] Resposta de detalhes do paciente sem 'content' ou 'data'. Body: {}", abbreviateResponseBody(responseBody));
                 return null;
             }
 
-            JsonNode contentNode = response.getContent();
-            if (!contentNode.isContainerNode()) {
-                return null;
-            }
-
-            JsonNode firstItemNode;
-            String detectedFormat;
-            if (contentNode.isArray()) {
-                detectedFormat = "lista";
-                if (contentNode.isEmpty()) {
+            Object firstItemNode;
+            if (contentObj instanceof List<?> list) {
+                if (list.isEmpty()) {
                     return null;
                 }
-
-                firstItemNode = contentNode.get(0);
+                firstItemNode = list.get(0);
             } else {
-                detectedFormat = "objeto";
-                firstItemNode = contentNode;
+                firstItemNode = contentObj;
             }
 
-            log.debug("Formato de resposta Feegow detectado: {}", detectedFormat);
-
-            if (firstItemNode == null || firstItemNode.isNull()) {
+            if (firstItemNode == null) {
                 return null;
             }
 
-            return objectMapper.treeToValue(firstItemNode, FeegowPatientDetailsDto.PatientItem.class);
+            return objectMapper.convertValue(firstItemNode, FeegowPatientDetailsDto.PatientItem.class);
         } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Falha ao converter JSON de detalhes do paciente Feegow.", ex);
+            log.error("[FEEGOW] Falha ao converter JSON de detalhes do paciente. Body: {}", abbreviateResponseBody(responseBody), ex);
+            return null;
         }
     }
 
@@ -723,43 +758,48 @@ public class FeegowClient {
             normalizedStatusId = resolveConfirmedStatusId();
         }
 
-        String configuredStatusPath = properties.getFeegowStatusPath();
-        String resolvedStatusPath = configuredStatusPath == null || configuredStatusPath.isBlank()
-                ? "/v1/api/appoints/status"
-                : configuredStatusPath;
-
-        String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
-                .path(resolvedStatusPath)
-                .build()
-                .toUriString();
+        String url = "https://api.feegow.com/v1/api/appoints/statusUpdate";
 
         HttpHeaders headers = buildHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("agendamento_id", normalizeAppointmentIdForPayload(normalizedAppointmentId));
-        payload.put("status_id", normalizedStatusId);
+        FeegowStatusUpdatePayload payload = new FeegowStatusUpdatePayload(
+                normalizeAppointmentIdForPayload(normalizedAppointmentId),
+                7,
+                ""
+        );
 
-        if (tryUpdateAppointmentStatus(url, HttpMethod.POST, headers, payload, normalizedAppointmentId, normalizedStatusId)) {
-            return;
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            log.info("[FEEGOW] Enviando atualização de status. URL: {}, Payload: {}", url, jsonPayload);
+
+            if (!tryUpdateAppointmentStatus(url, HttpMethod.POST, headers, payload, normalizedAppointmentId, "7")) {
+                log.error(
+                        "Não foi possível atualizar status do agendamento na Feegow (fluxo Blip segue). appointmentId={}, statusId={}",
+                        normalizedAppointmentId,
+                        normalizedStatusId);
+            }
+        } catch (Exception ex) {
+            log.error(
+                    "Erro inesperado ao atualizar status na Feegow (fluxo Blip não interrompido). appointmentId={}, statusId={}",
+                    normalizedAppointmentId,
+                    normalizedStatusId,
+                    ex);
         }
-
-        if (tryUpdateAppointmentStatus(url, HttpMethod.PUT, headers, payload, normalizedAppointmentId, normalizedStatusId)) {
-            return;
-        }
-
-        throw new IllegalStateException(
-                "Não foi possível atualizar status do agendamento na Feegow. appointmentId=" + normalizedAppointmentId
-                        + ", statusId=" + normalizedStatusId);
     }
+
+
 
     private boolean tryUpdateAppointmentStatus(
             String url,
             HttpMethod method,
             HttpHeaders headers,
-            Map<String, Object> payload,
+            Object payload,
             String appointmentId,
             String statusId) {
+        if (feegowRestClient != null) {
+            return tryUpdateAppointmentStatusWithRestClient(url, method, headers, payload, appointmentId, statusId);
+        }
         try {
             ResponseEntity<String> response = restTemplate.exchange(
                     url,
@@ -767,7 +807,11 @@ public class FeegowClient {
                     new HttpEntity<>(payload, headers),
                     String.class);
 
+            String responseBody = response.getBody();
             int statusCode = response.getStatusCode().value();
+
+            log.info("[FEEGOW] Resposta bruta do statusUpdate: {} - {}", statusCode, responseBody);
+
             if (statusCode >= 200 && statusCode < 300) {
                 log.info("Status do agendamento {} atualizado para {} na Feegow", appointmentId, statusId);
                 return true;
@@ -790,13 +834,74 @@ public class FeegowClient {
                     ex.getStatusCode().value(),
                     abbreviateResponseBody(ex.getResponseBodyAsString()));
             return false;
+        } catch (Exception ex) {
+            log.error(
+                    "Falha ao atualizar status na Feegow. appointmentId={}, statusId={}, method={}, erro={}",
+                    appointmentId,
+                    statusId,
+                    method,
+                    ex.getMessage(),
+                    ex);
+            return false;
+        }
+    }
+
+    private boolean tryUpdateAppointmentStatusWithRestClient(
+            String url,
+            HttpMethod method,
+            HttpHeaders headers,
+            Object payload,
+            String appointmentId,
+            String statusId) {
+        try {
+            org.springframework.web.client.RestClient.RequestBodySpec spec;
+            if (method == HttpMethod.POST) {
+                spec = feegowRestClient.post().uri(URI.create(url));
+            } else if (method == HttpMethod.PUT) {
+                spec = feegowRestClient.put().uri(URI.create(url));
+            } else {
+                return false;
+            }
+
+            ResponseEntity<String> response = spec
+                    .headers(h -> headers.forEach((name, values) -> values.forEach(v -> h.add(name, v))))
+                    .body(payload)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            String responseBody = response.getBody();
+            int statusCode = response.getStatusCode().value();
+            log.info("[FEEGOW] Resposta bruta do statusUpdate (RestClient): {} - {}", statusCode, responseBody);
+
+            if (statusCode >= 200 && statusCode < 300) {
+                log.info("Status do agendamento {} atualizado para {} na Feegow (RestClient)", appointmentId, statusId);
+                return true;
+            }
+
+            log.error(
+                    "Resposta inesperada ao atualizar status na Feegow (RestClient). appointmentId={}, statusId={}, method={}, statusCode={}, responseBody={}",
+                    appointmentId,
+                    statusId,
+                    method,
+                    statusCode,
+                    abbreviateResponseBody(response.getBody()));
+            return false;
+        } catch (Exception ex) {
+            log.error(
+                    "Falha ao atualizar status na Feegow (RestClient). appointmentId={}, statusId={}, method={}, erro={}",
+                    appointmentId,
+                    statusId,
+                    method,
+                    ex.getMessage(),
+                    ex);
+            return false;
         }
     }
 
     private String resolveConfirmedStatusId() {
         String configuredConfirmedStatusId = properties.getFeegowConfirmedStatusId();
         if (configuredConfirmedStatusId == null || configuredConfirmedStatusId.isBlank()) {
-            return "2";
+            return "7";
         }
 
         return configuredConfirmedStatusId.trim();
@@ -1026,7 +1131,12 @@ public class FeegowClient {
             String statusId) {
     }
 
-    public record FeegowPatient(String id, String name, String phone) {
+    public record FeegowPatient(
+            String id,
+            String name,
+            String phone,
+            String cpf,
+            String birthdate) {
     }
 
         public record FeegowProfessional(
@@ -1046,4 +1156,10 @@ public class FeegowClient {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record FeegowResponseDTO(boolean success, List<ProfessionalDTO> content) {
     }
+
+    public record FeegowStatusUpdatePayload(
+            @JsonProperty("AgendamentoID") Object agendamentoId,
+            @JsonProperty("StatusID") Integer statusId,
+            @JsonProperty("Obs") String obs
+    ) {}
 }

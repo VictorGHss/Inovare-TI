@@ -1,214 +1,147 @@
 package br.dev.ctrls.inovareti.domain.appointment;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
-@RequestMapping("/v1/webhook")
 @RequiredArgsConstructor
 public class BlipWebhookController {
 
-    private final ObjectMapper objectMapper;
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
+    private final BlipWebhookInboundService blipWebhookInboundService;
 
-    @PostMapping("/blip")
-    public ResponseEntity<Map<String, Object>> blipWebhook(
+    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
+        consumes = {
+            MediaType.APPLICATION_JSON_VALUE,
+            "application/vnd.lime.select+json",
+            "application/vnd.lime.reply+json"
+        })
+    public ResponseEntity<?> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
-            HttpServletRequest request) {
+            @RequestBody(required = false) Map<String, Object> body) {
 
-        // ===== LOG DE DIAGNÓSTICO BRUTO =====
-        // Lê o corpo diretamente do InputStream antes de qualquer parsing.
-        // Se esta linha não aparecer, o Blip não está chegando no Java.
-        String rawPayload;
-        try {
-            byte[] bodyBytes = StreamUtils.copyToByteArray(request.getInputStream());
-            rawPayload = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException e) {
-            log.error("[WEBHOOK] Falha ao ler o corpo da requisição: {}", e.getMessage());
-            rawPayload = "";
-        }
+        Map<String, Object> payload = body != null ? body : Map.of();
 
-        // Loga headers relevantes para diagnóstico
-        StringBuilder headers = new StringBuilder();
-        java.util.Enumeration<String> headerNames = request.getHeaderNames();
-        if (headerNames != null) {
-            while (headerNames.hasMoreElements()) {
-                String name = headerNames.nextElement();
-                headers.append(name).append("=").append(request.getHeader(name)).append("; ");
-            }
-        }
-        log.info("[WEBHOOK] HEADERS: {}", headers);
-        log.info("[WEBHOOK] RAW BODY: {}", rawPayload);
-        // ===== FIM LOG BRUTO =====
-
-        JsonNode payload = parsePayload(rawPayload);
-
-        if (payload == null || payload.isNull()) {
+        if (payload.isEmpty()) {
             log.warn("Blip webhook received without body at /v1/webhook/blip.");
-            return ResponseEntity.accepted().body(Map.of(
+            return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "body-empty"));
         }
 
-        String from       = extractFrom(payload);
-        String action     = extractActionText(payload);
-        String messageId  = extractMessageId(payload);
-        String appointmentId = extractAppointmentId(payload);
+        BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
-        // Log de auditoria estruturado
+        String from = parsed.from();
+        String action = parsed.action();
+        String messageId = parsed.messageId();
+        String appointmentId = parsed.appointmentId();
+        Object content = parsed.content();
+
         log.info("[WEBHOOK RECEBIDO] from='{}' | action='{}' | messageId='{}' | appointmentId='{}'",
             from, action, messageId, appointmentId);
 
-        handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
+        HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 messageId,
                 appointmentId,
                 action,
                 from,
-                inovareToken
+                inovareToken,
+                content));
+
+        if (result == null) {
+            return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));
+        }
+
+        return ResponseEntity.ok(new WebhookResponse(
+            Objects.requireNonNullElse(result.queue(), ""),
+            Objects.requireNonNullElse(result.patientName(), ""),
+            Objects.requireNonNullElse(result.patientCPF(), ""),
+            Objects.requireNonNullElse(result.patientBirthdate(), ""),
+            Objects.requireNonNullElse(result.action(), "")
         ));
-
-        return ResponseEntity.accepted().body(Map.of(
-                "status", "processed"));
     }
 
-    private JsonNode parsePayload(String rawPayload) {
-        if (!StringUtils.hasText(rawPayload)) {
-            return null;
+    @PostMapping(value = "/webhooks/blip/manual-trigger", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> manualTrigger(
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
+            @RequestBody ManualTriggerRequest body) {
+        if (body == null
+                || !StringUtils.hasText(body.identity())
+                || !StringUtils.hasText(body.appointmentId())
+                || !StringUtils.hasText(body.action())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "ignored",
+                "reason", "missing-fields"));
         }
 
-        try {
-            return objectMapper.readTree(rawPayload);
-        } catch (JsonProcessingException ex) {
-            log.warn("Falha ao parsear payload do Blip: {}", ex.getMessage());
-            return null;
+        String normalizedAction = body.action().trim().toLowerCase();
+        String actionPrefix = switch (normalizedAction) {
+            case "confirm" -> "confirm";
+            case "alter" -> "alter";
+            default -> null;
+        };
+
+        if (actionPrefix == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "ignored",
+                "reason", "invalid-action"));
         }
+
+        String appointmentId = body.appointmentId().trim();
+        String action = actionPrefix + "_" + appointmentId;
+
+        log.info("[MANUAL TRIGGER] identity='{}' | action='{}' | appointmentId='{}'",
+            body.identity(), action, appointmentId);
+
+        HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
+                UUID.randomUUID().toString(),
+                appointmentId,
+                action,
+                body.identity().trim(),
+                inovareToken,
+                null), true);
+
+        if (result == null) {
+            return ResponseEntity.ok(Map.of("queue", ""));
+        }
+
+        return ResponseEntity.ok(new WebhookResponse(
+            Objects.requireNonNullElse(result.queue(), ""),
+            Objects.requireNonNullElse(result.patientName(), ""),
+            Objects.requireNonNullElse(result.patientCPF(), ""),
+            Objects.requireNonNullElse(result.patientBirthdate(), ""),
+            Objects.requireNonNullElse(result.action(), "")
+        ));
     }
 
-    private String extractFrom(JsonNode payload) {
-        String from = firstNonBlank(
-            payload.path("from").asText(null),
-            payload.path("resource").path("from").asText(null),
-            payload.path("message").path("from").asText(null));
-
-        String originator = firstNonBlank(
-            payload.path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("envelope").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("message").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("envelope").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("message").path("metadata").path("#tunnel.originator").asText(null));
-
-        if (StringUtils.hasText(originator)) {
-            return originator;
-        }
-
-        return from;
+    public record ManualTriggerRequest(
+            @JsonProperty("identity") String identity,
+            @JsonAlias({"appointment_id", "appointmentId"}) @JsonProperty("appointment_id") String appointmentId,
+            @JsonProperty("action") String action) {
     }
 
-    private String extractActionText(JsonNode payload) {
-        // Captura o payload do botão de resposta rápida do WhatsApp.
-        // vnd.lime.select+json: o clique vem em content como objeto com
-        // .value ou .payload de um option selecionado.
-
-        // 1) Tenta capturar payload de select+json (opção selecionada)
-        JsonNode contentNode = firstNonNullNode(
-            payload.path("content"),
-            payload.path("resource").path("content"));
-
-        if (contentNode != null && !contentNode.isMissingNode()) {
-            // select+json: selected option pode ter .value ou .payload
-            String selectValue = firstNonBlankNode(
-                contentNode.path("value"),
-                contentNode.path("payload"),
-                contentNode.path("id"));
-            if (selectValue != null) {
-                log.info("[WEBHOOK] action extraído (select+json): '{}'", selectValue);
-                return selectValue;
-            }
-        }
-
-        // 2) Fallback: caminhos textuais simples
-        String action = firstNonBlank(
-                payload.path("action").asText(null),
-                payload.path("content").path("payload").asText(null),
-                payload.path("content").path("id").asText(null),
-                payload.path("content").asText(null),
-                payload.path("content").path("text").asText(null),
-                payload.path("content").path("title").asText(null),
-                payload.path("resource").path("action").asText(null),
-                payload.path("resource").path("content").path("payload").asText(null),
-                payload.path("resource").path("content").asText(null),
-                payload.path("resource").path("content").path("text").asText(null),
-                payload.path("resource").path("content").path("title").asText(null));
-        log.info("[WEBHOOK] action extraído: '{}'", action);
-        return action;
-    }
-
-    /** Retorna o primeiro JsonNode que não seja null/missing/null-node. */
-    private JsonNode firstNonNullNode(JsonNode... nodes) {
-        for (JsonNode n : nodes) {
-            if (n != null && !n.isMissingNode() && !n.isNull()) return n;
-        }
-        return null;
-    }
-
-    /** Extrai texto não-vazio do primeiro nó que tenha valor. */
-    private String firstNonBlankNode(JsonNode... nodes) {
-        for (JsonNode n : nodes) {
-            if (n != null && !n.isMissingNode() && !n.isNull()) {
-                String text = n.asText(null);
-                if (text != null && !text.isBlank() && !"null".equalsIgnoreCase(text)) return text;
-            }
-        }
-        return null;
-    }
-
-    private String extractMessageId(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("id").asText(null),
-                payload.path("message").path("id").asText(null),
-                UUID.randomUUID().toString()
-        );
-    }
-
-    private String extractAppointmentId(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("appointmentId").asText(null),
-                payload.path("metadata").path("appointmentId").asText(null),
-                payload.path("envelope").path("metadata").path("appointmentId").asText(null),
-                payload.path("resource").path("appointmentId").asText(null),
-                payload.path("resource").path("metadata").path("appointmentId").asText(null),
-                payload.path("resource").path("content").path("appointmentId").asText(null));
-    }
-
-    private String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-
-        for (String value : values) {
-            if (StringUtils.hasText(value)) {
-                return value.trim();
-            }
-        }
-
-        return null;
+    public record WebhookResponse(
+            @JsonProperty("queue") String queue,
+            @JsonProperty("patientName") String patientName,
+            @JsonProperty("patientCPF") String patientCPF,
+            @JsonProperty("patientBirthdate") String patientBirthdate,
+            @JsonProperty("action") String action) {
     }
 }

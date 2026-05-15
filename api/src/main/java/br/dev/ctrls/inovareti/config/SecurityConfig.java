@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -37,15 +38,18 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
+    private static final String BLIP_WEBHOOK_ALIAS_PATH = "/webhooks/blip";
+    private static final String BLIP_MANUAL_TRIGGER_PATH = "/webhooks/blip/manual-trigger";
     private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
     private static final String APPOINTMENT_ADMIN_PATH = "/v1/appointments/admin/**";
     private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
 
     private final SecurityFilter securityFilter;
+    private final RawBodyLoggingFilter rawBodyLoggingFilter;
 
     /**
      * Define a cadeia de filtros de segurança:
-     * - CSRF desabilitado (API stateless)
+     * - CSRF desabilitado globalmente (API stateless e webhooks externos)
      * - CORS habilitado (permite o servidor Vite em localhost:5173)
      * - Gerenciamento de sessão: STATELESS
      * - Rotas pública: POST /api/auth/login e POST /api/auth/reset-initial-password
@@ -54,15 +58,10 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // CSRF desabilitado globalmente (API stateless + webhooks externos).
+        // Evita 403 em túneis (ex.: Pinggy) enquanto integrações não enviam token CSRF.
         http
-                .csrf(csrf -> csrf
-                .ignoringRequestMatchers(
-                    BLIP_WEBHOOK_PATH,
-                    BLIP_WEBHOOK_PATH + "/",
-                    "/v1/webhook/**",
-                    APPOINTMENT_BLIP_WEBHOOK_PATH,
-                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
-                .disable())
+                .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
@@ -73,15 +72,18 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers(BLIP_WEBHOOK_PATH, BLIP_WEBHOOK_PATH + "/").permitAll()
+                .requestMatchers(BLIP_WEBHOOK_ALIAS_PATH, BLIP_WEBHOOK_ALIAS_PATH + "/").permitAll()
+                .requestMatchers(BLIP_MANUAL_TRIGGER_PATH, BLIP_MANUAL_TRIGGER_PATH + "/").permitAll()
+                .requestMatchers("/api/webhooks/**").permitAll()
                 .requestMatchers("/v1/webhook/**").permitAll()
+                .requestMatchers("/api/v1/webhook/**").permitAll()
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(
                     HttpMethod.POST,
-                    BLIP_WEBHOOK_PATH,
-                    BLIP_WEBHOOK_PATH + "/",
                     APPOINTMENT_BLIP_WEBHOOK_PATH,
                     APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .permitAll()
@@ -90,7 +92,9 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(rawBodyLoggingFilter, SecurityContextHolderFilter.class)
+            .addFilterBefore(new ManualTriggerKeyFilter(), UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(securityFilter, ManualTriggerKeyFilter.class);
 
         return http.build();
     }

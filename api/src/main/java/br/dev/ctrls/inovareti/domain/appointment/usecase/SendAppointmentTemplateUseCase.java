@@ -16,15 +16,15 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.BlipErrorMapper;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
-import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
-import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
-import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentDispatchContext;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +38,7 @@ public class SendAppointmentTemplateUseCase {
     private static final DateTimeFormatter BRAZILIAN_TIME = DateTimeFormatter.ofPattern("HH:mm");
     private static final String DEFAULT_TEMPLATE_VALUE = "Recepção";
     private static final String DEFAULT_PROVIDER_VALUE = "Clínica Inovare";
+    private static final String LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY = "last_pending_appointment_id";
 
     private final AppointmentConfigRepository appointmentConfigRepository;
     private final AppointmentSessionRepository appointmentSessionRepository;
@@ -75,6 +76,8 @@ public class SendAppointmentTemplateUseCase {
         AppointmentSession session = appointmentSessionRepository.findById(ctx.sessionId()).orElse(null);
 
         try {
+            String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
+            blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), config.getTemplateId(), templateData);
 
             // Pré-armar o teletransporte: trava o usuário no bloco de aterrissagem do fluxov1
@@ -178,6 +181,8 @@ public class SendAppointmentTemplateUseCase {
 
         try {
             String templateId = config.getTemplateId();
+            String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
+            blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             saveWithRetry(session, null);
             return true;
@@ -231,7 +236,7 @@ public class SendAppointmentTemplateUseCase {
                     throw e;
                 }
                 try {
-                    Thread.sleep(100);
+                    java.util.concurrent.TimeUnit.MILLISECONDS.sleep(100);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Thread interrompida durante o retry de salvamento da sessão", ie);
@@ -321,5 +326,16 @@ public class SendAppointmentTemplateUseCase {
         } catch (Exception ex) {
             log.warn("[ARM STATE] Falha ao pré-armar estado do usuário. phone={}. O template foi enviado normalmente.", phoneNumber, ex);
         }
+    }
+
+    private String resolvePendingAppointmentId(String feegowAppointmentId, java.util.UUID sessionId) {
+        if (feegowAppointmentId != null && !feegowAppointmentId.isBlank()
+                && !"null".equalsIgnoreCase(feegowAppointmentId.trim())) {
+            return feegowAppointmentId.trim();
+        }
+        if (sessionId != null) {
+            return sessionId.toString();
+        }
+        return null;
     }
 }

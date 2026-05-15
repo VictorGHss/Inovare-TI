@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.annotation.PostConstruct;
 
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.client.RestClientException;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import lombok.extern.slf4j.Slf4j;
@@ -159,7 +162,7 @@ public class BlipLIMEClient {
 
         try {
             log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(finalPayload));
-        } catch (Exception ignored) {
+        } catch (JsonProcessingException ignored) {
             log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, finalPayload);
         }
 
@@ -235,7 +238,7 @@ public class BlipLIMEClient {
 
     private HttpHeaders buildHeaders(AuthorizationScope scope) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setContentType(new MediaType("application", "json", StandardCharsets.UTF_8));
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
         String authKey = normalizeAuthorizationKey(resolveAuthorizationKey(scope));

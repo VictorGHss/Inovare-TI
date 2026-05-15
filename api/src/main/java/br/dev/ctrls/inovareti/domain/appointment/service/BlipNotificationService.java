@@ -10,12 +10,12 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
-import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentTemplateMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentTemplateMappingRepository;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
-
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTemplateDto;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -24,18 +24,15 @@ public class BlipNotificationService {
 
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepository templateMappingRepository;
-    private final AppointmentMotorProperties properties;
 
     @Value("${app.appointment.motor.blip-waba-namespace}")
     private String blipWabaNamespace;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
-            AppointmentTemplateMappingRepository templateMappingRepository,
-            AppointmentMotorProperties properties) {
+            AppointmentTemplateMappingRepository templateMappingRepository) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
-        this.properties = properties;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
@@ -66,7 +63,7 @@ public class BlipNotificationService {
                             String bodyContent = "{}";
                             try {
                                 bodyContent = mapper.writeValueAsString(itemMap);
-                            } catch (Exception ignored) {}
+                            } catch (JsonProcessingException ignored) {}
                             templates.add(new BlipTemplateDto(id, name, bodyContent));
                         }
                     }
@@ -74,7 +71,7 @@ public class BlipNotificationService {
                 }
             }
             return List.of();
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.error("Erro ao buscar templates no Blip", ex);
             return List.of();
         }
@@ -102,14 +99,20 @@ public class BlipNotificationService {
                 templateName, normalizedDestination);
             return;
         }
-        Map<String, Object> button = Map.of(
+        Map<String, Object> confirmButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,
             "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
         );
 
+        Map<String, Object> alterButton = Map.of(
+            "type", "button", "sub_type", "quick_reply", "index", 1,
+            "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
+        );
+
         List<Map<String, Object>> components = new ArrayList<>();
         components.add(Map.of("type", "body", "parameters", parameters));
-        components.add(button);
+        components.add(confirmButton);
+        components.add(alterButton);
 
         Map<String, Object> content = Map.of(
             "type", "template",

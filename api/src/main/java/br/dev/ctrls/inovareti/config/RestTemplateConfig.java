@@ -1,5 +1,8 @@
 package br.dev.ctrls.inovareti.config;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -8,12 +11,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.support.HttpRequestWrapper;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
 
+import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -46,6 +52,33 @@ public class RestTemplateConfig {
     @Qualifier("feegowRestTemplate")
     public RestTemplate feegowRestTemplate() {
         return new RestTemplate();
+    }
+
+    /**
+     * {@link RestClient} dedicado à Feegow: {@code defaultStatusHandler} evita exceções automáticas em 4xx/5xx
+     * (o chamador inspeciona o {@link org.springframework.http.ResponseEntity} ou o corpo).
+     */
+    @Bean
+    @Qualifier("feegowRestClient")
+    public RestClient feegowRestClient(AppointmentMotorProperties appointmentMotorProperties) {
+        String base = appointmentMotorProperties.getFeegowBaseUrl();
+        if (base == null || base.isBlank()) {
+            base = "http://localhost";
+        }
+        String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        return RestClient.builder()
+                .baseUrl(normalizedBase)
+                .defaultStatusHandler(HttpStatusCode::is4xxClientError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
+                .defaultStatusHandler(HttpStatusCode::is5xxServerError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
+                .build();
+    }
+
+    private static void drainFeegowErrorWithoutThrowing(HttpRequest request, ClientHttpResponse response) throws IOException {
+        try (InputStream in = response.getBody()) {
+            in.transferTo(OutputStream.nullOutputStream());
+        }
+        log.warn("Feegow resposta HTTP {} em {} — corpo drenado (handler defaultStatusHandler, sem exceção automática)",
+                response.getStatusCode(), request.getURI());
     }
 
     private static final class ContaAzulPathSanitizerInterceptor implements ClientHttpRequestInterceptor {

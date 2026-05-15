@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
+import br.dev.ctrls.inovareti.domain.appointment.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.IngestAppointmentsUseCase;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipLIMEClient;
@@ -43,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AppointmentMotorController {
 
-    private final ObjectMapper objectMapper;
+    private final BlipWebhookInboundService blipWebhookInboundService;
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
@@ -404,112 +403,46 @@ public class AppointmentMotorController {
         }
     }
 
-    @PostMapping("/blip/webhook")
+    @PostMapping(value = "/blip/webhook", consumes = {
+            MediaType.APPLICATION_JSON_VALUE,
+            "application/vnd.lime.select+json",
+            "application/vnd.lime.reply+json"
+    })
     public ResponseEntity<Map<String, Object>> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
-            @RequestBody(required = false) String rawPayload) {
-        JsonNode payload = parsePayload(rawPayload);
-        log.debug("RECEIVED IN WEBHOOK: " + payload);
+            @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> payload = body != null ? body : Map.of();
+        log.debug("RECEIVED IN WEBHOOK: {}", payload);
 
-        if (payload == null || payload.isNull()) {
+        if (payload.isEmpty()) {
             log.warn("Webhook Blip recebido sem body em /v1/appointments/blip/webhook.");
-            return ResponseEntity.accepted().body(Map.of(
+            return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "body-empty"));
         }
 
-        String from = extractFrom(payload);
-        String action = extractActionText(payload);
-        String messageId = extractMessageId(payload);
-        String appointmentId = extractAppointmentId(payload);
+        BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
-                messageId,
-                appointmentId,
-                action,
-                from,
-                inovareToken
-        ));
+                parsed.messageId(),
+                parsed.appointmentId(),
+                parsed.action(),
+                parsed.from(),
+                inovareToken,
+                parsed.content()));
 
-        return ResponseEntity.accepted().body(Map.of(
-                "status", "processed"));
-    }
-
-    private JsonNode parsePayload(String rawPayload) {
-        if (!StringUtils.hasText(rawPayload)) {
-            return null;
-        }
-
-        try {
-            return objectMapper.readTree(rawPayload);
-        } catch (JsonProcessingException ex) {
-            log.warn("Falha ao parsear payload do webhook do Blip: {}", ex.getMessage());
-            return null;
-        }
-    }
-
-    private String extractFrom(JsonNode payload) {
-        String from = firstNonBlank(
-            payload.path("from").asText(null),
-            payload.path("resource").path("from").asText(null),
-            payload.path("message").path("from").asText(null));
-
-        String originator = firstNonBlank(
-            payload.path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("envelope").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("message").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("envelope").path("metadata").path("#tunnel.originator").asText(null),
-            payload.path("resource").path("message").path("metadata").path("#tunnel.originator").asText(null));
-
-        if (StringUtils.hasText(originator)) {
-            return originator;
-        }
-
-        return from;
-    }
-
-    private String extractActionText(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("action").asText(null),
-                payload.path("content").asText(null),
-                payload.path("content").path("text").asText(null),
-                payload.path("content").path("title").asText(null),
-                payload.path("resource").path("action").asText(null),
-                payload.path("resource").path("content").asText(null),
-                payload.path("resource").path("content").path("text").asText(null),
-                payload.path("resource").path("content").path("title").asText(null));
-    }
-
-    private String extractMessageId(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("id").asText(null),
-                payload.path("message").path("id").asText(null),
-                UUID.randomUUID().toString()
-        );
-    }
-
-    private String extractAppointmentId(JsonNode payload) {
-        return firstNonBlank(
-                payload.path("appointmentId").asText(null),
-                payload.path("metadata").path("appointmentId").asText(null),
-                payload.path("envelope").path("metadata").path("appointmentId").asText(null),
-                payload.path("resource").path("appointmentId").asText(null),
-                payload.path("resource").path("metadata").path("appointmentId").asText(null),
-                payload.path("resource").path("content").path("appointmentId").asText(null));
+        return ResponseEntity.ok(Map.of("status", "processed"));
     }
 
     private String firstNonBlank(String... values) {
         if (values == null) {
             return null;
         }
-
         for (String value : values) {
             if (StringUtils.hasText(value)) {
                 return value.trim();
             }
         }
-
         return null;
     }
 

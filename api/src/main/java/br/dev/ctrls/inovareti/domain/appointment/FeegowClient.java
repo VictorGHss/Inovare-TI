@@ -359,8 +359,12 @@ public class FeegowClient {
                 if (content instanceof List<?> list && !list.isEmpty()) {
                     Object first = list.get(0);
                     if (first instanceof Map<?, ?> row) {
+                        Object tratamento = row.get("tratamento");
                         Object nome = row.get("nome");
-                        return nome != null ? nome.toString() : null;
+                        if (nome != null) {
+                            String prefix = (tratamento != null && !tratamento.toString().isBlank()) ? tratamento.toString().trim() + " " : "";
+                            return prefix + nome.toString().trim();
+                        }
                     }
                 }
 
@@ -368,8 +372,12 @@ public class FeegowClient {
                 if (dados instanceof List<?> dlist && !dlist.isEmpty()) {
                     Object first = dlist.get(0);
                     if (first instanceof Map<?, ?> row) {
+                        Object tratamento = row.get("tratamento");
                         Object nome = row.get("nome");
-                        return nome != null ? nome.toString() : null;
+                        if (nome != null) {
+                            String prefix = (tratamento != null && !tratamento.toString().isBlank()) ? tratamento.toString().trim() + " " : "";
+                            return prefix + nome.toString().trim();
+                        }
                     }
                 }
             }
@@ -467,6 +475,11 @@ public class FeegowClient {
                     if (p == null) continue;
                     String id = p.id() == null ? null : String.valueOf(p.id());
                     String name = p.nome() == null ? null : p.nome();
+                    String tratamento = p.tratamento() == null ? "" : p.tratamento().trim();
+                    if (name != null) {
+                        String prefix = !tratamento.isBlank() ? tratamento + " " : "";
+                        name = prefix + name.trim();
+                    }
                     if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
                         professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
                     }
@@ -526,6 +539,11 @@ public class FeegowClient {
                             if (p == null) continue;
                             String id = p.id() == null ? null : String.valueOf(p.id());
                             String name = p.nome() == null ? null : p.nome();
+                            String tratamento = p.tratamento() == null ? "" : p.tratamento().trim();
+                            if (name != null) {
+                                String prefix = !tratamento.isBlank() ? tratamento + " " : "";
+                                name = prefix + name.trim();
+                            }
                             if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
                                 professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
                             }
@@ -1150,7 +1168,9 @@ public class FeegowClient {
             @JsonAlias({"id", "profissionalId"})
             String id,
             @JsonProperty("nome")
-            String nome) {
+            String nome,
+            @JsonProperty("tratamento")
+            String tratamento) {
         }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

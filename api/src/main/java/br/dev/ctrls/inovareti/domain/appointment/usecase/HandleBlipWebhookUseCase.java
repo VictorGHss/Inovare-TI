@@ -145,6 +145,11 @@ public class HandleBlipWebhookUseCase {
         AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
                 .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
 
+        // Busca o nome do médico para o WebhookResponse e notificação
+        String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
+            .map(AppointmentDoctorMapping::getProfissionalNome)
+            .orElse("Clínica Inovare");
+
         // 1. Bloqueio de Duplicidade
         if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
             log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
@@ -154,7 +159,7 @@ public class HandleBlipWebhookUseCase {
             FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
-            return new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType);
+            return new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
         }
 
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
@@ -196,9 +201,9 @@ public class HandleBlipWebhookUseCase {
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 
         // Disparo de notificação assíncrona (Separation of Notification)
-        triggerAsyncNotification(session, patient, actionType);
+        triggerAsyncNotification(session, patient, actionType, doctorName);
 
-        return new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType);
+        return new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
     }
 
     private String resolveQueueForSession(AppointmentSession session, String actionType, boolean skipTokenValidation) {
@@ -372,14 +377,9 @@ public class HandleBlipWebhookUseCase {
         return clean;
     }
 
-    private void triggerAsyncNotification(AppointmentSession session, FeegowClient.FeegowPatient patient, String actionType) {
+    private void triggerAsyncNotification(AppointmentSession session, FeegowClient.FeegowPatient patient, String actionType, String doctorName) {
         CompletableFuture.runAsync(() -> {
             try {
-                // Busca o médico para compor os dados do template
-                String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
-                    .map(AppointmentDoctorMapping::getProfissionalNome)
-                    .orElse("Clínica Inovare");
-
                 AppointmentTemplateData templateData = new AppointmentTemplateData(
                     session.getFeegowAppointmentId(),
                     session.getPatientId(),
@@ -412,6 +412,6 @@ public class HandleBlipWebhookUseCase {
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content) {
     }
 
-    public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action) {
+    public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {
     }
 }

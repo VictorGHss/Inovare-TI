@@ -74,7 +74,8 @@ public class BlipWebhookController {
             Objects.requireNonNullElse(result.patientName(), ""),
             Objects.requireNonNullElse(result.patientCPF(), ""),
             Objects.requireNonNullElse(result.patientBirthdate(), ""),
-            Objects.requireNonNullElse(result.action(), "")
+            Objects.requireNonNullElse(result.action(), ""),
+            Objects.requireNonNullElse(result.doctorName(), "")
         ));
     }
 
@@ -127,7 +128,8 @@ public class BlipWebhookController {
             Objects.requireNonNullElse(result.patientName(), ""),
             Objects.requireNonNullElse(result.patientCPF(), ""),
             Objects.requireNonNullElse(result.patientBirthdate(), ""),
-            Objects.requireNonNullElse(result.action(), "")
+            Objects.requireNonNullElse(result.action(), ""),
+            Objects.requireNonNullElse(result.doctorName(), "")
         ));
     }
 
@@ -142,6 +144,7 @@ public class BlipWebhookController {
             @JsonProperty("patientName") String patientName,
             @JsonProperty("patientCPF") String patientCPF,
             @JsonProperty("patientBirthdate") String patientBirthdate,
-            @JsonProperty("action") String action) {
+            @JsonProperty("action") String action,
+            @JsonProperty("doctorName") String doctorName) {
     }
 }

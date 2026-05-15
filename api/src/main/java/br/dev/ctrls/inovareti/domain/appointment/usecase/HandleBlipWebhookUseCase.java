@@ -131,6 +131,15 @@ public class HandleBlipWebhookUseCase {
             return null;
         }
 
+        boolean actionFresh = webhookIdempotencyService
+                .map(service -> service.registerActionIfFirstTime(appointmentId, actionType))
+                .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.registerActionIfFirstTime(appointmentId, actionType)).orElse(true));
+
+        if (!actionFresh) {
+            log.warn("[WEBHOOK] Duplicidade detectada para agendamento {} com ação {}. Ignorando.", appointmentId, actionType);
+            return null;
+        }
+
         log.info("[WEBHOOK] Processando ação '{}' para agendamento ID={}", actionType, appointmentId);
 
         AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)

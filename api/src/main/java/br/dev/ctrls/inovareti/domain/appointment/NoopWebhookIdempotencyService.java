@@ -10,4 +10,8 @@ public class NoopWebhookIdempotencyService {
     public boolean registerIfFirstTime(String messageId) {
         return true;
     }
+
+    public boolean registerActionIfFirstTime(String appointmentId, String action) {
+        return true;
+    }
 }

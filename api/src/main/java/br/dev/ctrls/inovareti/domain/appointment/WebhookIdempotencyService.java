@@ -53,4 +53,25 @@ public class WebhookIdempotencyService {
             return true;
         }
     }
+
+    public boolean registerActionIfFirstTime(String appointmentId, String action) {
+        if (appointmentId == null || appointmentId.isBlank() || action == null || action.isBlank()) {
+            return true; // Fail open
+        }
+
+        String actionKey = "webhook:action:{" + appointmentId.trim() + "}:{" + action.trim() + "}";
+
+        try {
+            // Lock for 5 seconds to prevent double triggers
+            Boolean inserted = redis.opsForValue().setIfAbsent(
+                    actionKey,
+                    "1",
+                    Duration.ofSeconds(5));
+
+            return Boolean.TRUE.equals(inserted);
+        } catch (Exception ex) {
+            log.error("Falha ao registrar idempotência de ação no Redis. key={}", actionKey, ex);
+            return true;
+        }
+    }
 }

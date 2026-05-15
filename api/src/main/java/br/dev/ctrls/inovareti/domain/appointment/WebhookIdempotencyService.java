@@ -62,11 +62,11 @@ public class WebhookIdempotencyService {
         String actionKey = "webhook:action:{" + appointmentId.trim() + "}:{" + action.trim() + "}";
 
         try {
-            // Lock for 5 seconds to prevent double triggers
+            // Lock for 30 seconds to prevent double triggers and retries
             Boolean inserted = redis.opsForValue().setIfAbsent(
                     actionKey,
                     "1",
-                    Duration.ofSeconds(5));
+                    Duration.ofSeconds(30));
 
             return Boolean.TRUE.equals(inserted);
         } catch (Exception ex) {

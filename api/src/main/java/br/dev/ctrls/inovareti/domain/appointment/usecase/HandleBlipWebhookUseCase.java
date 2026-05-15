@@ -136,7 +136,7 @@ public class HandleBlipWebhookUseCase {
                 .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.registerActionIfFirstTime(appointmentId, actionType)).orElse(true));
 
         if (!actionFresh) {
-            log.warn("[WEBHOOK] Duplicidade detectada para agendamento {} com ação {}. Ignorando.", appointmentId, actionType);
+            log.warn("[IDEMPOTENCY] Requisição ignorada para o agendamento {} para monitorarmos o spam.", appointmentId);
             return null;
         }
 

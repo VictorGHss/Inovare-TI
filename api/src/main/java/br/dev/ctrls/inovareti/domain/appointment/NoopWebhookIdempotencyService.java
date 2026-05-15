@@ -14,4 +14,15 @@ public class NoopWebhookIdempotencyService {
     public boolean registerActionIfFirstTime(String appointmentId, String action) {
         return true;
     }
+
+    public boolean tryAcquireLock(String appointmentId) {
+        return true;
+    }
+
+    public void saveCachedResult(String appointmentId, String jsonResult) {
+    }
+
+    public String getCachedResult(String appointmentId) {
+        return null;
+    }
 }

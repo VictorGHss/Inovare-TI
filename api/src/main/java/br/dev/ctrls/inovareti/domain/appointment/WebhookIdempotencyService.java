@@ -74,4 +74,36 @@ public class WebhookIdempotencyService {
             return true;
         }
     }
+    public boolean tryAcquireLock(String appointmentId) {
+        if (appointmentId == null || appointmentId.isBlank()) return true;
+        String lockKey = "webhook:lock:{" + appointmentId.trim() + "}";
+        try {
+            Boolean locked = redis.opsForValue().setIfAbsent(lockKey, "1", Duration.ofMillis(30000));
+            return Boolean.TRUE.equals(locked);
+        } catch (Exception e) {
+            log.error("Falha ao registrar trava atômica no Redis. key={}", lockKey, e);
+            return true; // fail-open
+        }
+    }
+
+    public void saveCachedResult(String appointmentId, String jsonResult) {
+        if (appointmentId == null || appointmentId.isBlank()) return;
+        String resKey = "res:{" + appointmentId.trim() + "}";
+        try {
+            redis.opsForValue().set(resKey, jsonResult, Duration.ofSeconds(60));
+        } catch (Exception e) {
+            log.error("Failed to cache result for {}", appointmentId, e);
+        }
+    }
+
+    public String getCachedResult(String appointmentId) {
+        if (appointmentId == null || appointmentId.isBlank()) return null;
+        String resKey = "res:{" + appointmentId.trim() + "}";
+        try {
+            return redis.opsForValue().get(resKey);
+        } catch (Exception e) {
+            log.error("Failed to get cached result for {}", appointmentId, e);
+            return null;
+        }
+    }
 }

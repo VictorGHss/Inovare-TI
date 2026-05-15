@@ -123,12 +123,32 @@ public class HandleBlipWebhookUseCase {
             return null;
         }
 
-        boolean actionFresh = webhookIdempotencyService
-                .map(service -> service.registerActionIfFirstTime(appointmentId, actionType))
-                .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.registerActionIfFirstTime(appointmentId, actionType)).orElse(true));
+        boolean lockAcquired = webhookIdempotencyService
+                .map(service -> service.tryAcquireLock(appointmentId))
+                .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.tryAcquireLock(appointmentId)).orElse(true));
 
-        if (!actionFresh) {
-            log.warn("[IDEMPOTENCY] Requisição ignorada para o agendamento {} para monitorarmos o spam.", appointmentId);
+        if (!lockAcquired) {
+            log.info("[IDEMPOTENCY] Aguardando processamento da thread principal para o agendamento {}", appointmentId);
+            // Spin-Wait
+            int maxAttempts = 10;
+            for (int i = 0; i < maxAttempts; i++) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                String cachedJson = webhookIdempotencyService.map(s -> s.getCachedResult(appointmentId)).orElse(null);
+                if (cachedJson != null) {
+                    try {
+                        log.info("[IDEMPOTENCY] Resultado lido do cache para agendamento {}", appointmentId);
+                        return objectMapper.readValue(cachedJson, WebhookResult.class);
+                    } catch (Exception e) {
+                        log.error("Erro ao ler cache JSON para agendamento {}", appointmentId, e);
+                    }
+                }
+            }
+            log.warn("[IDEMPOTENCY] Tempo esgotado aguardando resultado para agendamento {}. Retornando null.", appointmentId);
             return null;
         }
 
@@ -151,7 +171,14 @@ public class HandleBlipWebhookUseCase {
             FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
-            return new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+            WebhookResult result = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+            try {
+                String jsonResult = objectMapper.writeValueAsString(result);
+                webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
+            } catch (Exception e) {
+                log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
+            }
+            return result;
         }
 
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
@@ -189,7 +216,16 @@ public class HandleBlipWebhookUseCase {
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 
-        return new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+        WebhookResult finalResult = new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+        
+        try {
+            String jsonResult = objectMapper.writeValueAsString(finalResult);
+            webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
+        } catch (Exception e) {
+            log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
+        }
+
+        return finalResult;
     }
 
     private String resolveQueueForSession(AppointmentSession session, String actionType, boolean skipTokenValidation) {

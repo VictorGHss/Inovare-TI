@@ -20,12 +20,6 @@ import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
-import br.dev.ctrls.inovareti.domain.appointment.service.BlipNotificationService;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentCategory;
-import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
-import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,8 +37,6 @@ public class HandleBlipWebhookUseCase {
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
     private final ObjectMapper objectMapper;
-    private final BlipNotificationService blipNotificationService;
-    private final AppointmentConfigRepository appointmentConfigRepository;
 
     /**
      * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado
@@ -167,10 +159,7 @@ public class HandleBlipWebhookUseCase {
             session.setPhoneNumber(dispatchIdentity);
         }
 
-        String attendanceQueueToRedirect = null;
-        if (payload.from() != null && payload.from().contains("@tunnel.msging.net")) {
-            attendanceQueueToRedirect = payload.from().trim();
-        }
+
 
         if ("confirm".equals(actionType)) {
             String confirmedStatusId = resolveConfirmedStatusId();

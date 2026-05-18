@@ -178,6 +178,8 @@ public class HandleBlipWebhookUseCase {
                 .orElse("Clínica Inovare");
         }
 
+        doctorName = cleanDoctorName(doctorName);
+
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
         if (dispatchIdentity != null) {
             session.setPhoneNumber(dispatchIdentity);
@@ -203,6 +205,7 @@ public class HandleBlipWebhookUseCase {
                 if (dispatchIdentity != null) {
                     @SuppressWarnings("unchecked")
                     java.util.Map<String, Object> resultMap = objectMapper.convertValue(result, java.util.Map.class);
+                    log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
                     blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
                     blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
                 }
@@ -254,6 +257,7 @@ public class HandleBlipWebhookUseCase {
             if (dispatchIdentity != null) {
                 @SuppressWarnings("unchecked")
                 java.util.Map<String, Object> resultMap = objectMapper.convertValue(finalResult, java.util.Map.class);
+                log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
                 blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
                 blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
             }
@@ -427,6 +431,16 @@ public class HandleBlipWebhookUseCase {
             log.warn("Falha ao formatar data de nascimento: {}", birthdate);
         }
         return clean;
+    }
+
+    private String cleanDoctorName(String doctorName) {
+        if (doctorName == null || doctorName.isBlank()) {
+            return "Clínica Inovare";
+        }
+        String clean = doctorName.trim();
+        // Remove "Dr. ", "Dra. ", "Dr ", "Dra " case-insensitively from the start of the string
+        clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
+        return clean.trim();
     }
 
 

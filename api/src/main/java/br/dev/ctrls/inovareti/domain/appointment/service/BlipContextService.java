@@ -15,12 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 public class BlipContextService {
 
     private final BlipLIMEClient limeClient;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    public BlipContextService(BlipLIMEClient limeClient) {
+    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.limeClient = limeClient;
+        this.objectMapper = objectMapper;
     }
 
     public void setUserContextForUser(String userIdentity, String key, String value) {
@@ -88,27 +90,31 @@ public class BlipContextService {
 
     /**
      * Envia um contexto JSON ao Blip via comando LIME.
-     * O resource deve ser passado como Object (Map, record, etc.) para que o Jackson
-     * o serialize como objeto nativo, e não como String com aspas extras.
-     * O Blip retorna Code 21 (not a JSON) se o resource chegar como string escapada.
+     * O resource é passado como Object (Map, record, etc.) e serializado para string JSON,
+     * sendo enviado como type: "text/plain".
+     * Isso evita o erro Code 21 (quando enviado como application/json com string) AND
+     * evita o erro de [object Object] / Redirecionamento incorreto no Javascript do Blip
+     * (já que o Blip receberá e armazenará uma string JSON pura que o script consegue parsear).
      */
     public void setJsonContext(String normalizedIdentity, String key, Object resourceObject) {
         if (normalizedIdentity == null || normalizedIdentity.isBlank() || resourceObject == null) return;
 
-        java.util.LinkedHashMap<String, Object> command = new java.util.LinkedHashMap<>();
-        command.put("id", UUID.randomUUID().toString());
-        command.put("to", "postmaster@msging.net");
-        command.put("method", "set");
-        command.put("uri", "/contexts/" + normalizedIdentity + "/" + key);
-        command.put("type", "application/json");
-        command.put("metadata", Map.of("expiration", "86400"));
-        command.put("resource", resourceObject); // objeto nativo, não String serializada
-
         try {
+            String jsonString = objectMapper.writeValueAsString(resourceObject);
+
+            java.util.LinkedHashMap<String, Object> command = new java.util.LinkedHashMap<>();
+            command.put("id", UUID.randomUUID().toString());
+            command.put("to", "postmaster@msging.net");
+            command.put("method", "set");
+            command.put("uri", "/contexts/" + normalizedIdentity + "/" + key);
+            command.put("type", "text/plain");
+            command.put("metadata", Map.of("expiration", "86400"));
+            command.put("resource", jsonString);
+
             limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("[LIME] Contexto JSON configurado. identity={}, key={}", normalizedIdentity, key);
-        } catch (RestClientException ex) {
-            log.warn("[LIME] Falha ao configurar contexto JSON. identity={}, key={}", normalizedIdentity, key, ex);
+            log.info("[LIME] Contexto JSON configurado como text/plain. identity={}, key={}", normalizedIdentity, key);
+        } catch (Exception ex) {
+            log.warn("[LIME] Falha ao configurar contexto JSON como text/plain. identity={}, key={}", normalizedIdentity, key, ex);
         }
     }
 

@@ -229,7 +229,8 @@ public class FeegowClient {
         }
 
         String id = professionalId.trim();
-        String cacheKey = "feegow:professional:name:" + id;
+        // v2: chave versionada para invalidar cache antigo que tinha prefixo Dra./Dr. errado
+        String cacheKey = "feegow:professional:name:v2:" + id;
 
         try {
             if (stringRedisTemplate != null) {
@@ -472,12 +473,8 @@ public class FeegowClient {
                 for (ProfessionalDTO p : items) {
                     if (p == null) continue;
                     String id = p.id() == null ? null : String.valueOf(p.id());
-                    String name = p.nome() == null ? null : p.nome();
-                    String tratamento = p.tratamento() == null ? "" : p.tratamento().trim();
-                    if (name != null) {
-                        String prefix = !tratamento.isBlank() ? tratamento + " " : "";
-                        name = prefix + name.trim();
-                    }
+                    // Ignora o campo 'tratamento': prefixo (Dr./Dra.) pode estar errado no cadastro da Feegow
+                    String name = p.nome() == null ? null : p.nome().trim();
                     if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
                         professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
                     }
@@ -536,12 +533,8 @@ public class FeegowClient {
                         for (ProfessionalDTO p : items) {
                             if (p == null) continue;
                             String id = p.id() == null ? null : String.valueOf(p.id());
-                            String name = p.nome() == null ? null : p.nome();
-                            String tratamento = p.tratamento() == null ? "" : p.tratamento().trim();
-                            if (name != null) {
-                                String prefix = !tratamento.isBlank() ? tratamento + " " : "";
-                                name = prefix + name.trim();
-                            }
+                            // Ignora o campo 'tratamento': prefixo (Dr./Dra.) pode estar errado no cadastro da Feegow
+                            String name = p.nome() == null ? null : p.nome().trim();
                             if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
                                 professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
                             }

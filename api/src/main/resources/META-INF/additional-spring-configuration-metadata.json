@@ -458,5 +458,20 @@
     "name": "backup.hdd.path",
     "type": "java.lang.String",
     "description": "A description for 'backup.hdd.path'"
+  },
+  {
+    "name": "blip.blocks.preparar-atendimento",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.blocks.preparar-atendimento'"
+  },
+  {
+    "name": "blip.texts.confirm-success",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.texts.confirm-success'"
+  },
+  {
+    "name": "blip.texts.alter-request",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.texts.alter-request'"
   }
 ]}

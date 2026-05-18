@@ -15,11 +15,19 @@ public class BlipProperties {
     private String subbotKey;        // Mapeado de blip.subbot-key (Chave do subbot)
     
     private Blocks blocks = new Blocks();
+    private Texts texts = new Texts(); // Adicionado para mapear as mensagens
 
     @Data
     public static class Blocks {
-        private String waitingResponse; // Mapeado de blip.blocks.waiting-response (Estacionamento)
-        private String confirmSuccess;   // Mapeado de blip.blocks.confirm-success (Agradecer Confirmação)
-        private String alterRequest;     // Mapeado de blip.blocks.alter-request (Encaminhar Alter)
+        private String waitingResponse;    // Mapeado de blip.blocks.waiting-response (Estacionamento)
+        private String confirmSuccess;      // Mapeado de blip.blocks.confirm-success (Agradecer Confirmação)
+        private String alterRequest;        // Mapeado de blip.blocks.alter-request (Encaminhar Alter)
+        private String prepararAtendimento; // Mapeado de blip.blocks.preparar-atendimento (Preparar Atendimento)
+    }
+
+    @Data
+    public static class Texts {
+        private String confirmSuccess; // Mapeado de blip.texts.confirm-success
+        private String alterRequest;   // Mapeado de blip.texts.alter-request
     }
 }

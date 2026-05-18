@@ -6,6 +6,7 @@ import br.dev.ctrls.inovareti.domain.appointment.BlipProperties;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipContactUpdateCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipStateChangeCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipMasterStateCommand;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipTextMessage;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -193,14 +194,27 @@ public class BlipContextService {
         }
     }
 
+    private void sendToBlipCommandsApi(Object commandPayload) {
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> commandMap = objectMapper.convertValue(commandPayload, java.util.Map.class);
+        limeClient.executeCommand(commandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+    }
+
+    private void sendToBlipMessagesApi(Object messagePayload) {
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> messageMap = objectMapper.convertValue(messagePayload, java.util.Map.class);
+        limeClient.executeMessage(messageMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+    }
+
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
+            String normalizedPhone = limeClient.normalizeUserIdentity(userPhone);
+            String userIdentity = normalizedPhone; // A identidade já possui o domínio correto pós-normalização
+
             // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistência imediata)
             BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
             BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
-            
-            String normalizedIdentity = limeClient.normalizeUserIdentity(userPhone);
-            contactResource.setIdentity(normalizedIdentity);
+            contactResource.setIdentity(userIdentity);
             contactResource.setName(payload.getPatientName());
             contactResource.setTaxDocument(payload.getPatientCPF());
 
@@ -213,43 +227,48 @@ public class BlipContextService {
             contactCommand.setResource(contactResource);
 
             // POST para /commands
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> contactCommandMap = objectMapper.convertValue(contactCommand, java.util.Map.class);
-            log.info("[LIME PUSH] Atualizando contato para identity={}: Medico={}, fila={}", normalizedIdentity, payload.getDoctorName(), payload.getQueue());
-            limeClient.executeCommand(contactCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[LIME PUSH] Passo 1: Atualizando contato para identity={}: Medico={}, fila={}", userIdentity, payload.getDoctorName(), payload.getQueue());
+            sendToBlipCommandsApi(contactCommand);
 
-            // PASSO 2: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
+            // PASSO 2: Envia ativamente a mensagem de texto (Confirmação ou Alteração) via /messages
+            String messageText;
+            if ("confirm".equalsIgnoreCase(action)) {
+                messageText = blipProperties.getTexts().getConfirmSuccess();
+            } else {
+                messageText = blipProperties.getTexts().getAlterRequest()
+                  .replace("{patientName}", payload.getPatientName())
+                  .replace("{doctorName}", payload.getDoctorName());
+            }
+
+            BlipTextMessage textMessage = new BlipTextMessage();
+            textMessage.setTo(userIdentity);
+            textMessage.setContent(messageText);
+
+            // POST síncrono para o endpoint de mensagens (/messages) usando a Key do Roteador
+            log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa para identity={}", userIdentity);
+            sendToBlipMessagesApi(textMessage);
+
+            // PASSO 3: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
             BlipMasterStateCommand masterStateCommand = new BlipMasterStateCommand();
-            masterStateCommand.setUri("/contexts/" + normalizedIdentity + "/Master-State");
+            masterStateCommand.setUri("/contexts/" + userIdentity + "/Master-State");
             masterStateCommand.setResource(blipProperties.getSubbotId());
 
             // POST para /commands
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> masterStateCommandMap = objectMapper.convertValue(masterStateCommand, java.util.Map.class);
-            log.info("[LIME PUSH] Definindo Master-State para identity={}", normalizedIdentity);
-            limeClient.executeCommand(masterStateCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[LIME PUSH] Passo 3: Definindo Master-State para identity={}", userIdentity);
+            sendToBlipCommandsApi(masterStateCommand);
 
-            // PASSO 3: Determina o Bloco de Destino e Teleporta o Usuário dentro do sub-bot
-            String targetBlockId;
-            if ("confirm".equalsIgnoreCase(action)) {
-                targetBlockId = blipProperties.getBlocks().getConfirmSuccess(); // Bloco Agradecer Confirmação
-            } else {
-                targetBlockId = blipProperties.getBlocks().getAlterRequest(); // Bloco Encaminhar Alter
-            }
-
+            // PASSO 4: Teleporta o Usuário direto para o bloco Preparar_Atendimento
             BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
-            stateCommand.setUri("/contexts/" + normalizedIdentity + "/stateid@" + blipProperties.getFlowId());
-            stateCommand.setResource(targetBlockId);
+            stateCommand.setUri("/contexts/" + userIdentity + "/stateid@" + blipProperties.getFlowId());
+            stateCommand.setResource(blipProperties.getBlocks().getPrepararAtendimento()); // ID do bloco Preparar_Atendimento
 
             // POST para /commands
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> stateCommandMap = objectMapper.convertValue(stateCommand, java.util.Map.class);
-            log.info("[LIME PUSH] Teleportando usuário identity={} para o bloco {}", normalizedIdentity, targetBlockId);
-            limeClient.executeCommand(stateCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[LIME PUSH] Passo 4: Teleportando usuário identity={} para o bloco Preparar_Atendimento ({})", userIdentity, blipProperties.getBlocks().getPrepararAtendimento());
+            sendToBlipCommandsApi(stateCommand);
 
-            log.info("Push executado com sucesso. Contato atualizado, Master-State definido e usuário teleportado para: {}", targetBlockId);
+            log.info("Push síncrono finalizado com sucesso. Contato atualizado, mensagem ativa enviada e usuário teleportado.");
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao executar push de atendimento com tratamento de roteador", e);
+            throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }
     }
 

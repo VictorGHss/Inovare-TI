@@ -240,12 +240,15 @@ public class BlipContextService {
                   .replace("{doctorName}", payload.getDoctorName());
             }
 
+            // Trata os caracteres \n literais para virarem quebras de linha reais no WhatsApp
+            messageText = messageText.replace("\\n", "\n");
+
             BlipTextMessage textMessage = new BlipTextMessage();
             textMessage.setTo(userIdentity);
             textMessage.setContent(messageText);
 
             // POST síncrono para o endpoint de mensagens (/messages) usando a Key do Roteador
-            log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa para identity={}", userIdentity);
+            log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa para identity={} com linebreaks tratados", userIdentity);
             sendToBlipMessagesApi(textMessage);
 
             // PASSO 3: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)

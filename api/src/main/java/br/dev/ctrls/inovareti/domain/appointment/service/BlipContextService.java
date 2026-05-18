@@ -186,6 +186,38 @@ public class BlipContextService {
         }
     }
 
+    public void atomicRedirect(String userIdentity, String flowId, String blockId, Map<String, String> contextValues) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        try {
+            String contextJsonString = objectMapper.writeValueAsString(contextValues);
+
+            java.util.LinkedHashMap<String, Object> command = new java.util.LinkedHashMap<>();
+            command.put("id", "atomic-redirect");
+            command.put("to", "postmaster@msging.net");
+            command.put("method", "set");
+            command.put("uri", "/contexts/" + normalizedIdentity + "/state");
+            command.put("type", "application/vnd.lime.redirect+json");
+
+            java.util.LinkedHashMap<String, Object> resource = new java.util.LinkedHashMap<>();
+            resource.put("address", "fluxov1@msging.net");
+            resource.put("flow", flowId);
+            resource.put("state", blockId);
+
+            java.util.LinkedHashMap<String, Object> context = new java.util.LinkedHashMap<>();
+            context.put("type", "text/plain");
+            context.put("value", contextJsonString);
+
+            resource.put("context", context);
+            command.put("resource", resource);
+
+            log.info("[LIME REDIRECT] Enviando atomicRedirect para identity={}: {}", normalizedIdentity, contextJsonString);
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+        } catch (Exception ex) {
+            log.error("[LIME REDIRECT] Erro ao enviar redirect atômico para identity={}", normalizedIdentity, ex);
+        }
+    }
+
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 

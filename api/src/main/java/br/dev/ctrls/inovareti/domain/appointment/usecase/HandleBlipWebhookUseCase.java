@@ -232,18 +232,16 @@ public class HandleBlipWebhookUseCase {
                 String jsonResult = objectMapper.writeValueAsString(result);
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
                 
-                // LIME Push — passa o Map diretamente para evitar o Code 21 do Blip
                 if (dispatchIdentity != null) {
-                    @SuppressWarnings("unchecked")
-                    java.util.Map<String, Object> resultMap = objectMapper.convertValue(result, java.util.Map.class);
-                    log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
-                    blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
+                    java.util.Map<String, String> contextValues = java.util.Map.of(
+                        "action", result.action() != null ? result.action() : "",
+                        "doctorName", result.doctorName() != null ? result.doctorName() : "",
+                        "queue", result.queue() != null ? result.queue() : "",
+                        "patientName", result.patientName() != null ? result.patientName() : "",
+                        "patientCPF", result.patientCPF() != null ? result.patientCPF() : "",
+                        "patientBirthdate", result.patientBirthdate() != null ? result.patientBirthdate() : ""
+                    );
+                    blipContextService.atomicRedirect(dispatchIdentity, fluxov1FlowId, landingBlockId, contextValues);
                 }
             } catch (Exception e) {
                 log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
@@ -287,18 +285,16 @@ public class HandleBlipWebhookUseCase {
             String jsonResult = objectMapper.writeValueAsString(finalResult);
             webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
             
-            // LIME Push — passa o Map diretamente para evitar o Code 21 do Blip
             if (dispatchIdentity != null) {
-                @SuppressWarnings("unchecked")
-                java.util.Map<String, Object> resultMap = objectMapper.convertValue(finalResult, java.util.Map.class);
-                log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
-                blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
+                java.util.Map<String, String> contextValues = java.util.Map.of(
+                    "action", finalResult.action() != null ? finalResult.action() : "",
+                    "doctorName", finalResult.doctorName() != null ? finalResult.doctorName() : "",
+                    "queue", finalResult.queue() != null ? finalResult.queue() : "",
+                    "patientName", finalResult.patientName() != null ? finalResult.patientName() : "",
+                    "patientCPF", finalResult.patientCPF() != null ? finalResult.patientCPF() : "",
+                    "patientBirthdate", finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : ""
+                );
+                blipContextService.atomicRedirect(dispatchIdentity, fluxov1FlowId, landingBlockId, contextValues);
             }
         } catch (Exception e) {
             log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);

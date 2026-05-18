@@ -2,7 +2,7 @@ package br.dev.ctrls.inovareti.domain.appointment.service;
 
 import java.util.Map;
 import java.util.UUID;
-import br.dev.ctrls.inovareti.domain.appointment.dto.BlipRedirectCommand;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipRedirectMessage;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -196,28 +196,28 @@ public class BlipContextService {
             String payloadJsonString = objectMapper.writeValueAsString(payload);
             
             // 2. Monta o contexto de redirecionamento
-            BlipRedirectCommand.RedirectContext redirectContext = new BlipRedirectCommand.RedirectContext();
+            BlipRedirectMessage.RedirectContext redirectContext = new BlipRedirectMessage.RedirectContext();
             redirectContext.setValue(payloadJsonString);
             
             // 3. Monta o recurso de destino
-            BlipRedirectCommand.RedirectResource resource = new BlipRedirectCommand.RedirectResource();
-            resource.setAddress(subbotAddress); // Ex: "inovare_subbot_atendimento@msging.net"
-            resource.setFlow(targetBlockId);     // ID do bloco "Aterrissagem_Confirmacao"
-            resource.setContext(redirectContext);
+            BlipRedirectMessage.RedirectContent content = new BlipRedirectMessage.RedirectContent();
+            content.setAddress(subbotAddress); // Ex: "inovare_subbot_atendimento@msging.net"
+            content.setFlow(targetBlockId);     // ID do bloco "Aterrissagem_Confirmacao"
+            content.setContext(redirectContext);
             
-            // 4. Monta o envelope de comando final
-            BlipRedirectCommand command = new BlipRedirectCommand();
-            command.setId("redirect-" + java.util.UUID.randomUUID().toString());
-            command.setUri("/contexts/" + normalizedIdentity + "/state");
-            command.setResource(resource);
+            // 4. Monta o envelope de mensagem final
+            BlipRedirectMessage message = new BlipRedirectMessage();
+            message.setId("redirect-" + java.util.UUID.randomUUID().toString());
+            message.setTo(normalizedIdentity);
+            message.setContent(content);
             
-            // 5. Envia o POST único para o Blip Router API (msging.net/commands) com o Token do Roteador
+            // 5. Envia o POST único para o Blip Router API (msging.net/messages) com o Token do Roteador
             @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> commandMap = objectMapper.convertValue(command, java.util.Map.class);
-            log.info("[LIME REDIRECT] Enviando redirectUserWithContext para identity={}: {}", normalizedIdentity, payloadJsonString);
-            limeClient.executeCommand(commandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            java.util.Map<String, Object> messageMap = objectMapper.convertValue(message, java.util.Map.class);
+            log.info("[LIME REDIRECT MESSAGE] Enviando redirectUserWithContext para identity={}: {}", normalizedIdentity, payloadJsonString);
+            limeClient.executeMessage(messageMap, BlipLIMEClient.AuthorizationScope.ROUTER);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao estruturar redirecionamento atômico no Blip", e);
+            throw new RuntimeException("Falha ao estruturar mensagem de redirecionamento", e);
         }
     }
 

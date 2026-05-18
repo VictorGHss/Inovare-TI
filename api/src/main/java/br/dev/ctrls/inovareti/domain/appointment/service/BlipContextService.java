@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.domain.appointment.service;
 
 import java.util.Map;
 import java.util.UUID;
+import br.dev.ctrls.inovareti.domain.appointment.BlipProperties;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipContactUpdateCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipStateChangeCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipMasterStateCommand;
@@ -20,13 +21,15 @@ public class BlipContextService {
 
     private final BlipLIMEClient limeClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final BlipProperties blipProperties;
 
     @Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper, BlipProperties blipProperties) {
         this.limeClient = limeClient;
         this.objectMapper = objectMapper;
+        this.blipProperties = blipProperties;
     }
 
     public void setUserContextForUser(String userIdentity, String key, String value) {
@@ -218,6 +221,7 @@ public class BlipContextService {
             // PASSO 2: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
             BlipMasterStateCommand masterStateCommand = new BlipMasterStateCommand();
             masterStateCommand.setUri("/contexts/" + normalizedIdentity + "/Master-State");
+            masterStateCommand.setResource(blipProperties.getSubbotId());
 
             // POST para /commands
             @SuppressWarnings("unchecked")
@@ -228,13 +232,13 @@ public class BlipContextService {
             // PASSO 3: Determina o Bloco de Destino e Teleporta o Usuário dentro do sub-bot
             String targetBlockId;
             if ("confirm".equalsIgnoreCase(action)) {
-                targetBlockId = "407dfd28-513a-48e1-8f7c-81d4d08a16b9"; // Bloco Agradecer Confirmação
+                targetBlockId = blipProperties.getBlocks().getConfirmSuccess(); // Bloco Agradecer Confirmação
             } else {
-                targetBlockId = "6ae4facc-861f-4ba6-b792-12e5cad6b2e5"; // Bloco Encaminhar Alter
+                targetBlockId = blipProperties.getBlocks().getAlterRequest(); // Bloco Encaminhar Alter
             }
 
             BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
-            stateCommand.setUri("/contexts/" + normalizedIdentity + "/stateid@9271b2a2-9150-4391-8f55-e65b371007fb");
+            stateCommand.setUri("/contexts/" + normalizedIdentity + "/stateid@" + blipProperties.getFlowId());
             stateCommand.setResource(targetBlockId);
 
             // POST para /commands

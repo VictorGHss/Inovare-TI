@@ -413,5 +413,25 @@
     "name": "app.appointment.motor.blip-landing-block-id",
     "type": "java.lang.String",
     "description": "A description for 'app.appointment.motor.blip-landing-block-id'"
+  },
+  {
+    "name": "blip.subbot-id",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.subbot-id'"
+  },
+  {
+    "name": "blip.flow-id",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.flow-id'"
+  },
+  {
+    "name": "blip.router-key",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.router-key'"
+  },
+  {
+    "name": "blip.router-key",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.router-key'"
   }
 ]}

@@ -21,7 +21,6 @@ import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
-import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,11 +39,6 @@ public class HandleBlipWebhookUseCase {
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
     private final ObjectMapper objectMapper;
 
-    @Value("${APP_BLIP_STATE_LANDING_BLOCK_ID:2e3a6a6e-d18d-4d0d-b660-0d3dc7298262}")
-    private String landingBlockId;
-
-    @Value("${APP_BLIP_STATE_FLUXOV1_FLOW_ID:9271b2a2-9150-4391-8f55-e65b371007fb}")
-    private String fluxov1FlowId;
 
     /**
      * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado

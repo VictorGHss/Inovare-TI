@@ -16,10 +16,10 @@ import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfig;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentConfigRepository;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentDoctorMappingRepository;
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSession;
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentSessionRepository;
 import br.dev.ctrls.inovareti.domain.appointment.BlipErrorMapper;
+import br.dev.ctrls.inovareti.domain.appointment.BlipProperties;
 import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentTemplateData;
@@ -45,7 +45,7 @@ public class SendAppointmentTemplateUseCase {
     private final FeegowClient feegowClient;
     private final BlipNotificationService blipNotificationService;
     private final BlipContextService blipContextService;
-    private final AppointmentMotorProperties appointmentMotorProperties;
+    private final BlipProperties blipProperties;
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
 
@@ -184,6 +184,10 @@ public class SendAppointmentTemplateUseCase {
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
+            
+            // Pré-armar o teletransporte preventivo: estaciona o usuário no bloco neutro
+            armLandingState(session.getPhoneNumber());
+
             saveWithRetry(session, null);
             return true;
         } catch (RestClientResponseException ex) {
@@ -313,18 +317,18 @@ public class SendAppointmentTemplateUseCase {
      */
     private void armLandingState(String phoneNumber) {
         try {
-            String flowId  = appointmentMotorProperties.getState().getBlipFluxov1FlowId();
-            String blockId = appointmentMotorProperties.getState().getBlipLandingBlockId();
+            String flowId  = blipProperties.getFlowId();
+            String blockId = blipProperties.getBlocks().getWaitingResponse();
 
             if (flowId == null || flowId.isBlank() || blockId == null || blockId.isBlank()) {
-                log.warn("[ARM STATE] blip-fluxov1-flow-id ou blip-landing-block-id não configurados. Teletransporte preventivo ignorado.");
+                log.warn("[ARM STATE] flowId ou waitingResponse não configurados. Teletransporte preventivo ignorado.");
                 return;
             }
 
             blipContextService.setUserState(phoneNumber, flowId, blockId);
-            log.info("[ARM STATE] Usuário travado no bloco de aterrissagem. phone={}, flowId={}, blockId={}", phoneNumber, flowId, blockId);
+            log.info("[ARM STATE] Usuário travado no bloco neutro de estacionamento. phone={}, flowId={}, blockId={}", phoneNumber, flowId, blockId);
         } catch (Exception ex) {
-            log.warn("[ARM STATE] Falha ao pré-armar estado do usuário. phone={}. O template foi enviado normalmente.", phoneNumber, ex);
+            log.warn("[ARM STATE] Falha ao pré-armar estado do usuário no bloco de estacionamento. phone={}. O template foi enviado normalmente.", phoneNumber, ex);
         }
     }
 

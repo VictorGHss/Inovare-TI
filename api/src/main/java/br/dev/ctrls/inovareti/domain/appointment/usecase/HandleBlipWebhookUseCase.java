@@ -20,6 +20,7 @@ import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +38,12 @@ public class HandleBlipWebhookUseCase {
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
     private final ObjectMapper objectMapper;
+
+    @Value("${APP_BLIP_STATE_LANDING_BLOCK_ID:2e3a6a6e-d18d-4d0d-b660-0d3dc7298262}")
+    private String landingBlockId;
+
+    @Value("${APP_BLIP_STATE_FLUXOV1_FLOW_ID:9271b2a2-9150-4391-8f55-e65b371007fb}")
+    private String fluxov1FlowId;
 
     /**
      * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado
@@ -162,6 +169,11 @@ public class HandleBlipWebhookUseCase {
             .map(AppointmentDoctorMapping::getProfissionalNome)
             .orElse("Clínica Inovare");
 
+        String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
+        if (dispatchIdentity != null) {
+            session.setPhoneNumber(dispatchIdentity);
+        }
+
         // 1. Bloqueio de Duplicidade
         if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
             log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
@@ -177,16 +189,19 @@ public class HandleBlipWebhookUseCase {
             try {
                 String jsonResult = objectMapper.writeValueAsString(result);
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
+                
+                // LIME Push
+                if (dispatchIdentity != null) {
+                    blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", jsonResult);
+                    blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
+                }
             } catch (Exception e) {
                 log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
             }
             return result;
         }
 
-        String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
-        if (dispatchIdentity != null) {
-            session.setPhoneNumber(dispatchIdentity);
-        }
+
 
 
 
@@ -223,6 +238,12 @@ public class HandleBlipWebhookUseCase {
         try {
             String jsonResult = objectMapper.writeValueAsString(finalResult);
             webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
+            
+            // LIME Push
+            if (dispatchIdentity != null) {
+                blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", jsonResult);
+                blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
+            }
         } catch (Exception e) {
             log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
         }

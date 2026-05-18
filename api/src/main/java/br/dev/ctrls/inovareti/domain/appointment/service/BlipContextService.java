@@ -86,6 +86,27 @@ public class BlipContextService {
         }
     }
 
+    public void setJsonContext(String normalizedIdentity, String key, String jsonValue) {
+        if (normalizedIdentity == null || normalizedIdentity.isBlank() || jsonValue == null || jsonValue.isBlank()) return;
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", "postmaster@msging.net",
+            "method", "set",
+            "uri", "/contexts/" + normalizedIdentity + "/" + key,
+            "type", "application/json",
+            "metadata", Map.of("expiration", "86400"),
+            "resource", jsonValue
+        );
+
+        try {
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("Contexto JSON configurado. identity={}, key={}", normalizedIdentity, key);
+        } catch (RestClientException ex) {
+            log.warn("Falha ao configurar contexto JSON. identity={}, key={}", normalizedIdentity, key, ex);
+        }
+    }
+
     public void setMasterState(String userIdentity, String botIdentity, String operation) {
         String targetBot = botIdentity != null && !botIdentity.isBlank() ? botIdentity : blipAppointmentId;
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);

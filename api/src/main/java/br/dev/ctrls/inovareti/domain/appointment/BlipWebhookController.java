@@ -119,18 +119,8 @@ public class BlipWebhookController {
                 inovareToken,
                 null), true);
 
-        if (result == null) {
-            return ResponseEntity.ok(Map.of("queue", ""));
-        }
-
-        return ResponseEntity.ok(new WebhookResponse(
-            Objects.requireNonNullElse(result.queue(), ""),
-            Objects.requireNonNullElse(result.patientName(), ""),
-            Objects.requireNonNullElse(result.patientCPF(), ""),
-            Objects.requireNonNullElse(result.patientBirthdate(), ""),
-            Objects.requireNonNullElse(result.action(), ""),
-            Objects.requireNonNullElse(result.doctorName(), "")
-        ));
+        // O retorno HTTP é vazio pois o roteamento e configuração de variáveis é feito assincronamente via LIME Push
+        return ResponseEntity.ok(Map.of());
     }
 
     public record ManualTriggerRequest(

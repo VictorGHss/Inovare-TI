@@ -453,5 +453,10 @@
     "name": "blip.blocks.waiting-response",
     "type": "java.lang.String",
     "description": "A description for 'blip.blocks.waiting-response'"
+  },
+  {
+    "name": "backup.hdd.path",
+    "type": "java.lang.String",
+    "description": "A description for 'backup.hdd.path'"
   }
 ]}

@@ -164,10 +164,19 @@ public class HandleBlipWebhookUseCase {
         AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
                 .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
 
-        // Busca o nome do médico para o WebhookResponse e notificação
-        String doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
-            .map(AppointmentDoctorMapping::getProfissionalNome)
-            .orElse("Clínica Inovare");
+        // Busca o nome do médico para o WebhookResponse e notificação (com tratamento da Feegow)
+        String doctorName = null;
+        try {
+            doctorName = feegowClient.getProfessionalName(session.getDoctorProfissionalId());
+        } catch (Exception e) {
+            log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback do banco. erro={}", e.getMessage());
+        }
+        
+        if (doctorName == null || doctorName.isBlank()) {
+            doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
+                .map(AppointmentDoctorMapping::getProfissionalNome)
+                .orElse("Clínica Inovare");
+        }
 
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
         if (dispatchIdentity != null) {
@@ -255,7 +264,6 @@ public class HandleBlipWebhookUseCase {
         String profissionalId = session.getDoctorProfissionalId();
         String resolvedProfissionalId = profissionalId == null ? null : profissionalId.trim();
 
-        // Busca fila do médico no banco — NUNCA usa caractere invisível aqui
         String queueId = null;
         if (resolvedProfissionalId != null && !resolvedProfissionalId.isBlank()) {
             queueId = appointmentDoctorMappingRepository.findByProfissionalId(resolvedProfissionalId)
@@ -266,14 +274,9 @@ public class HandleBlipWebhookUseCase {
                 .orElse(null);
         }
 
-        // Para alter_: força fila de Recepção/Agendamento
-        if ("alter".equals(actionType)) {
+        if (queueId == null || queueId.isBlank()) {
             queueId = "Recepção Central / Suporte";
-            log.info("[ALTER] Fila forçada para Recepção Central / Suporte por solicitação de alteração.");
-        } else if (queueId == null || queueId.isBlank()) {
-            queueId = "Recepção Central / Suporte";
-            log.info("[WEBHOOK] Fila não encontrada para profissional {}. Usando fallback: '{}'",
-                resolvedProfissionalId, queueId);
+            log.warn("[QUEUE WARNING] Fila não encontrada para o médico {}, usando fallback: {}", resolvedProfissionalId, queueId);
         }
 
         queueId = blipContextService.cleanQueueName(queueId);

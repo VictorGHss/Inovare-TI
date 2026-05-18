@@ -359,11 +359,11 @@ public class FeegowClient {
                 if (content instanceof List<?> list && !list.isEmpty()) {
                     Object first = list.get(0);
                     if (first instanceof Map<?, ?> row) {
-                        Object tratamento = row.get("tratamento");
                         Object nome = row.get("nome");
+                        // Ignora o campo 'tratamento' (Dra./Dr.) pois o cadastro na Feegow
+                        // pode ter prefixo de gênero errado (ex: Dra. para homem)
                         if (nome != null) {
-                            String prefix = (tratamento != null && !tratamento.toString().isBlank()) ? tratamento.toString().trim() + " " : "";
-                            return prefix + nome.toString().trim();
+                            return nome.toString().trim();
                         }
                     }
                 }
@@ -372,11 +372,9 @@ public class FeegowClient {
                 if (dados instanceof List<?> dlist && !dlist.isEmpty()) {
                     Object first = dlist.get(0);
                     if (first instanceof Map<?, ?> row) {
-                        Object tratamento = row.get("tratamento");
                         Object nome = row.get("nome");
                         if (nome != null) {
-                            String prefix = (tratamento != null && !tratamento.toString().isBlank()) ? tratamento.toString().trim() + " " : "";
-                            return prefix + nome.toString().trim();
+                            return nome.toString().trim();
                         }
                     }
                 }

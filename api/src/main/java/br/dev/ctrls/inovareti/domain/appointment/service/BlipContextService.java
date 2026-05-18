@@ -86,24 +86,29 @@ public class BlipContextService {
         }
     }
 
-    public void setJsonContext(String normalizedIdentity, String key, String jsonValue) {
-        if (normalizedIdentity == null || normalizedIdentity.isBlank() || jsonValue == null || jsonValue.isBlank()) return;
+    /**
+     * Envia um contexto JSON ao Blip via comando LIME.
+     * O resource deve ser passado como Object (Map, record, etc.) para que o Jackson
+     * o serialize como objeto nativo, e não como String com aspas extras.
+     * O Blip retorna Code 21 (not a JSON) se o resource chegar como string escapada.
+     */
+    public void setJsonContext(String normalizedIdentity, String key, Object resourceObject) {
+        if (normalizedIdentity == null || normalizedIdentity.isBlank() || resourceObject == null) return;
 
-        Map<String, Object> command = Map.of(
-            "id", UUID.randomUUID().toString(),
-            "to", "postmaster@msging.net",
-            "method", "set",
-            "uri", "/contexts/" + normalizedIdentity + "/" + key,
-            "type", "application/json",
-            "metadata", Map.of("expiration", "86400"),
-            "resource", jsonValue
-        );
+        java.util.LinkedHashMap<String, Object> command = new java.util.LinkedHashMap<>();
+        command.put("id", UUID.randomUUID().toString());
+        command.put("to", "postmaster@msging.net");
+        command.put("method", "set");
+        command.put("uri", "/contexts/" + normalizedIdentity + "/" + key);
+        command.put("type", "application/json");
+        command.put("metadata", Map.of("expiration", "86400"));
+        command.put("resource", resourceObject); // objeto nativo, não String serializada
 
         try {
             limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("Contexto JSON configurado. identity={}, key={}", normalizedIdentity, key);
+            log.info("[LIME] Contexto JSON configurado. identity={}, key={}", normalizedIdentity, key);
         } catch (RestClientException ex) {
-            log.warn("Falha ao configurar contexto JSON. identity={}, key={}", normalizedIdentity, key, ex);
+            log.warn("[LIME] Falha ao configurar contexto JSON. identity={}, key={}", normalizedIdentity, key, ex);
         }
     }
 

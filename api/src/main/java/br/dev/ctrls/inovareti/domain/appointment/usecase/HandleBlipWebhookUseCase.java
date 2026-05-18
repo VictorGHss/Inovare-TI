@@ -199,9 +199,11 @@ public class HandleBlipWebhookUseCase {
                 String jsonResult = objectMapper.writeValueAsString(result);
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
                 
-                // LIME Push
+                // LIME Push — passa o Map diretamente para evitar o Code 21 do Blip
                 if (dispatchIdentity != null) {
-                    blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", jsonResult);
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> resultMap = objectMapper.convertValue(result, java.util.Map.class);
+                    blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
                     blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
                 }
             } catch (Exception e) {
@@ -248,9 +250,11 @@ public class HandleBlipWebhookUseCase {
             String jsonResult = objectMapper.writeValueAsString(finalResult);
             webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
             
-            // LIME Push
+            // LIME Push — passa o Map diretamente para evitar o Code 21 do Blip
             if (dispatchIdentity != null) {
-                blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", jsonResult);
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> resultMap = objectMapper.convertValue(finalResult, java.util.Map.class);
+                blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
                 blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
             }
         } catch (Exception e) {

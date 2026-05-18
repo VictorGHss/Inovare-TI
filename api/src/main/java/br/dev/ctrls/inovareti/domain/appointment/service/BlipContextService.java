@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipContactUpdateCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.BlipStateChangeCommand;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipMasterStateCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -191,7 +192,7 @@ public class BlipContextService {
 
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
-            // PASSO A: Atualiza os dados do Contato no Roteador
+            // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistência imediata)
             BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
             BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
             
@@ -214,12 +215,22 @@ public class BlipContextService {
             log.info("[LIME PUSH] Atualizando contato para identity={}: Medico={}, fila={}", normalizedIdentity, payload.getDoctorName(), payload.getQueue());
             limeClient.executeCommand(contactCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
 
-            // PASSO B: Determina o Bloco de Destino e Teleporta o Usuário
+            // PASSO 2: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
+            BlipMasterStateCommand masterStateCommand = new BlipMasterStateCommand();
+            masterStateCommand.setUri("/contexts/" + normalizedIdentity + "/Master-State");
+
+            // POST para /commands
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> masterStateCommandMap = objectMapper.convertValue(masterStateCommand, java.util.Map.class);
+            log.info("[LIME PUSH] Definindo Master-State para identity={}", normalizedIdentity);
+            limeClient.executeCommand(masterStateCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+
+            // PASSO 3: Determina o Bloco de Destino e Teleporta o Usuário dentro do sub-bot
             String targetBlockId;
             if ("confirm".equalsIgnoreCase(action)) {
-                targetBlockId = "407dfd28-513a-48e1-8f7c-81d4d08a16b9"; // Agradecer Confirmacao
+                targetBlockId = "407dfd28-513a-48e1-8f7c-81d4d08a16b9"; // Bloco Agradecer Confirmação
             } else {
-                targetBlockId = "6ae4facc-861f-4ba6-b792-12e5cad6b2e5"; // Encaminhar Alter
+                targetBlockId = "6ae4facc-861f-4ba6-b792-12e5cad6b2e5"; // Bloco Encaminhar Alter
             }
 
             BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
@@ -232,9 +243,9 @@ public class BlipContextService {
             log.info("[LIME PUSH] Teleportando usuário identity={} para o bloco {}", normalizedIdentity, targetBlockId);
             limeClient.executeCommand(stateCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
 
-            log.info("Push síncrono executado. Contato atualizado e usuário teleportado para: {}", targetBlockId);
+            log.info("Push executado com sucesso. Contato atualizado, Master-State definido e usuário teleportado para: {}", targetBlockId);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao executar push de atendimento", e);
+            throw new RuntimeException("Falha ao executar push de atendimento com tratamento de roteador", e);
         }
     }
 

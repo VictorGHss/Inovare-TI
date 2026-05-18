@@ -78,7 +78,7 @@ public class WebhookIdempotencyService {
         if (appointmentId == null || appointmentId.isBlank()) return true;
         String lockKey = "webhook:lock:{" + appointmentId.trim() + "}";
         try {
-            Boolean locked = redis.opsForValue().setIfAbsent(lockKey, "1", Duration.ofMillis(30000));
+            Boolean locked = redis.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(30));
             return Boolean.TRUE.equals(locked);
         } catch (Exception e) {
             log.error("Falha ao registrar trava atômica no Redis. key={}", lockKey, e);
@@ -88,7 +88,7 @@ public class WebhookIdempotencyService {
 
     public void saveCachedResult(String appointmentId, String jsonResult) {
         if (appointmentId == null || appointmentId.isBlank()) return;
-        String resKey = "res:{" + appointmentId.trim() + "}";
+        String resKey = "res:app:{" + appointmentId.trim() + "}";
         try {
             redis.opsForValue().set(resKey, jsonResult, Duration.ofSeconds(60));
         } catch (Exception e) {
@@ -98,7 +98,7 @@ public class WebhookIdempotencyService {
 
     public String getCachedResult(String appointmentId) {
         if (appointmentId == null || appointmentId.isBlank()) return null;
-        String resKey = "res:{" + appointmentId.trim() + "}";
+        String resKey = "res:app:{" + appointmentId.trim() + "}";
         try {
             return redis.opsForValue().get(resKey);
         } catch (Exception e) {

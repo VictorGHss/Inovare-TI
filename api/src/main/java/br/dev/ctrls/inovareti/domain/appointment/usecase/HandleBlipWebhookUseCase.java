@@ -172,6 +172,8 @@ public class HandleBlipWebhookUseCase {
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
             WebhookResult result = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+            log.info("[WEBHOOK] Agendamento {} já confirmado. Retornando WebhookResult populado: action={}, queue={}, patientName={}, doctorName={}", 
+                     appointmentId, result.action(), result.queue(), result.patientName(), result.doctorName());
             try {
                 String jsonResult = objectMapper.writeValueAsString(result);
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));

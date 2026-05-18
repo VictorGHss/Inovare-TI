@@ -430,8 +430,28 @@
     "description": "A description for 'blip.router-key'"
   },
   {
-    "name": "blip.router-key",
+    "name": "blip.router-id",
     "type": "java.lang.String",
-    "description": "A description for 'blip.router-key'"
+    "description": "A description for 'blip.router-id'"
+  },
+  {
+    "name": "blip.subbot-key",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.subbot-key'"
+  },
+  {
+    "name": "blip.blocks.confirm-success",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.blocks.confirm-success'"
+  },
+  {
+    "name": "blip.blocks.alter-request",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.blocks.alter-request'"
+  },
+  {
+    "name": "blip.blocks.waiting-response",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.blocks.waiting-response'"
   }
 ]}

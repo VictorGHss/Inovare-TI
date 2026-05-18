@@ -8,18 +8,18 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "blip")
 public class BlipProperties {
-    private String routerId;         // roteadorprincipal57@msging.net
-    private String subbotId;         // fluxov1@msging.net
-    private String flowId;           // 9271b2a2-9150-4391-8f55-e65b371007fb
-    private String routerKey;        // Chave do Roteador
-    private String subbotKey;        // Chave do subbot (Zmx1eG92MT...)
+    private String routerId;         // Mapeado de blip.router-id (roteadorprincipal57@msging.net)
+    private String subbotId;         // Mapeado de blip.subbot-id (fluxov1@msging.net)
+    private String flowId;           // Mapeado de blip.flow-id (9271b2a2-9150-4391-8f55-e65b371007fb)
+    private String routerKey;        // Mapeado de blip.router-key (Chave do Roteador)
+    private String subbotKey;        // Mapeado de blip.subbot-key (Chave do subbot)
     
-    private final Blocks blocks = new Blocks();
+    private Blocks blocks = new Blocks();
 
     @Data
     public static class Blocks {
-        private String waitingResponse; // ID do bloco "Aguardando Resposta" (estacionamento)
-        private String confirmSuccess;   // ID do bloco "Agradecer Confirmação" (407dfd28...)
-        private String alterRequest;     // ID do bloco "Encaminhar Alter" (6ae4facc...)
+        private String waitingResponse; // Mapeado de blip.blocks.waiting-response (Estacionamento)
+        private String confirmSuccess;   // Mapeado de blip.blocks.confirm-success (Agradecer Confirmação)
+        private String alterRequest;     // Mapeado de blip.blocks.alter-request (Encaminhar Alter)
     }
 }

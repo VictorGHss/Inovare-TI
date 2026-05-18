@@ -20,6 +20,7 @@ import br.dev.ctrls.inovareti.domain.appointment.FeegowClient;
 import br.dev.ctrls.inovareti.domain.appointment.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipContextService;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -233,15 +234,15 @@ public class HandleBlipWebhookUseCase {
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
                 
                 if (dispatchIdentity != null) {
-                    java.util.Map<String, String> contextValues = java.util.Map.of(
-                        "action", result.action() != null ? result.action() : "",
-                        "doctorName", result.doctorName() != null ? result.doctorName() : "",
-                        "queue", result.queue() != null ? result.queue() : "",
-                        "patientName", result.patientName() != null ? result.patientName() : "",
-                        "patientCPF", result.patientCPF() != null ? result.patientCPF() : "",
-                        "patientBirthdate", result.patientBirthdate() != null ? result.patientBirthdate() : ""
-                    );
-                    blipContextService.atomicRedirect(dispatchIdentity, fluxov1FlowId, landingBlockId, contextValues);
+                    AppointmentPayload appointmentPayload = AppointmentPayload.builder()
+                        .action(result.action() != null ? result.action() : "")
+                        .doctorName(result.doctorName() != null ? result.doctorName() : "")
+                        .queue(result.queue() != null ? result.queue() : "")
+                        .patientName(result.patientName() != null ? result.patientName() : "")
+                        .patientCPF(result.patientCPF() != null ? result.patientCPF() : "")
+                        .patientBirthdate(result.patientBirthdate() != null ? result.patientBirthdate() : "")
+                        .build();
+                    blipContextService.redirectUserWithContext(dispatchIdentity, "fluxov1@msging.net", landingBlockId, appointmentPayload);
                 }
             } catch (Exception e) {
                 log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
@@ -286,15 +287,15 @@ public class HandleBlipWebhookUseCase {
             webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
             
             if (dispatchIdentity != null) {
-                java.util.Map<String, String> contextValues = java.util.Map.of(
-                    "action", finalResult.action() != null ? finalResult.action() : "",
-                    "doctorName", finalResult.doctorName() != null ? finalResult.doctorName() : "",
-                    "queue", finalResult.queue() != null ? finalResult.queue() : "",
-                    "patientName", finalResult.patientName() != null ? finalResult.patientName() : "",
-                    "patientCPF", finalResult.patientCPF() != null ? finalResult.patientCPF() : "",
-                    "patientBirthdate", finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : ""
-                );
-                blipContextService.atomicRedirect(dispatchIdentity, fluxov1FlowId, landingBlockId, contextValues);
+                AppointmentPayload appointmentPayload = AppointmentPayload.builder()
+                    .action(finalResult.action() != null ? finalResult.action() : "")
+                    .doctorName(finalResult.doctorName() != null ? finalResult.doctorName() : "")
+                    .queue(finalResult.queue() != null ? finalResult.queue() : "")
+                    .patientName(finalResult.patientName() != null ? finalResult.patientName() : "")
+                    .patientCPF(finalResult.patientCPF() != null ? finalResult.patientCPF() : "")
+                    .patientBirthdate(finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : "")
+                    .build();
+                blipContextService.redirectUserWithContext(dispatchIdentity, "fluxov1@msging.net", landingBlockId, appointmentPayload);
             }
         } catch (Exception e) {
             log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);

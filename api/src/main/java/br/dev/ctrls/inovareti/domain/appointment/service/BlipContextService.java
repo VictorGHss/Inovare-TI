@@ -2,6 +2,8 @@ package br.dev.ctrls.inovareti.domain.appointment.service;
 
 import java.util.Map;
 import java.util.UUID;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipRedirectCommand;
+import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -186,35 +188,36 @@ public class BlipContextService {
         }
     }
 
-    public void atomicRedirect(String userIdentity, String flowId, String blockId, Map<String, String> contextValues) {
-        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+    public void redirectUserWithContext(String userPhone, String subbotAddress, String targetBlockId, AppointmentPayload payload) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userPhone);
 
         try {
-            String contextJsonString = objectMapper.writeValueAsString(contextValues);
-
-            java.util.LinkedHashMap<String, Object> command = new java.util.LinkedHashMap<>();
-            command.put("id", "atomic-redirect");
-            command.put("to", "postmaster@msging.net");
-            command.put("method", "set");
-            command.put("uri", "/contexts/" + normalizedIdentity + "/state");
-            command.put("type", "application/vnd.lime.redirect+json");
-
-            java.util.LinkedHashMap<String, Object> resource = new java.util.LinkedHashMap<>();
-            resource.put("address", "fluxov1@msging.net");
-            resource.put("flow", flowId);
-            resource.put("state", blockId);
-
-            java.util.LinkedHashMap<String, Object> context = new java.util.LinkedHashMap<>();
-            context.put("type", "text/plain");
-            context.put("value", contextJsonString);
-
-            resource.put("context", context);
-            command.put("resource", resource);
-
-            log.info("[LIME REDIRECT] Enviando atomicRedirect para identity={}: {}", normalizedIdentity, contextJsonString);
-            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-        } catch (Exception ex) {
-            log.error("[LIME REDIRECT] Erro ao enviar redirect atômico para identity={}", normalizedIdentity, ex);
+            // 1. Serializa o payload do agendamento primeiro (gera o JSON que vai dentro da String)
+            String payloadJsonString = objectMapper.writeValueAsString(payload);
+            
+            // 2. Monta o contexto de redirecionamento
+            BlipRedirectCommand.RedirectContext redirectContext = new BlipRedirectCommand.RedirectContext();
+            redirectContext.setValue(payloadJsonString);
+            
+            // 3. Monta o recurso de destino
+            BlipRedirectCommand.RedirectResource resource = new BlipRedirectCommand.RedirectResource();
+            resource.setAddress(subbotAddress); // Ex: "inovare_subbot_atendimento@msging.net"
+            resource.setFlow(targetBlockId);     // ID do bloco "Aterrissagem_Confirmacao"
+            resource.setContext(redirectContext);
+            
+            // 4. Monta o envelope de comando final
+            BlipRedirectCommand command = new BlipRedirectCommand();
+            command.setId("redirect-" + java.util.UUID.randomUUID().toString());
+            command.setUri("/contexts/" + normalizedIdentity + "/state");
+            command.setResource(resource);
+            
+            // 5. Envia o POST único para o Blip Router API (msging.net/commands) com o Token do Roteador
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> commandMap = objectMapper.convertValue(command, java.util.Map.class);
+            log.info("[LIME REDIRECT] Enviando redirectUserWithContext para identity={}: {}", normalizedIdentity, payloadJsonString);
+            limeClient.executeCommand(commandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+        } catch (Exception e) {
+            throw new RuntimeException("Falha ao estruturar redirecionamento atômico no Blip", e);
         }
     }
 

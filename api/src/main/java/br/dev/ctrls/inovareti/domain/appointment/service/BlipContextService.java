@@ -2,7 +2,8 @@ package br.dev.ctrls.inovareti.domain.appointment.service;
 
 import java.util.Map;
 import java.util.UUID;
-import br.dev.ctrls.inovareti.domain.appointment.dto.BlipRedirectMessage;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipContactUpdateCommand;
+import br.dev.ctrls.inovareti.domain.appointment.dto.BlipStateChangeCommand;
 import br.dev.ctrls.inovareti.domain.appointment.dto.AppointmentPayload;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -188,36 +189,52 @@ public class BlipContextService {
         }
     }
 
-    public void redirectUserWithContext(String userPhone, String subbotAddress, String targetBlockId, AppointmentPayload payload) {
-        String normalizedIdentity = limeClient.normalizeUserIdentity(userPhone);
-
+    public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
-            // 1. Serializa o payload do agendamento primeiro (gera o JSON que vai dentro da String)
-            String payloadJsonString = objectMapper.writeValueAsString(payload);
+            // PASSO A: Atualiza os dados do Contato no Roteador
+            BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
+            BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
             
-            // 2. Monta o contexto de redirecionamento
-            BlipRedirectMessage.RedirectContext redirectContext = new BlipRedirectMessage.RedirectContext();
-            redirectContext.setValue(payloadJsonString);
-            
-            // 3. Monta o recurso de destino
-            BlipRedirectMessage.RedirectContent content = new BlipRedirectMessage.RedirectContent();
-            content.setAddress(subbotAddress); // Ex: "inovare_subbot_atendimento@msging.net"
-            content.setFlow(targetBlockId);     // ID do bloco "Aterrissagem_Confirmacao"
-            content.setContext(redirectContext);
-            
-            // 4. Monta o envelope de mensagem final
-            BlipRedirectMessage message = new BlipRedirectMessage();
-            message.setId("redirect-" + java.util.UUID.randomUUID().toString());
-            message.setTo(normalizedIdentity);
-            message.setContent(content);
-            
-            // 5. Envia o POST único para o Blip Router API (msging.net/messages) com o Token do Roteador
+            String normalizedIdentity = limeClient.normalizeUserIdentity(userPhone);
+            contactResource.setIdentity(normalizedIdentity);
+            contactResource.setName(payload.getPatientName());
+            contactResource.setTaxDocument(payload.getPatientCPF());
+
+            java.util.Map<String, String> extras = new java.util.HashMap<>();
+            extras.put("Medico", payload.getDoctorName());
+            extras.put("fila", payload.getQueue());
+            extras.put("nascimento", payload.getPatientBirthdate());
+            extras.put("data_nascimento", payload.getPatientBirthdate());
+            contactResource.setExtras(extras);
+            contactCommand.setResource(contactResource);
+
+            // POST para /commands
             @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> messageMap = objectMapper.convertValue(message, java.util.Map.class);
-            log.info("[LIME REDIRECT MESSAGE] Enviando redirectUserWithContext para identity={}: {}", normalizedIdentity, payloadJsonString);
-            limeClient.executeMessage(messageMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            java.util.Map<String, Object> contactCommandMap = objectMapper.convertValue(contactCommand, java.util.Map.class);
+            log.info("[LIME PUSH] Atualizando contato para identity={}: Medico={}, fila={}", normalizedIdentity, payload.getDoctorName(), payload.getQueue());
+            limeClient.executeCommand(contactCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+
+            // PASSO B: Determina o Bloco de Destino e Teleporta o Usuário
+            String targetBlockId;
+            if ("confirm".equalsIgnoreCase(action)) {
+                targetBlockId = "407dfd28-513a-48e1-8f7c-81d4d08a16b9"; // Agradecer Confirmacao
+            } else {
+                targetBlockId = "6ae4facc-861f-4ba6-b792-12e5cad6b2e5"; // Encaminhar Alter
+            }
+
+            BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
+            stateCommand.setUri("/contexts/" + normalizedIdentity + "/stateid@9271b2a2-9150-4391-8f55-e65b371007fb");
+            stateCommand.setResource(targetBlockId);
+
+            // POST para /commands
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> stateCommandMap = objectMapper.convertValue(stateCommand, java.util.Map.class);
+            log.info("[LIME PUSH] Teleportando usuário identity={} para o bloco {}", normalizedIdentity, targetBlockId);
+            limeClient.executeCommand(stateCommandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+
+            log.info("Push síncrono executado. Contato atualizado e usuário teleportado para: {}", targetBlockId);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao estruturar mensagem de redirecionamento", e);
+            throw new RuntimeException("Falha ao executar push de atendimento", e);
         }
     }
 

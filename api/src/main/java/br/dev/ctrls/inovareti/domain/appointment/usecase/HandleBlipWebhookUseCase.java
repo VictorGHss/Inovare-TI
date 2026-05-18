@@ -242,7 +242,7 @@ public class HandleBlipWebhookUseCase {
                         .patientCPF(result.patientCPF() != null ? result.patientCPF() : "")
                         .patientBirthdate(result.patientBirthdate() != null ? result.patientBirthdate() : "")
                         .build();
-                    blipContextService.redirectUserWithContext(dispatchIdentity, "fluxov1@msging.net", landingBlockId, appointmentPayload);
+                    blipContextService.processAppointmentPush(dispatchIdentity, result.action(), appointmentPayload);
                 }
             } catch (Exception e) {
                 log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
@@ -295,7 +295,7 @@ public class HandleBlipWebhookUseCase {
                     .patientCPF(finalResult.patientCPF() != null ? finalResult.patientCPF() : "")
                     .patientBirthdate(finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : "")
                     .build();
-                blipContextService.redirectUserWithContext(dispatchIdentity, "fluxov1@msging.net", landingBlockId, appointmentPayload);
+                blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
             }
         } catch (Exception e) {
             log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);

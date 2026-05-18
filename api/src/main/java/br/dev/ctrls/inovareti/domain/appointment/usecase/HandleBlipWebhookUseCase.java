@@ -149,7 +149,17 @@ public class HandleBlipWebhookUseCase {
                 if (cachedJson != null) {
                     try {
                         log.info("[IDEMPOTENCY] Resultado lido do cache para agendamento {}", appointmentId);
-                        return objectMapper.readValue(cachedJson, WebhookResult.class);
+                        WebhookResult cachedResult = objectMapper.readValue(cachedJson, WebhookResult.class);
+                        // Garante que o retorno utilize a ação do clique atual para não propagar estados obsoletos
+                        WebhookResult overrideResult = new WebhookResult(
+                            cachedResult.queue(),
+                            cachedResult.patientName(),
+                            cachedResult.patientCPF(),
+                            cachedResult.patientBirthdate(),
+                            actionType,
+                            cachedResult.doctorName()
+                        );
+                        return overrideResult;
                     } catch (Exception e) {
                         log.error("Erro ao ler cache JSON para agendamento {}", appointmentId, e);
                     }
@@ -164,21 +174,44 @@ public class HandleBlipWebhookUseCase {
         AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
                 .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
 
-        // Busca o nome do médico para o WebhookResponse e notificação (com tratamento da Feegow)
+        // Busca os dados reais diretamente no banco de dados (prioridade absoluta para evitar fallbacks)
+        AppointmentDoctorMapping doctorMapping = appointmentDoctorMappingRepository
+                .findByProfissionalId(session.getDoctorProfissionalId())
+                .orElse(null);
+
         String doctorName = null;
-        try {
-            doctorName = feegowClient.getProfessionalName(session.getDoctorProfissionalId());
-        } catch (Exception e) {
-            log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback do banco. erro={}", e.getMessage());
-        }
-        
-        if (doctorName == null || doctorName.isBlank()) {
-            doctorName = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId())
-                .map(AppointmentDoctorMapping::getProfissionalNome)
-                .orElse("Clínica Inovare");
+        String queue = null;
+
+        if (doctorMapping != null) {
+            doctorName = doctorMapping.getProfissionalNome();
+            queue = doctorMapping.getBlipQueueId();
         }
 
+        // Se não achou o nome no banco, tenta buscar na Feegow
+        if (doctorName == null || doctorName.isBlank()) {
+            try {
+                doctorName = feegowClient.getProfessionalName(session.getDoctorProfissionalId());
+            } catch (Exception e) {
+                log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
+            }
+        }
+
+        // Fallback final para o nome do médico
+        if (doctorName == null || doctorName.isBlank()) {
+            doctorName = "Clínica Inovare";
+        }
         doctorName = cleanDoctorName(doctorName);
+
+        // Se a fila não foi encontrada no banco, usa o fallback da Recepção Central
+        if (queue == null || queue.isBlank() || "null".equalsIgnoreCase(queue.trim()) || queue.contains("\u200E")) {
+            queue = "Recepção Central / Suporte";
+            log.warn("[QUEUE WARNING] Fila não encontrada no banco para o médico {}, usando fallback: {}", session.getDoctorProfissionalId(), queue);
+        }
+
+        queue = blipContextService.cleanQueueName(queue);
+        if (queue.isBlank()) {
+            queue = "Recepção Central / Suporte";
+        }
 
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
         if (dispatchIdentity != null) {
@@ -189,8 +222,6 @@ public class HandleBlipWebhookUseCase {
         if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
             log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
             
-            // Retornamos a fila atual do médico para que o manualTrigger/Blip ainda tenha o dado síncrono
-            String queue = resolveQueueForSession(session, actionType, skipTokenValidation);
             FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
@@ -207,6 +238,11 @@ public class HandleBlipWebhookUseCase {
                     java.util.Map<String, Object> resultMap = objectMapper.convertValue(result, java.util.Map.class);
                     log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
                     blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                     blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
                 }
             } catch (Exception e) {
@@ -238,16 +274,14 @@ public class HandleBlipWebhookUseCase {
             log.info("[ALTERAR] Paciente solicita alteração. Redirecionando para fila humana.");
         }
 
-        String processedQueueName = resolveQueueForSession(session, actionType, skipTokenValidation);
-        
         // Removidos comandos LIME (teletransporte e mensagens) - o Builder cuidará do fluxo via resposta HTTP
-        log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, processedQueueName);
+        log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, queue);
 
         FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 
-        WebhookResult finalResult = new WebhookResult(processedQueueName, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
+        WebhookResult finalResult = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
         
         try {
             String jsonResult = objectMapper.writeValueAsString(finalResult);
@@ -259,6 +293,11 @@ public class HandleBlipWebhookUseCase {
                 java.util.Map<String, Object> resultMap = objectMapper.convertValue(finalResult, java.util.Map.class);
                 log.info("[LIME PUSH] Enviando manualTriggerRes para identity={}: {}", dispatchIdentity, resultMap);
                 blipContextService.setJsonContext(dispatchIdentity, "manualTriggerRes", resultMap);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
                 blipContextService.setUserState(dispatchIdentity, fluxov1FlowId, landingBlockId);
             }
         } catch (Exception e) {
@@ -266,34 +305,6 @@ public class HandleBlipWebhookUseCase {
         }
 
         return finalResult;
-    }
-
-    private String resolveQueueForSession(AppointmentSession session, String actionType, boolean skipTokenValidation) {
-        String profissionalId = session.getDoctorProfissionalId();
-        String resolvedProfissionalId = profissionalId == null ? null : profissionalId.trim();
-
-        String queueId = null;
-        if (resolvedProfissionalId != null && !resolvedProfissionalId.isBlank()) {
-            queueId = appointmentDoctorMappingRepository.findByProfissionalId(resolvedProfissionalId)
-                .map(AppointmentDoctorMapping::getBlipQueueId)
-                .filter(id -> id != null && !id.isBlank()
-                           && !"null".equalsIgnoreCase(id.trim())
-                           && !id.contains("\u200E")) // nunca aceitar o char invisível
-                .orElse(null);
-        }
-
-        if (queueId == null || queueId.isBlank()) {
-            queueId = "Recepção Central / Suporte";
-            log.warn("[QUEUE WARNING] Fila não encontrada para o médico {}, usando fallback: {}", resolvedProfissionalId, queueId);
-        }
-
-        queueId = blipContextService.cleanQueueName(queueId);
-        if (queueId.isBlank()) {
-            queueId = "Recepção Central / Suporte";
-            log.warn("[QUEUE] Fila limpa ficou vazia. Usando fallback: '{}'", queueId);
-        }
-
-        return queueId;
     }
 
 

@@ -141,7 +141,7 @@ public class IngestAppointmentsUseCase {
 
                     return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, existingSessionOpt, canSend);
                 });
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.error("Erro na fase de leitura transacional para o agendamento Feegow ID: {}. Detalhes: {}", appointment.id(), ex.getMessage(), ex);
                 continue;
             }
@@ -289,7 +289,7 @@ public class IngestAppointmentsUseCase {
                     entityManager.flush();
                     return s;
                 });
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.error("Falha grave na persistência da sessão de agendamento no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
                 continue;
             }

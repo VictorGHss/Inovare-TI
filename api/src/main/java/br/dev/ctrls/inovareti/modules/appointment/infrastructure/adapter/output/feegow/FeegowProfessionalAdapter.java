@@ -140,12 +140,12 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                         return extractProfessionalName(retryRoot);
                     }
                 }
-            } catch (Exception retryEx) {
+            } catch (JsonProcessingException | RuntimeException retryEx) {
                 log.warn("Retry com unidade_id vazia falhou para profissional id={}: {}", id, retryEx.getMessage());
             }
 
             throw ex;
-        } catch (Exception ex) {
+        } catch (JsonProcessingException | RuntimeException ex) {
             log.warn("Falha ao buscar nome do profissional na Feegow para id={}: {}", id, ex.getMessage());
         }
 
@@ -210,7 +210,7 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                     ResponseEntity<String> retryResponse = professionalClient.getProfessionalDetails(retryUri, getAccessToken());
                     return parseProfessionalsResponseBody(retryResponse.getBody());
                 }
-            } catch (Exception retryEx) {
+            } catch (JsonProcessingException | RuntimeException retryEx) {
                 log.warn("Retry com unidade_id vazia falhou ao listar profissionais: {}", retryEx.getMessage());
             }
 
@@ -229,13 +229,13 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                 try {
                     ResponseEntity<String> altResponse = professionalClient.getProfessionalDetails(altUri, getAccessToken());
                     return parseProfessionalsResponseBody(altResponse.getBody());
-                } catch (Exception altEx) {
+                } catch (JsonProcessingException | RuntimeException altEx) {
                     log.warn("Erro ao chamar endpoint alternativo Feegow: {}", altEx.getMessage());
                 }
             }
 
             throw ex;
-        } catch (Exception ex) {
+        } catch (JsonProcessingException | RuntimeException ex) {
             log.warn("Falha ao buscar lista de profissionais na Feegow: {}", ex.getMessage());
             throw new RuntimeException(ex);
         }

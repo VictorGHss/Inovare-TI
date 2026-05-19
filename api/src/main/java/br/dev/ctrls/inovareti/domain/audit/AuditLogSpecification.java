@@ -16,10 +16,10 @@ import java.util.UUID;
 @Builder
 public class AuditLogSpecification implements Specification<AuditLog> {
 
-    private UUID userId;
-    private AuditAction action;
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
+    private final UUID userId;
+    private final AuditAction action;
+    private final LocalDateTime startDate;
+    private final LocalDateTime endDate;
 
     @Override
     public Predicate toPredicate(jakarta.persistence.criteria.Root<AuditLog> root,
@@ -43,6 +43,6 @@ public class AuditLogSpecification implements Specification<AuditLog> {
             predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
         }
 
-        return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
     }
 }

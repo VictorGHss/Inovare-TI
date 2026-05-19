@@ -156,7 +156,7 @@ public class SendAppointmentTemplateUseCase {
                         .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
                         .orElse(null)
                 );
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.warn("Erro ao buscar mapeamento de médico para profissional_id={} no banco de dados. Continuando com fallback.", docId, ex);
             }
         }
@@ -264,7 +264,7 @@ public class SendAppointmentTemplateUseCase {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Thread interrompida durante o retry de salvamento da sessão", ie);
                 }
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.error("Erro ao gravar alteração da sessão de agendamento no banco de dados. Tentativa {}/{}. Detalhes: {}", i + 1, maxRetries, ex.getMessage(), ex);
                 if (i == maxRetries - 1) {
                     throw ex;

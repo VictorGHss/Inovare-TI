@@ -157,7 +157,7 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
         } catch (RestClientResponseException ex) {
             log.error("Falha HTTP ao atualizar status na Feegow. appointmentId={}, statusId={}, statusCode={}, responseBody={}",
                     normalizedAppointmentId, normalizedStatusId, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()));
-        } catch (Exception ex) {
+        } catch (JsonProcessingException | RuntimeException ex) {
             log.error("Erro inesperado ao atualizar status na Feegow (fluxo Blip não interrompido). appointmentId={}, statusId={}",
                     normalizedAppointmentId, normalizedStatusId, ex);
         }
@@ -285,7 +285,7 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
             return "";
         }
         try {
-            return Integer.parseInt(value.trim());
+            return Integer.valueOf(value.trim());
         } catch (NumberFormatException ignored) {
             return value.trim();
         }

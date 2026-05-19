@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.appointment.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.domain.appointment.usecase.HandleBlipWebhookUseCase;
@@ -26,6 +27,7 @@ public class BlipWebhookController {
 
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final BlipWebhookInboundService blipWebhookInboundService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
         consumes = {
@@ -35,15 +37,32 @@ public class BlipWebhookController {
         })
     public ResponseEntity<?> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
-            @RequestBody(required = false) Map<String, Object> body) {
+            @RequestBody(required = false) String rawJson) {
 
-        Map<String, Object> payload = body != null ? body : Map.of();
-
-        if (payload.isEmpty()) {
+        if (rawJson == null || rawJson.isBlank()) {
             log.warn("Blip webhook received without body at /v1/webhook/blip.");
             return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "body-empty"));
+        }
+
+        // 1. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave.
+        // Evita carregar memória, abrir sessões do Hibernate, ler banco de dados ou processar usecases desnecessários.
+        if (!rawJson.contains("confirm_") && !rawJson.contains("alter_")) {
+            return ResponseEntity.ok().build(); // Retorna 200 OK instantaneamente (< 10ms)
+        }
+
+        Map<String, Object> payload;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = objectMapper.readValue(rawJson, Map.class);
+            payload = map != null ? map : Map.of();
+        } catch (Exception e) {
+            log.error("Erro ao realizar o parse do JSON do webhook da Blip", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "ignored",
+                "reason", "invalid-json"
+            ));
         }
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);

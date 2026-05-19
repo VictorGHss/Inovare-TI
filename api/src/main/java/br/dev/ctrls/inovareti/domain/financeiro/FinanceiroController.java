@@ -113,7 +113,8 @@ public class FinanceiroController {
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/backfill")
     public ResponseEntity<FinanceiroOperationsService.BackfillResult> runBackfill() {
-        return ResponseEntity.ok(financeiroOperationsService.runBackfillLast30Days());
+        // Chama o método com nome em português (linguagem ubíqua do domínio financeiro)
+        return ResponseEntity.ok(financeiroOperationsService.executarBackfillUltimos30Dias());
     }
 
     /**
@@ -129,7 +130,8 @@ public class FinanceiroController {
     public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
             @PathVariable("id") String parcelaId) {
         FinanceiroOperationsService.ParcelProcessingResult result =
-            financeiroOperationsService.processParcelById(parcelaId);
+            // Chama o método com nome em português (linguagem ubíqua do domínio financeiro)
+            financeiroOperationsService.conciliarParcelaPorId(parcelaId);
         registrarAuditoria(
             "FATURAMENTO_GERADO",
             "Processamento manual de parcela executado. parcelaId=" + parcelaId);

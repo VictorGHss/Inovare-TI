@@ -9,7 +9,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -48,21 +48,17 @@ public class ContaAzulReceiptProcessor {
     private final ReceiptAlertService receiptAlertService;
     private final FinancialResponseMapper financialResponseMapper;
     private final InternalReceiptService internalReceiptService;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.automation.enabled:true}")
-    private boolean automationEnabled;
 
-    @Value("${app.contaazul.sales-v2-url}")
-    private String salesV2Url;
 
-    @Value("${app.contaazul.payments-url}")
-    private String receivableEventsSearchUrl;
 
-    @Value("${app.contaazul.sales-pdf-v1-url-template}")
-    private String salesPdfV1UrlTemplate;
 
-    @Value("${app.contaazul.api-v2-base-url:https://api-v2.contaazul.com}")
-    private String contaAzulApiV2BaseUrl;
+
+
+
+
+
 
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
@@ -71,10 +67,10 @@ public class ContaAzulReceiptProcessor {
 
         log.info(
                 "Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}, app.contaazul.payments-url={}, app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
-                contaAzulApiV2BaseUrl,
-                receivableEventsSearchUrl,
-                StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia",
-                StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia",
+                properties.getApiV2BaseUrl(),
+                properties.getPaymentsUrl(),
+                StringUtils.hasText(properties.getSalesV2Url()) ? "preenchida" : "vazia",
+                StringUtils.hasText(properties.getSalesPdfV1UrlTemplate()) ? "preenchida" : "vazia",
                 StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia",
                 StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
     }
@@ -145,7 +141,7 @@ public class ContaAzulReceiptProcessor {
     }
 
     public ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
-        if (!automationEnabled) {
+        if (!properties.getAutomation().isEnabled()) {
             log.info("Pooling Conta Azul desativado por configuração.");
             return ReceiptProcessingResult.empty();
         }
@@ -933,15 +929,15 @@ public class ContaAzulReceiptProcessor {
     private String buildSalesConfigurationErrorMessage() {
         List<String> missingProperties = new ArrayList<>();
 
-        if (!StringUtils.hasText(salesV2Url)) {
+        if (!StringUtils.hasText(properties.getSalesV2Url())) {
             missingProperties.add("app.contaazul.sales-v2-url");
         }
 
-        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
+        if (!StringUtils.hasText(properties.getPaymentsUrl())) {
             missingProperties.add("app.contaazul.payments-url");
         }
 
-        if (!StringUtils.hasText(salesPdfV1UrlTemplate)) {
+        if (!StringUtils.hasText(properties.getSalesPdfV1UrlTemplate())) {
             missingProperties.add("app.contaazul.sales-pdf-v1-url-template");
         }
 
@@ -951,11 +947,11 @@ public class ContaAzulReceiptProcessor {
         return "Configuração da Conta Azul incompleta. Propriedades vazias: "
                 + (missingProperties.isEmpty() ? "nenhuma" : String.join(", ", missingProperties))
                 + ". Estado atual -> app.contaazul.sales-v2-url="
-                + (StringUtils.hasText(salesV2Url) ? "preenchida" : "vazia")
+                + (StringUtils.hasText(properties.getSalesV2Url()) ? "preenchida" : "vazia")
                 + ", app.contaazul.payments-url="
-                + (StringUtils.hasText(receivableEventsSearchUrl) ? "preenchida" : "vazia")
+                + (StringUtils.hasText(properties.getPaymentsUrl()) ? "preenchida" : "vazia")
                 + ", app.contaazul.sales-pdf-v1-url-template="
-                + (StringUtils.hasText(salesPdfV1UrlTemplate) ? "preenchida" : "vazia")
+                + (StringUtils.hasText(properties.getSalesPdfV1UrlTemplate()) ? "preenchida" : "vazia")
                 + ", CONTAAZUL_SALES_V2_URL="
                 + (StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia")
                 + ", CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE="

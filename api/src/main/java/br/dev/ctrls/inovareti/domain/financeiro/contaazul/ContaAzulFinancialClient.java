@@ -2,7 +2,7 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -22,15 +22,13 @@ public class ContaAzulFinancialClient {
     private final ContaAzulRequestExecutor requestExecutor;
     private final FinancialResponseMapper financialResponseMapper;
     private final ContaAzulTokenService contaAzulTokenService;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.baixa-details-url}")
-    private String baixaDetailsUrl;
 
-    @Value("${app.contaazul.parcela-by-id-url-template:https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}}")
-    private String parcelaByIdUrlTemplate;
 
-    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
-    private String customerByIdV1UrlTemplate;
+
+
+
 
     /**
      * Baixa o PDF do recibo da baixa financeira.
@@ -181,7 +179,7 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedId = personId.trim();
-        String uri = normalizeContaAzulUrl(customerByIdV1UrlTemplate,
+        String uri = normalizeContaAzulUrl(properties.getCustomerByIdV1UrlTemplate(),
                 "https://api-v2.contaazul.com/v1/pessoas/{id}")
                 .replace("{id}", normalizedId)
                 .replace("{customerId}", normalizedId);
@@ -218,7 +216,7 @@ public class ContaAzulFinancialClient {
 
     private String normalizeBaixaBaseUrl() {
         return normalizeContaAzulUrl(
-                baixaDetailsUrl,
+                properties.getBaixaDetailsUrl(),
                 "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/baixa");
     }
 
@@ -238,7 +236,7 @@ public class ContaAzulFinancialClient {
     private String buildParcelaByIdUri(String parcelaId) {
         // O template vindo do .env é sempre normalizado para não carregar prefixo /api legado.
         String template = normalizeContaAzulUrl(
-                parcelaByIdUrlTemplate,
+                properties.getParcelaByIdUrlTemplate(),
                 "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}");
 
         return template

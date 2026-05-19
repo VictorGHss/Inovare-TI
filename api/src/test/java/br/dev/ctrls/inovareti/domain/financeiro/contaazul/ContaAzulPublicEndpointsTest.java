@@ -28,20 +28,12 @@ class ContaAzulPublicEndpointsTest {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
-        var controller = new ContaAzulController(this.tokenService, client, automation);
-        // definir valores @Value via reflection
-        try {
-            var f1 = controller.getClass().getDeclaredField("contaAzulRedirectUri");
-            f1.setAccessible(true);
-            f1.set(controller, "http://localhost/api/financeiro/callback");
+        var properties = Mockito.mock(br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties.class);
+        when(properties.getRedirectUri()).thenReturn("http://localhost/api/financeiro/callback");
+        var frontendProperties = Mockito.mock(br.dev.ctrls.inovareti.config.FrontendProperties.class);
+        when(frontendProperties.getUrl()).thenReturn("http://localhost:5173/");
 
-            var f2 = controller.getClass().getDeclaredField("frontendUrl");
-            f2.setAccessible(true);
-            f2.set(controller, "http://localhost:5173/");
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-
+        var controller = new ContaAzulController(this.tokenService, client, automation, properties, frontendProperties);
         this.mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         when(tokenService.buildAuthorizationUrl("http://localhost/api/financeiro/callback"))
@@ -60,20 +52,12 @@ class ContaAzulPublicEndpointsTest {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
-        var controller = new ContaAzulController(this.tokenService, client, automation);
-        // definir valores @Value via reflection
-        try {
-            var f1 = controller.getClass().getDeclaredField("contaAzulRedirectUri");
-            f1.setAccessible(true);
-            f1.set(controller, "http://localhost/api/financeiro/callback");
+        var properties = Mockito.mock(br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties.class);
+        when(properties.getRedirectUri()).thenReturn("http://localhost/api/financeiro/callback");
+        var frontendProperties = Mockito.mock(br.dev.ctrls.inovareti.config.FrontendProperties.class);
+        when(frontendProperties.getUrl()).thenReturn("http://localhost:5173/");
 
-            var f2 = controller.getClass().getDeclaredField("frontendUrl");
-            f2.setAccessible(true);
-            f2.set(controller, "http://localhost:5173/");
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-
+        var controller = new ContaAzulController(this.tokenService, client, automation, properties, frontendProperties);
         this.mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         mvc.perform(get("/financeiro/contaazul/callback").param("code", "abc"))
@@ -88,20 +72,12 @@ class ContaAzulPublicEndpointsTest {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
-        var controller = new ContaAzulController(this.tokenService, client, automation);
+        var properties = Mockito.mock(br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties.class);
+        when(properties.getRedirectUri()).thenReturn("http://localhost/api/financeiro/callback");
+        var frontendProperties = Mockito.mock(br.dev.ctrls.inovareti.config.FrontendProperties.class);
+        when(frontendProperties.getUrl()).thenReturn("http://localhost:5173/");
 
-        try {
-            var f1 = controller.getClass().getDeclaredField("contaAzulRedirectUri");
-            f1.setAccessible(true);
-            f1.set(controller, "http://localhost/api/financeiro/callback");
-
-            var f2 = controller.getClass().getDeclaredField("frontendUrl");
-            f2.setAccessible(true);
-            f2.set(controller, "http://localhost:5173/");
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-
+        var controller = new ContaAzulController(this.tokenService, client, automation, properties, frontendProperties);
         this.mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         mvc.perform(get("/financeiro/contaazul/callback")

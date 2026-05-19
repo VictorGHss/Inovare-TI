@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.config;
 
-import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -46,6 +45,7 @@ public class SecurityConfig {
 
     private final SecurityFilter securityFilter;
     private final RawBodyLoggingFilter rawBodyLoggingFilter;
+    private final AppCorsProperties corsProperties;
 
     /**
      * Define a cadeia de filtros de segurança:
@@ -106,11 +106,7 @@ public class SecurityConfig {
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter corsFilter() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-access-token"));
-        config.setAllowCredentials(true);
+        CorsConfiguration config = buildCorsConfiguration();
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
@@ -123,21 +119,22 @@ public class SecurityConfig {
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-            "http://localhost:5173",
-            "http://172.25.0.171:5173",
-            "http://172.25.0.171",
-            "https://itsm-inovare.ctrls.dev.br"
-        ));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-access-token", "X-Requested-With", "Accept", "Origin"));
-        config.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        config.setAllowCredentials(true);
+        CorsConfiguration config = buildCorsConfiguration();
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    private CorsConfiguration buildCorsConfiguration() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        config.setAllowedOriginPatterns(corsProperties.getAllowedOriginPatterns());
+        config.setAllowedMethods(corsProperties.getAllowedMethods());
+        config.setAllowedHeaders(corsProperties.getAllowedHeaders());
+        config.setExposedHeaders(corsProperties.getExposedHeaders());
+        config.setAllowCredentials(corsProperties.isAllowCredentials());
+        return config;
     }
 
     /**

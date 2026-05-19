@@ -4,7 +4,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.communication.infrastructure.config.FinanceMailProperties;
+import br.dev.ctrls.inovareti.modules.communication.infrastructure.config.SpringMailProperties;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -42,24 +43,9 @@ public class ReceiptEmailService {
 
     private final JavaMailSender mailSender;
     private final RestTemplate restTemplate;
+    private final FinanceMailProperties properties;
+    private final SpringMailProperties springMailProperties;
 
-    @Value("${app.financeiro.test-mode:false}")
-    private String financeiroTestModeRaw;
-
-    @Value("${app.financeiro.dev-email}")
-    private String financeiroDeveloperEmail;
-
-    @Value("${app.financeiro.smtp.from-email:administrativo@inovare.med.br}")
-    private String financeiroFromEmail;
-
-    @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
-    private String financeiroFromName;
-
-    @Value("${spring.mail.port:0}")
-    private int smtpPort;
-
-    @Value("${spring.mail.properties.mail.smtp.ssl.enable:false}")
-    private boolean smtpSslEnable;
 
     public void sendReceiptForRealSaleTest(
             String doctorName,
@@ -157,7 +143,7 @@ public class ReceiptEmailService {
         String subject = buildEmailSubject(doctorName, saleNumber);
         boolean testMode = isTestModeEnabled();
         String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
-        String devEmail = StringUtils.hasText(financeiroDeveloperEmail) ? financeiroDeveloperEmail.trim() : "";
+        String devEmail = StringUtils.hasText(properties.getDevEmail()) ? properties.getDevEmail().trim() : "";
         String destinoFinal = testMode ? devEmail : originalEmail;
 
         if (testMode) {
@@ -192,29 +178,30 @@ public class ReceiptEmailService {
     }
 
     private void validateConfiguration() {
-        if (!StringUtils.hasText(financeiroFromEmail) || !StringUtils.hasText(financeiroFromName)) {
+        if (!StringUtils.hasText(properties.getSmtp().getFromEmail()) || !StringUtils.hasText(properties.getSmtp().getFromName())) {
             throw new IllegalStateException(
                     "Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
 
         // Blindagem obrigatória: envio financeiro deve ocorrer apenas com SSL puro na porta 465.
-        if (!smtpSslEnable || smtpPort != 465) {
+        boolean smtpSslEnable = Boolean.parseBoolean(springMailProperties.getProperties().getOrDefault("mail.smtp.ssl.enable", "false"));
+        if (!smtpSslEnable || springMailProperties.getPort() != 465) {
             throw new IllegalStateException(
                     "Configuração SMTP insegura para recibos: exige SSL habilitado e porta 465.");
         }
 
-        if (isTestModeEnabled() && !StringUtils.hasText(financeiroDeveloperEmail)) {
+        if (isTestModeEnabled() && !StringUtils.hasText(properties.getDevEmail())) {
             throw new IllegalStateException(
                     "app.financeiro.test-mode=true exige app.financeiro.dev-email com o e-mail do desenvolvedor Victor.");
         }
     }
 
     private boolean isTestModeEnabled() {
-        if (!StringUtils.hasText(financeiroTestModeRaw)) {
+        if (!StringUtils.hasText(properties.getTestMode())) {
             return false;
         }
 
-        String normalized = financeiroTestModeRaw.trim();
+        String normalized = properties.getTestMode().trim();
         if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
             normalized = normalized.substring(1, normalized.length() - 1).trim();
         }

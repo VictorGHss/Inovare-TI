@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,12 +26,11 @@ public class ContaAzulCustomerClient {
 
     private final ContaAzulRequestExecutor requestExecutor;
     private final CustomerResponseMapper customerResponseMapper;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.customers-v1-url:https://api-v2.contaazul.com/v1/pessoas}")
-    private String customersV1Url;
 
-    @Value("${app.contaazul.customer-by-id-v1-url-template:https://api-v2.contaazul.com/v1/pessoas/{id}}")
-    private String customerByIdV1UrlTemplate;
+
+
 
     /**
      * Busca customer UUID por e-mail.
@@ -44,7 +43,7 @@ public class ContaAzulCustomerClient {
         String normalizedEmail = email.trim();
 
         // Garante endpoint oficial /v1/pessoas no host api-v2.contaazul.com.
-        String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(customersV1Url))
+        String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(properties.getCustomersV1Url()))
                 .queryParam("emails", normalizedEmail)
                 .build()
                 .encode(StandardCharsets.UTF_8)
@@ -69,7 +68,7 @@ public class ContaAzulCustomerClient {
 
         String normalizedId = customerId.trim();
         // Garante endpoint oficial /v1/pessoas/{id} para consulta individual.
-        String uri = normalizePeopleByIdTemplate(customerByIdV1UrlTemplate)
+        String uri = normalizePeopleByIdTemplate(properties.getCustomerByIdV1UrlTemplate())
                 .replace("{id}", normalizedId)
                 .replace("{customerId}", normalizedId);
 
@@ -91,7 +90,7 @@ public class ContaAzulCustomerClient {
 
         for (int page = 1; page <= MAX_PAGES; page++) {
             // Usa base normalizada para impedir chamadas legadas com /api/v1.
-            String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(customersV1Url))
+            String uri = UriComponentsBuilder.fromUriString(normalizePeopleBaseUrl(properties.getCustomersV1Url()))
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
                     .build()

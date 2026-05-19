@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client;
 
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,7 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
@@ -55,6 +55,7 @@ public class FeegowClient implements FeegowClientPort {
 
     private final RestTemplate restTemplate;
     private final AppointmentMotorProperties properties;
+    private final FeegowProperties feegowProperties;
     private final ObjectMapper objectMapper;
     private final RestClient feegowRestClient;
     private final StringRedisTemplate stringRedisTemplate;
@@ -62,25 +63,21 @@ public class FeegowClient implements FeegowClientPort {
     public FeegowClient(
             @Qualifier("feegowRestTemplate") RestTemplate restTemplate,
             AppointmentMotorProperties properties,
+            FeegowProperties feegowProperties,
             ObjectMapper objectMapper,
             @Qualifier("feegowRestClient") ObjectProvider<RestClient> feegowRestClientProvider,
             ObjectProvider<StringRedisTemplate> stringRedisTemplateProvider) {
         this.restTemplate = restTemplate;
         this.properties = properties;
+        this.feegowProperties = feegowProperties;
         this.objectMapper = objectMapper;
         this.feegowRestClient = feegowRestClientProvider.getIfAvailable();
         this.stringRedisTemplate = stringRedisTemplateProvider.getIfAvailable();
     }
 
-    @Value("${app.feegow.api-key}")
-    private String apiKey;
-
-    @Value("${app.feegow.unidade-id}")
-    private String feegowUnidadeId;
-
 
     public void logFeegowApiKeyStatus() {
-        String normalizedApiKey = normalizeApiKey(apiKey);
+        String normalizedApiKey = normalizeApiKey(feegowProperties.getApiKey());
         if (normalizedApiKey == null || normalizedApiKey.isBlank()) {
             log.error("ERRO FATAL NO BOOT: Token da Feegow (x-access-token) está nulo ou vazio. Verifique a variável APP_FEEGOW_API_KEY!");
             return;
@@ -721,8 +718,9 @@ public class FeegowClient implements FeegowClientPort {
             return unidadeEnv.trim();
         }
 
-        if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {
-            return feegowUnidadeId.trim();
+        String localUnidadeId = feegowProperties.getUnidadeId();
+        if (localUnidadeId != null && !localUnidadeId.isBlank() && !"0".equals(localUnidadeId.trim())) {
+            return localUnidadeId.trim();
         }
 
         return "";
@@ -839,14 +837,19 @@ public class FeegowClient implements FeegowClientPort {
             normalizedStatusId = resolveConfirmedStatusId();
         }
 
-        String url = "https://api.feegow.com/v1/api/appoints/statusUpdate";
+        String url = feegowProperties.getStatusUpdateUrl();
 
         HttpHeaders headers = buildHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        int statusIdInt = 7;
+        try {
+            statusIdInt = Integer.parseInt(normalizedStatusId);
+        } catch (NumberFormatException ignored) {}
+
         FeegowStatusUpdatePayload payload = new FeegowStatusUpdatePayload(
                 normalizeAppointmentIdForPayload(normalizedAppointmentId),
-                7,
+                statusIdInt,
                 ""
         );
 
@@ -854,7 +857,7 @@ public class FeegowClient implements FeegowClientPort {
             String jsonPayload = objectMapper.writeValueAsString(payload);
             log.info("[FEEGOW] Enviando atualização de status. URL: {}, Payload: {}", url, jsonPayload);
 
-            if (!tryUpdateAppointmentStatus(url, HttpMethod.POST, headers, payload, normalizedAppointmentId, "7")) {
+            if (!tryUpdateAppointmentStatus(url, HttpMethod.POST, headers, payload, normalizedAppointmentId, normalizedStatusId)) {
                 log.error(
                         "Não foi possível atualizar status do agendamento na Feegow (fluxo Blip segue). appointmentId={}, statusId={}",
                         normalizedAppointmentId,
@@ -1105,7 +1108,7 @@ public class FeegowClient implements FeegowClientPort {
 
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        String tokenValue = normalizeApiKey(apiKey);
+        String tokenValue = normalizeApiKey(feegowProperties.getApiKey());
         if (tokenValue != null && !tokenValue.isBlank()) {
             headers.set("x-access-token", tokenValue);
         } else {
@@ -1136,8 +1139,9 @@ public class FeegowClient implements FeegowClientPort {
             return env.trim();
         }
 
-        if (feegowUnidadeId != null && !feegowUnidadeId.isBlank() && !"0".equals(feegowUnidadeId.trim())) {
-            return feegowUnidadeId.trim();
+        String localUnidadeId = feegowProperties.getUnidadeId();
+        if (localUnidadeId != null && !localUnidadeId.isBlank() && !"0".equals(localUnidadeId.trim())) {
+            return localUnidadeId.trim();
         }
 
         return "";

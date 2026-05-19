@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +24,7 @@ public class ContaAzulAutomationService {
     private final ContaAzulSyncService contaAzulSyncService;
     private final ContaAzulReceiptProcessor contaAzulReceiptProcessor;
     private final ProcessedSaleRepository processedSaleRepository;
+    private final ContaAzulProperties properties;
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
         try {
@@ -39,9 +40,6 @@ public class ContaAzulAutomationService {
         return contaAzulReceiptProcessor.processRealSaleTest(saleId);
     }
 
-    @Value("${app.automation.cron:0 0 6 28,30 * *}")
-    private String automationCron;
-
     @PostConstruct
     public void logIncrementalStartup() {
         LocalDateTime lastClosing = processedSaleRepository.findMaxProcessedAt().orElse(null);
@@ -52,7 +50,7 @@ public class ContaAzulAutomationService {
         log.info("Sistema iniciado com busca incremental. Último fechamento: [{}]", lastClosingFormatted);
     }
 
-    @Scheduled(cron = "${app.automation.cron:0 0 6 28,30 * *}")
+    @Scheduled(cron = "#{@contaAzulProperties.automation.cron}")
     public void processAcquittedSales() {
         LocalDate today = LocalDate.now();
         if (!shouldRunClosing(today)) {
@@ -64,7 +62,7 @@ public class ContaAzulAutomationService {
         LocalDate startDate = resolveIncrementalStartDate(today);
         LocalDate endDate = today;
 
-        log.info("Ciclo incremental ContaAzul iniciado com cron {}. Janela: {} a {}.", automationCron, startDate, endDate);
+        log.info("Ciclo incremental ContaAzul iniciado com cron {}. Janela: {} a {}.", properties.getAutomation().getCron(), startDate, endDate);
         try {
             // Busca incremental: retoma do último processed_at para evitar lacunas entre fechamentos.
             contaAzulReceiptProcessor.processAcquittedSales(startDate, endDate);

@@ -21,7 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -78,16 +78,15 @@ public class ContaAzulFinancialSummaryService {
     private final ObjectMapper objectMapper;
     private final JsonSafeReader jsonSafeReader;
     private final ProcessedSaleRepository processedSaleRepository;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.payments-url}")
-    private String paymentsUrl;
 
-    @Value("${app.contaazul.api-v2-base-url:https://api-v2.contaazul.com}")
-    private String contaAzulApiV2BaseUrl;
+
+
 
     @PostConstruct
     public void logV2BaseConfiguration() {
-        log.info("ContaAzulFinancialSummaryService configurado com base URL v2: {}", contaAzulApiV2BaseUrl);
+        log.info("ContaAzulFinancialSummaryService configurado com base URL v2: {}", properties.getApiV2BaseUrl());
     }
 
     /**
@@ -922,8 +921,8 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private String normalizeContaAzulBaseUrl() {
-        String normalized = StringUtils.hasText(contaAzulApiV2BaseUrl)
-                ? contaAzulApiV2BaseUrl.trim()
+        String normalized = StringUtils.hasText(properties.getApiV2BaseUrl())
+                ? properties.getApiV2BaseUrl().trim()
                 : "https://api-v2.contaazul.com";
 
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
@@ -938,7 +937,7 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private String normalizePaymentsUrl() {
-        String normalized = paymentsUrl != null ? paymentsUrl.trim() : "";
+        String normalized = properties.getPaymentsUrl() != null ? properties.getPaymentsUrl().trim() : "";
         if (normalized.isBlank()) {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }

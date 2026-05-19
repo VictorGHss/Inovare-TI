@@ -6,12 +6,17 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Configuração simples de WebSocket/STOMP para eventos em tempo real.
  */
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final AppCorsProperties corsProperties;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -21,9 +26,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws/appointment-events")
-            .setAllowedOrigins("http://localhost:5173")
-            .setAllowedOriginPatterns("*")
-                .withSockJS();
+        var endpoint = registry.addEndpoint("/ws/appointment-events")
+            .setAllowedOrigins(corsProperties.getAllowedOrigins().toArray(new String[0]));
+
+        if (!corsProperties.getAllowedOriginPatterns().isEmpty()) {
+            endpoint.setAllowedOriginPatterns(corsProperties.getAllowedOriginPatterns().toArray(new String[0]));
+        }
+
+        endpoint.withSockJS();
     }
 }

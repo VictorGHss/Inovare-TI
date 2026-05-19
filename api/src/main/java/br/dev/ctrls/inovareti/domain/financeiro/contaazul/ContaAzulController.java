@@ -8,7 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
+import br.dev.ctrls.inovareti.config.FrontendProperties;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,8 @@ public class ContaAzulController {
     private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulAutomationService contaAzulAutomationService;
+    private final ContaAzulProperties properties;
+    private final FrontendProperties frontendProperties;
 
     private static final Logger logger = LoggerFactory.getLogger(ContaAzulController.class);
         // Limite simples em memória (por principal+IP) como fallback quando Redis não estiver disponível.
@@ -59,15 +62,9 @@ public class ContaAzulController {
         @Autowired(required = false)
         private RedisRateLimiter redisRateLimiter;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
-
-    @Value("${contaazul.redirect-uri}")
-    private String contaAzulRedirectUri;
-
     @GetMapping("/authorize")
     public void startAuthorization(HttpServletResponse response) throws java.io.IOException {
-        String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(contaAzulRedirectUri);
+        String authorizationUrl = contaAzulTokenService.buildAuthorizationUrl(properties.getRedirectUri());
         response.sendRedirect(authorizationUrl);
     }
 
@@ -93,7 +90,7 @@ public class ContaAzulController {
         }
 
         try {
-            contaAzulTokenService.exchangeAuthorizationCode(code, contaAzulRedirectUri);
+            contaAzulTokenService.exchangeAuthorizationCode(code, properties.getRedirectUri());
             return new RedirectView(buildFinanceiroSuccessRedirectUrl());
         } catch (RuntimeException ex) {
             logger.error("Falha ao processar callback OAuth da ContaAzul.", ex);
@@ -204,7 +201,7 @@ public class ContaAzulController {
     }
 
     private String resolveFinanceiroBaseUrl() {
-        String base = (frontendUrl != null) ? frontendUrl : "";
+        String base = (frontendProperties.getUrl() != null) ? frontendProperties.getUrl() : "";
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }

@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -43,15 +43,13 @@ public class ContaAzulPaymentsClient {
     private final RestTemplate restTemplate;
     private final ContaAzulTokenService contaAzulTokenService;
     private final ContaAzulPaymentsResponseMapper responseMapper;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.payments-url}")
-    private String paymentsUrl;
 
-    @Value("${app.contaazul.receipt-pdf-url-template}")
-    private String receiptPdfUrlTemplate;
 
-    @Value("${app.contaazul.parcela-by-id-url-template:}")
-    private String parcelaByIdUrlTemplate;
+
+
+
 
     /**
      * Busca parcelas marcadas como pagas entre os instantes informados.
@@ -68,7 +66,7 @@ public class ContaAzulPaymentsClient {
         LocalDate janelaVencimentoAte = hoje.plusDays(30);
 
         // Normaliza endpoint para garantir formato BASE_URL + /v1/... sem prefixo legado /api.
-        String uri = normalizeContaAzulUrl(paymentsUrl)
+        String uri = normalizeContaAzulUrl(properties.getPaymentsUrl())
                 + "?pagina=" + page
                 + "&tamanho_pagina=" + pageSize
                 + "&data_vencimento_de=" + janelaVencimentoDe.format(DATE_FORMATTER)
@@ -118,7 +116,7 @@ public class ContaAzulPaymentsClient {
         headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM));
 
         List<String> candidateUrls = new ArrayList<>();
-        String primaryPdfUrl = normalizeReceiptPdfUrlTemplate(receiptPdfUrlTemplate)
+        String primaryPdfUrl = normalizeReceiptPdfUrlTemplate(properties.getReceiptPdfUrlTemplate())
                 .replace("{parcelaId}", parcelaId)
                 .replace("{id}", parcelaId);
         candidateUrls.add(primaryPdfUrl);
@@ -185,15 +183,15 @@ public class ContaAzulPaymentsClient {
      * Resolve a URL para consulta de parcela por ID.
      */
     private String resolveParcelByIdUrl(String parcelaId) {
-        if (StringUtils.hasText(parcelaByIdUrlTemplate)) {
+        if (StringUtils.hasText(properties.getParcelaByIdUrlTemplate())) {
             // Nunca adiciona "/api" manualmente; apenas normaliza e substitui placeholders.
-            return normalizeContaAzulUrl(parcelaByIdUrlTemplate)
+            return normalizeContaAzulUrl(properties.getParcelaByIdUrlTemplate())
                     .replace("{parcelaId}", parcelaId)
                     .replace("{id}", parcelaId);
         }
 
         String basePath = "/contas-a-receber/buscar";
-        String normalizedPaymentsUrl = normalizeContaAzulUrl(paymentsUrl);
+        String normalizedPaymentsUrl = normalizeContaAzulUrl(properties.getPaymentsUrl());
         int suffixStart = normalizedPaymentsUrl.indexOf(basePath);
         if (suffixStart > 0) {
             String prefix = normalizedPaymentsUrl.substring(0, suffixStart);
@@ -214,7 +212,7 @@ public class ContaAzulPaymentsClient {
         LocalDate toDueDate = today.plusMonths(1);
 
         for (int page = 1; page <= SEARCH_MAX_PAGES; page++) {
-            String uri = normalizeContaAzulUrl(paymentsUrl)
+            String uri = normalizeContaAzulUrl(properties.getPaymentsUrl())
                     + "?pagina=" + page
                     + "&tamanho_pagina=" + SEARCH_PAGE_SIZE
                     + "&data_vencimento_de=" + fromDueDate.format(DATE_FORMATTER)
@@ -240,7 +238,7 @@ public class ContaAzulPaymentsClient {
 
     private String resolveReceiptPdfFallbackUrl(String parcelaId) {
         String basePath = "/contas-a-receber/buscar";
-        String normalizedPaymentsUrl = normalizeContaAzulUrl(paymentsUrl);
+        String normalizedPaymentsUrl = normalizeContaAzulUrl(properties.getPaymentsUrl());
         int suffixStart = normalizedPaymentsUrl.indexOf(basePath);
         if (suffixStart > 0) {
             String prefix = normalizedPaymentsUrl.substring(0, suffixStart);

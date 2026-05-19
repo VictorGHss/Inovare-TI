@@ -28,7 +28,9 @@ class ContaAzulControllerTest {
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
-        var controller = new ContaAzulController(this.tokenService, client, automation);
+        var properties = Mockito.mock(br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties.class);
+        var frontendProperties = Mockito.mock(br.dev.ctrls.inovareti.config.FrontendProperties.class);
+        var controller = new ContaAzulController(this.tokenService, client, automation, properties, frontendProperties);
         this.mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         ContaAzulOAuthToken token = new ContaAzulOAuthToken();

@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.communication.infrastructure.config.NotificationProperties;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -41,14 +41,14 @@ public class NotificationService {
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final UserRepository userRepository;
 
-    @Value("${app.notification.discord-webhook:}")
-    private String discordWebhookUrl;
+    private final NotificationProperties notificationProperties;
 
-    @Value("${app.notification.itsm-bot-api-url:}")
-    private String itsmBotApiUrl;
 
-    @Value("${app.notification.itsm-bot-api-token:}")
-    private String itsmBotApiToken;
+
+
+
+
+
 
     public void notifySecretary(AppointmentSession session, String message) {
         if (session == null || session.getId() == null) {
@@ -140,14 +140,14 @@ public class NotificationService {
             AppointmentSession session,
             String targetItsmUserId,
             boolean usingSpecificItsmUserId) {
-        if (!StringUtils.hasText(itsmBotApiUrl)) {
+        if (!StringUtils.hasText(notificationProperties.getItsmBotApiUrl())) {
             return false;
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String normalizedToken = normalizeToken(itsmBotApiToken);
+        String normalizedToken = normalizeToken(notificationProperties.getItsmBotApiToken());
         if (StringUtils.hasText(normalizedToken)) {
             headers.setBearerAuth(normalizedToken);
         }
@@ -166,7 +166,7 @@ public class NotificationService {
 
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(
-                    itsmBotApiUrl.trim(),
+                    notificationProperties.getItsmBotApiUrl().trim(),
                     new HttpEntity<>(payload, headers),
                     String.class);
 
@@ -263,7 +263,7 @@ public class NotificationService {
         String mappingItsmUserId = normalizeValue(mapping != null ? mapping.getItsmUserId() : null);
         String userNotificationTarget = resolveUserNotificationTarget(mappingItsmUserId);
 
-        String fallbackWebhook = normalizeValue(discordWebhookUrl);
+        String fallbackWebhook = normalizeValue(notificationProperties.getDiscordWebhook());
         String resolvedWebhook = StringUtils.hasText(mappingWebhook) ? mappingWebhook : fallbackWebhook;
 
         return new DoctorRouting(

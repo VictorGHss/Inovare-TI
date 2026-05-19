@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,15 +25,15 @@ public class BlipNotificationService {
 
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepositoryPort templateMappingRepository;
-
-    @Value("${app.appointment.motor.blip-waba-namespace}")
-    private String blipWabaNamespace;
+    private final AppointmentMotorProperties motorProperties;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
-            AppointmentTemplateMappingRepositoryPort templateMappingRepository) {
+            AppointmentTemplateMappingRepositoryPort templateMappingRepository,
+            AppointmentMotorProperties motorProperties) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
+        this.motorProperties = motorProperties;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
@@ -216,6 +216,7 @@ public class BlipNotificationService {
     }
 
     private String resolveWabaNamespace() {
-        return (blipWabaNamespace != null && !blipWabaNamespace.isBlank()) ? blipWabaNamespace : "";
+        String ns = motorProperties.getBlipWabaNamespace();
+        return (ns != null && !ns.isBlank()) ? ns : "";
     }
 }

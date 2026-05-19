@@ -1,0 +1,184 @@
+# ==============================================================================
+# INOVARE-TI: TEMPLATE DE CONFIGURAÇÃO PARA PRODUÇÃO (application-prod.yml)
+# ==============================================================================
+# Este arquivo serve como modelo (template) para as configurações do ambiente de
+# produção do ecossistema Inovare-TI.
+#
+# Para segurança e conformidade com as melhores práticas de DevOps, nenhuma chave
+# secreta, token, senha ou credencial deve ser armazenada fisicamente neste arquivo.
+# Em vez disso, todas as propriedades críticas consomem variáveis de ambiente do sistema,
+# injetadas no container ou ambiente de execução (ex: Kubernetes Secrets, Docker env, etc.).
+# ==============================================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+
+spring:
+  # Configuração de Banco de Dados PostgreSQL
+  datasource:
+    url: ${DB_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none # Em produção, nunca permita ddl-auto destructivo
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false # Evita logs de SQL verbosos em ambiente produtivo
+    defer-datasource-initialization: true
+
+  # Configuração do Redis Cache
+  data:
+    redis:
+      repositories:
+        enabled: false
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+
+  # Configurações de Envio de E-mail (SMTP)
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT:465}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+          ssl:
+            enable: true
+            trust: ${SMTP_HOST}
+          socketFactory:
+            port: ${SMTP_PORT:465}
+            class: javax.net.ssl.SSLSocketFactory
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+  # Ativação de Virtual Threads do Spring Boot 3.x (Java 21)
+  threads:
+    virtual:
+      enabled: true
+
+# Configurações Específicas do Ecossistema Inovare-TI
+app:
+  # Chaves de Segurança e Criptografia
+  security:
+    encryption:
+      secret: ${ENCRYPTION_SECRET} # Chave para criptografia AES de tokens sensíveis no banco
+  vault:
+    encryption-key: ${VAULT_ENCRYPTION_KEY} # Chave de encriptação auxiliar
+
+  # Acesso ao Painel Frontend
+  frontend:
+    url: ${FRONTEND_URL}
+
+  # Configurações de Operações Financeiras e Notificação de Recibo
+  financeiro:
+    test-mode: ${APP_FINANCEIRO_TEST_MODE:false}
+    dev-email: ${APP_FINANCEIRO_DEV_EMAIL}
+    smtp:
+      from-email: ${APP_FINANCEIRO_SMTP_FROM_EMAIL:administrativo@inovare.med.br}
+      from-name: ${APP_FINANCEIRO_SMTP_FROM_NAME:Administrativo Inovare}
+
+  # Configurações da Integração Conta Azul (OAuth2 e API v2)
+  contaazul:
+    client-id: ${CONTAAZUL_CLIENT_ID}
+    client-secret: ${CONTAAZUL_CLIENT_SECRET}
+    authorization-url: ${CONTAAZUL_AUTHORIZATION_URL:https://app.contaazul.com/oauth2/authorize}
+    redirect-uri: ${CONTAAZUL_REDIRECT_URI}
+    token-url: ${CONTAAZUL_TOKEN_URL:https://app.contaazul.com/oauth2/token}
+    api-v2-base-url: ${CONTAAZUL_API_V2_BASE_URL:https://api.contaazul.com}
+    payments-url: ${CONTAAZUL_PAYMENTS_URL:https://api.contaazul.com/v2/sales}
+    baixa-details-url: ${CONTAAZUL_BAIXA_DETAILS_URL:https://api.contaazul.com/v2/sales}
+    parcela-by-id-url-template: ${CONTAAZUL_PARCELA_BY_ID_URL_TEMPLATE:https://api.contaazul.com/v2/sales/%s/installments/%s}
+    receipt-pdf-url-template: ${CONTAAZUL_RECEIPT_PDF_URL_TEMPLATE:https://api.contaazul.com/v2/sales/%s/installments/%s/receipt}
+    sales-v2-url: ${CONTAAZUL_SALES_V2_URL:https://api.contaazul.com/v2/sales}
+    sales-pdf-v1-url-template: ${CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE:https://api.contaazul.com/v1/sales/%s/pdf}
+    customer-by-id-v1-url-template: ${CONTAAZUL_CUSTOMER_BY_ID_V1_URL_TEMPLATE:https://api.contaazul.com/v1/customers/%s}
+    automation:
+      enabled: ${CONTAAZUL_AUTOMATION_ENABLED:true}
+      cron: ${APP_AUTOMATION_CRON:0 0 6 28,30 * *} # Cron da automação financeira agendada
+
+  # Configurações do Motor de Agendamentos (Feegow & Blip)
+  appointment:
+    motor:
+      enabled: ${APP_APPOINTMENT_MOTOR_ENABLED:true}
+      ingestion-cron: ${APP_APPOINTMENT_MOTOR_INGESTION_CRON:0 0/15 * * * *}
+      monitor-cron: ${APP_APPOINTMENT_MOTOR_MONITOR_CRON:0 0/30 * * * *}
+      test-mode: ${APP_APPOINTMENT_MOTOR_TEST_MODE:false}
+      test-doctor-id: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}
+      feegow-startup-probe-enabled: ${APP_APPOINTMENT_FEEGOW_STARTUP_PROBE_ENABLED:true}
+      feegow-base-url: ${APP_APPOINTMENT_FEEGOW_BASE_URL:https://api.feegow.com.br}
+      feegow-search-path: ${APP_APPOINTMENT_FEEGOW_SEARCH_PATH:/appoint/search}
+      feegow-patient-path: ${APP_APPOINTMENT_FEEGOW_PATIENT_PATH:/patient}
+      feegow-status-path: ${APP_APPOINTMENT_FEEGOW_STATUS_PATH:/appoint/status}
+      feegow-professional-path: ${APP_APPOINTMENT_FEEGOW_PROFESSIONAL_PATH:/professional}
+      feegow-confirmed-status-id: ${APP_APPOINTMENT_FEEGOW_CONFIRMED_STATUS_ID:2}
+      feegow-update-status-path: ${APP_APPOINTMENT_FEEGOW_UPDATE_STATUS_PATH:/appoint/status}
+      blip-base-url: ${APP_APPOINTMENT_BLIP_BASE_URL:https://http.msging.net}
+      blip-authorization-key: ${BLIP_BOT_KEY}
+      blip-router-key: ${BLIP_ROUTER_KEY}
+      blip-desk-key: ${BLIP_SUBBOT_KEY}
+      blip-send-message-path: ${APP_APPOINTMENT_BLIP_SEND_MESSAGE_PATH:/messages}
+      blip-set-context-path: ${APP_APPOINTMENT_BLIP_SET_CONTEXT_PATH:/contexts}
+      blip-router-identity: ${BLIP_ROUTER_ID}
+      blip-waba-namespace: ${APP_APPOINTMENT_BLIP_WABA_NAMESPACE}
+      blip-fallback-templates: ${APP_APPOINTMENT_BLIP_FALLBACK_TEMPLATES}
+      blip-builder-bot-id: ${BLIP_SUBBOT_ID}
+      blip-agendamento-bot-id: ${BLIP_ITSM_ID}
+      blip-landing-confirmacao-itsm-state-id: ${APP_BLIP_STATE_LANDING_ITSM}
+      blip-itsm-flow-id: ${APP_BLIP_STATE_ITSM_FLOW_ID}
+      blip-fluxov1-flow-id: ${BLIP_FLOW_ID}
+      blip-landing-block-id: ${BLIP_BLOCKS_WAITING_RESPONSE}
+      webhook-token: ${APP_BLIP_SECURITY_WEBHOOK_TOKEN}
+      blip-rate-limit-ms: ${APP_APPOINTMENT_BLIP_RATE_LIMIT_MS:100}
+      nudge-1-wait-hours: ${APP_APPOINTMENT_NUDGE_1_WAIT_HOURS:2}
+      nudge-final-wait-hours: ${APP_APPOINTMENT_NUDGE_FINAL_WAIT_HOURS:24}
+      send-idempotency-hours: ${APP_APPOINTMENT_SEND_IDEMPOTENCY_HOURS:12}
+      webhook-idempotency-hours: ${APP_APPOINTMENT_WEBHOOK_IDEMPOTENCY_HOURS:24}
+
+  # Configurações da Integração Feegow
+  feegow:
+    api-key: ${APP_FEEGOW_API_KEY}
+    unidade-id: ${FEEGOW_UNIDADE_ID}
+
+  # Configurações de Envio do Brevo
+  brevo:
+    sender:
+      email: ${BREVO_SENDER_EMAIL}
+      name: ${BREVO_SENDER_NAME}
+
+# Configurações Gerais do Blip
+blip:
+  router-id: ${BLIP_ROUTER_ID}
+  subbot-id: ${BLIP_SUBBOT_ID}
+  flow-id: ${BLIP_FLOW_ID}
+  router-key: ${BLIP_ROUTER_KEY}
+  subbot-key: ${BLIP_SUBBOT_KEY}
+  blocks:
+    waiting-response: ${BLIP_BLOCKS_WAITING_RESPONSE}
+    confirm-success: ${BLIP_BLOCKS_CONFIRM_SUCCESS}
+    alter-request: ${BLIP_BLOCKS_ALTER_REQUEST}
+    preparar-atendimento: ${BLIP_BLOCKS_PREPARAR_ATENDIMENTO}
+  texts:
+    confirm-success: ${BLIP_TEXT_CONFIRM_SUCCESS}
+    alter-request: ${BLIP_TEXT_ALTER_REQUEST}
+
+# Token JWT de Segurança
+api:
+  security:
+    token:
+      secret: ${JWT_SECRET}
+
+# Notificações Discord
+discord:
+  webhook:
+    url: ${DISCORD_WEBHOOK_URL}
+  bot:
+    token: ${DISCORD_BOT_TOKEN}
+    enabled: ${DISCORD_BOT_ENABLED:true}

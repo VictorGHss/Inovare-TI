@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -30,24 +30,21 @@ public class ContaAzulSalesClient {
 
     private final ContaAzulRequestExecutor requestExecutor;
     private final SalesResponseMapper salesResponseMapper;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.payments-url}")
-    private String receivableEventsSearchUrl;
 
-    @Value("${app.contaazul.sales-pdf-v1-url-template:https://api-v2.contaazul.com/v1/venda/{id}/imprimir}")
-    private String salePdfV1UrlTemplate;
 
-    @Value("${app.contaazul.sales-v2-url:https://api-v2.contaazul.com/v1/venda/busca}")
-    private String salesV2Url;
 
-    @Value("${app.contaazul.sales-v2-stable-url:https://api-v2.contaazul.com/v1/venda/busca}")
-    private String salesV2StableUrl;
+
+
+
+
 
     /**
      * Indica se existe configuração para operações de venda.
      */
     public boolean hasSalesConfiguration() {
-        return StringUtils.hasText(salePdfV1UrlTemplate);
+        return StringUtils.hasText(properties.getSalesPdfV1UrlTemplate());
     }
 
     /**
@@ -149,7 +146,7 @@ public class ContaAzulSalesClient {
         String dataAlteracaoDe = LocalDateTime.of(yesterday, java.time.LocalTime.MIDNIGHT).format(DATE_TIME_FORMATTER);
         String dataAlteracaoAte = LocalDateTime.of(today, java.time.LocalTime.of(23, 59, 59)).format(DATE_TIME_FORMATTER);
 
-        String primaryUri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(salesV2Url))
+        String primaryUri = UriComponentsBuilder.fromUriString(normalizeSaleSearchBaseUrl(properties.getSalesV2Url()))
                 .queryParam("pagina", page)
                 .queryParam("tamanho_pagina", PAGE_SIZE)
                 .queryParam("data_alteracao_de", dataAlteracaoDe)
@@ -164,7 +161,7 @@ public class ContaAzulSalesClient {
                 throw ex;
             }
 
-            String stableUri = UriComponentsBuilder.fromUriString(salesV2StableUrl)
+            String stableUri = UriComponentsBuilder.fromUriString(properties.getSalesV2StableUrl())
                     .queryParam("pagina", page)
                     .queryParam("tamanho_pagina", PAGE_SIZE)
                     .queryParam("data_alteracao_de", dataAlteracaoDe)
@@ -189,12 +186,12 @@ public class ContaAzulSalesClient {
     }
 
     private String normalizeReceivablesBaseUrl() {
-        if (!StringUtils.hasText(receivableEventsSearchUrl)) {
+        if (!StringUtils.hasText(properties.getPaymentsUrl())) {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }
 
         // Normaliza host/caminho para evitar regressão com endpoints legados contendo /api.
-        String normalized = receivableEventsSearchUrl.trim();
+        String normalized = properties.getPaymentsUrl().trim();
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
         normalized = normalized.replaceAll("/+$", "");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");

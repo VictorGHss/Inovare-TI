@@ -5,7 +5,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -38,21 +38,17 @@ public class ContaAzulTokenService {
 
     private final RestTemplate restTemplate;
     private final ContaAzulOAuthTokenRepository tokenRepository;
+    private final ContaAzulProperties properties;
 
-    @Value("${app.contaazul.client-id}")
-    private String contaAzulClientId;
 
-    @Value("${app.contaazul.client-secret}")
-    private String contaAzulClientSecret;
 
-    @Value("${app.contaazul.authorization-url}")
-    private String contaAzulAuthorizationUrl;
 
-    @Value("${app.contaazul.token-url}")
-    private String contaAzulTokenUrl;
 
-    @Value("${contaazul.redirect-uri}")
-    private String contaAzulRedirectUri;
+
+
+
+
+
 
     /**
      * Constrói a URL de autorização onde o usuário deve ser redirecionado
@@ -63,15 +59,15 @@ public class ContaAzulTokenService {
      * @return URL completa de autorização
      */
     public String buildAuthorizationUrl(String redirectUri) {
-        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
+        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : properties.getRedirectUri();
         String state = UUID.randomUUID().toString();
         
         log.debug("Construindo URL de autorização da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
         
         String authorizationUrl = UriComponentsBuilder
-            .fromUriString(contaAzulAuthorizationUrl)
+            .fromUriString(properties.getAuthorizationUrl())
                 .queryParam("response_type", "code")
-                .queryParam("client_id", contaAzulClientId)
+                .queryParam("client_id", properties.getClientId())
                 .queryParam("redirect_uri", resolvedRedirectUri)
                 .queryParam("state", state)
                 .build()
@@ -249,12 +245,12 @@ public class ContaAzulTokenService {
     }
 
     private ContaAzulTokenResponse requestTokenByAuthorizationCode(String code, String redirectUri) {
-        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : contaAzulRedirectUri;
+        String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : properties.getRedirectUri();
         MultiValueMap<String, String> payload = new LinkedMultiValueMap<>();
         payload.add("grant_type", "authorization_code");
         payload.add("code", code);
-        payload.add("client_id", contaAzulClientId);
-        payload.add("client_secret", contaAzulClientSecret);
+        payload.add("client_id", properties.getClientId());
+        payload.add("client_secret", properties.getClientSecret());
         payload.add("redirect_uri", resolvedRedirectUri);
 
         try {
@@ -269,8 +265,8 @@ public class ContaAzulTokenService {
         MultiValueMap<String, String> payload = new LinkedMultiValueMap<>();
         payload.add("grant_type", "refresh_token");
         payload.add("refresh_token", refreshToken);
-        payload.add("client_id", contaAzulClientId);
-        payload.add("client_secret", contaAzulClientSecret);
+        payload.add("client_id", properties.getClientId());
+        payload.add("client_secret", properties.getClientSecret());
 
         return postTokenRequest(payload);
     }
@@ -280,7 +276,7 @@ public class ContaAzulTokenService {
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         ContaAzulTokenResponse response = restTemplate.postForObject(
-                URI.create(contaAzulTokenUrl),
+                URI.create(properties.getTokenUrl()),
                 new HttpEntity<>(payload, headers),
                 ContaAzulTokenResponse.class);
 

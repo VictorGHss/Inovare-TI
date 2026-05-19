@@ -3,7 +3,8 @@ package br.dev.ctrls.inovareti.domain.notification;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.modules.communication.infrastructure.config.FinanceMailProperties;
+import br.dev.ctrls.inovareti.modules.communication.infrastructure.config.SpringMailProperties;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -26,21 +27,8 @@ public class FinanceEmailService {
     private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final JavaMailSender mailSender;
-
-    @Value("${app.financeiro.test-mode:false}")
-    private String financeiroTestModeRaw;
-
-    @Value("${app.financeiro.dev-email}")
-    private String financeiroDeveloperEmail;
-
-    @Value("${app.financeiro.smtp.from-email:administrativo@inovare.med.br}")
-    private String financeiroFromEmail;
-
-    @Value("${app.financeiro.smtp.from-name:Administrativo Inovare}")
-    private String financeiroFromName;
-
-    @Value("${spring.mail.username:}")
-    private String smtpUsername;
+    private final FinanceMailProperties properties;
+    private final SpringMailProperties springMailProperties;
 
     public void sendReceiptEmail(String medicoNome, String destinationEmail, String bodyText) {
         sendReceiptEmailWithPdf(medicoNome, destinationEmail, bodyText, null, null, null);
@@ -115,7 +103,7 @@ public class FinanceEmailService {
         String subject = "Recibo de Quitação - Inovare TI - " + resolvedName + " - Venda " + saleNumber;
         boolean testMode = isTestModeEnabled();
         String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
-        String devEmail = StringUtils.hasText(financeiroDeveloperEmail) ? financeiroDeveloperEmail.trim() : "";
+        String devEmail = StringUtils.hasText(properties.getDevEmail()) ? properties.getDevEmail().trim() : "";
         String destinoFinal = testMode ? devEmail : originalEmail;
 
         if (testMode) {
@@ -130,16 +118,16 @@ public class FinanceEmailService {
     }
 
     private String resolveStrictFromEmail() {
-        if (StringUtils.hasText(smtpUsername)) {
-            String normalizedSmtpUser = smtpUsername.trim();
-            if (!normalizedSmtpUser.equalsIgnoreCase(financeiroFromEmail.trim())) {
+        if (StringUtils.hasText(springMailProperties.getUsername())) {
+            String normalizedSmtpUser = springMailProperties.getUsername().trim();
+            if (!normalizedSmtpUser.equalsIgnoreCase(properties.getSmtp().getFromEmail().trim())) {
                 log.warn(
                         "app.financeiro.smtp.from-email difere de spring.mail.username. Usando usuário SMTP como remetente para evitar rejeição do provedor.");
             }
             return normalizedSmtpUser;
         }
 
-        return financeiroFromEmail.trim();
+        return properties.getSmtp().getFromEmail().trim();
     }
 
     private String buildEmailBodyHtml(String medicoNome, String saleNumber) {
@@ -189,21 +177,21 @@ public class FinanceEmailService {
     }
 
     private void validateConfiguration() {
-        if (!StringUtils.hasText(financeiroFromEmail) || !StringUtils.hasText(financeiroFromName)) {
+        if (!StringUtils.hasText(properties.getSmtp().getFromEmail()) || !StringUtils.hasText(properties.getSmtp().getFromName())) {
             throw new IllegalStateException("Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
 
-        if (isTestModeEnabled() && !StringUtils.hasText(financeiroDeveloperEmail)) {
+        if (isTestModeEnabled() && !StringUtils.hasText(properties.getDevEmail())) {
             throw new IllegalStateException("app.financeiro.test-mode=true exige app.financeiro.dev-email com o e-mail do desenvolvedor Victor.");
         }
     }
 
     private boolean isTestModeEnabled() {
-        if (!StringUtils.hasText(financeiroTestModeRaw)) {
+        if (!StringUtils.hasText(properties.getTestMode())) {
             return false;
         }
 
-        String normalized = financeiroTestModeRaw.trim();
+        String normalized = properties.getTestMode().trim();
         if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
             normalized = normalized.substring(1, normalized.length() - 1).trim();
         }

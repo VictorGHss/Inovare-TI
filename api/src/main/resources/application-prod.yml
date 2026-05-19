@@ -168,6 +168,8 @@ blip:
   texts:
     confirm-success: ${BLIP_TEXT_CONFIRM_SUCCESS}
     alter-request: ${BLIP_TEXT_ALTER_REQUEST}
+  webhook:
+    secret: ${BLIP_WEBHOOK_SECRET:chave-secreta-blip}
 
 # Token JWT de Segurança
 api:

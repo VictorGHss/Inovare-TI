@@ -4,6 +4,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -15,11 +18,16 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import br.dev.ctrls.inovareti.config.security.WebhookSignatureValidator;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Controller que gerencia a recepção de webhooks de mensagens e notificações da Blip.
+ * Implementa validação criptográfica de integridade HMAC-SHA256 e prevenção de duplicidade.
+ */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -28,6 +36,14 @@ public class BlipWebhookController {
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final BlipWebhookInboundService blipWebhookInboundService;
     private final ObjectMapper objectMapper;
+    private final WebhookSignatureValidator webhookSignatureValidator;
+    private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
+
+    @Value("${blip.webhook.secret}")
+    private String blipWebhookSecret;
+
+    // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
+    private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
         consumes = {
@@ -37,17 +53,23 @@ public class BlipWebhookController {
         })
     public ResponseEntity<?> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
             @RequestBody(required = false) String rawJson) {
 
         if (rawJson == null || rawJson.isBlank()) {
-            log.warn("Blip webhook received without body at /v1/webhook/blip.");
+            log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");
             return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "body-empty"));
         }
 
-        // 1. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave.
-        // Evita carregar memória, abrir sessões do Hibernate, ler banco de dados ou processar usecases desnecessários.
+        // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256)
+        if (!webhookSignatureValidator.isValid(rawJson, blipSignature, blipWebhookSecret)) {
+            log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação
         if (!rawJson.contains("confirm_") && !rawJson.contains("alter_")) {
             return ResponseEntity.ok().build(); // Retorna 200 OK instantaneamente (< 10ms)
         }
@@ -72,6 +94,15 @@ public class BlipWebhookController {
         String messageId = parsed.messageId();
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
+
+        // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
+        if (!isFirstTimeProcessing(messageId)) {
+            log.info("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
+            return ResponseEntity.ok(Map.of(
+                    "status", "processed",
+                    "reason", "duplicate-ignored"
+            ));
+        }
 
         log.info("[WEBHOOK RECEBIDO] from='{}' | action='{}' | messageId='{}' | appointmentId='{}'",
             from, action, messageId, appointmentId);
@@ -138,8 +169,52 @@ public class BlipWebhookController {
                 inovareToken,
                 null), true);
 
-        // O retorno HTTP é vazio pois o roteamento e configuração de variáveis é feito assincronamente via LIME Push
         return ResponseEntity.ok(Map.of());
+    }
+
+    /**
+     * Verifica e registra o processamento do evento para garantir idempotência de forma resiliente.
+     *
+     * @param messageId ID único do evento/mensagem
+     * @return true se for o primeiro processamento (deve processar), false se for duplicado (deve ignorar)
+     */
+    private boolean isFirstTimeProcessing(String messageId) {
+        if (!StringUtils.hasText(messageId)) {
+            return true; // Fail-open para mensagens sem identificação
+        }
+
+        String cacheKey = "webhook:idempotency:blip:" + messageId.trim();
+        StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
+
+        if (redis != null) {
+            try {
+                // Tenta registrar no Redis de forma atômica com expiração de 24 horas
+                Boolean success = redis.opsForValue().setIfAbsent(cacheKey, "1", java.time.Duration.ofHours(24));
+                if (success != null) {
+                    return success;
+                }
+            } catch (Exception ex) {
+                log.warn("Redis indisponível para registro de idempotência. Ativando fallback em memória local: {}", ex.getMessage());
+            }
+        }
+
+        // Fallback em memória
+        long now = System.currentTimeMillis();
+
+        // Evita vazamento de memória do cache local se o mapa crescer além do limite de 10.000 entradas
+        if (processedEventsCache.size() > 10000) {
+            processedEventsCache.entrySet().removeIf(entry -> entry.getValue() < now);
+        }
+
+        // Verifica se a chave existe no cache local e se ela ainda é válida
+        Long expiration = processedEventsCache.get(messageId);
+        if (expiration != null && expiration > now) {
+            return false;
+        }
+
+        // Registra o ID no cache em memória por 1 hora
+        processedEventsCache.put(messageId, now + 3600_000L);
+        return true;
     }
 
     public record ManualTriggerRequest(

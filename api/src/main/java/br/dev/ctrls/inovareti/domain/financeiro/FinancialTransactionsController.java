@@ -45,9 +45,14 @@ public class FinancialTransactionsController {
     public ResponseEntity<List<TransactionLineDTO>> listTransactions(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        
+        // Declaração local para garantir resolução sintática correta
+        LocalDate start = startDate;
+        LocalDate end = endDate;
+
         // Construindo a Specification a partir dos parâmetros do request
         FinancialTransactionSpecification spec = FinancialTransactionSpecification.builder()
-            .startDate(startDate).endDate(endDate).build();
+            .startDate(start).endDate(end).build();
         
         // Executando a consulta usando a Specification
         List<FinancialTransaction> transactions = transactionRepository.findAll(spec);

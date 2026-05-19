@@ -67,7 +67,6 @@ public class SecurityConfig {
                 // Novos comentários explicativos em PORTUGUÊS.
                 .requestMatchers(BLIP_WEBHOOK_PATH, BLIP_WEBHOOK_PATH + "/").permitAll()
                 .requestMatchers(BLIP_WEBHOOK_ALIAS_PATH, BLIP_WEBHOOK_ALIAS_PATH + "/").permitAll()
-                .requestMatchers(BLIP_MANUAL_TRIGGER_PATH, BLIP_MANUAL_TRIGGER_PATH + "/").permitAll()
                 .requestMatchers("/api/webhooks/**").permitAll()
                 .requestMatchers("/api/v1/webhooks/**").permitAll()
                 .requestMatchers("/v1/webhook/**").permitAll()
@@ -81,13 +80,10 @@ public class SecurityConfig {
                 // Demais requisições OPTIONS e rotas administrativas/autenticação
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()
-                .requestMatchers("/admin/**").permitAll()
-                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()
-                // Permitir acesso público aos endpoints do Actuator para que coletores
-                // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
-                .requestMatchers("/actuator/**").permitAll()
+                // Restringir acesso aos endpoints do Actuator apenas para ADMIN
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
                 // Libera endpoints do Swagger UI e documentação da API
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()

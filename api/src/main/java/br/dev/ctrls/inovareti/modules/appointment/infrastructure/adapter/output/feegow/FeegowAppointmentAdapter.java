@@ -113,7 +113,7 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
 
     @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackUpdateAppointmentStatus")
-    public void updateAppointmentStatus(String appointmentId, String statusId) { // Renomeado para corresponder à interface
+    public void updateAppointmentStatus(String appointmentId, String statusId) {
         String normalizedAppointmentId = appointmentId == null ? "" : appointmentId.trim();
         if (normalizedAppointmentId.isBlank()) {
             throw new IllegalArgumentException("appointmentId não pode ser vazio");
@@ -167,14 +167,14 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
      * Fallback para a atualização de status do agendamento na Feegow.
      * Registra o log estruturado [OFFLINE-SYNC-INTENT] para que a alteração não seja perdida e o fluxo siga offline.
      */
-    public void fallbackUpdateAppointmentStatus(String appointmentId, String statusId, Throwable t) { // Renomeado para corresponder ao método principal
+    public void fallbackUpdateAppointmentStatus(String appointmentId, String statusId, Throwable t) {
         log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao atualizar status do agendamento na Feegow. Circuito aberto ou erro de rede: {}. Gravando intenção de sincronização offline para appointmentId={}, statusId={}", 
             t.getMessage(), appointmentId, statusId);
     }
 
     @Override
-    public void updateStatus(String appointmentId, int statusId) { // Renomeado para corresponder à interface
-        updateAppointmentStatus(appointmentId, String.valueOf(statusId)); // Chama o método renomeado
+    public void updateStatus(String appointmentId, int statusId) {
+        updateAppointmentStatus(appointmentId, String.valueOf(statusId));
     }
 
     private List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> extractSearchItems(String responseBody) {

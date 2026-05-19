@@ -250,10 +250,9 @@ public class IngestAppointmentsUseCase {
                 continue;
             }
 
-            String appMode = System.getenv("APP_MODE");
-            if (appMode == null) appMode = "";
-            if (!"PRODUCTION".equalsIgnoreCase(appMode) && !"+5542991617187".equals(phoneNumber)) {
-                blipLIMEClient.logSecurityBlock(phoneNumber, appMode);
+            String doctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : "";
+            if (!"70".equals(doctorId)) {
+                log.info("[TRAVA DE TESTE] Agendamento pulado. Médico ID {} diferente do ID homologado 70.", doctorId);
                 continue;
             }
 

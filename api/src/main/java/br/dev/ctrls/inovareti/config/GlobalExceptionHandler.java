@@ -76,7 +76,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(422));
         problem.setTitle("Regra de Negócio Violada");
         problem.setDetail(ex.getMessage());
         return problem;

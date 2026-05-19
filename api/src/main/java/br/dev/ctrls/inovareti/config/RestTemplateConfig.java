@@ -19,7 +19,7 @@ import org.springframework.http.client.support.HttpRequestWrapper;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
 
-import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.extern.slf4j.Slf4j;
 
 /**

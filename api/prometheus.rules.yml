@@ -1,0 +1,16 @@
+# Regras de Alerta do Prometheus
+# Este arquivo define as regras de monitoramento para o ecossistema Inovare-TI.
+
+groups:
+  - name: feegow-circuit-breaker-rules
+    rules:
+      # Alerta disparado quando o disjuntor da Feegow entra em estado OPEN por mais de 1 minuto
+      - alert: FeegowCircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{state="open"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: inovareti-api
+        annotations:
+          summary: "Disjuntor Feegow Aberto (Chamadas Interrompidas)"
+          description: "O disjuntor da API Feegow ('feegowApiCircuit') entrou no estado 'OPEN' (aberto). As chamadas de integracao externa estao temporariamente suspensas para evitar sobrecarga e falhas cascata."

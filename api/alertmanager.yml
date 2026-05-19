@@ -1,0 +1,38 @@
+# Configuracao do Alertmanager
+# Este arquivo configura o roteamento de alertas do Prometheus para o Discord.
+
+global:
+  # Tempo para aguardar antes de declarar um alerta como resolvido se nenhuma atualizacao for recebida
+  resolve_timeout: 5m
+
+# Rota principal para direcionar os alertas recebidos
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s       # Tempo inicial de espera para acumular alertas semelhantes
+  group_interval: 10s   # Intervalo para enviar atualizacoes de alertas acumulados
+  repeat_interval: 1h   # Intervalo de repeticao para alertas recorrentes ja disparados
+  receiver: 'discord-it-channel'
+
+receivers:
+  - name: 'discord-it-channel'
+    # Utiliza a estrategia de compatibilidade nativa de Slack do Discord adicionando '/slack' ao final do Webhook
+    slack_configs:
+      - api_url: 'https://discord.com/api/webhooks/YOUR_DISCORD_WEBHOOK_ID/YOUR_DISCORD_WEBHOOK_TOKEN/slack'
+        channel: '#ti-channel'
+        send_resolved: true
+        title: '🚨 [Inovare-TI Monitoramento] Alerta Operacional: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: >-
+          {{ range .Alerts }}
+          *Status do Alerta:* `{{ .Status | toUpper }}`
+          *Gravidade:* `{{ .Labels.severity | toUpper }}`
+          *Servico:* `{{ .Labels.service }}`
+          
+          *Detalhes:*
+          {{ .Annotations.description }}
+          
+          *Horario do Disparo:* {{ .StartsAt.Local.Format "02/01/2006 15:04:05" }}
+          {{ if ne .Status "firing" }}*Horario de Resolucao:* {{ .EndsAt.Local.Format "02/01/2006 15:04:05" }}{{ end }}
+          
+          ---
+          ⚠️ *Acao Recomendada:* Verificar a estabilidade da API Feegow ou os logs de conexao de rede da API do Inovare-TI para restabelecer a integracao.
+          {{ end }}

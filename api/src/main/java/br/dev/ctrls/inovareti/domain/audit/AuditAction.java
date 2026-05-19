@@ -100,6 +100,14 @@ public enum AuditAction {
     USER_PASSWORD_ADMIN_RESET,
     USER_PERMISSION_CHANGE,
 
+    // ── Motor financeiro e integrações ───────────────────────────────────────
+    /** Assinatura/validação de webhook confirmada. */
+    ASSINATURA_VALIDADA,
+    /** Fallback operacional por indisponibilidade de serviço externo. */
+    CIRCUIT_BREAKER_FALLBACK,
+    /** Faturamento/recebimento gerado ou processado com sucesso. */
+    FATURAMENTO_GERADO,
+
     // ── Perfil ─────────────────────────────────────────────────────────────────
     /** Alteração de senha realizada pelo próprio usuário. */
     PROFILE_PASSWORD_CHANGE

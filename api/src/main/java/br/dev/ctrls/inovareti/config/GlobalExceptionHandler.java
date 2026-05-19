@@ -19,7 +19,6 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
@@ -55,6 +54,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problem.setTitle("Validation Error");
         problem.setProperty("errors", fieldErrors);
+        attachTraceId(problem);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
@@ -63,6 +63,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         problem.setTitle("Data conflict");
         problem.setDetail(ex.getMessage());
+        attachTraceId(problem);
         return problem;
     }
 
@@ -71,6 +72,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
         problem.setTitle("Resource not found");
         problem.setDetail(ex.getMessage());
+        attachTraceId(problem);
         return problem;
     }
 
@@ -79,6 +81,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(422));
         problem.setTitle("Regra de Negócio Violada");
         problem.setDetail(ex.getMessage());
+        attachTraceId(problem);
         return problem;
     }
 
@@ -87,6 +90,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
         problem.setTitle("File exceeds size limit");
         problem.setDetail(ex.getMessage());
+        attachTraceId(problem);
         return problem;
     }
 
@@ -95,6 +99,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
         problem.setTitle("File exceeds size limit");
         problem.setDetail("The file exceeds the maximum allowed size of 5MB");
+        attachTraceId(problem);
         return problem;
     }
 
@@ -105,6 +110,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setDetail(ex.getMessage() != null && !ex.getMessage().isBlank()
             ? ex.getMessage()
             : "You do not have permission to access this resource.");
+        attachTraceId(problem);
         return problem;
     }
 
@@ -138,6 +144,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ? "Sem elegibilidade para API no plano atual (END_TRIAL)."
                 : ex.getMessage());
         problem.setProperty("request_id", requestId);
+        attachTraceId(problem);
         return problem;
     }
 
@@ -166,6 +173,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle("External service error");
         problem.setDetail(body != null && !body.isBlank() ? body : ex.getMessage());
         problem.setProperty("request_id", requestId);
+        attachTraceId(problem);
         return problem;
     }
 
@@ -198,6 +206,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle("External service error");
         problem.setDetail(ex.getMessage());
         problem.setProperty("request_id", requestId);
+        attachTraceId(problem);
         return problem;
     }
 
@@ -238,18 +247,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         // Injetando propriedades adicionais customizadas conforme RFC 7807 e solicitacao do usuario
         problem.setProperty("timestamp", LocalDateTime.now());
+        attachTraceId(problem);
         
-        // Capturando trace_id do MDC/Log com fallback para um UUID temporario para o cliente React
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+    }
+
+    private void attachTraceId(ProblemDetail problem) {
+        if (problem == null) {
+            return;
+        }
+
         String traceId = org.slf4j.MDC.get("traceId");
         if (traceId == null || traceId.isBlank()) {
             traceId = org.slf4j.MDC.get("trace_id");
         }
         if (traceId == null || traceId.isBlank()) {
-            traceId = java.util.UUID.randomUUID().toString(); // Fallback temporario garantido
+            traceId = java.util.UUID.randomUUID().toString();
         }
+
         problem.setProperty("trace_id", traceId);
-        
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
     }
 
     private boolean isPlanIneligibleResponse(String responseBody) {

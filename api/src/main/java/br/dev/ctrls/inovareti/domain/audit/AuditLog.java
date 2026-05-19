@@ -50,6 +50,9 @@ public class AuditLog {
     @Column(name = "details", columnDefinition = "text")
     private String details;
 
+    @Column(name = "trace_id", length = 64)
+    private String traceId;
+
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 

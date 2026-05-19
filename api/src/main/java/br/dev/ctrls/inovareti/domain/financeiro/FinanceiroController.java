@@ -6,20 +6,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulHttpException;
@@ -27,10 +29,10 @@ import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulTokenService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 @Slf4j
 @RestController
@@ -44,6 +46,7 @@ public class FinanceiroController {
     private final ContaAzulAutomationService contaAzulAutomationService;
     private final ContaAzulTokenService contaAzulTokenService;
     private final FinanceEmailService receiptService;
+    private final AuditPort auditPort;
     
 
     /**
@@ -125,7 +128,12 @@ public class FinanceiroController {
     @GetMapping("/parcelas/{id}/processar")
     public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
             @PathVariable("id") String parcelaId) {
-        return ResponseEntity.ok(financeiroOperationsService.processParcelById(parcelaId));
+        FinanceiroOperationsService.ParcelProcessingResult result =
+            financeiroOperationsService.processParcelById(parcelaId);
+        registrarAuditoria(
+            "FATURAMENTO_GERADO",
+            "Processamento manual de parcela executado. parcelaId=" + parcelaId);
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -191,6 +199,11 @@ public class FinanceiroController {
                 ? "Automação executada manualmente com avisos. Verifique os logs para detalhes."
                 : "Automação executada manualmente com sucesso após conclusão do processamento.";
 
+                registrarAuditoria(
+                    "FATURAMENTO_GERADO",
+                    "Automação financeira manual concluída. periodo=" + dataInicio + " a " + dataFim
+                        + ", duracaoMs=" + durationMs);
+
             return ResponseEntity.ok(new AutomationExecutionResponseDTO(
                 status,
                 message,
@@ -236,6 +249,10 @@ public class FinanceiroController {
             } else {
                 log.error("Falha de integração ao sincronizar base de médicos com a Conta Azul. Retornando resultado vazio para manter serviço ativo.", ex);
             }
+
+            registrarAuditoria(
+                    "CIRCUIT_BREAKER_FALLBACK",
+                    "Sincronização de médicos falhou. Retornando resultado vazio para manter o serviço ativo.");
 
             return ResponseEntity.ok(new SyncDoctorsResponseDTO(0, 0));
         }
@@ -344,6 +361,18 @@ public class FinanceiroController {
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }
+    }
+
+    private void registrarAuditoria(String action, String details) {
+        auditPort.record("FINANCEIRO", action, details, resolveTraceId());
+    }
+
+    private String resolveTraceId() {
+        String traceId = MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = MDC.get("trace_id");
+        }
+        return traceId;
     }
 
     public record FinanceReceiptResponseDTO(

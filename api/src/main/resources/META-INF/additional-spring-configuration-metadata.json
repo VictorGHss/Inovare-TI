@@ -483,5 +483,20 @@
     "name": "app.contaazul.automation.cron",
     "type": "java.lang.String",
     "description": "A description for 'app.contaazul.automation.cron'"
+  },
+  {
+    "name": "blip.webhook.secret",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.webhook.secret'"
+  },
+  {
+    "name": "management.endpoint.prometheus.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'management.endpoint.prometheus.enabled'"
+  },
+  {
+    "name": "blip.webhook.secret",
+    "type": "java.lang.String",
+    "description": "A description for 'blip.webhook.secret'"
   }
 ]}

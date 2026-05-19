@@ -70,7 +70,7 @@ public class DiscordBotConfig {
                             .addEventListeners(eventListener)
                             // Constrói sem bloquear infinitamente
                             .build();
-                } catch (Exception ex) {
+                } catch (IllegalArgumentException | IllegalStateException ex) {
                     throw new RuntimeException(ex);
                 }
             }).get(10, java.util.concurrent.TimeUnit.SECONDS);
@@ -80,7 +80,10 @@ public class DiscordBotConfig {
         } catch (java.util.concurrent.TimeoutException e) {
             log.error("❌ Timeout (10s) ao inicializar bot Discord (provável Rate Limit 429). A API continuará subindo sem o bot ativo.");
             return null;
-        } catch (Exception e) {
+        } catch (java.util.concurrent.ExecutionException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             log.error("❌ Erro ao inicializar bot Discord. A API continuará subindo sem o bot ativo.", e);
             return null;
         }

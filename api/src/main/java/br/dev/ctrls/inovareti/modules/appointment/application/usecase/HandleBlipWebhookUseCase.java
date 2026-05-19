@@ -2,14 +2,22 @@ package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
+import org.slf4j.MDC;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestClientException;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
@@ -40,6 +48,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipContextService blipContextService;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final ConfirmationStateMachineService confirmationStateMachineService;
+    private final AuditPort auditPort;
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
     private final ObjectMapper objectMapper;
@@ -72,6 +81,13 @@ public class HandleBlipWebhookUseCase {
             if (expectedToken != null && !expectedToken.isBlank() && !expectedToken.equals(payload.token())) {
                 log.warn("Token de webhook inválido.");
                 throw new SecurityException("Invalid token");
+            }
+            if (expectedToken != null && !expectedToken.isBlank()) {
+                auditPort.record(
+                        "APPOINTMENT_MOTOR",
+                        "ASSINATURA_VALIDADA",
+                        "Assinatura do webhook validada. messageId=" + payload.messageId(),
+                        resolveTraceId());
             }
         }
 
@@ -148,11 +164,7 @@ public class HandleBlipWebhookUseCase {
             // Spin-Wait
             int maxAttempts = 10;
             for (int i = 0; i < maxAttempts; i++) {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+                awaitIdempotencyDelay(500L);
 
                 String cachedJson = webhookIdempotencyService.map(s -> s.getCachedResult(appointmentId)).orElse(null);
                 if (cachedJson != null) {
@@ -168,7 +180,7 @@ public class HandleBlipWebhookUseCase {
                             cachedResult.doctorName()
                         );
                         return overrideResult;
-                    } catch (Exception e) {
+                    } catch (JsonProcessingException | IllegalArgumentException e) {
                         log.error("Erro ao ler cache JSON para agendamento {}", appointmentId, e);
                     }
                 }
@@ -191,7 +203,7 @@ public class HandleBlipWebhookUseCase {
                         .orElse(null);
                 return new SessionDbData(session, doctorMapping);
             });
-        } catch (Exception ex) {
+        } catch (NotFoundException | DataAccessException | IllegalStateException ex) {
             log.error("Erro na leitura transacional inicial do webhook para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
             return null;
         }
@@ -212,8 +224,14 @@ public class HandleBlipWebhookUseCase {
         if (doctorName == null || doctorName.isBlank()) {
             try {
                 doctorName = professionalExternalPort.getProfessionalName(dbData.session().getDoctorProfissionalId());
-            } catch (Exception e) {
+            } catch (RestClientException | IllegalStateException e) {
                 log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
+                auditPort.record(
+                        "APPOINTMENT_MOTOR",
+                        "CIRCUIT_BREAKER_FALLBACK",
+                        "Fallback ao buscar nome do profissional na Feegow. appointmentId=" + appointmentId
+                                + ", erro=" + safeMessage(e),
+                        resolveTraceId());
             }
         }
 
@@ -259,7 +277,7 @@ public class HandleBlipWebhookUseCase {
                                 appointmentSessionRepository.save(currentSession);
                             }
                         });
-                    } catch (Exception ex) {
+                    } catch (DataAccessException | IllegalStateException ex) {
                         log.error("Falha ao atualizar telefone na sessão já confirmada. appointmentId={}", appointmentId, ex);
                     }
 
@@ -273,7 +291,7 @@ public class HandleBlipWebhookUseCase {
                         .build();
                     blipContextService.processAppointmentPush(dispatchIdentity, result.action(), appointmentPayload);
                 }
-            } catch (Exception e) {
+            } catch (JsonProcessingException | IllegalArgumentException e) {
                 log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
             }
             return result;
@@ -285,7 +303,7 @@ public class HandleBlipWebhookUseCase {
             log.info("[CONFIRM] Atualizando status na Feegow com código {}.", confirmedStatusId);
             try {
                 appointmentExternalPort.updateAppointmentStatus(dbData.session().getFeegowAppointmentId(), confirmedStatusId);
-            } catch (Exception ex) {
+            } catch (RestClientException | IllegalStateException ex) {
                 log.error(
                     "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
                     dbData.session().getFeegowAppointmentId(),
@@ -313,7 +331,7 @@ public class HandleBlipWebhookUseCase {
                 
                 appointmentSessionRepository.save(currentSession);
             });
-        } catch (Exception ex) {
+        } catch (DataAccessException | IllegalStateException ex) {
             log.error("Falha grave na gravação dos dados do webhook no banco de dados para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
             throw ex;
         }
@@ -343,7 +361,7 @@ public class HandleBlipWebhookUseCase {
                 // Chamada externa Blip (fora de transação)
                 blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
             }
-        } catch (Exception e) {
+        } catch (JsonProcessingException | IllegalArgumentException e) {
             log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
         }
 
@@ -495,6 +513,32 @@ public class HandleBlipWebhookUseCase {
         // Remove "Dr. ", "Dra. ", "Dr ", "Dra " case-insensitively from the start of the string
         clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
         return clean.trim();
+    }
+
+    private void awaitIdempotencyDelay(long delayMs) {
+        try {
+            CompletableFuture<Void> delay = new CompletableFuture<>();
+            CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS)
+                .execute(() -> delay.complete(null));
+            delay.get();
+        } catch (InterruptedException | ExecutionException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private String resolveTraceId() {
+        String traceId = MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = MDC.get("trace_id");
+        }
+        return traceId;
+    }
+
+    private String safeMessage(Exception ex) {
+        if (ex == null || ex.getMessage() == null) {
+            return "-";
+        }
+        return ex.getMessage();
     }
 
 

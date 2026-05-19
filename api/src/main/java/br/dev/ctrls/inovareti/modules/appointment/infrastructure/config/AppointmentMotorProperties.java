@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.config;
 
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 

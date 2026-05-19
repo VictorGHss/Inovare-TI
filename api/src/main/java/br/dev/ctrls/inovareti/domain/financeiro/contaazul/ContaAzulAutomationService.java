@@ -50,7 +50,11 @@ public class ContaAzulAutomationService {
         log.info("Sistema iniciado com busca incremental. Último fechamento: [{}]", lastClosingFormatted);
     }
 
-    @Scheduled(cron = "#{@contaAzulProperties.automation.cron}")
+    /**
+     * Rotina de fechamento mensal da Conta Azul.
+     * Executa especificamente no dia 30 de cada mês (e no dia 28 em fevereiro) às 23:00.
+     */
+    @Scheduled(cron = "${app.contaazul.cron:0 0 23 28,30 * *}")
     public void processAcquittedSales() {
         LocalDate today = LocalDate.now();
         if (!shouldRunClosing(today)) {

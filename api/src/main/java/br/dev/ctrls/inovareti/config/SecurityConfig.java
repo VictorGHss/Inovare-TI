@@ -36,10 +36,8 @@ public class SecurityConfig {
 
     private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
     private static final String BLIP_WEBHOOK_ALIAS_PATH = "/webhooks/blip";
-    private static final String BLIP_MANUAL_TRIGGER_PATH = "/webhooks/blip/manual-trigger";
     private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
     private static final String APPOINTMENT_ADMIN_PATH = "/v1/appointments/admin/**";
-    private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
 
     private final SecurityFilter securityFilter;
     private final RawBodyLoggingFilter rawBodyLoggingFilter;

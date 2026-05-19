@@ -28,7 +28,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +47,6 @@ public class IngestAppointmentsUseCase {
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
-    private final BlipLIMEClient blipLIMEClient;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final Optional<AppointmentSendIdempotencyService> appointmentSendIdempotencyService;
     private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;

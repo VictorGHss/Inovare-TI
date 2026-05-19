@@ -3,7 +3,10 @@ global:
   evaluation_interval: 15s
 
 rule_files:
+  # Regras de alerta gerais (ContaAzul, throttle, etc.)
   - 'alert.rules.yml'
+  # Regras de alerta dos Circuit Breakers da Feegow (geradas na sprint de alertas)
+  - '/etc/prometheus/prometheus.rules.yml'
 
 scrape_configs:
   - job_name: 'inovare-ti'

@@ -1,0 +1,319 @@
+{
+  "uid": "inovare-resiliencia-v2",
+  "title": "Inovare-TI — Resiliência & Threads",
+  "description": "Dashboard de monitoramento operacional da arquitetura hexagonal do Inovare-TI. Exibe o estado dos Circuit Breakers, taxa de erros da Feegow, uso de Virtual Threads (Java 21) e latência dos webhooks do Blip.",
+  "tags": ["inovare", "resiliencia", "feegow", "resilience4j", "java21", "blip"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "label": "Fonte de Dados",
+        "pluginId": "prometheus",
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Estado dos Circuit Breakers",
+      "description": "Exibe o estado atual de cada disjuntor registrado no Resilience4j. Valores: 0=CLOSED (saudável), 1=OPEN (aberto/falha), 0.5=HALF_OPEN (semi-aberto/testando).",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=~\".+\"}",
+          "legendFormat": "{{ name }} [{{ state }}]",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "CLOSED ✅", "color": "green" } } },
+            { "type": "value", "options": { "0.5": { "text": "HALF-OPEN ⚠️", "color": "yellow" } } },
+            { "type": "value", "options": { "1": { "text": "OPEN 🚨", "color": "red" } } }
+          ],
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Taxa de Erros Feegow (% de Falhas no Resilience4j)",
+      "description": "Percentual de chamadas com falha capturadas pelo Circuit Breaker da Feegow. Quando a taxa ultrapassar o limiar de 50%, o disjuntor abre automaticamente.",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"feegowApiCircuit\",kind=\"failed\"}[5m]) / rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"feegowApiCircuit\"}[5m]) * 100",
+          "legendFormat": "Taxa de Erros Feegow (%)",
+          "refId": "A"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_failure_rate{name=\"feegowApiCircuit\"}",
+          "legendFormat": "Taxa de Falha Atual (%)",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Uso de Virtual Threads (Java 21) vs Threads de Plataforma",
+      "description": "Monitoramento das threads da JVM. Com Virtual Threads (Java 21) habilitadas no Spring Boot, 'jvm_threads_live_threads' tende a ter valores muito mais altos. Threads daemon indicam threads de plataforma gerenciadas pelo Spring.",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads",
+          "legendFormat": "Threads Vivas (Total)",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_threads_daemon_threads",
+          "legendFormat": "Threads Daemon (Plataforma)",
+          "refId": "B"
+        },
+        {
+          "expr": "jvm_threads_peak_threads",
+          "legendFormat": "Pico de Threads",
+          "refId": "C"
+        },
+        {
+          "expr": "jvm_threads_states_threads{state=\"runnable\"}",
+          "legendFormat": "Threads em Execução (RUNNABLE)",
+          "refId": "D"
+        },
+        {
+          "expr": "jvm_threads_states_threads{state=\"blocked\"}",
+          "legendFormat": "Threads Bloqueadas (BLOCKED)",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Threads Bloqueadas (BLOCKED)" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Latência de Webhooks Blip (Tempo de Resposta dos Endpoints)",
+      "description": "Tempo médio de resposta dos endpoints de webhooks do Blip medido pelo Micrometer. Permite detectar lentidão na integração com o Blip antes que o timeout seja atingido.",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{uri=~\"/api/webhook.*|/api/blip.*\"}[5m]) / rate(http_server_requests_seconds_count{uri=~\"/api/webhook.*|/api/blip.*\"}[5m])",
+          "legendFormat": "Latência Média — {{ uri }}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{uri=~\"/api/webhook.*|/api/blip.*\"}[5m]))",
+          "legendFormat": "p95 — {{ uri }}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{uri=~\"/api/webhook.*|/api/blip.*\"}[5m]))",
+          "legendFormat": "p99 — {{ uri }}",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max", "mean"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Resumo de Saúde da JVM",
+      "description": "Indicadores rápidos da saúde geral da JVM: memória heap utilizada, uptime e carga de CPU do processo.",
+      "gridPos": { "x": 0, "y": 17, "w": 24, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\"} / jvm_memory_max_bytes{area=\"heap\"} * 100",
+          "legendFormat": "Heap Utilizado (%)",
+          "refId": "A",
+          "instant": true
+        },
+        {
+          "expr": "process_uptime_seconds / 3600",
+          "legendFormat": "Uptime (horas)",
+          "refId": "B",
+          "instant": true
+        },
+        {
+          "expr": "process_cpu_usage * 100",
+          "legendFormat": "CPU do Processo (%)",
+          "refId": "C",
+          "instant": true
+        },
+        {
+          "expr": "jvm_gc_pause_seconds_sum / jvm_gc_pause_seconds_count",
+          "legendFormat": "GC Pause Média (s)",
+          "refId": "D",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Uptime (horas)" },
+            "properties": [
+              { "id": "unit", "value": "h" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "GC Pause Média (s)" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              { "id": "thresholds", "value": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0.1 },
+                  { "color": "red", "value": 0.5 }
+                ]
+              }}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    }
+  ]
+}

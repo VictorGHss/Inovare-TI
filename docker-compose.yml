@@ -88,6 +88,8 @@ services:
     volumes:
       - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./docs/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      # Regras do Circuit Breaker Feegow (criadas na sprint de alertas)
+      - ./api/prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro
       - prometheus_data:/prometheus
     depends_on:
       - api

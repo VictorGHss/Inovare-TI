@@ -3,7 +3,7 @@ package br.dev.ctrls.inovareti.domain.appointment.usecase;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,13 +48,16 @@ public class SendAppointmentTemplateUseCase {
     private final BlipProperties blipProperties;
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepository appointmentDoctorMappingRepository;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public boolean execute(AppointmentDispatchContext ctx, AppointmentCategory category) {
-        AppointmentConfig config = appointmentConfigRepository.findByCategory(category)
-            .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category));
+        // FASE 1: Leitura do Banco em Transação Microscópica
+        // Isolamos a busca da configuração para liberar rapidamente a conexão HikariCP antes do I/O de rede
+        AppointmentConfig config = transactionTemplate.execute(status ->
+            appointmentConfigRepository.findByCategory(category)
+                .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category))
+        );
 
-        // Dados já resolvidos e imutáveis — sem re-busca no banco ou Feegow
         log.info("[DISPATCH CTX] Enviando template com dados pré-resolvidos: paciente='{}', médico='{}', data='{}', hora='{}'",
             ctx.patientName(), ctx.doctorName(), ctx.appointmentDateShort(), ctx.appointmentTime());
 
@@ -72,16 +75,16 @@ public class SendAppointmentTemplateUseCase {
             ctx.appointmentTime(),
             ctx.appointmentDate());
 
-        // Busca a sessão para poder salvar o resultado
-        AppointmentSession session = appointmentSessionRepository.findById(ctx.sessionId()).orElse(null);
+        AppointmentSession session = transactionTemplate.execute(status ->
+            appointmentSessionRepository.findById(ctx.sessionId()).orElse(null)
+        );
 
+        // FASE 2: Chamadas HTTP Externas ao Blip (Totalmente fora de transação do banco)
         try {
             String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), config.getTemplateId(), templateData);
 
-            // Pré-armar o teletransporte: trava o usuário no bloco de aterrissagem do fluxov1
-            // para que o clique no botão não caía no 'Início' do bot.
             armLandingState(ctx.phoneNumber());
 
             if (session != null) saveWithRetry(session, null);
@@ -103,13 +106,14 @@ public class SendAppointmentTemplateUseCase {
         }
     }
 
-    @Transactional
     public boolean execute(AppointmentSession session, AppointmentCategory category) {
+        // FASE 1: Leitura do Banco em Transação Microscópica
+        AppointmentConfig config = transactionTemplate.execute(status ->
+            appointmentConfigRepository.findByCategory(category)
+                .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category))
+        );
 
-        AppointmentConfig config = appointmentConfigRepository.findByCategory(category)
-            .orElseThrow(() -> new NotFoundException("Configuração não encontrada para categoria " + category));
-
-        // Busca o agendamento real
+        // FASE 2: Chamadas de Rede Externas para a API da Feegow (Fora de Transação)
         FeegowClient.FeegowAppointment appointment = feegowClient.searchAppointments(
             session.getAppointmentAt().toLocalDate(),
             1, // status Marcado
@@ -137,17 +141,24 @@ public class SendAppointmentTemplateUseCase {
             normalizedProfissionalId,
             appointment.doctorName());
 
-        // Inversão de prioridade: busca no banco primeiro
+        // FASE 1B: Leitura transacional do Mapeamento de Médico (Pessimistic Read exige transação)
         String doctorName = null;
         if (normalizedProfissionalId != null && !normalizedProfissionalId.isBlank() && !"null".equalsIgnoreCase(normalizedProfissionalId.trim())) {
-            doctorName = appointmentDoctorMappingRepository.findByProfissionalIdLocked(normalizedProfissionalId.trim())
-                .map(AppointmentDoctorMapping::getProfissionalNome)
-                .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
-                .orElse(null);
+            final String docId = normalizedProfissionalId.trim();
+            try {
+                doctorName = transactionTemplate.execute(status ->
+                    appointmentDoctorMappingRepository.findByProfissionalIdLocked(docId)
+                        .map(AppointmentDoctorMapping::getProfissionalNome)
+                        .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
+                        .orElse(null)
+                );
+            } catch (Exception ex) {
+                log.warn("Erro ao buscar mapeamento de médico para profissional_id={} no banco de dados. Continuando com fallback.", docId, ex);
+            }
         }
             
         if (doctorName == null || doctorName.isBlank() || "null".equalsIgnoreCase(doctorName.trim())) {
-            doctorName = appointment.doctorName(); // Fallback para a API da Feegow
+            doctorName = appointment.doctorName();
         }
         
         if (doctorName == null || doctorName.isBlank() || "null".equalsIgnoreCase(doctorName.trim())) {
@@ -179,13 +190,13 @@ public class SendAppointmentTemplateUseCase {
             appointmentTime,
             appointmentDate);
 
+        // FASE 2B: Chamadas de Rede Externas ao Blip (Fora de Transação)
         try {
             String templateId = config.getTemplateId();
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             
-            // Pré-armar o teletransporte preventivo: estaciona o usuário no bloco neutro
             armLandingState(session.getPhoneNumber());
 
             saveWithRetry(session, null);
@@ -225,14 +236,18 @@ public class SendAppointmentTemplateUseCase {
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                // Se a sessão ainda não foi salva no banco (ID null), apenas atualiza o objeto atual.
                 if (session.getId() == null) {
                     session.setStatusDetails(statusDetails);
                     return;
                 }
-                AppointmentSession currentSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(session);
-                currentSession.setStatusDetails(statusDetails);
-                appointmentSessionRepository.save(currentSession);
+                // FASE 3: Persistência em Transação Microscópica
+                // O uso do TransactionTemplate aqui garante gravação e liberação imediata da conexão HikariCP.
+                transactionTemplate.executeWithoutResult(status -> {
+                    AppointmentSession currentSession = appointmentSessionRepository.findByIdLocked(session.getId())
+                            .orElse(session);
+                    currentSession.setStatusDetails(statusDetails);
+                    appointmentSessionRepository.save(currentSession);
+                });
                 return;
             } catch (org.springframework.orm.ObjectOptimisticLockingFailureException | jakarta.persistence.OptimisticLockException e) {
                 if (i == maxRetries - 1) {
@@ -244,6 +259,11 @@ public class SendAppointmentTemplateUseCase {
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Thread interrompida durante o retry de salvamento da sessão", ie);
+                }
+            } catch (Exception ex) {
+                log.error("Erro ao gravar alteração da sessão de agendamento no banco de dados. Tentativa {}/{}. Detalhes: {}", i + 1, maxRetries, ex.getMessage(), ex);
+                if (i == maxRetries - 1) {
+                    throw ex;
                 }
             }
         }

@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,13 +38,20 @@ public class HandleBlipWebhookUseCase {
     private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
     private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
+
+    // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
+    // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
+    private record SessionDbData(
+        AppointmentSession session,
+        AppointmentDoctorMapping doctorMapping
+    ) {}
 
 
     /**
      * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado
      *         (idempotência, ação não reconhecida, etc.)
      */
-    @Transactional
     public WebhookResult execute(BlipWebhookPayload payload) {
         return execute(payload, false);
     }
@@ -54,7 +61,6 @@ public class HandleBlipWebhookUseCase {
      *         retorna {@code Endocrinologia} em fluxo {@code confirm}). No manual-trigger, os comandos LIME são
      *         disparados após o commit da transação, em thread separada, para não atrasar a resposta HTTP síncrona.
      */
-    @Transactional
     public WebhookResult execute(BlipWebhookPayload payload, boolean skipTokenValidation) {
         if (!skipTokenValidation) {
             String expectedToken = appointmentMotorProperties.getSecurity().getWebhookToken();
@@ -90,9 +96,12 @@ public class HandleBlipWebhookUseCase {
             String fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
                 String normalizedPhone = fromPhone.trim();
-                java.util.List<AppointmentSession> activeSessions =
-                    appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone);
-                if (!activeSessions.isEmpty()) {
+                // FASE 1A: Leitura rápida no banco (micro-transação)
+                java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
+                    appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                );
+                
+                if (activeSessions != null && !activeSessions.isEmpty()) {
                     String resolvedId = activeSessions.get(0).getFeegowAppointmentId();
                     log.info("[WEBHOOK] Texto livre '{}' interceptado. Mapeando para alter_{} (sessão mais recente de {})",
                         action, resolvedId, normalizedPhone);
@@ -145,7 +154,6 @@ public class HandleBlipWebhookUseCase {
                     try {
                         log.info("[IDEMPOTENCY] Resultado lido do cache para agendamento {}", appointmentId);
                         WebhookResult cachedResult = objectMapper.readValue(cachedJson, WebhookResult.class);
-                        // Garante que o retorno utilize a ação do clique atual para não propagar estados obsoletos
                         WebhookResult overrideResult = new WebhookResult(
                             cachedResult.queue(),
                             cachedResult.patientName(),
@@ -166,41 +174,52 @@ public class HandleBlipWebhookUseCase {
 
         log.info("[WEBHOOK] Processando ação '{}' para agendamento ID={}", actionType, appointmentId);
 
-        AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
-                .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
+        // FASE 1B: Leitura transacional em micro-transação.
+        // Busca a sessão e o mapeamento do médico no banco e libera a conexão HikariCP imediatamente.
+        SessionDbData dbData;
+        try {
+            dbData = transactionTemplate.execute(status -> {
+                AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
+                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
+                AppointmentDoctorMapping doctorMapping = appointmentDoctorMappingRepository
+                        .findByProfissionalId(session.getDoctorProfissionalId())
+                        .orElse(null);
+                return new SessionDbData(session, doctorMapping);
+            });
+        } catch (Exception ex) {
+            log.error("Erro na leitura transacional inicial do webhook para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
+            return null;
+        }
 
-        // Busca os dados reais diretamente no banco de dados (prioridade absoluta para evitar fallbacks)
-        AppointmentDoctorMapping doctorMapping = appointmentDoctorMappingRepository
-                .findByProfissionalId(session.getDoctorProfissionalId())
-                .orElse(null);
+        if (dbData == null) {
+            return null;
+        }
 
         String doctorName = null;
         String queue = null;
 
-        if (doctorMapping != null) {
-            doctorName = doctorMapping.getProfissionalNome();
-            queue = doctorMapping.getBlipQueueId();
+        if (dbData.doctorMapping() != null) {
+            doctorName = dbData.doctorMapping().getProfissionalNome();
+            queue = dbData.doctorMapping().getBlipQueueId();
         }
 
-        // Se não achou o nome no banco, tenta buscar na Feegow
+        // FASE 2: Chamada HTTP Externa à Feegow (Fora de Transação)
         if (doctorName == null || doctorName.isBlank()) {
             try {
-                doctorName = feegowClient.getProfessionalName(session.getDoctorProfissionalId());
+                doctorName = feegowClient.getProfessionalName(dbData.session().getDoctorProfissionalId());
             } catch (Exception e) {
                 log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
             }
         }
 
-        // Fallback final para o nome do médico
         if (doctorName == null || doctorName.isBlank()) {
             doctorName = "Clínica Inovare";
         }
         doctorName = cleanDoctorName(doctorName);
 
-        // Se a fila não foi encontrada no banco, usa o fallback da Recepção Central
         if (queue == null || queue.isBlank() || "null".equalsIgnoreCase(queue.trim()) || queue.contains("\u200E")) {
             queue = "Recepção Central / Suporte";
-            log.warn("[QUEUE WARNING] Fila não encontrada no banco para o médico {}, usando fallback: {}", session.getDoctorProfissionalId(), queue);
+            log.warn("[QUEUE WARNING] Fila não encontrada no banco para o médico {}, usando fallback: {}", dbData.session().getDoctorProfissionalId(), queue);
         }
 
         queue = blipContextService.cleanQueueName(queue);
@@ -208,16 +227,14 @@ public class HandleBlipWebhookUseCase {
             queue = "Recepção Central / Suporte";
         }
 
-        String dispatchIdentity = resolveDispatchIdentity(payload.from(), session);
-        if (dispatchIdentity != null) {
-            session.setPhoneNumber(dispatchIdentity);
-        }
+        String dispatchIdentity = resolveDispatchIdentity(payload.from(), dbData.session());
 
         // 1. Bloqueio de Duplicidade
-        if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
+        if ("CONFIRMED".equalsIgnoreCase(dbData.session().getStatus().name())) {
             log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
             
-            FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+            // FASE 2B: Chamada HTTP Externa (Fora de Transação)
+            FeegowClient.FeegowPatient patient = feegowClient.patientInfo(dbData.session().getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
             WebhookResult result = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
@@ -228,6 +245,19 @@ public class HandleBlipWebhookUseCase {
                 webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
                 
                 if (dispatchIdentity != null) {
+                    // Atualiza telefone no banco caso tenha vindo diferente (Transação microscópica de gravação)
+                    try {
+                        transactionTemplate.executeWithoutResult(status -> {
+                            AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId).orElse(null);
+                            if (currentSession != null) {
+                                currentSession.setPhoneNumber(dispatchIdentity);
+                                appointmentSessionRepository.save(currentSession);
+                            }
+                        });
+                    } catch (Exception ex) {
+                        log.error("Falha ao atualizar telefone na sessão já confirmada. appointmentId={}", appointmentId, ex);
+                    }
+
                     AppointmentPayload appointmentPayload = AppointmentPayload.builder()
                         .action(result.action() != null ? result.action() : "")
                         .doctorName(result.doctorName() != null ? result.doctorName() : "")
@@ -244,33 +274,49 @@ public class HandleBlipWebhookUseCase {
             return result;
         }
 
-
-
-
-
+        // FASE 2C: Chamada de rede externa Feegow se for CONFIRM (Fora de Transação)
         if ("confirm".equals(actionType)) {
             String confirmedStatusId = resolveConfirmedStatusId();
             log.info("[CONFIRM] Atualizando status na Feegow com código {}.", confirmedStatusId);
             try {
-                feegowClient.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
+                feegowClient.updateAppointmentStatus(dbData.session().getFeegowAppointmentId(), confirmedStatusId);
             } catch (Exception ex) {
                 log.error(
                     "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
-                    session.getFeegowAppointmentId(),
+                    dbData.session().getFeegowAppointmentId(),
                     ex.getMessage(),
                     ex);
             }
-            confirmationStateMachineService.markConfirmed(session);
-            appointmentSessionRepository.save(session);
         } else {
-            // alter_ — apenas salva sem mudar status na Feegow
             log.info("[ALTERAR] Paciente solicita alteração. Redirecionando para fila humana.");
         }
 
-        // Removidos comandos LIME (teletransporte e mensagens) - o Builder cuidará do fluxo via resposta HTTP
+        // FASE 3: Persistência no Banco de Dados em Transação Microscópica
+        // O escopo transacional é restrito e isolado da chamada HTTP externa.
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
+                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
+                
+                if (dispatchIdentity != null) {
+                    currentSession.setPhoneNumber(dispatchIdentity);
+                }
+                
+                if ("confirm".equals(actionType)) {
+                    confirmationStateMachineService.markConfirmed(currentSession);
+                }
+                
+                appointmentSessionRepository.save(currentSession);
+            });
+        } catch (Exception ex) {
+            log.error("Falha grave na gravação dos dados do webhook no banco de dados para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
+            throw ex;
+        }
+
         log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, queue);
 
-        FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+        // FASE 2D: Chamada HTTP Externa à Feegow para retornar dados do paciente (Fora de Transação)
+        FeegowClient.FeegowPatient patient = feegowClient.patientInfo(dbData.session().getPatientId());
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 
@@ -289,6 +335,7 @@ public class HandleBlipWebhookUseCase {
                     .patientCPF(finalResult.patientCPF() != null ? finalResult.patientCPF() : "")
                     .patientBirthdate(finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : "")
                     .build();
+                // Chamada externa Blip (fora de transação)
                 blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
             }
         } catch (Exception e) {

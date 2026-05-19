@@ -5,7 +5,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentVariableLog;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentVariableLogRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class NotificationService {
     private static final String DEFAULT_APPOINTMENT_HOUR = "--:--";
 
     private final RestTemplate restTemplate;
-    private final FeegowClient feegowClient;
+    private final PatientExternalPort patientExternalPort;
     private final AppointmentVariableLogRepositoryPort appointmentVariableLogRepository;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final UserRepository userRepository;
@@ -210,8 +211,9 @@ public class NotificationService {
 
     private String resolvePatientName(AppointmentSession session) {
         try {
-            String name = feegowClient.patientInfo(session.getPatientId()).name();
-            if (StringUtils.hasText(name)) {
+            FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
+            String name = patient != null ? patient.name() : null;
+            if (name != null && StringUtils.hasText(name)) {
                 return name.trim();
             }
         } catch (RuntimeException ex) {

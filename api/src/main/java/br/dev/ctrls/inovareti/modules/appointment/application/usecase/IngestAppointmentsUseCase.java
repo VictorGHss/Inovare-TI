@@ -22,10 +22,13 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.Appointmen
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.FeegowPatientDetailsDto;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +42,9 @@ public class IngestAppointmentsUseCase {
     private static final int FEEGOW_STATUS_AGENDADO = 1;
 
     private final AppointmentMotorProperties appointmentMotorProperties;
-    private final FeegowClient feegowClient;
+    private final PatientExternalPort patientExternalPort;
+    private final ProfessionalExternalPort professionalExternalPort;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
@@ -64,7 +69,7 @@ public class IngestAppointmentsUseCase {
         LocalDate targetDate = LocalDate.now().plusDays(1);
         log.info("Iniciando ingestão de agendamentos para a data: {}", targetDate);
 
-        List<FeegowClient.FeegowAppointment> appointments;
+        List<FeegowAppointment> appointments;
         
         // Chamada de rede externa Feegow (fora de transação para não segurar conexões do HikariCP)
         if (appointmentMotorProperties.isTestMode()) {
@@ -72,18 +77,18 @@ public class IngestAppointmentsUseCase {
             log.info("[TEST MODE] Buscando agendamentos apenas para o médico de teste ID: {}", testDoctorId);
             
             appointments = new ArrayList<>();
-            appointments.addAll(feegowClient.searchAppointments(
+            appointments.addAll(appointmentExternalPort.searchAppointments(
                 LocalDate.now(),
                 FEEGOW_STATUS_AGENDADO,
                 testDoctorId));
             
-            appointments.addAll(feegowClient.searchAppointments(
+            appointments.addAll(appointmentExternalPort.searchAppointments(
                 targetDate,
                 FEEGOW_STATUS_AGENDADO,
                 testDoctorId));
         } else {
             log.info("Consultando Feegow para ingestão de agendamentos com status Marcado (ID={})", FEEGOW_STATUS_AGENDADO);
-            appointments = feegowClient.searchAppointments(
+            appointments = appointmentExternalPort.searchAppointments(
                 targetDate,
                 FEEGOW_STATUS_AGENDADO,
                 null);
@@ -94,7 +99,7 @@ public class IngestAppointmentsUseCase {
 
         int created = 0;
         int messagesSent = 0;
-        for (FeegowClient.FeegowAppointment appointment : appointments) {
+        for (FeegowAppointment appointment : appointments) {
             log.info("Processando agendamento Feegow ID: {} - Status: {}", appointment.id(), appointment.statusId());
 
             if ("12".equals(appointment.statusId())) {
@@ -168,7 +173,7 @@ public class IngestAppointmentsUseCase {
             // As requisições HTTP para obter detalhes do paciente e do profissional ocorrem fora de qualquer
             // transação com o banco de dados. Isso impede o esgotamento do pool de conexões HikariCP.
             String patientId = appointment.patientId();
-            FeegowPatientDetailsDto.PatientItem patientDetails;
+            FeegowPatient patientDetails;
             final String appointmentDoctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : null;
 
             log.info("[MAPEAMENTO MÉDICO] profissional_id={} | fila_mapeada={}",
@@ -185,7 +190,7 @@ public class IngestAppointmentsUseCase {
 
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 var patientFuture = CompletableFuture.supplyAsync(() ->
-                    feegowClient.getPatientDetails(patientId), executor);
+                    patientExternalPort.patientInfo(patientId), executor);
 
                 final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
                 final String currentResolvedName = resolvedProfessionalName;
@@ -193,7 +198,7 @@ public class IngestAppointmentsUseCase {
                 var professionalFuture = CompletableFuture.supplyAsync(() -> {
                     if (!needFeegowName) return currentResolvedName;
                     try {
-                        String feegowName = feegowClient.getProfessionalName(appointmentDoctorId);
+                        String feegowName = professionalExternalPort.getProfessionalName(appointmentDoctorId);
                         if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
                             return feegowName.trim();
                         }
@@ -237,12 +242,7 @@ public class IngestAppointmentsUseCase {
                 }
             }
 
-            String phoneSourceField = "celulares";
-            String patientPhone = firstNonBlank(patientDetails != null ? patientDetails.getCelulares() : null);
-            if (patientPhone == null || patientPhone.isBlank()) {
-                patientPhone = firstNonBlank(patientDetails != null ? patientDetails.getTelefones() : null);
-                phoneSourceField = "telefones";
-            }
+            String patientPhone = patientDetails != null ? patientDetails.phone() : null;
 
             String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
             if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
@@ -260,10 +260,10 @@ public class IngestAppointmentsUseCase {
             log.info("Dados do paciente recuperados: ID={}, Telefone={}, CampoUtilizado={}",
                 patientId,
                 patientPhone,
-                phoneSourceField);
+                "preferred_phone");
 
             log.info("Agendamento Ingerido: Paciente={}, Telefone Feegow={}, Telefone Normalizado para Blip={}",
-                patientDetails != null ? patientDetails.getNome() : null,
+                patientDetails != null ? patientDetails.name() : null,
                 patientPhone,
                 phoneNumber);
 
@@ -311,10 +311,10 @@ public class IngestAppointmentsUseCase {
 
             log.info("[EXTRAS CONTATO] profissional_nome='{}' | fila_destino='{}'", safeProfissionalNome, safeFilaDestino);
 
-            final String finalPatientName = (patientDetails != null && patientDetails.getNome() != null)
-                ? patientDetails.getNome().trim() : "Paciente";
+            final String finalPatientName = (patientDetails != null && patientDetails.name() != null)
+                ? patientDetails.name().trim() : "Paciente";
             final String finalPatientPhone = (patientDetails != null)
-                ? firstNonBlank(patientDetails.getCelulares() != null ? patientDetails.getCelulares() : patientDetails.getTelefones()) : null;
+                ? patientDetails.phone() : null;
             final String finalDate = saved.getAppointmentAt() != null
                 ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
             final String finalDateShort = saved.getAppointmentAt() != null
@@ -409,7 +409,7 @@ public class IngestAppointmentsUseCase {
         return "+55" + digitsOnly;
     }
 
-    private String serializeAppointmentForLog(FeegowClient.FeegowAppointment appointment) {
+    private String serializeAppointmentForLog(FeegowAppointment appointment) {
         if (appointment == null) {
             return "{}";
         }
@@ -419,16 +419,5 @@ public class IngestAppointmentsUseCase {
         } catch (JsonProcessingException ex) {
             return String.valueOf(appointment);
         }
-    }
-
-    private String firstNonBlank(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-
-        return values.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst()
-                .orElse(null);
     }
 }

@@ -31,7 +31,8 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhoo
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.IngestAppointmentsUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowProfessional;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
@@ -52,7 +53,7 @@ public class AppointmentMotorController {
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipLIMEClient blipLIMEClient;
-    private final FeegowClient feegowClient;
+    private final ProfessionalExternalPort professionalExternalPort;
     private final UserRepository userRepository;
 
     @GetMapping("/motor-config")
@@ -85,7 +86,7 @@ public class AppointmentMotorController {
 
             // Attempt to enrich profissionalNome from Feegow where missing
             try {
-                List<FeegowClient.FeegowProfessional> pros = feegowClient.listProfessionals();
+                List<FeegowProfessional> pros = professionalExternalPort.listProfessionals();
                 if (pros != null && !pros.isEmpty()) {
                     Map<String, String> idToName = pros.stream()
                             .filter(p -> p.id() != null)
@@ -123,7 +124,7 @@ public class AppointmentMotorController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Map<String, String>>> professionals() {
         try {
-            List<FeegowClient.FeegowProfessional> list = feegowClient.listProfessionals();
+            List<FeegowProfessional> list = professionalExternalPort.listProfessionals();
             List<Map<String, String>> out = list.stream()
                     .map(p -> Map.of("id", p.id(), "name", p.name()))
                     .collect(Collectors.toList());
@@ -256,7 +257,7 @@ public class AppointmentMotorController {
 
                 // Attempt to enrich profissional_nome from Feegow
                 try {
-                    String profNome = feegowClient.getProfessionalName(profissionalId);
+                    String profNome = professionalExternalPort.getProfessionalName(profissionalId);
                         if (StringUtils.hasText(profNome)) {
                             createdMapping.setProfissionalNome(formatProperName(profNome));
                         }
@@ -306,7 +307,7 @@ public class AppointmentMotorController {
             // Enrich profissional_nome on update only if not already provided
             if (!StringUtils.hasText(mapping.getProfissionalNome())) {
                 try {
-                    String profNome = feegowClient.getProfessionalName(profissionalId);
+                    String profNome = professionalExternalPort.getProfessionalName(profissionalId);
                     if (StringUtils.hasText(profNome)) {
                         mapping.setProfissionalNome(formatProperName(profNome));
                     }

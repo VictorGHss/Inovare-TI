@@ -35,7 +35,11 @@ public class DoctorMappingController {
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
     private final UserRepository userRepository;
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Lista os mapeamentos de e-mails de médicos para recibos.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping
     public ResponseEntity<List<DoctorMappingResponseDTO>> listMappings() {
         List<DoctorMappingResponseDTO> response = doctorEmailMappingRepository.findAllByOrderByDoctorNameAsc()
@@ -46,7 +50,11 @@ public class DoctorMappingController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Cria um novo mapeamento de e-mail de médico para a Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping
     public ResponseEntity<DoctorMappingResponseDTO> createMapping(@RequestBody @Valid UpsertDoctorMappingRequest request) {
         String customerUuid = request.contaAzulCustomerUuid().trim();
@@ -78,7 +86,11 @@ public class DoctorMappingController {
         return ResponseEntity.ok(toResponse(saved));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Atualiza um mapeamento existente de e-mail de médico.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<DoctorMappingResponseDTO> updateMapping(
             @PathVariable UUID id,
@@ -120,7 +132,11 @@ public class DoctorMappingController {
         return ResponseEntity.ok(toResponse(saved));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Remove um mapeamento existente de e-mail de médico.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMapping(@PathVariable UUID id) {
         DoctorEmailMapping mapping = doctorEmailMappingRepository.findById(id)

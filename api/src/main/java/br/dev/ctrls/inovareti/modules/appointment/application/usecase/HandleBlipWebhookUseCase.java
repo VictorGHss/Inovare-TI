@@ -16,7 +16,10 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.Appointm
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopWebhookIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
@@ -31,7 +34,9 @@ public class HandleBlipWebhookUseCase {
 
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final AppointmentMotorProperties appointmentMotorProperties;
-    private final FeegowClient feegowClient;
+    private final PatientExternalPort patientExternalPort;
+    private final ProfessionalExternalPort professionalExternalPort;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final BlipContextService blipContextService;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final ConfirmationStateMachineService confirmationStateMachineService;
@@ -206,7 +211,7 @@ public class HandleBlipWebhookUseCase {
         // FASE 2: Chamada HTTP Externa à Feegow (Fora de Transação)
         if (doctorName == null || doctorName.isBlank()) {
             try {
-                doctorName = feegowClient.getProfessionalName(dbData.session().getDoctorProfissionalId());
+                doctorName = professionalExternalPort.getProfessionalName(dbData.session().getDoctorProfissionalId());
             } catch (Exception e) {
                 log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
             }
@@ -234,7 +239,7 @@ public class HandleBlipWebhookUseCase {
             log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
             
             // FASE 2B: Chamada HTTP Externa (Fora de Transação)
-            FeegowClient.FeegowPatient patient = feegowClient.patientInfo(dbData.session().getPatientId());
+            FeegowPatient patient = patientExternalPort.patientInfo(dbData.session().getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
             String formattedBirthdate = formatBirthdate(patient.birthdate());
             WebhookResult result = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
@@ -279,7 +284,7 @@ public class HandleBlipWebhookUseCase {
             String confirmedStatusId = resolveConfirmedStatusId();
             log.info("[CONFIRM] Atualizando status na Feegow com código {}.", confirmedStatusId);
             try {
-                feegowClient.updateAppointmentStatus(dbData.session().getFeegowAppointmentId(), confirmedStatusId);
+                appointmentExternalPort.updateAppointmentStatus(dbData.session().getFeegowAppointmentId(), confirmedStatusId);
             } catch (Exception ex) {
                 log.error(
                     "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
@@ -316,7 +321,7 @@ public class HandleBlipWebhookUseCase {
         log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, queue);
 
         // FASE 2D: Chamada HTTP Externa à Feegow para retornar dados do paciente (Fora de Transação)
-        FeegowClient.FeegowPatient patient = feegowClient.patientInfo(dbData.session().getPatientId());
+        FeegowPatient patient = patientExternalPort.patientInfo(dbData.session().getPatientId());
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
 

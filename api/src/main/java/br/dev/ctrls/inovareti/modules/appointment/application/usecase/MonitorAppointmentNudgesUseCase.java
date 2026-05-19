@@ -12,7 +12,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class MonitorAppointmentNudgesUseCase {
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final ConfirmationStateMachineService confirmationStateMachineService;
-    private final FeegowClient feegowClient;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final BlipContextService blipContextService;
     private final TransactionTemplate transactionTemplate;
 
@@ -88,7 +88,7 @@ public class MonitorAppointmentNudgesUseCase {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                 if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
-                    feegowClient.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
                     confirmationStateMachineService.markCanceledByNoResponse(lockedSession);
                     appointmentSessionRepository.save(lockedSession);
                     blipContextService.setMasterState(lockedSession.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");

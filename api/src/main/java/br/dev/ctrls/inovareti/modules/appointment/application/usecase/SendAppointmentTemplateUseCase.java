@@ -20,7 +20,10 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
@@ -42,7 +45,8 @@ public class SendAppointmentTemplateUseCase {
 
     private final AppointmentConfigRepositoryPort appointmentConfigRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
-    private final FeegowClient feegowClient;
+    private final PatientExternalPort patientExternalPort;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final BlipNotificationService blipNotificationService;
     private final BlipContextService blipContextService;
     private final BlipProperties blipProperties;
@@ -114,14 +118,14 @@ public class SendAppointmentTemplateUseCase {
         );
 
         // FASE 2: Chamadas de Rede Externas para a API da Feegow (Fora de Transação)
-        FeegowClient.FeegowAppointment appointment = feegowClient.searchAppointments(
+        FeegowAppointment appointment = appointmentExternalPort.searchAppointments(
             session.getAppointmentAt().toLocalDate(),
             1, // status Marcado
             session.getDoctorProfissionalId()
         ).stream()
          .filter(a -> a.id().equals(session.getFeegowAppointmentId()))
          .findFirst()
-         .orElse(new FeegowClient.FeegowAppointment(
+         .orElse(new FeegowAppointment(
             session.getFeegowAppointmentId(),
             session.getPatientId(),
             session.getDoctorProfissionalId(),
@@ -130,7 +134,7 @@ public class SendAppointmentTemplateUseCase {
             session.getAppointmentAt(),
             null));
 
-        FeegowClient.FeegowPatient patient = feegowClient.patientInfo(session.getPatientId());
+        FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
 
         String normalizedProfissionalId = session.getDoctorProfissionalId();
         if (normalizedProfissionalId != null) {

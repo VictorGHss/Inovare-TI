@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipTemplateDto;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTemplateMappingResponse;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.SaveAppointmentTemplateMappingsRequest;
@@ -34,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/v1/appointments/config")
 @CrossOrigin(origins = "http://localhost:5173")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AppointmentConfigController {
 
     private final ListAppointmentDictionaryUseCase listAppointmentDictionaryUseCase;
@@ -45,6 +47,7 @@ public class AppointmentConfigController {
 
     /**
      * Retorna o dicionário de variáveis disponíveis para templates
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/dictionary")
     public ResponseEntity<List<ListAppointmentDictionaryUseCase.DictionaryItem>> dictionary() {
@@ -53,6 +56,7 @@ public class AppointmentConfigController {
 
     /**
      * Lista os campos disponíveis do AppointmentTemplateData para o frontend montar os mapeamentos.
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/feegow-fields")
     public ResponseEntity<List<String>> feegowFields() {
@@ -62,6 +66,7 @@ public class AppointmentConfigController {
     /**
      * Busca templates aprovados disponíveis na API do Blip
      * @return Lista de templates com id e nome
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/blip-templates")
     public ResponseEntity<List<BlipTemplateDto>> blipTemplates() {
@@ -73,6 +78,7 @@ public class AppointmentConfigController {
      * Atualiza o template associado a uma categoria de agendamento
      * @param category Categoria (CONFIRMATION, NUDGE_1, NUDGE_FINAL)
      * @param request Contém o template name/id a ser associado
+     * <p>Role necessária: ADMIN</p>
      */
     @PutMapping("/{category}")
     public ResponseEntity<Map<String, Object>> updateConfig(
@@ -103,6 +109,7 @@ public class AppointmentConfigController {
 
     /**
      * Salva o mapeamento dinâmico de placeholders para campos do Feegow por template.
+     * <p>Role necessária: ADMIN</p>
      */
     @PostMapping("/template-mappings")
     public ResponseEntity<Map<String, Object>> saveTemplateMappings(
@@ -122,6 +129,7 @@ public class AppointmentConfigController {
 
     /**
      * Retorna os mapeamentos salvos para um template específico.
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/template-mappings")
     public ResponseEntity<List<AppointmentTemplateMappingResponse>> templateMappings(

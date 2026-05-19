@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,12 +27,13 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Controller que expõe transações financeiras internas e suas linhas derivadas
- * a partir de movimentos de estoque (stock_movements). Endpoint público:
- * GET /financial/transactions
+ * a partir de movimentos de estoque (stock_movements).
+ * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
  */
 @RestController
 @RequestMapping("/financial")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
 public class FinancialTransactionsController {
 
     private final FinancialTransactionRepository transactionRepository;

@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils;
 
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -77,7 +78,7 @@ public class VariableResolver {
     public record VariableDefinition(String key, String path, String description) {
     }
 
-    public Map<String, Object> buildContext(FeegowClient.FeegowAppointment appointment, FeegowClient.FeegowPatient patient) {
+    public Map<String, Object> buildContext(FeegowAppointment appointment, FeegowPatient patient) {
         Map<String, Object> context = new LinkedHashMap<>();
         Map<String, Object> agendamento = new LinkedHashMap<>();
         Map<String, Object> medico = new LinkedHashMap<>();

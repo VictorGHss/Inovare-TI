@@ -11,7 +11,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowClient;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,7 +28,7 @@ public class FeegowStartupProbe {
     private static final int MAX_LOGGED_APPOINTMENT_IDS = 5;
     private static final String DEFAULT_TEST_DOCTOR_ID = "70";
 
-    private final FeegowClient feegowClient;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final AppointmentMotorProperties appointmentMotorProperties;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -43,7 +44,7 @@ public class FeegowStartupProbe {
                 testDoctorId);
 
         try {
-            List<FeegowClient.FeegowAppointment> appointments = feegowClient.searchAppointments(targetDate,
+            List<FeegowAppointment> appointments = appointmentExternalPort.searchAppointments(targetDate,
                     FEEGOW_STATUS_AGENDADO);
             int totalReceived = appointments.size();
 
@@ -54,7 +55,7 @@ public class FeegowStartupProbe {
             }
 
             List<String> sampleAppointmentIds = appointments.stream()
-                    .map(FeegowClient.FeegowAppointment::id)
+                    .map(FeegowAppointment::id)
                     .limit(MAX_LOGGED_APPOINTMENT_IDS)
                     .toList();
 

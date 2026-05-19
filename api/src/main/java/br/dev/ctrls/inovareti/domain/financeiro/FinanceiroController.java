@@ -43,7 +43,11 @@ public class FinanceiroController {
     private final FinanceEmailService receiptService;
     
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Lista os recibos processados pelo motor financeiro.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/recibos")
     public ResponseEntity<List<FinanceReceiptResponseDTO>> listReceipts() {
         List<FinanceReceiptResponseDTO> response = financeiroOperationsService.listReceipts()
@@ -54,7 +58,11 @@ public class FinanceiroController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Lista os alertas do sistema financeiro.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/alertas")
     public ResponseEntity<List<FinanceAlertResponseDTO>> listAlerts() {
         List<FinanceAlertResponseDTO> response = financeiroOperationsService.listAlerts()
@@ -65,27 +73,43 @@ public class FinanceiroController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Reenvia um recibo pendente ou com falha.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/alertas/{alertId}/reenviar")
     public ResponseEntity<Void> requeueAlert(@PathVariable UUID alertId) {
         financeiroOperationsService.requeueAlertReceipt(alertId, getAuthenticatedUserId());
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Executa a rotina de backfill dos últimos 30 dias.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/backfill")
     public ResponseEntity<FinanceiroOperationsService.BackfillResult> runBackfill() {
         return ResponseEntity.ok(financeiroOperationsService.runBackfillLast30Days());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Processa individualmente uma parcela informada por ID.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/parcelas/{id}/processar")
     public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
             @PathVariable("id") String parcelaId) {
         return ResponseEntity.ok(financeiroOperationsService.processParcelById(parcelaId));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Retorna o resumo consolidado do fluxo financeiro.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/resumo")
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
         boolean integrationActive = contaAzulTokenService.hasPersistedTokenRecord();
@@ -114,7 +138,11 @@ public class FinanceiroController {
             summary.lastUpdatedAt()));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Executa manualmente a automação de vendas da Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/autonacao/executar")
         public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
             @RequestParam LocalDate dataInicio,
@@ -152,7 +180,11 @@ public class FinanceiroController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    /**
+     * Sincroniza a base de médicos da Conta Azul com o banco local.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/medicos/sincronizar-base")
     public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
         try {
@@ -183,6 +215,11 @@ public class FinanceiroController {
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 
+    /**
+     * Dispara um envio de recibo de teste por e-mail.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/trigger-test-receipt")
     public ResponseEntity<Map<String, String>> triggerTestReceipt() {
         log.info("Iniciando envio de e-mail de teste (MODO TESTE ATIVO)");

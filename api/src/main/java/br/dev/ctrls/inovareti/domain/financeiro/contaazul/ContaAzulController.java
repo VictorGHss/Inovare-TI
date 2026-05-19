@@ -68,8 +68,12 @@ public class ContaAzulController {
         response.sendRedirect(authorizationUrl);
     }
 
+    /**
+     * Retorna o status atual da autorização da integração com a Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
     @GetMapping("/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     public ResponseEntity<ContaAzulTokenService.AuthorizationStatus> getAuthorizationStatus() {
         return ResponseEntity.ok(contaAzulTokenService.getAuthorizationStatus());
     }
@@ -98,29 +102,45 @@ public class ContaAzulController {
         }
     }
 
+    /**
+     * Verifica a existência de um cliente na Conta Azul pelo e-mail informado.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
     @GetMapping("/check-customer/{email}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     public ResponseEntity<ContaAzulCustomerCheckResponseDTO> checkCustomerByEmail(@PathVariable String email) {
         String customerId = contaAzulClient.findCustomerIdByEmail(email).orElse(null);
         return ResponseEntity.ok(new ContaAzulCustomerCheckResponseDTO(email, customerId, customerId != null));
     }
 
+    /**
+     * Busca o e-mail de um cliente na Conta Azul pelo ID do cliente.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
     @GetMapping("/customer-email/{customerId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     public ResponseEntity<ContaAzulCustomerEmailResponseDTO> getCustomerEmail(@PathVariable String customerId) {
         String email = contaAzulClient.findCustomerEmailById(customerId).orElse(null);
         return ResponseEntity.ok(new ContaAzulCustomerEmailResponseDTO(email));
     }
 
+    /**
+     * Dispara um teste real de envio de venda para a Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
     @PostMapping("/teste-envio-real/{saleId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     public ResponseEntity<TesteEnvioRealResponseDTO> triggerRealSaleTest(@PathVariable String saleId) {
         TesteEnvioRealResult result = contaAzulAutomationService.processRealSaleTest(saleId);
         return ResponseEntity.ok(new TesteEnvioRealResponseDTO("Success", "Test triggered for sale " + result.saleId()));
     }
 
+    /**
+     * Força o refresh e recarga das credenciais da Conta Azul a partir do banco.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
+     */
     @PostMapping("/force-refresh")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     public ResponseEntity<Map<String, Object>> forceRefresh(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String who = (auth != null) ? auth.getName() : "anonymous";

@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.config;
 
-import java.util.List;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -65,30 +63,32 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()
-                .requestMatchers("/admin/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/v1/appointments/config/**").permitAll()
-                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
-                .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
-                .requestMatchers("/auth/**").permitAll()
+                // Webhooks liberados publicamente em primeiro lugar para evitar bloqueios acidentais.
+                // Novos comentários explicativos em PORTUGUÊS.
                 .requestMatchers(BLIP_WEBHOOK_PATH, BLIP_WEBHOOK_PATH + "/").permitAll()
                 .requestMatchers(BLIP_WEBHOOK_ALIAS_PATH, BLIP_WEBHOOK_ALIAS_PATH + "/").permitAll()
                 .requestMatchers(BLIP_MANUAL_TRIGGER_PATH, BLIP_MANUAL_TRIGGER_PATH + "/").permitAll()
                 .requestMatchers("/api/webhooks/**").permitAll()
+                .requestMatchers("/api/v1/webhooks/**").permitAll()
                 .requestMatchers("/v1/webhook/**").permitAll()
                 .requestMatchers("/api/v1/webhook/**").permitAll()
-                // Permitir acesso público aos endpoints do Actuator para que coletores
-                // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
-                .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(
                     HttpMethod.POST,
                     APPOINTMENT_BLIP_WEBHOOK_PATH,
                     APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .permitAll()
-                // Liberação temporária para desenvolvimento local dos endpoints de configuração.
-                .requestMatchers("/v1/appointments/config/**").permitAll()
+
+                // Demais requisições OPTIONS e rotas administrativas/autenticação
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()
+                .requestMatchers("/admin/**").permitAll()
+                .requestMatchers(HttpMethod.GET, APPOINTMENT_DEBUG_QUEUES_PATH).permitAll()
+                .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
+                .requestMatchers("/auth/**").permitAll()
+                // Permitir acesso público aos endpoints do Actuator para que coletores
+                // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
+                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
             )

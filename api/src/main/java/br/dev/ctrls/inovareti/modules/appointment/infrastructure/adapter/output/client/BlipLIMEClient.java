@@ -10,27 +10,16 @@ import java.nio.charset.StandardCharsets;
 
 import jakarta.annotation.PostConstruct;
 
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.core.ParameterizedTypeReference;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.HttpEntity;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.HttpHeaders;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.HttpMethod;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.MediaType;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.ResponseEntity;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.stereotype.Component;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.web.client.RestTemplate;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.web.util.UriComponentsBuilder;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import org.springframework.web.client.RestClientException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,8 +27,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipClientPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
-import io.github.resilience4j.retry.annotation.Retry;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
+import io.github.resilience4j.retry.annotation.Retry; // Mantido, pois é usado
+import java.util.concurrent.locks.LockSupport; // Mantido, pois é usado
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -317,13 +306,12 @@ public class BlipLIMEClient implements BlipClientPort {
     }
 
     private void rateLimit() {
-        long now = System.currentTimeMillis();
-        long elapsed = now - lastRequestAt.get();
-        long delay = properties.getBlipRateLimitMs() - elapsed;
-
-        if (delay > 0) {
-            try { Thread.sleep(delay); } 
-            catch (InterruptedException ex) {
+        long currentLastRequest = lastRequestAt.get();
+        long delay = properties.getBlipRateLimitMs() - (System.currentTimeMillis() - currentLastRequest);
+        if (delay > 0) { // Se o delay for positivo, significa que precisamos esperar
+            try { // LockSupport.parkNanos é preferível a Thread.sleep para Virtual Threads, pois não as "pina"
+                LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(delay));
+            } catch (Exception ex) {
                 Thread.currentThread().interrupt();
                 log.warn("Thread interrompida no rate limit", ex);
             }

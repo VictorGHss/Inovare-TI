@@ -51,7 +51,7 @@ public class FinanceiroOperationsService {
         return systemAlertRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    public ParcelProcessingResult processParcelById(String parcelaId) {
+    public ParcelProcessingResult conciliarParcelaPorId(String parcelaId) { // Renomeado para refletir linguagem ubíqua
         if (!StringUtils.hasText(parcelaId)) {
             throw new BadRequestException("Parcela inválida para processamento manual.");
         }
@@ -104,7 +104,7 @@ public class FinanceiroOperationsService {
         systemAlertRepository.save(alert);
     }
 
-    public BackfillResult runBackfillLast30Days() {
+    public BackfillResult executarBackfillUltimos30Dias() { // Renomeado para refletir linguagem ubíqua
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime from = now.minusDays(BACKFILL_DAYS);
 
@@ -203,8 +203,7 @@ public class FinanceiroOperationsService {
     }
 
     private void pauseBetweenWindows() {
-        long nanos = Duration.ofMillis(WINDOW_DELAY_MS).toNanos();
-        LockSupport.parkNanos(nanos);
+        LockSupport.parkNanos(Duration.ofMillis(WINDOW_DELAY_MS).toNanos()); // Usando LockSupport.parkNanos para delays não bloqueantes
         if (Thread.currentThread().isInterrupted()) {
             throw new IllegalStateException("Backfill interrompido durante rate limit entre janelas.");
         }

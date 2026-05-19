@@ -3,8 +3,7 @@ package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
@@ -164,7 +163,7 @@ public class HandleBlipWebhookUseCase {
             // Spin-Wait
             int maxAttempts = 10;
             for (int i = 0; i < maxAttempts; i++) {
-                awaitIdempotencyDelay(500L);
+                awaitIdempotencyDelayNonBlocking(500L); // Usando delay não bloqueante para Virtual Threads
 
                 String cachedJson = webhookIdempotencyService.map(s -> s.getCachedResult(appointmentId)).orElse(null);
                 if (cachedJson != null) {
@@ -515,15 +514,9 @@ public class HandleBlipWebhookUseCase {
         return clean.trim();
     }
 
-    private void awaitIdempotencyDelay(long delayMs) {
-        try {
-            CompletableFuture<Void> delay = new CompletableFuture<>();
-            CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS)
-                .execute(() -> delay.complete(null));
-            delay.get();
-        } catch (InterruptedException | ExecutionException ex) {
-            Thread.currentThread().interrupt();
-        }
+    // Substitui Thread.sleep por um mecanismo não bloqueante para Virtual Threads.
+    private void awaitIdempotencyDelayNonBlocking(long delayMs) {
+        LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(delayMs));
     }
 
     private String resolveTraceId() {

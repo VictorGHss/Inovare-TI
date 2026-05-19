@@ -2,8 +2,6 @@ package br.dev.ctrls.inovareti.domain.financeiro;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,15 +40,17 @@ public class FinancialTransactionsController {
     private final UserRepository userRepository;
     private final SectorRepository sectorRepository;
 
+    // Usando o Specification Pattern para construir a consulta dinamicamente.
     @GetMapping("/transactions")
     public ResponseEntity<List<TransactionLineDTO>> listTransactions(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-
-        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
-        LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
-
-        List<FinancialTransaction> transactions = transactionRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        // Construindo a Specification a partir dos parâmetros do request
+        FinancialTransactionSpecification spec = FinancialTransactionSpecification.builder()
+            .startDate(startDate).endDate(endDate).build();
+        
+        // Executando a consulta usando a Specification
+        List<FinancialTransaction> transactions = transactionRepository.findAll(spec);
 
         // Agrupa por ticketId e produz linhas a partir de stock_movements referenciando o ticket
         List<TransactionLineDTO> lines = new ArrayList<>();

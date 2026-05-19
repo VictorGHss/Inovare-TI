@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.domain.audit;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,24 +49,16 @@ public class AuditLogService {
      * @param userId    filtra por usuário (opcional)
      * @param action    filtra por tipo de ação (opcional)
      * @param startDate filtro de data inicial (opcional)
-     * @param endDate   filtro de data final (opcional)
+     * @param endDate   filtro de data final (opcional) // Removido do método, agora parte da Specification
      * @param page      número da página (zero-based)
      * @param size      tamanho da página (máximo 100)
      */
-    public Page<AuditLogResponseDTO> query(
-            UUID userId,
-            AuditAction action,
-            LocalDateTime startDate,
-            LocalDateTime endDate,
-            int page,
-            int size) {
+    public Page<AuditLogResponseDTO> query(AuditLogSpecification spec, int page, int size) {
 
         int safeSize = Math.min(size, 100);
         PageRequest pageable = PageRequest.of(page, safeSize);
-        String actionName = action != null ? action.name() : null;
 
-        return auditLogRepository
-            .findWithFilters(userId, actionName, startDate, endDate, pageable)
+        return auditLogRepository.findAll(spec, pageable)
                 .map(logEntry -> {
                     String name = resolveUserName(logEntry.getUserId());
                     return AuditLogResponseDTO.from(logEntry, name);

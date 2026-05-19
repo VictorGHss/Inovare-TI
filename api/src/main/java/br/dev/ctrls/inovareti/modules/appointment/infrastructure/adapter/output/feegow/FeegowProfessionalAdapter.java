@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowProfessional;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.CacheJitter;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowProfessionalClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties;
@@ -107,8 +108,8 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
             String resolvedName = extractProfessionalName(root);
             if (resolvedName != null && !resolvedName.isBlank()) {
                 try {
-                    if (stringRedisTemplate != null) {
-                        stringRedisTemplate.opsForValue().set(cacheKey, resolvedName.trim(), java.time.Duration.ofHours(24));
+                    if (stringRedisTemplate != null) { // Adiciona jitter ao TTL do cache para evitar "stampede"
+                        stringRedisTemplate.opsForValue().set(cacheKey, resolvedName.trim(), CacheJitter.withJitter(java.time.Duration.ofHours(24)));
                     }
                 } catch (RuntimeException ex) {
                     log.warn("Falha ao gravar cache Redis para professional name id={}: {}", id, ex.getMessage());

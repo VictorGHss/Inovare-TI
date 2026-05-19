@@ -1,0 +1,48 @@
+package br.dev.ctrls.inovareti.domain.audit;
+
+import jakarta.persistence.criteria.Predicate;
+import lombok.Builder;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Implementação do Specification Pattern para filtrar AuditLogs.
+ * Permite construir consultas dinâmicas e reutilizáveis.
+ */
+@Builder
+public class AuditLogSpecification implements Specification<AuditLog> {
+
+    private UUID userId;
+    private AuditAction action;
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+
+    @Override
+    public Predicate toPredicate(jakarta.persistence.criteria.Root<AuditLog> root,
+                                 jakarta.persistence.criteria.CriteriaQuery<?> query,
+                                 jakarta.persistence.criteria.CriteriaBuilder criteriaBuilder) {
+        List<Predicate> predicates = new ArrayList<>();
+
+        if (userId != null) {
+            predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
+        }
+
+        if (action != null) {
+            predicates.add(criteriaBuilder.equal(root.get("action"), action));
+        }
+
+        if (startDate != null) {
+            predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), startDate));
+        }
+
+        if (endDate != null) {
+            predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
+        }
+
+        return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+    }
+}

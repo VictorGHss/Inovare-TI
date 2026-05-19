@@ -23,6 +23,8 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhoo
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * Controller que gerencia a recepção de webhooks de mensagens e notificações da Blip.
@@ -31,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Webhooks - Blip", description = "Endpoints de integração de webhooks para o motor de agendamentos e controle da Blip")
 public class BlipWebhookController {
 
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
@@ -45,6 +48,10 @@ public class BlipWebhookController {
     // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
     private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    @Operation(
+        summary = "Recebe e processa webhooks enviados pelo Blip",
+        description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validação de assinatura criptográfica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotência de eventos."
+    )
     @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
         consumes = {
             MediaType.APPLICATION_JSON_VALUE,
@@ -129,6 +136,10 @@ public class BlipWebhookController {
         ));
     }
 
+    @Operation(
+        summary = "Dispara manualmente fluxos de agendamento por API",
+        description = "Permite simular ou forçar requisições de webhooks Blip de forma controlada via painel administrativo para depuração e testes."
+    )
     @PostMapping(value = "/webhooks/blip/manual-trigger", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> manualTrigger(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,

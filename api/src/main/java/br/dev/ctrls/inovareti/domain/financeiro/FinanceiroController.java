@@ -29,11 +29,14 @@ import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 
 @Slf4j
 @RestController
 @RequestMapping("/financeiro")
 @RequiredArgsConstructor
+@Tag(name = "Financeiro & Faturamento", description = "Operações administrativas do motor financeiro e integração com Conta Azul")
 public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
@@ -47,6 +50,10 @@ public class FinanceiroController {
      * Lista os recibos processados pelo motor financeiro.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Lista os recibos processados pelo motor financeiro",
+        description = "Retorna os recibos consolidados e gerados a partir do faturamento de parcelas de vendas de médicos."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/recibos")
     public ResponseEntity<List<FinanceReceiptResponseDTO>> listReceipts() {
@@ -62,6 +69,10 @@ public class FinanceiroController {
      * Lista os alertas do sistema financeiro.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Lista os alertas do sistema financeiro",
+        description = "Busca logs e registros de notificações de alerta ou erros de processamento e e-mail."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/alertas")
     public ResponseEntity<List<FinanceAlertResponseDTO>> listAlerts() {
@@ -77,6 +88,10 @@ public class FinanceiroController {
      * Reenvia um recibo pendente ou com falha.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Reenvia um recibo pendente ou com falha",
+        description = "Envia novamente um recibo por e-mail de forma assíncrona."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/alertas/{alertId}/reenviar")
     public ResponseEntity<Void> requeueAlert(@PathVariable UUID alertId) {
@@ -88,6 +103,10 @@ public class FinanceiroController {
      * Executa a rotina de backfill dos últimos 30 dias.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Executa a rotina de backfill dos últimos 30 dias",
+        description = "Processa retroativamente as vendas e liquidações financeiras da Conta Azul para o período recente."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/backfill")
     public ResponseEntity<FinanceiroOperationsService.BackfillResult> runBackfill() {
@@ -98,6 +117,10 @@ public class FinanceiroController {
      * Processa individualmente uma parcela informada por ID.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Processa individualmente uma parcela informada por ID",
+        description = "Efetua a baixa e gera a notificação de recibo para uma parcela individual de venda da Conta Azul."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/parcelas/{id}/processar")
     public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
@@ -109,6 +132,10 @@ public class FinanceiroController {
      * Retorna o resumo consolidado do fluxo financeiro.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Retorna o resumo consolidado do fluxo financeiro",
+        description = "Disponibiliza os totais faturados, saldos pendentes e status da integração ativa da Conta Azul."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/resumo")
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
@@ -142,6 +169,10 @@ public class FinanceiroController {
      * Executa manualmente a automação de vendas da Conta Azul.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Executa manualmente a automação de vendas da Conta Azul",
+        description = "Dispara de forma síncrona a busca e processamento de vendas quitadas em um período específico na Conta Azul."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/autonacao/executar")
         public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
@@ -184,6 +215,10 @@ public class FinanceiroController {
      * Sincroniza a base de médicos da Conta Azul com o banco local.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Sincroniza a base de médicos com a Conta Azul",
+        description = "Busca todos os médicos mapeados como clientes na Conta Azul e atualiza os registros locais."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/medicos/sincronizar-base")
     public ResponseEntity<SyncDoctorsResponseDTO> syncDoctorsBase() {
@@ -219,6 +254,10 @@ public class FinanceiroController {
      * Dispara um envio de recibo de teste por e-mail.
      * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
+    @Operation(
+        summary = "Dispara um envio de recibo de teste por e-mail",
+        description = "Envia um recibo de layout estruturado com dados mockados para testes do template de faturamento."
+    )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/trigger-test-receipt")
     public ResponseEntity<Map<String, String>> triggerTestReceipt() {

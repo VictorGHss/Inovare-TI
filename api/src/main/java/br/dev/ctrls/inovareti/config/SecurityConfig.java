@@ -88,6 +88,8 @@ public class SecurityConfig {
                 // Permitir acesso público aos endpoints do Actuator para que coletores
                 // de métricas (ex: Prometheus) possam ler /actuator/** sem JWT.
                 .requestMatchers("/actuator/**").permitAll()
+                // Libera endpoints do Swagger UI e documentação da API
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()

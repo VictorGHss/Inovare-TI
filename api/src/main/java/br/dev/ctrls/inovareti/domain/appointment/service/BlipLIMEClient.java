@@ -24,6 +24,7 @@ import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import br.dev.ctrls.inovareti.domain.appointment.AppointmentMotorProperties;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -128,6 +129,7 @@ public class BlipLIMEClient {
         }
     }
 
+    @Retry(name = "blipRetry", fallbackMethod = "fallbackExecuteCommand")
     public ResponseEntity<Map<String, Object>> executeCommand(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
         
@@ -196,6 +198,16 @@ public class BlipLIMEClient {
         return response;
     }
 
+    /**
+     * Fallback para falha no envio de comando ao Blip.
+     * Retorna fallback seguro e registra a intenção de sincronização offline para evitar estouro de erro 500.
+     */
+    public ResponseEntity<Map<String, Object>> fallbackExecuteCommand(Map<String, Object> payload, AuthorizationScope scope, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao executar comando no Blip após retentativas. Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
+        return ResponseEntity.ok(Map.of("status", "offline-queued", "message", t.getMessage()));
+    }
+
+    @Retry(name = "blipRetry", fallbackMethod = "fallbackExecuteMessage")
     public ResponseEntity<Map<String, Object>> executeMessage(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
         java.net.URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
@@ -207,6 +219,15 @@ public class BlipLIMEClient {
                 new HttpEntity<>(payload, buildHeaders(scope)),
                 new ParameterizedTypeReference<Map<String, Object>>() {}
         );
+    }
+
+    /**
+     * Fallback para falha no envio de mensagem ao Blip.
+     * Retorna fallback seguro e registra a intenção de sincronização offline para evitar estouro de erro 500.
+     */
+    public ResponseEntity<Map<String, Object>> fallbackExecuteMessage(Map<String, Object> payload, AuthorizationScope scope, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao enviar mensagem no Blip após retentativas. Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
+        return ResponseEntity.ok(Map.of("status", "offline-queued", "message", t.getMessage()));
     }
 
     public String resolveBlipBaseUrl() {

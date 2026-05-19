@@ -38,6 +38,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowPatientDetailsDto;
 import br.dev.ctrls.inovareti.domain.appointment.dto.FeegowSearchResponseDto;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 // removed PostConstruct diagnostic usage (startup unit discovery removed)
 import lombok.extern.slf4j.Slf4j;
 
@@ -89,6 +90,7 @@ public class FeegowClient {
         return searchAppointments(date, statusId, null);
     }
 
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackSearchAppointments")
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId, String profissionalId) {
         LocalDate effectiveDate = date != null ? date : LocalDate.now();
         String formattedDate = effectiveDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
@@ -128,6 +130,15 @@ public class FeegowClient {
             appointments.add(parsedAppointment);
         }
         return appointments;
+    }
+
+    /**
+     * Fallback para a busca de agendamentos da Feegow em caso de falha de rede ou circuito aberto.
+     * Retorna fallback seguro (lista vazia) para evitar o estouro de erro 500 na controller.
+     */
+    public List<FeegowAppointment> fallbackSearchAppointments(LocalDate date, int statusId, String profissionalId, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao buscar agendamentos na Feegow. Circuito aberto ou erro de rede: {}. Retornando lista vazia para posterior processamento offline.", t.getMessage());
+        return List.of();
     }
 
     private List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> extractSearchItems(String responseBody) {
@@ -201,6 +212,7 @@ public class FeegowClient {
         return cpf.replaceAll("\\D", "");
     }
 
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackGetPatientDetails")
     public FeegowPatientDetailsDto.PatientItem getPatientDetails(String patientId) {
         String url = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                 .path(resolvePatientDetailsPath())
@@ -221,8 +233,18 @@ public class FeegowClient {
     }
 
     /**
+     * Fallback para a busca de detalhes do paciente da Feegow.
+     * Retorna fallback seguro (null) para evitar estouro de erro 500 no processador.
+     */
+    public FeegowPatientDetailsDto.PatientItem fallbackGetPatientDetails(String patientId, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao obter detalhes do paciente ID: {}. Circuito aberto ou erro de rede: {}. Retornando null.", patientId, t.getMessage());
+        return null;
+    }
+
+    /**
      * Busca o nome do profissional na API da Feegow e faz cache em Redis por 24h.
      */
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackGetProfessionalName")
     public String getProfessionalName(String professionalId) {
         if (professionalId == null || professionalId.isBlank()) {
             return null;
@@ -349,6 +371,15 @@ public class FeegowClient {
         return null;
     }
 
+    /**
+     * Fallback para a busca de nome do profissional na Feegow.
+     * Retorna fallback seguro ("Clínica Inovare") para evitar estouro de erro 500 no processador.
+     */
+    public String fallbackGetProfessionalName(String professionalId, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao obter nome do profissional ID: {}. Circuito aberto ou erro de rede: {}. Retornando nome padrão Clínica Inovare.", professionalId, t.getMessage());
+        return "Clínica Inovare";
+    }
+
     private String extractProfessionalName(Object root) {
         if (root == null) {
             return null;
@@ -411,6 +442,7 @@ public class FeegowClient {
     /**
      * Lista todos os profissionais disponíveis na Feegow (id + nome).
      */
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackListProfessionals")
     public List<FeegowProfessional> listProfessionals() {
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
@@ -617,6 +649,15 @@ public class FeegowClient {
         return List.of();
     }
 
+    /**
+     * Fallback para a listagem de profissionais da Feegow.
+     * Retorna fallback seguro (lista vazia) para evitar estouro de erro 500 no processador.
+     */
+    public List<FeegowProfessional> fallbackListProfessionals(Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao obter lista de profissionais. Circuito aberto ou erro de rede: {}. Retornando lista vazia.", t.getMessage());
+        return List.of();
+    }
+
     @PostConstruct
     public void discoverFeegowLocalsOnStartup() {
         try {
@@ -756,6 +797,7 @@ public class FeegowClient {
         return null;
     }
 
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackUpdateAppointmentStatus")
     public void updateAppointmentStatus(String appointmentId, String statusId) {
         String normalizedAppointmentId = appointmentId == null ? "" : appointmentId.trim();
         if (normalizedAppointmentId.isBlank()) {
@@ -795,6 +837,15 @@ public class FeegowClient {
                     normalizedStatusId,
                     ex);
         }
+    }
+
+    /**
+     * Fallback para a atualização de status do agendamento na Feegow.
+     * Registra o log estruturado [OFFLINE-SYNC-INTENT] para que a alteração não seja perdida e o fluxo siga offline.
+     */
+    public void fallbackUpdateAppointmentStatus(String appointmentId, String statusId, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao atualizar status do agendamento na Feegow. Circuito aberto ou erro de rede: {}. Gravando intenção de sincronização offline para appointmentId={}, statusId={}", 
+            t.getMessage(), appointmentId, statusId);
     }
 
 

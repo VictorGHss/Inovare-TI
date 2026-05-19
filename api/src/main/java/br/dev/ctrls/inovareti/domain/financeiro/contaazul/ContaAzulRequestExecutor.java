@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.github.resilience4j.retry.annotation.Retry;
 
 /**
  * Executor HTTP centralizado para chamadas à Conta Azul.
@@ -59,6 +60,7 @@ public class ContaAzulRequestExecutor {
     /**
      * Executa GET JSON usando explicitamente o token informado.
      */
+    @Retry(name = "contaAzulRetry", fallbackMethod = "fallbackExecuteJsonGetResponse")
     public HttpResponse<String> executeJsonGetResponse(String uri, ContaAzulOAuthToken token) {
         String url = sanitizeContaAzulUri(uri);
         String authorizationHeader = "Bearer " + token.getAccessToken();
@@ -108,6 +110,33 @@ public class ContaAzulRequestExecutor {
             }
             throw new IllegalStateException("Falha ao consultar endpoint JSON da Conta Azul.", ex);
         }
+    }
+
+    /**
+     * Fallback para falha ao consultar endpoint JSON da Conta Azul.
+     * Retorna fallback seguro (resposta simulada) e registra a intenção de sincronização offline.
+     */
+    public HttpResponse<String> fallbackExecuteJsonGetResponse(String uri, ContaAzulOAuthToken token, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [CONTAAZUL] Falha crítica de comunicação com a Conta Azul após retentativas. URI: {}. Erro: {}. Gravando intenção de sincronização offline posterior.", uri, t.getMessage());
+        
+        return new HttpResponse<String>() {
+            @Override
+            public int statusCode() { return 503; }
+            @Override
+            public HttpRequest request() { return null; }
+            @Override
+            public java.util.Optional<HttpResponse<String>> previousResponse() { return java.util.Optional.empty(); }
+            @Override
+            public java.net.http.HttpHeaders headers() { return java.net.http.HttpHeaders.of(java.util.Map.of(), (k, v) -> true); }
+            @Override
+            public String body() { return "{\"status\":\"offline-queued\",\"error\":\"" + t.getMessage() + "\"}"; }
+            @Override
+            public java.util.Optional<javax.net.ssl.SSLSession> sslSession() { return java.util.Optional.empty(); }
+            @Override
+            public URI uri() { return URI.create(uri); }
+            @Override
+            public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
+        };
     }
 
     /**

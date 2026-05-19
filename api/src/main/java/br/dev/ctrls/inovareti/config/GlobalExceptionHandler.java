@@ -20,6 +20,8 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
@@ -33,13 +35,14 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Pattern REST_TEMPLATE_QUOTED_URL_PATTERN = Pattern.compile("for \\\"([^\\\"]+)\\\"");
     private static final Pattern GENERIC_HTTP_URL_PATTERN = Pattern.compile("https?://[^\\s]+", Pattern.CASE_INSENSITIVE);
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, org.springframework.http.HttpHeaders headers, org.springframework.http.HttpStatusCode status, org.springframework.web.context.request.WebRequest request) {
         Map<String, String> fieldErrors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -52,7 +55,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problem.setTitle("Validation Error");
         problem.setProperty("errors", fieldErrors);
-        return problem;
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -73,8 +76,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_CONTENT);
-        problem.setTitle("Business rule violated");
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        problem.setTitle("Regra de Negócio Violada");
         problem.setDetail(ex.getMessage());
         return problem;
     }
@@ -225,16 +228,28 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDTO> handleGenericException(Exception ex, HttpServletRequest request) {
-        log.error("Unexpected system error:", ex);
-        ErrorResponseDTO body = new ErrorResponseDTO(
-                LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "An unexpected error occurred. Please contact support.",
-                resolveRequestUrl(request)
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    public ResponseEntity<ProblemDetail> handleGenericException(Exception ex, HttpServletRequest request) {
+        log.error("Erro inesperado no sistema:", ex);
+        
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problem.setTitle("Erro interno no servidor");
+        problem.setDetail("Ocorreu um erro inesperado. Por favor, entre em contato com o suporte.");
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
+        
+        // Injetando propriedades adicionais customizadas conforme RFC 7807 e solicitacao do usuario
+        problem.setProperty("timestamp", LocalDateTime.now());
+        
+        // Capturando trace_id do MDC/Log com fallback para um UUID temporario para o cliente React
+        String traceId = org.slf4j.MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = org.slf4j.MDC.get("trace_id");
+        }
+        if (traceId == null || traceId.isBlank()) {
+            traceId = java.util.UUID.randomUUID().toString(); // Fallback temporario garantido
+        }
+        problem.setProperty("trace_id", traceId);
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
     }
 
     private boolean isPlanIneligibleResponse(String responseBody) {
@@ -297,8 +312,5 @@ public class GlobalExceptionHandler {
         }
 
         return baseUrl + "?" + query;
-    }
-
-    public static record ErrorResponseDTO(LocalDateTime timestamp, int status, String error, String message, String path) {
     }
 }

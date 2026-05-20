@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -95,7 +96,9 @@ public class DiscordInteractionListener extends ListenerAdapter {
 
         try {
             event.deferReply().queue(); // Adia a resposta enquanto coleta métricas (pode levar > 3s)
-            MessageEmbed embed = infraStatusService.construirEmbedStatus();
+            MessageEmbed embed = Objects.requireNonNull(
+                    infraStatusService.construirEmbedStatus(),
+                    "construirEmbedStatus() retornou null");
             event.getHook().sendMessageEmbeds(embed).queue(
                     ok  -> log.info("[DISCORD][/ti status] Embed enviado com sucesso para {}", discordId),
                     err -> log.warn("[DISCORD][/ti status] Falha ao enviar embed: {}", err.getMessage())
@@ -129,7 +132,9 @@ public class DiscordInteractionListener extends ListenerAdapter {
         String itemSelecionado = opcaoItem.getAsString();
 
         try {
-            String resposta = solicitarService.criarTicketDeSolicitacao(discordUserId, itemSelecionado, quantidade);
+            String resposta = Objects.requireNonNullElse(
+                    solicitarService.criarTicketDeSolicitacao(discordUserId, itemSelecionado, quantidade),
+                    "\u274c Erro inesperado ao registrar sua solicitação.");
             event.reply(resposta).queue();
         } catch (Exception ex) {
             log.error("[DISCORD][/solicitar] Erro ao criar chamado de solicitação: {}", ex.getMessage(), ex);
@@ -159,7 +164,8 @@ public class DiscordInteractionListener extends ListenerAdapter {
         log.debug("[DISCORD][autocomplete] '/solicitar item' — filtro: '{}'", textoDigitado);
 
         try {
-            List<Command.Choice> opcoes = solicitarService.buscarOpcoesAutocomplete(textoDigitado);
+            List<Command.Choice> opcoes = List.copyOf(
+                    solicitarService.buscarOpcoesAutocomplete(textoDigitado));
             event.replyChoices(opcoes).queue();
         } catch (Exception ex) {
             log.warn("[DISCORD][autocomplete] Erro ao buscar opções: {}", ex.getMessage());
@@ -304,9 +310,10 @@ public class DiscordInteractionListener extends ListenerAdapter {
      */
     private void desabilitarBotoesDaMensagem(ButtonInteractionEvent event, String rodape) {
         // Cria versões desabilitadas de todos os botões da ActionRow original
-        List<Button> botoesDessa = event.getMessage().getButtons().stream()
-                .map(Button::asDisabled)
-                .toList();
+        List<Button> botoesDessa = List.copyOf(
+                event.getMessage().getButtons().stream()
+                        .map(Button::asDisabled)
+                        .toList());
 
         event.editComponents(ActionRow.of(botoesDessa))
                 .setContent(event.getMessage().getContentRaw() + "\n\n" + rodape)

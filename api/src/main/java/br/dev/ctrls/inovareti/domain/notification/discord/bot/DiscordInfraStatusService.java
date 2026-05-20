@@ -57,26 +57,21 @@ public class DiscordInfraStatusService {
 
         String tamanhoBanco = consultarTamanhoBanco();
 
+        String memoriaUsadaLabel = memoriaUsadaMb + " MB / " + memoriaMaximaMb + " MB"
+                + " (" + DF.format(percentualUso) + "%)";
+        String memoriaLivreLabel  = memoriaLivreMb + " MB";
+        String memoriaTotalLabel  = memoriaTotalMb + " MB";
+        String processadoresLabel = String.valueOf(processadores);
+
         EmbedBuilder embed = new EmbedBuilder()
                 .setColor(COR_VERDE_TI)
                 .setTitle("🖥️ Painel de Status — Inovare TI")
                 .setDescription("Métricas em tempo real do servidor de aplicação e do banco de dados.")
-                .addField("💾 Memória Usada (JVM)",
-                        memoriaUsadaMb + " MB / " + memoriaMaximaMb + " MB"
-                        + " (" + DF.format(percentualUso) + "%)",
-                        false)
-                .addField("🟢 Memória Livre (heap JVM)",
-                        memoriaLivreMb + " MB",
-                        true)
-                .addField("📦 Memória Total Alocada (JVM)",
-                        memoriaTotalMb + " MB",
-                        true)
-                .addField("⚙️ Processadores Disponíveis",
-                        String.valueOf(processadores),
-                        true)
-                .addField("🗄️ Tamanho do Banco de Dados (PostgreSQL)",
-                        tamanhoBanco,
-                        false)
+                .addField("💾 Memória Usada (JVM)", memoriaUsadaLabel, false)
+                .addField("🟢 Memória Livre (heap JVM)", memoriaLivreLabel, true)
+                .addField("📦 Memória Total Alocada (JVM)", memoriaTotalLabel, true)
+                .addField("⚙️ Processadores Disponíveis", processadoresLabel, true)
+                .addField("🗄️ Tamanho do Banco de Dados (PostgreSQL)", tamanhoBanco, false)
                 .setFooter("Inovare TI • Infraestrutura em Saúde | /ti status");
 
         return embed.build();

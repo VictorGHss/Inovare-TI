@@ -78,10 +78,9 @@ public class DiscordSolicitarService {
         for (Item item : itensBanco) {
             if (opcoes.size() >= 25) break;
             // O valor enviado ao Discord é o UUID do item para recuperação posterior
-            opcoes.add(new Command.Choice(
-                    item.getName() + " (estoque: " + item.getCurrentStock() + ")",
-                    item.getId().toString()
-            ));
+            String nomeLabel  = item.getName() + " (estoque: " + item.getCurrentStock() + ")";
+            String idValor    = item.getId().toString();
+            opcoes.add(new Command.Choice(nomeLabel, idValor));
         }
 
         log.debug("[DISCORD][/solicitar] Autocomplete gerado com {} opções para o filtro '{}'",

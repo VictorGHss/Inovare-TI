@@ -389,11 +389,13 @@ public class DiscordWebhookService {
                 return;
             }
 
-            String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-            String solicitante = ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
-            String setor = ticket.getRequester() != null && ticket.getRequester().getSector() != null
-                    ? ticket.getRequester().getSector().getName() : "-";
-            String prioridade = ticket.getPriority() != null ? ticket.getPriority().name() : "-";
+            String shortId     = ticket.getId().toString().substring(0, 8).toUpperCase();
+            String solicitante = ticket.getRequester() != null
+                    ? Objects.requireNonNullElse(ticket.getRequester().getName(), "-") : "-";
+            String setor       = ticket.getRequester() != null && ticket.getRequester().getSector() != null
+                    ? Objects.requireNonNullElse(ticket.getRequester().getSector().getName(), "-") : "-";
+            String prioridade  = ticket.getPriority() != null
+                    ? ticket.getPriority().name() : "-";
 
             var embed = new EmbedBuilder()
                     .setColor(DiscordEmbedBuilder.OPERATIONS_COLOR)

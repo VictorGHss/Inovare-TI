@@ -29,3 +29,4 @@ ALTER TABLE appointment_doctor_mapping
 -- Como o banco da dev foi dropado, não precisamos da tabela temporária doctor_queue_mapping (V7)
 -- pois os campos acima já resolvem a estrutura final.
 DROP TABLE IF EXISTS doctor_queue_mapping;
+

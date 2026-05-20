@@ -38,7 +38,6 @@ public class ContaAzulReceiptProcessor {
     private final ContaAzulProperties properties;
 
     private final ContaAzulReceiptStorageAdapter storageAdapter;
-    private final ContaAzulReceiptRetryPolicy retryPolicy;
 
     private final ContaAzulReceiptValidator validator;
     private final InternalReceiptEmissionService fallbackService;

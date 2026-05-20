@@ -80,7 +80,7 @@ public class AssetController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<AssetResponseDTO>> findByUser(@PathVariable UUID userId) {
-        List<AssetResponseDTO> response = assetRepository.findByUserId(userId)
+        List<AssetResponseDTO> response = assetRepository.findByUsersId(userId)
                 .stream()
                 .map(assetQueryService::toResponseDTO)
                 .toList();
@@ -97,16 +97,23 @@ public class AssetController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}")
     public ResponseEntity<AssetResponseDTO> update(@PathVariable UUID id, @Valid @RequestBody AssetRequestDTO request) {
-        if (!userRepository.existsById(request.userId())) {
-            throw new NotFoundException("User not found with id: " + request.userId());
-        }
-
         AssetCategory category = assetService.resolveCategory(request.categoryId());
 
         Asset asset = assetRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
+                .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + id));
 
-        asset.setUserId(request.userId());
+        // Atualiza a coleção de usuários: se userId foi fornecido, substitui pelo novo usuário;
+        // caso contrário, mantém a coleção inalterada.
+        if (request.userId() != null) {
+            User novoUsuario = userRepository.findById(request.userId())
+                    .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + request.userId()));
+            if (asset.getUsers() == null) {
+                asset.setUsers(new java.util.HashSet<>());
+            }
+            asset.getUsers().clear();
+            asset.getUsers().add(novoUsuario);
+        }
+
         asset.setName(request.name().trim());
         asset.setPatrimonyCode(request.patrimonyCode().trim());
         asset.setCategory(category);
@@ -277,24 +284,32 @@ public class AssetController {
         User newUser = null;
         if (request.newUserId() != null) {
             newUser = userRepository.findById(request.newUserId())
-                    .orElseThrow(() -> new NotFoundException("User not found with id: " + request.newUserId()));
+                    .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + request.newUserId()));
         }
 
-        // Obtém o usuário antigo (pode ser nulo se já estava desvinculado)
-        User oldUser = asset.getUserId() != null ? userRepository.findById(asset.getUserId()).orElse(null) : null;
+        // Captura o primeiro usuário atual para trilha de auditoria (modelo N:N: primeiro da coleção)
+        User oldUser = (asset.getUsers() != null && !asset.getUsers().isEmpty())
+                ? asset.getUsers().iterator().next()
+                : null;
 
         // Obtém o usuário logado (técnico que realiza a transferência)
         String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         User technician = userRepository.findById(UUID.fromString(userId))
-                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + userId));
 
-        // Atualiza o ativo com o novo usuário
-        asset.setUserId(newUser != null ? newUser.getId() : null);
+        // Substitui a coleção de usuários: se newUserId for null, devolve ao estoque (coleção vazia)
+        if (asset.getUsers() == null) {
+            asset.setUsers(new java.util.HashSet<>());
+        }
+        asset.getUsers().clear();
+        if (newUser != null) {
+            asset.getUsers().add(newUser);
+        }
         Asset updatedAsset = assetRepository.save(asset);
 
         // Cria o log de transferência
         maintenanceService.createTransferLog(updatedAsset, oldUser, newUser, request.reason(), technician);
 
-                return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));
+        return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));
     }
 }

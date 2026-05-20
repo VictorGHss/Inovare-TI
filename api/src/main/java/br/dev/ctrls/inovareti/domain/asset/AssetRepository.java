@@ -9,15 +9,32 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AssetRepository extends JpaRepository<Asset, UUID> {
-    List<Asset> findByUserId(UUID userId);
 
-    long countByUserId(UUID userId);
+    /**
+     * Busca todos os ativos vinculados a um usuário específico.
+     * Spring Data deriva a query a partir da coleção {@code users}.
+     */
+    List<Asset> findByUsersId(UUID userId);
 
-    long countByUserIdIsNotNull();
-    
-    long countByUserIdIsNull();
+    /**
+     * Conta ativos vinculados a um usuário específico.
+     */
+    long countByUsersId(UUID userId);
+
+    /**
+     * Conta ativos com pelo menos um usuário atribuído (status: EM USO).
+     */
+    @Query("select count(a) from Asset a where size(a.users) > 0")
+    long countInUse();
+
+    /**
+     * Conta ativos sem nenhum usuário atribuído (status: NO ESTOQUE / disponível).
+     */
+    @Query("select count(a) from Asset a where size(a.users) = 0")
+    long countInStock();
+
     Optional<Asset> findByPatrimonyCode(String patrimonyCode);
-    
+
     boolean existsByPatrimonyCode(String patrimonyCode);
 
     @Query("""
@@ -26,8 +43,8 @@ public interface AssetRepository extends JpaRepository<Asset, UUID> {
             where (:categoryId is null or a.category.id = :categoryId)
                 and (
                     :status = 'ALL'
-                    or (:status = 'IN_USE' and a.userId is not null)
-                    or (:status = 'IN_STOCK' and a.userId is null)
+                    or (:status = 'IN_USE' and size(a.users) > 0)
+                    or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
             order by a.createdAt desc
             """)
@@ -42,8 +59,8 @@ public interface AssetRepository extends JpaRepository<Asset, UUID> {
             where (:categoryId is null or a.category.id = :categoryId)
                 and (
                     :status = 'ALL'
-                    or (:status = 'IN_USE' and a.userId is not null)
-                    or (:status = 'IN_STOCK' and a.userId is null)
+                    or (:status = 'IN_USE' and size(a.users) > 0)
+                    or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
             order by (
                 select count(m.id)

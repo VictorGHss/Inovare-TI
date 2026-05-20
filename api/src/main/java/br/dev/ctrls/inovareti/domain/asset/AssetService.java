@@ -1,7 +1,9 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +14,7 @@ import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetRequestDTO;
+import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -26,8 +29,12 @@ public class AssetService {
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
-        if (request.userId() != null && !userRepository.existsById(request.userId())) {
-            throw new NotFoundException("User not found with id: " + request.userId());
+        // Valida e busca o usuário inicial, se informado no payload
+        User usuarioInicial = null;
+        if (request.userId() != null) {
+            usuarioInicial = userRepository.findById(request.userId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "Usuário não encontrado com id: " + request.userId()));
         }
 
         AssetCategory category = resolveCategory(request.categoryId());
@@ -41,11 +48,17 @@ public class AssetService {
             String patrimonyCode = quantity > 1 ? basePatrimonyCode + "-" + index : basePatrimonyCode;
 
             if (assetRepository.existsByPatrimonyCode(patrimonyCode)) {
-                throw new BadRequestException("Patrimony code already exists: " + patrimonyCode);
+                throw new BadRequestException("Código de patrimônio já existe: " + patrimonyCode);
+            }
+
+            // Popula a coleção de usuários com o usuário inicial, se fornecido
+            Set<User> usuarios = new HashSet<>();
+            if (usuarioInicial != null) {
+                usuarios.add(usuarioInicial);
             }
 
             Asset asset = Asset.builder()
-                    .userId(request.userId())
+                    .users(usuarios)
                     .name(request.name().trim())
                     .patrimonyCode(patrimonyCode)
                     .category(category)
@@ -72,6 +85,6 @@ public class AssetService {
         }
 
         return assetCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new NotFoundException("Asset category not found with id: " + categoryId));
+                .orElseThrow(() -> new NotFoundException("Categoria de ativo não encontrada com id: " + categoryId));
     }
 }

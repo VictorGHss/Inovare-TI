@@ -28,6 +28,7 @@ public class DiscordBotConfig {
     private String discordBotToken;
 
     private final DiscordEventListener eventListener;
+    private final DiscordInteractionListener interactionListener;
 
     /**
      * Cria e inicializa o JDA Builder com o token do bot.
@@ -66,8 +67,8 @@ public class DiscordBotConfig {
                             // Configurações de conexão solicitadas
                             .setAutoReconnect(false)
                             .setEnableShutdownHook(true)
-                            // Registra o listener de eventos
-                            .addEventListeners(eventListener)
+                            // Registra os listeners de eventos
+                            .addEventListeners(eventListener, interactionListener)
                             // Constrói sem bloquear infinitamente
                             .build();
                 } catch (IllegalArgumentException | IllegalStateException ex) {

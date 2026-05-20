@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.admin;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -121,7 +122,7 @@ public class CsvPersistenceService {
         }
 
         Asset asset = Asset.builder()
-                .userId(user.getId())
+                .users(Set.of(user))
                 .name(assetName)
                 .patrimonyCode(patrimonyCode)
                 .category(category)

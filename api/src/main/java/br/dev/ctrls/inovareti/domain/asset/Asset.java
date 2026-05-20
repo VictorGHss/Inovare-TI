@@ -1,9 +1,12 @@
 package br.dev.ctrls.inovareti.domain.asset;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
+import br.dev.ctrls.inovareti.domain.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -11,6 +14,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -35,8 +40,19 @@ public class Asset {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "user_id")
-    private UUID userId;
+    /**
+     * Relacionamento N:N com usuários do sistema.
+     * Permite ativos compartilhados (ex.: impressoras, servidores).
+     * Tabela intermediária: asset_users (criada em V9__allow_multiusers_per_asset.sql).
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "asset_users",
+            joinColumns = @JoinColumn(name = "asset_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @Builder.Default
+    private Set<User> users = new HashSet<>();
 
     @NotBlank
     @Column(name = "name", nullable = false, length = 150)

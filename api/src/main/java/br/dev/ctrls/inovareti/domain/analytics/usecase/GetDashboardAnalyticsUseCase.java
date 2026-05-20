@@ -102,7 +102,7 @@ public class GetDashboardAnalyticsUseCase {
                             : 0L)
                     .sum();
 
-            long receivedAssets = assetRepository.countByUserId(userId);
+            long receivedAssets = assetRepository.countByUsersId(userId);
             receivedItemsCount = receivedInventoryItems + receivedAssets;
             
             log.debug("USER {} dashboard: inventory data hidden, receivedItems={}", userId, receivedItemsCount);
@@ -128,8 +128,8 @@ public class GetDashboardAnalyticsUseCase {
 
         // Agrega métricas de ativos físicos
         long totalAssets = assetRepository.count();
-        long assetsInUse = assetRepository.countByUserIdIsNotNull();
-        long assetsInStock = assetRepository.countByUserIdIsNull();
+        long assetsInUse = assetRepository.countInUse();
+        long assetsInStock = assetRepository.countInStock();
 
         return new DashboardAnalyticsDTO(
                 openTickets,

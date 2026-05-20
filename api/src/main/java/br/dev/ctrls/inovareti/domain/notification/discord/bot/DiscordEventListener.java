@@ -8,6 +8,8 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 
 /**
  * Listener de eventos do Discord baseado em JDA.
@@ -57,6 +59,29 @@ public class DiscordEventListener extends ListenerAdapter {
                     .queue(
                         success -> log.info("✅ Slash command '/meuschamados' registrado com sucesso"),
                         error -> log.error("❌ Falha ao registrar o comando /meuschamados", error)
+                    );
+
+            // ── Comando /ti com subcomando status ───────────────────────────────────
+            jda.upsertCommand(
+                            Commands.slash("ti", "Painel de TI — administração e monitoramento")
+                                    .addSubcommands(new SubcommandData("status",
+                                            "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)")))
+                    .queue(
+                            ok    -> log.info("✅ Slash command '/ti status' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /ti", error)
+                    );
+
+            // ── Comando /solicitar com autocomplete de item ──────────────────────────
+            jda.upsertCommand(
+                            Commands.slash("solicitar", "Solicita um item ou insumo ao setor de TI")
+                                    .addOption(OptionType.STRING, "item",
+                                            "Nome do item (use o autocomplete para buscar no inventário)",
+                                            true, true)  // obrigatório=true, autocomplete=true
+                                    .addOption(OptionType.INTEGER, "quantidade",
+                                            "Quantidade desejada (padrão: 1)", false))
+                    .queue(
+                            ok    -> log.info("✅ Slash command '/solicitar' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /solicitar", error)
                     );
 
             log.info("✅ Todos os slash commands foram registrados com sucesso!");

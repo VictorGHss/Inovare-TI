@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlert;
 import br.dev.ctrls.inovareti.domain.financeiro.SystemAlertRepository;
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordInteractionListener;
 import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
@@ -27,6 +29,9 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 /**
  * Serviço de roteamento de notificações de chamados no Discord.
@@ -52,6 +57,8 @@ public class DiscordWebhookService {
     private final TicketRepository ticketRepository;
     private final DiscordEmbedBuilder discordEmbedBuilder;
     private final DiscordWebhookRetryUtility discordWebhookRetryUtility;
+    /** Provider lazy do JDA para envio de mensagens com botões interativos. */
+    private final ObjectProvider<JDA> jdaProvider;
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -273,7 +280,14 @@ public class DiscordWebhookService {
                 operationalTicketUrlBase);
 
         String ticketContext = ticket != null && ticket.getId() != null ? ticket.getId().toString() : "desconhecido";
-        return discordWebhookRetryUtility.sendEmbedWithRetry(webhook, embed, "chamado", ticketContext);
+        boolean enviado = discordWebhookRetryUtility.sendEmbedWithRetry(webhook, embed, "chamado", ticketContext);
+
+        // Complemento via JDA: envia ao canal configurado com botões interativos de ação
+        if (ticket != null && ticket.getId() != null) {
+            enviarNotificacaoJdaComBotoes(ticket);
+        }
+
+        return enviado;
     }
 
     private String lastWebhookStatus = "UNKNOWN";
@@ -338,6 +352,70 @@ public class DiscordWebhookService {
         }
         if (ticket.getCategory() == null) {
             throw new IllegalArgumentException("Categoria do chamado não pode ser nula");
+        }
+    }
+
+    /**
+     * Envia notificação de novo chamado via JDA (bot) para o canal operacional,
+     * incluindo um {@link net.dv8tion.jda.api.interactions.components.ActionRow}
+     * com botões nativos de 'Assumir' e 'Recusar'.
+     *
+     * <p>O canal é resolvido pela propriedade {@code discord.bot.operational-channel-id}.
+     * Se o JDA não estiver disponível ou o canal não estiver configurado, o método
+     * é ignorado silenciosamente (graceful degradation).
+     */
+    @org.springframework.beans.factory.annotation.Value("${discord.bot.operational-channel-id:}")
+    private String operationalChannelId;
+
+    private void enviarNotificacaoJdaComBotoes(Ticket ticket) {
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.debug("[JDA] Bot Discord indisponível — notificação com botões ignorada para chamado {}",
+                    ticket.getId());
+            return;
+        }
+
+        if (operationalChannelId == null || operationalChannelId.isBlank()) {
+            log.debug("[JDA] 'discord.bot.operational-channel-id' não configurado — pulando notificação JDA para chamado {}",
+                    ticket.getId());
+            return;
+        }
+
+        try {
+            TextChannel canal = jda.getTextChannelById(operationalChannelId);
+            if (canal == null) {
+                log.warn("[JDA] Canal operacional '{}' não encontrado. Verifique 'discord.bot.operational-channel-id'.",
+                        operationalChannelId);
+                return;
+            }
+
+            String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
+            String solicitante = ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
+            String setor = ticket.getRequester() != null && ticket.getRequester().getSector() != null
+                    ? ticket.getRequester().getSector().getName() : "-";
+            String prioridade = ticket.getPriority() != null ? ticket.getPriority().name() : "-";
+
+            var embed = new EmbedBuilder()
+                    .setColor(DiscordEmbedBuilder.OPERATIONS_COLOR)
+                    .setTitle("🚨 Novo Chamado Aberto — #" + shortId)
+                    .setDescription(ticket.getTitle())
+                    .addField("Solicitante", solicitante, true)
+                    .addField("Setor", setor, true)
+                    .addField("Prioridade", prioridade, true)
+                    .setFooter("Inovare TI • Clique em Assumir para atribuir o chamado a você")
+                    .build();
+
+            canal.sendMessageEmbeds(embed)
+                    .setComponents(DiscordInteractionListener.criarBotoesDeAcao(ticket.getId()))
+                    .queue(
+                            ok  -> log.info("[JDA] Notificação com botões enviada ao canal '{}' para chamado {}",
+                                    operationalChannelId, ticket.getId()),
+                            err -> log.warn("[JDA] Falha ao enviar notificação com botões para chamado {}: {}",
+                                    ticket.getId(), err.getMessage())
+                    );
+        } catch (Exception ex) {
+            log.warn("[JDA] Erro inesperado ao enviar notificação JDA com botões para chamado {}: {}",
+                    ticket.getId(), ex.getMessage());
         }
     }
 }

@@ -6,30 +6,27 @@ import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.asset.dto.AssetResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
  * Serviço de consulta para ativos: encapsula o parsing de parâmetros de filtro/ordenação
  * e a montagem do DTO de resposta a partir da entidade.
  *
- * Responsabilidade única: transformação e validação de parâmetros de leitura.
+ * <p>Responsabilidade única: transformação e validação de parâmetros de leitura.
+ * A resolução de usuários vinculados ao ativo é delegada diretamente para
+ * {@link AssetResponseDTO#from(Asset)}, que deriva os dados da coleção {@code users}
+ * já carregada pela entidade — eliminando a necessidade de consultas adicionais ao banco.
  */
 @Service
 @RequiredArgsConstructor
 public class AssetQueryService {
 
-    private final UserRepository userRepository;
-
     /**
-     * Monta o {@link AssetResponseDTO} a partir da entidade, resolvendo o usuário vinculado.
+     * Monta o {@link AssetResponseDTO} a partir da entidade.
+     * Os dados multiusuário são extraídos diretamente da coleção {@code asset.users}.
      */
     public AssetResponseDTO toResponseDTO(Asset asset) {
-        User assignedUser = asset.getUserId() != null
-                ? userRepository.findById(asset.getUserId()).orElse(null)
-                : null;
-        return AssetResponseDTO.from(asset, assignedUser);
+        return AssetResponseDTO.from(asset);
     }
 
     /**

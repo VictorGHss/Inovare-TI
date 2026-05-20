@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.ticket.usecase;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.UUID;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -108,7 +109,9 @@ public class ResolveTicketUseCase {
 
             // Registra débito financeiro com base no valor apurado pela dedução FIFO
             financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("Stock debited with FIFO for requested item in ticket {}", ticketId);
+            log.info("[ESTOQUE] Baixa automática realizada para item solicitado no chamado. "
+                    + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
+                    ticketId, ticket.getRequestedItem().getId(), ticket.getRequestedQuantity(), totalDeduction);
 
             // Fallback de segurança: caso o StockDeductionService não tenha persistido
             // o movimento (situação incomum), cria-se um registro adicional para
@@ -143,16 +146,24 @@ public class ResolveTicketUseCase {
                     .orElseThrow(() -> new NotFoundException(
                             "Ativo não encontrado com id: " + request.assetIdToDeliver()));
 
-                        if (asset.getUserId() != null && !asset.getUserId().equals(ticket.getRequester().getId())) {
+                        // Verifica se o ativo já está em uso exclusivo por outro usuário
+                        boolean emUso = asset.getUsers() != null && !asset.getUsers().isEmpty();
+                        boolean pertenceAoSolicitante = emUso
+                                && asset.getUsers().stream().anyMatch(u -> u.getId().equals(ticket.getRequester().getId()));
+
+                        if (emUso && !pertenceAoSolicitante) {
                                 throw new IllegalStateException(
                                                 "Ativo '" + asset.getName() + "' já está atribuído a outro usuário. "
                                                 + "Não é possível entregar um ativo que já está em uso.");
                         }
 
-            // Transfere a propriedade do equipamento para o solicitante
-            asset.setUserId(ticket.getRequester().getId());
+            // Adiciona o solicitante à coleção de usuários do ativo
+            if (asset.getUsers() == null) {
+                asset.setUsers(new HashSet<>());
+            }
+            asset.getUsers().add(ticket.getRequester());
             Asset deliveredAsset = assetRepository.save(asset);
-            log.info("Asset {} transferred to user {} via ticket {}",
+            log.info("[ATIVO] Ativo {} vinculado ao usuário {} via chamado {}",
                     asset.getId(), ticket.getRequester().getId(), ticketId);
 
             // Cria registro de auditoria (AssetMaintenance) da transferência
@@ -191,7 +202,7 @@ public class ResolveTicketUseCase {
                             "Asset category not found with id: " + newAssetRequest.categoryId()));
 
             Asset newAsset = Asset.builder()
-                    .userId(ticket.getRequester().getId())
+                    .users(new HashSet<>(java.util.Set.of(ticket.getRequester())))
                     .name(newAssetRequest.name().trim())
                     .patrimonyCode(newAssetRequest.patrimonyCode().trim())
                     .category(category)
@@ -231,7 +242,9 @@ public class ResolveTicketUseCase {
 
             // Registra débito financeiro para a entrega manual de item (INVENTORY)
             financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("Stock debited with FIFO for manual item delivery in ticket {}", ticketId);
+            log.info("[ESTOQUE] Baixa automática realizada via encerramento do chamado. "
+                    + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
+                    ticketId, request.inventoryItemIdToDeliver(), request.quantityToDeliver(), totalDeduction);
 
             // Mesmo fallback para entregas manuais: garante persistência do movimento OUT
             try {

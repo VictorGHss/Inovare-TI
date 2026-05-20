@@ -95,4 +95,11 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
      * @return total de itens com estoque <= threshold
      */
     long countByCurrentStockLessThanEqual(int threshold);
+
+    /**
+     * Busca até 25 itens cujo nome contenha o texto digitado (case-insensitive).
+     * Utilizado pelo autocomplete do comando /solicitar no Discord.
+     * Limitado a 25 pois a API do Discord não aceita mais que 25 opções de autocomplete.
+     */
+    java.util.List<Item> findTop25ByNameContainingIgnoreCase(String nome);
 }

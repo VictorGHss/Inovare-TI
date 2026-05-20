@@ -63,7 +63,9 @@ public class FindTicketByIdUseCase {
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),
-                attachments
+                attachments,
+                ticket.getSolutionText(),
+                ticket.getSolutionText()
         );
     }
 }

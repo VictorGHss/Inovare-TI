@@ -28,10 +28,16 @@ export default function ChartsBar({ tickets, title }: ChartsBarProps) {
   const data: MonthlyData[] = Object.entries(monthlyData)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-12) // Last 12 months
-    .map(([month, count]) => ({
-      month: new Date(`${month}-01`).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-      tickets: count,
-    }));
+    .map(([month, count]) => {
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr, 10);
+      const monthIndex = parseInt(monthStr, 10) - 1; // Base-0 para Date no JS
+      const dateObj = new Date(year, monthIndex, 1);
+      return {
+        month: dateObj.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+        tickets: count,
+      };
+    });
 
   if (!data || data.length === 0) {
     return (

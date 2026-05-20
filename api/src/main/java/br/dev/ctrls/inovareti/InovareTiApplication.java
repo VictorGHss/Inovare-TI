@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti;
 
 import java.time.Duration;
+import java.util.TimeZone;
+import jakarta.annotation.PostConstruct;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -19,6 +21,12 @@ public class InovareTiApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(InovareTiApplication.class, args);
+    }
+
+    @PostConstruct
+    public void init() {
+        // Força o fuso horário da aplicação para GMT-3 Brasília
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));
     }
 
     @Bean

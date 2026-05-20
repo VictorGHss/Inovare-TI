@@ -253,9 +253,10 @@ public class ResolveTicketUseCase {
             }
         }
 
-        // Marca o chamado como resolvido
+        // Marca o chamado como resolvido e salva a nota de resolução (texto da solução)
         ticket.setStatus(TicketStatus.RESOLVED);
         ticket.setClosedAt(LocalDateTime.now());
+        ticket.setSolutionText(request.resolutionNotes() != null ? request.resolutionNotes().trim() : null);
 
         Ticket resolvedTicket = ticketRepository.save(ticket);
         auditLogService.publish(AuditEvent.of(AuditAction.TICKET_RESOLVE)

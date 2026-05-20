@@ -31,7 +31,9 @@ public record TicketResponseDTO(
         LocalDateTime slaDeadline,
         LocalDateTime createdAt,
         LocalDateTime closedAt,
-        List<AttachmentResponseDTO> attachments
+        List<AttachmentResponseDTO> attachments,
+        String solutionText,
+        String solucao
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -55,7 +57,9 @@ public record TicketResponseDTO(
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),
-                List.of() // Lista vazia por padrão, pode ser populada pelo caso de uso
+                List.of(), // Lista vazia por padrão, pode ser populada pelo caso de uso
+                ticket.getSolutionText(),
+                ticket.getSolutionText()
         );
     }
 

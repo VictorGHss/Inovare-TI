@@ -101,4 +101,8 @@ public class Ticket {
 
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
+
+    /** Texto da solução/resolução dada ao chamado. */
+    @Column(name = "solution_text", columnDefinition = "text")
+    private String solutionText;
 }

@@ -61,6 +61,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
+                // Preflight OPTIONS liberado para CORS antes de qualquer outra regra
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                 // Webhooks liberados publicamente em primeiro lugar para evitar bloqueios acidentais.
                 // Novos comentários explicativos em PORTUGUÊS.
                 .requestMatchers(BLIP_WEBHOOK_PATH, BLIP_WEBHOOK_PATH + "/").permitAll()
@@ -75,10 +78,9 @@ public class SecurityConfig {
                     APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
                 .permitAll()
 
-                // Demais requisições OPTIONS e rotas administrativas/autenticação
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/admin/**").permitAll()
+                // Demais rotas administrativas/autenticação
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
+                .requestMatchers("/auth/login", "/auth/reset-initial-password").permitAll()
                 .requestMatchers("/auth/**").permitAll()
                 // Restringir acesso aos endpoints do Actuator apenas para ADMIN
                 .requestMatchers("/actuator/**").hasRole("ADMIN")

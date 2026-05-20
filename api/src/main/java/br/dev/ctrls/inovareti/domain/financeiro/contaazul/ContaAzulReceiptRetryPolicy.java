@@ -1,11 +1,8 @@
 package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSale;
-import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttempt;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessingAttemptRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +20,8 @@ public class ContaAzulReceiptRetryPolicy {
     private static final int MAX_RETRIES = 20;
 
     private final ProcessingAttemptRepository processingAttemptRepository;
-    private final ProcessedSaleRepository processedSaleRepository;
     private final ReceiptAlertService receiptAlertService;
+    private final ReceiptConcurrencyHandler concurrencyHandler;
 
     /**
      * Registra/incrementa uma tentativa de processamento falha no banco de dados.
@@ -127,26 +124,6 @@ public class ContaAzulReceiptRetryPolicy {
      * Salva a venda processada na tabela de controle de concorrência se necessário.
      */
     public void saveProcessedSaleIfNeeded(String saleId, String successMessage, String duplicateMessage) {
-        if (!StringUtils.hasText(saleId)) {
-            return;
-        }
-
-        if (processedSaleRepository.existsBySaleId(saleId)) {
-            if (StringUtils.hasText(duplicateMessage)) {
-                log.debug(duplicateMessage, saleId);
-            }
-            return;
-        }
-
-        try {
-            processedSaleRepository.save(ProcessedSale.builder().saleId(saleId).build());
-            if (StringUtils.hasText(successMessage)) {
-                log.info(successMessage, saleId);
-            }
-        } catch (DataIntegrityViolationException ex) {
-            if (StringUtils.hasText(duplicateMessage)) {
-                log.debug(duplicateMessage, saleId);
-            }
-        }
+        concurrencyHandler.markAsProcessed(saleId, successMessage, duplicateMessage);
     }
 }

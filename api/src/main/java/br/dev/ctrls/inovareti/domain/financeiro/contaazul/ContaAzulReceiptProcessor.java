@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMapping;
-import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -31,12 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 public class ContaAzulReceiptProcessor {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final int MAX_ERROR_DETAILS = 200;
     private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
-    private final ProcessedSaleRepository processedSaleRepository;
     private final ReceiptEmailService receiptEmailService;
     private final ContaAzulProperties properties;
 
@@ -45,6 +42,9 @@ public class ContaAzulReceiptProcessor {
 
     private final ContaAzulReceiptValidator validator;
     private final InternalReceiptEmissionService fallbackService;
+
+    private final ReceiptConcurrencyHandler concurrencyHandler;
+    private final ReceiptAuditLogService auditService;
 
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
@@ -69,7 +69,7 @@ public class ContaAzulReceiptProcessor {
         }
 
         if (!contaAzulTokenService.hasAuthorizedToken()) {
-            throw new IllegalStateException("Token da Conta Azul ainda não autorizado para execução do teste real.");
+            throw new IllegalStateException("Token da Conta Azul ainda não autorizado para execução del teste real.");
         }
 
         ContaAzulClient.SaleItem sale = contaAzulClient.findAcquittedSaleById(saleId)
@@ -135,53 +135,24 @@ public class ContaAzulReceiptProcessor {
             return ReceiptProcessingResult.empty();
         }
 
-        if (dataInicio == null || dataFim == null) {
+        if (dataInicio == null || dataFim == null || dataInicio.isAfter(dataFim)) {
             log.warn("Período inválido para sincronização: dataInicio={} dataFim={}", dataInicio, dataFim);
             return ReceiptProcessingResult.empty();
         }
 
-        if (dataInicio.isAfter(dataFim)) {
-            log.warn("Período inválido para sincronização: dataInicio ({}) maior que dataFim ({})", dataInicio, dataFim);
-            return ReceiptProcessingResult.empty();
-        }
-
-        log.info("Automação ContaAzul: consultando endpoint financeiro de parcelas para mapear venda_id e baixar PDF por sale_id.");
-
-        String dataVencimentoDe = dataInicio.format(DATE_FORMATTER);
-        String dataVencimentoAte = dataFim.format(DATE_FORMATTER);
-
-        log.info("Iniciando busca de parcelas recebidas no período: {} a {}", dataVencimentoDe, dataVencimentoAte);
+        log.info("Automação ContaAzul: consultando endpoint de parcelas recebidas no período: {} a {}", dataInicio, dataFim);
 
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
-            acquittedSales = contaAzulClient.fetchAcquittedSales(dataVencimentoDe, dataVencimentoAte);
+            acquittedSales = contaAzulClient.fetchAcquittedSales(dataInicio.format(DATE_FORMATTER), dataFim.format(DATE_FORMATTER));
         } catch (RuntimeException ex) {
-            if (ex instanceof ContaAzulHttpException httpEx
-                    && httpEx.isStatus(403)
-                    && isPlanIneligibleResponse(httpEx.getResponseBody())) {
+            if (ex instanceof ContaAzulHttpException httpEx && httpEx.isStatus(403) && isPlanIneligibleResponse(httpEx.getResponseBody())) {
                 String message = "Conta Azul indisponível para automação: conta sem elegibilidade de API (END_TRIAL).";
                 log.warn(message);
-                return new ReceiptProcessingResult(
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        List.of(message));
+                return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of(message));
             }
-
             log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
-            return new ReceiptProcessingResult(
-                    0,
-                    0,
-                    0,
-                    0,
-                    1,
-                    0,
-                    0,
-                    List.of("Falha ao buscar vendas liquidadas no Conta Azul: " + ex.getMessage()));
+            return new ReceiptProcessingResult(0, 0, 0, 0, 1, 0, 0, List.of("Falha ao buscar vendas liquidadas no Conta Azul: " + ex.getMessage()));
         }
 
         int sent = 0;
@@ -198,222 +169,125 @@ public class ContaAzulReceiptProcessor {
                     continue;
                 }
 
-                log.info("[INICIO PROCESSAMENTO] Parcela: {}",
-                        StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "(sem descrição)");
-                log.info("[ORIGEM] origem={} | parcelaId={}",
-                        StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)",
-                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
+                auditService.logStart(sale.descricao(), sale.origem(), sale.parcelaId());
 
                 String customerUuidFromParcel = validator.normalizeUuid(sale.customerUuid());
-                log.info("Parcela recebida para processamento: parcelaId={}",
-                        StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
-
                 String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
                 String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
                 String saleDescriptionForReceipt = resolveSaleDescriptionForReceiptFlow(sale, resolvedSaleNumber);
 
                 Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
                 if (baixaIdOpt.isEmpty()) {
-                    log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.",
-                            sale.parcelaId());
-                    registerError(errors,
-                        "Nenhuma baixa encontrada para a parcela " + sale.parcelaId() + ". Item não processado.");
-                    String markId = StringUtils.hasText(sale.parcelaId())
-                            ? sale.parcelaId()
-                            : (StringUtils.hasText(resolvedSaleId) ? resolvedSaleId : null);
-
-                    if (markId != null) {
-                        retryPolicy.saveProcessedSaleIfNeeded(markId,
-                                "Recibo {} registrado como processado (nenhuma baixa encontrada).",
-                                "Recibo {} já registrado por concorrência ao marcar como processado quando nenhuma baixa encontrada.");
-                    } else {
-                        log.warn(
-                                "Nenhum identificador disponível para marcar como processado (parcela sem id e sem saleId). Parcela descrição: {}",
-                                sale.descricao());
-                    }
+                    auditService.recordNoBaixaFound(sale.parcelaId(), resolvedSaleId, errors);
                     continue;
                 }
 
                 String baixaId = baixaIdOpt.get().trim();
                 if (!StringUtils.hasText(baixaId)) {
                     failures++;
-                    log.warn("baixaId inválido (nulo/vazio) para parcela {}. Item ignorado para segurança.",
-                            sale.parcelaId());
-                    registerError(errors,
-                        "baixaId inválido para parcela " + sale.parcelaId() + ". Item ignorado para segurança.");
+                    auditService.recordInvalidBaixaId(sale.parcelaId(), errors);
                     continue;
                 }
 
-                log.info("Baixa ID extraído com sucesso para parcela {}: {}", sale.parcelaId(), baixaId);
-
-                if (processedSaleRepository.existsBySaleId(baixaId)) {
+                if (concurrencyHandler.isAlreadyProcessed(baixaId)) {
                     skippedProcessed++;
                     log.info("Recibo/baixa {} já processado anteriormente. Ignorando.", baixaId);
                     continue;
                 }
 
-                ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
-                if (validationResult.isNotValid()) {
-                    skippedMapping++;
-                    mappingWarnings++;
-                    log.warn("Recibo {} inválido ou sem mapeamento: {}", baixaId, validationResult.errorMessage());
-                    registerError(errors, validationResult.errorMessage());
+                if (!concurrencyHandler.acquireLock(baixaId)) {
+                    skippedProcessed++;
+                    log.info("Recibo/baixa {} já sendo processado em outra execução simultânea. Ignorando.", baixaId);
                     continue;
                 }
 
-                DoctorEmailMapping mapping = validationResult.mapping();
-                String recipientEmail = validationResult.recipientEmail();
-                String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
-
-                log.info("[FLOW] Baixa ID definido como: {}", baixaId);
-                log.info("Verificando mapeamento para o médico...");
-                log.info("-> Médico no banco: {} (E-mail: {})", mapping.getDoctorName(), mapping.getDoctorEmail());
-                log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF do Recibo da Baixa {}",
-                        sale.parcelaId(),
-                        doctorName,
-                        baixaId);
-
-                byte[] pdfBytes;
-                boolean usedInternalFallback = false;
-
-                if (!StringUtils.hasText(sale.idReciboDigital())) {
-                    noAttachmentWarnings++;
-                    log.info(
-                            "Baixa {} sem id_recibo_digital no retorno da Conta Azul. Gerando recibo interno Inovare (fallback).",
-                            baixaId);
-                    try {
-                        pdfBytes = fallbackService.generateInternalReceiptPdf(
-                                baixaId,
-                                doctorName,
-                                mapping,
-                                customerUuidFromParcel,
-                                saleDescriptionForReceipt);
-                        usedInternalFallback = true;
-                    } catch (RuntimeException fallbackEx) {
-                        failures++;
-                        log.error("Falha ao gerar recibo interno para baixa {}.", baixaId, fallbackEx);
-                        registerError(errors,
-                                "Falha ao gerar recibo interno para baixa " + baixaId + ": " + fallbackEx.getMessage());
+                try {
+                    ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
+                    if (validationResult.isNotValid()) {
+                        skippedMapping++;
+                        mappingWarnings++;
+                        log.warn("Recibo {} inválido ou sem mapeamento: {}", baixaId, validationResult.errorMessage());
+                        auditService.registerError(errors, validationResult.errorMessage());
                         continue;
                     }
-                } else {
-                    try {
-                        pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
-                    } catch (NoReceiptAvailableException nr) {
-                        noAttachmentWarnings++;
-                        log.warn(
-                                "Recibo digital da baixa {} indisponivel apos retries. Gerando recibo interno Inovare (fallback).",
-                                baixaId);
 
+                    DoctorEmailMapping mapping = validationResult.mapping();
+                    String recipientEmail = validationResult.recipientEmail();
+                    String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
+
+                    byte[] pdfBytes;
+                    boolean usedInternalFallback = false;
+
+                    if (!StringUtils.hasText(sale.idReciboDigital())) {
+                        noAttachmentWarnings++;
                         try {
-                            pdfBytes = fallbackService.generateInternalReceiptPdf(
-                                    baixaId,
-                                    doctorName,
-                                    mapping,
-                                    customerUuidFromParcel,
-                                    saleDescriptionForReceipt);
+                            pdfBytes = fallbackService.generateInternalReceiptPdf(baixaId, doctorName, mapping, customerUuidFromParcel, saleDescriptionForReceipt);
                             usedInternalFallback = true;
                         } catch (RuntimeException fallbackEx) {
                             failures++;
-                            log.error("Falha ao gerar recibo interno para baixa {} apos indisponibilidade de anexo.",
-                                    baixaId,
-                                    fallbackEx);
-                            registerError(errors,
-                                    "Falha no fallback interno da baixa " + baixaId + ": " + fallbackEx.getMessage());
+                            auditService.recordFallbackFailure(baixaId, fallbackEx, errors);
                             continue;
                         }
-                    } catch (RuntimeException ex) {
-                        failures++;
-                        String details = "Falha ao baixar recibo para baixa " + baixaId + ": " + ex.getMessage();
-                        boolean failedPermanently = retryPolicy.registerAttemptAndCheckIfPermanentFailure(baixaId, resolvedSaleId, doctorName, details);
-                        if (failedPermanently) {
-                            log.error("Recibo da baixa {} falhou repetidamente. Marcado como processado e alerta registrado.", baixaId);
+                    } else {
+                        try {
+                            pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
+                        } catch (NoReceiptAvailableException nr) {
+                            noAttachmentWarnings++;
+                            try {
+                                pdfBytes = fallbackService.generateInternalReceiptPdf(baixaId, doctorName, mapping, customerUuidFromParcel, saleDescriptionForReceipt);
+                                usedInternalFallback = true;
+                            } catch (RuntimeException fallbackEx) {
+                                failures++;
+                                auditService.recordFallbackFailure(baixaId, fallbackEx, errors);
+                                continue;
+                            }
+                        } catch (RuntimeException ex) {
+                            failures++;
+                            auditService.recordDownloadFailure(baixaId, resolvedSaleId, doctorName, ex, errors);
+                            continue;
                         }
-                        registerError(errors, details);
+                    }
+
+                    if (pdfBytes == null || pdfBytes.length == 0) {
+                        failures++;
+                        auditService.recordEmptyPdfFailure(baixaId, resolvedSaleId, doctorName, errors);
                         continue;
                     }
-                }
 
-                if (pdfBytes == null || pdfBytes.length == 0) {
-                    failures++;
-                    String details = "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.";
-                    boolean failedPermanently = retryPolicy.registerAttemptAndCheckIfPermanentFailure(baixaId, resolvedSaleId, doctorName, details);
-                    if (failedPermanently) {
-                        log.error("Recibo da baixa {} não gerou bytes após limite de tentativas. Marcado como processado e alerta registrado.", baixaId);
+                    try {
+                        receiptEmailService.sendReceiptForBaixa(doctorName, recipientEmail, resolvedSaleNumber, baixaId, pdfBytes);
+                    } catch (RuntimeException emailEx) {
+                        failures++;
+                        auditService.recordEmailFailure(baixaId, resolvedSaleId, doctorName, emailEx, errors);
+                        continue;
                     }
-                    registerError(errors, "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.");
-                    continue;
+
+                    auditService.recordSuccess(baixaId, doctorName, usedInternalFallback, sale.customerName());
+                    sent++;
+                } finally {
+                    concurrencyHandler.releaseLock(baixaId);
                 }
-
-                retryPolicy.clearAttempts(baixaId);
-
-                try {
-                    receiptEmailService.sendReceiptForBaixa(
-                            doctorName,
-                            recipientEmail,
-                            resolvedSaleNumber,
-                            baixaId,
-                            pdfBytes);
-                } catch (RuntimeException emailEx) {
-                    failures++;
-                    String details = "Falha SMTP no envio do recibo da baixa " + baixaId
-                            + ". O processamento da parcela foi preservado no banco para não perder trabalho. Erro: "
-                            + emailEx.getMessage();
-                    registerError(errors, details);
-                    retryPolicy.handleEmailFailure(baixaId, resolvedSaleId, doctorName, details);
-                    continue;
-                }
-
-                if (usedInternalFallback) {
-                    log.info("Recibo interno enviado com sucesso para baixa {} (médico: {}).",
-                        baixaId,
-                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
-                }
-
-                log.info("E-mail enviado com sucesso para recibo {} (médico: {}).",
-                        baixaId,
-                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "Profissional");
-
-                retryPolicy.saveProcessedSaleIfNeeded(baixaId,
-                    "Recibo {} registrado como processado com sucesso.",
-                    "Recibo {} já registrado por concorrência ao finalizar processamento.");
-                sent++;
             } catch (DataIntegrityViolationException ex) {
                 skippedProcessed++;
-                log.debug("Recibo {} já registrado como processado em execução concorrente.", ex.getMessage());
+                log.debug("Recibo já registrado como processado em execução concorrente.", ex);
             } catch (RuntimeException ex) {
                 failures++;
                 log.error("Falha ao processar recibo.", ex);
-                registerError(errors, "Falha ao processar recibo: " + ex.getMessage());
+                auditService.registerError(errors, "Falha ao processar recibo: " + ex.getMessage());
             }
         }
 
-        log.info(
-                "Automação ContaAzul finalizada: acquitted={}, sent={}, skippedProcessed={}, skippedMapping={}, failures={}",
-                acquittedSales.size(),
-                sent,
-                skippedProcessed,
-                skippedMapping,
-                failures);
+        log.info("Automação ContaAzul finalizada: acquitted={}, sent={}, skippedProcessed={}, skippedMapping={}, failures={}",
+                acquittedSales.size(), sent, skippedProcessed, skippedMapping, failures);
 
-        return new ReceiptProcessingResult(
-            acquittedSales.size(),
-            sent,
-            skippedProcessed,
-            skippedMapping,
-            failures,
-            noAttachmentWarnings,
-            mappingWarnings,
-            List.copyOf(errors));
+        return new ReceiptProcessingResult(acquittedSales.size(), sent, skippedProcessed, skippedMapping, failures, noAttachmentWarnings, mappingWarnings, List.copyOf(errors));
     }
 
     private String resolveSaleIdForReceiptFlow(ContaAzulClient.SaleItem sale) {
         String fallbackSaleId = StringUtils.hasText(sale.saleId()) ? sale.saleId().trim() : null;
-
         if (!"VENDA".equalsIgnoreCase(sale.origem()) || !StringUtils.hasText(sale.parcelaId())) {
             return fallbackSaleId;
         }
-
         try {
             Optional<ContaAzulClient.ParcelaDetailDTO> detailOpt = contaAzulClient.fetchParcelaDetail(sale.parcelaId());
             if (detailOpt.isPresent() && StringUtils.hasText(detailOpt.get().saleId())) {
@@ -422,7 +296,6 @@ public class ContaAzulReceiptProcessor {
         } catch (RuntimeException ex) {
             log.warn("Não foi possível resolver sale_id pela parcela {}. Mantendo fallback do item.", sale.parcelaId(), ex);
         }
-
         return fallbackSaleId;
     }
 
@@ -430,7 +303,6 @@ public class ContaAzulReceiptProcessor {
         if (!StringUtils.hasText(responseBody)) {
             return false;
         }
-
         String normalized = responseBody.toUpperCase();
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
@@ -439,56 +311,31 @@ public class ContaAzulReceiptProcessor {
         if (StringUtils.hasText(sale.saleNumber()) && sale.saleNumber().trim().matches("\\d{3,}")) {
             return sale.saleNumber().trim();
         }
-
         String fromDescription = extractSaleNumber(sale.descricao());
         if (StringUtils.hasText(fromDescription)) {
             return fromDescription;
         }
-
         String fromResolvedSaleId = extractSaleNumber(resolvedSaleId);
-        if (StringUtils.hasText(fromResolvedSaleId)) {
-            return fromResolvedSaleId;
-        }
-
-        return "N/D";
+        return StringUtils.hasText(fromResolvedSaleId) ? fromResolvedSaleId : "N/D";
     }
 
     private String resolveSaleDescriptionForReceiptFlow(ContaAzulClient.SaleItem sale, String resolvedSaleNumber) {
         if (StringUtils.hasText(resolvedSaleNumber) && !"N/D".equalsIgnoreCase(resolvedSaleNumber)) {
             return "Venda " + resolvedSaleNumber;
         }
-
-        if (StringUtils.hasText(sale.descricao())) {
-            return sale.descricao().trim();
-        }
-
-        return "Venda N/D";
+        return StringUtils.hasText(sale.descricao()) ? sale.descricao().trim() : "Venda N/D";
     }
 
     private String extractSaleNumber(String rawValue) {
         if (!StringUtils.hasText(rawValue)) {
             return null;
         }
-
         String normalized = rawValue.trim();
         if (normalized.matches("\\d{3,}")) {
             return normalized;
         }
-
         Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
         return matcher.find() ? matcher.group(1) : null;
-    }
-
-    private void registerError(List<String> errors, String message) {
-        if (!StringUtils.hasText(message)) {
-            return;
-        }
-
-        if (errors.size() >= MAX_ERROR_DETAILS) {
-            return;
-        }
-
-        errors.add(message.trim());
     }
 
     public record ReceiptProcessingResult(
@@ -508,30 +355,24 @@ public class ContaAzulReceiptProcessor {
 
     private boolean applyThrottle() {
         LockSupport.parkNanos(350_000_000L);
-
         if (Thread.currentThread().isInterrupted()) {
             log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
             return false;
         }
-
         return true;
     }
 
     private String buildSalesConfigurationErrorMessage() {
         List<String> missingProperties = new ArrayList<>();
-
         if (!StringUtils.hasText(properties.getSalesV2Url())) {
             missingProperties.add("app.contaazul.sales-v2-url");
         }
-
         if (!StringUtils.hasText(properties.getPaymentsUrl())) {
             missingProperties.add("app.contaazul.payments-url");
         }
-
         if (!StringUtils.hasText(properties.getSalesPdfV1UrlTemplate())) {
             missingProperties.add("app.contaazul.sales-pdf-v1-url-template");
         }
-
         String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
         String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
 

@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.ticket.TicketTagExtractor;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -48,6 +49,7 @@ public class CreateTicketUseCase {
     private final CreateNotificationService createNotificationService;
     private final DiscordWebhookService discordWebhookService;
     private final AuditLogService auditLogService;
+    private final TicketTagExtractor ticketTagExtractor;
 
     /**
      * Abre um chamado com os dados fornecidos.
@@ -97,6 +99,7 @@ public class CreateTicketUseCase {
                 .requestedQuantity(request.requestedQuantity())
                 .slaDeadline(now.plusHours(category.getBaseSlaHours()))
                 .createdAt(now)
+                .tags(ticketTagExtractor.extractTags(request.title(), request.description()))
                 .build();
 
         Ticket savedTicket = ticketRepository.save(ticket);

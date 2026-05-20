@@ -33,7 +33,9 @@ public record TicketResponseDTO(
         LocalDateTime closedAt,
         List<AttachmentResponseDTO> attachments,
         String solutionText,
-        String solucao
+        String solucao,
+        List<UUID> relatedTicketIds,
+        List<String> tags
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -59,7 +61,9 @@ public record TicketResponseDTO(
                 ticket.getClosedAt(),
                 List.of(), // Lista vazia por padrão, pode ser populada pelo caso de uso
                 ticket.getSolutionText(),
-                ticket.getSolutionText()
+                ticket.getSolutionText(),
+                ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
+                ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of()
         );
     }
 

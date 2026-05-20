@@ -268,4 +268,33 @@ public class TicketController {
         checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(getTicketCommentsUseCase.execute(id));
     }
+
+    /**
+     * Relaciona dois chamados de forma bidirecional.
+     * Retorna 200 OK com o chamado principal atualizado.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/{id}/relate/{relatedId}")
+    public ResponseEntity<TicketResponseDTO> relateTickets(
+            @PathVariable UUID id,
+            @PathVariable UUID relatedId) {
+        checkTicketOwnershipOrStaff(id);
+        checkTicketOwnershipOrStaff(relatedId);
+
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado principal não encontrado: " + id));
+
+        Ticket relatedTicket = ticketRepository.findById(relatedId)
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado relacionado não encontrado: " + relatedId));
+
+        ticket.getRelatedTickets().add(relatedTicket);
+        relatedTicket.getRelatedTickets().add(ticket);
+
+        ticketRepository.save(ticket);
+        ticketRepository.save(relatedTicket);
+
+        log.info("Relacionamento estabelecido de forma bidirecional entre o chamado {} e {}", id, relatedId);
+
+        return ResponseEntity.ok(TicketResponseDTO.from(ticket));
+    }
 }

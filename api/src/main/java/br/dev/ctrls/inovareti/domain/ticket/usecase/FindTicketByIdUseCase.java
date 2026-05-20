@@ -65,7 +65,9 @@ public class FindTicketByIdUseCase {
                 ticket.getClosedAt(),
                 attachments,
                 ticket.getSolutionText(),
-                ticket.getSolutionText()
+                ticket.getSolutionText(),
+                ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
+                ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of()
         );
     }
 }

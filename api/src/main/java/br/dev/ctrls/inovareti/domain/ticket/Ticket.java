@@ -2,6 +2,12 @@ package br.dev.ctrls.inovareti.domain.ticket;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.CollectionTable;
 
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.security.CryptoConverter;
@@ -105,4 +111,22 @@ public class Ticket {
     /** Texto da solução/resolução dada ao chamado. */
     @Column(name = "solution_text", columnDefinition = "text")
     private String solutionText;
+
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "ticket_relations",
+        joinColumns = @JoinColumn(name = "ticket_id"),
+        inverseJoinColumns = @JoinColumn(name = "related_ticket_id")
+    )
+    private Set<Ticket> relatedTickets = new HashSet<>();
+
+    @Builder.Default
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+        name = "ticket_tags",
+        joinColumns = @JoinColumn(name = "ticket_id")
+    )
+    @Column(name = "tag", nullable = false, length = 50)
+    private Set<String> tags = new HashSet<>();
 }

@@ -62,6 +62,8 @@ public class VaultController {
 
     @GetMapping
     public ResponseEntity<List<VaultItemResponseDTO>> listVisibleItems() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
         return ResponseEntity.ok(vaultService.listVisibleItems(getAuthenticatedUserId()));
     }
 

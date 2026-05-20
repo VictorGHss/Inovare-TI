@@ -184,6 +184,7 @@ public class AssetController {
      * @param id UUID do Asset
      * @return   Arquivo binário com headers apropriados (Content-Disposition, Content-Type)
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{id}/invoice")
     public ResponseEntity<byte[]> downloadInvoice(@PathVariable UUID id) {
         Asset asset = assetRepository.findById(id)

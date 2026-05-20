@@ -48,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/tickets")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
@@ -62,6 +63,35 @@ public class TicketController {
     private final TicketAttachmentRepository attachmentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+
+    private void checkTicketOwnershipOrStaff(UUID ticketId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Usuário não autenticado.");
+        }
+        
+        UUID userId;
+        try {
+            userId = UUID.fromString(auth.getPrincipal().toString());
+        } catch (Exception e) {
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Identificador de usuário inválido.");
+        }
+
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Acesso negado: Usuário não encontrado."));
+
+        if (user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.ADMIN 
+                || user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.TECHNICIAN) {
+            return;
+        }
+
+        var ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado não encontrado."));
+
+        if (!ticket.getRequester().getId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Você não é o proprietário deste chamado.");
+        }
+    }
 
     /**
      * Lista todos os chamados com isolamento por role.
@@ -95,6 +125,7 @@ public class TicketController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<TicketResponseDTO> findById(@PathVariable UUID id) {
+        checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(findTicketByIdUseCase.execute(id));
     }
 
@@ -158,6 +189,7 @@ public class TicketController {
             @PathVariable UUID id,
             @RequestParam("file") MultipartFile file) {
         
+        checkTicketOwnershipOrStaff(id);
         Ticket ticket = ticketRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Chamado não encontrado"));
 
@@ -197,6 +229,7 @@ public class TicketController {
      */
     @GetMapping("/{id}/attachments")
     public ResponseEntity<List<TicketAttachmentResponseDTO>> listAttachments(@PathVariable UUID id) {
+        checkTicketOwnershipOrStaff(id);
         List<TicketAttachment> attachments = attachmentRepository.findByTicketId(id);
         
         List<TicketAttachmentResponseDTO> response = attachments.stream()
@@ -221,6 +254,7 @@ public class TicketController {
     public ResponseEntity<TicketCommentResponseDTO> addComment(
             @PathVariable UUID id,
             @Valid @RequestBody TicketCommentRequestDTO request) {
+        checkTicketOwnershipOrStaff(id);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(addTicketCommentUseCase.execute(id, request));
     }
@@ -231,6 +265,7 @@ public class TicketController {
      */
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<TicketCommentResponseDTO>> listComments(@PathVariable UUID id) {
+        checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(getTicketCommentsUseCase.execute(id));
     }
 }

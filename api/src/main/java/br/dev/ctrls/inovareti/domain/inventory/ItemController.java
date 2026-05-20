@@ -83,11 +83,13 @@ public class ItemController {
      * Retorna 200 OK com a lista (vazia se não houver lotes).
      * Todos os usuários autenticados podem ler informações de estoque.
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{id}/batches")
     public ResponseEntity<List<BatchResponseDTO>> listBatches(@PathVariable UUID id) {
         return ResponseEntity.ok(listItemBatchesUseCase.execute(id));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{id}/movements/out")
     public ResponseEntity<List<StockMovementResponseDTO>> listOutMovements(@PathVariable UUID id) {
         List<StockMovementResponseDTO> response = stockMovementRepository
@@ -188,6 +190,7 @@ public class ItemController {
      * @param batchId UUID do StockBatch
      * @return        Arquivo binário com headers apropriados (Content-Disposition, Content-Type)
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{itemId}/batches/{batchId}/invoice")
     public ResponseEntity<byte[]> downloadBatchInvoice(
             @PathVariable UUID itemId,

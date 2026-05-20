@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.domain.ticket;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,11 @@ public interface TicketAttachmentRepository extends JpaRepository<TicketAttachme
      * @return lista de anexos do chamado
      */
     List<TicketAttachment> findByTicketId(UUID ticketId);
+
+    /**
+     * Busca um anexo pelo nome único em disco.
+     * @param storedFilename nome físico em disco
+     * @return optional com o anexo encontrado
+     */
+    Optional<TicketAttachment> findByStoredFilename(String storedFilename);
 }

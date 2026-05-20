@@ -15,9 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMapping;
-import br.dev.ctrls.inovareti.domain.financeiro.DoctorEmailMappingRepository;
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -34,20 +32,19 @@ public class ContaAzulReceiptProcessor {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int MAX_ERROR_DETAILS = 200;
-    private static final String ROBERTO_TETSUO_UUID = "b68a0402-6620-4890-af48-909d8b38362b";
-    private static final String DOCUMENT_FALLBACK_UNDER_REVIEW = "CPF/CNPJ sob consulta";
     private static final Pattern SALE_NUMBER_PATTERN = Pattern.compile("(?i)(?:numero_venda|numero|venda)\\s*[:#-]?\\s*(\\d{3,})");
 
     private final ContaAzulClient contaAzulClient;
     private final ContaAzulTokenService contaAzulTokenService;
-    private final DoctorEmailMappingRepository doctorEmailMappingRepository;
     private final ProcessedSaleRepository processedSaleRepository;
     private final ReceiptEmailService receiptEmailService;
-    private final InternalReceiptService internalReceiptService;
     private final ContaAzulProperties properties;
 
     private final ContaAzulReceiptStorageAdapter storageAdapter;
     private final ContaAzulReceiptRetryPolicy retryPolicy;
+
+    private final ContaAzulReceiptValidator validator;
+    private final InternalReceiptEmissionService fallbackService;
 
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
@@ -78,21 +75,15 @@ public class ContaAzulReceiptProcessor {
         ContaAzulClient.SaleItem sale = contaAzulClient.findAcquittedSaleById(saleId)
                 .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada com status ACQUITTED: " + saleId));
 
-        if (!StringUtils.hasText(sale.customerUuid())) {
-            throw new IllegalStateException("A venda informada não possui customer UUID para localizar mapeamento.");
+        ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
+        if (validationResult.isNotValid()) {
+            throw new IllegalStateException(validationResult.errorMessage());
         }
 
-        DoctorEmailMapping mapping = doctorEmailMappingRepository
-                .findByContaAzulCustomerUuid(sale.customerUuid())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Não existe mapeamento para o customer UUID informado: " + sale.customerUuid()));
+        DoctorEmailMapping mapping = validationResult.mapping();
+        String recipientEmail = validationResult.recipientEmail();
+        String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
 
-        String recipientEmail = resolveRecipientEmail(mapping);
-        if (!StringUtils.hasText(recipientEmail)) {
-            throw new IllegalStateException("Mapeamento encontrado, mas sem e-mail de destino para envio.");
-        }
-
-        String doctorName = resolveDoctorName(mapping, sale.customerName());
         Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
         if (baixaIdOpt.isEmpty()) {
             throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
@@ -213,7 +204,7 @@ public class ContaAzulReceiptProcessor {
                         StringUtils.hasText(sale.origem()) ? sale.origem() : "(nula)",
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
-                String customerUuidFromParcel = normalizeUuid(sale.customerUuid());
+                String customerUuidFromParcel = validator.normalizeUuid(sale.customerUuid());
                 log.info("Parcela recebida para processamento: parcelaId={}",
                         StringUtils.hasText(sale.parcelaId()) ? sale.parcelaId() : "(sem id)");
 
@@ -261,53 +252,22 @@ public class ContaAzulReceiptProcessor {
                     continue;
                 }
 
-                if (!StringUtils.hasText(customerUuidFromParcel)) {
+                ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
+                if (validationResult.isNotValid()) {
                     skippedMapping++;
                     mappingWarnings++;
-                    log.warn("Recibo {} sem customer UUID. Pulando.", baixaId);
-                    registerError(errors,
-                            "Recibo " + baixaId + " sem customer UUID retornado pela API. Mapeamento ignorado.");
+                    log.warn("Recibo {} inválido ou sem mapeamento: {}", baixaId, validationResult.errorMessage());
+                    registerError(errors, validationResult.errorMessage());
                     continue;
                 }
+
+                DoctorEmailMapping mapping = validationResult.mapping();
+                String recipientEmail = validationResult.recipientEmail();
+                String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
 
                 log.info("[FLOW] Baixa ID definido como: {}", baixaId);
                 log.info("Verificando mapeamento para o médico...");
-
-                DoctorEmailMapping mapping = findDoctorMappingByCustomerUuid(customerUuidFromParcel).orElse(null);
-                if (mapping == null) {
-                    skippedMapping++;
-                    mappingWarnings++;
-                    log.info("Mapeamento NÃO encontrado. Pulando item.");
-                    log.warn("[MAP_FAIL] Cadastro faltando para o médico: {} | UUID API='{}' | UUID normalizado='{}'",
-                        StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponível)",
-                        sale.customerUuid(),
-                        customerUuidFromParcel);
-                    if (ROBERTO_TETSUO_UUID.equals(customerUuidFromParcel)) {
-                        log.warn(
-                                "Dica: Verifique se o UUID b68a0402... está cadastrado na tabela doctor_email_mapping para o médico Roberto Tetsuo.");
-                    }
-                    registerError(errors,
-                        "MAP_FAIL para UUID " + customerUuidFromParcel + " (parcela " + sale.parcelaId() + ").");
-                    continue;
-                }
-
                 log.info("-> Médico no banco: {} (E-mail: {})", mapping.getDoctorName(), mapping.getDoctorEmail());
-
-                String recipientEmail = resolveRecipientEmail(mapping);
-                if (!StringUtils.hasText(recipientEmail)) {
-                    skippedMapping++;
-                    mappingWarnings++;
-                    log.warn(
-                            "Mapeamento sem e-mail de destino (user/fallback) para customer UUID {}. Recibo {} ignorado.",
-                            customerUuidFromParcel,
-                            baixaId);
-                    registerError(errors,
-                        "Mapeamento sem e-mail de destino para customer UUID " + customerUuidFromParcel
-                            + " (recibo " + baixaId + ").");
-                    continue;
-                }
-
-                String doctorName = resolveDoctorName(mapping, sale.customerName());
                 log.info("Médico identificado para a parcela {}: {}. Prosseguindo para baixar PDF do Recibo da Baixa {}",
                         sale.parcelaId(),
                         doctorName,
@@ -322,12 +282,12 @@ public class ContaAzulReceiptProcessor {
                             "Baixa {} sem id_recibo_digital no retorno da Conta Azul. Gerando recibo interno Inovare (fallback).",
                             baixaId);
                     try {
-                        pdfBytes = generateInternalReceiptPdf(
+                        pdfBytes = fallbackService.generateInternalReceiptPdf(
                                 baixaId,
                                 doctorName,
-                            mapping,
-                            customerUuidFromParcel,
-                            saleDescriptionForReceipt);
+                                mapping,
+                                customerUuidFromParcel,
+                                saleDescriptionForReceipt);
                         usedInternalFallback = true;
                     } catch (RuntimeException fallbackEx) {
                         failures++;
@@ -346,7 +306,7 @@ public class ContaAzulReceiptProcessor {
                                 baixaId);
 
                         try {
-                            pdfBytes = generateInternalReceiptPdf(
+                            pdfBytes = fallbackService.generateInternalReceiptPdf(
                                     baixaId,
                                     doctorName,
                                     mapping,
@@ -475,106 +435,6 @@ public class ContaAzulReceiptProcessor {
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
 
-    private byte[] generateInternalReceiptPdf(
-            String baixaId,
-            String doctorName,
-            DoctorEmailMapping mapping,
-            String customerUuidFromSale,
-            String saleDescription) {
-        JsonNode settlementNode = null;
-
-        try {
-            settlementNode = contaAzulClient.getSettlementDetails(baixaId).orElse(null);
-        } catch (RuntimeException ex) {
-            log.warn("Nao foi possivel obter detalhes da baixa {} para montagem completa do recibo interno.", baixaId, ex);
-        }
-
-        String documentForReceipt = resolveDoctorDocumentForReceipt(mapping, customerUuidFromSale, settlementNode, baixaId);
-
-        byte[] pdfBytes = internalReceiptService.generateReceipt(
-                settlementNode,
-                doctorName,
-                documentForReceipt,
-                saleDescription);
-        if (pdfBytes == null || pdfBytes.length == 0) {
-            throw new IllegalStateException("Recibo interno gerado sem conteudo para baixa " + baixaId + ".");
-        }
-
-        return pdfBytes;
-    }
-
-    private String resolveDoctorDocumentForReceipt(
-            DoctorEmailMapping mapping,
-            String customerUuidFromSale,
-            JsonNode settlementNode,
-            String baixaId) {
-        String mappedDocument = mapping != null ? mapping.getDoctorCpfCnpj() : null;
-        if (mappedDocument != null) {
-            mappedDocument = mappedDocument.trim();
-        }
-        if (mappedDocument != null && !mappedDocument.isBlank()) {
-            return mappedDocument;
-        }
-
-        String doctorName = mapping != null ? mapping.getDoctorName() : "(médico não identificado)";
-        log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
-
-        if (StringUtils.hasText(customerUuidFromSale)) {
-            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(customerUuidFromSale.trim());
-            if (apiDocument.isPresent()) {
-                String resolvedDocument = apiDocument.get().trim();
-                persistDoctorDocumentOnMapping(mapping, resolvedDocument, customerUuidFromSale, baixaId);
-                log.info("Documento obtido via API da pessoa {} para baixa {}.", customerUuidFromSale, baixaId);
-                return resolvedDocument;
-            }
-            log.warn("Nao foi possivel obter documento via API para cliente_id da venda {} (baixa {}).",
-                    customerUuidFromSale,
-                    baixaId);
-        }
-
-        String clientIdFromSettlement = extractClientIdFromSettlement(settlementNode);
-        if (StringUtils.hasText(clientIdFromSettlement)) {
-            Optional<String> apiDocument = contaAzulClient.fetchPersonDocumentById(clientIdFromSettlement);
-            if (apiDocument.isPresent()) {
-                String resolvedDocument = apiDocument.get().trim();
-                persistDoctorDocumentOnMapping(mapping, resolvedDocument, clientIdFromSettlement, baixaId);
-                log.info("Documento obtido via API da pessoa {} para baixa {}.", clientIdFromSettlement, baixaId);
-                return resolvedDocument;
-            }
-
-            log.warn("Nao foi possivel obter documento via API para cliente_id {} (baixa {}). Usando fallback.",
-                    clientIdFromSettlement,
-                    baixaId);
-        } else {
-            log.warn("cliente_id nao encontrado no JSON da baixa {}. Mantendo documento em fallback interno.", baixaId);
-        }
-
-        return DOCUMENT_FALLBACK_UNDER_REVIEW;
-    }
-
-    private void persistDoctorDocumentOnMapping(
-            DoctorEmailMapping mapping,
-            String doctorDocument,
-            String clientId,
-            String baixaId) {
-        if (mapping == null || !StringUtils.hasText(doctorDocument)) {
-            return;
-        }
-
-        if (StringUtils.hasText(mapping.getDoctorCpfCnpj())
-                && doctorDocument.trim().equalsIgnoreCase(mapping.getDoctorCpfCnpj().trim())) {
-            return;
-        }
-
-        try {
-            mapping.setDoctorCpfCnpj(doctorDocument.trim());
-            doctorEmailMappingRepository.save(mapping);
-            log.info("CPF/CNPJ atualizado no doctor_email_mapping via API da pessoa {} (baixa {}).", clientId, baixaId);
-        } catch (RuntimeException ex) {
-            log.warn("Falha ao persistir CPF/CNPJ no doctor_email_mapping para cliente_id {}.", clientId, ex);
-        }
-    }
-
     private String resolveSaleNumberForReceiptFlow(ContaAzulClient.SaleItem sale, String resolvedSaleId) {
         if (StringUtils.hasText(sale.saleNumber()) && sale.saleNumber().trim().matches("\\d{3,}")) {
             return sale.saleNumber().trim();
@@ -617,89 +477,6 @@ public class ContaAzulReceiptProcessor {
 
         Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
         return matcher.find() ? matcher.group(1) : null;
-    }
-
-    private String extractClientIdFromSettlement(JsonNode settlementNode) {
-        if (settlementNode == null || settlementNode.isNull()) {
-            return null;
-        }
-
-        String clientId = null;
-        if (settlementNode.path("cliente_id").isValueNode()) {
-            clientId = settlementNode.path("cliente_id").asText();
-        }
-
-        if (!StringUtils.hasText(clientId) && settlementNode.path("cliente").path("id").isValueNode()) {
-            clientId = settlementNode.path("cliente").path("id").asText();
-        }
-
-        if (!StringUtils.hasText(clientId) && settlementNode.path("customer").path("id").isValueNode()) {
-            clientId = settlementNode.path("customer").path("id").asText();
-        }
-
-        if (!StringUtils.hasText(clientId) && settlementNode.path("pessoa").path("id").isValueNode()) {
-            clientId = settlementNode.path("pessoa").path("id").asText();
-        }
-
-        if (clientId == null || clientId.isBlank()) {
-            return null;
-        }
-
-        return clientId.trim();
-    }
-
-    private String resolveRecipientEmail(DoctorEmailMapping mapping) {
-        if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getEmail())) {
-            return mapping.getUser().getEmail();
-        }
-
-        return mapping.getDoctorEmail();
-    }
-
-    private String resolveDoctorName(DoctorEmailMapping mapping, String customerName) {
-        if (mapping.getUser() != null && StringUtils.hasText(mapping.getUser().getName())) {
-            return mapping.getUser().getName();
-        }
-
-        if (StringUtils.hasText(mapping.getDoctorName())) {
-            return mapping.getDoctorName();
-        }
-
-        return StringUtils.hasText(customerName) ? customerName : "Profissional";
-    }
-
-    private Optional<DoctorEmailMapping> findDoctorMappingByCustomerUuid(String customerUuidFromParcel) {
-        if (!StringUtils.hasText(customerUuidFromParcel)) {
-            return Optional.empty();
-        }
-
-        String normalizedParcelCustomerUuid = normalizeUuid(customerUuidFromParcel);
-
-        Optional<DoctorEmailMapping> normalizedMatch = doctorEmailMappingRepository
-                .findByContaAzulCustomerUuidNormalized(normalizedParcelCustomerUuid);
-        if (normalizedMatch.isPresent()) {
-            return normalizedMatch;
-        }
-
-        Optional<DoctorEmailMapping> direct = doctorEmailMappingRepository
-                .findByContaAzulCustomerUuid(normalizedParcelCustomerUuid);
-        if (direct.isPresent()) {
-            return direct;
-        }
-
-        return doctorEmailMappingRepository.findAllByOrderByDoctorNameAsc().stream()
-                .filter(mapping -> StringUtils.hasText(mapping.getContaAzulCustomerUuid()))
-                .filter(mapping -> normalizedParcelCustomerUuid.equals(normalizeUuid(mapping.getContaAzulCustomerUuid())))
-                .findFirst();
-    }
-
-    private String normalizeUuid(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-
-        String normalized = value.replaceAll("\\s+", "").toLowerCase();
-        return StringUtils.hasText(normalized) ? normalized : null;
     }
 
     private void registerError(List<String> errors, String message) {

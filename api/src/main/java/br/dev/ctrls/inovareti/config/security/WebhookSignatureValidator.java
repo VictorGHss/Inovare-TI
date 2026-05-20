@@ -1,7 +1,9 @@
 package br.dev.ctrls.inovareti.config.security;
 
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Component;
@@ -62,7 +64,7 @@ public class WebhookSignatureValidator {
                 log.warn("Assinatura de webhook inválida. Assinatura gerada não condiz com a recebida.");
             }
             return result;
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             log.error("Erro interno ao processar a validação de assinatura HMAC-SHA256 para o webhook", e);
             return false;
         }

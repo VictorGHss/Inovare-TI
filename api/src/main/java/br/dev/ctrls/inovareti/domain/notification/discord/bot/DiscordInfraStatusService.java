@@ -4,7 +4,6 @@ import java.text.DecimalFormat;
 
 import javax.sql.DataSource;
 
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -90,7 +89,7 @@ public class DiscordInfraStatusService {
 
             double mb = bytes / (1024.0 * 1024.0);
             return DF.format(mb) + " MB";
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (Exception ex) {
             log.warn("[DISCORD][/ti status] Falha ao consultar tamanho do banco PostgreSQL: {}", ex.getMessage());
             return "Indisponível (erro ao consultar)";
         }

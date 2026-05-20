@@ -1,8 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.locks.LockSupport;
 
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
@@ -10,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -21,18 +18,18 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopWebhookIdempotencyService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.WebhookIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Caso de Uso orquestrador principal para recepção e roteamento de Webhooks do Blip.
+ * Intercepta payloads, valida assinaturas de token de segurança, delega verificações de idempotência
+ * e executa pipelines de ação via BlipWebhookActionExecutor.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -40,15 +37,12 @@ public class HandleBlipWebhookUseCase {
 
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final AppointmentMotorProperties appointmentMotorProperties;
-    private final PatientExternalPort patientExternalPort;
     private final ProfessionalExternalPort professionalExternalPort;
-    private final AppointmentExternalPort appointmentExternalPort;
     private final BlipContextService blipContextService;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
-    private final ConfirmationStateMachineService confirmationStateMachineService;
     private final AuditPort auditPort;
-    private final Optional<WebhookIdempotencyService> webhookIdempotencyService;
-    private final Optional<NoopWebhookIdempotencyService> noopWebhookIdempotencyService;
+    private final BlipIdempotencyService blipIdempotencyService;
+    private final BlipWebhookActionExecutor blipWebhookActionExecutor;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -58,7 +52,6 @@ public class HandleBlipWebhookUseCase {
         AppointmentSession session,
         AppointmentDoctorMapping doctorMapping
     ) {}
-
 
     /**
      * @return nome da fila Blip resolvida após o processamento, ou {@code null} se o webhook foi ignorado
@@ -70,8 +63,7 @@ public class HandleBlipWebhookUseCase {
 
     /**
      * @return nome da fila Blip resolvida após processar o médico (ex.: profissional {@code 70} no manual-trigger
-     *         retorna {@code Endocrinologia} em fluxo {@code confirm}). No manual-trigger, os comandos LIME são
-     *         disparados após o commit da transação, em thread separada, para não atrasar a resposta HTTP síncrona.
+     *         retorna {@code Endocrinologia} em fluxo {@code confirm}).
      */
     public WebhookResult execute(BlipWebhookPayload payload, boolean skipTokenValidation) {
         if (!skipTokenValidation) {
@@ -89,11 +81,8 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
-        boolean fresh = webhookIdempotencyService
-                .map(service -> service.registerIfFirstTime(payload.messageId()))
-                .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.registerIfFirstTime(payload.messageId())).orElse(true));
-
-        if (!fresh) {
+        // 1. Verificação de idempotência do messageId (Ignora se for evento duplicado)
+        if (!blipIdempotencyService.registerIfFirstTime(payload.messageId())) {
             log.debug("Ação ignorada no webhook (idempotência). messageId={}", payload.messageId());
             return null;
         }
@@ -153,38 +142,9 @@ public class HandleBlipWebhookUseCase {
             return null;
         }
 
-        boolean lockAcquired = webhookIdempotencyService
-                .map(service -> service.tryAcquireLock(appointmentId))
-                .orElseGet(() -> noopWebhookIdempotencyService.map(service -> service.tryAcquireLock(appointmentId)).orElse(true));
-
-        if (!lockAcquired) {
-            log.info("[IDEMPOTENCY] Aguardando processamento da thread principal para o agendamento {}", appointmentId);
-            // Spin-Wait
-            int maxAttempts = 10;
-            for (int i = 0; i < maxAttempts; i++) {
-                awaitIdempotencyDelayNonBlocking(500L); // Usando delay não bloqueante para Virtual Threads
-
-                String cachedJson = webhookIdempotencyService.map(s -> s.getCachedResult(appointmentId)).orElse(null);
-                if (cachedJson != null) {
-                    try {
-                        log.info("[IDEMPOTENCY] Resultado lido do cache para agendamento {}", appointmentId);
-                        WebhookResult cachedResult = objectMapper.readValue(cachedJson, WebhookResult.class);
-                        WebhookResult overrideResult = new WebhookResult(
-                            cachedResult.queue(),
-                            cachedResult.patientName(),
-                            cachedResult.patientCPF(),
-                            cachedResult.patientBirthdate(),
-                            actionType,
-                            cachedResult.doctorName()
-                        );
-                        return overrideResult;
-                    } catch (JsonProcessingException | IllegalArgumentException e) {
-                        log.error("Erro ao ler cache JSON para agendamento {}", appointmentId, e);
-                    }
-                }
-            }
-            log.warn("[IDEMPOTENCY] Tempo esgotado aguardando resultado para agendamento {}. Retornando null.", appointmentId);
-            return null;
+        // 2. Trava atômica de concorrência / Spin-Wait com cache integrado
+        if (!blipIdempotencyService.tryAcquireLock(appointmentId)) {
+            return blipIdempotencyService.getCachedResultOrSpinWait(appointmentId, actionType);
         }
 
         log.info("[WEBHOOK] Processando ação '{}' para agendamento ID={}", actionType, appointmentId);
@@ -250,133 +210,16 @@ public class HandleBlipWebhookUseCase {
 
         String dispatchIdentity = resolveDispatchIdentity(payload.from(), dbData.session());
 
-        // 1. Bloqueio de Duplicidade
-        if ("CONFIRMED".equalsIgnoreCase(dbData.session().getStatus().name())) {
-            log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
-            
-            // FASE 2B: Chamada HTTP Externa (Fora de Transação)
-            FeegowPatient patient = patientExternalPort.patientInfo(dbData.session().getPatientId());
-            String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
-            String formattedBirthdate = formatBirthdate(patient.birthdate());
-            WebhookResult result = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
-            log.info("[WEBHOOK] Agendamento {} já confirmado. Retornando WebhookResult populado: action={}, queue={}, patientName={}, doctorName={}", 
-                     appointmentId, result.action(), result.queue(), result.patientName(), result.doctorName());
-            try {
-                String jsonResult = objectMapper.writeValueAsString(result);
-                webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
-                
-                if (dispatchIdentity != null) {
-                    // Atualiza telefone no banco caso tenha vindo diferente (Transação microscópica de gravação)
-                    try {
-                        transactionTemplate.executeWithoutResult(status -> {
-                            AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId).orElse(null);
-                            if (currentSession != null) {
-                                currentSession.setPhoneNumber(dispatchIdentity);
-                                appointmentSessionRepository.save(currentSession);
-                            }
-                        });
-                    } catch (DataAccessException | IllegalStateException ex) {
-                        log.error("Falha ao atualizar telefone na sessão já confirmada. appointmentId={}", appointmentId, ex);
-                    }
-
-                    AppointmentPayload appointmentPayload = AppointmentPayload.builder()
-                        .action(result.action() != null ? result.action() : "")
-                        .doctorName(result.doctorName() != null ? result.doctorName() : "")
-                        .queue(result.queue() != null ? result.queue() : "")
-                        .patientName(result.patientName() != null ? result.patientName() : "")
-                        .patientCPF(result.patientCPF() != null ? result.patientCPF() : "")
-                        .patientBirthdate(result.patientBirthdate() != null ? result.patientBirthdate() : "")
-                        .build();
-                    blipContextService.processAppointmentPush(dispatchIdentity, result.action(), appointmentPayload);
-                }
-            } catch (JsonProcessingException | IllegalArgumentException e) {
-                log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
-            }
-            return result;
-        }
-
-        // FASE 2C: Chamada de rede externa Feegow se for CONFIRM (Fora de Transação)
-        if ("confirm".equals(actionType)) {
-            String confirmedStatusId = resolveConfirmedStatusId();
-            log.info("[CONFIRM] Atualizando status na Feegow com código {}.", confirmedStatusId);
-            try {
-                appointmentExternalPort.updateAppointmentStatus(dbData.session().getFeegowAppointmentId(), confirmedStatusId);
-            } catch (RestClientException | IllegalStateException ex) {
-                log.error(
-                    "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
-                    dbData.session().getFeegowAppointmentId(),
-                    ex.getMessage(),
-                    ex);
-            }
-        } else {
-            log.info("[ALTERAR] Paciente solicita alteração. Redirecionando para fila humana.");
-        }
-
-        // FASE 3: Persistência no Banco de Dados em Transação Microscópica
-        // O escopo transacional é restrito e isolado da chamada HTTP externa.
-        try {
-            transactionTemplate.executeWithoutResult(status -> {
-                AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
-                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
-                
-                if (dispatchIdentity != null) {
-                    currentSession.setPhoneNumber(dispatchIdentity);
-                }
-                
-                if ("confirm".equals(actionType)) {
-                    confirmationStateMachineService.markConfirmed(currentSession);
-                }
-                
-                appointmentSessionRepository.save(currentSession);
-            });
-        } catch (DataAccessException | IllegalStateException ex) {
-            log.error("Falha grave na gravação dos dados do webhook no banco de dados para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
-            throw ex;
-        }
-
-        log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, queue);
-
-        // FASE 2D: Chamada HTTP Externa à Feegow para retornar dados do paciente (Fora de Transação)
-        FeegowPatient patient = patientExternalPort.patientInfo(dbData.session().getPatientId());
-        String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
-        String formattedBirthdate = formatBirthdate(patient.birthdate());
-
-        WebhookResult finalResult = new WebhookResult(queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName);
-        
-        try {
-            String jsonResult = objectMapper.writeValueAsString(finalResult);
-            webhookIdempotencyService.ifPresent(service -> service.saveCachedResult(appointmentId, jsonResult));
-            
-            if (dispatchIdentity != null) {
-                AppointmentPayload appointmentPayload = AppointmentPayload.builder()
-                    .action(finalResult.action() != null ? finalResult.action() : "")
-                    .doctorName(finalResult.doctorName() != null ? finalResult.doctorName() : "")
-                    .queue(finalResult.queue() != null ? finalResult.queue() : "")
-                    .patientName(finalResult.patientName() != null ? finalResult.patientName() : "")
-                    .patientCPF(finalResult.patientCPF() != null ? finalResult.patientCPF() : "")
-                    .patientBirthdate(finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : "")
-                    .build();
-                // Chamada externa Blip (fora de transação)
-                blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
-            }
-        } catch (JsonProcessingException | IllegalArgumentException e) {
-            log.error("Erro ao serializar resultado final para agendamento {}", appointmentId, e);
-        }
-
-        return finalResult;
+        // Delegação de toda a pipeline de execução para o executor especializado
+        return blipWebhookActionExecutor.execute(
+                actionType,
+                appointmentId,
+                dbData.session(),
+                doctorName,
+                queue,
+                dispatchIdentity
+        );
     }
-
-
-
-    private String resolveConfirmedStatusId() {
-        String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
-        if (configuredStatusId == null || configuredStatusId.isBlank()) {
-            return "7";
-        }
-        return configuredStatusId.trim();
-    }
-
-
 
     private String normalizeFeegowAppointmentId(String feegowAppointmentId) {
         if (feegowAppointmentId == null) {
@@ -475,47 +318,13 @@ public class HandleBlipWebhookUseCase {
         }
     }
 
-
-
-    private String formatBirthdate(String birthdate) {
-        if (birthdate == null || birthdate.isBlank()) {
-            return "";
-        }
-        String clean = birthdate.trim();
-        // Se já estiver no formato DD/MM/AAAA, retorna
-        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
-            return clean;
-        }
-        // Tenta converter de AAAA-MM-DD ou DD-MM-AAAA para DD/MM/AAAA
-        try {
-            java.time.LocalDate date;
-            if (clean.contains("-")) {
-                if (clean.indexOf('-') == 4) { // AAAA-MM-DD
-                    date = java.time.LocalDate.parse(clean);
-                } else { // DD-MM-AAAA
-                    date = java.time.LocalDate.parse(clean, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
-                }
-                return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            }
-        } catch (Exception e) {
-            log.warn("Falha ao formatar data de nascimento: {}", birthdate);
-        }
-        return clean;
-    }
-
     private String cleanDoctorName(String doctorName) {
         if (doctorName == null || doctorName.isBlank()) {
             return "Clínica Inovare";
         }
         String clean = doctorName.trim();
-        // Remove "Dr. ", "Dra. ", "Dr ", "Dra " case-insensitively from the start of the string
         clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
         return clean.trim();
-    }
-
-    // Substitui Thread.sleep por um mecanismo não bloqueante para Virtual Threads.
-    private void awaitIdempotencyDelayNonBlocking(long delayMs) {
-        LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(delayMs));
     }
 
     private String resolveTraceId() {
@@ -532,8 +341,6 @@ public class HandleBlipWebhookUseCase {
         }
         return ex.getMessage();
     }
-
-
 
     public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content) {
     }

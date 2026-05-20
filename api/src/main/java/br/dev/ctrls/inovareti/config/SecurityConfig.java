@@ -34,9 +34,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
-    private static final String BLIP_WEBHOOK_ALIAS_PATH = "/webhooks/blip";
-    private static final String APPOINTMENT_BLIP_WEBHOOK_PATH = "/v1/appointments/blip/webhook";
     private static final String APPOINTMENT_ADMIN_PATH = "/v1/appointments/admin/**";
 
     private final SecurityFilter securityFilter;
@@ -64,29 +61,22 @@ public class SecurityConfig {
                 // Preflight OPTIONS liberado para CORS antes de qualquer outra regra
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Webhooks liberados publicamente em primeiro lugar para evitar bloqueios acidentais.
-                // Novos comentários explicativos em PORTUGUÊS.
-                .requestMatchers(BLIP_WEBHOOK_PATH, BLIP_WEBHOOK_PATH + "/").permitAll()
-                .requestMatchers(BLIP_WEBHOOK_ALIAS_PATH, BLIP_WEBHOOK_ALIAS_PATH + "/").permitAll()
-                .requestMatchers("/api/webhooks/**").permitAll()
-                .requestMatchers("/api/v1/webhooks/**").permitAll()
-                .requestMatchers("/v1/webhook/**").permitAll()
-                .requestMatchers("/api/v1/webhook/**").permitAll()
-                .requestMatchers(
-                    HttpMethod.POST,
-                    APPOINTMENT_BLIP_WEBHOOK_PATH,
-                    APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
-                .permitAll()
+                // Webhooks e endpoints de integração estritamente autorizados publicamente.
+                .requestMatchers(HttpMethod.POST, "/api/webhooks/blip", "/api/webhooks/blip/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/webhooks/blip", "/webhooks/blip/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/webhook/blip", "/v1/webhook/blip/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/appointments/blip/webhook", "/v1/appointments/blip/webhook/").permitAll()
+                .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
 
                 // Demais rotas administrativas/autenticação
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")
                 .requestMatchers("/auth/login", "/auth/reset-initial-password").permitAll()
-                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/auth/2fa/**").authenticated()
+                
                 // Restringir acesso aos endpoints do Actuator apenas para ADMIN
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
                 // Libera endpoints do Swagger UI e documentação da API
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                .requestMatchers("/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
             )

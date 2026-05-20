@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AuthController {
 
     private final LoginUseCase loginUseCase;
@@ -46,6 +48,7 @@ public class AuthController {
      * @param request credenciais de login (e-mail + senha)
      * @return 200 OK com o token JWT
      */
+    @PreAuthorize("permitAll()")
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(
             @Valid @RequestBody AuthRequestDTO request,
@@ -53,6 +56,7 @@ public class AuthController {
         return ResponseEntity.ok(loginUseCase.execute(request, getClientIp(httpRequest)));
     }
 
+    @PreAuthorize("permitAll()")
     @PostMapping("/reset-initial-password")
     public ResponseEntity<AuthResponseDTO> resetInitialPassword(
             @Valid @RequestBody ResetInitialPasswordRequestDTO request) {

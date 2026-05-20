@@ -118,7 +118,7 @@ app:
       feegow-patient-path: ${APP_APPOINTMENT_FEEGOW_PATIENT_PATH:/patient}
       feegow-status-path: ${APP_APPOINTMENT_FEEGOW_STATUS_PATH:/appoint/status}
       feegow-professional-path: ${APP_APPOINTMENT_FEEGOW_PROFESSIONAL_PATH:/professional}
-      feegow-confirmed-status-id: ${APP_APPOINTMENT_FEEGOW_CONFIRMED_STATUS_ID:2}
+      feegow-confirmed-status-id: ${APP_APPOINTMENT_FEEGOW_CONFIRMED_STATUS_ID:7}
       feegow-update-status-path: ${APP_APPOINTMENT_FEEGOW_UPDATE_STATUS_PATH:/appoint/status}
       blip-base-url: ${APP_APPOINTMENT_BLIP_BASE_URL:https://http.msging.net}
       blip-authorization-key: ${BLIP_BOT_KEY}
@@ -164,7 +164,7 @@ blip:
     waiting-response: ${BLIP_BLOCKS_WAITING_RESPONSE}
     confirm-success: ${BLIP_BLOCKS_CONFIRM_SUCCESS}
     alter-request: ${BLIP_BLOCKS_ALTER_REQUEST}
-    preparar-atendimento: ${BLIP_BLOCKS_PREPARAR_ATENDIMENTO}
+    preparar-atendimento: ${BLIP_BLOCKS_PREPARAR_ATENDIMENTO:a0776d9c-6486-42f3-8a4f-2706f0185908}
   texts:
     confirm-success: ${BLIP_TEXT_CONFIRM_SUCCESS}
     alter-request: ${BLIP_TEXT_ALTER_REQUEST}

@@ -2,87 +2,45 @@ package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeParseException;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpClientErrorException.Unauthorized;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.util.StringUtils;
-import org.springframework.web.util.UriComponentsBuilder;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.domain.financeiro.ProcessedSaleRepository;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço que recupera um resumo financeiro mensal a partir da API da Conta Azul.
+ * Serviço que atua como orquestrador da camada de aplicação (Application Service) para recuperar o resumo financeiro mensal.
  *
- * O resumo agrega valores pagos e em aberto no mês atual, converte para centavos
- * e fornece um contador de recibos já sincronizados localmente. O serviço trata
- * automaticamente refresh de token quando necessário e normaliza formatos numéricos
- * retornados pela API.
+ * Ele coordena o fluxo chamando o adaptador de infraestrutura para buscar dados,
+ * repassando para o calculador de domínio processar e consolidando o resultado final.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContaAzulFinancialSummaryService {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final ZoneOffset BRASILIA_OFFSET = ZoneOffset.ofHours(-3);
     private static final int SUMMARY_PAGE_SIZE = 100;
     private static final int SUMMARY_MAX_PAGES = 30;
-    private static final LocalDate RECEIVED_DUE_DATE_FROM = LocalDate.of(2000, 1, 1);
-    private static final LocalDate RECEIVED_DUE_DATE_TO = LocalDate.of(2099, 12, 31);
     private static final LocalDate DIAGNOSTIC_PAYMENT_DATE_FROM = LocalDate.of(2026, 1, 1);
-    private static final Set<String> ASSET_ACCOUNT_TYPES = Set.of(
-        "CONTA_CORRENTE",
-        "POUPANCA",
-        "INVESTIMENTO",
-        "APLICACAO",
-        "CAIXINHA");
-    private static final Set<String> LIABILITY_ACCOUNT_TYPES = Set.of(
-        "CARTAO_CREDITO",
-        "CARTAO_DE_CREDITO");
 
     private final ContaAzulTokenService contaAzulTokenService;
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
-    private final JsonSafeReader jsonSafeReader;
     private final ProcessedSaleRepository processedSaleRepository;
+    private final ContaAzulRestClientAdapter restClientAdapter;
+    private final ContaAzulSummaryCalculator summaryCalculator;
     private final ContaAzulProperties properties;
-
-
-
-
 
     @PostConstruct
     public void logV2BaseConfiguration() {
@@ -116,8 +74,8 @@ public class ContaAzulFinancialSummaryService {
             long totalPendingCents = pendingResult.total();
             long balanceCents = balanceResult.total();
 
-                // Regra de robustez: disponibilidade externa só cai quando falha a listagem inicial de contas.
-                boolean externalServiceAvailable = balanceResult.available();
+            // Regra de robustez: disponibilidade externa só cai quando falha a listagem inicial de contas.
+            boolean externalServiceAvailable = balanceResult.available();
 
             return new FinancialSummary(
                     balanceCents,
@@ -126,7 +84,7 @@ public class ContaAzulFinancialSummaryService {
                     "BRL",
                     syncedReceiptsCount,
                     externalServiceAvailable,
-                    resolveSummaryLastUpdatedAt(receivedParcelsResult.lastUpdatedAt()));
+                    summaryCalculator.resolveSummaryLastUpdatedAt(receivedParcelsResult.lastUpdatedAt()));
         } catch (Exception ex) {
             log.warn("Falha ao montar resumo financeiro da Conta Azul. Retornando fallback com serviço externo indisponível.", ex);
             return new FinancialSummary(
@@ -136,7 +94,7 @@ public class ContaAzulFinancialSummaryService {
                     "BRL",
                     syncedReceiptsCount,
                     false,
-                    resolveSummaryLastUpdatedAt(null));
+                    summaryCalculator.resolveSummaryLastUpdatedAt(null));
         } finally {
             executor.shutdown();
             try {
@@ -157,7 +115,13 @@ public class ContaAzulFinancialSummaryService {
 
     private StatusResult safeFetchTotalByStatus(String accessToken, String status) {
         try {
-            return fetchTotalByStatus(accessToken, status);
+            BigDecimal totalDecimal = restClientAdapter.fetchTotalAmountByStatus(accessToken, status);
+            if (totalDecimal == null) {
+                // Caso 403 FORBIDDEN: retornar zero e marcar como indisponível
+                return new StatusResult(0L, false);
+            }
+            long totalCents = summaryCalculator.normalizeAmountToCents(totalDecimal, status.equals(ContaAzulStatus.RECEBIDO) ? "totais.pago.valor" : "totais.aberto.valor");
+            return new StatusResult(totalCents, true);
         } catch (Exception ex) {
             log.warn("Falha ao consultar status '{}' na Conta Azul. Considerando indisponível para este status.", status, ex);
             return new StatusResult(0L, false);
@@ -168,15 +132,7 @@ public class ContaAzulFinancialSummaryService {
         try {
             return fetchReceivedParcels(accessToken);
         } catch (Exception ex) {
-            if (ex instanceof HttpClientErrorException httpEx) {
-                log.error(
-                    "Falha HTTP ao consultar parcelas RECEBIDO para cálculo por baixas [httpStatus={}, responseBody={}].",
-                    httpEx.getStatusCode(),
-                    httpEx.getResponseBodyAsString(),
-                    ex);
-            } else {
-                log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
-            }
+            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
             return new ReceivedParcelsResult(List.of(), false, null);
         }
     }
@@ -197,89 +153,10 @@ public class ContaAzulFinancialSummaryService {
         }
     }
 
-    // Recupera o total agregado (em centavos) para o `status` informado usando o accessToken.
-    // Trata 401 autorizando refresh automático do token quando aplicável.
-    private StatusResult fetchTotalByStatus(String accessToken, String status) {
-        try {
-            ResponseEntity<String> response = executePaymentsRequestByStatus(status, accessToken, 1);
-
-            long total = extractTotalCents(response.getBody(), status);
-            return new StatusResult(total, true);
-        } catch (Unauthorized ex) {
-            String errorBody = ex.getResponseBodyAsString();
-            log.warn(
-                    "Token expirado ou inválido ao buscar pagamentos com status='{}'. Tentando refresh automático. Resposta: {}",
-                    status,
-                    errorBody);
-
-            try {
-                String newToken = contaAzulTokenService.forceRefresh();
-                ResponseEntity<String> retryResponse = executePaymentsRequestByStatus(status, newToken, 1);
-                long total = extractTotalCents(retryResponse.getBody(), status);
-                return new StatusResult(total, true);
-            } catch (Exception refreshEx) {
-                log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
-                throw new ContaAzulAuthException(
-                        "Token inválido e refresh falhou. Refaça o login na Conta Azul.",
-                        refreshEx);
-            }
-        } catch (HttpClientErrorException ex) {
-            String errorBody = ex.getResponseBodyAsString();
-
-            // Tratar 403 (forbidden) como caso de conta não elegível para uso da API
-            if (ex.getStatusCode().value() == 403) {
-                log.warn(
-                        "ContaAzul API retornou 403 FORBIDDEN ao buscar pagamentos com status='{}'. Resposta: {}",
-                        status, errorBody);
-                // Não interromper a visualização do financeiro: retornar 0 para este status e sinalizar indisponibilidade.
-                return new StatusResult(0L, false);
-            }
-
-            if (ex.getStatusCode().value() == 401) {
-                log.error(
-                        "ContaAzul API retornou 401 (Unauthorized) ao buscar pagamentos com status='{}'. " +
-                        "Possíveis causas: token expirado, token revogado ou app sem permissões configuradas no portal Conta Azul. " +
-                        "Resposta da API: {}",
-                        status, errorBody, ex);
-            } else {
-                log.error(
-                        "ContaAzul API retornou erro {} ao buscar pagamentos com status='{}'. " +
-                        "Resposta: {}",
-                        ex.getStatusCode(), status, errorBody, ex);
-            }
-
-            throw new IllegalStateException(
-                    "Falha ao recuperar resumo financeiro da Conta Azul [status=" + status + ", http=" + ex.getStatusCode() + "]. " +
-                    "Verifique token OAuth e permissões do aplicativo no portal da Conta Azul.", ex);
-        }
-    }
-
-    private static record StatusResult(long total, boolean available) {}
-
-    private static record ReceivedParcelsResult(
-            List<ReceivableParcelRef> parcels,
-            boolean available,
-            String lastUpdatedAt) {
-    }
-
-    private static record ReceivableParcelRef(String parcelaId, String displayIdentifier) {
-    }
-
-    private static record ReceivablesPageData(
-            List<ReceivableParcelRef> parcels,
-            OffsetDateTime latestUpdate) {
-    }
-
-        private static record FinancialAccountRef(String accountId, String name, String type, boolean active) {
-        }
-
-        private static record AccountBalanceAudit(FinancialAccountRef account, long balanceCents, boolean includedInBalance) {
-    }
-
     private StatusResult fetchConsolidatedBalance(String accessToken, ExecutorService executor) {
         List<FinancialAccountRef> financialAccounts;
         try {
-            financialAccounts = fetchFinancialAccounts(accessToken);
+            financialAccounts = restClientAdapter.fetchFinancialAccounts(accessToken);
         } catch (Exception ex) {
             // Só marca indisponível quando a listagem inicial de contas falha por completo.
             log.warn("Falha ao listar contas financeiras na Conta Azul. Dashboard seguirá indisponível até nova leitura.", ex);
@@ -293,12 +170,12 @@ public class ContaAzulFinancialSummaryService {
         List<CompletableFuture<AccountBalanceAudit>> futures = financialAccounts.stream()
                 .map(account -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        applyThrottlingDelay();
-                        long accountBalanceCents = fetchAccountCurrentBalanceCents(accessToken, account.accountId());
+                        restClientAdapter.applyThrottlingDelay();
+                        BigDecimal balanceDecimal = restClientAdapter.fetchAccountCurrentBalance(accessToken, account.accountId());
+                        long accountBalanceCents = summaryCalculator.toCents(balanceDecimal);
+                        
                         // Regra de negócio: saldo negativo não compõe balanceCents consolidado por padrão.
-                        boolean includeInBalance = account.active()
-                                && isAssetAccountType(account.type())
-                                && accountBalanceCents >= 0;
+                        boolean includeInBalance = summaryCalculator.shouldIncludeAccountInBalance(account.type(), account.active(), accountBalanceCents);
 
                         // Auditoria fixa para identificar rapidamente contas que distorcem o saldo.
                         log.info(
@@ -308,7 +185,7 @@ public class ContaAzulFinancialSummaryService {
                                 accountBalanceCents,
                                 account.active());
 
-                        if (account.active() && isLiabilityAccountType(account.type())) {
+                        if (account.active() && summaryCalculator.isLiabilityAccountType(account.type())) {
                             // Regra de negócio: cartão de crédito representa passivo e não compõe saldo consolidado de caixa.
                             log.info("Conta {} ignorada no consolidado por ser passivo (tipo {}).", account.name(), account.type());
                         }
@@ -317,11 +194,11 @@ public class ContaAzulFinancialSummaryService {
                             log.info("Conta {} ignorada no consolidado por estar inativa.", account.name());
                         }
 
-                        if (account.active() && !isAssetAccountType(account.type()) && !isLiabilityAccountType(account.type())) {
+                        if (account.active() && !summaryCalculator.isAssetAccountType(account.type()) && !summaryCalculator.isLiabilityAccountType(account.type())) {
                             log.info("Conta {} ignorada por tipo fora da whitelist de ativos: {}.", account.name(), account.type());
                         }
 
-                        if (account.active() && isAssetAccountType(account.type()) && accountBalanceCents < 0) {
+                        if (account.active() && summaryCalculator.isAssetAccountType(account.type()) && accountBalanceCents < 0) {
                             log.info("Conta {} ignorada por saldo negativo.", account.name());
                         }
 
@@ -346,124 +223,6 @@ public class ContaAzulFinancialSummaryService {
         return new StatusResult(totalBalance, true);
     }
 
-    private List<FinancialAccountRef> fetchFinancialAccounts(String accessToken) {
-        String uri = normalizeContaAzulBaseUrl() + "/v1/conta-financeira";
-        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
-
-        if (response.getBody() == null || response.getBody().isBlank()) {
-            return List.of();
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = jsonSafeReader.resolveArrayNode(root);
-
-            List<FinancialAccountRef> accounts = new ArrayList<>();
-            for (JsonNode accountNode : entries) {
-                String accountId = jsonSafeReader.readText(accountNode, "id", "conta_financeira_id", "contaFinanceiraId");
-                if (!StringUtils.hasText(accountId)) {
-                    continue;
-                }
-
-                String accountName = jsonSafeReader.readText(accountNode, "nome", "name", "descricao", "description");
-                boolean active = readBooleanFromPaths(accountNode, "ativo", "active", "is_active", "isActive");
-                String accountType = normalizeAccountType(jsonSafeReader.readText(accountNode, "tipo", "type", "categoria"));
-                accounts.add(new FinancialAccountRef(
-                        accountId.trim(),
-                        StringUtils.hasText(accountName) ? accountName.trim() : accountId.trim(),
-                        accountType,
-                        active));
-            }
-
-            return accounts;
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Falha ao interpretar lista de contas financeiras da Conta Azul.", ex);
-        }
-    }
-
-    private String normalizeAccountType(String rawType) {
-        if (!StringUtils.hasText(rawType)) {
-            return "";
-        }
-
-        return rawType.trim().toUpperCase()
-                .replace('-', '_')
-                .replace(' ', '_');
-    }
-
-    private boolean isAssetAccountType(String accountType) {
-        return ASSET_ACCOUNT_TYPES.contains(accountType);
-    }
-
-    private boolean isLiabilityAccountType(String accountType) {
-        return LIABILITY_ACCOUNT_TYPES.contains(accountType);
-    }
-
-    private boolean readBooleanFromPaths(JsonNode node, String... paths) {
-        for (String path : paths) {
-            JsonNode valueNode = readNode(node, path);
-            if (valueNode == null || valueNode.isNull()) {
-                continue;
-            }
-
-            if (valueNode.isBoolean()) {
-                return valueNode.booleanValue();
-            }
-
-            if (valueNode.isTextual()) {
-                String raw = valueNode.asText().trim();
-                if ("true".equalsIgnoreCase(raw)) {
-                    return true;
-                }
-                if ("false".equalsIgnoreCase(raw)) {
-                    return false;
-                }
-            }
-        }
-
-        // Filtro rigoroso: somente contas explicitamente ativas entram no saldo.
-        return false;
-    }
-
-    private JsonNode readNode(JsonNode node, String path) {
-        JsonNode current = node;
-        for (String segment : path.split("\\.")) {
-            if (current == null) {
-                return null;
-            }
-            current = current.get(segment);
-        }
-
-        return current;
-    }
-
-    private long fetchAccountCurrentBalanceCents(String accessToken, String accountId) {
-        String uri = normalizeContaAzulBaseUrl() + "/v1/conta-financeira/" + accountId + "/saldo-atual";
-        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
-
-        if (response.getBody() == null || response.getBody().isBlank()) {
-            return 0L;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
-            // Especificação final V2: saldo deve vir da chave saldo_atual (decimal) e virar centavos.
-            BigDecimal saldoAtual = readDecimalFromPaths(
-                    root,
-                    "saldo_atual",
-                    "saldo_atual.valor",
-                    "data.saldo_atual",
-                    "data.saldo_atual.valor");
-
-            long saldoAtualCents = saldoAtual != null ? toCents(saldoAtual) : 0L;
-            // Log de auditoria para confirmar se a escala do decimal -> centavos está correta.
-            log.info("Conta {} saldo_atual bruto={} convertido_para_centavos={}", accountId, saldoAtual, saldoAtualCents);
-            return saldoAtualCents;
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Falha ao interpretar saldo da conta financeira " + accountId + ".", ex);
-        }
-    }
-
     private StatusResult fetchTotalPaidByBaixas(
             String accessToken,
             List<ReceivableParcelRef> parcels,
@@ -475,11 +234,21 @@ public class ContaAzulFinancialSummaryService {
         List<CompletableFuture<Long>> futures = parcels.stream()
                 .map(parcel -> CompletableFuture.supplyAsync(() -> {
                     try {
-                        applyThrottlingDelay();
-                        return fetchParcelaPaidCentsByBaixas(accessToken, parcel);
+                        restClientAdapter.applyThrottlingDelay();
+                        List<BigDecimal> baixas = restClientAdapter.fetchParcelaBaixasValorLiquido(accessToken, parcel.parcelaId());
+                        
+                        BigDecimal totalLiquido = BigDecimal.ZERO;
+                        for (BigDecimal baixaValorLiquido : baixas) {
+                            String vendaId = org.springframework.util.StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
+                            log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaValorLiquido);
+                            log.info("Somando Baixa: Valor Líquido detectado = {}", baixaValorLiquido);
+                            totalLiquido = totalLiquido.add(baixaValorLiquido);
+                        }
+
+                        return summaryCalculator.toCents(totalLiquido);
                     } catch (Exception ex) {
                         // Falha individual de parcela não deve zerar nem indisponibilizar o resumo inteiro.
-                        String displayId = StringUtils.hasText(parcel.displayIdentifier())
+                        String displayId = org.springframework.util.StringUtils.hasText(parcel.displayIdentifier())
                                 ? parcel.displayIdentifier()
                                 : parcel.parcelaId();
                         log.warn("Falha ao consultar baixas da parcela {}.", displayId, ex);
@@ -497,57 +266,8 @@ public class ContaAzulFinancialSummaryService {
         return new StatusResult(totalPaidCents, true);
     }
 
-    private long fetchParcelaPaidCentsByBaixas(String accessToken, ReceivableParcelRef parcel) {
-        String uri = normalizeContaAzulBaseUrl() + "/v1/financeiro/eventos-financeiros/parcelas/" + parcel.parcelaId();
-        ResponseEntity<String> response = executeGetWithRefresh(uri, accessToken);
-
-        if (response.getBody() == null || response.getBody().isBlank()) {
-            return 0L;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(response.getBody().getBytes(StandardCharsets.UTF_8));
-            JsonNode baixasNode = jsonSafeReader.readArrayNode(
-                    root,
-                    "baixas",
-                    "evento.baixas",
-                    "evento_financeiro.baixas",
-                    "data.baixas",
-                    "content.baixas");
-
-            if (baixasNode == null || !baixasNode.isArray() || baixasNode.isEmpty()) {
-                return 0L;
-            }
-
-            BigDecimal totalLiquido = BigDecimal.ZERO;
-            for (JsonNode baixaNode : baixasNode) {
-                // Especificação final V2: usar baixas -> composicao_valor -> valor_liquido.
-                BigDecimal baixaValorLiquido = readDecimalFromPaths(
-                        baixaNode,
-                        "composicao_valor.valor_liquido",
-                        "composicaoValor.valorLiquido",
-                        "valor_composicao.valor_liquido",
-                        "valorComposicao.valorLiquido",
-                        "valor_liquido",
-                        "valorLiquido");
-
-                // Regra oficial V2: total pago deve refletir exclusivamente a soma de valor_liquido das baixas.
-                if (baixaValorLiquido != null) {
-                    String vendaId = StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
-                    log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaValorLiquido);
-                    log.info("Somando Baixa: Valor Líquido detectado = {}", baixaValorLiquido);
-                    totalLiquido = totalLiquido.add(baixaValorLiquido);
-                }
-            }
-
-            return toCents(totalLiquido);
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Falha ao interpretar detalhe de baixas da parcela " + parcel.parcelaId() + ".", ex);
-        }
-    }
-
     private ReceivedParcelsResult fetchReceivedParcels(String accessToken) {
-        Map<String, ReceivableParcelRef> parcelMap = new LinkedHashMap<>();
+        Map<String, ReceivableParcelRef> parcelMap = new java.util.LinkedHashMap<>();
         OffsetDateTime latestUpdate = null;
 
         // Produção: mantém a busca do primeiro dia do mês atual até hoje.
@@ -602,9 +322,9 @@ public class ContaAzulFinancialSummaryService {
             new ArrayList<>(parcelMap.values()),
             true,
             latestUpdate != null ? latestUpdate.toString() : null);
-        }
+    }
 
-        private OffsetDateTime collectReceivedParcelsByStatusAndRange(
+    private OffsetDateTime collectReceivedParcelsByStatusAndRange(
             String accessToken,
             String status,
             LocalDate dataPagamentoDe,
@@ -612,13 +332,12 @@ public class ContaAzulFinancialSummaryService {
             Map<String, ReceivableParcelRef> parcelMap,
             OffsetDateTime latestUpdate) {
         for (int page = 1; page <= SUMMARY_MAX_PAGES; page++) {
-            ResponseEntity<String> response = executePaymentsRequestByPaymentDate(
-                status,
+            ReceivablesPageData pageData = restClientAdapter.fetchReceivablesPageByPaymentDate(
                 accessToken,
+                status,
                 page,
                 dataPagamentoDe,
                 dataPagamentoAte);
-            ReceivablesPageData pageData = parseReceivablesPage(response.getBody());
 
             if (pageData.latestUpdate() != null
                     && (latestUpdate == null || pageData.latestUpdate().toInstant().isAfter(latestUpdate.toInstant()))) {
@@ -633,7 +352,7 @@ public class ContaAzulFinancialSummaryService {
                 parcelMap.merge(
                         currentParcel.parcelaId(),
                         currentParcel,
-                    (existing, incoming) -> StringUtils.hasText(existing.displayIdentifier()) ? existing : incoming);
+                    (existing, incoming) -> org.springframework.util.StringUtils.hasText(existing.displayIdentifier()) ? existing : incoming);
             }
 
             if (pageData.parcels().size() < SUMMARY_PAGE_SIZE) {
@@ -644,487 +363,20 @@ public class ContaAzulFinancialSummaryService {
         return latestUpdate;
     }
 
-    private ReceivablesPageData parseReceivablesPage(String jsonPayload) {
-        if (!StringUtils.hasText(jsonPayload)) {
-            return new ReceivablesPageData(List.of(), null);
-        }
+    /**
+     * Resumo financeiro retornado pela API.
+     *
+     * Campos em centavos para evitar problemas de ponto flutuante em somas e comparações.
+     */
+    public record FinancialSummary(
+        long balanceCents,
+        long totalPendingCents,
+        long totalPaidCents,
+        String currency,
+        long syncedReceiptsCount,
+        boolean externalServiceAvailable,
+        String lastUpdatedAt) implements Serializable {
 
-        try {
-            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            JsonNode entries = jsonSafeReader.resolveArrayNode(root);
-
-            List<ReceivableParcelRef> parcels = new ArrayList<>();
-            OffsetDateTime latestUpdate = parseApiDateToBrasiliaOffsetDateTime(jsonSafeReader.readText(
-                    root,
-                    "atualizado_em",
-                    "updated_at",
-                    "ultima_atualizacao",
-                    "data_atualizacao"));
-
-            for (JsonNode parcelNode : entries) {
-                String parcelaId = jsonSafeReader.readText(parcelNode, "parcela_id", "id", "parcela.id");
-                if (!StringUtils.hasText(parcelaId)) {
-                    continue;
-                }
-
-                String commercialNumber = jsonSafeReader.readText(
-                        parcelNode,
-                        "numero",
-                        "numero_venda",
-                        "venda.numero",
-                        "evento_financeiro.referencia.numero",
-                        "referencia.numero");
-
-                String referenceCode = jsonSafeReader.readText(
-                    parcelNode,
-                    "codigo_referencia",
-                    "codigoReferencia",
-                    "referencia.codigo",
-                    "evento_financeiro.referencia.codigo");
-
-                String displayIdentifier = firstNonBlank(commercialNumber, referenceCode);
-                String descricaoParcela = firstNonBlank(
-                    jsonSafeReader.readText(
-                        parcelNode,
-                        "descricao",
-                        "description",
-                        "referencia.descricao",
-                        "evento_financeiro.referencia.descricao"),
-                    displayIdentifier,
-                    parcelaId);
-                BigDecimal valorBruto = readDecimalFromPaths(
-                    parcelNode,
-                    "total",
-                    "valor",
-                    "valor_total",
-                    "valorTotal",
-                    "valor_bruto",
-                    "valorBruto");
-
-                log.info("Parcela encontrada: ID={}, Descrição={}, Valor Bruto={}", parcelaId, descricaoParcela, valorBruto);
-
-                parcels.add(new ReceivableParcelRef(parcelaId.trim(), displayIdentifier));
-
-                OffsetDateTime parcelUpdatedAt = parseApiDateToBrasiliaOffsetDateTime(jsonSafeReader.readText(
-                        parcelNode,
-                        "data_alteracao",
-                        "dataAlteracao",
-                        "updated_at",
-                        "atualizado_em",
-                        "evento.data_alteracao",
-                        "evento_financeiro.data_alteracao"));
-
-                if (parcelUpdatedAt != null
-                        && (latestUpdate == null || parcelUpdatedAt.toInstant().isAfter(latestUpdate.toInstant()))) {
-                    latestUpdate = parcelUpdatedAt;
-                }
-            }
-
-            return new ReceivablesPageData(parcels, latestUpdate);
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Falha ao interpretar payload de parcelas recebidas da Conta Azul.", ex);
-        }
+        private static final long serialVersionUID = 1L;
     }
-
-    private String resolveSummaryLastUpdatedAt(String rawLastUpdatedAt) {
-        OffsetDateTime parsed = parseApiDateToBrasiliaOffsetDateTime(rawLastUpdatedAt);
-        if (parsed != null) {
-            return parsed.withOffsetSameInstant(BRASILIA_OFFSET).toString();
-        }
-
-        return OffsetDateTime.now(BRASILIA_OFFSET).toString();
-    }
-
-    private OffsetDateTime parseApiDateToBrasiliaOffsetDateTime(String rawDate) {
-        if (!StringUtils.hasText(rawDate)) {
-            return null;
-        }
-
-        String trimmed = rawDate.trim();
-
-        try {
-            if (trimmed.endsWith("Z") || trimmed.endsWith("z")) {
-                // Se vier com Z, trata como UTC e converte para horário de Brasília.
-                return Instant.parse(trimmed).atOffset(BRASILIA_OFFSET);
-            }
-        } catch (DateTimeParseException ignored) {
-            // Continua para os próximos parseadores.
-        }
-
-        try {
-            return OffsetDateTime.parse(trimmed).withOffsetSameInstant(BRASILIA_OFFSET);
-        } catch (DateTimeParseException ignored) {
-            // Continua para parse sem offset.
-        }
-
-        try {
-            LocalDateTime localDateTime = LocalDateTime.parse(trimmed);
-            return localDateTime.atOffset(BRASILIA_OFFSET);
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-    }
-
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (StringUtils.hasText(value)) {
-                return value.trim();
-            }
-        }
-
-        return null;
-    }
-
-    private ResponseEntity<String> executeGetWithRefresh(String uri, String accessToken) {
-        try {
-            return executeGetRequest(uri, accessToken);
-        } catch (Unauthorized ex) {
-            String refreshedToken = contaAzulTokenService.forceRefresh();
-            return executeGetRequest(uri, refreshedToken);
-        }
-    }
-
-    private ResponseEntity<String> executeGetRequest(String uri, String accessToken) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-        return restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class);
-    }
-
-    // Executa a requisição para o endpoint de pagamentos da Conta Azul com o status
-    // e o token fornecidos. Retorna o corpo da resposta encapsulado em `ResponseEntity<String>`.
-    private ResponseEntity<String> executePaymentsRequest(String status, String accessToken, int page) {
-        LocalDate hoje = LocalDate.now();
-        LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-        String dataVencimentoDe = formatDateForContaAzul(inicioMesAtual);
-        String dataVencimentoAte = formatDateForContaAzul(hoje);
-
-        log.debug(
-            "Parâmetros ContaAzul (resumo mensal): vencimento_de={}, vencimento_ate={}, status={}",
-            dataVencimentoDe,
-            dataVencimentoAte,
-            status);
-
-        // Envia explicitamente os parâmetros obrigatórios de vencimento no formato YYYY-MM-DD.
-        // Normaliza a URL para impedir envio de /api/v1 e manter somente o formato oficial /v1.
-        String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
-            .queryParam("pagina", page)
-            .queryParam("tamanho_pagina", SUMMARY_PAGE_SIZE)
-            .queryParam("data_vencimento_de", dataVencimentoDe)
-            .queryParam("data_vencimento_ate", dataVencimentoAte)
-            .queryParam("status", status)
-            .build()
-            .toUriString();
-
-        log.debug("Chamando ContaAzul: {}", uri);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-        ResponseEntity<String> responseEntity = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class);
-
-        log.debug("ContaAzul response body (resumo, status={}): {}", status, responseEntity.getBody());
-        return responseEntity;
-    }
-
-    private ResponseEntity<String> executePaymentsRequestByStatus(String status, String accessToken, int page) {
-        if (ContaAzulStatus.RECEBIDO.equals(status)) {
-            // RECEBIDO deve sempre consultar por janela de pagamento para refletir o caixa real.
-            LocalDate hoje = LocalDate.now();
-            LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-            return executePaymentsRequestByPaymentDate(status, accessToken, page, inicioMesAtual, hoje);
-        }
-
-        if (ContaAzulStatus.QUITADO.equals(status)) {
-            LocalDate hoje = LocalDate.now();
-            LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-            return executePaymentsRequestByPaymentDate(status, accessToken, page, inicioMesAtual, hoje);
-        }
-
-        return executePaymentsRequest(status, accessToken, page);
-    }
-
-    private ResponseEntity<String> executePaymentsRequestByPaymentDate(
-            String status,
-            String accessToken,
-            int page,
-            LocalDate dataPagamentoDeDate,
-            LocalDate dataPagamentoAteDate) {
-        String dataVencimentoDe = formatDateForContaAzul(RECEIVED_DUE_DATE_FROM);
-        String dataVencimentoAte = formatDateForContaAzul(RECEIVED_DUE_DATE_TO);
-        String dataPagamentoDe = formatDateForContaAzul(dataPagamentoDeDate);
-        String dataPagamentoAte = formatDateForContaAzul(dataPagamentoAteDate);
-
-        log.debug(
-            "Parâmetros ContaAzul (resumo mensal): data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, status={}",
-            dataVencimentoDe,
-            dataVencimentoAte,
-            dataPagamentoDe,
-            dataPagamentoAte,
-            status);
-
-        // Conta Azul exige data de vencimento mesmo quando filtramos por data de pagamento.
-        String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
-            .queryParam("pagina", page)
-            .queryParam("tamanho_pagina", SUMMARY_PAGE_SIZE)
-            .queryParam("data_vencimento_de", dataVencimentoDe)
-            .queryParam("data_vencimento_ate", dataVencimentoAte)
-            .queryParam("data_pagamento_de", dataPagamentoDe)
-            .queryParam("data_pagamento_ate", dataPagamentoAte)
-            .queryParam("status", status)
-            .build()
-            .toUriString();
-
-        // Log de diagnóstico para auditar a URL completa enviada na busca de recebidos.
-        log.debug("Chamando ContaAzul (recebidos por pagamento): {}", uri);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-        ResponseEntity<String> responseEntity;
-        try {
-            responseEntity = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class);
-        } catch (HttpClientErrorException ex) {
-            // Log detalhado para diagnosticar 400 da Conta Azul por parâmetros obrigatórios.
-            log.error(
-                "Erro ao buscar recebidos na ContaAzul [httpStatus={}, status={}, pagina={}, data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, uri={}, body={}]",
-                ex.getStatusCode(),
-                status,
-                page,
-                dataVencimentoDe,
-                dataVencimentoAte,
-                dataPagamentoDe,
-                dataPagamentoAte,
-                uri,
-                ex.getResponseBodyAsString(),
-                ex);
-            throw ex;
-        }
-
-        log.debug("ContaAzul response body (pagamento, status={}): {}", status, responseEntity.getBody());
-        return responseEntity;
-    }
-
-    private String normalizeContaAzulBaseUrl() {
-        String normalized = StringUtils.hasText(properties.getApiV2BaseUrl())
-                ? properties.getApiV2BaseUrl().trim()
-                : "https://api-v2.contaazul.com";
-
-        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        normalized = normalized.replaceAll("/+$", "");
-        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api$", "https://api-v2.contaazul.com");
-        return normalized;
-    }
-
-    // Centraliza a formatação de data exigida pela API da Conta Azul (YYYY-MM-DD).
-    private String formatDateForContaAzul(LocalDate date) {
-        return date.format(DATE_FORMATTER);
-    }
-
-    private String normalizePaymentsUrl() {
-        String normalized = properties.getPaymentsUrl() != null ? properties.getPaymentsUrl().trim() : "";
-        if (normalized.isBlank()) {
-            return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
-        }
-
-        normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
-        // Remove barra final da base para evitar variações de concatenação em ambiente.
-        normalized = normalized.replaceAll("/+$", "");
-        normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
-        normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
-
-        // Corrige configuração antiga sem /eventos-financeiros e/ou sem /buscar.
-        if (normalized.matches("(?i).*/v1/financeiro/contas-a-receber$")) {
-            normalized = normalized.replaceAll(
-                    "(?i)/v1/financeiro/contas-a-receber$",
-                    "/v1/financeiro/eventos-financeiros/contas-a-receber/buscar");
-        } else if (normalized.matches("(?i).*/v1/financeiro/eventos-financeiros/contas-a-receber$")) {
-            normalized = normalized + "/buscar";
-        }
-
-        return normalized;
-    }
-
-    // Extrai do JSON retornado o total (campo em path configurado) e converte para centavos.
-    private long extractTotalCents(String jsonPayload, String status) {
-        if (jsonPayload == null || jsonPayload.isBlank()) {
-            return 0L;
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(jsonPayload.getBytes(StandardCharsets.UTF_8));
-
-            String totalPath;
-            if (null == status) {
-                throw new IllegalStateException("Status não suportado para cálculo do resumo: " + status);
-            } else switch (status) {
-                case ContaAzulStatus.RECEBIDO -> totalPath = "totais.pago.valor";
-                case ContaAzulStatus.EM_ABERTO -> totalPath = "totais.aberto.valor";
-                default -> throw new IllegalStateException("Status não suportado para cálculo do resumo: " + status);
-            }
-
-            Long totalCents = readAmountCentsFromPaths(root, totalPath);
-            return totalCents != null ? totalCents : 0L;
-        } catch (java.io.IOException ex) {
-            throw new IllegalStateException("Falha ao calcular resumo financeiro da Conta Azul.", ex);
-        }
-    }
-
-    private Long readAmountCentsFromPaths(JsonNode node, String... paths) {
-        for (String path : paths) {
-            JsonNode valueNode = readNode(node, path);
-            if (valueNode == null || valueNode.isNull()) {
-                continue;
-            }
-
-            Long normalizedCents = normalizeAmountNodeToCents(valueNode, path);
-            if (normalizedCents != null) {
-                return normalizedCents;
-            }
-        }
-
-        return null;
-    }
-
-    private BigDecimal readDecimalFromPaths(JsonNode node, String... paths) {
-        for (String path : paths) {
-            JsonNode valueNode = readNode(node, path);
-            if (valueNode == null || valueNode.isNull()) {
-                continue;
-            }
-
-            BigDecimal parsed = parseDecimalValue(valueNode);
-            if (parsed != null) {
-                return parsed;
-            }
-        }
-
-        return null;
-    }
-
-    private BigDecimal parseDecimalValue(JsonNode valueNode) {
-        if (valueNode.isNumber()) {
-            return valueNode.decimalValue();
-        }
-
-        if (!valueNode.isTextual()) {
-            return null;
-        }
-
-        String raw = valueNode.asText().trim();
-        if (raw.isBlank()) {
-            return null;
-        }
-
-        String normalized = raw.replace("R$", "").replace(" ", "");
-        if (normalized.contains(",") && normalized.contains(".")) {
-            normalized = normalized.replace(".", "").replace(",", ".");
-        } else if (normalized.contains(",")) {
-            normalized = normalized.replace(",", ".");
-        }
-
-        try {
-            return new BigDecimal(normalized);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    private Long normalizeAmountNodeToCents(JsonNode valueNode, String sourcePath) {
-        if (valueNode.isNumber()) {
-            return normalizeAmountToCents(valueNode.decimalValue(), sourcePath);
-        }
-
-        if (valueNode.isTextual()) {
-            String raw = valueNode.asText().trim();
-            if (raw.isBlank()) {
-                return null;
-            }
-
-            String normalized = raw.replace("R$", "").replace(" ", "");
-            if (normalized.contains(",") && normalized.contains(".")) {
-                normalized = normalized.replace(".", "").replace(",", ".");
-            } else if (normalized.contains(",")) {
-                normalized = normalized.replace(",", ".");
-            }
-
-            try {
-                return normalizeAmountToCents(new BigDecimal(normalized), sourcePath);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        }
-
-        return null;
-    }
-
-    private Long normalizeAmountToCents(BigDecimal amount, String sourcePath) {
-        if (amount == null) {
-            return null;
-        }
-
-        String normalizedPath = sourcePath != null ? sourcePath.toLowerCase() : "";
-        boolean explicitCents = normalizedPath.contains("centavo") || normalizedPath.contains("centavos");
-
-        if (explicitCents) {
-            // Quando o campo já indica centavos, evita multiplicação por 100 (erro de escala).
-            return amount.setScale(0, RoundingMode.HALF_UP).longValue();
-        }
-
-        if (amount.scale() > 0) {
-            return toCents(amount);
-        }
-
-        // Na API financeira V2 da Conta Azul, valores integrais geralmente já são retornados em centavos.
-        return amount.longValue();
-    }
-
-    private void applyThrottlingDelay() {
-        try {
-            // Delay de 300ms para reduzir agressividade e evitar 429 Spike Arrest.
-            Thread.sleep(300L);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    // Converte `BigDecimal` em centavos (long) arredondando HALF_UP.
-    private long toCents(BigDecimal value) {
-        return value
-                .movePointRight(2)
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValue();
-    }
-
-        /**
-         * Resumo financeiro retornado pela API.
-         *
-         * Campos em centavos para evitar problemas de ponto flutuante em somas e comparações.
-         */
-        public record FinancialSummary(
-            long balanceCents,
-            long totalPendingCents,
-            long totalPaidCents,
-            String currency,
-            long syncedReceiptsCount,
-            boolean externalServiceAvailable,
-            String lastUpdatedAt) implements Serializable {
-
-            private static final long serialVersionUID = 1L;
-        }
 }

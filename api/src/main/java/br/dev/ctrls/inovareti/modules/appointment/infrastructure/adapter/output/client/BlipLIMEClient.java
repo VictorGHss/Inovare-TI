@@ -144,13 +144,15 @@ public class BlipLIMEClient implements BlipClientPort {
             String uri = String.valueOf(payload.get("uri"));
             finalPayload = new java.util.HashMap<>(payload);
             
-            if (uri.contains("/teams") || uri.contains("/threads") || uri.contains("/attendance-queues") || uri.contains("/buckets")) {
+            if (uri.contains("/teams") || uri.contains("/threads") || uri.contains("/attendance-queues") || uri.contains("/buckets") || uri.contains("/tickets")) {
                 finalPayload.put("to", "postmaster@desk.msging.net");
                 actualScope = AuthorizationScope.DESK;
                 if (uri.contains("/teams")) {
                     finalPayload.put("uri", "/teams");
                 } else if (uri.contains("/threads")) {
                     finalPayload.put("uri", "/threads");
+                } else if (uri.contains("/tickets")) {
+                    finalPayload.put("uri", "/tickets");
                 }
             } else if (uri.contains("/message-templates")) {
                 finalPayload.put("to", "postmaster@wa.gw.msging.net");

@@ -69,7 +69,6 @@ public class ManualTriggerKeyFilter extends OncePerRequestFilter {
 
         log.info("Acesso liberado pelo token para a URI: {}", request.getRequestURI());
         filterChain.doFilter(request, response);
-        return;
     }
 
     private boolean isProtectedPath(String path) {

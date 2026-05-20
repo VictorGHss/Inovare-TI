@@ -10,6 +10,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,12 +44,10 @@ public class BlipWebhookController {
     private final ObjectMapper objectMapper;
     private final WebhookSignatureValidator webhookSignatureValidator;
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
+    private final Environment env;
 
     @Value("${blip.webhook.secret}")
     private String blipWebhookSecret;
-
-    @Value("${spring.profiles.active:default}")
-    private String activeProfile;
 
     // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
     private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
@@ -76,15 +76,18 @@ public class BlipWebhookController {
 
         // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256)
         boolean isSignatureValid = webhookSignatureValidator.isValid(rawJson, blipSignature, blipWebhookSecret);
-        boolean isBypassEnabled = StringUtils.hasText(inovareToken) || "local".equalsIgnoreCase(activeProfile) || "default".equalsIgnoreCase(activeProfile);
+        
+        // O bypass de assinatura por token só é aceito em ambiente local/default de desenvolvimento
+        boolean isBypassProfile = env.acceptsProfiles(Profiles.of("local", "default"));
+        boolean isBypassEnabled = isBypassProfile && StringUtils.hasText(inovareToken);
 
         if (!isSignatureValid && !isBypassEnabled) {
-            log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente.");
+            log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente. Bypass por token inativo no perfil de produção.");
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         }
 
         if (!isSignatureValid && isBypassEnabled) {
-            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado pelo contexto de teste (Token ou Profile).");
+            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado pelo contexto de teste (Token ativo no perfil local/default).");
         }
 
         // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação
@@ -97,7 +100,7 @@ public class BlipWebhookController {
             @SuppressWarnings("unchecked")
             Map<String, Object> map = objectMapper.readValue(rawJson, Map.class);
             payload = map != null ? map : Map.of();
-        } catch (Exception e) {
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException e) {
             log.error("Erro ao realizar o parse do JSON do webhook da Blip", e);
             return ResponseEntity.badRequest().body(Map.of(
                 "status", "ignored",

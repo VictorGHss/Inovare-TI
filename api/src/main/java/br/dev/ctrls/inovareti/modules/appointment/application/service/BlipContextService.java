@@ -228,25 +228,63 @@ public class BlipContextService {
             sendToBlipCommandsApi(contactCommand);
 
             // PASSO 2: Envia ativamente a mensagem de texto (Confirmação ou Alteração) via /messages
-            String messageText;
             if ("confirm".equalsIgnoreCase(action)) {
-                messageText = blipProperties.getTexts().getConfirmSuccess();
+                String fullMessage = blipProperties.getTexts().getConfirmSuccess();
+                fullMessage = fullMessage.replace("\\n", "\n");
+
+                // MENSAGEM 1: Envio do Mapa Nativo LIME (application/vnd.lime.location+json)
+                java.util.Map<String, Object> locationMessage = new java.util.HashMap<>();
+                locationMessage.put("id", "msg-" + java.util.UUID.randomUUID().toString());
+                locationMessage.put("to", userIdentity);
+                locationMessage.put("type", "application/vnd.lime.location+json");
+                
+                java.util.Map<String, Object> locationContent = new java.util.HashMap<>();
+                locationContent.put("latitude", -25.1027718);
+                locationContent.put("longitude", -50.1595712);
+                locationContent.put("text", "Clínica Inovare - Edifício Inovare");
+                locationContent.put("address", "R. Carlos Osternack, 111 - Estrela, Ponta Grossa - PR, 84040-120");
+                locationMessage.put("content", locationContent);
+
+                log.info("[LIME PUSH] Passo 2 (Mapa Nativo): Enviando mapa para identity={}", userIdentity);
+                sendToBlipMessagesApi(locationMessage);
+
+                // Delay seguro de 800ms
+                try {
+                    Thread.sleep(800);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Delay do push interrompido para {}", userIdentity, ie);
+                }
+
+                // MENSAGEM 2 (Texto de Avisos): Logo em seguida, envia o restante contendo "🚨 AVISO IMPORTANTE..."
+                String warningText = fullMessage;
+                int warningIdx = fullMessage.indexOf("🚨 AVISO IMPORTANTE");
+                if (warningIdx == -1) {
+                    warningIdx = fullMessage.indexOf("AVISO IMPORTANTE");
+                }
+                if (warningIdx != -1) {
+                    warningText = fullMessage.substring(warningIdx);
+                }
+
+                BlipTextMessage textMessage = new BlipTextMessage();
+                textMessage.setTo(userIdentity);
+                textMessage.setContent(warningText);
+
+                log.info("[LIME PUSH] Passo 2 (Avisos): Enviando restante do texto para identity={}", userIdentity);
+                sendToBlipMessagesApi(textMessage);
             } else {
-                messageText = blipProperties.getTexts().getAlterRequest()
+                String messageText = blipProperties.getTexts().getAlterRequest()
                   .replace("{patientName}", payload.getPatientName())
                   .replace("{doctorName}", payload.getDoctorName());
+                messageText = messageText.replace("\\n", "\n");
+
+                BlipTextMessage textMessage = new BlipTextMessage();
+                textMessage.setTo(userIdentity);
+                textMessage.setContent(messageText);
+
+                log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa de alteração para identity={}", userIdentity);
+                sendToBlipMessagesApi(textMessage);
             }
-
-            // Trata os caracteres \n literais para virarem quebras de linha reais no WhatsApp
-            messageText = messageText.replace("\\n", "\n");
-
-            BlipTextMessage textMessage = new BlipTextMessage();
-            textMessage.setTo(userIdentity);
-            textMessage.setContent(messageText);
-
-            // POST síncrono para o endpoint de mensagens (/messages) usando a Key do Roteador
-            log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa para identity={} com linebreaks tratados", userIdentity);
-            sendToBlipMessagesApi(textMessage);
 
             // PASSO 3: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
             BlipMasterStateCommand masterStateCommand = new BlipMasterStateCommand();
@@ -260,13 +298,57 @@ public class BlipContextService {
             // PASSO 4: Teleporta o Usuário direto para o bloco Preparar_Atendimento
             BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
             stateCommand.setUri("/contexts/" + userIdentity + "/stateid@" + blipProperties.getFlowId());
-            stateCommand.setResource(blipProperties.getBlocks().getPrepararAtendimento()); // ID do bloco Preparar_Atendimento
+            
+            String targetBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+            if (targetBlockId == null || targetBlockId.isBlank()) {
+                targetBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+            } else {
+                targetBlockId = targetBlockId.trim();
+            }
+            if ("confirm".equalsIgnoreCase(action)) {
+                targetBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+            }
+            stateCommand.setResource(targetBlockId);
 
             // POST para /commands
-            log.info("[LIME PUSH] Passo 4: Teleportando usuário identity={} para o bloco Preparar_Atendimento ({})", userIdentity, blipProperties.getBlocks().getPrepararAtendimento());
+            log.info("[LIME PUSH] Passo 4: Teleportando usuário identity={} para o bloco Preparar_Atendimento ({})", userIdentity, targetBlockId);
             sendToBlipCommandsApi(stateCommand);
 
-            log.info("Push síncrono finalizado com sucesso. Contato atualizado, mensagem ativa enviada e usuário teleportado.");
+            // PASSO 5: Abertura de Ticket Ativa (Transbordo sem atrito) para a ação CONFIRM executada de forma assíncrona
+            if ("confirm".equalsIgnoreCase(action)) {
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try {
+                        // Delay seguro para garantir processamento das ações de entrada do Blip Builder
+                        Thread.sleep(1000);
+                        log.info("[LIME PUSH] Passo 5 (Assíncrono): Forçando abertura de ticket ativamente para identity={}", userIdentity);
+                        java.util.Map<String, Object> ticketCommand = new java.util.HashMap<>();
+                        ticketCommand.put("id", UUID.randomUUID().toString());
+                        ticketCommand.put("to", "postmaster@desk.msging.net");
+                        ticketCommand.put("method", "set");
+                        ticketCommand.put("uri", "/tickets");
+                        ticketCommand.put("type", "application/vnd.iris.ticket+json");
+
+                        java.util.Map<String, Object> customerInput = new java.util.HashMap<>();
+                        customerInput.put("type", "text/plain");
+                        customerInput.put("value", "Atendimento iniciado automaticamente após confirmação de agendamento.");
+
+                        java.util.Map<String, Object> resource = new java.util.HashMap<>();
+                        resource.put("customerIdentity", userIdentity);
+                        resource.put("customerInput", customerInput);
+
+                        ticketCommand.put("resource", resource);
+
+                        sendToBlipCommandsApi(ticketCommand);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Processo assíncrono de transbordo interrompido para {}", userIdentity, ie);
+                    } catch (Exception e) {
+                        log.error("Erro no processo assíncrono de transbordo para {}", userIdentity, e);
+                    }
+                });
+            }
+
+            log.info("Push síncrono finalizado com sucesso. Contato atualizado, mensagens ativas enviadas, usuário teleportado e transbordo ativo executado.");
         } catch (Exception e) {
             throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }

@@ -27,10 +27,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         var endpoint = registry.addEndpoint("/ws/appointment-events")
-            .setAllowedOrigins(corsProperties.getAllowedOrigins().toArray(new String[0]));
+            .setAllowedOrigins(corsProperties.getAllowedOrigins().toArray(String[]::new));
 
         if (!corsProperties.getAllowedOriginPatterns().isEmpty()) {
-            endpoint.setAllowedOriginPatterns(corsProperties.getAllowedOriginPatterns().toArray(new String[0]));
+            endpoint.setAllowedOriginPatterns(corsProperties.getAllowedOriginPatterns().toArray(String[]::new));
         }
 
         endpoint.withSockJS();

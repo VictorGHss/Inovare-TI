@@ -7,6 +7,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/analytics")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AnalyticsController {
 
     private final GetDashboardAnalyticsUseCase getDashboardAnalyticsUseCase;

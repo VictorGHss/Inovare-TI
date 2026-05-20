@@ -12,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,10 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulAutomationService;
-import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulFinancialSummaryService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulHttpException;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulPaymentParcel;
-import br.dev.ctrls.inovareti.domain.financeiro.contaazul.ContaAzulTokenService;
 import br.dev.ctrls.inovareti.domain.financeiro.contaazul.SyncDoctorsResult;
 import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +31,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Adaptador de entrada REST para operações financeiras e faturamentos.
+ *
+ * Atua puramente como um controlador REST magro (Thin Controller), delegando lógicas
+ * de validação, consultas e paginação de dados para o FinanceiroQueryService.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/financeiro")
@@ -42,12 +45,10 @@ import lombok.extern.slf4j.Slf4j;
 public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
-    private final ContaAzulFinancialSummaryService contaAzulFinancialSummaryService;
+    private final FinanceiroQueryService financeiroQueryService;
     private final ContaAzulAutomationService contaAzulAutomationService;
-    private final ContaAzulTokenService contaAzulTokenService;
     private final FinanceEmailService receiptService;
     private final AuditPort auditPort;
-    
 
     /**
      * Lista os recibos processados pelo motor financeiro.
@@ -59,12 +60,11 @@ public class FinanceiroController {
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/recibos")
-    public ResponseEntity<List<FinanceReceiptResponseDTO>> listReceipts() {
-        List<FinanceReceiptResponseDTO> response = financeiroOperationsService.listReceipts()
-                .stream()
-                .map(this::mapReceipt)
-                .toList();
-
+    public ResponseEntity<List<FinanceReceiptResponseDTO>> listReceipts(
+            @RequestParam(required = false) ProcessedReceiptStatus status,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        List<FinanceReceiptResponseDTO> response = financeiroQueryService.listReceipts(status, page, size);
         return ResponseEntity.ok(response);
     }
 
@@ -79,12 +79,7 @@ public class FinanceiroController {
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/alertas")
     public ResponseEntity<List<FinanceAlertResponseDTO>> listAlerts() {
-        List<FinanceAlertResponseDTO> response = financeiroOperationsService.listAlerts()
-                .stream()
-                .map(this::mapAlert)
-                .toList();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(financeiroQueryService.listAlerts());
     }
 
     /**
@@ -113,7 +108,6 @@ public class FinanceiroController {
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/backfill")
     public ResponseEntity<FinanceiroOperationsService.BackfillResult> runBackfill() {
-        // Chama o método com nome em português (linguagem ubíqua do domínio financeiro)
         return ResponseEntity.ok(financeiroOperationsService.executarBackfillUltimos30Dias());
     }
 
@@ -130,7 +124,6 @@ public class FinanceiroController {
     public ResponseEntity<FinanceiroOperationsService.ParcelProcessingResult> processParcelById(
             @PathVariable("id") String parcelaId) {
         FinanceiroOperationsService.ParcelProcessingResult result =
-            // Chama o método com nome em português (linguagem ubíqua do domínio financeiro)
             financeiroOperationsService.conciliarParcelaPorId(parcelaId);
         registrarAuditoria(
             "FATURAMENTO_GERADO",
@@ -149,30 +142,7 @@ public class FinanceiroController {
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/resumo")
     public ResponseEntity<FinanceSummaryResponseDTO> getResumoFinanceiro() {
-        boolean integrationActive = contaAzulTokenService.hasPersistedTokenRecord();
-
-        if (!integrationActive) {
-            return ResponseEntity.ok(new FinanceSummaryResponseDTO(
-                0L,
-                0L,
-                0L,
-                "BRL",
-                0L,
-                false,
-            false,
-            null));
-        }
-
-        ContaAzulFinancialSummaryService.FinancialSummary summary = contaAzulFinancialSummaryService.fetchSummary();
-        return ResponseEntity.ok(new FinanceSummaryResponseDTO(
-                summary.balanceCents(),
-                summary.totalPendingCents(),
-                summary.totalPaidCents(),
-                summary.currency(),
-                summary.syncedReceiptsCount(),
-            summary.externalServiceAvailable(),
-            true,
-            summary.lastUpdatedAt()));
+        return ResponseEntity.ok(financeiroQueryService.getResumoFinanceiro());
     }
 
     /**
@@ -185,10 +155,11 @@ public class FinanceiroController {
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/autonacao/executar")
-        public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
+    public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
             @RequestParam LocalDate dataInicio,
             @RequestParam LocalDate dataFim) {
         log.info("Iniciando sincronização solicitada pelo usuário: Período [{}] a [{}]", dataInicio, dataFim);
+        financeiroQueryService.validarIntervaloDatas(dataInicio, dataFim);
         try {
             long start = System.currentTimeMillis();
             var result = contaAzulAutomationService.processAcquittedSales(dataInicio, dataFim);
@@ -201,10 +172,10 @@ public class FinanceiroController {
                 ? "Automação executada manualmente com avisos. Verifique os logs para detalhes."
                 : "Automação executada manualmente com sucesso após conclusão do processamento.";
 
-                registrarAuditoria(
-                    "FATURAMENTO_GERADO",
-                    "Automação financeira manual concluída. periodo=" + dataInicio + " a " + dataFim
-                        + ", duracaoMs=" + durationMs);
+            registrarAuditoria(
+                "FATURAMENTO_GERADO",
+                "Automação financeira manual concluída. periodo=" + dataInicio + " a " + dataFim
+                    + ", duracaoMs=" + durationMs);
 
             return ResponseEntity.ok(new AutomationExecutionResponseDTO(
                 status,
@@ -243,7 +214,6 @@ public class FinanceiroController {
                     result.novos(),
                     result.atualizados()));
         } catch (RuntimeException ex) {
-            // Blindagem obrigatória do endpoint de sincronização: erro externo não derruba o processo da API.
             if (ex instanceof ContaAzulHttpException httpEx
                     && httpEx.isStatus(403)
                     && isPlanIneligibleResponse(httpEx.getResponseBody())) {
@@ -286,8 +256,8 @@ public class FinanceiroController {
                 "TESTE-PARCELA-202603",
                 "TESTE-CUSTOMER-DR-VICTOR",
                 "Dr. Victor",
-            "destinatario.original@inovareti.local",
-            "10275");
+                "destinatario.original@inovareti.local",
+                "10275");
 
         receiptService.sendReceiptEmail(parcelaTeste);
 
@@ -295,61 +265,6 @@ public class FinanceiroController {
         log.info("{}", resultado);
 
         return ResponseEntity.ok(Map.of("status", "ok", "message", resultado));
-    }
-
-    private FinanceReceiptResponseDTO mapReceipt(ProcessedReceipt receipt) {
-        String commercialNumber = resolvePayloadText(receipt.getPayload(), "numero", "numero_venda", "saleNumber");
-        String referenceCode = resolvePayloadText(receipt.getPayload(), "codigo_referencia", "codigoReferencia", "referenceCode");
-        String displayIdentifier = StringUtils.hasText(commercialNumber)
-                ? commercialNumber
-                : (StringUtils.hasText(referenceCode) ? referenceCode : receipt.getParcelaId());
-
-        return new FinanceReceiptResponseDTO(
-                receipt.getId(),
-                receipt.getParcelaId(),
-                commercialNumber,
-                referenceCode,
-                displayIdentifier,
-                receipt.getOriginalRecipientEmail(),
-                receipt.getStatus(),
-                receipt.getRetryCount(),
-                receipt.getProcessedAt(),
-                receipt.getPayload());
-    }
-
-    private String resolvePayloadText(Map<String, Object> payload, String... keys) {
-        if (payload == null || payload.isEmpty()) {
-            return null;
-        }
-
-        for (String key : keys) {
-            Object value = payload.get(key);
-            if (value == null) {
-                continue;
-            }
-
-            String resolved = String.valueOf(value).trim();
-            if (StringUtils.hasText(resolved)) {
-                return resolved;
-            }
-        }
-
-        return null;
-    }
-
-    private FinanceAlertResponseDTO mapAlert(SystemAlert alert) {
-        return new FinanceAlertResponseDTO(
-                alert.getId(),
-                alert.getAlertType(),
-                alert.getSeverity(),
-                alert.getSource(),
-                alert.getTitle(),
-                alert.getDetails(),
-                alert.isResolved(),
-                alert.getCreatedAt(),
-                alert.getResolvedAt(),
-                alert.getResolvedBy(),
-                alert.getContext());
     }
 
     private UUID getAuthenticatedUserId() {
@@ -404,7 +319,7 @@ public class FinanceiroController {
             Map<String, Object> context) {
     }
 
-        public record FinanceSummaryResponseDTO(
+    public record FinanceSummaryResponseDTO(
             long balanceCents,
             long totalPendingCents,
             long totalPaidCents,
@@ -413,21 +328,19 @@ public class FinanceiroController {
             boolean externalServiceAvailable,
             boolean integrationActive,
             String lastUpdatedAt) {
-        }
+    }
 
-        public record SyncDoctorsResponseDTO(
+    public record SyncDoctorsResponseDTO(
             int novos,
             int atualizados) {
-        }
+    }
 
-        public record AutomationExecutionResponseDTO(
+    public record AutomationExecutionResponseDTO(
             String status,
             String message,
             long durationMs,
             List<String> errors,
             int noAttachmentWarnings,
             int mappingWarnings) {
-        }
-
-            // Endpoint temporário de simulação removido.
+    }
 }

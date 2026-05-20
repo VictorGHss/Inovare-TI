@@ -115,6 +115,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
      * Processa o comando '/solicitar item:[valor] quantidade:[n]'.
      * Cria um Ticket de solicitação de insumo para o usuário vinculado.
      */
+    @SuppressWarnings("null")
     private void handleSolicitar(SlashCommandInteractionEvent event) {
         log.info("[DISCORD][/solicitar] Acionado por: {} ({})",
                 event.getUser().getAsTag(), event.getUser().getId());
@@ -153,6 +154,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
      * Sempre inclui "Outros / Fora de Estoque" como primeira opção.
      */
     @Override
+    @SuppressWarnings("null")
     public void onCommandAutoCompleteInteraction(
             @javax.annotation.Nonnull CommandAutoCompleteInteractionEvent event) {
 
@@ -308,6 +310,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
      * Edita a mensagem original substituindo os botões por versões desabilitadas
      * e adiciona um rodapé com o resultado da ação.
      */
+    @SuppressWarnings("null")
     private void desabilitarBotoesDaMensagem(ButtonInteractionEvent event, String rodape) {
         // Cria versões desabilitadas de todos os botões da ActionRow original
         List<Button> botoesDessa = List.copyOf(

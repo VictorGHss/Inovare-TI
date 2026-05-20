@@ -367,6 +367,7 @@ public class DiscordWebhookService {
     @org.springframework.beans.factory.annotation.Value("${discord.bot.operational-channel-id:}")
     private String operationalChannelId;
 
+    @SuppressWarnings("null")
     private void enviarNotificacaoJdaComBotoes(Ticket ticket) {
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {

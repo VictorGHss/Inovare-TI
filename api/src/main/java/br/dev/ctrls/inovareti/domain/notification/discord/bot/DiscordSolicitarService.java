@@ -64,6 +64,7 @@ public class DiscordSolicitarService {
      * @param textoDigitado fragmento de nome digitado pelo usuário
      * @return lista de {@link Command.Choice} para a resposta de autocomplete
      */
+    @SuppressWarnings("null")
     public List<Command.Choice> buscarOpcoesAutocomplete(String textoDigitado) {
         List<Command.Choice> opcoes = new ArrayList<>();
 

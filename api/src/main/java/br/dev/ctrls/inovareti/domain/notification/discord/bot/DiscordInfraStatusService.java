@@ -4,7 +4,7 @@ import java.text.DecimalFormat;
 
 import javax.sql.DataSource;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -34,14 +34,12 @@ public class DiscordInfraStatusService {
 
     private final DataSource dataSource;
 
-    @Value("${spring.datasource.url:jdbc:postgresql://localhost:5432/inovareti}")
-    private String datasourceUrl;
-
     /**
      * Constrói o embed de status de infraestrutura do servidor.
      *
      * @return {@link MessageEmbed} formatado com métricas de RAM, CPU e banco
      */
+    @SuppressWarnings("null")
     public MessageEmbed construirEmbedStatus() {
         Runtime runtime = Runtime.getRuntime();
 
@@ -92,7 +90,7 @@ public class DiscordInfraStatusService {
 
             double mb = bytes / (1024.0 * 1024.0);
             return DF.format(mb) + " MB";
-        } catch (Exception ex) {
+        } catch (DataAccessException | RuntimeException ex) {
             log.warn("[DISCORD][/ti status] Falha ao consultar tamanho do banco PostgreSQL: {}", ex.getMessage());
             return "Indisponível (erro ao consultar)";
         }

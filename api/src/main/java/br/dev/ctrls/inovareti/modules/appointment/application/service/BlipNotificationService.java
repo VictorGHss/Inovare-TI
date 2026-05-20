@@ -86,8 +86,9 @@ public class BlipNotificationService {
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = limeClient.normalizeUserIdentity(destination);
 
-        if (!normalizedDestination.contains("42991617187")) {
-            log.warn("[SANDBOX] Disparo bloqueado para número real: {}.", destination);
+        boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
+        if (!normalizedDestination.contains("42991617187") && !isHomologDoctor) {
+            log.warn("[SANDBOX] Disparo bloqueado para número real: {}. Dr ID: {}", destination, appointmentData != null ? appointmentData.doctorId() : "null");
             return;
         }
 

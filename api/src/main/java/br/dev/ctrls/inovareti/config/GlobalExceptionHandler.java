@@ -94,13 +94,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, org.springframework.http.HttpHeaders headers, org.springframework.http.HttpStatusCode status, org.springframework.web.context.request.WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONTENT_TOO_LARGE);
         problem.setTitle("File exceeds size limit");
         problem.setDetail("The file exceeds the maximum allowed size of 5MB");
         attachTraceId(problem);
-        return problem;
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem);
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})

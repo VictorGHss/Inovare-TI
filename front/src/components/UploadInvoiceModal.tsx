@@ -96,7 +96,7 @@ export default function UploadInvoiceModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4">
-        {/* Header */}
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-800">Anexar Nota Fiscal</h2>
           <button
@@ -109,14 +109,14 @@ export default function UploadInvoiceModal({
           </button>
         </div>
 
-        {/* Body */}
+        {/* Corpo */}
         <div className="px-6 py-6">
           <p className="text-sm text-slate-600 mb-4">
             Anexe a nota fiscal (PDF ou imagem) para o {entityName.toLowerCase()} ID:{' '}
             <span className="font-semibold text-slate-800">{entityId}</span>
           </p>
 
-          {/* Alert Info */}
+          {/* Informação de Alerta */}
           <div className="flex gap-3 bg-brand-secondary border border-brand-primary rounded-lg p-3 mb-6">
             <AlertCircle size={18} className="text-brand-primary flex-shrink-0 mt-0.5" />
             <p className="text-xs text-slate-700">
@@ -124,21 +124,21 @@ export default function UploadInvoiceModal({
             </p>
           </div>
 
-          {/* Drag & Drop Area */}
+          {/* Área de Arrastar e Soltar */}
           <label
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`relative block border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
               isDragOver
-                ? 'border-primary bg-primary bg-opacity-5'
-                : 'border-slate-300 hover:border-primary hover:bg-slate-50'
+                ? 'border-brand-primary bg-brand-primary bg-opacity-5'
+                : 'border-slate-300 hover:border-brand-primary hover:bg-slate-50'
             }`}
           >
             <div className="flex flex-col items-center gap-2 pointer-events-none">
               <Upload
                 size={32}
-                className={isDragOver ? 'text-primary' : 'text-slate-400'}
+                className={isDragOver ? 'text-brand-primary' : 'text-slate-400'}
               />
               <div>
                 <p className="text-sm font-medium text-slate-800">
@@ -169,7 +169,7 @@ export default function UploadInvoiceModal({
             </span>
           </div>
 
-          {/* Selected File */}
+          {/* Arquivo Selecionado */}
           {selectedFile && (
             <div className="mt-4 p-3 bg-brand-secondary border border-brand-secondary rounded-lg">
               <p className="text-xs text-orange-700 font-medium">Arquivo selecionado:</p>
@@ -183,7 +183,7 @@ export default function UploadInvoiceModal({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Rodapé */}
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
           <button
             type="button"
@@ -197,7 +197,7 @@ export default function UploadInvoiceModal({
             type="button"
             onClick={handleSubmit}
             disabled={!selectedFile || uploading}
-            className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-primary hover:bg-brand-primary-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? 'Enviando...' : 'Anexar'}
           </button>

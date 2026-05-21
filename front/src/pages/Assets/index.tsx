@@ -14,7 +14,7 @@ import AssetTable from './components/AssetTable';
 import NewAssetModal from './components/NewAssetModal';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
 
 export default function Assets() {
   const { user } = useAuth();
@@ -174,7 +174,7 @@ export default function Assets() {
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-brand-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <PlusCircle size={17} />
               Novo Ativo

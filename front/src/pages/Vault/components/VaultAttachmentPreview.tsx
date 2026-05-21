@@ -43,7 +43,7 @@ export default function VaultAttachmentPreview({ preview, onClose }: Props) {
                 href={preview.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-3 py-2"
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-3 py-2"
               >
                 <Paperclip size={14} />
                 Abrir arquivo

@@ -103,7 +103,7 @@ export default function AddBatchModal({
               Item <span className="text-red-500">*</span>
             </label>
             <select
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={selectedItemId}
               onChange={(e) => setSelectedItemId(e.target.value)}
               required
@@ -125,7 +125,7 @@ export default function AddBatchModal({
             <input
               type="number"
               min={1}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
               required
@@ -141,7 +141,7 @@ export default function AddBatchModal({
               type="number"
               step="0.01"
               min="0.01"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={unitPrice}
               onChange={(e) => setUnitPrice(e.target.value)}
               placeholder="0.00"
@@ -156,7 +156,7 @@ export default function AddBatchModal({
             </label>
             <input
               type="text"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="Ex: Logitech, HP, Dell"
@@ -171,7 +171,7 @@ export default function AddBatchModal({
             </label>
             <input
               type="text"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={supplier}
               onChange={(e) => setSupplier(e.target.value)}
               placeholder="Ex: Kabum, Amazon, Kalunga"
@@ -186,7 +186,7 @@ export default function AddBatchModal({
             </label>
             <input
               type="text"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
               value={purchaseReason}
               onChange={(e) => setPurchaseReason(e.target.value)}
               placeholder="Ex: Reposição mensal, Expansão de TI"
@@ -232,7 +232,7 @@ export default function AddBatchModal({
             <button
               type="submit"
               disabled={submitting}
-              className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              className="bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
             >
               {submitting 
                 ? (selectedInvoiceFile ? 'Registrando e anexando NF...' : 'Salvando...') 

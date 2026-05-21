@@ -34,8 +34,8 @@ export default function TutorialAside({ ticketType }: Props) {
     <div className="sticky top-24">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <Lightbulb size={18} className="text-primary" />
+          <div className="p-1.5 bg-brand-primary/10 rounded-lg">
+            <Lightbulb size={18} className="text-brand-primary" />
           </div>
           <h2 className="font-semibold text-slate-800 text-sm transition-all">
             {heading}
@@ -44,7 +44,7 @@ export default function TutorialAside({ ticketType }: Props) {
         <ul className="flex flex-col gap-3">
           {items.map((tip, i) => (
             <li key={i} className="flex items-start gap-2">
-              <span className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+              <span className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex items-center justify-center">
                 {i + 1}
               </span>
               <span className="text-sm text-gray-600 leading-snug">{tip}</span>

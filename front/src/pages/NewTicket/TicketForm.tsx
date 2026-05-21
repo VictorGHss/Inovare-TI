@@ -299,7 +299,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
           Cancelar
         </button>
         <button type="submit" disabled={submitting}
-          className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
+          className="bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
           {submitting ? (type === 'INCIDENT' && files.length > 0 ? 'Enviando arquivos...' : 'Enviando...') : 'Abrir Chamado'}
         </button>
       </div>

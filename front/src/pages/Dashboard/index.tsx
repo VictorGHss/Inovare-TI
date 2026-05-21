@@ -98,7 +98,7 @@ export default function Dashboard() {
           <>
             <button
               onClick={() => navigate('/tickets/new')}
-              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <PlusCircle size={17} />
               Novo Chamado

@@ -214,7 +214,7 @@ export default function DefaultLayout() {
                 href="https://github.com/VictorGHss"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:text-primary-hover font-medium transition-colors underline underline-offset-2"
+                className="text-brand-primary hover:text-brand-primary-dark font-medium transition-colors underline underline-offset-2"
               >
                 VictorGHss
               </a>

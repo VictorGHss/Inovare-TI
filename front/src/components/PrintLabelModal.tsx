@@ -66,7 +66,7 @@ export default function PrintLabelModal({ isOpen, onClose, asset }: PrintLabelMo
           {/* Botão imprimir - esconder na impressão */}
           <button
             onClick={handlePrint}
-            className="mt-6 flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors print:hidden"
+            className="mt-6 flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-dark text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors print:hidden"
           >
             <Printer size={16} />
             Imprimir Etiqueta

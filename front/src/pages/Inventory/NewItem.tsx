@@ -12,7 +12,7 @@ interface SpecEntry {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
 
 export default function NewItem() {
   const navigate = useNavigate();
@@ -234,7 +234,7 @@ export default function NewItem() {
             id="registerFirstBatch"
             checked={registerFirstBatch}
             onChange={(e) => setRegisterFirstBatch(e.target.checked)}
-            className="w-4 h-4 text-primary bg-white border-slate-300 rounded focus:ring-2 focus:ring-primary cursor-pointer"
+            className="w-4 h-4 text-brand-primary bg-white border-slate-300 rounded focus:ring-2 focus:ring-brand-primary cursor-pointer"
           />
           <label
             htmlFor="registerFirstBatch"
@@ -344,7 +344,7 @@ export default function NewItem() {
           <button
             type="submit"
             disabled={submitting}
-            className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+            className="bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
           >
             {submitting ? 'Criando...' : 'Criar Item'}
           </button>

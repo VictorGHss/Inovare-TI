@@ -23,8 +23,8 @@ export default function TicketTypeToggle({ value, onChange }: Props) {
           onClick={() => onChange(v)}
           className={`flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-colors border ${
             value === v
-              ? 'bg-primary text-white border-primary shadow-sm'
-              : 'bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary'
+              ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-brand-primary hover:text-brand-primary'
           }`}
         >
           <Icon size={16} />

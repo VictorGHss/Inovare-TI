@@ -6,7 +6,7 @@ import { createAsset, uploadAssetInvoice } from '../../../services/inventoryServ
 import type { AssetCategory, CreateAssetDto, User } from '../../../types/models';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition';
+  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
 
 interface Props {
   isOpen: boolean;
@@ -220,7 +220,7 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
             <button
               type="submit"
               disabled={submitting}
-              className="bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              className="bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
             >
               {submitting
                 ? selectedInvoiceFile

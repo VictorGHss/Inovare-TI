@@ -50,7 +50,7 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
         filename = `saidas_estoque_${startDate}_to_${endDate}.xlsx`;
       }
 
-      // Trigger download
+      // Iniciar download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -114,9 +114,9 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
           <button
             onClick={() => handleExport('tickets')}
             disabled={exporting !== null}
-            className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-primary transition-all disabled:opacity-50 text-left"
+            className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-brand-primary transition-all disabled:opacity-50 text-left"
           >
-            <FileSpreadsheet size={20} className="text-primary flex-shrink-0" />
+            <FileSpreadsheet size={20} className="text-brand-primary flex-shrink-0" />
             <div className="flex-1">
               <div className="font-semibold text-slate-800">
                 {exporting === 'tickets' ? 'Exportando...' : 'Histórico de Chamados'}

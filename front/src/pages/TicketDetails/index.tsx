@@ -71,7 +71,7 @@ export default function TicketDetails() {
         actions={(
           <button
             onClick={() => navigate('/tickets')}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#feb56c]/40 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#fff8f1]"
+            className="inline-flex items-center gap-2 rounded-2xl border border-brand-primary/40 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-brand-secondary/30"
             aria-label="Voltar"
           >
             <ArrowLeft size={16} />

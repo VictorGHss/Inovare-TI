@@ -5,10 +5,6 @@
   --color-brand-primary: #feb56c;
   --color-brand-primary-dark: #f1a154;
   --color-brand-secondary: #fed8b0;
-
-  --color-primary: #feb56c;
-  --color-primary-hover: #f1a154;
-  --color-secondary: #fed8b0;
 }
 
 @layer base {

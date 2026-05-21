@@ -231,7 +231,7 @@ export default function Users() {
                         }
                       >
                         {currentUser.receives_it_notifications ? (
-                          <Bell size={16} className="text-[#ffa751]" />
+                          <Bell size={16} className="text-brand-primary" />
                         ) : (
                           <BellOff size={16} className="text-slate-400" />
                         )}

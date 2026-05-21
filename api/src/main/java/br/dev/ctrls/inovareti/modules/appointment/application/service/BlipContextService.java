@@ -168,26 +168,7 @@ public class BlipContextService {
         }
     }
 
-    public void setUserState(String userIdentity, String flowId, String blockId) {
-        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
-        String uri = "/contexts/" + normalizedIdentity + "/stateid@" + flowId;
 
-        Map<String, Object> command = Map.of(
-                "id", UUID.randomUUID().toString(),
-                "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
-                "method", "set",
-                "uri", uri,
-                "type", "text/plain",
-                "resource", blockId
-        );
-
-        try {
-            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("User State (Teletransporte Interno) atualizado. flowId={}, blockId={}", flowId, blockId);
-        } catch (org.springframework.web.client.RestClientException ex) {
-            log.error("Erro ao atualizar User State (Teletransporte Interno). flowId={}", flowId, ex);
-        }
-    }
 
     private void sendToBlipCommandsApi(Object commandPayload) {
         @SuppressWarnings("unchecked")

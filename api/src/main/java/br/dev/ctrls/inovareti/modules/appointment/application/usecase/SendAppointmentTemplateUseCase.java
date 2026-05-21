@@ -89,9 +89,8 @@ public class SendAppointmentTemplateUseCase {
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), config.getTemplateId(), templateData);
 
-            armLandingState(ctx.phoneNumber());
-
             if (session != null) saveWithRetry(session, null);
+            log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva e guardada no banco. Roteamento delegado ao payload do Builder.");
             return true;
         } catch (RestClientResponseException ex) {
             Integer blipCode = extractBlipErrorCode(ex.getResponseBodyAsString());
@@ -201,9 +200,8 @@ public class SendAppointmentTemplateUseCase {
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             
-            armLandingState(session.getPhoneNumber());
-
             saveWithRetry(session, null);
+            log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva e guardada no banco. Roteamento delegado ao payload do Builder.");
             return true;
         } catch (RestClientResponseException ex) {
             Integer blipCode = extractBlipErrorCode(ex.getResponseBodyAsString());
@@ -333,28 +331,7 @@ public class SendAppointmentTemplateUseCase {
         return value.trim();
     }
 
-    /**
-     * Pré-arma o estado do usuário no bloco de aterrissagem do fluxov1.
-     * Isso garante que o clique no botão do template caia no bloco correto
-     * em vez de reiniciar o bot do início.
-     * Falhas são apenas logadas — não interrompem o envio do template.
-     */
-    private void armLandingState(String phoneNumber) {
-        try {
-            String flowId  = blipProperties.getFlowId();
-            String blockId = blipProperties.getBlocks().getWaitingResponse();
 
-            if (flowId == null || flowId.isBlank() || blockId == null || blockId.isBlank()) {
-                log.warn("[ARM STATE] flowId ou waitingResponse não configurados. Teletransporte preventivo ignorado.");
-                return;
-            }
-
-            blipContextService.setUserState(phoneNumber, flowId, blockId);
-            log.info("[ARM STATE] Usuário travado no bloco neutro de estacionamento. phone={}, flowId={}, blockId={}", phoneNumber, flowId, blockId);
-        } catch (Exception ex) {
-            log.warn("[ARM STATE] Falha ao pré-armar estado do usuário no bloco de estacionamento. phone={}. O template foi enviado normalmente.", phoneNumber, ex);
-        }
-    }
 
     private String resolvePendingAppointmentId(String feegowAppointmentId, java.util.UUID sessionId) {
         if (feegowAppointmentId != null && !feegowAppointmentId.isBlank()

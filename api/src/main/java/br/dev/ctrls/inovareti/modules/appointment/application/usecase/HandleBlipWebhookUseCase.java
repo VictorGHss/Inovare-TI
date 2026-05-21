@@ -87,7 +87,32 @@ public class HandleBlipWebhookUseCase {
             return null;
         }
 
-        String action = payload.action() != null ? payload.action().trim() : "";
+        // Verificação de transbordo pendente: se o paciente digitou qualquer texto e possui a variável
+        // de transição 'status_acao_inovare=AGUARDANDO_CONFIRMACAO_DESK' no contexto Blip, aciona o Desk.
+        // Isso garante que o histórico de mensagem do paciente já existe no thread antes de abrir o ticket,
+        // eliminando o erro 67 ("Could not find customer for the informed customer identity in this owner.").
+        String fromPhone = payload.from();
+        String rawAction = payload.action() != null ? payload.action().trim() : "";
+        Object rawContent = payload.content();
+        boolean possuiTextoLivre = !rawAction.isBlank()
+                || (rawContent instanceof String s && !s.isBlank());
+        if (fromPhone != null && !fromPhone.isBlank() && possuiTextoLivre) {
+            try {
+                String varTransicao = blipContextService.getUserContext(fromPhone, "status_acao_inovare");
+                if ("AGUARDANDO_CONFIRMACAO_DESK".equals(varTransicao)) {
+                    log.info("[DESK INTERCEPTOR] Variável de transição detectada para identity={}. " +
+                            "Abrindo ticket no Desk após confirmação textual do paciente.", fromPhone);
+                    blipContextService.abrirTicketDesk(fromPhone);
+                    return null; // Encerra o processamento — este webhook é exclusivo de transbordo
+                }
+            } catch (Exception ex) {
+                log.warn("[DESK INTERCEPTOR] Falha ao verificar variável de transição para identity={}. " +
+                        "Continuando o fluxo normal do webhook.", fromPhone, ex);
+            }
+        }
+
+        String action = rawAction;
+
         if (action.isBlank()) {
             String fallbackAction = resolveActionFromContent(payload.content());
             if (fallbackAction != null && !fallbackAction.isBlank()) {
@@ -105,7 +130,7 @@ public class HandleBlipWebhookUseCase {
                 || normalizedAction.contains("confirmar consulta")) {
             String resolvedId = payload.appointmentId();
             if (resolvedId == null || resolvedId.isBlank()) {
-                String fromPhone = payload.from();
+                fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     String normalizedPhone = fromPhone.trim();
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
@@ -132,7 +157,7 @@ public class HandleBlipWebhookUseCase {
                 || normalizedAction.contains("cancelar consulta")) {
             String resolvedId = payload.appointmentId();
             if (resolvedId == null || resolvedId.isBlank()) {
-                String fromPhone = payload.from();
+                fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     String normalizedPhone = fromPhone.trim();
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
@@ -158,7 +183,7 @@ public class HandleBlipWebhookUseCase {
                 || action.equalsIgnoreCase("Solicitar Alteracao")
                 || action.equalsIgnoreCase("alterar")
                 || action.toLowerCase().contains("solicitar alter")) {
-            String fromPhone = payload.from();
+            fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
                 String normalizedPhone = fromPhone.trim();
                 // FASE 1A: Leitura rápida no banco (micro-transação)

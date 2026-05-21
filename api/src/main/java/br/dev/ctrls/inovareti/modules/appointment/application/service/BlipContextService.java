@@ -316,34 +316,109 @@ public class BlipContextService {
 
             // PASSO 5: Abertura de Ticket Ativa (Transbordo sem atrito) para a ação CONFIRM executada de forma assíncrona
             if ("confirm".equalsIgnoreCase(action)) {
+                // Captura cópia imutável das variáveis necessárias no contexto assíncrono
+                final String identityParaDesk = userIdentity;
+                final String nomeParaDesk     = payload.getPatientName();
+                final String telefoneParaLog  = userPhone;
+
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
-                        // Delay seguro para garantir processamento das ações de entrada do Blip Builder
-                        Thread.sleep(1000);
-                        log.info("[LIME PUSH] Passo 5 (Assíncrono): Forçando abertura de ticket ativamente para identity={}", userIdentity);
-                        java.util.Map<String, Object> ticketCommand = new java.util.HashMap<>();
-                        ticketCommand.put("id", UUID.randomUUID().toString());
-                        ticketCommand.put("to", "postmaster@desk.msging.net");
-                        ticketCommand.put("method", "set");
-                        ticketCommand.put("uri", "/tickets");
-                        ticketCommand.put("type", "application/vnd.iris.ticket+json");
+                        // --- Upsert defensivo: garante que o Desk reconheça a identidade ---
+                        // Aguarda processamento dos passos síncronos anteriores pelo Builder
+                        Thread.sleep(2000);
+
+                        log.info("[DESK] Passo 5a (Assíncrono): Executando upsert defensivo de contato no Desk para identity={}",
+                                identityParaDesk);
+
+                        java.util.LinkedHashMap<String, Object> contatoDesk = new java.util.LinkedHashMap<>();
+                        contatoDesk.put("id", UUID.randomUUID().toString());
+                        contatoDesk.put("to", "postmaster@desk.msging.net");
+                        contatoDesk.put("method", "merge");
+                        contatoDesk.put("uri", "/contacts");
+                        contatoDesk.put("type", "application/vnd.lime.contact+json");
+
+                        java.util.Map<String, Object> contatoResource = new java.util.HashMap<>();
+                        contatoResource.put("identity", identityParaDesk);
+                        contatoResource.put("name",
+                                nomeParaDesk != null && !nomeParaDesk.isBlank() ? nomeParaDesk : identityParaDesk);
+                        contatoDesk.put("resource", contatoResource);
+
+                        Map<String, Object> respostaContato = limeClient.executeCommand(
+                                contatoDesk, BlipLIMEClient.AuthorizationScope.DESK);
+
+                        String statusContato = respostaContato != null
+                                ? String.valueOf(respostaContato.getOrDefault("status", "desconhecido")) : "nulo";
+
+                        if ("failure".equalsIgnoreCase(statusContato)) {
+                            Object reason = respostaContato.get("reason");
+                            String codigo  = "N/A";
+                            String detalhe = "N/A";
+                            if (reason instanceof Map<?, ?> reasonMap) {
+                                Object c = reasonMap.get("code");
+                                Object d = reasonMap.get("description");
+                                codigo  = c != null ? String.valueOf(c) : "N/A";
+                                detalhe = d != null ? String.valueOf(d) : "N/A";
+                            }
+                            log.warn("[DESK AVISO] Upsert de contato retornou falha — o ticket será tentado mesmo assim. " +
+                                    "identity={}, Código: {}, Detalhes: {}", identityParaDesk, codigo, detalhe);
+                        } else {
+                            log.info("[DESK] Upsert de contato concluído com status='{}'. identity={}",
+                                    statusContato, identityParaDesk);
+                        }
+
+                        // --- Pequeno intervalo para propagação do contato no índice do Desk ---
+                        Thread.sleep(500);
+
+                        // --- Abertura efetiva do ticket ---
+                        log.info("[DESK] Passo 5b (Assíncrono): Forçando abertura de ticket ativamente para identity={}",
+                                identityParaDesk);
 
                         java.util.Map<String, Object> customerInput = new java.util.HashMap<>();
-                        customerInput.put("type", "text/plain");
+                        customerInput.put("type",  "text/plain");
                         customerInput.put("value", "Atendimento iniciado automaticamente após confirmação de agendamento.");
 
-                        java.util.Map<String, Object> resource = new java.util.HashMap<>();
-                        resource.put("customerIdentity", userIdentity);
-                        resource.put("customerInput", customerInput);
+                        java.util.Map<String, Object> ticketResource = new java.util.HashMap<>();
+                        ticketResource.put("customerIdentity", identityParaDesk);
+                        ticketResource.put("customerInput",    customerInput);
 
-                        ticketCommand.put("resource", resource);
+                        java.util.Map<String, Object> ticketCommand = new java.util.HashMap<>();
+                        ticketCommand.put("id",       UUID.randomUUID().toString());
+                        ticketCommand.put("to",       "postmaster@desk.msging.net");
+                        ticketCommand.put("method",   "set");
+                        ticketCommand.put("uri",      "/tickets");
+                        ticketCommand.put("type",     "application/vnd.iris.ticket+json");
+                        ticketCommand.put("resource", ticketResource);
 
-                        sendToBlipCommandsApi(ticketCommand);
+                        Map<String, Object> respostaTicket = limeClient.executeCommand(
+                                ticketCommand, BlipLIMEClient.AuthorizationScope.DESK);
+
+                        String statusTicket = respostaTicket != null
+                                ? String.valueOf(respostaTicket.getOrDefault("status", "desconhecido")) : "nulo";
+
+                        if ("failure".equalsIgnoreCase(statusTicket)) {
+                            Object reason = respostaTicket.get("reason");
+                            String codigo  = "N/A";
+                            String detalhe = "N/A";
+                            if (reason instanceof Map<?, ?> reasonMap) {
+                                Object c = reasonMap.get("code");
+                                Object d = reasonMap.get("description");
+                                codigo  = c != null ? String.valueOf(c) : "N/A";
+                                detalhe = d != null ? String.valueOf(d) : "N/A";
+                            }
+                            log.error("[DESK ERROR] Falha crítica ao abrir ticket no Blip Desk. " +
+                                    "Código: {}, Detalhes: {}", codigo, detalhe);
+                        } else {
+                            log.info("[DESK] Transbordo para atendimento humano concluído com sucesso. " +
+                                    "Ticket aberto para o telefone: {}", telefoneParaLog);
+                        }
+
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
-                        log.warn("Processo assíncrono de transbordo interrompido para {}", userIdentity, ie);
+                        log.warn("[DESK] Processo assíncrono de transbordo interrompido para identity={}",
+                                identityParaDesk, ie);
                     } catch (Exception e) {
-                        log.error("Erro no processo assíncrono de transbordo para {}", userIdentity, e);
+                        log.error("[DESK ERROR] Erro inesperado no processo assíncrono de transbordo para identity={}",
+                                identityParaDesk, e);
                     }
                 });
             }
@@ -353,6 +428,7 @@ public class BlipContextService {
             throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }
     }
+
 
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);

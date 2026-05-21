@@ -95,6 +95,8 @@ public class BlipWebhookActionExecutor {
                         .patientBirthdate(result.patientBirthdate() != null ? result.patientBirthdate() : "")
                         .build();
                 blipContextService.processAppointmentPush(dispatchIdentity, result.action(), appointmentPayload);
+                // Envia mensagem de gatilho para o paciente informar a palavra-chave e acionar o atendimento humano
+                blipContextService.enviarMensagemGatilhoAtendimento(dispatchIdentity, result.action());
             }
             return result;
         }
@@ -145,6 +147,8 @@ public class BlipWebhookActionExecutor {
                     .build();
             // Chamada externa Blip (fora de transação) que executa de forma assíncrona o CompletableFuture de transbordo
             blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
+            // Envia mensagem de gatilho para o paciente informar a palavra-chave e acionar o atendimento humano
+            blipContextService.enviarMensagemGatilhoAtendimento(dispatchIdentity, finalResult.action());
         }
 
         return finalResult;

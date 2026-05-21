@@ -314,190 +314,54 @@ public class BlipContextService {
             log.info("[LIME PUSH] Passo 4: Teleportando usuário identity={} para o bloco Preparar_Atendimento ({})", userIdentity, targetBlockId);
             sendToBlipCommandsApi(stateCommand);
 
-            // PASSO 5: Injeção de variável de transição para acionar o Desk via input textual do paciente.
-            // O Blip Desk exige que a última mensagem do thread seja digitada pelo próprio usuário (código 67).
-            // Por isso, em vez de abrir o ticket diretamente, injetamos uma variável de contexto e aguardamos
-            // que o paciente digite uma mensagem no nó de confirmação do Builder para então acionar o Desk.
-            if ("confirm".equalsIgnoreCase(action)) {
-                final String identityParaDesk = userIdentity;
-                final String nomeParaDesk     = payload.getPatientName();
-
-                java.util.concurrent.CompletableFuture.runAsync(() -> {
-                    try {
-                        // Aguarda processamento dos passos síncronos anteriores pelo Builder
-                        Thread.sleep(2000);
-
-                        // Passo 5a: Upsert defensivo de contato no índice do Desk (preparação prévia)
-                        log.info("[DESK] Passo 5a (Assíncrono): Executando upsert defensivo de contato no Desk para identity={}",
-                                identityParaDesk);
-
-                        java.util.LinkedHashMap<String, Object> contatoDesk = new java.util.LinkedHashMap<>();
-                        contatoDesk.put("id",     UUID.randomUUID().toString());
-                        contatoDesk.put("to",     "postmaster@desk.msging.net");
-                        contatoDesk.put("method", "merge");
-                        contatoDesk.put("uri",    "/contacts");
-                        contatoDesk.put("type",   "application/vnd.lime.contact+json");
-
-                        java.util.Map<String, Object> contatoResource = new java.util.HashMap<>();
-                        contatoResource.put("identity", identityParaDesk);
-                        contatoResource.put("name",
-                                nomeParaDesk != null && !nomeParaDesk.isBlank() ? nomeParaDesk : identityParaDesk);
-                        contatoDesk.put("resource", contatoResource);
-
-                        Map<String, Object> respostaContato = limeClient.executeCommand(
-                                contatoDesk, BlipLIMEClient.AuthorizationScope.DESK);
-
-                        Object statusContatoRaw = respostaContato != null ? respostaContato.get("status") : null;
-                        String statusContato = statusContatoRaw != null ? String.valueOf(statusContatoRaw) : "nulo";
-
-                        if ("failure".equalsIgnoreCase(statusContato)) {
-                            Object reason = respostaContato != null ? respostaContato.get("reason") : null;
-                            String codigo  = "N/A";
-                            String detalhe = "N/A";
-                            if (reason instanceof Map<?, ?> reasonMap) {
-                                Object c = reasonMap.get("code");
-                                Object d = reasonMap.get("description");
-                                codigo  = c != null ? String.valueOf(c) : "N/A";
-                                detalhe = d != null ? String.valueOf(d) : "N/A";
-                            }
-                            log.warn("[DESK AVISO] Upsert de contato retornou falha. A variável de transição será injetada mesmo assim. " +
-                                    "identity={}, Código: {}, Detalhes: {}", identityParaDesk, codigo, detalhe);
-                        } else {
-                            log.info("[DESK] Upsert de contato concluído com status='{}'. identity={}",
-                                    statusContato, identityParaDesk);
-                        }
-
-                        // Passo 5b: Injeta variável de transição no contexto do Roteador.
-                        // O webhook interceptará este valor quando o paciente digitar o texto de confirmação.
-                        log.info("[DESK] Passo 5b (Assíncrono): Injetando variável de transição 'status_acao_inovare' para identity={}",
-                                identityParaDesk);
-
-                        Map<String, Object> varTransicao = new java.util.LinkedHashMap<>();
-                        varTransicao.put("id",       UUID.randomUUID().toString());
-                        varTransicao.put("to",       BlipLIMEClient.MASTER_STATE_COMMAND_TO);
-                        varTransicao.put("method",   "set");
-                        varTransicao.put("uri",      "/contexts/" + identityParaDesk + "/status_acao_inovare");
-                        varTransicao.put("type",     "text/plain");
-                        varTransicao.put("metadata", Map.of("expiration", "86400"));
-                        varTransicao.put("resource", "AGUARDANDO_CONFIRMACAO_DESK");
-
-                        limeClient.executeCommand(varTransicao, BlipLIMEClient.AuthorizationScope.ROUTER);
-                        log.info("[DESK] Variável de transição injetada com sucesso. O Desk será acionado quando o paciente digitar o texto de validação. identity={}",
-                                identityParaDesk);
-
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        log.warn("[DESK] Processo assíncrono de injeção de variável interrompido para identity={}",
-                                identityParaDesk, ie);
-                    } catch (Exception e) {
-                        log.error("[DESK ERROR] Erro inesperado na preparação assíncrona do transbordo para identity={}",
-                                identityParaDesk, e);
-                    }
-                });
-            }
-
-            log.info("Push síncrono finalizado com sucesso. Contato atualizado, mensagens ativas enviadas, usuário teleportado e variável de transição agendada.");
+            log.info("Push síncrono finalizado com sucesso. Contato atualizado e mensagens ativas enviadas.");
         } catch (Exception e) {
             throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }
     }
 
     /**
-     * Abre um ticket no Blip Desk para o usuário informado.
+     * Envia uma mensagem de texto ativa ao paciente solicitando que ele digíte a palavra-chave
+     * de gatilho para acionar o atendimento humano no Blip Desk.
      *
-     * <p>Este método é chamado pelo interceptor do webhook ({@code HandleBlipWebhookUseCase}) quando
-     * o paciente envia o texto de validação após a confirmação de agendamento. O histórico de mensagem
-     * digitada pelo próprio usuário já está garantido neste momento, eliminando o erro 67 do Desk.
+     * <p>O Blip Desk exige que a última mensagem do thread seja de autoria do próprio paciente;
+     * por isso, ao invés de abrir o ticket diretamente via API, enviamos esta mensagem e aguardamos
+     * que o paciente responda — o Builder do Blip então abre o ticket com o histórico textual garantido.
      *
-     * <p>Fluxo interno:
-     * <ol>
-     *   <li>Envia comando {@code set /tickets} para {@code postmaster@desk.msging.net}</li>
-     *   <li>Loga sucesso ou falha detalhada com código e descrição do Blip</li>
-     *   <li>Limpa a variável de transição {@code status_acao_inovare} do contexto</li>
-     * </ol>
-     *
-     * @param userIdentity identidade normalizada do usuário (ex: {@code 5511999887766@wa.gw.msging.net})
+     * @param userIdentity identidade do usuário (telefone normalizado ou raw)
+     * @param tipoAcao     tipo da ação confirmada: {@code "confirm"} ou {@code "alter"}
      */
-    public void abrirTicketDesk(String userIdentity) {
+    public void enviarMensagemGatilhoAtendimento(String userIdentity, String tipoAcao) {
         if (userIdentity == null || userIdentity.isBlank()) return;
 
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 
-        log.info("[DESK] Abrindo ticket no Blip Desk após confirmação textual do paciente. identity={}",
-                normalizedIdentity);
+        String texto;
+        if ("confirm".equalsIgnoreCase(tipoAcao)) {
+            texto = "Perfeito! Seu agendamento foi confirmado com sucesso na Feegow. 🤝 "
+                  + "Para prosseguir e abrir a sua ficha com a nossa equipe de atendimento, "
+                  + "responda esta mensagem digitando apenas a palavra: *ATENDIMENTO*";
+        } else {
+            texto = "Entendido! Registramos sua solicitação de alteração. 🗓️ "
+                  + "Para falar diretamente com uma de nossas secretárias e consultar novos horários, "
+                  + "responda esta mensagem digitando apenas a palavra: *ATENDIMENTO*";
+        }
 
-        // Monta o payload do ticket
-        java.util.Map<String, Object> customerInput = new java.util.HashMap<>();
-        customerInput.put("type",  "text/plain");
-        customerInput.put("value", "Confirmação de atendimento recebida. Paciente aguardando atendimento humano.");
-
-        java.util.Map<String, Object> ticketResource = new java.util.HashMap<>();
-        ticketResource.put("customerIdentity", normalizedIdentity);
-        ticketResource.put("customerInput",    customerInput);
-
-        java.util.Map<String, Object> ticketCommand = new java.util.HashMap<>();
-        ticketCommand.put("id",       UUID.randomUUID().toString());
-        ticketCommand.put("to",       "postmaster@desk.msging.net");
-        ticketCommand.put("method",   "set");
-        ticketCommand.put("uri",      "/tickets");
-        ticketCommand.put("type",     "application/vnd.iris.ticket+json");
-        ticketCommand.put("resource", ticketResource);
+        java.util.Map<String, Object> mensagem = new java.util.LinkedHashMap<>();
+        mensagem.put("id",   "msg-" + UUID.randomUUID());
+        mensagem.put("to",   normalizedIdentity);
+        mensagem.put("type", "text/plain");
+        mensagem.put("content", texto);
 
         try {
-            Map<String, Object> respostaTicket = limeClient.executeCommand(
-                    ticketCommand, BlipLIMEClient.AuthorizationScope.DESK);
-
-            Object statusRaw = respostaTicket != null ? respostaTicket.get("status") : null;
-            String statusTicket = statusRaw != null ? String.valueOf(statusRaw) : "nulo";
-
-            if ("failure".equalsIgnoreCase(statusTicket)) {
-                Object reason  = respostaTicket != null ? respostaTicket.get("reason") : null;
-                String codigo  = "N/A";
-                String detalhe = "N/A";
-                if (reason instanceof Map<?, ?> reasonMap) {
-                    Object c = reasonMap.get("code");
-                    Object d = reasonMap.get("description");
-                    codigo  = c != null ? String.valueOf(c) : "N/A";
-                    detalhe = d != null ? String.valueOf(d) : "N/A";
-                }
-                log.error("[DESK ERROR] Falha crítica ao abrir ticket no Blip Desk. Código: {}, Detalhes: {}",
-                        codigo, detalhe);
-            } else {
-                log.info("[DESK] Transbordo para atendimento humano concluído com sucesso. " +
-                        "Ticket aberto para identity: {}", normalizedIdentity);
-            }
+            limeClient.executeMessage(mensagem, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[GATILHO DESK] Mensagem de gatilho de atendimento enviada com sucesso. "
+                    + "identity={}, tipoAcao={}", normalizedIdentity, tipoAcao);
         } catch (Exception ex) {
-            log.error("[DESK ERROR] Exceção ao tentar abrir ticket no Blip Desk para identity={}",
-                    normalizedIdentity, ex);
-        } finally {
-            // Limpa a variável de transição independentemente do resultado
-            limparVariavelTransicaoDesk(normalizedIdentity);
+            log.error("[GATILHO DESK] Falha ao enviar mensagem de gatilho de atendimento. "
+                    + "identity={}, tipoAcao={}", normalizedIdentity, tipoAcao, ex);
         }
     }
-
-    /**
-     * Remove a variável de transição {@code status_acao_inovare} do contexto do Roteador,
-     * evitando que um segundo texto digitado pelo paciente dispare um novo ticket.
-     *
-     * @param normalizedIdentity identidade já normalizada do usuário
-     */
-    public void limparVariavelTransicaoDesk(String normalizedIdentity) {
-        try {
-            Map<String, Object> deleteCmd = Map.of(
-                "id",     UUID.randomUUID().toString(),
-                "to",     BlipLIMEClient.MASTER_STATE_COMMAND_TO,
-                "method", "delete",
-                "uri",    "/contexts/" + normalizedIdentity + "/status_acao_inovare"
-            );
-            limeClient.executeCommand(deleteCmd, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.debug("[DESK] Variável de transição 'status_acao_inovare' removida do contexto. identity={}",
-                    normalizedIdentity);
-        } catch (Exception ex) {
-            log.warn("[DESK] Falha ao remover variável de transição do contexto. identity={}", normalizedIdentity, ex);
-        }
-    }
-
-
 
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);

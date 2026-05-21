@@ -87,31 +87,8 @@ public class HandleBlipWebhookUseCase {
             return null;
         }
 
-        // Verificação de transbordo pendente: se o paciente digitou qualquer texto e possui a variável
-        // de transição 'status_acao_inovare=AGUARDANDO_CONFIRMACAO_DESK' no contexto Blip, aciona o Desk.
-        // Isso garante que o histórico de mensagem do paciente já existe no thread antes de abrir o ticket,
-        // eliminando o erro 67 ("Could not find customer for the informed customer identity in this owner.").
         String fromPhone = payload.from();
-        String rawAction = payload.action() != null ? payload.action().trim() : "";
-        Object rawContent = payload.content();
-        boolean possuiTextoLivre = !rawAction.isBlank()
-                || (rawContent instanceof String s && !s.isBlank());
-        if (fromPhone != null && !fromPhone.isBlank() && possuiTextoLivre) {
-            try {
-                String varTransicao = blipContextService.getUserContext(fromPhone, "status_acao_inovare");
-                if ("AGUARDANDO_CONFIRMACAO_DESK".equals(varTransicao)) {
-                    log.info("[DESK INTERCEPTOR] Variável de transição detectada para identity={}. " +
-                            "Abrindo ticket no Desk após confirmação textual do paciente.", fromPhone);
-                    blipContextService.abrirTicketDesk(fromPhone);
-                    return null; // Encerra o processamento — este webhook é exclusivo de transbordo
-                }
-            } catch (Exception ex) {
-                log.warn("[DESK INTERCEPTOR] Falha ao verificar variável de transição para identity={}. " +
-                        "Continuando o fluxo normal do webhook.", fromPhone, ex);
-            }
-        }
-
-        String action = rawAction;
+        String action = payload.action() != null ? payload.action().trim() : "";
 
         if (action.isBlank()) {
             String fallbackAction = resolveActionFromContent(payload.content());

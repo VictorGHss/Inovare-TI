@@ -47,4 +47,13 @@ public class ConfirmationStateMachineService {
                 session.getFeegowAppointmentId(), session.getStatus());
         return session;
     }
+
+    public AppointmentSession markCanceled(AppointmentSession session) {
+        session.setStatus(AppointmentSessionStatus.CANCELED);
+        session.setLastInteractionAt(LocalDateTime.now());
+        session.setClosedAt(LocalDateTime.now());
+        log.info("Transicao de estado aplicada. appointmentId={} novoEstado={}",
+                session.getFeegowAppointmentId(), session.getStatus());
+        return session;
+    }
 }

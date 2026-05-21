@@ -5,5 +5,6 @@ public enum AppointmentSessionStatus {
     NUDGE_1_SENT,
     NUDGE_FINAL_SENT,
     CONFIRMED,
-    CANCELED_NO_RESPONSE
+    CANCELED_NO_RESPONSE,
+    CANCELED
 }

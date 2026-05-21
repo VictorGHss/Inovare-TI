@@ -72,11 +72,7 @@ public class ManualTriggerKeyFilter extends OncePerRequestFilter {
     }
 
     private boolean isProtectedPath(String path) {
-        return BLIP_WEBHOOK_PATH.equals(path)
-            || BLIP_WEBHOOK_ALIAS_PATH.equals(path)
-            || MANUAL_TRIGGER_PATH.equals(path)
-            || ("/api" + BLIP_WEBHOOK_PATH).equals(path)
-            || ("/api" + BLIP_WEBHOOK_ALIAS_PATH).equals(path)
+        return MANUAL_TRIGGER_PATH.equals(path)
             || ("/api" + MANUAL_TRIGGER_PATH).equals(path);
     }
 

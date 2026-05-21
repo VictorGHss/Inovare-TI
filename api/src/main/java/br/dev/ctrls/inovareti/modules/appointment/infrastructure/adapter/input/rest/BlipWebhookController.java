@@ -90,8 +90,17 @@ public class BlipWebhookController {
             log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado pelo contexto de teste (Token ativo no perfil local/default).");
         }
 
-        // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação
-        if (!rawJson.contains("confirm_") && !rawJson.contains("alter_")) {
+        // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação de forma case-insensitive
+        String rawLower = rawJson.toLowerCase();
+        boolean hasActionKeyword = rawLower.contains("confirm_")
+                || rawLower.contains("alter_")
+                || rawLower.contains("confirmar")
+                || rawLower.contains("sim")
+                || rawLower.contains("confirm")
+                || rawLower.contains("alterar")
+                || rawLower.contains("cancelar");
+
+        if (!hasActionKeyword) {
             return ResponseEntity.ok().build(); // Retorna 200 OK instantaneamente (< 10ms)
         }
 
@@ -125,8 +134,7 @@ public class BlipWebhookController {
             ));
         }
 
-        log.info("[WEBHOOK RECEBIDO] from='{}' | action='{}' | messageId='{}' | appointmentId='{}'",
-            from, action, messageId, appointmentId);
+        log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, Ação: {}", from, action);
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 messageId,

@@ -95,6 +95,63 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
+        String normalizedAction = action.trim().toLowerCase();
+
+        // Intercepção de texto livre / intenções em português de Confirmação:
+        if (normalizedAction.equals("sim")
+                || normalizedAction.equals("confirmar")
+                || normalizedAction.equals("confirm")
+                || normalizedAction.contains("confirmar presença")
+                || normalizedAction.contains("confirmar consulta")) {
+            String resolvedId = payload.appointmentId();
+            if (resolvedId == null || resolvedId.isBlank()) {
+                String fromPhone = payload.from();
+                if (fromPhone != null && !fromPhone.isBlank()) {
+                    String normalizedPhone = fromPhone.trim();
+                    java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
+                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                    );
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        resolvedId = activeSessions.get(0).getFeegowAppointmentId();
+                    }
+                }
+            }
+            if (resolvedId != null && !resolvedId.isBlank()) {
+                log.info("[WEBHOOK] Texto livre de confirmação '{}' interceptado. Mapeando para confirm_{}", action, resolvedId);
+                action = "confirm_" + resolvedId;
+            } else {
+                log.warn("[WEBHOOK] Texto livre de confirmação '{}' recebido, mas nenhuma sessão ativa ou ID encontrado.", action);
+                return null;
+            }
+        }
+
+        // Intercepção de texto livre / intenções em português de Cancelamento:
+        if (normalizedAction.equals("cancelar")
+                || normalizedAction.equals("cancel")
+                || normalizedAction.contains("cancelar presença")
+                || normalizedAction.contains("cancelar consulta")) {
+            String resolvedId = payload.appointmentId();
+            if (resolvedId == null || resolvedId.isBlank()) {
+                String fromPhone = payload.from();
+                if (fromPhone != null && !fromPhone.isBlank()) {
+                    String normalizedPhone = fromPhone.trim();
+                    java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
+                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                    );
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        resolvedId = activeSessions.get(0).getFeegowAppointmentId();
+                    }
+                }
+            }
+            if (resolvedId != null && !resolvedId.isBlank()) {
+                log.info("[WEBHOOK] Texto livre de cancelamento '{}' interceptado. Mapeando para cancel_{}", action, resolvedId);
+                action = "cancel_" + resolvedId;
+            } else {
+                log.warn("[WEBHOOK] Texto livre de cancelamento '{}' recebido, mas nenhuma sessão ativa ou ID encontrado.", action);
+                return null;
+            }
+        }
+
         // Intercepção de texto livre: "Solicitar Alteração" sem payload de botão
         // Resolve o ID da sessão ativa mais recente para o telefone do usuário
         if (action.equalsIgnoreCase("Solicitar Alteração")
@@ -124,16 +181,16 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
-        // Captura confirm_{ID} ou alter_{ID}
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter)_(\\d+(?:\\.\\d+)?)");
+        // Captura confirm_{ID}, alter_{ID} ou cancel_{ID}
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter|cancel)_(\\d+(?:\\.\\d+)?)");
         java.util.regex.Matcher matcher = pattern.matcher(action);
 
         if (!matcher.find()) {
-            log.debug("[WEBHOOK] Ação ignorada (não é confirm_ nem alter_). action='{}'", action);
+            log.debug("[WEBHOOK] Ação ignorada (não é confirm_, alter_ nem cancel_). action='{}'", action);
             return null;
         }
 
-        String actionType   = matcher.group(1).toLowerCase(); // "confirm" ou "alter"
+        String actionType   = matcher.group(1).toLowerCase(); // "confirm", "alter" ou "cancel"
         String rawId        = matcher.group(2);
         String appointmentId = normalizeFeegowAppointmentId(rawId);
 

@@ -17,8 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ManualTriggerKeyFilter extends OncePerRequestFilter {
 
-    private static final String BLIP_WEBHOOK_PATH = "/v1/webhook/blip";
-    private static final String BLIP_WEBHOOK_ALIAS_PATH = "/webhooks/blip";
     private static final String MANUAL_TRIGGER_PATH = "/webhooks/blip/manual-trigger";
     private static final String HEADER_NAME = "X-Inovare-Token";
 

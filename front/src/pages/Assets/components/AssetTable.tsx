@@ -88,10 +88,23 @@ export default function AssetTable({
               <td className="px-4 py-3 text-slate-600">{asset.patrimonyCode}</td>
               <td className="px-4 py-3 text-slate-600">{asset.categoryName ?? 'Sem categoria'}</td>
               <td className="px-4 py-3 text-slate-600">
-                {asset.assignedToName ??
+                {asset.assignedToNames && asset.assignedToNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {asset.assignedToNames.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center rounded-full bg-brand-secondary/35 text-brand-primary px-2 py-0.5 text-xs font-semibold"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  asset.assignedToName ??
                   (asset.userId
                     ? (userNameById.get(asset.userId) ?? 'Usuário não encontrado')
-                    : 'No estoque (TI)')}
+                    : 'No estoque (TI)')
+                )}
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-center gap-2">

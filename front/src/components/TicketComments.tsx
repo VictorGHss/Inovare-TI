@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface TicketCommentsProps {
   ticketId: string;
-  ticketStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  ticketStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   assignedToId: string | null;
 }
 

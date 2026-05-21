@@ -83,6 +83,17 @@ export default function TicketDetails() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 flex flex-col gap-5">
           <TicketHeader ticket={ticket} />
+          {(ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') && ticket.solutionText && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Solução Aplicada
+              </h3>
+              <p className="mt-2 text-sm text-emerald-700 whitespace-pre-wrap leading-relaxed">
+                {ticket.solutionText}
+              </p>
+            </div>
+          )}
           <TicketTimeline
             ticket={ticket}
             isResolved={isResolved}

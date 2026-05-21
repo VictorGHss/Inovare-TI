@@ -26,6 +26,7 @@ export interface Asset {
   id: string;
   userId: string | null;
   assignedToName: string | null;
+  assignedToNames?: string[] | null;
   name: string;
   patrimonyCode: string;
   categoryId?: string | null;

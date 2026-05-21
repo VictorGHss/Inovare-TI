@@ -7,12 +7,14 @@ const styles: Record<Status, string> = {
   OPEN: 'bg-red-100 text-red-700',
   IN_PROGRESS: 'bg-yellow-100 text-yellow-700',
   RESOLVED: 'bg-green-100 text-green-700',
+  CLOSED: 'bg-slate-100 text-slate-700',
 };
 
 const labels: Record<Status, string> = {
   OPEN: 'Aberto',
   IN_PROGRESS: 'Em Andamento',
   RESOLVED: 'Resolvido',
+  CLOSED: 'Fechado',
 };
 
 interface StatusBadgeProps {

@@ -96,7 +96,9 @@ export default function Assets() {
       asset.name,
       asset.patrimonyCode,
       asset.categoryName ?? 'Sem categoria',
-      asset.assignedToName ?? 'No estoque (TI)',
+      asset.assignedToNames && asset.assignedToNames.length > 0
+        ? asset.assignedToNames.join(', ')
+        : (asset.assignedToName ?? 'No estoque (TI)'),
       formatCreatedAt(asset.createdAt),
     ]);
     const csvContent = [headers, ...rows]

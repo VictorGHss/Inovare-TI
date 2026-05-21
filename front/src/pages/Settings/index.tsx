@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Clock3 } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -55,11 +55,70 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [discordWebhookStatus, setDiscordWebhookStatus] = useState<string | null>(null);
-  
 
-  
+  interface IntegrationConfig {
+    enabled: boolean;
+    backupEmail: string;
+    webhookUrl?: string;
+    botToken?: string;
+    clientId?: string;
+    clientSecret?: string;
+    apiKey?: string;
+    unitId?: string;
+    blipApiKey?: string;
+    botId?: string;
+  }
 
-  
+  const [integrations, setIntegrations] = useState<Record<string, IntegrationConfig>>(() => {
+    const saved = localStorage.getItem('inovare_integrations');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // Ignora erro no parse do JSON
+      }
+    }
+    return {
+      discord: { enabled: true, webhookUrl: 'https://discord.com/api/webhooks/123456/abcdef', botToken: 'd8f7s6d87f6sd8f76s8d7f', backupEmail: 'discord-backup@inovare.com.br' },
+      contaazul: { enabled: false, clientId: '', clientSecret: '', backupEmail: 'financeiro-backup@inovare.com.br' },
+      feegow: { enabled: false, apiKey: '', unitId: '', backupEmail: 'feegow-backup@inovare.com.br' },
+      blip: { enabled: false, blipApiKey: '', botId: '', backupEmail: 'blip-backup@inovare.com.br' },
+    };
+  });
+
+  const handleSaveIntegration = (serviceKey: string) => {
+    localStorage.setItem('inovare_integrations', JSON.stringify(integrations));
+    const serviceNameMap: Record<string, string> = {
+      discord: 'Discord',
+      contaazul: 'Conta Azul',
+      feegow: 'Feegow',
+      blip: 'Blip',
+    };
+    toast.success(`Configurações do ${serviceNameMap[serviceKey] ?? serviceKey} salvas com sucesso.`);
+  };
+
+  const handleToggleIntegration = (serviceKey: string) => {
+    setIntegrations((prev) => {
+      const updated = {
+        ...prev,
+        [serviceKey]: {
+          ...prev[serviceKey],
+          enabled: !prev[serviceKey].enabled,
+        },
+      };
+      localStorage.setItem('inovare_integrations', JSON.stringify(updated));
+      return updated;
+    });
+    
+    const serviceNameMap: Record<string, string> = {
+      discord: 'Discord',
+      contaazul: 'Conta Azul',
+      feegow: 'Feegow',
+      blip: 'Blip',
+    };
+    const isEnabled = !integrations[serviceKey].enabled;
+    toast.info(`Integração com ${serviceNameMap[serviceKey] ?? serviceKey} ${isEnabled ? 'ativada' : 'desativada'}.`);
+  };
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -229,6 +288,341 @@ export default function Settings() {
             </div>
           ) : (
             <>
+              {/* Cards de Integrações de Serviços */}
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+                <div className="px-6 py-4 border-b border-slate-100">
+                  <h2 className="text-sm font-semibold text-slate-900">Integrações do Ecossistema</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Gerencie os serviços integrados ao ecossistema Inovare-TI.</p>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Card: Discord */}
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                              <MessageSquare size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">Discord</h3>
+                              <p className="text-xs text-slate-400">Notificações e alertas</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIntegration('discord')}
+                            className={`${
+                              integrations.discord.enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                            } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600/30`}
+                          >
+                            <span
+                              className={`${
+                                integrations.discord.enabled ? 'translate-x-5' : 'translate-x-0'
+                              } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                            />
+                          </button>
+                        </div>
+                        <div className="space-y-3 mt-2">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Webhook URL</label>
+                            <input
+                              type="text"
+                              value={integrations.discord.webhookUrl ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                discord: { ...prev.discord, webhookUrl: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="https://discord.com/api/webhooks/..."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Token do Bot</label>
+                            <input
+                              type="password"
+                              value={integrations.discord.botToken ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                discord: { ...prev.discord, botToken: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Token de autorização do bot"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">E-mail de Backup</label>
+                            <input
+                              type="email"
+                              value={integrations.discord.backupEmail ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                discord: { ...prev.discord, backupEmail: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="backup-discord@inovare.com.br"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveIntegration('discord')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Save size={13} />
+                          Salvar Discord
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card: Conta Azul */}
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 shadow-sm">
+                              <DollarSign size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">Conta Azul</h3>
+                              <p className="text-xs text-slate-400">ERP e conciliação financeira</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIntegration('contaazul')}
+                            className={`${
+                              integrations.contaazul.enabled ? 'bg-blue-600' : 'bg-slate-200'
+                            } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600/30`}
+                          >
+                            <span
+                              className={`${
+                                integrations.contaazul.enabled ? 'translate-x-5' : 'translate-x-0'
+                              } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                            />
+                          </button>
+                        </div>
+                        <div className="space-y-3 mt-2">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Client ID</label>
+                            <input
+                              type="text"
+                              value={integrations.contaazul.clientId ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                contaazul: { ...prev.contaazul, clientId: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Identificador do cliente ERP"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Client Secret</label>
+                            <input
+                              type="password"
+                              value={integrations.contaazul.clientSecret ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                contaazul: { ...prev.contaazul, clientSecret: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Segredo de acesso do cliente"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">E-mail de Backup</label>
+                            <input
+                              type="email"
+                              value={integrations.contaazul.backupEmail ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                contaazul: { ...prev.contaazul, backupEmail: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="backup-financeiro@inovare.com.br"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveIntegration('contaazul')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Save size={13} />
+                          Salvar Conta Azul
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card: Feegow */}
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
+                              <Activity size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">Feegow</h3>
+                              <p className="text-xs text-slate-400">Consultas e prontuários médicos</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIntegration('feegow')}
+                            className={`${
+                              integrations.feegow.enabled ? 'bg-emerald-600' : 'bg-slate-200'
+                            } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-600/30`}
+                          >
+                            <span
+                              className={`${
+                                integrations.feegow.enabled ? 'translate-x-5' : 'translate-x-0'
+                              } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                            />
+                          </button>
+                        </div>
+                        <div className="space-y-3 mt-2">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">API Key</label>
+                            <input
+                              type="password"
+                              value={integrations.feegow.apiKey ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                feegow: { ...prev.feegow, apiKey: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Chave de API do Feegow"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">ID da Unidade</label>
+                            <input
+                              type="text"
+                              value={integrations.feegow.unitId ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                feegow: { ...prev.feegow, unitId: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Identificador da clínica principal"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">E-mail de Backup</label>
+                            <input
+                              type="email"
+                              value={integrations.feegow.backupEmail ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                feegow: { ...prev.feegow, backupEmail: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="backup-feegow@inovare.com.br"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveIntegration('feegow')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Save size={13} />
+                          Salvar Feegow
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card: Blip */}
+                    <div className="rounded-2xl border border-cyan-100 bg-cyan-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center text-cyan-600 shrink-0 shadow-sm">
+                              <MessageCircle size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-800">Blip</h3>
+                              <p className="text-xs text-slate-400">WhatsApp e atendimento automatizado</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIntegration('blip')}
+                            className={`${
+                              integrations.blip.enabled ? 'bg-cyan-600' : 'bg-slate-200'
+                            } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-600/30`}
+                          >
+                            <span
+                              className={`${
+                                integrations.blip.enabled ? 'translate-x-5' : 'translate-x-0'
+                              } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                            />
+                          </button>
+                        </div>
+                        <div className="space-y-3 mt-2">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">API Key</label>
+                            <input
+                              type="password"
+                              value={integrations.blip.blipApiKey ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                blip: { ...prev.blip, blipApiKey: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Chave de API do portal Blip"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">ID do Bot</label>
+                            <input
+                              type="text"
+                              value={integrations.blip.botId ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                blip: { ...prev.blip, botId: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="Identificador único do bot (flow)"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">E-mail de Backup</label>
+                            <input
+                              type="email"
+                              value={integrations.blip.backupEmail ?? ''}
+                              onChange={(e) => setIntegrations(prev => ({
+                                ...prev,
+                                blip: { ...prev.blip, backupEmail: e.target.value }
+                              }))}
+                              className={inputClassName}
+                              placeholder="backup-blip@inovare.com.br"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveIntegration('blip')}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors"
+                        >
+                          <Save size={13} />
+                          Salvar Blip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Configurações gerais */}
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">

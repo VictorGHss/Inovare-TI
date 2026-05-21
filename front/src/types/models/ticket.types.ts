@@ -10,7 +10,7 @@ export interface Ticket {
   title: string;
   description: string | null;
   anydeskCode: string | null;
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   requesterId: string;
   requesterName: string;
@@ -29,6 +29,9 @@ export interface Ticket {
   createdAt: string;
   closedAt: string | null;
   attachments: AttachmentResponse[];
+  tags?: string[] | null;
+  relatedTicketIds?: string[] | null;
+  solutionText?: string | null;
 }
 
 export interface TicketCategory {

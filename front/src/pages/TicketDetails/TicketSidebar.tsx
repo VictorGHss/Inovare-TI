@@ -8,6 +8,7 @@ import {
   Tag,
   UserRound,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import SlaBadge from '../../components/SlaBadge';
 import type { Asset, Ticket } from '../../types/models';
@@ -136,6 +137,24 @@ export default function TicketSidebar({ ticket, assets, loadingAssets }: TicketS
           </ul>
         )}
       </section>
+
+      {ticket.relatedTicketIds && ticket.relatedTicketIds.length > 0 && (
+        <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Chamados Relacionados</h3>
+          <ul className="flex flex-col gap-2">
+            {ticket.relatedTicketIds.map((relId) => (
+              <li key={relId}>
+                <Link
+                  to={`/tickets/${relId}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors break-all bg-brand-secondary/20 hover:bg-brand-secondary/40 px-3 py-2 rounded-xl border border-brand-primary/10 w-full"
+                >
+                  Chamado #{relId.slice(0, 8).toUpperCase()}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </aside>
   );
 }

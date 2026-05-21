@@ -28,6 +28,19 @@ export default function TicketHeader({ ticket }: TicketHeaderProps) {
         <StatusBadge status={ticket.status} />
       </div>
 
+      {ticket.tags && ticket.tags.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {ticket.tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center rounded-full bg-brand-secondary/35 text-brand-primary px-2.5 py-0.5 text-xs font-semibold"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
         <span>
           Solicitante: <span className="font-medium text-slate-700">{ticket.requesterName}</span>

@@ -286,36 +286,16 @@ public class BlipContextService {
      * @param userIdentity identidade do usuário (telefone normalizado ou raw)
      * @param tipoAcao     tipo da ação confirmada: {@code "confirm"} ou {@code "alter"}
      */
-    public void enviarMensagemGatilhoAtendimento(String userIdentity, String tipoAcao) {
-        if (userIdentity == null || userIdentity.isBlank()) return;
+    public void enviarMensagemGatilhoAtendimento(String identity, String tipoAcao) {
+        if (identity == null || identity.isBlank()) return;
 
-        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        String normalizedIdentity = limeClient.normalizeUserIdentity(identity);
 
-        String texto;
-        if ("confirm".equalsIgnoreCase(tipoAcao)) {
-            texto = "Perfeito! Seu agendamento foi confirmado com sucesso na Feegow. 🤝 "
-                  + "Para prosseguir e abrir a sua ficha com a nossa equipe de atendimento, "
-                  + "responda esta mensagem digitando apenas a palavra: *ATENDIMENTO*";
-        } else {
-            texto = "Entendido! Registramos sua solicitação de alteração. 🗓️ "
-                  + "Para falar diretamente com uma de nossas secretárias e consultar novos horários, "
-                  + "responda esta mensagem digitando apenas a palavra: *ATENDIMENTO*";
-        }
+        String statusAcaoValue = "confirm".equalsIgnoreCase(tipoAcao) ? "CONFIRMADO" : "SOLICITOU_ALTERACAO";
 
-        java.util.Map<String, Object> mensagem = new java.util.LinkedHashMap<>();
-        mensagem.put("id",   "msg-" + UUID.randomUUID());
-        mensagem.put("to",   normalizedIdentity);
-        mensagem.put("type", "text/plain");
-        mensagem.put("content", texto);
+        setUserContext(normalizedIdentity, "status_acao_inovare", statusAcaoValue);
 
-        try {
-            limeClient.executeMessage(mensagem, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("[GATILHO DESK] Mensagem de gatilho de atendimento enviada com sucesso. "
-                    + "identity={}, tipoAcao={}", normalizedIdentity, tipoAcao);
-        } catch (Exception ex) {
-            log.error("[GATILHO DESK] Falha ao enviar mensagem de gatilho de atendimento. "
-                    + "identity={}, tipoAcao={}", normalizedIdentity, tipoAcao, ex);
-        }
+        log.info("[MENSAGERIA] Flag de transição automatizada injetada no Blip para a identidade: {}. Direcionamento sob responsabilidade das ações do Builder.", identity);
     }
 
     public boolean setQueueRedirect(String userIdentity, String queueName) {

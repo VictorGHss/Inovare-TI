@@ -56,7 +56,7 @@ public class BlipWebhookController {
         summary = "Recebe e processa webhooks enviados pelo Blip",
         description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validação de assinatura criptográfica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotência de eventos."
     )
-    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
+    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip", "/api/webhooks/blip"},
         consumes = {
             MediaType.APPLICATION_JSON_VALUE,
             "application/vnd.lime.select+json",
@@ -66,6 +66,8 @@ public class BlipWebhookController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
             @RequestBody(required = false) String rawJson) {
+
+        log.info("[ALERTA REDE] Requisição bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
         if (rawJson == null || rawJson.isBlank()) {
             log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");

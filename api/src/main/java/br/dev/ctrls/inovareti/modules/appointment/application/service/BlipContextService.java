@@ -351,7 +351,7 @@ public class BlipContextService {
                         String statusContato = statusContatoRaw != null ? String.valueOf(statusContatoRaw) : "nulo";
 
                         if ("failure".equalsIgnoreCase(statusContato)) {
-                            Object reason = respostaContato.get("reason");
+                            Object reason = respostaContato != null ? respostaContato.get("reason") : null;
                             String codigo  = "N/A";
                             String detalhe = "N/A";
                             if (reason instanceof Map<?, ?> reasonMap) {
@@ -451,7 +451,7 @@ public class BlipContextService {
             String statusTicket = statusRaw != null ? String.valueOf(statusRaw) : "nulo";
 
             if ("failure".equalsIgnoreCase(statusTicket)) {
-                Object reason  = respostaTicket.get("reason");
+                Object reason  = respostaTicket != null ? respostaTicket.get("reason") : null;
                 String codigo  = "N/A";
                 String detalhe = "N/A";
                 if (reason instanceof Map<?, ?> reasonMap) {

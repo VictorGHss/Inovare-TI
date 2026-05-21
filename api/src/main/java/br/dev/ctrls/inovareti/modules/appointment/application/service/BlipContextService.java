@@ -6,8 +6,6 @@ import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipContactUpdateCommand;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipMasterStateCommand;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipStateChangeCommand;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipTextMessage;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
@@ -286,35 +284,11 @@ public class BlipContextService {
                 sendToBlipMessagesApi(textMessage);
             }
 
-            // PASSO 3: Define o Master-State (Informa ao Roteador que o usuário pertence ao fluxo v1)
-            BlipMasterStateCommand masterStateCommand = new BlipMasterStateCommand();
-            masterStateCommand.setUri("/contexts/" + userIdentity + "/Master-State");
-            masterStateCommand.setResource(blipProperties.getSubbotId());
-
-            // POST para /commands
-            log.info("[LIME PUSH] Passo 3: Definindo Master-State para identity={}", userIdentity);
-            sendToBlipCommandsApi(masterStateCommand);
-
-            // PASSO 4: Teleporta o Usuário direto para o bloco Preparar_Atendimento
-            BlipStateChangeCommand stateCommand = new BlipStateChangeCommand();
-            stateCommand.setUri("/contexts/" + userIdentity + "/stateid@" + blipProperties.getFlowId());
-            
-            String targetBlockId = blipProperties.getBlocks().getPrepararAtendimento();
-            if (targetBlockId == null || targetBlockId.isBlank()) {
-                targetBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
-            } else {
-                targetBlockId = targetBlockId.trim();
-            }
-            if ("confirm".equalsIgnoreCase(action)) {
-                targetBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
-            }
-            stateCommand.setResource(targetBlockId);
-
-            // POST para /commands
-            log.info("[LIME PUSH] Passo 4: Teleportando usuário identity={} para o bloco Preparar_Atendimento ({})", userIdentity, targetBlockId);
-            sendToBlipCommandsApi(stateCommand);
-
-            log.info("Push síncrono finalizado com sucesso. Contato atualizado e mensagens ativas enviadas.");
+            // Roteamento delegado ao payload nativo do Blip Builder.
+            // Os Passos 3 e 4 (Master-State e stateid) foram removidos intencionalmente:
+            // o próprio Blip detecta 'confirm_' ou 'alter_' no payload do botão e faz o desvio
+            // de fluxo de forma nativa, eliminando a disputa de estado com o Roteador principal.
+            log.info("[MENSAGERIA] Registro processado. Delegando roteamento ao payload nativo do Blip Builder para a identidade: {}", userIdentity);
         } catch (Exception e) {
             throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }

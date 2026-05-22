@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Sao_Paulo
     ports:
       - "5436:5432"
     volumes:
@@ -25,6 +26,8 @@ services:
     image: redis:alpine
     container_name: inovareti_redis
     restart: always
+    environment:
+      - TZ=America/Sao_Paulo
     command: redis-server --save 60 1 --loglevel warning
     ports:
       - "6380:6379"
@@ -54,8 +57,8 @@ services:
     ports:
       - "8085:8085"
     volumes:
-      - ./uploads:/app/uploads
-      - ${BACKUP_HDD_PATH}:/app/backups
+      - /mnt/data/uploads:/app/uploads
+      - /mnt/data/backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -75,6 +78,8 @@ services:
     ports:
       - "5173:80"
       # - "8085:80"
+    environment:
+      - TZ=America/Sao_Paulo
     depends_on:
       - api
     networks:
@@ -86,6 +91,8 @@ services:
     restart: always
     ports:
       - "9095:9090"
+    environment:
+      - TZ=America/Sao_Paulo
     volumes:
       - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./docs/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
@@ -105,6 +112,7 @@ services:
     environment:
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
+      - TZ=America/Sao_Paulo
     ports:
       - "3001:3000"
     volumes:

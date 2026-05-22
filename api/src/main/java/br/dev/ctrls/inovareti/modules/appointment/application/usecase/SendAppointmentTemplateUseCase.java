@@ -19,7 +19,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
@@ -49,7 +48,6 @@ public class SendAppointmentTemplateUseCase {
     private final AppointmentExternalPort appointmentExternalPort;
     private final BlipNotificationService blipNotificationService;
     private final BlipContextService blipContextService;
-    private final BlipProperties blipProperties;
     private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final TransactionTemplate transactionTemplate;

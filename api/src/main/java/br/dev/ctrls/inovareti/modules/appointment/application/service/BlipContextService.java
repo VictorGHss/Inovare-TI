@@ -6,9 +6,7 @@ import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipContactUpdateCommand;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipTextMessage;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -17,15 +15,13 @@ public class BlipContextService {
 
     private final BlipLIMEClient limeClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-    private final BlipProperties blipProperties;
 
     @org.springframework.beans.factory.annotation.Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper, BlipProperties blipProperties) {
+    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.limeClient = limeClient;
         this.objectMapper = objectMapper;
-        this.blipProperties = blipProperties;
     }
 
     public void setUserContextForUser(String userIdentity, String key, String value) {

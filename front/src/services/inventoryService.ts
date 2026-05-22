@@ -86,14 +86,7 @@ export async function triggerReportScheduleTest(id: string): Promise<void> {
   await api.post(`/report-schedules/${id}/trigger-test`);
 }
 
-// Deleção de categorias (frontend chama essas rotas — backend deve expor DELETE /api/item-categories/{id} e /api/asset-categories/{id})
-export async function deleteItemCategory(id: string): Promise<void> {
-  await api.delete(`/item-categories/${id}`);
-}
 
-export async function deleteAssetCategory(id: string): Promise<void> {
-  await api.delete(`/asset-categories/${id}`);
-}
 
 export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
   const sanitizedParams = Object.fromEntries(

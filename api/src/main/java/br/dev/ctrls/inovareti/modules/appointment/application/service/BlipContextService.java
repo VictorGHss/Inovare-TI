@@ -206,29 +206,6 @@ public class BlipContextService {
         }
     }
 
-    /**
-     * Envia uma mensagem de texto ativa ao paciente solicitando que ele digíte a palavra-chave
-     * de gatilho para acionar o atendimento humano no Blip Desk.
-     *
-     * <p>O Blip Desk exige que a última mensagem do thread seja de autoria do próprio paciente;
-     * por isso, ao invés de abrir o ticket diretamente via API, enviamos esta mensagem e aguardamos
-     * que o paciente responda — o Builder do Blip então abre o ticket com o histórico textual garantido.
-     *
-     * @param userIdentity identidade do usuário (telefone normalizado ou raw)
-     * @param tipoAcao     tipo da ação confirmada: {@code "confirm"} ou {@code "alter"}
-     */
-    public void enviarMensagemGatilhoAtendimento(String identity, String tipoAcao) {
-        if (identity == null || identity.isBlank()) return;
-
-        String normalizedIdentity = limeClient.normalizeUserIdentity(identity);
-
-        String statusAcaoValue = "confirm".equalsIgnoreCase(tipoAcao) ? "CONFIRMADO" : "SOLICITOU_ALTERACAO";
-
-        setUserContext(normalizedIdentity, "status_acao_inovare", statusAcaoValue);
-
-        log.info("[MENSAGERIA] Flag de transição automatizada injetada no Blip para a identidade: {}. Direcionamento sob responsabilidade das ações do Builder.", identity);
-    }
-
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 

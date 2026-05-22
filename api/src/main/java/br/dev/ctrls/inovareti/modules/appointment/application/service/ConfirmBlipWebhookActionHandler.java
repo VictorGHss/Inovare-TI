@@ -44,6 +44,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     @Override
     public void applySessionState(AppointmentSession session) {
         confirmationStateMachineService.markConfirmed(session);
+        log.info("[MENSAGERIA] Ação de {} processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.", "confirmação");
     }
 
     private String resolveConfirmedStatusId() {

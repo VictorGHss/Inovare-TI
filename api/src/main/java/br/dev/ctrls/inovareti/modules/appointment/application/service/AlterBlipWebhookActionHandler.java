@@ -19,11 +19,12 @@ public class AlterBlipWebhookActionHandler implements BlipWebhookActionHandler {
 
     @Override
     public void prePersistence(AppointmentSession session) {
-        log.info("[ALTERAR] Paciente solicita alteração. Redirecionando para fila humana.");
+        log.info("[ALTERAR] Iniciando processamento de solicitação de alteração.");
     }
 
     @Override
     public void applySessionState(AppointmentSession session) {
         // Nenhuma alteração de estado no banco de dados necessária além da atualização comum do telefone.
+        log.info("[MENSAGERIA] Ação de {} processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.", "alteração");
     }
 }

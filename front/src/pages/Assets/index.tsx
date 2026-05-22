@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, PlusCircle } from 'lucide-react';
+import { Download, PlusCircle, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
@@ -32,6 +32,7 @@ export default function Assets() {
   const [statusFilter, setStatusFilter] = useState<AssetFilterStatus>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const canManageAssets = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
@@ -78,6 +79,19 @@ export default function Assets() {
   useEffect(() => { void fetchInitialData(); }, [fetchInitialData]);
   useEffect(() => { void fetchAssets(); }, [fetchAssets]);
 
+  const filteredAssets = useMemo(() => {
+    if (!searchQuery.trim()) return assets;
+    const q = searchQuery.toLowerCase().trim();
+    return assets.filter(
+      (asset) =>
+        asset.name?.toLowerCase().includes(q) ||
+        asset.patrimonyCode?.toLowerCase().includes(q) ||
+        asset.categoryName?.toLowerCase().includes(q) ||
+        asset.assignedToName?.toLowerCase().includes(q) ||
+        (asset.assignedToNames && asset.assignedToNames.some((n) => n.toLowerCase().includes(q)))
+    );
+  }, [assets, searchQuery]);
+
   function formatCreatedAt(isoDate: string) {
     return new Date(isoDate).toLocaleDateString('pt-BR');
   }
@@ -87,12 +101,12 @@ export default function Assets() {
   }
 
   function handleExportCsv() {
-    if (assets.length === 0) {
+    if (filteredAssets.length === 0) {
       toast.info('Nenhum ativo para exportar com os filtros atuais.');
       return;
     }
     const headers = ['Nome', 'Patrimônio', 'Categoria', 'Usuário Atual', 'Data de Cadastro'];
-    const rows = assets.map((asset) => [
+    const rows = filteredAssets.map((asset) => [
       asset.name,
       asset.patrimonyCode,
       asset.categoryName ?? 'Sem categoria',
@@ -187,6 +201,30 @@ export default function Assets() {
 
       <section className="mb-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+          <div className="flex-1 min-w-[240px]">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Buscar</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Pesquisar por nome, patrimônio..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <Search size={16} />
+              </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex-1 min-w-[180px]">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Status</label>
             <select
@@ -229,7 +267,7 @@ export default function Assets() {
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <AssetTable
-          assets={assets}
+          assets={filteredAssets}
           loading={loading}
           userNameById={userNameById}
           onOpenDetails={(asset) => navigate(`/assets/${asset.id}`)}

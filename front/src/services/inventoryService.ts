@@ -47,6 +47,10 @@ export async function createItemCategory(dto: CreateItemCategoryDto): Promise<It
   return data;
 }
 
+export async function deleteItemCategory(id: string): Promise<void> {
+  await api.delete(`/item-categories/${id}`);
+}
+
 // Cria um novo item de inventário
 export async function createItem(dto: CreateItemDto): Promise<Item> {
   const { data } = await api.post<Item>('/items', dto);
@@ -120,6 +124,10 @@ export async function getAssetCategories(): Promise<AssetCategory[]> {
 export async function createAssetCategory(dto: CreateAssetCategoryDto): Promise<AssetCategory> {
   const { data } = await api.post<AssetCategory>('/asset-categories', dto);
   return data;
+}
+
+export async function deleteAssetCategory(id: string): Promise<void> {
+  await api.delete(`/asset-categories/${id}`);
 }
 
 export async function createAsset(dto: CreateAssetDto): Promise<Asset> {

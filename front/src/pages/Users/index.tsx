@@ -1,6 +1,6 @@
 // Página de listagem e cadastro de usuários
-import { useEffect, useState } from 'react';
-import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff, Search, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getUsers, createUser, getSectors, resetUserPassword, adminReset2FA } from '../../services/userService';
 import type { User, Sector, CreateUserDto } from '../../types/models';
@@ -29,6 +29,9 @@ export default function Users() {
 
   const [reset2FATargetUser, setReset2FATargetUser] = useState<User | null>(null);
   const [resetting2FA, setResetting2FA] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc' | 'sector-asc'>('name-asc');
 
   const [formData, setFormData] = useState<CreateUserDto>({
     name: '',
@@ -150,6 +153,35 @@ export default function Users() {
     USER: 'Usuário',
   } as const;
 
+  const filteredAndSortedUsers = useMemo(() => {
+    let result = [...users];
+
+    // Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q) ||
+          u.sectorName?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortOption === 'name-asc') {
+        return (a.name ?? '').localeCompare(b.name ?? '');
+      } else if (sortOption === 'name-desc') {
+        return (b.name ?? '').localeCompare(a.name ?? '');
+      } else if (sortOption === 'sector-asc') {
+        return (a.sectorName ?? '').localeCompare(b.sectorName ?? '');
+      }
+      return 0;
+    });
+
+    return result;
+  }, [users, searchQuery, sortOption]);
+
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <PageHero
@@ -176,6 +208,45 @@ export default function Users() {
         )}
       />
 
+      {/* ── Search & Filter Controls ── */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Pesquisar por nome, e-mail ou setor..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition"
+          />
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <Search size={16} />
+          </div>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1">
+            <ArrowDownWideNarrow size={14} /> Ordenar:
+          </span>
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as any)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none transition"
+          >
+            <option value="name-asc">Nome (A-Z)</option>
+            <option value="name-desc">Nome (Z-A)</option>
+            <option value="sector-asc">Setor (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
         {loading ? (
           <div className="p-12 text-center">
@@ -184,8 +255,10 @@ export default function Users() {
               <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto" />
             </div>
           </div>
-        ) : users.length === 0 ? (
-          <p className="text-center text-slate-400 py-12 text-sm">Nenhum usuário cadastrado.</p>
+        ) : filteredAndSortedUsers.length === 0 ? (
+          <p className="text-center text-slate-400 py-12 text-sm">
+            {searchQuery ? 'Nenhum usuário correspondente à pesquisa.' : 'Nenhum usuário cadastrado.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full table-auto text-sm">
@@ -199,7 +272,7 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {users.map((currentUser) => (
+                {filteredAndSortedUsers.map((currentUser) => (
                   <tr
                     key={currentUser.id}
                     onClick={() => setSelectedUser(currentUser)}

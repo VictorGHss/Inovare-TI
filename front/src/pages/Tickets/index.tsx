@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Search, X } from 'lucide-react';
+import { PlusCircle, Search, X, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getTickets } from '../../services/ticketService';
 import type { Ticket } from '../../types/models';
@@ -134,12 +134,12 @@ export default function Tickets() {
                 value={searchTitle}
                 onChange={(e) => setSearchTitle(e.target.value)}
                 placeholder="Digite o título do chamado..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
               />
               {searchTitle && (
                 <button
                   onClick={() => setSearchTitle('')}
-                  className="absolute right-3 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -155,7 +155,7 @@ export default function Tickets() {
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+              className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
             >
               <option value="all">Todas as Prioridades</option>
               {priorities.map((priority) => (
@@ -174,7 +174,7 @@ export default function Tickets() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+              className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
             >
               <option value="all">Todas as Categorias</option>
               {categories.map((category) => (
@@ -187,13 +187,13 @@ export default function Tickets() {
 
           {/* Sort Order */}
           <div className="w-full sm:w-56">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Ordenar por Data
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <ArrowDownWideNarrow size={14} /> Ordenar por Data
             </label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
+              className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
             >
               <option value="newest">Mais Recentes</option>
               <option value="oldest">Mais Antigos</option>

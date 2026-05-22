@@ -65,12 +65,20 @@ public class DatabaseBackupScheduler {
      */
     @Scheduled(cron = "0 0 3 * * ?")
     public void executeBackup() {
-        if (!backupEnabled) {
+        executeBackupInternal(false);
+    }
+
+    public void executeBackupManual() {
+        executeBackupInternal(true);
+    }
+
+    private void executeBackupInternal(boolean isManual) {
+        if (!backupEnabled && !isManual) {
             log.info("Backup automático do banco de dados ignorado pois 'app.backup.enabled' está desabilitado.");
             return;
         }
 
-        log.info("Iniciando rotina automática diária de backup do banco de dados (às 3:00h).");
+        log.info("Iniciando rotina de backup do banco de dados. Manual={}", isManual);
         
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         File tempFolder = new File(tempDir);
@@ -134,30 +142,30 @@ public class DatabaseBackupScheduler {
             log.info("Arquivo compactado com sucesso em formato ZIP: {}", zipFile.getAbsolutePath());
 
             // 4. Utilizar JavaMailSender para enviar por e-mail
-            sendBackupEmail(zipFile, timestamp);
+            try {
+                sendBackupEmail(zipFile, timestamp);
+            } catch (Exception emailEx) {
+                log.warn("Falha ao enviar backup por e-mail, mas o arquivo físico foi preservado: {}", emailEx.getMessage());
+            }
 
             // 5. Registrar sucesso no SystemAlertRepository e Logs
             saveAlert("SUCCESS", "Backup do banco de dados realizado com sucesso", 
-                    "O backup diário automático foi executado e enviado por e-mail com sucesso.", timestamp, zipFile.length());
+                    "O backup foi executado e salvo em disco com sucesso. Origem: " + (isManual ? "Manual" : "Agendado"), timestamp, zipFile.length());
             
-            log.info("Rotina de backup automático finalizada com absoluto sucesso.");
+            log.info("Rotina de backup finalizada com sucesso. Arquivo ZIP salvo em: {}", zipFile.getAbsolutePath());
 
         } catch (Exception e) {
             log.error("Falha crítica durante a execução do backup do banco de dados: {}", e.getMessage(), e);
             saveAlert("CRITICAL", "Falha na rotina de backup do banco de dados", 
-                    "Ocorreu um erro ao processar ou transmitir o backup diário: " + e.getMessage(), timestamp, 0);
+                    "Ocorreu um erro ao processar ou salvar o backup: " + e.getMessage(), timestamp, 0);
         } finally {
-            // Limpeza cirúrgica dos arquivos temporários gerados em disco
+            // Limpeza cirúrgica do arquivo temporário SQL unzipped
             if (sqlFile.exists()) {
                 if (sqlFile.delete()) {
                     log.debug("Arquivo temporário SQL deletado: {}", sqlFile.getName());
                 }
             }
-            if (zipFile.exists()) {
-                if (zipFile.delete()) {
-                    log.debug("Arquivo temporário ZIP deletado: {}", zipFile.getName());
-                }
-            }
+            // NOTA: O arquivo ZIP é PRESERVADO na pasta de backups para listagem/download do admin
         }
     }
 

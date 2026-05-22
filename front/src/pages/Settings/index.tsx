@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle, ArrowLeft, Settings2, Database, Tag, FileText, Share2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/inventoryService';
@@ -9,8 +10,11 @@ import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 import AppointmentControlPanel from './AppointmentControlPanel';
 import ProfessionalMappingPanel from './ProfessionalMappingPanel';
+import CategoriesSection from './CategoriesSection';
+import BackupsSection from './BackupsSection';
 
 type TabType = 'system' | 'profile';
+type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'backups';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all';
@@ -50,6 +54,7 @@ function WebhookBadge({ status }: { status: string }) {
 export default function Settings() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'system' : 'profile');
+  const [activeSubSection, setActiveSubSection] = useState<SubSectionType>('menu');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -143,10 +148,8 @@ export default function Settings() {
           const cfg = await getAdminConfig();
           setDiscordWebhookStatus(cfg.discordWebhookStatus ?? (cfg.discordWebhookPresent ? 'PRESENT' : 'MISSING'));
         } catch {
-          // Em caso de falha ao obter configuração de admin, considera webhook desconhecido
           setDiscordWebhookStatus(null);
         }
-        // Agendamentos são carregados pelo componente ReportSchedulesSection
       } catch {
         toast.error('Erro ao carregar configurações globais.');
         setSettings([]);
@@ -157,8 +160,6 @@ export default function Settings() {
     }
     loadSettings();
   }, [isAdmin]);
-
-  // categorias e integrações removidas — simplificamos para SLA e Agendamentos
 
   const hasChanges = useMemo(() => {
     return settings.some((setting) => values[setting.id] !== setting.value);
@@ -206,7 +207,6 @@ export default function Settings() {
     return fallbackMessage;
   }
 
-
   const slaKeys = useMemo(() => settings.filter((s) => s.id && s.id.startsWith('SLA_')), [settings]);
 
   async function handleSaveSLA() {
@@ -225,8 +225,6 @@ export default function Settings() {
       setSaving(false);
     }
   }
-
-  
 
   if (!isAdmin && activeTab === 'system') {
     return (
@@ -247,6 +245,96 @@ export default function Settings() {
     { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
   ];
 
+  const subSections = [
+    {
+      id: 'integrations',
+      title: 'Integrações',
+      desc: 'Conecte Discord, Conta Azul, Feegow e Blip.',
+      icon: Share2,
+      color: 'bg-indigo-50/70 text-indigo-700 border-indigo-100/50 hover:bg-indigo-50 hover:border-indigo-200',
+    },
+    {
+      id: 'system-params',
+      title: 'Parâmetros Globais',
+      desc: 'Ajuste limites de anexos e chaves do sistema.',
+      icon: Settings2,
+      color: 'bg-blue-50/70 text-blue-700 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200',
+    },
+    {
+      id: 'sla',
+      title: 'Prazos de SLA',
+      desc: 'Defina limites de atendimento por prioridade.',
+      icon: Clock3,
+      color: 'bg-amber-50/70 text-amber-700 border-amber-100/50 hover:bg-amber-50 hover:border-amber-200',
+    },
+    {
+      id: 'reports',
+      title: 'Agendamento de Relatórios',
+      desc: 'Programe envios automáticos de relatórios.',
+      icon: FileText,
+      color: 'bg-emerald-50/70 text-emerald-700 border-emerald-100/50 hover:bg-emerald-50 hover:border-emerald-200',
+    },
+    {
+      id: 'feegow',
+      title: 'Mapeamento Feegow / Blip',
+      desc: 'Vincule profissionais às filas de atendimento do Blip.',
+      icon: MessageCircle,
+      color: 'bg-cyan-50/70 text-cyan-700 border-cyan-100/50 hover:bg-cyan-50 hover:border-cyan-200',
+    },
+    {
+      id: 'categories',
+      title: 'Categorias do Sistema',
+      desc: 'Cadastre categorias de itens e ativos do inventário.',
+      icon: Tag,
+      color: 'bg-purple-50/70 text-purple-700 border-purple-100/50 hover:bg-purple-50 hover:border-purple-200',
+    },
+    {
+      id: 'backups',
+      title: 'Backups do Sistema',
+      desc: 'Gere snapshots, baixe ZIPs ou delete backups.',
+      icon: Database,
+      color: 'bg-rose-50/70 text-rose-700 border-rose-100/50 hover:bg-rose-50 hover:border-rose-200',
+    },
+  ] as const;
+
+  const subSectionTitles: Record<SubSectionType, string> = {
+    menu: 'Painel do Sistema',
+    integrations: 'Integrações do Ecossistema',
+    'system-params': 'Parâmetros Globais',
+    sla: 'Configurações de SLA',
+    reports: 'Agendamento de Relatórios',
+    feegow: 'Mapeamento Feegow / Blip',
+    categories: 'Categorias do Sistema',
+    backups: 'Backups do Sistema',
+  };
+
+  const subSectionDescriptions: Record<SubSectionType, string> = {
+    menu: 'Gerencie todas as facetas administrativas e integrativas da plataforma.',
+    integrations: 'Configure integrações com Discord, Conta Azul, Feegow e Blip.',
+    'system-params': 'Ajuste limites de tamanho de anexo, e-mails e chaves globais.',
+    sla: 'Defina os prazos de atendimento (horas) para chamados com base no nível de prioridade.',
+    reports: 'Monitore e configure a geração automática de relatórios gerenciais.',
+    feegow: 'Gerencie chaves do WhatsApp e associe médicos às filas do Blip.',
+    categories: 'Configure e gerencie categorias de itens e de ativos.',
+    backups: 'Gere backups de banco de dados, baixe snapshots de segurança ou delete antigos.',
+  };
+
+  const renderBackHeader = () => (
+    <div className="mb-6 flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setActiveSubSection('menu')}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-800 hover:scale-105 active:scale-95"
+      >
+        <ArrowLeft size={18} />
+      </button>
+      <div>
+        <h2 className="text-base font-bold text-slate-900">{subSectionTitles[activeSubSection]}</h2>
+        <p className="text-xs text-slate-500">{subSectionDescriptions[activeSubSection]}</p>
+      </div>
+    </div>
+  );
+
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <PageHero
@@ -260,7 +348,10 @@ export default function Settings() {
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => {
+              setActiveTab(id);
+              if (id === 'profile') setActiveSubSection('menu');
+            }}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
               activeTab === id
                 ? 'bg-white text-slate-900 shadow-sm'
@@ -282,19 +373,51 @@ export default function Settings() {
               <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
               <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
             </div>
-          ) : settings.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
-              <p className="text-sm text-slate-500">Nenhuma configuração global encontrada.</p>
-            </div>
           ) : (
-            <>
-              {/* Cards de Integrações de Serviços */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h2 className="text-sm font-semibold text-slate-900">Integrações do Ecossistema</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Gerencie os serviços integrados ao ecossistema Inovare-TI.</p>
-                </div>
-                <div className="p-6">
+            <AnimatePresence mode="wait">
+              {activeSubSection === 'menu' && (
+                <motion.div
+                  key="menu"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2 }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  {subSections.map(({ id, title, desc, icon: Icon, color }) => (
+                    <motion.button
+                      key={id}
+                      onClick={() => setActiveSubSection(id)}
+                      whileHover={{ scale: 1.02, translateY: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`flex flex-col text-left p-6 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden`}
+                    >
+                      <div className="flex items-center gap-4 mb-3">
+                        <div className={`w-12 h-12 rounded-xl ${color.split(' ')[0]} ${color.split(' ')[1]} flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110`}>
+                          <Icon size={22} />
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-800 group-hover:text-brand-primary transition-colors">{title}</h3>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed pr-4">{desc}</p>
+                      
+                      <div className="absolute bottom-4 right-4 text-slate-350 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                        <ArrowLeft size={16} className="rotate-180" />
+                      </div>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              )}
+
+              {activeSubSection === 'integrations' && (
+                <motion.div
+                  key="integrations"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {/* Card: Discord */}
                     <div className="rounded-2xl border border-indigo-100 bg-indigo-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
@@ -620,110 +743,178 @@ export default function Settings() {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              )}
 
-              {/* Configurações gerais */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-semibold text-slate-900">Parâmetros Globais</h2>
-                      <p className="text-xs text-slate-500 mt-0.5">Configurações gerais do sistema.</p>
+              {activeSubSection === 'system-params' && (
+                <motion.div
+                  key="system-params"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-sm font-semibold text-slate-900">Parâmetros Globais</h2>
+                          <p className="text-xs text-slate-500 mt-0.5">Configurações gerais do sistema.</p>
+                        </div>
+                        <div>
+                          {discordWebhookStatus && (
+                            <WebhookBadge status={discordWebhookStatus} />
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      {discordWebhookStatus && (
-                        <WebhookBadge status={discordWebhookStatus} />
+                    <div className="divide-y divide-slate-100 bg-white">
+                      {Array.isArray(settings) && settings.map((setting) => (
+                        <div key={setting.id} className="px-6 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800">{getFriendlyLabel(setting.id)}</p>
+                            <p className="text-xs text-slate-400 mt-0.5 truncate">{setting.description ?? 'Sem descrição disponível.'}</p>
+                          </div>
+                          <div className="w-full lg:w-48 shrink-0">
+                            <input
+                              type="text"
+                              value={values[setting.id] ?? ''}
+                              onChange={(event) => setValues((prev) => ({ ...prev, [setting.id]: event.target.value }))}
+                              className={inputClassName}
+                              placeholder="Valor"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={saving || !hasChanges}
+                        onClick={handleSave}
+                        className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Save size={14} />
+                        {saving ? 'Salvando...' : 'Salvar Configurações'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeSubSection === 'sla' && (
+                <motion.div
+                  key="sla"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                        <Clock3 size={16} className="text-[#feb56c]" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-semibold text-slate-900">Configurações de SLA</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">Defina os prazos de atendimento para cada nível de prioridade.</p>
+                      </div>
+                    </div>
+                    <div className="divide-y divide-slate-100 bg-white">
+                      {Array.isArray(slaKeys) && slaKeys.length === 0 ? (
+                        <div className="px-6 py-6 text-sm text-slate-500 text-center">Nenhuma configuração de SLA encontrada.</div>
+                      ) : (
+                        Array.isArray(slaKeys) && slaKeys.map((s) => (
+                          <div key={s.id} className="px-6 py-4 flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-800">{getFriendlyLabel(s.id)}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">{s.description ?? 'Sem descrição.'}</p>
+                            </div>
+                            <div className="w-32 shrink-0">
+                              <input
+                                type="number"
+                                min={0}
+                                value={values[s.id] ?? ''}
+                                onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className={inputClassName}
+                              />
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {Array.isArray(settings) && settings.map((setting) => (
-                    <div key={setting.id} className="px-6 py-4 flex flex-col lg:flex-row lg:items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800">{getFriendlyLabel(setting.id)}</p>
-                        <p className="text-xs text-slate-400 mt-0.5 truncate">{setting.description ?? 'Sem descrição disponível.'}</p>
-                      </div>
-                      <div className="w-full lg:w-48 shrink-0">
-                        <input
-                          type="text"
-                          value={values[setting.id] ?? ''}
-                          onChange={(event) => setValues((prev) => ({ ...prev, [setting.id]: event.target.value }))}
-                          className={inputClassName}
-                          placeholder="Valor"
-                        />
-                      </div>
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                      <button
+                        onClick={handleSaveSLA}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-40"
+                      >
+                        <Save size={14} />
+                        Salvar SLAs
+                      </button>
                     </div>
-                  ))}
-                </div>
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                  <button
-                    type="button"
-                    disabled={saving || !hasChanges}
-                    onClick={handleSave}
-                    className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Save size={14} />
-                    {saving ? 'Salvando...' : 'Salvar Configurações'}
-                  </button>
-                </div>
-              </div>
-
-              {/* SLA */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                    <Clock3 size={16} className="text-[#feb56c]" />
                   </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900">Configurações de SLA</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Defina os prazos de atendimento para cada nível de prioridade.</p>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {Array.isArray(slaKeys) && slaKeys.length === 0 ? (
-                    <div className="px-6 py-6 text-sm text-slate-500 text-center">Nenhuma configuração de SLA encontrada.</div>
-                  ) : (
-                    Array.isArray(slaKeys) && slaKeys.map((s) => (
-                      <div key={s.id} className="px-6 py-4 flex items-center gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{getFriendlyLabel(s.id)}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{s.description ?? 'Sem descrição.'}</p>
-                        </div>
-                        <div className="w-32 shrink-0">
-                          <input
-                            type="number"
-                            min={0}
-                            value={values[s.id] ?? ''}
-                            onChange={(e) => setValues((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                            className={inputClassName}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                  <button
-                    onClick={handleSaveSLA}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-40"
-                  >
-                    <Save size={14} />
-                    Salvar SLAs
-                  </button>
-                </div>
-              </div>
+                </motion.div>
+              )}
 
-              {/* Adicionar configuração removida — foco em SLAs e Agendamentos */}
+              {activeSubSection === 'reports' && (
+                <motion.div
+                  key="reports"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <ReportSchedulesSection />
+                </motion.div>
+              )}
 
-              {/* Agendamentos (extraído para componente separado) */}
-              <ReportSchedulesSection />
-              <AppointmentControlPanel />
-              {/* Unified mapping UI: only ProfessionalMappingPanel is rendered here */}
-              <ProfessionalMappingPanel />
-            </>
+              {activeSubSection === 'feegow' && (
+                <motion.div
+                  key="feegow"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  {renderBackHeader()}
+                  <AppointmentControlPanel />
+                  <ProfessionalMappingPanel />
+                </motion.div>
+              )}
+
+              {activeSubSection === 'categories' && (
+                <motion.div
+                  key="categories"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <CategoriesSection />
+                </motion.div>
+              )}
+
+              {activeSubSection === 'backups' && (
+                <motion.div
+                  key="backups"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <BackupsSection />
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
       )}
@@ -731,7 +922,7 @@ export default function Settings() {
       {/* ── TAB: PERFIL ── */}
       {activeTab === 'profile' && (
         <div className="space-y-3 max-w-2xl">
-          <div className="bg-white rounded-2xl border border-slate-200 px-6 py-6">
+          <div className="bg-white rounded-2xl border border-slate-200 px-6 py-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-[#fff6ee] flex items-center justify-center">
                 <UserIcon size={20} className="text-[#feb56c]" />
@@ -766,8 +957,6 @@ export default function Settings() {
           </div>
         </div>
       )}
-
-      {/* Integração removida - simplificação da página de Settings */}
     </main>
   );
 }

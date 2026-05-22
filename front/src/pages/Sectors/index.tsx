@@ -1,6 +1,6 @@
 // Página de listagem e cadastro de setores
-import { useEffect, useState } from 'react';
-import { PlusCircle, Building2 } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { PlusCircle, Building2, Search, X, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSectors, createSector } from '../../services/userService';
 import type { Sector } from '../../types/models';
@@ -12,6 +12,9 @@ export default function Sectors() {
   const [showForm, setShowForm] = useState(false);
   const [newSectorName, setNewSectorName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc'>('name-asc');
 
   useEffect(() => {
     loadSectors();
@@ -51,6 +54,25 @@ export default function Sectors() {
     }
   }
 
+  const filteredAndSortedSectors = useMemo(() => {
+    let result = [...sectors];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((s) => s.name?.toLowerCase().includes(q));
+    }
+
+    result.sort((a, b) => {
+      if (sortOption === 'name-asc') {
+        return (a.name ?? '').localeCompare(b.name ?? '');
+      } else {
+        return (b.name ?? '').localeCompare(a.name ?? '');
+      }
+    });
+
+    return result;
+  }, [sectors, searchQuery, sortOption]);
+
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
       <PageHero
@@ -72,7 +94,7 @@ export default function Sectors() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+          className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-fadeIn"
         >
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Cadastrar Novo Setor</h2>
           <div className="flex gap-3">
@@ -95,6 +117,45 @@ export default function Sectors() {
         </form>
       )}
 
+      {/* ── Search & Filter Controls ── */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            placeholder="Pesquisar por nome do setor..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition"
+          />
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <Search size={16} />
+          </div>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1">
+            <ArrowDownWideNarrow size={14} /> Ordenar:
+          </span>
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as any)}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none transition"
+          >
+            <option value="name-asc">Nome (A-Z)</option>
+            <option value="name-desc">Nome (Z-A)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Lista de setores */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
         {loading ? (
@@ -104,11 +165,11 @@ export default function Sectors() {
               <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto" />
             </div>
           </div>
-        ) : sectors.length === 0 ? (
-          <p className="text-center text-slate-400 py-12 text-sm">Nenhum setor cadastrado.</p>
+        ) : filteredAndSortedSectors.length === 0 ? (
+          <p className="text-center text-slate-400 py-12 text-sm">Nenhum setor localizado.</p>
         ) : (
           <div className="divide-y divide-slate-100">
-            {sectors.map((sector) => (
+            {filteredAndSortedSectors.map((sector) => (
               <div key={sector.id} className="flex items-center gap-3 px-6 py-4 transition-colors hover:bg-orange-50/40 rounded-xl">
                 <Building2 size={20} className="text-slate-400" />
                 <span className="text-sm font-medium text-slate-800">{sector.name}</span>

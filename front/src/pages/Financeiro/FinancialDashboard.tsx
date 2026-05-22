@@ -1,6 +1,6 @@
 import { Activity, BadgeDollarSign, Eye, EyeOff, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import ProfessionalMappingPanel from '../Settings/ProfessionalMappingPanel';
+import FinancialDoctorMappingPanel from './FinancialDoctorMappingPanel';
 import InternalConsumptionPanel from './InternalConsumptionPanel';
 import FinancialMetricsGrid from './FinancialMetricsGrid';
 import FinancialAlertsList from './FinancialAlertsList';
@@ -305,7 +305,7 @@ export default function FinancialDashboard() {
           <FinancialAlertsList alerts={alerts} />
 
           <section>
-            <ProfessionalMappingPanel />
+            <FinancialDoctorMappingPanel />
           </section>
         </section>
       )}

@@ -105,7 +105,7 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
             }
 
             Object root = objectMapper.readValue(body, Object.class);
-            String resolvedName = extractProfessionalName(root);
+            String resolvedName = extractProfessionalName(root, id);
             if (resolvedName != null && !resolvedName.isBlank()) {
                 try {
                     if (stringRedisTemplate != null) { // Adiciona jitter ao TTL do cache para evitar "stampede"
@@ -137,7 +137,7 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                     String retryBody = retryResponse.getBody();
                     if (retryBody != null && !retryBody.isBlank()) {
                         Object retryRoot = objectMapper.readValue(retryBody, Object.class);
-                        return extractProfessionalName(retryRoot);
+                        return extractProfessionalName(retryRoot, id);
                     }
                 }
             } catch (JsonProcessingException | RuntimeException retryEx) {
@@ -292,8 +292,8 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
         return professionals;
     }
 
-    private String extractProfessionalName(Object root) {
-        if (root == null) {
+    private String extractProfessionalName(Object root, String targetId) {
+        if (root == null || targetId == null || targetId.isBlank()) {
             return null;
         }
 
@@ -301,23 +301,37 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
             switch (root) {
                 case Map<?, ?> map -> {
                     Object content = map.get("content");
-                    if (content instanceof List<?> list && !list.isEmpty()) {
-                        Object first = list.get(0);
-                        if (first instanceof Map<?, ?> row) {
-                            Object nome = row.get("nome");
-                            if (nome != null) {
-                                return nome.toString().trim();
+                    if (content instanceof List<?> list) {
+                        for (Object item : list) {
+                            if (item instanceof Map<?, ?> row) {
+                                Object rowIdObj = row.get("id");
+                                if (rowIdObj == null) {
+                                    rowIdObj = row.get("profissionalId");
+                                }
+                                if (rowIdObj != null && targetId.trim().equals(rowIdObj.toString().trim())) {
+                                    Object nome = row.get("nome");
+                                    if (nome != null) {
+                                        return nome.toString().trim();
+                                    }
+                                }
                             }
                         }
                     }
 
                     Object dados = map.get("dados");
-                    if (dados instanceof List<?> dlist && !dlist.isEmpty()) {
-                        Object first = dlist.get(0);
-                        if (first instanceof Map<?, ?> row) {
-                            Object nome = row.get("nome");
-                            if (nome != null) {
-                                return nome.toString().trim();
+                    if (dados instanceof List<?> dlist) {
+                        for (Object item : dlist) {
+                            if (item instanceof Map<?, ?> row) {
+                                Object rowIdObj = row.get("id");
+                                if (rowIdObj == null) {
+                                    rowIdObj = row.get("profissionalId");
+                                }
+                                if (rowIdObj != null && targetId.trim().equals(rowIdObj.toString().trim())) {
+                                    Object nome = row.get("nome");
+                                    if (nome != null) {
+                                        return nome.toString().trim();
+                                    }
+                                }
                             }
                         }
                     }

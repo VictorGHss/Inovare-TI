@@ -22,5 +22,7 @@ public interface AppointmentSessionRepositoryPort {
 
     List<AppointmentSession> findActiveByPhoneNumber(String phone);
 
+    List<AppointmentSession> findPendingNotifications();
+
     AppointmentSession save(AppointmentSession session);
 }

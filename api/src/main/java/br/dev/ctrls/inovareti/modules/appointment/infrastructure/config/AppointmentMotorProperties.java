@@ -30,6 +30,7 @@ public class AppointmentMotorProperties {
     private String blipSendMessagePath;
     private String blipSetContextPath;
     private String blipWabaNamespace;
+    private String blipGroupTemplateName = "aviso_agendamento_grupo";
     private String blipBuilderBotId;
     private long blipRateLimitMs;
     private int nudge1WaitHours;

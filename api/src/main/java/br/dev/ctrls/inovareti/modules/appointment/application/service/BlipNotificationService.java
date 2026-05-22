@@ -216,6 +216,52 @@ public class BlipNotificationService {
         };
     }
 
+    public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
+        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+
+        // Trava de Sandbox (mesma que no sendTemplateMessage)
+        if (!normalizedDestination.contains("42991617187") && !destination.contains("42991617187")) {
+            log.warn("[SANDBOX] Disparo de grupo bloqueado para número real: {}", destination);
+            return;
+        }
+
+        List<Map<String, String>> parameters = new ArrayList<>();
+        parameters.add(Map.of("type", "text", "text", patientName != null ? patientName : "Paciente"));
+
+        Map<String, Object> viewButton = Map.of(
+            "type", "button", "sub_type", "quick_reply", "index", 0,
+            "parameters", List.of(Map.of("type", "payload", "payload", "group_" + groupId.toString()))
+        );
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        components.add(Map.of("type", "body", "parameters", parameters));
+        components.add(viewButton);
+
+        Map<String, Object> content = Map.of(
+            "type", "template",
+            "template", Map.of(
+                "name", templateName,
+                "namespace", resolveWabaNamespace(),
+                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
+                "components", components
+            )
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", java.util.UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
+            "type", "application/json",
+            "content", content,
+            "metadata", Map.of("groupId", groupId.toString())
+        );
+
+        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+        Object status = response.getOrDefault("status", "unknown");
+        log.info("Template de grupo enviado. destination={}, template={}, status={}, groupId={}", 
+            normalizedDestination, templateName, status, groupId);
+    }
+
     private String resolveWabaNamespace() {
         String ns = motorProperties.getBlipWabaNamespace();
         return (ns != null && !ns.isBlank()) ? ns : "";

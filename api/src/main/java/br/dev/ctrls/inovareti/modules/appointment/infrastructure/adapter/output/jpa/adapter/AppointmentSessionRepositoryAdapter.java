@@ -62,6 +62,13 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    public List<AppointmentSession> findPendingNotifications() {
+        return springDataRepository.findPendingNotifications().stream()
+                .map(AppointmentSessionEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public AppointmentSession save(AppointmentSession session) {
         AppointmentSessionEntity entity = AppointmentSessionEntity.fromDomain(session);
         AppointmentSessionEntity saved = springDataRepository.save(entity);

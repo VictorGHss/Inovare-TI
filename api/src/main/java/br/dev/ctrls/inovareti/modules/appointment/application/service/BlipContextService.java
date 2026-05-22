@@ -176,12 +176,6 @@ public class BlipContextService {
         limeClient.executeCommand(commandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
     }
 
-    private void sendToBlipMessagesApi(Object messagePayload) {
-        @SuppressWarnings("unchecked")
-        java.util.Map<String, Object> messageMap = objectMapper.convertValue(messagePayload, java.util.Map.class);
-        limeClient.executeMessage(messageMap, BlipLIMEClient.AuthorizationScope.ROUTER);
-    }
-
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
             String normalizedPhone = limeClient.normalizeUserIdentity(userPhone);
@@ -205,65 +199,6 @@ public class BlipContextService {
             // POST para /commands
             log.info("[LIME PUSH] Passo 1: Atualizando contato para identity={}: Medico={}, fila={}", userIdentity, payload.getDoctorName(), payload.getQueue());
             sendToBlipCommandsApi(contactCommand);
-
-            // PASSO 2: Envia ativamente a mensagem de texto (Confirmação ou Alteração) via /messages
-            if ("confirm".equalsIgnoreCase(action)) {
-                String fullMessage = blipProperties.getTexts().getConfirmSuccess();
-                fullMessage = fullMessage.replace("\\n", "\n");
-
-                // MENSAGEM 1: Envio do Mapa Nativo LIME (application/vnd.lime.location+json)
-                java.util.Map<String, Object> locationMessage = new java.util.HashMap<>();
-                locationMessage.put("id", "msg-" + java.util.UUID.randomUUID().toString());
-                locationMessage.put("to", userIdentity);
-                locationMessage.put("type", "application/vnd.lime.location+json");
-                
-                java.util.Map<String, Object> locationContent = new java.util.HashMap<>();
-                locationContent.put("latitude", -25.1027718);
-                locationContent.put("longitude", -50.1595712);
-                locationContent.put("text", "Clínica Inovare - Edifício Inovare");
-                locationContent.put("address", "R. Carlos Osternack, 111 - Estrela, Ponta Grossa - PR, 84040-120");
-                locationMessage.put("content", locationContent);
-
-                log.info("[LIME PUSH] Passo 2 (Mapa Nativo): Enviando mapa para identity={}", userIdentity);
-                sendToBlipMessagesApi(locationMessage);
-
-                // Delay seguro de 800ms
-                try {
-                    Thread.sleep(800);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.warn("Delay do push interrompido para {}", userIdentity, ie);
-                }
-
-                // MENSAGEM 2 (Texto de Avisos): Logo em seguida, envia o restante contendo "🚨 AVISO IMPORTANTE..."
-                String warningText = fullMessage;
-                int warningIdx = fullMessage.indexOf("🚨 AVISO IMPORTANTE");
-                if (warningIdx == -1) {
-                    warningIdx = fullMessage.indexOf("AVISO IMPORTANTE");
-                }
-                if (warningIdx != -1) {
-                    warningText = fullMessage.substring(warningIdx);
-                }
-
-                BlipTextMessage textMessage = new BlipTextMessage();
-                textMessage.setTo(userIdentity);
-                textMessage.setContent(warningText);
-
-                log.info("[LIME PUSH] Passo 2 (Avisos): Enviando restante do texto para identity={}", userIdentity);
-                sendToBlipMessagesApi(textMessage);
-            } else {
-                String messageText = blipProperties.getTexts().getAlterRequest()
-                  .replace("{patientName}", payload.getPatientName())
-                  .replace("{doctorName}", payload.getDoctorName());
-                messageText = messageText.replace("\\n", "\n");
-
-                BlipTextMessage textMessage = new BlipTextMessage();
-                textMessage.setTo(userIdentity);
-                textMessage.setContent(messageText);
-
-                log.info("[LIME PUSH] Passo 2: Enviando mensagem ativa de alteração para identity={}", userIdentity);
-                sendToBlipMessagesApi(textMessage);
-            }
 
             // Roteamento delegado ao payload nativo do Blip Builder.
             // Os Passos 3 e 4 (Master-State e stateid) foram removidos intencionalmente:

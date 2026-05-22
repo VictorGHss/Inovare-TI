@@ -44,8 +44,7 @@ public class DiscordBotConfig {
         if (discordBotToken == null || discordBotToken.isBlank()) {
             log.warn("Token do bot Discord não configurado. Pulando inicialização do JDA. " +
                 "Defina a variável de ambiente DISCORD_BOT_TOKEN para ativar o bot.");
-            throw new IllegalArgumentException(
-                "O token do bot Discord deve ser configurado via variável de ambiente DISCORD_BOT_TOKEN");
+            return null;
         }
 
         try {

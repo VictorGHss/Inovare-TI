@@ -13,27 +13,49 @@ import FinancialTwoFactorChallenge from './components/FinancialTwoFactorChalleng
 import Login from './pages/Login';
 import PrimeiroAcesso from './pages/PrimeiroAcesso';
 
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  importFunc: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return lazy(async () => {
+    setTimeout(() => {
+      sessionStorage.removeItem('chunk-load-error-reloaded');
+    }, 15000);
+
+    try {
+      return await importFunc();
+    } catch (error) {
+      console.error("Erro ao carregar módulo dinâmico, forçando recarga da página...", error);
+      const hasReloaded = sessionStorage.getItem('chunk-load-error-reloaded');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk-load-error-reloaded', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
+
 // Carregamento sob demanda: cada página gera um chunk separado, reduzindo o bundle inicial
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Tickets = lazy(() => import('./pages/Tickets'));
-const NewTicket = lazy(() => import('./pages/NewTicket'));
-const TicketDetails = lazy(() => import('./pages/TicketDetails'));
-const Inventory = lazy(() => import('./pages/Inventory'));
-const NewItem = lazy(() => import('./pages/Inventory/NewItem'));
-const ItemDetails = lazy(() => import('./pages/Inventory/ItemDetails'));
-const Assets = lazy(() => import('./pages/Assets'));
-const AssetDetails = lazy(() => import('./pages/AssetDetails'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Users = lazy(() => import('./pages/Users'));
-const Sectors = lazy(() => import('./pages/Sectors'));
-const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
-const NewArticle = lazy(() => import('./pages/KnowledgeBase/NewArticle'));
-const EditArticle = lazy(() => import('./pages/KnowledgeBase/EditArticle'));
-const ArticleDetails = lazy(() => import('./pages/KnowledgeBase/ArticleDetails'));
-const Vault = lazy(() => import('./pages/Vault'));
-const SystemLogs = lazy(() => import('./pages/SystemLogs'));
-const Financeiro = lazy(() => import('./pages/Financeiro'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Tickets = lazyWithRetry(() => import('./pages/Tickets'));
+const NewTicket = lazyWithRetry(() => import('./pages/NewTicket'));
+const TicketDetails = lazyWithRetry(() => import('./pages/TicketDetails'));
+const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
+const NewItem = lazyWithRetry(() => import('./pages/Inventory/NewItem'));
+const ItemDetails = lazyWithRetry(() => import('./pages/Inventory/ItemDetails'));
+const Assets = lazyWithRetry(() => import('./pages/Assets'));
+const AssetDetails = lazyWithRetry(() => import('./pages/AssetDetails'));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const Users = lazyWithRetry(() => import('./pages/Users'));
+const Sectors = lazyWithRetry(() => import('./pages/Sectors'));
+const KnowledgeBase = lazyWithRetry(() => import('./pages/KnowledgeBase'));
+const NewArticle = lazyWithRetry(() => import('./pages/KnowledgeBase/NewArticle'));
+const EditArticle = lazyWithRetry(() => import('./pages/KnowledgeBase/EditArticle'));
+const ArticleDetails = lazyWithRetry(() => import('./pages/KnowledgeBase/ArticleDetails'));
+const Vault = lazyWithRetry(() => import('./pages/Vault'));
+const SystemLogs = lazyWithRetry(() => import('./pages/SystemLogs'));
+const Financeiro = lazyWithRetry(() => import('./pages/Financeiro'));
 
 function PageLoader() {
   return (

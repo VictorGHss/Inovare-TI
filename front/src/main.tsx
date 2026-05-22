@@ -12,7 +12,7 @@ createRoot(document.getElementById('root')!).render(
 // Service Worker: verificar atualizações e solicitar skipWaiting para ativar o novo SW imediatamente.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
-    const swResetFlag = '@InovareTI:sw-reset-2026-04-08';
+    const swResetFlag = '@InovareTI:sw-reset-2026-05-22';
 
     // Migração de emergência para limpar SW/cache antigo que referencia assets removidos.
     if (!localStorage.getItem(swResetFlag)) {

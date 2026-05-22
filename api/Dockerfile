@@ -1,26 +1,15 @@
-# Stage 1: Build stage with Maven
-FROM maven:3.9-eclipse-temurin-21-alpine AS builder
-
+# Estágio 1: Dependências e Build
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
-
-# Copy pom.xml and download dependencies (cached layer)
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
-
-# Copy source code and build
 COPY src ./src
 RUN mvn clean package -DskipTests && rm -f target/*-plain.jar
 
-# Stage 2: Runtime stage with JRE
+# Estágio 2: Runtime
 FROM eclipse-temurin:21-jre-alpine
-
 WORKDIR /app
-
-# Copy JAR from builder stage
+ENV TZ=America/Sao_Paulo
+RUN apk add --no-cache tzdata
 COPY --from=builder /app/target/*.jar app.jar
-
-# Expose port
-EXPOSE 8085
-
-# Run application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=America/Sao_Paulo", "-jar", "app.jar"]

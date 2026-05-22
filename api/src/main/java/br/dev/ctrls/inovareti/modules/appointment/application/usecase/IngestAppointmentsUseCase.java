@@ -151,6 +151,23 @@ public class IngestAppointmentsUseCase {
                 continue;
             }
 
+            // Regra de Guarda: Evitar spam se a consulta já estiver confirmada localmente ou na Feegow
+            boolean isConfirmedLocally = dbData.existingSessionOpt()
+                    .map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED)
+                    .orElse(false);
+
+            String confirmedStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
+            if (confirmedStatusId == null || confirmedStatusId.isBlank()) {
+                confirmedStatusId = "7";
+            }
+            boolean isConfirmedOnFeegow = confirmedStatusId.trim().equalsIgnoreCase(appointment.statusId());
+
+            if (isConfirmedLocally || isConfirmedOnFeegow) {
+                log.info("[MENSAGERIA] Ignorando disparo de template: consulta já confirmada (Local: {}, Feegow: {}). appointmentId={}",
+                        isConfirmedLocally, isConfirmedOnFeegow, feegowAppointmentId);
+                continue;
+            }
+
             if (dbData.existingSessionOpt().isPresent()) {
                 AppointmentSessionStatus status = dbData.existingSessionOpt().get().getStatus();
                 if (status == AppointmentSessionStatus.PENDING ||

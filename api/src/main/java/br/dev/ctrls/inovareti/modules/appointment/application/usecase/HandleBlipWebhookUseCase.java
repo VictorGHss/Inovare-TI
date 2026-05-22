@@ -25,6 +25,10 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhoo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import java.util.UUID;
+
 /**
  * Caso de Uso orquestrador principal para recepção e roteamento de Webhooks do Blip.
  * Intercepta payloads, valida assinaturas de token de segurança, delega verificações de idempotência
@@ -45,6 +49,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipWebhookActionExecutor blipWebhookActionExecutor;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final NotificationGroupRepositoryPort notificationGroupRepository;
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -183,22 +188,52 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
-        // Captura confirm_{ID}, alter_{ID} ou cancel_{ID}
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter|cancel)_(\\d+(?:\\.\\d+)?)");
-        java.util.regex.Matcher matcher = pattern.matcher(action);
+        boolean isGroupConfirm = action.toLowerCase().startsWith("confirm_group_");
+        String actionType;
+        String appointmentId;
 
-        if (!matcher.find()) {
-            log.debug("[WEBHOOK] Ação ignorada (não é confirm_, alter_ nem cancel_). action='{}'", action);
-            return null;
-        }
+        if (isGroupConfirm) {
+            actionType = "confirm";
+            String groupIdStr = action.substring("confirm_group_".length()).trim();
+            String resolvedAppointmentId = null;
+            try {
+                UUID groupId = UUID.fromString(groupIdStr);
+                java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                if (groups != null && !groups.isEmpty()) {
+                    UUID firstSessionId = groups.get(0).getSessionId();
+                    AppointmentSession firstSession = transactionTemplate.execute(status ->
+                            appointmentSessionRepository.findById(firstSessionId).orElse(null)
+                    );
+                    if (firstSession != null) {
+                        resolvedAppointmentId = firstSession.getFeegowAppointmentId();
+                    }
+                }
+            } catch (Exception e) {
+                log.error("[WEBHOOK] Falha ao processar grupo de confirmação para ação: " + action, e);
+            }
+            if (resolvedAppointmentId == null) {
+                log.warn("[WEBHOOK] Nenhuma sessão encontrada para a ação de grupo: {}", action);
+                return null;
+            }
+            appointmentId = resolvedAppointmentId;
+        } else {
+            // Captura confirm_{ID}, alter_{ID} ou cancel_{ID}
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter|cancel)_(\\d+(?:\\.\\d+)?)");
+            java.util.regex.Matcher matcher = pattern.matcher(action);
 
-        String actionType   = matcher.group(1).toLowerCase(); // "confirm", "alter" ou "cancel"
-        String rawId        = matcher.group(2);
-        String appointmentId = normalizeFeegowAppointmentId(rawId);
+            if (!matcher.find()) {
+                log.debug("[WEBHOOK] Ação ignorada (não é confirm_, alter_ nem cancel_). action='{}'", action);
+                return null;
+            }
 
-        if (appointmentId == null || appointmentId.isBlank()) {
-            log.warn("[WEBHOOK] Payload {}_  recebido sem ID válido. action={}", actionType, action);
-            return null;
+            actionType   = matcher.group(1).toLowerCase(); // "confirm", "alter" ou "cancel"
+            String rawId        = matcher.group(2);
+            appointmentId = normalizeFeegowAppointmentId(rawId);
+
+            if (appointmentId == null || appointmentId.isBlank()) {
+                log.warn("[WEBHOOK] Payload {}_  recebido sem ID válido. action={}", actionType, action);
+                return null;
+            }
         }
 
         // 2. Trava atômica de concorrência / Spin-Wait com cache integrado
@@ -272,6 +307,7 @@ public class HandleBlipWebhookUseCase {
         // Delegação de toda a pipeline de execução para o executor especializado
         return blipWebhookActionExecutor.execute(
                 actionType,
+                action,
                 appointmentId,
                 dbData.session(),
                 doctorName,

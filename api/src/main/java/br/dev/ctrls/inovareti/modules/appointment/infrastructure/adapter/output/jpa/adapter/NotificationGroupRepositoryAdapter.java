@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.jpa.adapter;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -34,4 +35,12 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
                 .map(NotificationGroupEntity::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<NotificationGroup> findByGroupId(UUID groupId) {
+        return springDataRepository.findByGroupId(groupId).stream()
+                .map(NotificationGroupEntity::toDomain)
+                .collect(Collectors.toList());
+    }
 }
+

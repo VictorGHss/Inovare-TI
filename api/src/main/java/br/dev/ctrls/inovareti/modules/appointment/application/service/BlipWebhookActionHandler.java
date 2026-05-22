@@ -20,14 +20,16 @@ public interface BlipWebhookActionHandler {
      * Executa a lógica de pré-persistência externa do webhook (ex.: chamadas de integração).
      * 
      * @param session dados atuais da sessão de agendamento carregados do banco
+     * @param action a ação completa recebida no webhook
      */
-    void prePersistence(AppointmentSession session);
+    void prePersistence(AppointmentSession session, String action);
 
     /**
      * Executa modificações específicas de estado na entidade da sessão de agendamento.
      * Este método deve rodar dentro da transação de gravação microscópica.
      * 
      * @param session a entidade de sessão de agendamento carregada transacionalmente
+     * @param action a ação completa recebida no webhook
      */
-    void applySessionState(AppointmentSession session);
+    void applySessionState(AppointmentSession session, String action);
 }

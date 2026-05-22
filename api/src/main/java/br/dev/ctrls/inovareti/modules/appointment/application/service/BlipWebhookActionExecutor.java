@@ -36,6 +36,7 @@ public class BlipWebhookActionExecutor {
      * Executa a pipeline completa da ação correspondente (confirm ou alter).
      * 
      * @param actionType tipo da ação ("confirm" ou "alter")
+     * @param action a ação original recebida no webhook
      * @param appointmentId ID do agendamento Feegow
      * @param session entidade de sessão do agendamento
      * @param doctorName nome limpo do médico
@@ -45,6 +46,7 @@ public class BlipWebhookActionExecutor {
      */
     public HandleBlipWebhookUseCase.WebhookResult execute(
             String actionType,
+            String action,
             String appointmentId,
             AppointmentSession session,
             String doctorName,
@@ -100,7 +102,7 @@ public class BlipWebhookActionExecutor {
         }
 
         // FASE 2: Chamada externa pré-persistência específica da ação
-        handler.prePersistence(session);
+        handler.prePersistence(session, action);
 
         // FASE 3: Persistência no Banco de Dados em Transação Microscópica
         try {
@@ -112,7 +114,7 @@ public class BlipWebhookActionExecutor {
                     currentSession.setPhoneNumber(dispatchIdentity);
                 }
 
-                handler.applySessionState(currentSession);
+                handler.applySessionState(currentSession, action);
 
                 appointmentSessionRepository.save(currentSession);
             });

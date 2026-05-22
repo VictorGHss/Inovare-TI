@@ -25,7 +25,7 @@ public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler 
     }
 
     @Override
-    public void prePersistence(AppointmentSession session) {
+    public void prePersistence(AppointmentSession session, String action) {
         log.info("[CANCEL] Paciente solicita cancelamento. Atualizando status na Feegow com código 100.");
         try {
             appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), "100");
@@ -39,7 +39,7 @@ public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler 
     }
 
     @Override
-    public void applySessionState(AppointmentSession session) {
+    public void applySessionState(AppointmentSession session, String action) {
         confirmationStateMachineService.markCanceled(session);
     }
 }

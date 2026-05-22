@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.jpa.adapter;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -42,5 +43,11 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
                 .map(NotificationGroupEntity::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public long deleteByCreatedAtBefore(LocalDateTime threshold) {
+        return springDataRepository.deleteByCreatedAtBefore(threshold);
+    }
 }
+
 

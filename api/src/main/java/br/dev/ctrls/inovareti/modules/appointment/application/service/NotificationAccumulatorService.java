@@ -147,4 +147,18 @@ public class NotificationAccumulatorService {
             log.error("[ACÚMULO] Erro ao disparar template de notificação agrupada para: {}", phoneNumber, e);
         }
     }
+
+    @Scheduled(cron = "${app.appointment.motor.cleanup-cron:0 0 3 * * ?}")
+    public void cleanupOldNotificationGroups() {
+        log.info("[CLEANUP] Iniciando rotina de limpeza diária de grupos de notificação antigos");
+        LocalDateTime threshold = LocalDateTime.now().minusDays(45);
+        try {
+            long count = transactionTemplate.execute(status -> 
+                notificationGroupRepository.deleteByCreatedAtBefore(threshold)
+            );
+            log.info("[CLEANUP] Removidos grupos de notificação com mais de 45 dias. Total: {}", count);
+        } catch (Exception e) {
+            log.error("[CLEANUP] Erro ao executar limpeza de grupos de notificação antigos", e);
+        }
+    }
 }

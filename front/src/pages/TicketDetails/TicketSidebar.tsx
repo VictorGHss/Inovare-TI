@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -7,16 +8,22 @@ import {
   Package,
   Tag,
   UserRound,
+  Search,
+  Link2,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 import SlaBadge from '../../components/SlaBadge';
+import { getTickets, relateTicket } from '../../services/ticketService';
 import type { Asset, Ticket } from '../../types/models';
 
 interface TicketSidebarProps {
   ticket: Ticket;
   assets: Asset[];
   loadingAssets: boolean;
+  onRefresh?: () => void;
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -35,7 +42,72 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-export default function TicketSidebar({ ticket, assets, loadingAssets }: TicketSidebarProps) {
+export default function TicketSidebar({
+  ticket,
+  assets,
+  loadingAssets,
+  onRefresh,
+}: TicketSidebarProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allTickets, setAllTickets] = useState<Ticket[]>([]);
+  const [suggestions, setSuggestions] = useState<Ticket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [associatingId, setAssociatingId] = useState<string | null>(null);
+
+  // Carrega a lista de chamados ao montar o componente
+  useEffect(() => {
+    async function loadAllTickets() {
+      try {
+        setLoadingTickets(true);
+        const data = await getTickets();
+        setAllTickets(Array.isArray(data) ? data : []);
+      } catch {
+        console.error('Erro ao carregar chamados para vinculacao.');
+      } finally {
+        setLoadingTickets(false);
+      }
+    }
+    void loadAllTickets();
+  }, []);
+
+  // Filtra as sugestões conforme digita
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      setSuggestions([]);
+      return;
+    }
+
+    const filtered = allTickets.filter((t) => {
+      // Não pode vincular o próprio chamado
+      if (t.id === ticket.id) return false;
+      // Não pode vincular se já estiver associado
+      if (ticket.relatedTicketIds?.includes(t.id)) return false;
+
+      const matchesId = t.id.toLowerCase().includes(query);
+      const matchesTitle = t.title.toLowerCase().includes(query);
+      
+      return matchesId || matchesTitle;
+    });
+
+    setSuggestions(filtered.slice(0, 5)); // limita a 5 sugestões
+  }, [searchQuery, allTickets, ticket.id, ticket.relatedTicketIds]);
+
+  const handleAssociate = async (relatedId: string) => {
+    try {
+      setAssociatingId(relatedId);
+      await relateTicket(ticket.id, relatedId);
+      toast.success('Chamado associado com sucesso!');
+      setSearchQuery('');
+      setSuggestions([]);
+      if (onRefresh) onRefresh();
+    } catch {
+      toast.error('Erro ao associar os chamados.');
+    } finally {
+      setAssociatingId(null);
+    }
+  };
+
   return (
     <aside className="flex flex-col gap-4">
       <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
@@ -136,6 +208,58 @@ export default function TicketSidebar({ ticket, assets, loadingAssets }: TicketS
             })}
           </ul>
         )}
+      </section>
+
+      {/* ── Bloco: Associar Chamado ── */}
+      <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+          <Link2 size={16} className="text-brand-primary" />
+          Associar Chamado
+        </h3>
+        
+        <div className="relative">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Pesquisar por ID ou título..."
+              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all shadow-sm"
+            />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <Search size={15} />
+            </div>
+          </div>
+
+          {suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 mt-2 z-10 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg max-h-60 overflow-y-auto">
+              {suggestions.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => void handleAssociate(s.id)}
+                    disabled={associatingId !== null}
+                    className="flex flex-col items-start w-full text-left rounded-xl p-2.5 hover:bg-slate-50 transition-colors text-sm"
+                  >
+                    <span className="font-semibold text-slate-800 line-clamp-1">{s.title}</span>
+                    <span className="mt-0.5 text-xs text-slate-400 flex items-center gap-1">
+                      {associatingId === s.id ? (
+                        <Loader2 size={12} className="animate-spin text-brand-primary" />
+                      ) : (
+                        `#${s.id.slice(0, 8).toUpperCase()}`
+                      )}
+                      · {s.requesterName}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {searchQuery.trim() !== '' && suggestions.length === 0 && !loadingTickets && (
+            <p className="mt-2 text-xs italic text-slate-400">Nenhum chamado localizado.</p>
+          )}
+        </div>
       </section>
 
       {ticket.relatedTicketIds && ticket.relatedTicketIds.length > 0 && (

@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AssetMaintenanceRepository extends JpaRepository<AssetMaintenance, UUID> {
     List<AssetMaintenance> findByAssetIdOrderByMaintenanceDateDesc(UUID assetId);
+
+    List<AssetMaintenance> findByDescriptionContainingAndType(String descriptionSubstring, AssetMaintenance.MaintenanceType type);
 }

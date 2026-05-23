@@ -16,7 +16,9 @@ export async function getFinanceConnectionStatus(): Promise<FinanceConnectionSta
 }
 
 export async function getFinanceReceipts(): Promise<FinanceReceipt[]> {
-  const { data } = await api.get<FinanceReceipt[]>('/financeiro/recibos');
+  const { data } = await api.get<FinanceReceipt[]>('/financeiro/recibos', {
+    params: { page: 0, size: 1 },
+  });
   return data;
 }
 

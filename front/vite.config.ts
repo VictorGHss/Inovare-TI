@@ -9,6 +9,34 @@ export default defineConfig({
   build: {
     // garantimos que a pasta de saída seja limpa entre builds para evitar assets obsoletos
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('framer-motion')) {
+              return 'vendor-motion';
+            }
+            if (id.includes('html5-qrcode') || id.includes('qrcode.react')) {
+              return 'vendor-qrcode';
+            }
+            if (id.includes('date-fns')) {
+              return 'vendor-date-fns';
+            }
+          }
+        }
+      }
+    }
   },
   plugins: [
     react(),

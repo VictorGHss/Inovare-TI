@@ -166,12 +166,11 @@ public class ResolveTicketUseCase {
             log.info("[ATIVO] Ativo {} vinculado ao usuário {} via chamado {}",
                     asset.getId(), ticket.getRequester().getId(), ticketId);
 
-            // Cria registro de auditoria (AssetMaintenance) da transferência
             AssetMaintenance maintenance = AssetMaintenance.builder()
                     .asset(deliveredAsset)
                     .maintenanceDate(LocalDate.now())
                     .type(AssetMaintenance.MaintenanceType.TRANSFER)
-                    .description("Entregue via Chamado #" + ticket.getId().toString().substring(0, 8))
+                    .description("[TICKET:" + ticket.getId() + "] Entregue via Chamado #" + ticket.getId().toString().substring(0, 8))
                     .cost(BigDecimal.ZERO)
                     .technician(ticket.getAssignedTo() != null ? ticket.getAssignedTo() : ticket.getRequester())
                     .build();
@@ -217,7 +216,7 @@ public class ResolveTicketUseCase {
                     .asset(deliveredAsset)
                     .maintenanceDate(LocalDate.now())
                     .type(AssetMaintenance.MaintenanceType.TRANSFER)
-                    .description("Ativo cadastrado e entregue via Chamado #" + ticket.getId())
+                    .description("[TICKET:" + ticket.getId() + "] Ativo cadastrado e entregue via Chamado #" + ticket.getId().toString().substring(0, 8))
                     .cost(BigDecimal.ZERO)
                     .technician(ticket.getAssignedTo() != null ? ticket.getAssignedTo() : ticket.getRequester())
                     .build();

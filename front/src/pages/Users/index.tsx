@@ -237,7 +237,7 @@ export default function Users() {
           </span>
           <select
             value={sortOption}
-            onChange={(e) => setSortOption(e.target.value as any)}
+            onChange={(e) => setSortOption(e.target.value as 'name-asc' | 'name-desc' | 'sector-asc')}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none transition"
           >
             <option value="name-asc">Nome (A-Z)</option>

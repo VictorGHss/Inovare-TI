@@ -74,3 +74,8 @@ export async function getTicketComments(ticketId: string): Promise<TicketComment
   return data;
 }
 
+// Associa um chamado a outro bidirecionalmente
+export async function relateTicket(id: string, relatedId: string): Promise<void> {
+  await api.post(`/tickets/${id}/relate/${relatedId}`);
+}
+

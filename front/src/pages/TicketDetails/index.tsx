@@ -29,6 +29,7 @@ export default function TicketDetails() {
     assets,
     loadingAssets,
     isResolved,
+    loadTicket,
     setSelectedUserId,
     handleResolve,
     handleClaim,
@@ -121,6 +122,7 @@ export default function TicketDetails() {
             ticket={ticket}
             assets={assets}
             loadingAssets={loadingAssets}
+            onRefresh={loadTicket}
           />
         </div>
       </div>

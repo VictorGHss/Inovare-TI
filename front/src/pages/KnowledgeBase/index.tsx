@@ -148,7 +148,7 @@ export default function KnowledgeBase() {
           </span>
           <select
             value={sortOption}
-            onChange={(e) => setSortOption(e.target.value as any)}
+            onChange={(e) => setSortOption(e.target.value as 'recent' | 'old' | 'title-asc' | 'title-desc')}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-750 shadow-sm focus:border-brand-primary focus:outline-none transition"
           >
             <option value="recent">Mais recentes</option>

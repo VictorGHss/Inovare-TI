@@ -64,8 +64,9 @@ export default function CategoriesSection() {
         toast.success('Categoria de ativo criada com sucesso.');
       }
       setNewName('');
-    } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Falha ao criar categoria.';
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      const msg = error.response?.data?.detail || 'Falha ao criar categoria.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -85,8 +86,9 @@ export default function CategoriesSection() {
         setAssetCategories((prev) => prev.filter((c) => c.id !== id));
         toast.success('Categoria de ativo excluída.');
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Erro ao excluir categoria. Certifique-se de que não há itens vinculados a ela.';
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      const msg = error.response?.data?.detail || 'Erro ao excluir categoria. Certifique-se de que não há itens vinculados a ela.';
       toast.error(msg);
     }
   }

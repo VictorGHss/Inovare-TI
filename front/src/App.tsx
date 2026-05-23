@@ -13,6 +13,7 @@ import FinancialTwoFactorChallenge from './components/FinancialTwoFactorChalleng
 import Login from './pages/Login';
 import PrimeiroAcesso from './pages/PrimeiroAcesso';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function lazyWithRetry<T extends React.ComponentType<any>>(
   importFunc: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> {

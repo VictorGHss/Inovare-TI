@@ -37,8 +37,9 @@ export default function BackupsSection() {
       await api.post('/admin/backups/trigger');
       toast.success('Backup gerado com sucesso.');
       await loadBackups();
-    } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Erro ao gerar backup de banco de dados.';
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      const msg = error.response?.data?.detail || 'Erro ao gerar backup de banco de dados.';
       toast.error(msg);
     } finally {
       setTriggering(false);

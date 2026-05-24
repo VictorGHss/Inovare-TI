@@ -1,39 +1,34 @@
-# Guia do Desenvolvedor — Inovare TI
+# Guia do Desenvolvedor e Operações — Inovare TI
 
-Este documento centraliza instruções técnicas para desenvolvedores: configuração, execução, variáveis de ambiente, padrões de segurança (JWT, filtros) e envio de e-mail.
-
----
-
-## Visão Geral do Módulo Backend
-
-- Pacote principal: `api/` (Java 21 · Spring Boot 4)
-- Responsabilidades: API REST, integrações, regras de negócio, persistência, segurança e observabilidade.
+Este documento centraliza todas as instruções técnicas para engenheiros de software e operadores de infraestrutura: configuração local, execução do ecossistema, padrões de arquitetura e segurança, manipulação de erros, SMTP, relatórios em PDF, além dos playbooks de SRE, monitoramento de incidentes e o histórico detalhado do projeto.
 
 ---
 
-## Como compilar e rodar testes
+## 💻 Configuração do Ambiente e Execução Local
 
+### 1) Pré-requisitos
+* Java JDK 21 instalado localmente (para desenvolvimento nativo).
+* Apache Maven 3.9+ (ou uso do wrapper `./mvnw` incluso).
+* Docker e Docker Compose instalados e em execução.
+
+### 2) Como Compilar e Executar Testes
+Para rodar a suíte completa de testes unitários e de integração do backend Java:
 ```bash
 cd api
-mvn test
+./mvnw clean test
 ```
-
-Para executar um teste específico:
-
+Para executar um teste isolado ou classe específica:
 ```bash
-mvn -Dtest=NomeDoTeste test
+./mvnw -Dtest=NomeDaClasseTest test
 ```
 
----
-
-## Configuração do Ambiente (`.env` / `application.properties`)
-
-Crie um arquivo `.env` na raiz do projeto com as variáveis abaixo (exemplo para desenvolvimento). Para referência use também `.env.example`.
+### 3) Variáveis de Ambiente (`.env`)
+Crie um arquivo `.env` na raiz do projeto contendo as seguintes configurações para desenvolvimento local (use o `/.env.example` como referência).
 
 ```env
-# -------------------------------
-# Banco de dados
-# -------------------------------
+# ----------------------------------------------------------------------
+# Banco de Dados (PostgreSQL 16)
+# ----------------------------------------------------------------------
 POSTGRES_DB=inovareti
 POSTGRES_USER=inovareti_user
 POSTGRES_PASSWORD=change_this_secure_password
@@ -41,191 +36,218 @@ POSTGRES_HOST=db
 POSTGRES_PORT=5432
 DB_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 
-# -------------------------------
-# API / Frontend
-# -------------------------------
+# ----------------------------------------------------------------------
+# API Backend e Comunicação Frontend
+# ----------------------------------------------------------------------
 API_PORT=8085
 FRONTEND_URL=http://localhost:5173
 
-# -------------------------------
-# Redis (cache / rate-limiter)
-# -------------------------------
+# ----------------------------------------------------------------------
+# Cache e Rate-Limiting Distribuído (Redis)
+# ----------------------------------------------------------------------
 SPRING_REDIS_HOST=redis
 SPRING_REDIS_PORT=6379
+SPRING_REDIS_TIMEOUT=60000
 
-# -------------------------------
-# Segurança e criptografia
-# -------------------------------
-JWT_SECRET=ReplaceWithASecureRandomString
-ENCRYPTION_SECRET=ReplaceWith32ByteKeyOrBase64
-VAULT_ENCRYPTION_KEY=
+# ----------------------------------------------------------------------
+# Segurança, JWT e Criptografia do Cofre
+# ----------------------------------------------------------------------
+JWT_SECRET=SuaStringSeguraComMaisDe32CaracteresAleatorios
+VAULT_ENCRYPTION_KEY=SuaChaveMestraDerivadaDe32BytesBase64
 
-# -------------------------------
-# Discord (opcional)
-# -------------------------------
-DISCORD_WEBHOOK_URL=
-DISCORD_BOT_TOKEN=
+# ----------------------------------------------------------------------
+# Integração com Bot Discord (Opcional em Dev)
+# ----------------------------------------------------------------------
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/sua_url_aqui
+DISCORD_BOT_TOKEN=seu_token_de_bot_discord_aqui
 DISCORD_BOT_ENABLED=false
 
-# -------------------------------
-# SMTP / Financeiro
-# -------------------------------
+# ----------------------------------------------------------------------
+# SMTP / Gateway de E-mails de Cobrança e Recibos
+# ----------------------------------------------------------------------
 APP_FINANCEIRO_TEST_MODE=true
-APP_FINANCEIRO_DEV_EMAIL=
+APP_FINANCEIRO_DEV_EMAIL=desenvolvedor@inovare.med.br
 APP_FINANCEIRO_SMTP_FROM_EMAIL=no-reply@inovare.med.br
 APP_FINANCEIRO_SMTP_FROM_NAME=Inovare TI Financeiro
 
-# -------------------------------
-# ContaAzul OAuth2
-# -------------------------------
-CONTAAZUL_CLIENT_ID=
-CONTAAZUL_CLIENT_SECRET=
+# ----------------------------------------------------------------------
+# Hub de Automação ContaAzul
+# ----------------------------------------------------------------------
+CONTAAZUL_CLIENT_ID=seu_client_id_conta_azul_aqui
+CONTAAZUL_CLIENT_SECRET=seu_client_secret_conta_azul_aqui
 CONTAAZUL_AUTHORIZATION_URL=https://auth.contaazul.com/oauth2/authorize
 CONTAAZUL_TOKEN_URL=https://auth.contaazul.com/oauth2/token
+CONTAAZUL_AUTOMATION_FIXED_DELAY_MS=300000
 
-# -------------------------------
-# Feature toggles
-# -------------------------------
-# Habilita o DatabaseSeeder quando rodar com profile `dev` (APP_SEEDER_ENABLED -> app.seeder.enabled)
+# ----------------------------------------------------------------------
+# Feature Toggles e Inicializadores
+# ----------------------------------------------------------------------
 APP_SEEDER_ENABLED=true
 ```
 
-Observações:
-- Nunca versionar segredos no repositório. Use `Vault` ou `Secrets Manager` em produção.
-- O `DatabaseSeeder` é executado apenas quando a aplicação roda com o profile `dev` e quando a propriedade `app.seeder.enabled` (ou a variável de ambiente `APP_SEEDER_ENABLED`) está ativada. Por padrão `application.properties` define `app.seeder.enabled=false`.
-- O `DB_URL` também pode ser fornecido diretamente (ex.: `DB_URL=jdbc:postgresql://db:5432/inovareti`). O `docker-compose.yml` mapeia a porta do Postgres para `5436` no host — para conectar localmente ao container use `localhost:5436`.
-
-Propriedades importantes (exemplos):
-
-- `api.security.token.secret` — segredo usado pelo `TokenService`.
-- `spring.mail.*` — configuração SMTP usada por `FinanceEmailService`.
-- `app.contaazul.*` — client_id/client_secret e endpoints da ContaAzul.
-- `app.vault.encryption-key` — chave usada pelo `EncryptionService`.
+> [!WARNING]
+> Nunca versionar o arquivo `.env` com chaves ou segredos reais. Em ambientes produtivos (Staging/Produção), utilize variáveis injetadas diretamente na orquestração ou geridas por um Secrets Manager/Vault.
 
 ---
 
-## Componentes de Segurança e Autenticação
-
-### Fluxo de Escalonamento de Privilégios (JWT + 2FA)
+## 🔒 Mecanismos de Segurança e Autenticação (JWT + 2FA)
 
 O sistema utiliza um fluxo de autenticação em duas etapas refletido nas claims do JWT:
 
-**Etapa 1 (Login Comum):** O usuário fornece e-mail/senha. O `TokenService` gera um JWT padrão. Este token permite acessar chamados e inventário, mas bloqueia o acesso ao Vault e outras operações sensíveis.
+### 1. Fluxo de Escalonamento de Privilégios
+1. **Etapa 1 (Login Comum)**: O usuário fornece e-mail e senha. O backend valida as credenciais e emite um JWT padrão que concede acesso a chamados básicos e visualização comum do inventário. Tentativas de acesso ao cofre ou configurações financeiras serão sumariamente bloqueadas.
+2. **Etapa 2 (Desafio TOTP / MFA)**: O usuário envia o código dinâmico de 6 dígitos gerado no aplicativo autenticador para `/api/auth/2fa/verify`. Caso o código seja verificado com sucesso, o backend emite um novo token JWT contendo a claim `two_factor_verified: true`. Este token concede acesso pleno a recursos e escritas sensíveis.
 
-**Etapa 2 (Desafio TOTP):** O usuário envia o código de 6 dígitos para `/api/auth/2fa/verify`. Se válido, o sistema emite um novo JWT contendo a claim `two_factor_verified`: `true`. Esse token passa a conceder acesso a recursos que exigem 2FA.
-
-### O Guardião do Vault (TwoFactorSessionGuard)
-
-O que ele faz: antes de descriptografar qualquer segredo (AES-256/GCM) o backend verifica se o JWT atual possui a claim `two_factor_verified` ativa. Além disso, em cada requisição sensível o `SecurityFilter` valida o estado do 2FA no banco para garantir revogação imediata.
-
-Revogação: se o 2FA for resetado (via Discord ou por um Admin), o segredo TOTP no banco é apagado. Mesmo que o usuário tenha um JWT contendo `two_factor_verified=true`, o `SecurityFilter`/`TwoFactorSessionGuard` checam o estado real no banco a cada requisição sensível e invalidam o acesso imediatamente.
-
-### `SecurityFilter`
-
-- `OncePerRequestFilter` que extrai o Bearer token do cabeçalho `Authorization`.
-- Valida via `TokenService`, carrega `User` por e-mail e popula o `SecurityContext`.
-- Ignora rotas de callback/authorize da ContaAzul.
-
-### `SecurityConfig`
-
-- Configuração JWT stateless, CSRF desabilitado e CORS configurado para o frontend.
-- Rotas públicas típicas: `POST /auth/login`, `POST /auth/reset-initial-password`, `GET /attachments/**`, `/financeiro/contaazul/**`.
-- `SecurityFilter` é registrado antes de `UsernamePasswordAuthenticationFilter`.
+### 2. O Guardião do Vault (`TwoFactorSessionGuard`)
+* Antes de descriptografar qualquer segredo (usando o padrão **AES-256-GCM**), o backend intercepta a requisição e verifica se o JWT possui a claim `two_factor_verified` ativa.
+* Adicionalmente, se o 2FA de um usuário for resetado (seja por um `ADMIN` ou via fluxo Discord), o segredo TOTP é apagado da tabela `users`. O `SecurityFilter` realiza essa validação de forma ativa a cada requisição, invalidando a sessão imediatamente mesmo que o JWT possua uma data de validade ativa.
 
 ---
 
-## Manipulação de Erros — RFC 7807 (Problem Details)
+## 🛡️ Manipulação de Erros — Padrão RFC 7807
 
-O projeto usa `GlobalExceptionHandler` (`@RestControllerAdvice`) que padroniza respostas de erro seguindo RFC 7807 (Problem Details). Mapeamentos principais:
+O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` para formatar e normalizar respostas de erro seguindo a especificação **RFC 7807 (Problem Details)**:
 
-- `MethodArgumentNotValidException` → 400 (lista de campos e mensagens)
-- `NotFoundException` → 404
-- `ConflictException` → 409
-- `IllegalStateException` → 422
-- `FileSizeLimitExceededException` / `MaxUploadSizeExceededException` → 413
-- `AccessDeniedException` → 403
-- Erros inesperados → 500 (ProblemDetail com requestId quando possível)
+| Exceção Backend | Status HTTP | Código Recomendado | Descrição |
+|-----------------|-------------|--------------------|-----------|
+| `MethodArgumentNotValid` | `400 Bad Request` | `ERR_VALIDATION_FAILED` | Erro de validação nos campos do payload |
+| `NotFoundException` | `404 Not Found` | `ERR_RESOURCE_NOT_FOUND` | Recurso solicitado não existe no banco |
+| `ConflictException` | `409 Conflict` | `ERR_RESOURCE_CONFLICT` | Violação de unicidade ou estado concorrente |
+| `IllegalStateException`| `422 Unprocessable`| `ERR_BUSINESS_RULE` | Violação de regra de negócio da aplicação |
+| `AccessDeniedException`| `403 Forbidden` | `ERR_ACCESS_DENIED` | Usuário autenticado mas sem permissão (Role) |
+| `MaxUploadSizeExceeded`| `413 Payload Too Large`| `ERR_UPLOAD_LIMIT` | Upload excede o tamanho configurado (5MB) |
 
-Recomendações:
-- Mensagens visíveis ao usuário devem estar sempre em português.
-- Incluir códigos de erro quando útil para triagem (ex.: `ERR_CONTA_AZUL_401`).
-
----
-
-## Exceções customizadas
-
-- `NotFoundException` → HTTP 404
-- `ConflictException` → HTTP 409
-- `BadRequestException` → HTTP 400
-- `FileSizeLimitExceededException` → HTTP 413
-
-As exceções são lançadas nas camadas de domínio quando validações de negócio falham.
+> [!IMPORTANT]
+> Todas as mensagens estruturadas no Problem Details visíveis na interface do usuário devem ser redigidas em **português brasileiro (PT-BR)**.
 
 ---
 
-## SMTP / Envio de Emails
+## 📧 Configurações do SMTP de Cobrança
 
-O projeto usa `spring-boot-starter-mail` (JavaMailSender). Exemplo de propriedades:
+O envio de recibos e notificações financeiras por e-mail utiliza a infraestrutura do `spring-boot-starter-mail` (gerido pela classe `FinanceEmailService`):
 
-```properties
-spring.mail.host=smtp.example.com
-spring.mail.port=587
-spring.mail.username=your-smtp-user
-spring.mail.password=your-smtp-password
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-spring.mail.from=suporte@exemplo.com
+* **Modo de Teste Financeiro**: Quando `APP_FINANCEIRO_TEST_MODE=true`, todos os e-mails disparados pelo sistema (independente do e-mail do cliente cadastrado no ERP) são forçadamente redirecionados para o endereço cadastrado em `APP_FINANCEIRO_DEV_EMAIL`, contendo o marcador técnico `[TESTE]` no assunto. Isso evita disparos de testes acidentais para médicos ou clientes reais.
+
+---
+
+## 📄 Geração e Layout de Relatórios em PDF
+
+Para a exportação de relatórios corporativos, o sistema utiliza a biblioteca **OpenPDF** (API livre compatível com iText):
+* **Renderização**: A formatação visual utiliza a classe `PdfPTable` para estruturar colunas reais com alinhamentos coerentes (valores financeiros e numéricos alinhados à direita, textos à esquerda).
+* **Identidade Visual**: O cabeçalho dos relatórios adota a cor primária da marca Inovare (`#feb56c`), fontes Helvetica-Bold em branco para contraste, e renderização dinâmica do logotipo empresarial (`src/main/resources/images/logo.png`).
+* **Rodapé Financeiro**: Linha de somatório total destacado com fundo cinza claro e resumo descritivo de custos ao final do documento.
+
+---
+
+## 📊 Operações, Monitoramento & Runbooks de Emergência (SRE)
+
+Esta seção destina-se aos operadores e administradores encarregados de sustentar a estabilidade do sistema em ambiente produtivo.
+
+### 1. Stack de Observabilidade Local
+O ecossistema Docker Compose disponibiliza ferramentas completas de triagem local:
+* **Prometheus**: Disponível em `http://localhost:9095` (porta interna `9090`).
+* **Grafana**: Disponível em `http://localhost:3001` (porta interna `3000`).
+* **Endpoint de Coleta da API**: `/api/actuator/prometheus` (expõe métricas Micrometer).
+
+> [!NOTE]
+> Para suportar o embedding do painel de monitoramento diretamente no frontend do sistema, o Grafana está pré-configurado com a variável `GF_SECURITY_ALLOW_EMBEDDING=true` e suporte a provisionamento automático de datasources em `docs/grafana/`.
+
+### 2. Monitoramento de Saúde das Dependências (Healthcheck)
+Os contêineres de banco de dados e cache possuem monitoramento automático:
+* **PostgreSQL Health**: `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}`
+* **Redis Health**: `redis-cli ping`
+* A API só conclui a inicialização após o Postgres e o Redis reportarem `healthy`. Isso previne crashes e race conditions no boot dos agendadores e do rate-limiter.
+
+---
+
+### 3. Runbook: Re-autorização Manual da ContaAzul
+Caso os tokens OAuth2 sejam revogados ou corrompidos na tabela `contaazul_oauth_tokens`, siga o procedimento seguro de re-autorização:
+
+1. Obtenha um token JWT de administrador:
+```bash
+curl -s -X POST http://localhost:8085/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@inovare.med.br","password":"admin123"}'
+```
+2. Salve o token retornado na variável `$TOKEN` e consulte o status da integração:
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8085/api/financeiro/contaazul/status
+```
+3. Se o retorno for `authorized: false`, acesse a interface administrativa da aplicação (Menu Financeiro → ContaAzul → Conectar) para conceder permissão na URL oficial do ERP.
+4. Caso precise expurgar ou depurar tokens antigos diretamente no banco de dados:
+```sql
+-- Consultar histórico de renovações
+SELECT id, expires_at, refreshed_at, updated_at FROM contaazul_oauth_tokens ORDER BY updated_at DESC LIMIT 3;
+
+-- Forçar limpeza para nova autorização limpa (use apenas em emergências)
+DELETE FROM contaazul_oauth_tokens;
 ```
 
-Exemplo simples de `EmailService`:
+---
 
-```java
-@Service
-public class EmailService {
-    private final JavaMailSender mailSender;
+### 4. Runbook: Triagem do Alerta `ContaAzulForceRefreshThrottled`
+Este alerta dispara quando há tentativas consecutivas e excessivas de atualização de tokens, acionando o rate-limiter.
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+1. Acesse o Prometheus (`http://localhost:9095`) ou o Grafana e avalie o volume de bloqueios:
+```promql
+increase(contaazul_force_refresh_throttled_total[5m])
+```
+2. Analise os logs da API em busca de abusos no endpoint administrativo:
+```bash
+docker logs inovareti_api --tail=100 | grep "ContaAzul force-refresh"
+```
+3. **Mitigação**: Se for decorrente de um comportamento anormal de cliques no frontend, instrua o usuário ou revise as regras do `RedisRateLimiter` (`FORCE_REFRESH_COOLDOWN_MS`). Se for um ataque externo de brute-force, aplique o bloqueio do IP na borda (Cloudflare WAF).
 
-    public void sendPlainText(String to, String subject, String body) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(to);
-        msg.setSubject(subject);
-        msg.setText(body);
-        msg.setFrom("suporte@exemplo.com");
-        mailSender.send(msg);
-    }
-}
+---
+
+### 5. Runbook: Alerta de Falha na Captura de Recibo (20 Tentativas Excedidas)
+A captura do PDF do recibo emitido na ContaAzul é realizada de forma assíncrona. Caso a automação falhe por 20 tentativas consecutivas:
+
+1. Colete o ID da baixa/venda (`baixaId` ou `saleId`) contido no corpo do alerta.
+2. Acesse o ERP ContaAzul e confirme se a baixa de fato possui um documento anexo e se a categoria do anexo está marcada como `RECIBO` ou `RECIBO_DIGITAL`.
+3. Caso o anexo esteja válido mas não capturado, dispare o reprocessamento histórico (Backfill) dos últimos 30 dias usando credenciais de `ADMIN`:
+```bash
+curl -X POST http://localhost:8085/api/financeiro/backfill \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+4. Se o erro de captura persistir por falha na API do ERP, baixe o PDF manualmente e faça o upload direto na interface administrativa da Inovare TI para encerrar a pendência e notificar o cliente por e-mail.
+
+### 6. Validação de Alertas em Testes (Simulação Crítica)
+Para testar o fluxo completo de disparo de incidentes (Alerta → Evento → Listener → Notificação via Embed do Discord):
+```bash
+curl -X POST http://localhost:8085/api/financeiro/test/simulate-critical-alert \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
 ```
 
-Para testes locais use `MailHog` ou similar; para unit tests, mockar `JavaMailSender`.
+---
+
+## 📅 Histórico de Desenvolvimento e Roadmap Tecnológico
+
+### Cronologia de Fases do Projeto
+
+*   **Fase 1 — Modelagem Base**: Entidades fundamentais (`Sector`, `User`, `TicketCategory`) e repositórios Spring Data JPA estruturados.
+*   **Fase 2 — Perímetro de Segurança**: Configurações do Spring Security, JWT stateless, tratamento centralizado de exceções (RFC 7807).
+*   **Fase 3 — Módulo de Inventário**: Cadastro de insumos (`Item`), categorizações e divisão por lotes de aquisição.
+*   **Fase 4 — Motor de Chamados**: Abertura de tickets com vínculo transacional de baixa atômica de estoque ao encerrar chamados.
+*   **Fase 5 — Duplo Fator (2FA)**: Integração obrigatória do TOTP (Google Authenticator) e fluxos seguros de verificação.
+*   **Fase 6 — Armazenamento e Anexos**: Upload de notas fiscais e arquivos salvos localmente sob volumes protegidos.
+*   **Fase 7 — Canal de Recuperação**: Criação do Bot do Discord corporativo (JDA 5) para suporte a reset autônomo de 2FA por chaves efêmeras geradas via direct message (DM).
+*   **Fase 8 — Trilha de Auditoria (Compliance)**: Eventos assíncronos que registram em logs de auditoria imutáveis as ações de leitura e escritas no sistema.
+*   **Fase 9 — Otimização PWA**: Suporte completo a Progressive Web Application, permitindo a instalação nativa em celulares e leitura offline de QR Codes de ativos.
+*   **Fase 10 — Dashboard Premium & Hub Financeiro**:
+    *   Implementação do algoritmo **FIFO (First-In, First-Out)** de estoque de maneira transacional e segura.
+    *   Refatoração completa do `ReportService` para OpenPDF (`PdfPTable`) com design corporativo e tratamento de fuso horário (`America/Sao_Paulo`).
+    *   Integração do Grafana e dashboards de saúde com visualização integrada e embedding.
+*   **Fase 11 — Consolidação de Documentação & Deploy**: Redução de arquivos redundantes e polimento geral de segurança do backend e frontend para publicação.
 
 ---
 
-## Flyway, Seeder e Observability
+## 🛠️ Ferramentas Técnicas Auxiliares
 
-- `FlywayConfig` executa migrações na inicialização; `spring.jpa.hibernate.ddl-auto` = `validate`.
-- `DatabaseSeeder` (profile `dev`) popula dados iniciais quando tabelas vazias.
-- Métricas: Micrometer + Prometheus; expor endpoints `prometheus`/`health` via Actuator.
-
----
-
-## Recomendações para Desenvolvedores
-
-- Manter mensagens visíveis ao usuário em português.
-- Evitar logs que contenham tokens completos em produção.
-- Testar cenários de refresh de token e parsing defensivo nas integrações.
-
----
-
-## Relatórios PDF (OpenPDF / PdfPTable)
-
-- O serviço `ReportService.exportInventoryExitsToPdf` agora usa a biblioteca OpenPDF (API compatível com iText) e `PdfPTable` para gerar uma tabela profissional.
-- Alterações principais:
-    - Inclusão de logo (tenta carregar `src/main/resources/images/logo.png`, com fallback para URL pública) no cabeçalho do PDF.
-    - Cabeçalho da tabela com cor da marca Inovare (`#feb56c`) e fonte em branco para contraste.
-    - Uso de `PdfPTable` para garantir colunas reais, larguras fixas e alinhamentos (quantidades e valores à direita; textos à esquerda).
-    - Linha `TOTAL` ao final da tabela com somatório financeiro e resumo abaixo da tabela.
-    - Comentários em código mantidos em português e paginação tratada pela API de PDF.
- - Observação: se for necessário trocar a biblioteca por iText comercial, abrir discussão sobre licenciamento.
+### Rodar Interface Swagger localmente para APIs:
+```bash
+docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json -v "%CD%/docs":/usr/share/nginx/html:ro swaggerapi/swagger-ui
+```
+A especificação Swagger-UI ficará disponível em `http://localhost:8080`, facilitando a depuração rápida de novos endpoints expostos pelo time de desenvolvimento.

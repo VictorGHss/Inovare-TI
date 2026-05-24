@@ -1,67 +1,100 @@
-# FEATURES
+# Catálogo de Funcionalidades — Inovare TI
 
-Resumo executivo dos modulos principais da plataforma Inovare TI.
+Este documento apresenta o resumo executivo, especificações funcionais e as regras de negócio dos módulos principais que compõem a plataforma Inovare TI.
 
-## Identidade e Experiencia
+---
 
-- Identidade visual baseada na cor primaria `#ffa751`, com interface responsiva e foco em leitura rapida.
-- Navegacao pensada para desktop e mobile, incluindo experiencia instalada como app.
-- Dashboard executivo com cards de resumo, rankings Top 5 e graficos de leitura operacional.
+## 🎨 Identidade e Experiência do Usuário
 
-## Vault
+* **Design System Premium**: Interface responsiva baseada na cor primária da marca Inovare (`#feb56c`), desenvolvida para garantir leitura ágil e navegação fluida em desktops, tablets e smartphones.
+* **Dashboard Executivo**: Painel centralizado que exibe cards de resumos operacionais em tempo real, atalhos de monitoramento técnico, rankings Top 5 de demandas e gráficos interativos de controle de chamados e finanças.
 
-- Cofre seguro para credenciais, documentos e notas sensiveis.
-- Protecao por 2FA para leitura de segredos e visualizacao de anexos.
-- Compartilhamento privado, por times tecnicos ou customizado por usuario.
-- Edicao e exclusao de itens com controle estrito: apenas `owner_id` ou `ADMIN` podem alterar ou remover registros.
-- Auditoria para autenticacao 2FA, criacao, leitura sensivel, edicao, exclusao e eventos de acesso.
+---
 
-## Chamados
+## 🔒 Cofre Eletrônico de Senhas e Documentos (Vault)
 
-- Abertura, atribuicao, transferencia, resolucao e fechamento de tickets com SLA.
-- Priorizacao por severidade e categorizacao por dominio tecnico.
-- Rankings por setores e solicitantes para analise de demanda.
-- Suporte a solicitacoes de itens com integracao ao estoque.
-- Notificacoes inteligentes por perfil (`ADMIN`/`TECHNICIAN`) com preferencia individual de recebimento.
+O Vault atua como um perímetro de segurança para custódia de credenciais corporativas e dados sensíveis:
 
-## Inventario e Ativos
+* **Proteção Ativa por MFA**: Exige validação obrigatória de segundo fator (TOTP) para a leitura de segredos (`secret_content`), downloads de anexos criptografados ou qualquer ação de escrita (criação, edição e exclusão de itens).
+* **Níveis de Compartilhamento**:
+  * `PRIVATE`: Acesso restrito exclusivamente ao usuário proprietário (`owner_id`) e administradores.
+  * `ALL_TECH_ADMIN`: Compartilhamento coletivo automático com todos os técnicos de TI e administradores cadastrados.
+  * `CUSTOM`: Compartilhamento granular com usuários selecionados individualmente (gerido pela tabela `vault_item_shares`).
+* **Edição e Exclusão Seguras**: Somente o criador do item (`owner_id`) ou um operador com permissão de `ADMIN` possuem autoridade para atualizar ou expurgar dados do cofre.
+* **Compliance de Acesso**: Todo e qualquer evento sensível no cofre (visualização de senhas, download de anexos, alterações) gera imediatamente um registro imutável na trilha de auditoria.
 
-- Controle de itens, categorias, lotes e entradas de estoque.
-- Cadastro de ativos vinculados a usuarios e acompanhamento de manutencoes.
-- Visao de estoque baixo e indicadores consolidados para operacao.
-- Integracao com QR Code e historico operacional no dashboard.
-- Auditoria dedicada para criacao de itens, criacao de lotes, cadastro de ativos, edicao de ativos e leitura por QR Code.
+---
 
-## Base de Conhecimento
+## 🎫 Central de Chamados (Helpdesk)
 
-- Artigos com `status` `DRAFT` ou `PUBLISHED`, mantidos no schema base via `V1__init.sql`.
-- Rascunhos visiveis apenas para o autor ou para `ADMIN`.
-- Fluxo completo de criacao, publicacao e edicao no frontend e backend.
+O motor de chamados centraliza e agiliza o fluxo de suporte de TI da clínica:
 
-## Módulo de Automação Financeira Protegida
+* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculado de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
+* **Gestão de Atribuições**: Técnicos podem assumir chamados autonomamente (Claim) ou administradores podem designar operadores específicos.
+* **Comentários e Histórico**: Suporte a diálogos e troca de mensagens entre os solicitantes e a equipe de suporte técnico, com upload de anexos legados integrados ao chamado.
+* **Notificações Operacionais**: Notificações por e-mail e web baseadas no perfil do operador, com preferência individual configurável de recebimento de alertas no Discord.
 
-- Integracao com ContaAzul para vinculacao de clientes e ciclo OAuth2.
-- Gatekeeper 2FA obrigatorio para qualquer rota sob `/financeiro`, com desafio TOTP antes da carga de dados.
-- Motor SMTP dedicado para recibos financeiros via `JavaMailSender`.
-- Modo de teste financeiro com redirecionamento forçado para e-mail do desenvolvedor e assunto rastreavel.
-- Controle de idempotencia de envio e trilha de falhas para reenvio manual via `processed_receipts` e `system_alerts`.
+---
 
-### Endpoints finais de operacao financeira
+## 📦 Inventário, Ativos e Algoritmo FIFO Transacional
 
-- `POST /api/financeiro/backfill`: sincroniza e persiste recibos historicos dos ultimos 30 dias para conferencia.
-- `POST /api/financeiro/alertas/{alertId}/reenviar`: reencaminha manualmente recibos associados a alertas nao resolvidos e marca o alerta como resolvido.
+O controle de insumos e hardware foi projetado para assegurar consistência fiscal e exatidão contábil total:
 
-## PWA e Mobilidade
+### 1. Gestão de Insumos e Lotes de Compra
+* Cadastro de itens de consumo de TI e peças de reposição agrupadas por categorias.
+* Lotes de estoque (`stock_batches`) individuais contendo o valor unitário de aquisição do produto e data de registro, o que viabiliza o acompanhamento financeiro preciso do estoque circulante.
 
-- Aplicacao instalavel com manifesto, atalhos e comportamento mobile-first.
-- Leitura nativa de QR Code para navegar internamente no sistema.
-- Layout adaptado para uso em smartphones, tablets e desktops.
+### 2. Algoritmo FIFO (First-In, First-Out)
+Para a saída de mercadorias no fechamento de chamados ou retiradas manuais, a plataforma executa estritamente a política FIFO:
+* Os lotes com a data de entrada mais antiga e quantidade disponível (`remaining_quantity > 0`) são consumidos prioritariamente.
+* Se a quantidade requisitada exceder o lote mais antigo, o motor realiza a dedução fracionada consumindo lotes subsequentes de forma recursiva até sanar a totalidade do pedido.
 
-## Auditoria 360
+### 3. Mecanismo Transacional e Fallback de Persistência
+Para evitar qualquer discrepância entre a redução do saldo físico (`current_stock` em `items`) e a trilha de relatórios financeiros de saída de inventário, a plataforma implementa uma camada transacional de alta robustez:
+* **Atomicidade Garantida**: O método de dedução FIFO utiliza `Propagation.MANDATORY`, executando obrigatoriamente dentro da mesma transação física do encerramento do chamado (`ResolveTicketUseCase`). Em caso de falha em qualquer etapa (dedução de lote, persistência, gravação de log), toda a operação sofre rollback.
+* **Persistência de Fallback**: Caso ocorra alguma falha pontual de comunicação e o serviço principal de dedução de lote não registre a movimentação, o caso de uso executa uma barreira de proteção ativa. Ele realiza uma consulta rápida pós-dedução e, caso não localize a movimentação, cria e persiste de forma autônoma um registro em `stock_movements` do tipo `OUT` associado ao ticket de origem (referência: `TICKET:{ticketId}`).
+* **Tratamento Fiel de Valores**: Os relatórios financeiros de saídas de inventário realizam filtragem exclusiva por movimentações do tipo `OUT` e tratam valores de aquisição (`unit_price_at_time`) nulos como zero, prevenindo travamento de relatórios e assegurando que nenhum consumo seja ignorado por falta de dados financeiros de entrada históricos.
 
-- Trilha de auditoria desacoplada via eventos Spring, com persistencia assicrona.
-- Cobertura de autenticacao, Vault, chamados, inventario, ativos, base de conhecimento, perfil e gestao de usuarios.
-- Consulta administrativa de logs com filtros por usuario, acao e periodo.
-- Captura de IP com suporte a `X-Forwarded-For` para ambientes atras de proxy.
-- Mapeamento expandido com eventos canonicos para: `TICKET_OPEN`, `TICKET_ASSIGN`, `TICKET_TRANSFER`, `TICKET_RESOLVE`, `STOCK_BATCH_CREATE`, `ITEM_CREATE`, `ASSET_CREATE`, `ASSET_EDIT`, `ASSET_QR_SCAN`, `ARTICLE_POST_PUBLIC`, `ARTICLE_POST_DRAFT`, `ARTICLE_EDIT`, `VAULT_AUTH_SUCCESS`, `VAULT_AUTH_FAIL`, `VAULT_ITEM_CREATE`, `VAULT_ITEM_VIEW`, `VAULT_ITEM_EDIT`, `VAULT_ITEM_DELETE`, `USER_CREATE`, `USER_EDIT`, `USER_PASSWORD_ADMIN_RESET`, `USER_2FA_ADMIN_RESET`, `SECTOR_CREATE` e `PROFILE_PASSWORD_CHANGE`.
-'
+### 4. Controle de Ativos e QR Codes
+* Rastreamento individualizado de patrimônio de hardware da clínica, com associação direta a setores e usuários.
+* Geração e scanner nativo de QR Codes no frontend para abertura imediata da página de auditoria do ativo ou chamado de suporte associado ao computador ou impressora.
+
+---
+
+## 📖 Base de Conhecimento
+
+Espaço estruturado para o compartilhamento de artigos, tutoriais técnicos e runbooks de autoatendimento para os colaboradores da clínica:
+* **Fluxo de Rascunhos**: Artigos criados no estado `DRAFT` (Rascunho) são visíveis e editáveis exclusivamente pelo próprio autor do texto ou por operadores `ADMIN`.
+* **Publicação Controlada**: A transição para o estado `PUBLISHED` disponibiliza o conteúdo para leitura de todos os setores corporativos do sistema.
+
+---
+
+## 💳 Automação Financeira Protegida (ERP ContaAzul)
+
+Integração bidirecional robusta com o ERP financeiro ContaAzul para automatizar processos de faturamento internos:
+
+* **Duplo Fator Obrigatório**: Qualquer requisição às rotas financeiras `/api/financeiro/**` exige a barreira prévia do TOTP/2FA ativo. A interface só carrega o dashboard financeiro após o operador responder com sucesso ao desafio de segurança.
+* **Envio Automatizado de Recibos**: A plataforma intercepta eventos de baixas de boletos e faturamentos de clientes no ERP e dispara automaticamente e-mails de agradecimento e recibos oficiais formatados aos clientes.
+* **Prevenção de Duplicidades (Idempotência)**: A tabela `processed_receipts` calcula hashes do payload financeiro e armazena os IDs de parcelas processadas, garantindo que nenhum e-mail de recibo seja enviado em duplicidade para os clientes mesmo com disparos manuais sucessivos.
+* **Fila de Incidentes Técnicos**: Falhas de comunicação ou ausência temporária de PDFs gerados pelo ERP são retidas em `system_alerts` com payload técnico completo para permitir a reexecução manual em um único clique assim que os sistemas externos estabilizarem.
+
+---
+
+## 📱 PWA e Mobilidade
+
+* **Experiência Instalável**: Configuração completa de manifesto PWA permitindo a instalação nativa do sistema em dispositivos iOS e Android como um aplicativo dedicado.
+* **Scanner de QR Code Nocivo**: Utilização das APIs nativas da câmera para ler códigos patrimoniais colados fisicamente nos computadores, proporcionando rapidez na triagem de problemas nos consultórios da clínica.
+
+---
+
+## 📋 Auditoria 360 e Compliance Imutável
+
+Trilha de auditoria desacoplada e assíncrona gerida por eventos internos Spring Boot (`AuditEvent`) para compliance e conformidade LGPD:
+
+* **Isolamento de Persistência**: A gravação de logs de auditoria ocorre em background de forma assíncrona por meio do `AuditEventListener`, impedindo que atrasos na gravação de logs prejudiquem o tempo de resposta das transações normais de tela.
+* **Ações Rastreáveis Mapeadas**:
+  * **Autenticação**: Sucesso de login (`LOGIN_SUCCESS`), falha de credenciais (`LOGIN_FAILURE`), validação TOTP, reset de 2FA por administrador ou via Discord.
+  * **Cofre (Vault)**: Criação de segredos, leitura descriptografada de senhas (`VAULT_SECRET_VIEW`), download de anexos do cofre, edições e remoções físicas de registros.
+  * **Operações**: Aberturas, claims de técnicos, transferências e encerramento de tickets. Alterações cadastrais de usuários e reset de senhas.
+  * **Estoque e Ativos**: Criação de insumos, registros de lotes de compra, saídas FIFO de inventário, cadastro e alteração de ativos, além de leituras de QR Code.
+  * **Artigos**: Criação de artigos, salvamento de rascunhos, edições e publicações globais de conteúdo na base de conhecimento.

@@ -148,7 +148,7 @@ export default function QrScannerLauncher({ buttonLabel = 'Ler QR Code' }: Props
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-primary/25 transition-transform duration-200 hover:scale-[1.02] hover:bg-primary-hover"
+        className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-brand-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-primary/25 transition-transform duration-200 hover:scale-[1.02] hover:bg-brand-primary-dark"
       >
         <QrCode size={18} />
         <span className="hidden sm:inline">{buttonLabel}</span>

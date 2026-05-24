@@ -153,7 +153,7 @@ public class DatabaseBackupScheduler {
             
             log.info("Rotina de backup finalizada com sucesso. Arquivo ZIP salvo em: {}", zipFile.getAbsolutePath());
 
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException e) {
             log.error("Falha crítica durante a execução do backup do banco de dados: {}", e.getMessage(), e);
             saveAlert("CRITICAL", "Falha na rotina de backup do banco de dados", 
                     "Ocorreu um erro ao processar ou salvar o backup: " + e.getMessage(), timestamp, 0);

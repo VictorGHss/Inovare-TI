@@ -1,15 +1,11 @@
 package br.dev.ctrls.inovareti.config;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -106,7 +102,7 @@ public class DatabaseBackupScheduler {
                 dbName = dbName.split("\\?")[0];
             }
 
-            String host = "localhost";
+            String host;
             String port = "5432";
             if (hostPort.contains(":")) {
                 String[] hp = hostPort.split(":");
@@ -147,7 +143,7 @@ public class DatabaseBackupScheduler {
             // 4. Utilizar JavaMailSender para enviar por e-mail
             try {
                 sendBackupEmail(zipFile, timestamp);
-            } catch (Exception emailEx) {
+            } catch (MessagingException emailEx) {
                 log.warn("Falha ao enviar backup por e-mail, mas o arquivo físico foi preservado: {}", emailEx.getMessage());
             }
 
@@ -178,10 +174,9 @@ public class DatabaseBackupScheduler {
      * criptografia forte AES-256 em conformidade com a LGPD e boas práticas de privacidade.
      */
     private void zipFile(File sourceFile, File zipFile) throws IOException {
-        try {
-            // Inicializa a instância do ZipFile da biblioteca Zip4j no caminho destino
-            net.lingala.zip4j.ZipFile zip = new net.lingala.zip4j.ZipFile(zipFile);
-            
+        // Envolve o recurso do ZipFile em um bloco try-with-resources para garantir o fechamento automático do recurso,
+        // evitando vazamento de recursos (resource leaks) e mantendo a integridade de descritores no SO.
+        try (net.lingala.zip4j.ZipFile zip = new net.lingala.zip4j.ZipFile(zipFile)) {
             if (zipPassword != null && !zipPassword.isBlank()) {
                 log.info("Compactando o dump SQL no formato ZIP protegido com criptografia AES-256.");
                 

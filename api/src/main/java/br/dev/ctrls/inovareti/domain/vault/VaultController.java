@@ -54,6 +54,10 @@ public class VaultController {
             @RequestPart(value = "file", required = false) MultipartFile file,
             HttpServletRequest httpRequest) {
 
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de criar qualquer item no cofre.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
         VaultCreateItemRequestDTO request = parseCreatePayload(payload);
         VaultItemResponseDTO response = vaultService.createItem(
                 getAuthenticatedUserId(), request, file, getClientIp(httpRequest));
@@ -74,6 +78,10 @@ public class VaultController {
             @RequestPart(value = "file", required = false) MultipartFile file,
             HttpServletRequest httpRequest) {
 
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de modificar qualquer item no cofre.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
         VaultUpdateItemRequestDTO request = parseUpdatePayload(payload);
         VaultItemResponseDTO response = vaultService.updateItem(
                 getAuthenticatedUserId(), itemId, request, file, getClientIp(httpRequest));
@@ -82,6 +90,10 @@ public class VaultController {
 
     @DeleteMapping("/{itemId}")
     public ResponseEntity<Void> deleteItem(@PathVariable UUID itemId, HttpServletRequest httpRequest) {
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de excluir qualquer item no cofre.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
         vaultService.deleteItem(getAuthenticatedUserId(), itemId, getClientIp(httpRequest));
         return ResponseEntity.noContent().build();
     }

@@ -74,9 +74,13 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/reset-initial-password").permitAll()
                 .requestMatchers("/auth/2fa/**").authenticated()
                 
-                // Restringir acesso aos endpoints do Actuator apenas para ADMIN
+                // Restringe o acesso aos endpoints do Actuator apenas para administradores (ADMIN),
+                // exceto o endpoint do Prometheus (/actuator/prometheus), que é liberado publicamente 
+                // para coleta externa de métricas em tempo real de forma segura.
+                .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
-                // Libera endpoints do Swagger UI e documentação da API
+                
+                // Libera endpoints de documentação Swagger UI e especificações da API
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
@@ -89,8 +93,8 @@ public class SecurityConfig {
     }
 
     /**
-     * CorsFilter bean with highest precedence so CORS preflights are handled
-     * before security filters (JWT, etc.).
+     * Bean CorsFilter com a prioridade mais alta para que as requisições de preflight do CORS 
+     * sejam tratadas e respondidas antes de passarem pelos filtros de segurança (JWT, etc.).
      */
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)

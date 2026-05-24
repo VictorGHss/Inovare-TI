@@ -60,6 +60,9 @@ public class DatabaseBackupScheduler {
     @Value("${spring.mail.username}")
     private String smtpUsername;
 
+    @Value("${app.backup.zip-password:}")
+    private String zipPassword;
+
     /**
      * Executa a rotina de backup todos os dias às 3h da manhã.
      */
@@ -170,22 +173,33 @@ public class DatabaseBackupScheduler {
     }
 
     /**
-     * Compacta um arquivo de origem para o destino ZIP especificado.
+     * Compacta um arquivo de origem para o destino ZIP especificado utilizando a biblioteca Zip4j.
+     * Caso a senha de backup esteja configurada, protege o arquivo ZIP resultante com 
+     * criptografia forte AES-256 em conformidade com a LGPD e boas práticas de privacidade.
      */
     private void zipFile(File sourceFile, File zipFile) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(zipFile);
-             ZipOutputStream zos = new ZipOutputStream(fos);
-             FileInputStream fis = new FileInputStream(sourceFile)) {
-             
-            ZipEntry zipEntry = new ZipEntry(sourceFile.getName());
-            zos.putNextEntry(zipEntry);
+        try {
+            // Inicializa a instância do ZipFile da biblioteca Zip4j no caminho destino
+            net.lingala.zip4j.ZipFile zip = new net.lingala.zip4j.ZipFile(zipFile);
             
-            byte[] buffer = new byte[4096];
-            int length;
-            while ((length = fis.read(buffer)) >= 0) {
-                zos.write(buffer, 0, length);
+            if (zipPassword != null && !zipPassword.isBlank()) {
+                log.info("Compactando o dump SQL no formato ZIP protegido com criptografia AES-256.");
+                
+                // Configura parâmetros de encriptação com Zip4j
+                net.lingala.zip4j.model.ZipParameters zipParameters = new net.lingala.zip4j.model.ZipParameters();
+                zipParameters.setEncryptFiles(true);
+                zipParameters.setEncryptionMethod(net.lingala.zip4j.model.enums.EncryptionMethod.AES);
+                zipParameters.setAesKeyStrength(net.lingala.zip4j.model.enums.AesKeyStrength.KEY_STRENGTH_256);
+                
+                zip.setPassword(zipPassword.toCharArray());
+                zip.addFile(sourceFile, zipParameters);
+            } else {
+                log.warn("Senha de backup não configurada (app.backup.zip-password está vazia). O ZIP será gerado sem criptografia.");
+                zip.addFile(sourceFile);
             }
-            zos.closeEntry();
+        } catch (Exception e) {
+            log.error("Erro crítico ao realizar a compactação protegida do backup via Zip4j", e);
+            throw new IOException("Falha ao compactar dump SQL com Zip4j: " + e.getMessage(), e);
         }
     }
 

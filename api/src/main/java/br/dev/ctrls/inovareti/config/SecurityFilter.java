@@ -52,6 +52,16 @@ public class SecurityFilter extends OncePerRequestFilter {
         // Além dos endpoints de auth, também pular o filtro para endpoints do
         // Actuator (ex.: /api/actuator/prometheus) para permitir que Prometheus
         // colete métricas sem exigir um token JWT.
+        // Ignora a validação JWT apenas para a rota de coleta pública de métricas do Prometheus.
+        // Outros caminhos do Actuator (como /actuator/env, /actuator/beans) exigem a validação do token JWT do Admin.
+        boolean isPrometheusPath = requestUri.contains("/actuator/prometheus") 
+            || requestUri.startsWith("/api/actuator/prometheus");
+
+        // Ignora a validação para o webhook comum do Blip, mas exige validação de autenticação
+        // caso seja o endpoint de trigger manual administrativo (/webhooks/blip/manual-trigger).
+        boolean isWebhooksPath = (requestUri.startsWith("/webhooks/") && !requestUri.contains(BLIP_MANUAL_TRIGGER_PATH))
+            || (requestUri.startsWith("/api/webhooks/") && !requestUri.contains(BLIP_MANUAL_TRIGGER_PATH));
+
         return requestUri.contains("/auth/login")
             || requestUri.contains("/auth/reset-initial-password")
             || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
@@ -64,20 +74,14 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.equals(BLIP_WEBHOOK_ALIAS_PATH + "/")
             || requestUri.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH)
             || requestUri.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH + "/")
-            || requestUri.startsWith("/webhooks/")
-            || requestUri.startsWith("/api/webhooks/")
-            || requestUri.equals(BLIP_MANUAL_TRIGGER_PATH)
-            || requestUri.equals(BLIP_MANUAL_TRIGGER_PATH + "/")
-            || requestUri.equals("/api" + BLIP_MANUAL_TRIGGER_PATH)
-            || requestUri.equals("/api" + BLIP_MANUAL_TRIGGER_PATH + "/")
+            || isWebhooksPath
             || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH)
             || requestUri.equals(APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
             || requestUri.equals("/api" + APPOINTMENT_BLIP_WEBHOOK_PATH)
             || requestUri.equals("/api" + APPOINTMENT_BLIP_WEBHOOK_PATH + "/")
             || requestUri.equals(APPOINTMENT_DEBUG_QUEUES_PATH)
             || requestUri.equals("/api" + APPOINTMENT_DEBUG_QUEUES_PATH)
-            || requestUri.contains("/actuator/")
-            || requestUri.startsWith("/api/actuator/")
+            || isPrometheusPath
             || requestUri.contains("/ws/")
             || requestUri.startsWith("/api/ws/")
             || requestUri.startsWith("/ws/");
@@ -91,11 +95,18 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
         
-        // Libera a passagem direta para os Webhooks do Blip sem exigir JWT
+        // Se o contexto de segurança já possui uma autenticação (ex.: preenchida pelo ManualTriggerKeyFilter),
+        // passa para o próximo filtro sem sobrescrever nem re-validar.
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Libera a passagem direta para os Webhooks comuns da Blip sem exigir JWT.
+        // O trigger manual foi removido desta verificação para que administradores humanos autenticados via JWT também possam acessá-lo.
         if (path.contains("/v1/appointments/blip/webhook")
             || path.contains("/v1/webhook/blip")
-            || path.contains(BLIP_WEBHOOK_ALIAS_PATH)
-            || path.contains(BLIP_MANUAL_TRIGGER_PATH)) {
+            || path.contains(BLIP_WEBHOOK_ALIAS_PATH)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -107,14 +118,13 @@ public class SecurityFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Preferir extrair o userId diretamente do claim do token.
+        // Dá preferência para extrair o userId diretamente do claim do token JWT.
         String userIdClaim = tokenService.getUserIdFromToken(token);
         if (userIdClaim != null && !userIdClaim.isBlank()) {
             try {
                 UUID userId = UUID.fromString(userIdClaim);
                 userRepository.findById(userId).ifPresent(user -> {
-                    // Use o ID (String) como principal para compatibilidade com o código
-                    // existente que chama `getPrincipal().toString()`.
+                    // Utiliza o ID (String) como principal para manter a compatibilidade com o código legado que usa `getPrincipal().toString()`.
                     var principal = user.getId() != null ? user.getId().toString() : null;
                     var authentication = new UsernamePasswordAuthenticationToken(
                         principal, null, user.getAuthorities());
@@ -124,7 +134,7 @@ public class SecurityFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
             } catch (IllegalArgumentException ex) {
-                // invalid UUID in claim - fallback to email-based resolution below
+                // UUID inválido no claim - fallback para a resolução baseada em e-mail abaixo
             }
         } else {
             String email = tokenService.validateToken(token);

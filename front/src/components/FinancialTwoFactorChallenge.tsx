@@ -9,7 +9,11 @@ import { verify2FA } from '../services/userService';
 const inputClassName =
   'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
 
-export default function FinancialTwoFactorChallenge() {
+interface FinancialTwoFactorChallengeProps {
+  onClose?: () => void;
+}
+
+export default function FinancialTwoFactorChallenge({ onClose }: FinancialTwoFactorChallengeProps) {
   const { updateAuthToken } = useAuth();
   const navigate = useNavigate();
 
@@ -31,7 +35,7 @@ export default function FinancialTwoFactorChallenge() {
 
       updateAuthToken(response.token, response.user);
       setCode('');
-      toast.success('Desafio 2FA validado. Acesso financeiro liberado.');
+      toast.success('Desafio 2FA validado. Acesso liberado.');
     } catch {
       toast.error('Código 2FA inválido.');
     } finally {
@@ -44,7 +48,7 @@ export default function FinancialTwoFactorChallenge() {
       <div className="w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <div className="flex justify-end">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={onClose || (() => navigate('/dashboard'))}
             className="text-slate-400 hover:text-slate-600"
             aria-label="Voltar para o dashboard"
             title="Voltar"

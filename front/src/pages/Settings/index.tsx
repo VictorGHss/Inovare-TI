@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/inventoryService';
+import FinancialTwoFactorChallenge from '../../components/FinancialTwoFactorChallenge';
 import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
@@ -52,7 +53,7 @@ function WebhookBadge({ status }: { status: string }) {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isTwoFactorVerified } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'system' : 'profile');
   const [activeSubSection, setActiveSubSection] = useState<SubSectionType>('menu');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -408,7 +409,11 @@ export default function Settings() {
                 </motion.div>
               )}
 
-              {activeSubSection === 'integrations' && (
+              {activeSubSection === 'integrations' && !isTwoFactorVerified && (
+                <FinancialTwoFactorChallenge onClose={() => setActiveSubSection('menu')} />
+              )}
+
+              {activeSubSection === 'integrations' && isTwoFactorVerified && (
                 <motion.div
                   key="integrations"
                   initial={{ opacity: 0, scale: 0.98 }}

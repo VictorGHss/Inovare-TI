@@ -3,8 +3,9 @@ package br.dev.ctrls.inovareti.config;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -166,7 +167,7 @@ public class TokenService {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (JWTVerificationException | IllegalArgumentException | BeansException e) {
             // Silently ignore verification exceptions during blacklisting
         }
     }
@@ -180,7 +181,7 @@ public class TokenService {
             if (redis != null) {
                 return Boolean.TRUE.equals(redis.hasKey("blacklist:token:" + token));
             }
-        } catch (Exception e) {
+        } catch (BeansException e) {
             // Resilient fallback: allow authorization if Redis has an outage
         }
         return false;

@@ -64,8 +64,8 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: null,
-        // Não precacheia index.html para evitar servir shell antigo após deploy.
-        globPatterns: ['**/*.{js,css,ico,png,svg}'],
+        // Desativa precaching de assets para evitar quebras/404 por arquivos com hashes obsoletos de deploys passados
+        globPatterns: [],
         // Força documentos (rotas HTML) a virem da rede, reduzindo risco de 404 por assets desatualizados.
         runtimeCaching: [
           {

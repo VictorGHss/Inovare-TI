@@ -67,7 +67,7 @@ public class ReportService {
             // 1) Busca movimentos de estoque (consumíveis entregues) vinculados a este ticket
             List<br.dev.ctrls.inovareti.domain.inventory.StockMovement> movements = List.of();
             try {
-                movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc("TICKET:" + ticket.getId(), br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
+                movements = stockMovementRepository.findByReferenceContainingIgnoreCaseAndTypeOrderByDateDesc(ticket.getId().toString(), br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
             } catch (Exception e) {
                 // swallow
             }

@@ -97,6 +97,7 @@ public class ReportPdfExporter {
                         : null);
 
                 int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
+                qty = Math.abs(qty); // Garante quantidade positiva para saídas no PDF
                 BigDecimal totalPrice = totalsByTicket.getOrDefault(ticket.getId(), BigDecimal.ZERO);
 
                 tableTotalValue = tableTotalValue.add(totalPrice);

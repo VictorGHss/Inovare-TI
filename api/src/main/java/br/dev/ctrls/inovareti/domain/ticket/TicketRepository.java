@@ -20,9 +20,13 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * via JOIN FETCH para evitar o problema N+1.
      */
     @Query("""
-            SELECT t FROM Ticket t
-            JOIN FETCH t.requester
+            SELECT DISTINCT t FROM Ticket t
+            JOIN FETCH t.requester r
+            LEFT JOIN FETCH r.sector
             JOIN FETCH t.category
+            LEFT JOIN FETCH t.requestedItem i
+            LEFT JOIN FETCH i.itemCategory
+            LEFT JOIN FETCH t.assignedTo
             """)
     List<Ticket> findAllWithRelations();
 

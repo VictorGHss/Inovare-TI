@@ -159,13 +159,14 @@ public class ReportExcelExporter {
                     Row row = sheet.createRow(rowNum++);
 
                     int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
+                    qty = Math.abs(qty); // Garante quantidade positiva para saídas na planilha
 
                     row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
                     row.createCell(2).setCellValue(qty);
-                    row.createCell(3).setCellValue(ticket.getRequester().getName());
-                    row.createCell(4).setCellValue(ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
-                    row.createCell(5).setCellValue(ticket.getRequester().getSector().getName());
+                    row.createCell(3).setCellValue(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
+                    row.createCell(4).setCellValue(ticket.getRequester() != null && ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
+                    row.createCell(5).setCellValue(ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-");
 
                     BigDecimal totalPrice = totalsByTicket.getOrDefault(ticket.getId(), BigDecimal.ZERO);
                     row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));

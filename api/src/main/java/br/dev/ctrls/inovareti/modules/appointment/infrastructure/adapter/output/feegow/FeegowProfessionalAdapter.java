@@ -16,7 +16,6 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.CacheJitt
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowProfessionalClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties;
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;

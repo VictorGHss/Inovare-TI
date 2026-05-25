@@ -102,6 +102,9 @@ public class BlipLIMEClient implements BlipClientPort {
                         if (identityObj == null) {
                             identityObj = itemMap.get("id");
                         }
+                        if (identityObj == null) {
+                            identityObj = itemMap.get("name");
+                        }
                         String id = identityObj != null ? String.valueOf(identityObj) : "";
                         String name = itemMap.get("name") != null ? String.valueOf(itemMap.get("name")) : "";
                         if (!id.isBlank()) {

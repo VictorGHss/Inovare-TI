@@ -1,0 +1,6 @@
+{
+  "id": "test-1",
+  "to": "postmaster@desk.msging.net",
+  "method": "get",
+  "uri": "/teams"
+}

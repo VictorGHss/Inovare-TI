@@ -123,7 +123,7 @@ app:
       blip-base-url: ${APP_APPOINTMENT_BLIP_BASE_URL:https://http.msging.net}
       blip-authorization-key: ${BLIP_BOT_KEY}
       blip-router-key: ${BLIP_ROUTER_KEY}
-      blip-desk-key: ${BLIP_SUBBOT_KEY}
+      blip-desk-key: ${APP_APPOINTMENT_BLIP_DESK_KEY:${BLIP_SUBBOT_KEY}}
       blip-send-message-path: ${APP_APPOINTMENT_BLIP_SEND_MESSAGE_PATH:/messages}
       blip-set-context-path: ${APP_APPOINTMENT_BLIP_SET_CONTEXT_PATH:/contexts}
       blip-router-identity: ${BLIP_ROUTER_ID}

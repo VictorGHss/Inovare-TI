@@ -158,7 +158,7 @@ public class DatabaseBackupScheduler {
             }
 
             // 5. Registrar sucesso no SystemAlertRepository e Logs
-            saveAlert("SUCCESS", "Backup do banco de dados realizado com sucesso", 
+            saveAlert("INFO", "Backup do banco de dados realizado com sucesso", 
                     "O backup foi executado e salvo em disco com sucesso. Origem: " + (isManual ? "Manual" : "Agendado"), timestamp, zipFile.length());
             
             log.info("Rotina de backup finalizada com sucesso. Arquivo ZIP salvo em: {}", zipFile.getAbsolutePath());
@@ -249,14 +249,17 @@ public class DatabaseBackupScheduler {
             context.put("fileSize", fileSize);
             context.put("type", "DATABASE_BACKUP");
 
+            // Traduz "SUCCESS" para "INFO" para respeitar a restrição de banco ck_system_alerts_severity
+            String dbSeverity = "SUCCESS".equalsIgnoreCase(severity) ? "INFO" : severity;
+
             SystemAlert alert = SystemAlert.builder()
                     .alertType("DATABASE_BACKUP")
-                    .severity(severity)
+                    .severity(dbSeverity)
                     .source("DatabaseBackupScheduler")
                     .title(title)
                     .details(details)
                     .context(context)
-                    .resolved("SUCCESS".equals(severity))
+                    .resolved("SUCCESS".equalsIgnoreCase(severity) || "INFO".equalsIgnoreCase(severity))
                     .createdAt(LocalDateTime.now())
                     .build();
 

@@ -8,7 +8,6 @@ import {
   getMappings,
   getBlipQueuesList,
   syncMappings,
-  deleteMappingById,
   type FeegowProfessional,
   type DoctorMapping,
   type BlipQueue,
@@ -24,6 +23,7 @@ export default function ProfessionalMappingPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
   const professionalsById = useMemo(() => {
     const map = new Map<string, FeegowProfessional>();
@@ -40,6 +40,14 @@ export default function ProfessionalMappingPanel() {
   const missingIdCount = useMemo(() => {
     return mappings.filter((m) => !String(m.profissionalId ?? '').trim()).length;
   }, [mappings]);
+
+  const filteredMappings = useMemo(() => {
+    return mappings.filter((row) => {
+      const isInactive = row.blipQueueId === 'inactive';
+      if (showInactive) return true;
+      return !isInactive;
+    });
+  }, [mappings, showInactive]);
 
   const hasBlipQueues = blipQueues.length > 0;
 
@@ -130,8 +138,8 @@ export default function ProfessionalMappingPanel() {
 
   const hasChanges = useMemo(() => true, []); // allow save for simplicity
 
-  function updateField(index: number, field: keyof DoctorMapping, value: string | boolean) {
-    setMappings((current) => current.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
+  function updateField(profissionalId: string, field: keyof DoctorMapping, value: string | boolean) {
+    setMappings((current) => current.map((m) => (String(m.profissionalId) === String(profissionalId) ? { ...m, [field]: value } : m)));
   }
 
   async function handleSave() {
@@ -206,14 +214,25 @@ export default function ProfessionalMappingPanel() {
         </div>
       </header>
 
-      {(missingIdCount > 0 || !hasBlipQueues) && (
-        <div className="border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600">
-          {missingIdCount > 0 ? (
-            <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
-          ) : null}
-          {!hasBlipQueues ? (
-            <p>Filas do Blip indisponíveis no momento. Verifique a integração do Blip.</p>
-          ) : null}
+      {(missingIdCount > 0 || !hasBlipQueues || true) && (
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600 gap-4">
+          <div className="space-y-1">
+            {missingIdCount > 0 ? (
+              <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
+            ) : null}
+            {!hasBlipQueues ? (
+              <p>Filas do Blip indisponíveis no momento. Verifique a integração do Blip.</p>
+            ) : null}
+          </div>
+          <label className="inline-flex items-center gap-2 cursor-pointer font-semibold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-all hover:bg-slate-50">
+            <input
+              type="checkbox"
+              className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            Mostrar profissionais inativos / duplicados
+          </label>
         </div>
       )}
 
@@ -232,12 +251,12 @@ export default function ProfessionalMappingPanel() {
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
-            ) : mappings.length === 0 ? (
+            ) : filteredMappings.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
-              mappings.map((row, idx) => {
+              filteredMappings.map((row, idx) => {
                 const profissionalId = String(row.profissionalId ?? '').trim();
                 const professional = profissionalId ? professionalsById.get(profissionalId) : undefined;
                 const feegowName = professional?.name?.trim() ?? '';
@@ -247,25 +266,27 @@ export default function ProfessionalMappingPanel() {
                     ? `Sem nome (ID ${profissionalId})`
                     : 'ID ausente';
                 const isMissingId = !profissionalId;
+                const isInactiveRow = row.blipQueueId === 'inactive';
 
                 return (
-                  <tr key={`${row.profissionalId}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={`${row.profissionalId}-${idx}`} className={`hover:bg-slate-50/80 transition-colors ${isInactiveRow ? 'bg-slate-100/50 opacity-70' : ''}`}>
                     <td className={`px-4 py-3 align-middle ${isMissingId ? 'text-rose-600' : ''}`}>
                       {isMissingId ? 'ID ausente' : profissionalId}
                     </td>
-                    <td className="px-4 py-3 align-middle">{resolvedFeegowName}</td>
+                    <td className="px-4 py-3 align-middle font-medium text-slate-700">{resolvedFeegowName}</td>
                   <td className="px-4 py-3 align-middle">
-                    <input value={row.profissionalNome} onChange={(e) => updateField(idx, 'profissionalNome', e.target.value)} className={inlineInputClass} />
+                    <input value={row.profissionalNome} onChange={(e) => updateField(row.profissionalId, 'profissionalNome', e.target.value)} className={inlineInputClass} />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
                     <select
                       value={row.blipQueueId ?? ''}
-                      onChange={(e) => updateField(idx, 'blipQueueId', e.target.value)}
+                      onChange={(e) => updateField(row.profissionalId, 'blipQueueId', e.target.value)}
                       disabled={!hasBlipQueues}
-                      className={`${inlineInputClass} border border-slate-200 bg-white ${!hasBlipQueues ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`${inlineInputClass} border border-slate-200 bg-white ${isInactiveRow ? 'text-rose-500 border-rose-200 bg-rose-50/20' : ''} ${!hasBlipQueues ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <option value="">{hasBlipQueues ? 'Selecionar fila do Blip' : 'Filas do Blip indisponíveis'}</option>
+                      <option value="inactive" className="text-rose-600 font-medium">🚫 Inativo (Ocultar/Duplicado)</option>
                       {blipQueues.map((q) => (
                         <option key={q.id} value={q.id}>{q.name}</option>
                       ))}
@@ -275,44 +296,50 @@ export default function ProfessionalMappingPanel() {
                   <td className="px-4 py-3 align-middle">
                     <input
                       type="checkbox"
+                      className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
                       checked={Boolean(row.ignoreAutoSchedule)}
-                      onChange={(e) => updateField(idx, 'ignoreAutoSchedule', e.target.checked)}
+                      onChange={(e) => updateField(row.profissionalId, 'ignoreAutoSchedule', e.target.checked)}
                     />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <input type="checkbox" checked={Boolean(row.isExternal)} onChange={(e) => updateField(idx, 'isExternal', e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                      checked={Boolean(row.isExternal)}
+                      onChange={(e) => updateField(row.profissionalId, 'isExternal', e.target.checked)}
+                    />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <input value={row.externalWaLink} onChange={(e) => updateField(idx, 'externalWaLink', e.target.value)} className={inlineInputClass} />
+                    <input value={row.externalWaLink} onChange={(e) => updateField(row.profissionalId, 'externalWaLink', e.target.value)} className={inlineInputClass} />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <button
-                      type="button"
-                      disabled={!row.id}
-                      onClick={async () => {
-                        if (!confirm(`Confirma excluir mapeamento para ID ${row.profissionalId}?`)) return;
-                        try {
-                          const mappingId = row.id;
-                          if (!mappingId) {
-                            toast.error('Mapping inacessível: id ausente.');
-                            return;
-                          }
-                          console.log('Deletando mapeamento UUID:', mappingId);
-                          await deleteMappingById(mappingId);
-                          setMappings((current) => current.filter((m) => m.profissionalId !== row.profissionalId));
-                          toast.success('Mapeamento removido com sucesso.');
-                        } catch (err) {
-                          toast.error(getApiErrorMessage(err, 'Falha ao excluir mapeamento.'));
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 size={14} />
-                      Excluir
-                    </button>
+                    {isInactiveRow ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateField(row.profissionalId, 'blipQueueId', '');
+                          toast.info('Restaurado. Clique em "Salvar Mapeamentos" para gravar.');
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+                      >
+                        Restaurar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateField(row.profissionalId, 'blipQueueId', 'inactive');
+                          toast.info('Marcado como Inativo. Clique em "Salvar Mapeamentos" para gravar.');
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-sm"
+                      >
+                        <Trash2 size={14} />
+                        Inativar
+                      </button>
+                    )}
                   </td>
                   </tr>
                 );

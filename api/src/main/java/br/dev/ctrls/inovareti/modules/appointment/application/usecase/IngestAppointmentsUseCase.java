@@ -73,18 +73,26 @@ public class IngestAppointmentsUseCase {
         // Chamada de rede externa Feegow (fora de transação para não segurar conexões do HikariCP)
         if (appointmentMotorProperties.isTestMode()) {
             String testDoctorId = appointmentMotorProperties.getTestDoctorId();
-            log.info("[TEST MODE] Buscando agendamentos apenas para o médico de teste ID: {}", testDoctorId);
+            log.info("[TEST MODE] Buscando agendamentos apenas para os médicos de teste ID: {}", testDoctorId);
             
             appointments = new ArrayList<>();
-            appointments.addAll(appointmentExternalPort.searchAppointments(
-                LocalDate.now(),
-                FEEGOW_STATUS_AGENDADO,
-                testDoctorId));
-            
-            appointments.addAll(appointmentExternalPort.searchAppointments(
-                targetDate,
-                FEEGOW_STATUS_AGENDADO,
-                testDoctorId));
+            if (testDoctorId != null && !testDoctorId.isBlank()) {
+                String[] doctorIds = testDoctorId.split(",");
+                for (String docId : doctorIds) {
+                    String trimmedDocId = docId.trim();
+                    if (!trimmedDocId.isEmpty()) {
+                        appointments.addAll(appointmentExternalPort.searchAppointments(
+                            LocalDate.now(),
+                            FEEGOW_STATUS_AGENDADO,
+                            trimmedDocId));
+                        
+                        appointments.addAll(appointmentExternalPort.searchAppointments(
+                            targetDate,
+                            FEEGOW_STATUS_AGENDADO,
+                            trimmedDocId));
+                    }
+                }
+            }
         } else {
             log.info("Consultando Feegow para ingestão de agendamentos com status Marcado (ID={})", FEEGOW_STATUS_AGENDADO);
             appointments = appointmentExternalPort.searchAppointments(
@@ -121,15 +129,17 @@ public class IngestAppointmentsUseCase {
             DbLookupResult dbData;
             try {
                 dbData = transactionTemplate.execute(status -> {
-                    boolean hasMapped = hasMappedDoctor(appointment.doctorId());
-                    if (!hasMapped) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
+                    if (mappingOpt.isEmpty()) {
                         return new DbLookupResult(false, null, null, false, Optional.empty(), false);
                     }
-
-                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
-                    String mappingQueue = mappingOpt.map(m -> m.getBlipQueueId()).orElse(null);
-                    String mappingProfessionalNameLocal = mappingOpt.map(m -> m.getProfissionalNome()).orElse(null);
-                    boolean ignoreAutoSchedule = mappingOpt.map(m -> m.isIgnoreAutoSchedule()).orElse(false);
+                    var mapping = mappingOpt.get();
+                    if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId())) {
+                        return new DbLookupResult(false, null, null, false, Optional.empty(), false);
+                    }
+                    String mappingQueue = mapping.getBlipQueueId();
+                    String mappingProfessionalNameLocal = mapping.getProfissionalNome();
+                    boolean ignoreAutoSchedule = mapping.isIgnoreAutoSchedule();
 
                     Optional<AppointmentSession> existingSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
 
@@ -393,14 +403,6 @@ public class IngestAppointmentsUseCase {
         }
 
         return normalized;
-    }
-
-    private boolean hasMappedDoctor(String profissionalId) {
-        if (profissionalId == null || profissionalId.isBlank()) {
-            return false;
-        }
-
-        return appointmentDoctorMappingRepository.findByProfissionalIdLocked(profissionalId.trim()).isPresent();
     }
 
     private String normalizePhoneNumberForBlip(String originalPhone) {

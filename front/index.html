@@ -1,6 +1,23 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
+    <script>
+      // Limpeza forçada de Service Workers legados para destravar o cache do navegador
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          if (registrations.length > 0) {
+            if (!localStorage.getItem('pwa-sw-cleared-v3')) {
+              for (let reg of registrations) {
+                reg.unregister();
+              }
+              localStorage.setItem('pwa-sw-cleared-v3', 'true');
+              console.log('Service Worker antigo removido para atualização de assets.');
+              window.location.reload();
+            }
+          }
+        });
+      }
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

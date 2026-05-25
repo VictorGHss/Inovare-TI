@@ -25,11 +25,38 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
     try {
       return await importFunc();
     } catch (error) {
-      console.error("Erro ao carregar módulo dinâmico, forçando recarga da página...", error);
+      console.error("Erro ao carregar módulo dinâmico, limpando caches e forçando recarga da página...", error);
+      
+      // Remove o service worker para destravar o cache
+      if ('serviceWorker' in navigator) {
+        try {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (let reg of registrations) {
+              reg.unregister();
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Limpa os caches de cacheStorage do navegador
+      if ('caches' in window) {
+        try {
+          caches.keys().then(function(keys) {
+            keys.forEach(key => caches.delete(key));
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+
       const hasReloaded = sessionStorage.getItem('chunk-load-error-reloaded');
       if (!hasReloaded) {
         sessionStorage.setItem('chunk-load-error-reloaded', 'true');
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 200);
       }
       throw error;
     }

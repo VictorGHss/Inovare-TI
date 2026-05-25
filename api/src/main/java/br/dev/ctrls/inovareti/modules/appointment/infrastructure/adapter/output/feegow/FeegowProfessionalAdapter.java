@@ -262,6 +262,21 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
         return "";
     }
 
+    private String resolveBestId(ProfessionalDTO p) {
+        String pId = p.profissionalId() != null ? p.profissionalId().trim() : "";
+        if (pId.matches("\\d+")) return pId;
+        
+        String pIdAlt = p.profissionalIdAlt() != null ? p.profissionalIdAlt().trim() : "";
+        if (pIdAlt.matches("\\d+")) return pIdAlt;
+        
+        String id = p.id() != null ? p.id().trim() : "";
+        if (id.matches("\\d+")) return id;
+        
+        if (!pId.isEmpty()) return pId;
+        if (!pIdAlt.isEmpty()) return pIdAlt;
+        return id;
+    }
+
     private List<FeegowProfessional> parseProfessionalsResponseBody(String body) throws JsonProcessingException {
         if (body == null || body.isBlank()) {
             return List.of();
@@ -283,7 +298,7 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
         List<FeegowProfessional> professionals = new ArrayList<>();
         for (ProfessionalDTO p : items) {
             if (p == null) continue;
-            String id = p.id() == null ? null : String.valueOf(p.id());
+            String id = resolveBestId(p);
             String name = p.nome() == null ? null : p.nome().trim();
             if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
                 String resolvedName = name;
@@ -369,7 +384,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record ProfessionalDTO(
-            @JsonAlias({"id", "profissionalId", "profissional_id"})
+            @JsonProperty("profissional_id")
+            String profissionalId,
+            @JsonProperty("profissionalId")
+            String profissionalIdAlt,
+            @JsonProperty("id")
             String id,
             @JsonProperty("nome")
             String nome,
@@ -411,3 +430,4 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
         return name.isEmpty() ? null : name;
     }
 }
+

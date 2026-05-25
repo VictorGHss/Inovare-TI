@@ -98,9 +98,15 @@ public class BlipLIMEClient implements BlipClientPort {
                 List<BlipQueue> queues = new ArrayList<>();
                 for (Object item : items) {
                     if (item instanceof Map<?, ?> itemMap) {
-                        String id = String.valueOf(itemMap.get("id"));
-                        String name = String.valueOf(itemMap.get("name"));
-                        queues.add(new BlipQueue(id, name));
+                        Object identityObj = itemMap.get("identity");
+                        if (identityObj == null) {
+                            identityObj = itemMap.get("id");
+                        }
+                        String id = identityObj != null ? String.valueOf(identityObj) : "";
+                        String name = itemMap.get("name") != null ? String.valueOf(itemMap.get("name")) : "";
+                        if (!id.isBlank()) {
+                            queues.add(new BlipQueue(id, name));
+                        }
                     }
                 }
                 return queues;

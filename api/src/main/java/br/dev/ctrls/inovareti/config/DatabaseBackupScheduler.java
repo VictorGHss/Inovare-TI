@@ -38,7 +38,7 @@ public class DatabaseBackupScheduler {
     @Value("${app.backup.destination-email}")
     private String destinationEmail;
 
-    @Value("${app.backup.pg-dump-binary:pg_dump}")
+    @Value("${app.backup.pg-dump-binary:}")
     private String pgDumpBinary;
 
     @Value("${app.backup.temp-dir}")
@@ -78,7 +78,17 @@ public class DatabaseBackupScheduler {
         }
 
         log.info("Iniciando rotina de backup do banco de dados. Manual={}", isManual);
-        
+
+        // Validação antecipada: binário pg_dump deve estar configurado
+        if (pgDumpBinary == null || pgDumpBinary.isBlank()) {
+            String timestamp0 = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            log.error("CRITICAL - pg_dump binary não configurado. Defina a variável de ambiente APP_BACKUP_PG_DUMP_BINARY com o caminho completo do binário pg_dump.");
+            saveAlert("CRITICAL", "pg_dump binary não configurado",
+                    "A propriedade 'app.backup.pg-dump-binary' está em branco ou nula. Configure APP_BACKUP_PG_DUMP_BINARY com o caminho completo do binário pg_dump (ex: /usr/bin/pg_dump ou via docker exec).",
+                    timestamp0, 0);
+            return;
+        }
+
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         File tempFolder = new File(tempDir);
         

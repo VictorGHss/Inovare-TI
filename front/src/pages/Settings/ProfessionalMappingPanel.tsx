@@ -260,7 +260,7 @@ export default function ProfessionalMappingPanel() {
 
                   <td className="px-4 py-3 align-middle">
                     <select
-                      value={row.blipQueueId}
+                      value={row.blipQueueId ?? ''}
                       onChange={(e) => updateField(idx, 'blipQueueId', e.target.value)}
                       disabled={!hasBlipQueues}
                       className={`${inlineInputClass} border border-slate-200 bg-white ${!hasBlipQueues ? 'opacity-60 cursor-not-allowed' : ''}`}

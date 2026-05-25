@@ -15,8 +15,5 @@ public interface TicketCategoryRepository extends JpaRepository<TicketCategory, 
     Optional<TicketCategory> findByName(String name);
 
     boolean existsByName(String name);
-
-    /** Verifica se há tickets associados a uma categoria antes de permitir a exclusão. */
-    boolean existsByCategory_Id(UUID categoryId);
 }
 

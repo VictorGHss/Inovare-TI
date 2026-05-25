@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.ticket.usecase;
 import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
+import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class DeleteTicketCategoryUseCase {
 
     private final TicketCategoryRepository ticketCategoryRepository;
+    private final TicketRepository ticketRepository;
 
     /**
      * Executa a exclusão da categoria de chamado.
@@ -32,7 +34,7 @@ public class DeleteTicketCategoryUseCase {
             throw new NotFoundException("Categoria de chamado não encontrada: " + id);
         }
 
-        if (ticketCategoryRepository.existsByCategory_Id(id)) {
+        if (ticketRepository.existsByCategoryId(id)) {
             throw new ConflictException(
                     "Não é possível excluir a categoria pois há chamados vinculados a ela."
             );

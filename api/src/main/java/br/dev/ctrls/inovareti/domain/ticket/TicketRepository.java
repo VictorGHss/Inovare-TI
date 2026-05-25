@@ -84,4 +84,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
                     WHERE t.id = :id
                     """)
             Optional<Ticket> findByIdWithRelations(@Param("id") UUID id);
+
+    /** Verifica se há tickets vinculados a uma categoria antes de permitir a exclusão. */
+    boolean existsByCategoryId(UUID categoryId);
 }

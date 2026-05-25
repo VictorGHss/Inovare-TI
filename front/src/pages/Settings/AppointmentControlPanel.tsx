@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, PlayCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import BlipTemplateSelector from './BlipTemplateSelector';
 import { getApiErrorMessage } from '../../lib/apiError';
 import {
   getAppointmentMotorConfig,
@@ -59,7 +58,7 @@ export default function AppointmentControlPanel() {
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Controle do Motor de Agendamentos</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Disparo manual, verificação do modo e configuração de templates.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Disparo manual e verificação do modo de execução.</p>
           </div>
           <button
             type="button"
@@ -99,24 +98,6 @@ export default function AppointmentControlPanel() {
             </button>
           </div>
 
-          {/* Seção de Configuração de Templates */}
-          <div className="border-t border-slate-100 pt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">Configuração de Templates</h3>
-            <div className="space-y-4">
-              <BlipTemplateSelector
-                category="CONFIRMATION"
-                categoryLabel="Template de Confirmação"
-              />
-              <BlipTemplateSelector
-                category="NUDGE_1"
-                categoryLabel="Template de 1º Lembrete (Nudge)"
-              />
-              <BlipTemplateSelector
-                category="NUDGE_FINAL"
-                categoryLabel="Template de Último Lembrete"
-              />
-            </div>
-          </div>
         </div>
       </div>
 

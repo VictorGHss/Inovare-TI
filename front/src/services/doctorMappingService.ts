@@ -17,6 +17,7 @@ export interface DoctorMapping {
   externalWaLink: string;
   profissionalNome?: string;
   isExternal?: boolean;
+  ignoreAutoSchedule?: boolean;
 }
 
 export interface SyncMappingsResponse {

@@ -286,7 +286,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
             String id = p.id() == null ? null : String.valueOf(p.id());
             String name = p.nome() == null ? null : p.nome().trim();
             if ((id != null && !id.isBlank()) || (name != null && !name.isBlank())) {
-                professionals.add(new FeegowProfessional(id == null ? "" : id, name == null ? "" : name));
+                String resolvedName = name;
+                if ((resolvedName == null || resolvedName.isBlank()) && id != null && !id.isBlank()) {
+                    resolvedName = "Profissional " + id;
+                }
+                professionals.add(new FeegowProfessional(id == null ? "" : id, resolvedName == null ? "" : resolvedName));
             }
         }
         return professionals;
@@ -304,14 +308,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                     if (content instanceof List<?> list) {
                         for (Object item : list) {
                             if (item instanceof Map<?, ?> row) {
-                                Object rowIdObj = row.get("id");
-                                if (rowIdObj == null) {
-                                    rowIdObj = row.get("profissionalId");
-                                }
-                                if (rowIdObj != null && targetId.trim().equals(rowIdObj.toString().trim())) {
-                                    Object nome = row.get("nome");
+                                String rowId = resolveRowId(row);
+                                if (rowId != null && targetId.trim().equals(rowId)) {
+                                    String nome = resolveRowName(row);
                                     if (nome != null) {
-                                        return nome.toString().trim();
+                                        return nome;
                                     }
                                 }
                             }
@@ -322,14 +323,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
                     if (dados instanceof List<?> dlist) {
                         for (Object item : dlist) {
                             if (item instanceof Map<?, ?> row) {
-                                Object rowIdObj = row.get("id");
-                                if (rowIdObj == null) {
-                                    rowIdObj = row.get("profissionalId");
-                                }
-                                if (rowIdObj != null && targetId.trim().equals(rowIdObj.toString().trim())) {
-                                    Object nome = row.get("nome");
+                                String rowId = resolveRowId(row);
+                                if (rowId != null && targetId.trim().equals(rowId)) {
+                                    String nome = resolveRowName(row);
                                     if (nome != null) {
-                                        return nome.toString().trim();
+                                        return nome;
                                     }
                                 }
                             }
@@ -371,7 +369,7 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record ProfessionalDTO(
-            @JsonAlias({"id", "profissionalId"})
+            @JsonAlias({"id", "profissionalId", "profissional_id"})
             String id,
             @JsonProperty("nome")
             String nome,
@@ -381,5 +379,35 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record FeegowResponseDTO(boolean success, List<ProfessionalDTO> content) {
+    }
+
+    private String resolveRowId(Map<?, ?> row) {
+        if (row == null) {
+            return null;
+        }
+        Object rowIdObj = row.get("profissional_id");
+        if (rowIdObj == null) {
+            rowIdObj = row.get("profissionalId");
+        }
+        if (rowIdObj == null) {
+            rowIdObj = row.get("id");
+        }
+        if (rowIdObj == null) {
+            return null;
+        }
+        String id = rowIdObj.toString().trim();
+        return id.isEmpty() ? null : id;
+    }
+
+    private String resolveRowName(Map<?, ?> row) {
+        if (row == null) {
+            return null;
+        }
+        Object nome = row.get("nome");
+        if (nome == null) {
+            return null;
+        }
+        String name = nome.toString().trim();
+        return name.isEmpty() ? null : name;
     }
 }

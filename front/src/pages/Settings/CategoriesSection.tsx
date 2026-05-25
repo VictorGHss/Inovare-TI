@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2, Tag, Archive } from 'lucide-react';
+import { Loader2, Plus, Trash2, Tag, Archive, MessageSquare } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import {
@@ -9,29 +9,36 @@ import {
   getAssetCategories,
   createAssetCategory,
   deleteAssetCategory,
+  getTicketCategories,
+  createTicketCategory,
+  deleteTicketCategory,
 } from '../../services/inventoryService';
-import type { ItemCategory, AssetCategory } from '../../types/models';
+import type { ItemCategory, AssetCategory, TicketCategoryResponse } from '../../types/models';
 
 export default function CategoriesSection() {
-  const [activeTab, setActiveTab] = useState<'items' | 'assets'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'assets' | 'tickets'>('items');
   const [itemCategories, setItemCategories] = useState<ItemCategory[]>([]);
   const [assetCategories, setAssetCategories] = useState<AssetCategory[]>([]);
+  const [ticketCategories, setTicketCategories] = useState<TicketCategoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Form states
   const [newName, setNewName] = useState('');
   const [isConsumable, setIsConsumable] = useState(true);
+  const [newSlaHours, setNewSlaHours] = useState<number>(8);
   const [submitting, setSubmitting] = useState(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [items, assets] = await Promise.all([
+      const [items, assets, tickets] = await Promise.all([
         getItemCategories(),
         getAssetCategories(),
+        getTicketCategories(),
       ]);
       setItemCategories(Array.isArray(items) ? items : []);
       setAssetCategories(Array.isArray(assets) ? assets : []);
+      setTicketCategories(Array.isArray(tickets) ? tickets : []);
     } catch {
       toast.error('Falha ao carregar as categorias do sistema.');
     } finally {
@@ -56,12 +63,23 @@ export default function CategoriesSection() {
         });
         setItemCategories((prev) => [...prev, created]);
         toast.success('Categoria de item criada com sucesso.');
-      } else {
+      } else if (activeTab === 'assets') {
         const created = await createAssetCategory({
           name: newName.trim(),
         });
         setAssetCategories((prev) => [...prev, created]);
         toast.success('Categoria de ativo criada com sucesso.');
+      } else {
+        if (newSlaHours < 1) {
+          toast.error('O SLA base deve ser de no mínimo 1 hora.');
+          return;
+        }
+        const created = await createTicketCategory({
+          name: newName.trim(),
+          baseSlaHours: newSlaHours,
+        });
+        setTicketCategories((prev) => [...prev, created]);
+        toast.success('Categoria de chamado criada com sucesso.');
       }
       setNewName('');
     } catch (err) {
@@ -81,14 +99,20 @@ export default function CategoriesSection() {
         await deleteItemCategory(id);
         setItemCategories((prev) => prev.filter((c) => c.id !== id));
         toast.success('Categoria de item excluída.');
-      } else {
+      } else if (activeTab === 'assets') {
         await deleteAssetCategory(id);
         setAssetCategories((prev) => prev.filter((c) => c.id !== id));
         toast.success('Categoria de ativo excluída.');
+      } else {
+        await deleteTicketCategory(id);
+        setTicketCategories((prev) => prev.filter((c) => c.id !== id));
+        toast.success('Categoria de chamado excluída.');
       }
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
-      const msg = error.response?.data?.detail || 'Erro ao excluir categoria. Certifique-se de que não há itens vinculados a ela.';
+      const msg =
+        error.response?.data?.detail ||
+        'Erro ao excluir categoria. Certifique-se de que não há registros vinculados a ela.';
       toast.error(msg);
     }
   }
@@ -100,7 +124,7 @@ export default function CategoriesSection() {
           Gerenciamento de Categorias
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Cadastre e remova categorias estruturais para itens de inventário e equipamentos do sistema.
+          Cadastre e remova categorias estruturais para itens de inventário, equipamentos e chamados do sistema.
         </p>
       </header>
 
@@ -134,6 +158,20 @@ export default function CategoriesSection() {
           <Archive size={16} />
           Categorias de Ativos (Equipamentos)
         </button>
+        <button
+          onClick={() => {
+            setActiveTab('tickets');
+            setNewName('');
+          }}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+            activeTab === 'tickets'
+              ? 'bg-brand-primary/10 text-brand-primary'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <MessageSquare size={16} />
+          Categorias de Chamados
+        </button>
       </div>
 
       <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -145,7 +183,11 @@ export default function CategoriesSection() {
               <label className="block text-xs font-semibold text-slate-500 mb-1">Nome da Categoria</label>
               <input
                 type="text"
-                placeholder="Ex: Consultório, Reagentes, TI..."
+                placeholder={
+                  activeTab === 'tickets'
+                    ? 'Ex: Suporte TI, Infraestrutura...'
+                    : 'Ex: Consultório, Reagentes, TI...'
+                }
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary/25"
@@ -165,6 +207,25 @@ export default function CategoriesSection() {
                 <label htmlFor="isConsumable" className="text-xs font-medium text-slate-600 cursor-pointer">
                   Esta categoria contém itens consumíveis
                 </label>
+              </div>
+            )}
+
+            {activeTab === 'tickets' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  SLA Base (horas)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={newSlaHours}
+                  onChange={(e) => setNewSlaHours(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary/25"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Prazo em horas usado para calcular o SLA ao abrir um chamado nesta categoria.
+                </p>
               </div>
             )}
 
@@ -215,16 +276,44 @@ export default function CategoriesSection() {
                 ))}
               </div>
             )
-          ) : assetCategories.length === 0 ? (
-            <p className="text-xs text-slate-400 py-6 text-center">Nenhuma categoria de ativo cadastrada.</p>
+          ) : activeTab === 'assets' ? (
+            assetCategories.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">Nenhuma categoria de ativo cadastrada.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-2">
+                {assetCategories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  >
+                    <p className="text-sm font-bold text-slate-700">{cat.name}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(cat.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                      title="Excluir Categoria"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : ticketCategories.length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center">Nenhuma categoria de chamado cadastrada.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-2">
-              {assetCategories.map((cat) => (
+              {ticketCategories.map((cat) => (
                 <div
                   key={cat.id}
                   className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                 >
-                  <p className="text-sm font-bold text-slate-700">{cat.name}</p>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">{cat.name}</p>
+                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-0.5">
+                      SLA: {cat.baseSlaHours}h
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => void handleDelete(cat.id)}

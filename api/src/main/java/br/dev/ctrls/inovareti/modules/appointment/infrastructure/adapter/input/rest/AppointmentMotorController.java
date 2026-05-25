@@ -23,9 +23,9 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.Appointmen
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.IngestAppointmentsUseCase;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -200,7 +200,8 @@ public class AppointmentMotorController {
         @JsonProperty("externalLink") String externalLink,
         @JsonProperty("profissionalNome") String profissionalNome,
         @JsonProperty("discordWebhookUrl") String discordWebhookUrl,
-        @JsonProperty("isExternal") Boolean isExternal) {
+        @JsonProperty("isExternal") Boolean isExternal,
+        @JsonProperty("ignoreAutoSchedule") Boolean ignoreAutoSchedule) {
     }
 
     public record DoctorMappingUpsert(
@@ -210,6 +211,7 @@ public class AppointmentMotorController {
         @JsonProperty("itsmUserId") String itsmUserId,
         @JsonProperty("discordWebhookUrl") String discordWebhookUrl,
         @JsonProperty("externalWaLink") String externalWaLink,
-        @JsonProperty("isExternal") Boolean isExternal) {
+        @JsonProperty("isExternal") Boolean isExternal,
+        @JsonProperty("ignoreAutoSchedule") Boolean ignoreAutoSchedule) {
     }
 }

@@ -19,11 +19,10 @@ import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowProfessional;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.rest.AppointmentMotorController.SyncMappingRequest;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.rest.AppointmentMotorController.DoctorMappingUpsert;
-
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.rest.AppointmentMotorController.SyncMappingRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -170,6 +169,7 @@ public class AppointmentEnrichmentService {
                         .itsmUserId(itsmUserId)
                         .externalWaLink(externalLink)
                         .external(StringUtils.hasText(externalLink))
+                    .ignoreAutoSchedule(Boolean.TRUE.equals(item.ignoreAutoSchedule()))
                         .build();
 
                 // Nome de exibição opcional fornecido no payload
@@ -245,6 +245,10 @@ public class AppointmentEnrichmentService {
                 mapping.setExternal(item.isExternal());
             }
 
+            if (item.ignoreAutoSchedule() != null) {
+                mapping.setIgnoreAutoSchedule(item.ignoreAutoSchedule());
+            }
+
             // Enriquece o nome apenas se já não houver um definido
             if (!StringUtils.hasText(mapping.getProfissionalNome())) {
                 try {
@@ -312,6 +316,10 @@ public class AppointmentEnrichmentService {
 
         if (payload.isExternal() != null) {
             mapping.setExternal(payload.isExternal());
+        }
+
+        if (payload.ignoreAutoSchedule() != null) {
+            mapping.setIgnoreAutoSchedule(payload.ignoreAutoSchedule());
         }
 
         if (StringUtils.hasText(payload.itsmUserId())) {

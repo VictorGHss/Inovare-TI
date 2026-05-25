@@ -24,7 +24,24 @@ export default function ProfessionalMappingPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
-  
+
+  const professionalsById = useMemo(() => {
+    const map = new Map<string, FeegowProfessional>();
+    professionals.forEach((p) => {
+      const id = String(p.id ?? '').trim();
+      if (!id) return;
+      if (!map.has(id)) {
+        map.set(id, p);
+      }
+    });
+    return map;
+  }, [professionals]);
+
+  const missingIdCount = useMemo(() => {
+    return mappings.filter((m) => !String(m.profissionalId ?? '').trim()).length;
+  }, [mappings]);
+
+  const hasBlipQueues = blipQueues.length > 0;
 
   useEffect(() => {
     async function load() {
@@ -55,6 +72,7 @@ export default function ProfessionalMappingPanel() {
             externalWaLink: existing?.externalWaLink ?? '',
             profissionalNome: existing?.profissionalNome ?? p.name ?? '',
             isExternal: existing?.isExternal ?? false,
+            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? false,
           } as DoctorMapping;
         });
 
@@ -97,6 +115,7 @@ export default function ProfessionalMappingPanel() {
           externalWaLink: existing?.externalWaLink ?? '',
           profissionalNome: existing?.profissionalNome ?? p.name ?? '',
           isExternal: existing?.isExternal ?? false,
+          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? false,
         } as DoctorMapping;
       });
 
@@ -126,6 +145,7 @@ export default function ProfessionalMappingPanel() {
         externalWaLink: String(m.externalWaLink ?? '').trim(),
         profissionalNome: String(m.profissionalNome ?? '').trim(),
         isExternal: Boolean(m.isExternal),
+        ignoreAutoSchedule: Boolean(m.ignoreAutoSchedule),
       }));
       try {
         const resp = await syncMappings(payload);
@@ -186,11 +206,22 @@ export default function ProfessionalMappingPanel() {
         </div>
       </header>
 
+      {(missingIdCount > 0 || !hasBlipQueues) && (
+        <div className="border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600">
+          {missingIdCount > 0 ? (
+            <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
+          ) : null}
+          {!hasBlipQueues ? (
+            <p>Filas do Blip indisponíveis no momento. Verifique a integração do Blip.</p>
+          ) : null}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Is External', 'WA Link', 'Ações'].map((col) => (
+              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Ignorar auto', 'Is External', 'WA Link', 'Ações'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -199,28 +230,54 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : mappings.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
-              mappings.map((row, idx) => (
-                <tr key={`${row.profissionalId}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-4 py-3 align-middle">{row.profissionalId}</td>
-                  <td className="px-4 py-3 align-middle">{professionals.find((p) => String(p.id) === String(row.profissionalId))?.name ?? ''}</td>
+              mappings.map((row, idx) => {
+                const profissionalId = String(row.profissionalId ?? '').trim();
+                const professional = profissionalId ? professionalsById.get(profissionalId) : undefined;
+                const feegowName = professional?.name?.trim() ?? '';
+                const resolvedFeegowName = feegowName
+                  ? feegowName
+                  : profissionalId
+                    ? `Sem nome (ID ${profissionalId})`
+                    : 'ID ausente';
+                const isMissingId = !profissionalId;
+
+                return (
+                  <tr key={`${row.profissionalId}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className={`px-4 py-3 align-middle ${isMissingId ? 'text-rose-600' : ''}`}>
+                      {isMissingId ? 'ID ausente' : profissionalId}
+                    </td>
+                    <td className="px-4 py-3 align-middle">{resolvedFeegowName}</td>
                   <td className="px-4 py-3 align-middle">
                     <input value={row.profissionalNome} onChange={(e) => updateField(idx, 'profissionalNome', e.target.value)} className={inlineInputClass} />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <select value={row.blipQueueId} onChange={(e) => updateField(idx, 'blipQueueId', e.target.value)} className={`${inlineInputClass} border border-slate-200 bg-white`}>
-                      <option value="">Selecionar fila do Blip</option>
+                    <select
+                      value={row.blipQueueId}
+                      onChange={(e) => updateField(idx, 'blipQueueId', e.target.value)}
+                      disabled={!hasBlipQueues}
+                      className={`${inlineInputClass} border border-slate-200 bg-white ${!hasBlipQueues ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <option value="">{hasBlipQueues ? 'Selecionar fila do Blip' : 'Filas do Blip indisponíveis'}</option>
                       {blipQueues.map((q) => (
                         <option key={q.id} value={q.id}>{q.name}</option>
                       ))}
                     </select>
+                  </td>
+
+                  <td className="px-4 py-3 align-middle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(row.ignoreAutoSchedule)}
+                      onChange={(e) => updateField(idx, 'ignoreAutoSchedule', e.target.checked)}
+                    />
                   </td>
 
                   <td className="px-4 py-3 align-middle">
@@ -257,8 +314,9 @@ export default function ProfessionalMappingPanel() {
                       Excluir
                     </button>
                   </td>
-                </tr>
-              ))
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +28,19 @@ public class AdminConfigController {
     @Value("${discord.bot.enabled:false}")
     private boolean discordBotEnabled;
 
+    @Value("${discord.webhook.url:}")
+    private String discordWebhookUrl;
+
+    @Value("${discord.bot.token:}")
+    private String discordBotToken;
+
+    @Value("${blip.webhook.secret:}")
+    private String blipWebhookSecret;
 
     private final br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService discordWebhookService;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties feegowProperties;
+    private final br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties contaAzulProperties;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties appointmentMotorProperties;
 
     @GetMapping
     public ResponseEntity<AdminConfigResponse> getConfig() {
@@ -39,6 +51,16 @@ public class AdminConfigController {
         String status = discordWebhookService.getDefaultWebhookStatus();
         res.setDiscordWebhookStatus(status);
         res.setDiscordWebhookPresent("PRESENT".equals(status));
+        res.setDiscordWebhookUrlPresent(StringUtils.hasText(discordWebhookUrl));
+        res.setDiscordBotTokenPresent(StringUtils.hasText(discordBotToken));
+        res.setContaAzulClientIdPresent(StringUtils.hasText(contaAzulProperties.getClientId()));
+        res.setContaAzulClientSecretPresent(StringUtils.hasText(contaAzulProperties.getClientSecret()));
+        res.setFeegowApiKeyPresent(StringUtils.hasText(feegowProperties.getApiKey()));
+        res.setFeegowUnitIdPresent(StringUtils.hasText(feegowProperties.getUnidadeId()));
+        res.setBlipApiKeyPresent(StringUtils.hasText(appointmentMotorProperties.getBot().getBlipBotKey()));
+        res.setBlipBotIdPresent(StringUtils.hasText(appointmentMotorProperties.getBot().getBlipAgendamentoBotId()));
+        res.setBlipWebhookTokenPresent(StringUtils.hasText(appointmentMotorProperties.getSecurity().getWebhookToken()));
+        res.setBlipWebhookSecretPresent(StringUtils.hasText(blipWebhookSecret));
 
         return ResponseEntity.ok(res);
     }
@@ -50,5 +72,15 @@ public class AdminConfigController {
         private boolean discordBotEnabled;
         private boolean discordWebhookPresent;
         private String discordWebhookStatus;
+        private boolean discordWebhookUrlPresent;
+        private boolean discordBotTokenPresent;
+        private boolean contaAzulClientIdPresent;
+        private boolean contaAzulClientSecretPresent;
+        private boolean feegowApiKeyPresent;
+        private boolean feegowUnitIdPresent;
+        private boolean blipApiKeyPresent;
+        private boolean blipBotIdPresent;
+        private boolean blipWebhookTokenPresent;
+        private boolean blipWebhookSecretPresent;
     }
 }

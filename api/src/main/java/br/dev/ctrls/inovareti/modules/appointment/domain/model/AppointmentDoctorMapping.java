@@ -25,6 +25,7 @@ public class AppointmentDoctorMapping {
     private String itsmUserId;
     private String discordWebhookUrl;
     private String externalWaLink;
+    private boolean ignoreAutoSchedule;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -39,6 +39,19 @@ export interface TicketCategory {
   name: string;
 }
 
+/** Categoria de chamado retornada pelo backend (inclui SLA base). */
+export interface TicketCategoryResponse {
+  id: string;
+  name: string;
+  baseSlaHours: number;
+}
+
+/** Payload para criação de uma nova categoria de chamado. */
+export interface CreateTicketCategoryDto {
+  name: string;
+  baseSlaHours: number;
+}
+
 export interface ResolveTicketRequest {
   resolutionNotes?: string;
   assetIdToDeliver?: string;

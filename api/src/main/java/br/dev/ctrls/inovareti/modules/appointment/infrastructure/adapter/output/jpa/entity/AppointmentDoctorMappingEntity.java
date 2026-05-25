@@ -57,6 +57,9 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "external_wa_link", length = 500)
     private String externalWaLink;
 
+    @Column(name = "ignore_auto_schedule", nullable = false)
+    private boolean ignoreAutoSchedule;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -76,6 +79,7 @@ public class AppointmentDoctorMappingEntity {
                 .itsmUserId(this.itsmUserId)
                 .discordWebhookUrl(this.discordWebhookUrl)
                 .externalWaLink(this.externalWaLink)
+                .ignoreAutoSchedule(this.ignoreAutoSchedule)
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
                 .build();
@@ -93,6 +97,7 @@ public class AppointmentDoctorMappingEntity {
                 .itsmUserId(domain.getItsmUserId())
                 .discordWebhookUrl(domain.getDiscordWebhookUrl())
                 .externalWaLink(domain.getExternalWaLink())
+                .ignoreAutoSchedule(domain.isIgnoreAutoSchedule())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();

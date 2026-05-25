@@ -59,6 +59,7 @@ public class IngestAppointmentsUseCase {
         boolean hasMapped,
         String mappingQueue,
         String mappingProfessionalName,
+        boolean ignoreAutoSchedule,
         Optional<AppointmentSession> existingSessionOpt,
         boolean canSend
     ) {}
@@ -122,12 +123,13 @@ public class IngestAppointmentsUseCase {
                 dbData = transactionTemplate.execute(status -> {
                     boolean hasMapped = hasMappedDoctor(appointment.doctorId());
                     if (!hasMapped) {
-                        return new DbLookupResult(false, null, null, Optional.empty(), false);
+                        return new DbLookupResult(false, null, null, false, Optional.empty(), false);
                     }
 
                     var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
                     String mappingQueue = mappingOpt.map(m -> m.getBlipQueueId()).orElse(null);
                     String mappingProfessionalNameLocal = mappingOpt.map(m -> m.getProfissionalNome()).orElse(null);
+                    boolean ignoreAutoSchedule = mappingOpt.map(m -> m.isIgnoreAutoSchedule()).orElse(false);
 
                     Optional<AppointmentSession> existingSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
 
@@ -137,7 +139,7 @@ public class IngestAppointmentsUseCase {
                                     .map(service -> service.registerIfFirstSend(feegowAppointmentId))
                                     .orElse(true));
 
-                    return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, existingSessionOpt, canSend);
+                    return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, ignoreAutoSchedule, existingSessionOpt, canSend);
                 });
             } catch (RuntimeException ex) {
                 log.error("Erro na fase de leitura transacional para o agendamento Feegow ID: {}. Detalhes: {}", appointment.id(), ex.getMessage(), ex);
@@ -146,6 +148,13 @@ public class IngestAppointmentsUseCase {
 
             if (dbData == null || !dbData.hasMapped()) {
                 log.info("Agendamento ignorado por ausência de mapeamento do médico. appointmentId={}, profissional_id={}",
+                        appointment.id(),
+                        appointment.doctorId());
+                continue;
+            }
+
+            if (dbData.ignoreAutoSchedule()) {
+                log.info("Agendamento ignorado por exceção de médico (ignore_auto_schedule=true). appointmentId={}, profissional_id={}",
                         appointment.id(),
                         appointment.doctorId());
                 continue;

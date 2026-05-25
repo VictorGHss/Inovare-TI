@@ -127,6 +127,16 @@ export interface AdminConfig {
   discordBotEnabled: boolean;
   discordWebhookPresent: boolean;
   discordWebhookStatus?: string;
+  discordWebhookUrlPresent?: boolean;
+  discordBotTokenPresent?: boolean;
+  contaAzulClientIdPresent?: boolean;
+  contaAzulClientSecretPresent?: boolean;
+  feegowApiKeyPresent?: boolean;
+  feegowUnitIdPresent?: boolean;
+  blipApiKeyPresent?: boolean;
+  blipBotIdPresent?: boolean;
+  blipWebhookTokenPresent?: boolean;
+  blipWebhookSecretPresent?: boolean;
 }
 
 export interface ImportResult {

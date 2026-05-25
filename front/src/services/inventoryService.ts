@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/models';
+import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/models';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
@@ -423,3 +423,21 @@ export async function getAuditLogs(params?: GetAuditLogsParams): Promise<AuditLo
   return data;
 }
 
+// ==================== TICKET CATEGORIES ====================
+
+/** Lista todas as categorias de chamado cadastradas. */
+export async function getTicketCategories(): Promise<TicketCategoryResponse[]> {
+  const { data } = await api.get<TicketCategoryResponse[]>('/ticket-categories');
+  return data;
+}
+
+/** Cria uma nova categoria de chamado com SLA base em horas. */
+export async function createTicketCategory(dto: CreateTicketCategoryDto): Promise<TicketCategoryResponse> {
+  const { data } = await api.post<TicketCategoryResponse>('/ticket-categories', dto);
+  return data;
+}
+
+/** Exclui uma categoria de chamado pelo UUID. Retorna 409 se houver tickets vinculados. */
+export async function deleteTicketCategory(id: string): Promise<void> {
+  await api.delete(`/ticket-categories/${id}`);
+}

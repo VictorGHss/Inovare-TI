@@ -4,15 +4,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,10 +24,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import br.dev.ctrls.inovareti.config.security.WebhookSignatureValidator;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * Controller que gerencia a recepção de webhooks de mensagens e notificações da Blip.
@@ -48,6 +48,9 @@ public class BlipWebhookController {
 
     @Value("${blip.webhook.secret}")
     private String blipWebhookSecret;
+
+    @Value("${blip.webhook.token:}")
+    private String blipWebhookToken;
 
     // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
     private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
@@ -78,10 +81,18 @@ public class BlipWebhookController {
 
         // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256)
         boolean isSignatureValid = webhookSignatureValidator.isValid(rawJson, blipSignature, blipWebhookSecret);
-        
-        // O bypass de assinatura por token só é aceito em ambiente local/default de desenvolvimento
+
+        String expectedToken = StringUtils.hasText(blipWebhookToken)
+            ? blipWebhookToken
+            : System.getenv("APP_BLIP_SECURITY_WEBHOOK_TOKEN");
+
+        boolean hasTokenMatch = StringUtils.hasText(inovareToken)
+            && StringUtils.hasText(expectedToken)
+            && expectedToken.equals(inovareToken);
+
+        // O bypass de assinatura por token é aceito em ambiente local/default ou quando o token confiável está configurado
         boolean isBypassProfile = env.acceptsProfiles(Profiles.of("local", "default"));
-        boolean isBypassEnabled = isBypassProfile && StringUtils.hasText(inovareToken);
+        boolean isBypassEnabled = (isBypassProfile && StringUtils.hasText(inovareToken)) || hasTokenMatch;
 
         if (!isSignatureValid && !isBypassEnabled) {
             log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente. Bypass por token inativo no perfil de produção.");
@@ -89,7 +100,7 @@ public class BlipWebhookController {
         }
 
         if (!isSignatureValid && isBypassEnabled) {
-            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado pelo contexto de teste (Token ativo no perfil local/default).");
+            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
         }
 
         // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação de forma case-insensitive

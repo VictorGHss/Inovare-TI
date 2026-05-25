@@ -86,28 +86,12 @@ public class DiscordEventListener extends ListenerAdapter {
 
             log.info("✅ Todos os slash commands foram registrados globalmente!");
 
-            // ── Registro instantâneo em todas as Guildas para visualização imediata ──
+            // ── Limpa os comandos antigos locais das guildas para evitar duplicação com os globais ──
             for (var guild : jda.getGuilds()) {
-                guild.updateCommands()
-                        .addCommands(
-                                Commands.slash("chamado", "Abre um novo chamado na TI")
-                                        .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
-                                        .addOption(OptionType.STRING, "prioridade", "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false),
-                                Commands.slash("vincular", "Vincula sua conta Discord à sua conta da clínica")
-                                        .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true),
-                                Commands.slash("status", "Verifica o status de um chamado")
-                                        .addOption(OptionType.STRING, "id_chamado", "ID do chamado (UUID)", true),
-                                Commands.slash("meuschamados", "Lista os seus chamados em andamento na Inovare TI"),
-                                Commands.slash("ti", "Painel de TI — administração e monitoramento")
-                                        .addSubcommands(new SubcommandData("status", "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)")),
-                                Commands.slash("solicitar", "Solicita um item ou insumo ao setor de TI")
-                                        .addOption(OptionType.STRING, "item", "Nome do item (use o autocomplete para buscar no inventário)", true, true)
-                                        .addOption(OptionType.INTEGER, "quantidade", "Quantidade desejada (padrão: 1)", false)
-                        )
-                        .queue(
-                                success -> log.info("✅ Slash commands registrados instantaneamente na guilda: {}", guild.getName()),
-                                error -> log.error("❌ Falha ao registrar comandos na guilda: {}", guild.getName(), error)
-                        );
+                guild.updateCommands().queue(
+                        success -> log.info("✅ Comandos locais purgados na guilda: {} para evitar duplicidade", guild.getName()),
+                        error -> log.warn("⚠️ Não foi possível purgar comandos locais na guilda: {}", guild.getName())
+                );
             }
 
         } catch (Exception e) {
@@ -128,7 +112,7 @@ public class DiscordEventListener extends ListenerAdapter {
             case "vincular" -> handleVincularCommand(event);
             case "status" -> handleStatusCommand(event);
             case "meuschamados" -> handleMeusChamadosCommand(event);
-            default -> event.reply("❌ Comando desconhecido: " + commandName).setEphemeral(true).queue();
+            default -> log.debug("Comando não tratado no DiscordEventListener: /{}", commandName);
         }
     }
 

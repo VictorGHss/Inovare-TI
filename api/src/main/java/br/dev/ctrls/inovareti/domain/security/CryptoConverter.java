@@ -53,6 +53,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     /**
      * Criptografa o valor do atributo em modo seguro AES-GCM antes de armazená-lo no banco de dados.
      * Gera um vetor de inicialização (IV) randômico a cada nova criptografia.
+     * Prepend do prefixo 'v1:' para habilitar futura rotação de chaves sem perdas.
      * Retorna null se a entrada for nula ou vazia.
      */
     @Override
@@ -75,7 +76,8 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             buffer.put(iv);
             buffer.put(encryptedBytes);
 
-            return Base64.getEncoder().encodeToString(buffer.array());
+            String base64Encrypted = Base64.getEncoder().encodeToString(buffer.array());
+            return "v1:" + base64Encrypted;
         } catch (Exception e) {
             log.error("Erro ao criptografar atributo com AES-GCM", e);
             throw new RuntimeException("Falha ao criptografar atributo", e);
@@ -84,9 +86,9 @@ public class CryptoConverter implements AttributeConverter<String, String> {
 
     /**
      * Descriptografa o valor vindo do banco de dados.
-     * Tenta primeiro decodificar usando o modo seguro AES-GCM.
-     * Caso falhe ou caso o dado seja legado (menor ou igual a 12 bytes),
-     * realiza fallback automático para descriptografia em modo AES-ECB.
+     * Suporta a remoção do prefixo de chave 'v1:' e tenta decodificar em modo AES-GCM.
+     * Caso falhe ou caso o dado seja legado (menor ou igual a 12 bytes ou sem prefixo),
+     * realiza fallback automático para descriptografia em modo legado AES-ECB.
      * Retorna null se a entrada for nula ou vazia.
      */
     @Override
@@ -96,7 +98,19 @@ public class CryptoConverter implements AttributeConverter<String, String> {
         }
 
         try {
-            byte[] decoded = Base64.getDecoder().decode(dbData);
+            String workingData = dbData;
+            boolean isV1 = dbData.startsWith("v1:");
+            if (isV1) {
+                workingData = dbData.substring(3);
+            }
+
+            byte[] decoded;
+            try {
+                decoded = Base64.getDecoder().decode(workingData);
+            } catch (IllegalArgumentException ex) {
+                // Se falhar a decodificação em Base64 direto (dados antigos/corrompidos), tenta o ECB diretamente
+                return decryptLegacy(dbData);
+            }
             
             // Dados menores ou iguais a 12 bytes não podem conter o IV e a tag de autenticação GCM.
             // Executa diretamente o fallback para o modo legado ECB.

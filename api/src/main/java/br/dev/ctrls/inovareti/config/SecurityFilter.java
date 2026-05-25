@@ -113,7 +113,7 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);
 
-        if (token == null) {
+        if (token == null || tokenService.isTokenBlacklisted(token)) {
             filterChain.doFilter(request, response);
             return;
         }

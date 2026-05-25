@@ -17,6 +17,7 @@ import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorResetConfirmRequestDTO;
 import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorVerifyRequestDTO;
+import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
@@ -40,6 +41,7 @@ public class AuthController {
     private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
     private final TwoFactorAuthService twoFactorAuthService;
     private final TwoFactorResetService twoFactorResetService;
+    private final TokenService tokenService;
 
     /**
      * Autentica o usuário e retorna um token JWT assinado.
@@ -61,6 +63,16 @@ public class AuthController {
     public ResponseEntity<AuthResponseDTO> resetInitialPassword(
             @Valid @RequestBody ResetInitialPasswordRequestDTO request) {
         return ResponseEntity.ok(resetInitialPasswordUseCase.execute(request));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring(7);
+            tokenService.blacklistToken(token);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/2fa/generate")

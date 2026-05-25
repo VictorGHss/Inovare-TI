@@ -1,11 +1,11 @@
 package br.dev.ctrls.inovareti.config;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.auth0.jwt.JWT;
@@ -26,8 +26,15 @@ public class TokenService {
     private static final int EXPIRATION_HOURS = 8;
     private static final int RESET_EXPIRATION_MINUTES = 15;
 
-    @Value("${api.security.token.secret}")
-    private String secret;
+    private final String secret;
+    private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
+
+    public TokenService(
+            @Value("${api.security.token.secret}") String secret,
+            ObjectProvider<StringRedisTemplate> redisTemplateProvider) {
+        this.secret = secret;
+        this.redisTemplateProvider = redisTemplateProvider;
+    }
 
     /**
      * Gera um token JWT assinado para o usuário informado.
@@ -136,6 +143,47 @@ public class TokenService {
         } catch (JWTVerificationException | IllegalArgumentException e) {
             return false;
         }
+    }
+
+    public void blacklistToken(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            var decoded = JWT.require(algorithm)
+                    .withIssuer(ISSUER)
+                    .build()
+                    .verify(token);
+            java.util.Date expiresAt = decoded.getExpiresAt();
+            if (expiresAt != null) {
+                long ttlMillis = expiresAt.getTime() - System.currentTimeMillis();
+                if (ttlMillis > 0) {
+                    StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
+                    if (redis != null) {
+                        String key = "blacklist:token:" + token;
+                        redis.opsForValue().set(key, "revoked", java.time.Duration.ofMillis(ttlMillis));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Silently ignore verification exceptions during blacklisting
+        }
+    }
+
+    public boolean isTokenBlacklisted(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        try {
+            StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
+            if (redis != null) {
+                return Boolean.TRUE.equals(redis.hasKey("blacklist:token:" + token));
+            }
+        } catch (Exception e) {
+            // Resilient fallback: allow authorization if Redis has an outage
+        }
+        return false;
     }
 
     private Instant expiresAt() {

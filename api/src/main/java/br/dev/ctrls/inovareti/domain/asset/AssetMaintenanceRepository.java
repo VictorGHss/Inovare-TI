@@ -9,4 +9,6 @@ public interface AssetMaintenanceRepository extends JpaRepository<AssetMaintenan
     List<AssetMaintenance> findByAssetIdOrderByMaintenanceDateDesc(UUID assetId);
 
     List<AssetMaintenance> findByDescriptionContainingAndType(String descriptionSubstring, AssetMaintenance.MaintenanceType type);
+
+    List<AssetMaintenance> findByDescriptionContainingIgnoreCase(String descriptionSubstring);
 }

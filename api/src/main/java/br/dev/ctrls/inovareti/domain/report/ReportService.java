@@ -72,15 +72,15 @@ public class ReportService {
                 // swallow
             }
 
-            // 2) Busca ativos (equipamentos) entregues vinculados a este ticket
-            List<br.dev.ctrls.inovareti.domain.asset.AssetMaintenance> transfers = List.of();
+            // 2) Busca ativos (equipamentos) e manutenções vinculados a este ticket
+            List<br.dev.ctrls.inovareti.domain.asset.AssetMaintenance> maintenances = List.of();
             try {
-                transfers = assetMaintenanceRepository.findByDescriptionContainingAndType(ticket.getId().toString(), br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER);
+                maintenances = assetMaintenanceRepository.findByDescriptionContainingIgnoreCase(ticket.getId().toString());
             } catch (Exception e) {
                 // swallow
             }
 
-            boolean hasExits = (movements != null && !movements.isEmpty()) || (transfers != null && !transfers.isEmpty());
+            boolean hasExits = (movements != null && !movements.isEmpty()) || (maintenances != null && !maintenances.isEmpty());
 
             if (!hasExits) {
                 // Fallback para chamados antigos que não possuem movimentos de estoque ou transferências no banco:
@@ -117,16 +117,28 @@ public class ReportService {
                     }
                 }
 
-                // Adiciona linhas virtuais para cada ativo entregue
-                if (transfers != null) {
-                    for (var tf : transfers) {
+                // Adiciona linhas virtuais para cada manutenção ou ativo entregue
+                if (maintenances != null) {
+                    for (var tf : maintenances) {
                         var asset = tf.getAsset();
                         if (asset != null) {
                             UUID mockId = UUID.randomUUID();
-                            // Cria um Item mock para representar o ativo na planilha de saídas
+                            
+                            // Determina o nome descritivo da categoria conforme o tipo de atividade
+                            String catName = "Ativo - Outros";
+                            if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER) {
+                                catName = "Ativo - Entrega";
+                            } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.PREVENTIVE) {
+                                catName = "Ativo - Manut. Preventiva";
+                            } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.CORRECTIVE) {
+                                catName = "Ativo - Manut. Corretiva";
+                            } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.UPGRADE) {
+                                catName = "Ativo - Upgrade";
+                            }
+                            
                             br.dev.ctrls.inovareti.domain.inventory.ItemCategory mockCategory = 
                                     br.dev.ctrls.inovareti.domain.inventory.ItemCategory.builder()
-                                            .name("Equipamento (Ativo)")
+                                            .name(catName)
                                             .isConsumable(false)
                                             .build();
                             
@@ -150,8 +162,9 @@ public class ReportService {
                                     .requestedQuantity(1)
                                     .build();
 
-                            // Ativos têm preço 0 nos relatórios de saídas de consumo
-                            totalsByTicket.put(mockId, BigDecimal.ZERO);
+                            // Mapeia o custo real da manutenção ou atividade
+                            BigDecimal cost = tf.getCost() != null ? tf.getCost() : BigDecimal.ZERO;
+                            totalsByTicket.put(mockId, cost);
 
                             unifiedRows.add(mockTicket);
                         }

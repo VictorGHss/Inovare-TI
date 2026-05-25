@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.config;
+package br.dev.ctrls.inovareti.domain.analytics;
 
 import java.util.UUID;
 

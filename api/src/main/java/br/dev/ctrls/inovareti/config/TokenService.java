@@ -139,14 +139,10 @@ public class TokenService {
     }
 
     private Instant expiresAt() {
-        return LocalDateTime.now()
-                .plusHours(EXPIRATION_HOURS)
-                .toInstant(ZoneOffset.of("-03:00"));
+        return Instant.now().plus(java.time.Duration.ofHours(EXPIRATION_HOURS));
     }
 
     private Instant resetExpiresAt() {
-        return LocalDateTime.now()
-                .plusMinutes(RESET_EXPIRATION_MINUTES)
-                .toInstant(ZoneOffset.of("-03:00"));
+        return Instant.now().plus(java.time.Duration.ofMinutes(RESET_EXPIRATION_MINUTES));
     }
 }

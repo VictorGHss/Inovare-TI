@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/inventoryService';
 import FinancialTwoFactorChallenge from '../../components/FinancialTwoFactorChallenge';
-import type { SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
+import type { AdminConfig, SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
+
 import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 import AppointmentControlPanel from './AppointmentControlPanel';

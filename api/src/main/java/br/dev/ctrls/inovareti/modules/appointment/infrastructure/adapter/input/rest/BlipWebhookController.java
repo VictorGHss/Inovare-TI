@@ -112,6 +112,8 @@ public class BlipWebhookController {
                 || rawLower.contains("confirm")
                 || rawLower.contains("alterar")
                 || rawLower.contains("cancelar")
+            || rawLower.contains("preparar_atendimento")
+            || rawLower.contains("exibir_agenda")
                 || rawLower.contains("a0776d9c-6486-42f3-8a4f-2706f0185908")
                 || rawLower.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
 

@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,16 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
         return springDataRepository.findBySessionId(sessionId).stream()
                 .map(NotificationGroupEntity::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<NotificationGroup> findLatestByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return Optional.empty();
+        }
+        return springDataRepository.findByPhoneOrderByCreatedAtDesc(phone).stream()
+                .findFirst()
+                .map(NotificationGroupEntity::toDomain);
     }
 
     @Override

@@ -116,11 +116,15 @@ public class HandleBlipWebhookUseCase {
                 } else {
                     log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {}", normalizedPhone);
                     UUID groupId = null;
+                    java.util.List<String> activeAppointmentIds = new ArrayList<>();
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
                         appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
                     );
                     if (activeSessions != null) {
                         for (AppointmentSession activeSession : activeSessions) {
+                            if (activeSession.getFeegowAppointmentId() != null) {
+                                activeAppointmentIds.add(activeSession.getFeegowAppointmentId());
+                            }
                             if (activeSession.getCurrentGroupId() != null) {
                                 groupId = activeSession.getCurrentGroupId();
                                 break;
@@ -129,8 +133,24 @@ public class HandleBlipWebhookUseCase {
                     }
 
                     if (groupId == null) {
-                        log.warn("[WEBHOOK-BLOCK] groupId nao encontrado no banco para {}. lista_detalhada vazia.", normalizedPhone);
-                        blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", "");
+                        NotificationGroup latestGroup = transactionTemplate.execute(status ->
+                            notificationGroupRepository.findLatestByPhone(normalizedPhone).orElse(null)
+                        );
+                        if (latestGroup != null) {
+                            groupId = latestGroup.getGroupId();
+                            log.warn("[WEBHOOK-BLOCK] groupId recuperado via NotificationGroup para {}. groupId={}",
+                                normalizedPhone, groupId);
+                        }
+                    }
+
+                    if (groupId == null) {
+                        log.error("[WEBHOOK-BLOCK] groupId nulo apos retry. phone={}, feegowAppointments={}",
+                            normalizedPhone, activeAppointmentIds);
+                        blipContextService.setUserContextForUser(
+                            normalizedPhone,
+                            "lista_detalhada",
+                            "Ops, nao encontrei seus agendamentos agora, aguarde um instante."
+                        );
                         return new WebhookResult("", "", "", "", "processed", "");
                     }
 
@@ -163,6 +183,9 @@ public class HandleBlipWebhookUseCase {
                         details.add(time + " - " + specialty);
                     }
                     String listaDetalhada = String.join(" | ", details);
+                    if (listaDetalhada == null || listaDetalhada.isBlank()) {
+                        listaDetalhada = "Ops, nao encontrei seus agendamentos agora, aguarde um instante.";
+                    }
                     blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
                     log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada='{}' para {}", listaDetalhada, normalizedPhone);
                     return new WebhookResult("", "", "", "", "processed", "");

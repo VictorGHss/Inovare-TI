@@ -7,16 +7,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentTemplateMapping;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentTemplateMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTemplateData;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipTemplateDto;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentTemplateMapping;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentTemplateMappingRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -87,8 +87,11 @@ public class BlipNotificationService {
         String normalizedDestination = limeClient.normalizeUserIdentity(destination);
 
         boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
-        if (!normalizedDestination.contains("42991617187") && !isHomologDoctor) {
-            log.warn("[SANDBOX] Disparo bloqueado para número real: {}. Dr ID: {}", destination, appointmentData != null ? appointmentData.doctorId() : "null");
+        if (!isHomologDoctor) {
+            log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
+                appointmentData != null ? appointmentData.doctorId() : "null",
+                destination,
+                templateName);
             return;
         }
 
@@ -219,14 +222,7 @@ public class BlipNotificationService {
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
         String normalizedDestination = limeClient.normalizeUserIdentity(destination);
 
-        // Trava de Sandbox (mesma que no sendTemplateMessage)
-        if (!normalizedDestination.contains("42991617187") && !destination.contains("42991617187")) {
-            log.warn("[SANDBOX] Disparo de grupo bloqueado para número real: {}", destination);
-            return;
-        }
-
-        List<Map<String, String>> parameters = new ArrayList<>();
-        parameters.add(Map.of("type", "text", "text", patientName != null ? patientName : "Paciente"));
+        List<Map<String, String>> parameters = List.of();
 
         Map<String, Object> viewButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,

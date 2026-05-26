@@ -319,14 +319,17 @@ public class HandleBlipWebhookUseCase {
             return new WebhookResult("", "", "", "", "ver_agenda", "");
         }
 
-        boolean isGroupConfirm = action.toLowerCase().startsWith("confirm_group_");
+        String normalizedActionLower = action.toLowerCase();
+        boolean isGroupConfirm = normalizedActionLower.startsWith("confirm_group_");
+        boolean isGroupAlter = normalizedActionLower.startsWith("alter_group_");
 
         String actionType;
         String appointmentId;
 
-        if (isGroupConfirm) {
-            actionType = "confirm";
-            String groupIdStr = action.substring("confirm_group_".length()).trim();
+        if (isGroupConfirm || isGroupAlter) {
+            String groupPrefix = isGroupConfirm ? "confirm_group_" : "alter_group_";
+            actionType = isGroupConfirm ? "confirm" : "alter";
+            String groupIdStr = action.substring(groupPrefix.length()).trim();
             String resolvedAppointmentId = null;
             try {
                 UUID groupId = UUID.fromString(groupIdStr);

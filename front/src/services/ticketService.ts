@@ -79,3 +79,10 @@ export async function relateTicket(id: string, relatedId: string): Promise<void>
   await api.post(`/tickets/${id}/relate/${relatedId}`);
 }
 
+// Atualiza a descrição de solução de um chamado
+export async function updateTicketSolution(id: string, solutionText: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/solution`, { solutionText });
+  return data;
+}
+
+

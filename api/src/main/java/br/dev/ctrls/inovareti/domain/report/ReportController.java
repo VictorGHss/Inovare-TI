@@ -7,10 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
@@ -24,8 +21,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransaction;
-import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
 import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
 import br.dev.ctrls.inovareti.domain.reports.usecase.TicketReportUseCase;
@@ -44,21 +39,18 @@ public class ReportController {
     private final StockBatchRepository stockBatchRepository;
     private final TicketReportUseCase ticketReportUseCase;
     private final UserRepository userRepository;
-    private final FinancialTransactionRepository transactionRepository;
 
     public ReportController(
             ReportService reportService,
             TicketRepository ticketRepository,
             StockBatchRepository stockBatchRepository,
             TicketReportUseCase ticketReportUseCase,
-            UserRepository userRepository,
-            FinancialTransactionRepository transactionRepository) {
+            UserRepository userRepository) {
         this.reportService = reportService;
         this.ticketRepository = ticketRepository;
         this.stockBatchRepository = stockBatchRepository;
         this.ticketReportUseCase = ticketReportUseCase;
         this.userRepository = userRepository;
-        this.transactionRepository = transactionRepository;
     }
 
     @GetMapping("/tickets")
@@ -174,22 +166,6 @@ public class ReportController {
         LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
         LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
 
-        // Busca lançamentos financeiros no intervalo (interpretação em UTC no banco).
-        // Filtra apenas resource_type = INVENTORY e target_type em (SECTOR, DOCTOR).
-        List<FinancialTransaction> txs = transactionRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end).stream()
-            .filter(tx -> tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
-                && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR))
-            .collect(Collectors.toList());
-
-        // Coleta ticket_ids presentes nos lançamentos financeiros (se houver)
-        Set<UUID> ticketIds = txs.stream().map(FinancialTransaction::getTicketId).filter(Objects::nonNull).collect(Collectors.toSet());
-
-        // Reúne chamados para o relatório: ou fechados no intervalo solicitado OU referenciados em financial_transactions
-        List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
-            .filter(t -> (t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
-                || ticketIds.contains(t.getId()))
-            .toList();
-
         // Suporta ?format=pdf para retornar PDF em vez de Excel
         var format = "xlsx"; // padrão
         try {
@@ -203,7 +179,7 @@ public class ReportController {
         }
 
         if ("pdf".equalsIgnoreCase(format)) {
-            ByteArrayInputStream pdfFile = reportService.exportInventoryExitsToPdf(tickets);
+            ByteArrayInputStream pdfFile = reportService.exportInventoryExitsToPdf(start, end);
 
             String filename = String.format("saidas_estoque_%s_to_%s.pdf", start.toLocalDate().toString(), end.toLocalDate().toString());
 
@@ -216,7 +192,7 @@ public class ReportController {
                     .body(new InputStreamResource(pdfFile));
         }
 
-        ByteArrayInputStream excelFile = reportService.exportInventoryExitsToExcel(tickets);
+        ByteArrayInputStream excelFile = reportService.exportInventoryExitsToExcel(start, end);
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=saidas_estoque.xlsx");

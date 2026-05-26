@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.domain.ticket.dto.ResolveTicketDTO;
+import br.dev.ctrls.inovareti.domain.ticket.dto.UpdateSolutionTextDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketAttachmentResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentResponseDTO;
@@ -34,6 +35,7 @@ import br.dev.ctrls.inovareti.domain.ticket.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.TransferTicketUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.UpdateSolutionTextUseCase;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
@@ -63,6 +65,7 @@ public class TicketController {
     private final TicketAttachmentRepository attachmentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final UpdateSolutionTextUseCase updateSolutionTextUseCase;
 
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -296,5 +299,17 @@ public class TicketController {
         log.info("Relacionamento estabelecido de forma bidirecional entre o chamado {} e {}", id, relatedId);
 
         return ResponseEntity.ok(TicketResponseDTO.from(ticket));
+    }
+
+    /**
+     * Atualiza a descrição de solução de um chamado resolvido ou fechado.
+     */
+    @PatchMapping("/{id}/solution")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    public ResponseEntity<TicketResponseDTO> updateSolutionText(
+            @PathVariable UUID id,
+            @RequestBody UpdateSolutionTextDTO request) {
+        checkTicketOwnershipOrStaff(id);
+        return ResponseEntity.ok(updateSolutionTextUseCase.execute(id, request));
     }
 }

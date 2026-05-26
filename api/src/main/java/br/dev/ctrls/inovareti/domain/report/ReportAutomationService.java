@@ -5,21 +5,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransaction;
-import br.dev.ctrls.inovareti.domain.financeiro.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.domain.notification.ReportDeliveryService;
 import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,12 +24,10 @@ public class ReportAutomationService {
 
     private final ReportScheduleRepository scheduleRepository;
     private final ReportService reportService;
-    private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final ReportDeliveryService reportDeliveryService;
     private final DiscordWebhookService discordWebhookService;
     private final DiscordDirectMessageService discordDirectMessageService;
-    private final FinancialTransactionRepository transactionRepository;
 
     /**
      * Executa no dia configurado (ex.: dia 12) às 08:00 todo mês.
@@ -69,20 +60,8 @@ public class ReportAutomationService {
                         schedule.getId(), schedule.getReportType(), startDate, endDate);
 
                 if ("exits".equalsIgnoreCase(schedule.getReportType())) {
-                    // Busca lançamentos financeiros no intervalo e reúne chamados relacionados
-                    List<FinancialTransaction> txs = transactionRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end).stream()
-                        .filter(tx -> tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
-                            && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR))
-                        .collect(Collectors.toList());
-
-                    Set<UUID> ticketIds = txs.stream().map(FinancialTransaction::getTicketId).filter(Objects::nonNull).collect(Collectors.toSet());
-
-                    List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
-                        .filter(t -> (t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
-                            || ticketIds.contains(t.getId()))
-                        .toList();
                     // generate PDF bytes
-                    ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(tickets);
+                    ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(start, end);
                     byte[] bytes = stream.readAllBytes();
 
                     String filename = String.format("saidas_estoque_%s_to_%s.pdf", startDate.toString(), endDate.toString());
@@ -176,20 +155,7 @@ public class ReportAutomationService {
                     LocalDateTime end = endDate.atTime(LocalTime.MAX);
 
                         try {
-                        // Busca lançamentos financeiros no intervalo e reúne chamados relacionados
-                        List<FinancialTransaction> txs = transactionRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end).stream()
-                            .filter(tx -> tx.getResourceType() == FinancialTransaction.ResourceType.INVENTORY
-                                && (tx.getTargetType() == FinancialTransaction.TargetType.SECTOR || tx.getTargetType() == FinancialTransaction.TargetType.DOCTOR))
-                            .collect(Collectors.toList());
-
-                        Set<UUID> ticketIds = txs.stream().map(FinancialTransaction::getTicketId).filter(Objects::nonNull).collect(Collectors.toSet());
-
-                        List<Ticket> tickets = ticketRepository.findAllWithRelations().stream()
-                            .filter(t -> (t.getClosedAt() != null && (t.getClosedAt().isEqual(start) || t.getClosedAt().isAfter(start)) && (t.getClosedAt().isBefore(end) || t.getClosedAt().isEqual(end)))
-                                || ticketIds.contains(t.getId()))
-                            .toList();
-
-                        ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(tickets);
+                        ByteArrayInputStream stream = reportService.exportInventoryExitsToPdf(start, end);
                         byte[] bytes = stream.readAllBytes();
                         String filename = String.format("saidas_estoque_%s_to_%s.pdf", startDate.toString(), endDate.toString());
 

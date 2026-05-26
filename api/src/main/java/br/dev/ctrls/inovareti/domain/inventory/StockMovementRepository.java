@@ -19,4 +19,6 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT sm FROM StockMovement sm WHERE LOWER(sm.reference) LIKE LOWER(CONCAT('%', :ticketId, '%')) AND sm.type = :type ORDER BY sm.date DESC")
     List<StockMovement> findByReferenceContainingIgnoreCaseAndTypeOrderByDateDesc(@org.springframework.data.repository.query.Param("ticketId") String ticketId, @org.springframework.data.repository.query.Param("type") StockMovementType type);
+
+    List<StockMovement> findByDateBetweenAndTypeOrderByDateDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, StockMovementType type);
 }

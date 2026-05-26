@@ -1,10 +1,12 @@
 import { ArrowLeft } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 import PageHero from '../../components/PageHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTicketDetails } from '../../hooks/useTicketDetails';
+import { updateTicketSolution } from '../../services/ticketService';
 import ResolveTicketModal from './ResolveTicketModal';
 import TicketHeader from './TicketHeader';
 import TicketSidebar from './TicketSidebar';
@@ -14,6 +16,10 @@ export default function TicketDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isEditingSolution, setIsEditingSolution] = useState(false);
+  const [solutionInput, setSolutionInput] = useState('');
+  const [isSavingSolution, setIsSavingSolution] = useState(false);
+
   const {
     ticket,
     ticketNotFound,
@@ -42,6 +48,23 @@ export default function TicketDetails() {
   } = useTicketDetails({
     ticketId: id,
   });
+
+  const canEditSolution = user && (user.role === 'ADMIN' || user.role === 'TECHNICIAN');
+
+  const handleSaveSolution = async () => {
+    if (!ticket) return;
+    setIsSavingSolution(true);
+    try {
+      await updateTicketSolution(ticket.id, solutionInput);
+      toast.success('Descrição da solução salva com sucesso!');
+      setIsEditingSolution(false);
+      loadTicket();
+    } catch (err) {
+      toast.error('Falha ao salvar a descrição da solução.');
+    } finally {
+      setIsSavingSolution(false);
+    }
+  };
 
   useEffect(() => {
     if (ticketNotFound) {
@@ -84,15 +107,72 @@ export default function TicketDetails() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 flex flex-col gap-5">
           <TicketHeader ticket={ticket} />
-          {(ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') && ticket.solutionText && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Solução Aplicada
-              </h3>
-              <p className="mt-2 text-sm text-emerald-700 whitespace-pre-wrap leading-relaxed">
-                {ticket.solutionText}
-              </p>
+          {/* Solução Aplicada Section */}
+          {(ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') && (
+            <div className={`rounded-2xl border p-5 shadow-sm transition-all duration-300 ${
+              ticket.solutionText 
+                ? 'border-emerald-200 bg-emerald-50/70' 
+                : 'border-amber-200 bg-amber-50/60'
+            }`}>
+              <div className="flex items-center justify-between">
+                <h3 className={`text-sm font-bold flex items-center gap-2 ${
+                  ticket.solutionText ? 'text-emerald-800' : 'text-amber-800'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full animate-pulse ${
+                    ticket.solutionText ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`} />
+                  Solução Aplicada
+                </h3>
+                {canEditSolution && !isEditingSolution && (
+                  <button
+                    onClick={() => {
+                      setSolutionInput(ticket.solutionText || '');
+                      setIsEditingSolution(true);
+                    }}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all duration-200 ${
+                      ticket.solutionText
+                        ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-100/60'
+                        : 'border-amber-300 text-amber-700 hover:bg-amber-100/60'
+                    }`}
+                  >
+                    {ticket.solutionText ? 'Editar Descrição' : 'Adicionar Solução'}
+                  </button>
+                )}
+              </div>
+
+              {isEditingSolution ? (
+                <div className="mt-3 flex flex-col gap-3">
+                  <textarea
+                    value={solutionInput}
+                    onChange={(e) => setSolutionInput(e.target.value)}
+                    rows={4}
+                    placeholder="Descreva detalhadamente a solução aplicada a este chamado..."
+                    className="w-full text-sm rounded-xl border border-slate-200 p-3 shadow-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none resize-none transition-all"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setIsEditingSolution(false)}
+                      disabled={isSavingSolution}
+                      className="px-4 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveSolution}
+                      disabled={isSavingSolution}
+                      className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-brand-primary text-white hover:bg-brand-primary-hover transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                    >
+                      {isSavingSolution ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className={`mt-2 text-sm whitespace-pre-wrap leading-relaxed ${
+                  ticket.solutionText ? 'text-emerald-700' : 'text-amber-700 italic font-medium'
+                }`}>
+                  {ticket.solutionText || 'Nenhuma descrição de solução foi informada para este chamado solucionado.'}
+                </p>
+              )}
             </div>
           )}
           <TicketTimeline

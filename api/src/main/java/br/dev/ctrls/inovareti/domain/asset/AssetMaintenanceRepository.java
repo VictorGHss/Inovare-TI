@@ -11,4 +11,6 @@ public interface AssetMaintenanceRepository extends JpaRepository<AssetMaintenan
     List<AssetMaintenance> findByDescriptionContainingAndType(String descriptionSubstring, AssetMaintenance.MaintenanceType type);
 
     List<AssetMaintenance> findByDescriptionContainingIgnoreCase(String descriptionSubstring);
+
+    List<AssetMaintenance> findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, AssetMaintenance.MaintenanceType type);
 }

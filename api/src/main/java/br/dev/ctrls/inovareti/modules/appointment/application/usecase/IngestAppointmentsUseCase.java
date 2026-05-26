@@ -284,10 +284,27 @@ public class IngestAppointmentsUseCase {
                 continue;
             }
 
-            String doctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : "";
-            if (!"70".equals(doctorId)) {
-                log.info("[TRAVA DE TESTE] Agendamento pulado. Médico ID {} diferente do ID homologado 70.", doctorId);
-                continue;
+            if (appointmentMotorProperties.isTestMode()) {
+                String testDoctorId = appointmentMotorProperties.getTestDoctorId();
+                java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
+                        .map(String::trim)
+                        .filter(id -> !id.isEmpty())
+                        .toList();
+                
+                String doctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : "";
+                if (!allowedIds.contains(doctorId)) {
+                    log.info("[TRAVA DE TESTE] Agendamento pulado. Médico ID {} não está na lista de homologação ({}).", doctorId, testDoctorId);
+                    continue;
+                }
+
+                String testPhone = appointmentMotorProperties.getTestPhone();
+                if (testPhone != null && !testPhone.isBlank()) {
+                    phoneNumber = normalizePhoneNumberForBlip(testPhone);
+                    log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado: {}", patientPhone, phoneNumber);
+                } else {
+                    log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
+                    continue;
+                }
             }
 
             log.info("Dados do paciente recuperados: ID={}, Telefone={}, CampoUtilizado={}",

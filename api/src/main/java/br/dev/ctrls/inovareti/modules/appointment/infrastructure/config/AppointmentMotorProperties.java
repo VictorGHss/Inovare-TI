@@ -17,6 +17,7 @@ public class AppointmentMotorProperties {
     private String monitorCron;
     private boolean testMode;
     private String testDoctorId;
+    private String testPhone;
     private boolean feegowStartupProbeEnabled;
     private String feegowBaseUrl;
     private String feegowUnidadeId;

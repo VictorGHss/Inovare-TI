@@ -110,8 +110,9 @@ app:
       enabled: ${APP_APPOINTMENT_MOTOR_ENABLED:true}
       ingestion-cron: ${APP_APPOINTMENT_MOTOR_INGESTION_CRON:0 0/15 * * * *}
       monitor-cron: ${APP_APPOINTMENT_MOTOR_MONITOR_CRON:0 0/30 * * * *}
-      test-mode: ${APP_APPOINTMENT_MOTOR_TEST_MODE:false}
+      test-mode: ${APP_APPOINTMENT_MOTOR_TEST_MODE:true}
       test-doctor-id: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}
+      test-phone: ${APP_APPOINTMENT_MOTOR_TEST_PHONE:}
       feegow-startup-probe-enabled: ${APP_APPOINTMENT_FEEGOW_STARTUP_PROBE_ENABLED:true}
       feegow-base-url: ${APP_APPOINTMENT_FEEGOW_BASE_URL:https://api.feegow.com.br}
       feegow-search-path: ${APP_APPOINTMENT_FEEGOW_SEARCH_PATH:/appoint/search}

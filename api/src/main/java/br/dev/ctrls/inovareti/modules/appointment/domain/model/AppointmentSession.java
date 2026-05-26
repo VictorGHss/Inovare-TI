@@ -20,6 +20,7 @@ public class AppointmentSession {
     private String feegowAppointmentId;
     private String patientId;
     private String phoneNumber;
+    private UUID currentGroupId;
     private String doctorProfissionalId;
     private LocalDateTime appointmentAt;
     private AppointmentSessionStatus status;

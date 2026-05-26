@@ -115,32 +115,21 @@ public class HandleBlipWebhookUseCase {
                     return new WebhookResult("", "", "", "", "processed", "");
                 } else {
                     log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {}", normalizedPhone);
-                    String groupIdStr = blipContextService.getUserContext(normalizedPhone, "groupId");
                     UUID groupId = null;
-                    if (groupIdStr != null && !groupIdStr.isBlank()) {
-                        try {
-                            groupId = UUID.fromString(groupIdStr.trim());
-                        } catch (Exception ignored) {}
-                    }
-
-                    if (groupId == null) {
-                        java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                            appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
-                        );
-                        if (activeSessions != null) {
-                            for (AppointmentSession activeSession : activeSessions) {
-                                java.util.List<NotificationGroup> groups =
-                                    notificationGroupRepository.findBySessionId(activeSession.getId());
-                                if (groups != null && !groups.isEmpty()) {
-                                    groupId = groups.get(0).getGroupId();
-                                    break;
-                                }
+                    java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                    );
+                    if (activeSessions != null) {
+                        for (AppointmentSession activeSession : activeSessions) {
+                            if (activeSession.getCurrentGroupId() != null) {
+                                groupId = activeSession.getCurrentGroupId();
+                                break;
                             }
                         }
                     }
 
                     if (groupId == null) {
-                        log.warn("[WEBHOOK-BLOCK] groupId nao encontrado para {}. lista_detalhada vazia.", normalizedPhone);
+                        log.warn("[WEBHOOK-BLOCK] groupId nao encontrado no banco para {}. lista_detalhada vazia.", normalizedPhone);
                         blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", "");
                         return new WebhookResult("", "", "", "", "processed", "");
                     }
@@ -305,10 +294,25 @@ public class HandleBlipWebhookUseCase {
             log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido para groupId={}", groupIdStr);
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
-                // Injeta contexto de grupo no Blip para que o bloco Exibir_Agenda possa usar {{lista_detalhada}}
-                blipContextService.setUserContextForUser(fromPhone, "groupId", groupId.toString());
-                blipContextService.setUserContextForUser(fromPhone, "isGroupFlow", "true");
-                log.info("[WEBHOOK] Contexto de grupo injetado para fluxo do Builder. groupId={}", groupIdStr);
+                if (fromPhone != null && !fromPhone.isBlank()) {
+                    String normalizedPhone = fromPhone.trim();
+                    transactionTemplate.executeWithoutResult(status -> {
+                        java.util.List<AppointmentSession> activeSessions =
+                            appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone);
+                        if (activeSessions == null || activeSessions.isEmpty()) {
+                            log.warn("[WEBHOOK] Nenhuma sessao ativa encontrada para {} ao salvar groupId={}",
+                                normalizedPhone, groupIdStr);
+                            return;
+                        }
+                        for (AppointmentSession session : activeSessions) {
+                            session.setCurrentGroupId(groupId);
+                            appointmentSessionRepository.save(session);
+                        }
+                    });
+                    log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupIdStr);
+                } else {
+                    log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
+                }
             } catch (IllegalArgumentException e) {
                 log.error("[WEBHOOK] groupId inválido no payload ver_agenda_. action={}", action);
             }

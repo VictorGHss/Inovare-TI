@@ -45,6 +45,9 @@ public class AppointmentSessionEntity {
     @Column(name = "patient_phone", length = 40)
     private String phoneNumber;
 
+    @Column(name = "current_group_id")
+    private UUID currentGroupId;
+
     @Column(name = "doctor_profissional_id", length = 64)
     private String doctorProfissionalId;
 
@@ -81,6 +84,7 @@ public class AppointmentSessionEntity {
                 .feegowAppointmentId(this.feegowAppointmentId)
                 .patientId(this.patientId)
                 .phoneNumber(this.phoneNumber)
+                .currentGroupId(this.currentGroupId)
                 .doctorProfissionalId(this.doctorProfissionalId)
                 .appointmentAt(this.appointmentAt)
                 .status(this.status)
@@ -100,6 +104,7 @@ public class AppointmentSessionEntity {
                 .feegowAppointmentId(domain.getFeegowAppointmentId())
                 .patientId(domain.getPatientId())
                 .phoneNumber(domain.getPhoneNumber())
+                .currentGroupId(domain.getCurrentGroupId())
                 .doctorProfissionalId(domain.getDoctorProfissionalId())
                 .appointmentAt(domain.getAppointmentAt())
                 .status(domain.getStatus())

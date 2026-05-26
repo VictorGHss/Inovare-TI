@@ -87,4 +87,26 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     /** Verifica se há tickets vinculados a uma categoria antes de permitir a exclusão. */
     boolean existsByCategoryId(UUID categoryId);
+
+    /**
+     * Busca chamados de solicitação (com requestedItem preenchido) com status RESOLVED
+     * encerrados no intervalo informado, carregando todas as relações necessárias
+     * para o relatório de saídas (requester + sector + requestedItem + itemCategory).
+     */
+    @Query("""
+            SELECT DISTINCT t FROM Ticket t
+            JOIN FETCH t.requester r
+            LEFT JOIN FETCH r.sector
+            JOIN FETCH t.category
+            JOIN FETCH t.requestedItem i
+            LEFT JOIN FETCH i.itemCategory
+            LEFT JOIN FETCH t.assignedTo
+            WHERE t.status = 'RESOLVED'
+              AND t.requestedItem IS NOT NULL
+              AND t.closedAt BETWEEN :start AND :end
+            ORDER BY t.closedAt ASC
+            """)
+    List<Ticket> findResolvedRequestTicketsInPeriod(
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end);
 }

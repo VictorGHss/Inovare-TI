@@ -55,139 +55,162 @@ public class ReportService {
     private List<Ticket> buildUnifiedExitRows(java.time.LocalDateTime start, java.time.LocalDateTime end, Map<UUID, BigDecimal> totalsByTicket) {
         List<Ticket> unifiedRows = new java.util.ArrayList<>();
 
-        // 1) Busca movimentos de estoque (consumíveis entregues) no intervalo
-        List<br.dev.ctrls.inovareti.domain.inventory.StockMovement> movements = List.of();
+        // -----------------------------------------------------------------------
+        // 1) Chamados de SOLICITAÇÃO resolvidos no período (requestedItem preenchido)
+        //    Buscados diretamente com todas as relações eager (requester, sector, item)
+        // -----------------------------------------------------------------------
         try {
-            movements = stockMovementRepository.findByDateBetweenAndTypeOrderByDateDesc(
-                start, end, br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
+            List<Ticket> requestTickets = ticketRepository.findResolvedRequestTicketsInPeriod(start, end);
+            for (Ticket ticket : requestTickets) {
+                // Custo: busca o movimento de saída gerado pelo FIFO ao resolver o chamado
+                BigDecimal cost = BigDecimal.ZERO;
+                try {
+                    String refPrefix = "TICKET:" + ticket.getId();
+                    var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(
+                            refPrefix, br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
+                    if (movements != null && !movements.isEmpty()) {
+                        cost = movements.stream()
+                                .map(m -> m.getUnitPriceAtTime() != null ? m.getUnitPriceAtTime() : BigDecimal.ZERO)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    }
+                } catch (Exception e) {
+                    // swallow — custo fica ZERO se não encontrar movimento
+                }
+                totalsByTicket.put(ticket.getId(), cost);
+                unifiedRows.add(ticket);
+            }
         } catch (Exception e) {
             // swallow
         }
 
-        // 2) Busca ativos (equipamentos) e manutenções de entrega no intervalo
-        List<br.dev.ctrls.inovareti.domain.asset.AssetMaintenance> maintenances = List.of();
+        // -----------------------------------------------------------------------
+        // 2) Saídas DIRETAS de consumíveis (StockMovements sem referência TICKET:)
+        //    Esses movimentos não possuem chamado vinculado
+        // -----------------------------------------------------------------------
         try {
-            maintenances = assetMaintenanceRepository.findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(
-                start, end, br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER);
-        } catch (Exception e) {
-            // swallow
-        }
+            List<br.dev.ctrls.inovareti.domain.inventory.StockMovement> movements =
+                    stockMovementRepository.findByDateBetweenAndTypeOrderByDateDesc(
+                            start, end, br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
 
-        // 3) Adiciona linhas virtuais de consumíveis para cada movimento real de estoque
-        if (movements != null) {
-            for (var mv : movements) {
-                var item = itemRepository.findById(mv.getItemId()).orElse(null);
-                if (item != null) {
-                    UUID mockId = UUID.randomUUID();
-                    
-                    // Tenta identificar o chamado a partir da referência (ex.: "TICKET:uuid")
-                    Ticket originalTicket = null;
+            if (movements != null) {
+                for (var mv : movements) {
+                    // Pula movimentos que já foram cobertos pelos chamados de solicitação acima
                     if (mv.getReference() != null && mv.getReference().startsWith("TICKET:")) {
-                        try {
-                            String ticketIdStr = mv.getReference().substring(7).trim();
-                            UUID ticketId = UUID.fromString(ticketIdStr);
-                            originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
-                        } catch (Exception e) {
-                            // swallow
-                        }
+                        continue;
                     }
 
-                    Ticket mockTicket = Ticket.builder()
-                            .id(mockId)
-                            .title(originalTicket != null ? originalTicket.getTitle() : "Saída Direta de Material: " + item.getName())
-                            .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
-                            .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
-                            .requester(originalTicket != null ? originalTicket.getRequester() : null)
-                            .assignedTo(originalTicket != null ? originalTicket.getAssignedTo() : null)
-                            .category(originalTicket != null ? originalTicket.getCategory() : null)
-                            .closedAt(mv.getDate())
-                            .requestedItem(item)
-                            .requestedQuantity(mv.getQuantity())
-                            .build();
-                    
-                    BigDecimal cost = mv.getUnitPriceAtTime() != null ? mv.getUnitPriceAtTime() : BigDecimal.ZERO;
-                    totalsByTicket.put(mockId, cost);
-                    
-                    unifiedRows.add(mockTicket);
+                    var item = itemRepository.findById(mv.getItemId()).orElse(null);
+                    if (item != null) {
+                        UUID mockId = UUID.randomUUID();
+
+                        Ticket mockTicket = Ticket.builder()
+                                .id(mockId)
+                                .title("Saída Direta de Material: " + item.getName())
+                                .status(br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
+                                .priority(br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
+                                .requester(null)
+                                .assignedTo(null)
+                                .category(null)
+                                .closedAt(mv.getDate())
+                                .requestedItem(item)
+                                .requestedQuantity(mv.getQuantity())
+                                .build();
+
+                        BigDecimal cost = mv.getUnitPriceAtTime() != null ? mv.getUnitPriceAtTime() : BigDecimal.ZERO;
+                        totalsByTicket.put(mockId, cost);
+                        unifiedRows.add(mockTicket);
+                    }
                 }
             }
+        } catch (Exception e) {
+            // swallow
         }
 
-        // 4) Adiciona linhas virtuais para cada manutenção ou ativo entregue
-        if (maintenances != null) {
-            for (var tf : maintenances) {
-                var asset = tf.getAsset();
-                if (asset != null) {
-                    UUID mockId = UUID.randomUUID();
-                    
-                    // Tenta identificar o chamado a partir da descrição (ex.: contendo "[TICKET:uuid]")
-                    Ticket originalTicket = null;
-                    if (tf.getDescription() != null && tf.getDescription().contains("TICKET:")) {
-                        try {
-                            String desc = tf.getDescription();
-                            int startIdx = desc.indexOf("TICKET:") + 7;
-                            int endIdx = desc.indexOf("]", startIdx);
-                            if (endIdx > startIdx) {
-                                String ticketIdStr = desc.substring(startIdx, endIdx).trim();
-                                UUID ticketId = UUID.fromString(ticketIdStr);
-                                originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
+        // -----------------------------------------------------------------------
+        // 3) Ativos entregues via AssetMaintenance do tipo TRANSFER no período
+        // -----------------------------------------------------------------------
+        try {
+            List<br.dev.ctrls.inovareti.domain.asset.AssetMaintenance> maintenances =
+                    assetMaintenanceRepository.findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(
+                            start, end, br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER);
+
+            if (maintenances != null) {
+                for (var tf : maintenances) {
+                    var asset = tf.getAsset();
+                    if (asset != null) {
+                        UUID mockId = UUID.randomUUID();
+
+                        // Tenta identificar o chamado a partir da descrição (ex.: "[TICKET:uuid]")
+                        Ticket originalTicket = null;
+                        if (tf.getDescription() != null && tf.getDescription().contains("TICKET:")) {
+                            try {
+                                String desc = tf.getDescription();
+                                int startIdx = desc.indexOf("TICKET:") + 7;
+                                int endIdx = desc.indexOf("]", startIdx);
+                                if (endIdx > startIdx) {
+                                    String ticketIdStr = desc.substring(startIdx, endIdx).trim();
+                                    UUID ticketId = UUID.fromString(ticketIdStr);
+                                    originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
+                                }
+                            } catch (Exception e) {
+                                // swallow
                             }
-                        } catch (Exception e) {
-                            // swallow
                         }
-                    }
 
-                    // Determina o nome descritivo da categoria conforme o tipo de atividade
-                    String catName = "Ativo - Outros";
-                    if (null != tf.getType()) switch (tf.getType()) {
-                        case TRANSFER -> catName = "Ativo - Entrega";
-                        case PREVENTIVE -> catName = "Ativo - Manut. Preventiva";
-                        case CORRECTIVE -> catName = "Ativo - Manut. Corretiva";
-                        case UPGRADE -> catName = "Ativo - Upgrade";
-                        default -> {
+                        // Determina o nome descritivo da categoria conforme o tipo de atividade
+                        String catName = "Ativo - Outros";
+                        if (null != tf.getType()) switch (tf.getType()) {
+                            case TRANSFER -> catName = "Ativo - Entrega";
+                            case PREVENTIVE -> catName = "Ativo - Manut. Preventiva";
+                            case CORRECTIVE -> catName = "Ativo - Manut. Corretiva";
+                            case UPGRADE -> catName = "Ativo - Upgrade";
+                            default -> {
+                            }
                         }
+
+                        br.dev.ctrls.inovareti.domain.inventory.ItemCategory mockCategory =
+                                br.dev.ctrls.inovareti.domain.inventory.ItemCategory.builder()
+                                        .name(catName)
+                                        .isConsumable(false)
+                                        .build();
+
+                        br.dev.ctrls.inovareti.domain.inventory.Item mockItem =
+                                br.dev.ctrls.inovareti.domain.inventory.Item.builder()
+                                        .name(asset.getName() + " [Patr: " + asset.getPatrimonyCode() + "]")
+                                        .itemCategory(mockCategory)
+                                        .currentStock(1)
+                                        .build();
+
+                        // Se não tiver chamado original, tenta obter o solicitante a partir do primeiro usuário do ativo
+                        br.dev.ctrls.inovareti.domain.user.User recipient = null;
+                        if (originalTicket != null) {
+                            recipient = originalTicket.getRequester();
+                        } else if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {
+                            recipient = asset.getUsers().iterator().next();
+                        }
+
+                        Ticket mockTicket = Ticket.builder()
+                                .id(mockId)
+                                .title(originalTicket != null ? originalTicket.getTitle() : "Entrega Direta de Ativo: " + asset.getName())
+                                .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
+                                .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
+                                .requester(recipient)
+                                .assignedTo(originalTicket != null ? originalTicket.getAssignedTo() : tf.getTechnician())
+                                .category(originalTicket != null ? originalTicket.getCategory() : null)
+                                .closedAt(tf.getCreatedAt())
+                                .requestedItem(mockItem)
+                                .requestedQuantity(1)
+                                .build();
+
+                        BigDecimal cost = tf.getCost() != null ? tf.getCost() : BigDecimal.ZERO;
+                        totalsByTicket.put(mockId, cost);
+
+                        unifiedRows.add(mockTicket);
                     }
-                    
-                    br.dev.ctrls.inovareti.domain.inventory.ItemCategory mockCategory = 
-                            br.dev.ctrls.inovareti.domain.inventory.ItemCategory.builder()
-                                    .name(catName)
-                                    .isConsumable(false)
-                                    .build();
-                    
-                    br.dev.ctrls.inovareti.domain.inventory.Item mockItem = 
-                            br.dev.ctrls.inovareti.domain.inventory.Item.builder()
-                                    .name(asset.getName() + " [Patr: " + asset.getPatrimonyCode() + "]")
-                                    .itemCategory(mockCategory)
-                                    .currentStock(1)
-                                    .build();
-
-                    // Se não tiver chamado original, tenta obter o solicitante a partir do primeiro usuário do ativo
-                    br.dev.ctrls.inovareti.domain.user.User recipient = null;
-                    if (originalTicket != null) {
-                        recipient = originalTicket.getRequester();
-                    } else if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {
-                        recipient = asset.getUsers().iterator().next();
-                    }
-
-                    Ticket mockTicket = Ticket.builder()
-                            .id(mockId)
-                            .title(originalTicket != null ? originalTicket.getTitle() : "Entrega Direta de Ativo: " + asset.getName())
-                            .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
-                            .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
-                            .requester(recipient)
-                            .assignedTo(originalTicket != null ? originalTicket.getAssignedTo() : tf.getTechnician())
-                            .category(originalTicket != null ? originalTicket.getCategory() : null)
-                            .closedAt(tf.getCreatedAt())
-                            .requestedItem(mockItem)
-                            .requestedQuantity(1)
-                            .build();
-
-                    BigDecimal cost = tf.getCost() != null ? tf.getCost() : BigDecimal.ZERO;
-                    totalsByTicket.put(mockId, cost);
-
-                    unifiedRows.add(mockTicket);
                 }
             }
+        } catch (Exception e) {
+            // swallow
         }
 
         // Ordenação por data mais antiga até mais nova (conforme solicitado pelo usuário!)

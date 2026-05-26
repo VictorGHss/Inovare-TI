@@ -43,6 +43,7 @@ export interface FinanceReceipt {
 
 export interface FinanceAlert {
   id: string;
+  alertType?: string;
   title: string;
   details: string;
   resolved: boolean;

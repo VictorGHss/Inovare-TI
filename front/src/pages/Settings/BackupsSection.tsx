@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, Trash2, Download, Database, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import type { FinanceAlert } from '../../types/models';
 
 interface BackupInfo {
   filename: string;
@@ -15,6 +16,10 @@ export default function BackupsSection() {
   const [triggering, setTriggering] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
+  // Estados adicionados para o gerenciamento de alertas/logs de auditoria de backup
+  const [alerts, setAlerts] = useState<FinanceAlert[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+
   const loadBackups = async () => {
     try {
       setLoading(true);
@@ -27,8 +32,25 @@ export default function BackupsSection() {
     }
   };
 
+  // Carrega e filtra apenas alertas relacionados à rotina de backup (DATABASE_BACKUP)
+  const loadBackupAlerts = async () => {
+    try {
+      setLoadingAlerts(true);
+      const { data } = await api.get<FinanceAlert[]>('/financeiro/alertas');
+      if (Array.isArray(data)) {
+        const backupAlerts = data.filter((a) => a.alertType === 'DATABASE_BACKUP');
+        setAlerts(backupAlerts);
+      }
+    } catch {
+      console.warn('Não foi possível carregar os logs de auditoria de backup.');
+    } finally {
+      setLoadingAlerts(false);
+    }
+  };
+
   useEffect(() => {
     void loadBackups();
+    void loadBackupAlerts();
   }, []);
 
   async function handleTriggerBackup() {
@@ -37,10 +59,12 @@ export default function BackupsSection() {
       await api.post('/admin/backups/trigger');
       toast.success('Backup gerado com sucesso.');
       await loadBackups();
+      await loadBackupAlerts();
     } catch (err) {
       const error = err as { response?: { data?: { detail?: string } } };
       const msg = error.response?.data?.detail || 'Erro ao gerar backup de banco de dados.';
       toast.error(msg);
+      await loadBackupAlerts();
     } finally {
       setTriggering(false);
     }
@@ -118,6 +142,7 @@ export default function BackupsSection() {
             type="button"
             onClick={() => {
               void loadBackups();
+              void loadBackupAlerts();
             }}
             disabled={loading || triggering}
             className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
@@ -227,6 +252,77 @@ export default function BackupsSection() {
             </p>
           </div>
         </div>
+
+        {/* Histórico de Auditoria de Backups */}
+        <section className="mt-8 border-t border-slate-100 pt-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Database size={16} className="text-brand-primary" />
+                Histórico de Auditoria e Alertas de Backup
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Logs de execução recente, falhas e dumps automáticos salvos em disco ou enviados por e-mail.
+              </p>
+            </div>
+            {loadingAlerts && (
+              <Loader2 size={14} className="animate-spin text-slate-400" />
+            )}
+          </div>
+
+          {alerts.length === 0 ? (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs text-slate-400">
+              Nenhum log de backup registrado no sistema de alertas.
+            </div>
+          ) : (
+            <ul className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              {[...alerts]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map((alert) => {
+                  const isSuccess = alert.resolved || alert.title.toLowerCase().includes('sucesso');
+                  return (
+                    <li
+                      key={alert.id}
+                      className={`rounded-xl border p-4 transition-all ${
+                        isSuccess
+                          ? 'border-emerald-100 bg-emerald-50/10 hover:bg-emerald-50/20'
+                          : 'border-red-100 bg-red-50/10 hover:bg-red-50/20'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <h4
+                            className={`text-xs font-bold ${
+                              isSuccess ? 'text-emerald-800' : 'text-red-800'
+                            }`}
+                          >
+                            {alert.title}
+                          </h4>
+                          <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                            {alert.details}
+                          </p>
+                        </div>
+                        <div className="text-left sm:text-right shrink-0 flex flex-col gap-1 sm:items-end">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                              isSuccess
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {isSuccess ? 'Sucesso' : 'Erro'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                            {formatTimestamp(alert.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

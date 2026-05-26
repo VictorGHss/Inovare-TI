@@ -61,7 +61,7 @@ export function useFinancialDashboard() {
 
   const hasContaAzulLinked =
     summary?.integrationActive ?? (connectionStatus?.authorized === true);
-  const unresolvedAlerts = useMemo(() => alerts.filter((alert) => !alert.resolved), [alerts]);
+  const unresolvedAlerts = useMemo(() => alerts.filter((alert) => !alert.resolved && alert.alertType !== 'DATABASE_BACKUP'), [alerts]);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {

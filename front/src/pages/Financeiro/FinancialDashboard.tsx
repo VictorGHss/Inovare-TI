@@ -302,7 +302,7 @@ export default function FinancialDashboard() {
             />
           </section>
 
-          <FinancialAlertsList alerts={alerts} />
+          <FinancialAlertsList alerts={alerts.filter((a) => a.alertType !== 'DATABASE_BACKUP')} />
 
           <section>
             <FinancialDoctorMappingPanel />

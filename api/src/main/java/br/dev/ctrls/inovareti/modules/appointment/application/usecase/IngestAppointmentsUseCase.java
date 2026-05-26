@@ -285,6 +285,7 @@ public class IngestAppointmentsUseCase {
             }
 
             if (appointmentMotorProperties.isTestMode()) {
+                // Filtra os IDs dos médicos homologados para o ambiente de teste
                 String testDoctorId = appointmentMotorProperties.getTestDoctorId();
                 java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
                         .map(String::trim)
@@ -297,10 +298,29 @@ public class IngestAppointmentsUseCase {
                     continue;
                 }
 
+                // Resolução de múltiplos telefones de teste permitidos (separados por vírgula)
                 String testPhone = appointmentMotorProperties.getTestPhone();
                 if (testPhone != null && !testPhone.isBlank()) {
-                    phoneNumber = normalizePhoneNumberForBlip(testPhone);
-                    log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado: {}", patientPhone, phoneNumber);
+                    java.util.List<String> allowedPhones = java.util.Arrays.stream(testPhone.split(","))
+                            .map(String::trim)
+                            .filter(p -> !p.isEmpty())
+                            .map(this::normalizePhoneNumberForBlip)
+                            .filter(p -> !p.isEmpty())
+                            .toList();
+
+                    if (allowedPhones.isEmpty()) {
+                        log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste válido em (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
+                        continue;
+                    }
+
+                    // Se o telefone do paciente real (já normalizado) for um dos homologados, mantém o envio direto
+                    if (allowedPhones.contains(phoneNumber)) {
+                        log.info("[TEST MODE] Telefone do paciente real ({}) é um número de homologação permitido. Mantendo o número original.", patientPhone);
+                    } else {
+                        // Caso contrário, redireciona o envio para o primeiro número de teste cadastrado (número primário)
+                        phoneNumber = allowedPhones.get(0);
+                        log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado primário: {}", patientPhone, phoneNumber);
+                    }
                 } else {
                     log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
                     continue;

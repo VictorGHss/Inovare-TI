@@ -157,27 +157,39 @@ public class DiscordDirectMessageService {
     }
 
     /**
-     * Envia um arquivo PDF via DM para o usuário especificado no Discord.
-     * Método assíncrono; falhas são registradas mas não propagadas.
+     * Envia um arquivo PDF via DM para o usuário especificado no Discord de forma assíncrona.
+     * Caso o envio da DM falhe em qualquer etapa da fila assíncrona da JDA (erro ao carregar
+     * usuário, erro ao abrir canal privado, ou erro de rede ao enviar o arquivo), executa o
+     * callback de fallback fornecido para rotear a mensagem ao canal operacional (webhook).
+     *
+     * @param discordUserId ID do usuário alvo no Discord
+     * @param pdfBytes      conteúdo binário do PDF a ser anexado
+     * @param filename      nome do arquivo PDF anexado
+     * @param message       mensagem de corpo do texto
+     * @param fallback      ação de contingência a ser executada em caso de falha assíncrona
      */
     @Async
-    public void sendReportPdfDMToUser(String discordUserId, byte[] pdfBytes, String filename, String message) {
+    public void sendReportPdfDMToUser(String discordUserId, byte[] pdfBytes, String filename, String message, Runnable fallback) {
         if (discordUserId == null || discordUserId.isBlank()) {
-            log.info("Ignoring report PDF DM: target user has no Discord id");
+            log.info("Ignorando DM de PDF do relatório: usuário alvo não possui ID do Discord vinculado.");
+            if (fallback != null) fallback.run();
             return;
         }
 
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
-            log.warn("Ignoring report PDF DM: JDA is not available");
+            log.warn("Ignorando DM de PDF do relatório: JDA não está disponível no contexto do Spring.");
+            if (fallback != null) fallback.run();
             return;
         }
 
         if (pdfBytes == null || pdfBytes.length == 0 || filename == null || filename.isBlank()) {
-            log.warn("Ignoring report PDF DM: invalid pdf bytes or filename for user {}", discordUserId);
+            log.warn("Ignorando DM de PDF do relatório: bytes do PDF inválidos ou nome do arquivo vazio.");
+            if (fallback != null) fallback.run();
             return;
         }
 
+        // Recupera o usuário do Discord assincronamente e inicia a abertura do canal de DM privado
         jda.retrieveUserById(discordUserId).queue(
             user -> user.openPrivateChannel().queue(
                 channel -> {
@@ -186,16 +198,26 @@ public class DiscordDirectMessageService {
                             channel.sendMessage(message).queue();
                         }
                         channel.sendFiles(FileUpload.fromData(pdfBytes, filename)).queue(
-                            success -> log.info("Report PDF DM sent to user {}", discordUserId),
-                            error -> log.warn("Failed to send Report PDF DM to user {}", discordUserId, error)
+                            success -> log.info("DM do PDF do relatório enviada com sucesso para o usuário {}", discordUserId),
+                            error -> {
+                                log.warn("Falha assíncrona ao enviar DM do PDF do relatório para o usuário {}", discordUserId, error);
+                                if (fallback != null) fallback.run();
+                            }
                         );
                     } catch (Exception ex) {
-                        log.warn("Unexpected error sending PDF DM to {}", discordUserId, ex);
+                        log.warn("Erro inesperado ao despachar DM de PDF do relatório para o usuário {}", discordUserId, ex);
+                        if (fallback != null) fallback.run();
                     }
                 },
-                error -> log.warn("Failed to open Discord DM channel for user {}", discordUserId, error)
+                error -> {
+                    log.warn("Falha assíncrona ao abrir canal de DM privado para o usuário {}", discordUserId, error);
+                    if (fallback != null) fallback.run();
+                }
             ),
-            error -> log.warn("Failed to retrieve Discord user {}", discordUserId, error)
+            error -> {
+                log.warn("Falha assíncrona ao recuperar usuário no Discord via ID {}", discordUserId, error);
+                if (fallback != null) fallback.run();
+            }
         );
     }
 

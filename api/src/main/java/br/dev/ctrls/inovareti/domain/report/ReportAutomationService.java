@@ -110,21 +110,21 @@ public class ReportAutomationService {
                         if (schedule.getTargetUserId() != null) {
                             userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
                                 if (user.getDiscordUserId() != null && !user.getDiscordUserId().isBlank()) {
-                                    try {
-                                        discordDirectMessageService.sendReportPdfDMToUser(user.getDiscordUserId(), bytes, filename,
-                                                String.format("Olá %s, segue o relatório automático de saídas referente ao período %s → %s.",
-                                                        user.getName(), startDate.toString(), endDate.toString()));
-                                    } catch (Exception ex) {
-                                        log.error("Failed to DM report PDF to Discord user {} for schedule {}", user.getDiscordUserId(), schedule.getId(), ex);
-                                        // fallback to webhook
-                                        discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
-                                    }
+                                    // Envia via canal direto (DM) com contingência automática para o webhook em caso de falha assíncrona
+                                    discordDirectMessageService.sendReportPdfDMToUser(
+                                            user.getDiscordUserId(),
+                                            bytes,
+                                            filename,
+                                            String.format("Olá %s, segue o relatório automático de saídas referente ao período %s → %s.",
+                                                    user.getName(), startDate.toString(), endDate.toString()),
+                                            () -> discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename)
+                                    );
                                 } else {
-                                    // fallback to webhook when user has no discord linked
+                                    // Fallback para o canal operacional de webhook se o usuário não possui ID do Discord vinculado
                                     discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
                                 }
                             }, () -> {
-                                // user not found, fallback to webhook
+                                // Usuário não localizado: fallback para canal operacional
                                 discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
                             });
                         } else {
@@ -211,17 +211,17 @@ public class ReportAutomationService {
                             String message = String.format("Relatório manual de saídas gerado para período %s → %s.", startDate.toString(), endDate.toString());
 
                             if (user.getDiscordUserId() != null && !user.getDiscordUserId().isBlank()) {
-                                try {
-                                    discordDirectMessageService.sendReportPdfDMToUser(user.getDiscordUserId(), bytes, filename,
-                                            String.format("Olá %s, segue o relatório de teste de saídas referente ao período %s → %s.",
-                                                    user.getName(), startDate.toString(), endDate.toString()));
-                                } catch (Exception ex) {
-                                    log.error("Failed to DM test report to Discord user {} for schedule {}", user.getDiscordUserId(), schedule.getId(), ex);
-                                    // fallback to webhook
-                                    discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
-                                }
+                                // Envia via canal direto (DM) com contingência automática para o webhook em caso de falha assíncrona
+                                discordDirectMessageService.sendReportPdfDMToUser(
+                                        user.getDiscordUserId(),
+                                        bytes,
+                                        filename,
+                                        String.format("Olá %s, segue o relatório de teste de saídas referente ao período %s → %s.",
+                                                user.getName(), startDate.toString(), endDate.toString()),
+                                        () -> discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename)
+                                );
                             } else {
-                                // fallback to webhook when user has no discord linked
+                                // Fallback para o canal operacional de webhook se o usuário não possui ID do Discord vinculado
                                 discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename);
                             }
                         }

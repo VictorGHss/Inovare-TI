@@ -17,6 +17,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,12 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 import br.dev.ctrls.inovareti.config.DatabaseBackupScheduler;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Controlador administrativo para gerenciamento de backups físicos do sistema.
- * Restrito a usuários com a ROLE ADMIN.
+ * Restrito a usuários com privilégios de ADMINISTRADOR e exige atestação ativa de 2FA.
  */
 @RestController
 @RequestMapping("/admin/backups")
@@ -41,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BackupController {
 
     private final DatabaseBackupScheduler databaseBackupScheduler;
+    private final TwoFactorSessionGuard twoFactorSessionGuard;
 
     @Value("${app.backup.temp-dir}")
     private String tempDir;
@@ -51,7 +55,11 @@ public class BackupController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<BackupInfoDTO>> listBackups() {
-        log.info("Request received to list all database backups in folder: {}", tempDir);
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de listar os backups.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
+        log.info("Solicitação recebida para listar todos os backups de banco de dados na pasta: {}", tempDir);
         File folder = new File(tempDir);
         if (!folder.exists() || !folder.isDirectory()) {
             return ResponseEntity.ok(new ArrayList<>());
@@ -85,12 +93,16 @@ public class BackupController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/trigger")
     public ResponseEntity<Void> triggerBackup() {
-        log.info("Manual backup execution triggered by administrator.");
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de disparar manualmente um backup.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
+        log.info("Execução manual de backup disparada pelo administrador.");
         try {
             databaseBackupScheduler.executeBackupManual();
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (Exception ex) {
-            log.error("Failed to execute manual backup", ex);
+            log.error("Falha ao executar backup manual", ex);
             throw new BadRequestException("Falha ao gerar o backup manualmente: " + ex.getMessage());
         }
     }
@@ -101,7 +113,11 @@ public class BackupController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/download/{filename}")
     public ResponseEntity<Resource> downloadBackup(@PathVariable String filename) {
-        log.info("Request received to download backup file: {}", filename);
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de baixar um backup.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
+        log.info("Solicitação recebida para baixar o arquivo de backup: {}", filename);
         
         // Proteção simples contra Path Traversal
         if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
@@ -134,7 +150,7 @@ public class BackupController {
                     .body(resource);
 
         } catch (IOException e) {
-            log.error("Failed to determine content type for backup file download", e);
+            log.error("Falha ao determinar tipo de conteúdo para download do arquivo de backup", e);
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(file.length())
@@ -149,7 +165,11 @@ public class BackupController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{filename}")
     public ResponseEntity<Void> deleteBackup(@PathVariable String filename) {
-        log.info("Request received to delete backup file: {}", filename);
+        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de excluir um backup.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        twoFactorSessionGuard.assertVerified(authentication);
+
+        log.info("Solicitação recebida para excluir o arquivo de backup: {}", filename);
 
         // Proteção simples contra Path Traversal
         if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
@@ -162,10 +182,10 @@ public class BackupController {
         }
 
         if (file.delete()) {
-            log.info("Backup file successfully deleted: {}", filename);
+            log.info("Arquivo de backup excluído com sucesso: {}", filename);
             return ResponseEntity.noContent().build();
         } else {
-            log.error("Failed to delete backup file: {}", filename);
+            log.error("Falha ao excluir o arquivo de backup: {}", filename);
             throw new BadRequestException("Não foi possível excluir o arquivo de backup '" + filename + "'.");
         }
     }

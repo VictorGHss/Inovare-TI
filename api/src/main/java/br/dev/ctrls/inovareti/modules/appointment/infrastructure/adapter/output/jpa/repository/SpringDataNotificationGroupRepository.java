@@ -8,6 +8,7 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.
 
 public interface SpringDataNotificationGroupRepository extends JpaRepository<NotificationGroupEntity, UUID> {
     List<NotificationGroupEntity> findByGroupId(UUID groupId);
+    List<NotificationGroupEntity> findBySessionId(UUID sessionId);
     long deleteByCreatedAtBefore(LocalDateTime threshold);
 }
 

@@ -45,6 +45,13 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
     }
 
     @Override
+    public List<NotificationGroup> findBySessionId(UUID sessionId) {
+        return springDataRepository.findBySessionId(sessionId).stream()
+                .map(NotificationGroupEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public long deleteByCreatedAtBefore(LocalDateTime threshold) {
         return springDataRepository.deleteByCreatedAtBefore(threshold);
     }

@@ -7,6 +7,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
+
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
@@ -29,6 +32,8 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
+    private final BlipContextService blipContextService;
+    private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
 
     @Override
     public boolean supports(String actionType) {
@@ -61,6 +66,34 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             ex);
                     }
                 }
+
+                // Estratégia de desempate determinista: extrair a primeira fila válida dos médicos associados ao grupo
+                String targetQueue = null;
+                for (AppointmentSession groupSession : listaSessoes) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(groupSession.getDoctorProfissionalId());
+                    if (mappingOpt.isPresent()) {
+                        String queue = mappingOpt.get().getBlipQueueId();
+                        if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                            targetQueue = queue.trim();
+                            break;
+                        }
+                    }
+                }
+
+                if (targetQueue == null || targetQueue.isBlank()) {
+                    targetQueue = "Recepção Central / Suporte";
+                }
+
+                String userPhone = session.getPhoneNumber();
+                
+                // Configurar variável de contexto da fila no Blip
+                blipContextService.setQueueRedirect(userPhone, targetQueue);
+
+                // Enviar redirecionamento de estado (Change State) para o bloco Atendimento Humano
+                blipContextService.setMasterState(userPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
+                log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para usuário {}. Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
+                        userPhone, targetQueue);
+
             } catch (Exception e) {
                 log.error("[CONFIRM-BATCH] Erro no processamento em lote da Feegow para ação: " + action, e);
             }

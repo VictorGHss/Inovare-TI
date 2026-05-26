@@ -9,6 +9,7 @@ public interface NotificationGroupRepositoryPort {
     NotificationGroup save(NotificationGroup notificationGroup);
     List<NotificationGroup> saveAll(List<NotificationGroup> groups);
     List<NotificationGroup> findByGroupId(UUID groupId);
+    List<NotificationGroup> findBySessionId(UUID sessionId);
     long deleteByCreatedAtBefore(LocalDateTime threshold);
 }
 

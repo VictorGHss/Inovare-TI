@@ -111,7 +111,9 @@ public class BlipWebhookController {
                 || rawLower.contains("sim")
                 || rawLower.contains("confirm")
                 || rawLower.contains("alterar")
-                || rawLower.contains("cancelar");
+                || rawLower.contains("cancelar")
+                || rawLower.contains("a0776d9c-6486-42f3-8a4f-2706f0185908")
+                || rawLower.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
 
         if (!hasActionKeyword) {
             return ResponseEntity.ok().build(); // Retorna 200 OK instantaneamente (< 10ms)

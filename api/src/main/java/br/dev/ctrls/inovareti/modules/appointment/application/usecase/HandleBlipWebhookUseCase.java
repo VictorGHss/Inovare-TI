@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.util.Map;
+import java.util.ArrayList;
 
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessException;
@@ -71,6 +72,77 @@ public class HandleBlipWebhookUseCase {
      *         retorna {@code Endocrinologia} em fluxo {@code confirm}).
      */
     public WebhookResult execute(BlipWebhookPayload payload, boolean skipTokenValidation) {
+        String rawText = (payload.action() != null ? payload.action() : "") + " " + 
+                         (payload.content() != null ? payload.content().toString() : "");
+
+        boolean isPrepararAtendimento = rawText.contains("a0776d9c-6486-42f3-8a4f-2706f0185908");
+        boolean isExibirAgenda = rawText.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
+
+        if (isPrepararAtendimento || isExibirAgenda) {
+            String from = payload.from();
+            if (from != null && !from.isBlank()) {
+                String normalizedPhone = from.trim();
+                if (isPrepararAtendimento) {
+                    log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {}", normalizedPhone);
+                    boolean isGroup = false;
+                    UUID groupId = null;
+                    java.util.List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone);
+                    for (AppointmentSession activeSession : activeSessions) {
+                        java.util.List<NotificationGroup> groups = notificationGroupRepository.findBySessionId(activeSession.getId());
+                        if (groups != null && !groups.isEmpty()) {
+                            isGroup = true;
+                            groupId = groups.get(0).getGroupId();
+                            break;
+                        }
+                    }
+                    blipContextService.setUserContextForUser(normalizedPhone, "isGroupFlow", String.valueOf(isGroup));
+                    if (isGroup && groupId != null) {
+                        blipContextService.setUserContextForUser(normalizedPhone, "groupId", groupId.toString());
+                    } else {
+                        blipContextService.setUserContextForUser(normalizedPhone, "groupId", "");
+                    }
+                } else {
+                    log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {}", normalizedPhone);
+                    String groupIdStr = blipContextService.getUserContext(normalizedPhone, "groupId");
+                    UUID groupId = null;
+                    if (groupIdStr != null && !groupIdStr.isBlank()) {
+                        try {
+                            groupId = UUID.fromString(groupIdStr.trim());
+                        } catch (Exception ignored) {}
+                    }
+                    
+                    java.util.List<AppointmentSession> groupedSessions = new ArrayList<>();
+                    if (groupId != null) {
+                        java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                        for (NotificationGroup g : groups) {
+                            appointmentSessionRepository.findById(g.getSessionId()).ifPresent(groupedSessions::add);
+                        }
+                    } else {
+                        groupedSessions = appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone);
+                    }
+                    
+                    groupedSessions.sort((s1, s2) -> s1.getAppointmentAt().compareTo(s2.getAppointmentAt()));
+                    java.util.List<String> details = new ArrayList<>();
+                    for (AppointmentSession s : groupedSessions) {
+                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                        String specialty = "Consulta";
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            String queue = mappingOpt.get().getBlipQueueId();
+                            if (queue != null && !queue.isBlank()) {
+                                specialty = queue.trim();
+                            }
+                        }
+                        details.add(time + " - " + specialty);
+                    }
+                    String listaDetalhada = String.join(" | ", details);
+                    blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
+                    log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada='{}' para {}", listaDetalhada, normalizedPhone);
+                }
+            }
+            return new WebhookResult("", "", "", "", "processed", "");
+        }
+
         if (!skipTokenValidation) {
             String expectedToken = appointmentMotorProperties.getSecurity().getWebhookToken();
             if (expectedToken != null && !expectedToken.isBlank() && !expectedToken.equals(payload.token())) {

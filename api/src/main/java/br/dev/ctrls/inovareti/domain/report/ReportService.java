@@ -139,14 +139,13 @@ public class ReportService {
 
                     // Determina o nome descritivo da categoria conforme o tipo de atividade
                     String catName = "Ativo - Outros";
-                    if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER) {
-                        catName = "Ativo - Entrega";
-                    } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.PREVENTIVE) {
-                        catName = "Ativo - Manut. Preventiva";
-                    } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.CORRECTIVE) {
-                        catName = "Ativo - Manut. Corretiva";
-                    } else if (tf.getType() == br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.UPGRADE) {
-                        catName = "Ativo - Upgrade";
+                    if (null != tf.getType()) switch (tf.getType()) {
+                        case TRANSFER -> catName = "Ativo - Entrega";
+                        case PREVENTIVE -> catName = "Ativo - Manut. Preventiva";
+                        case CORRECTIVE -> catName = "Ativo - Manut. Corretiva";
+                        case UPGRADE -> catName = "Ativo - Upgrade";
+                        default -> {
+                        }
                     }
                     
                     br.dev.ctrls.inovareti.domain.inventory.ItemCategory mockCategory = 

@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.UUID;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -30,6 +33,9 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatie
 import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,6 +58,8 @@ public class IngestAppointmentsUseCase {
     private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;
     private final jakarta.persistence.EntityManager entityManager;
     private final TransactionTemplate transactionTemplate;
+    private final NotificationGroupRepositoryPort notificationGroupRepository;
+    private final BlipNotificationService blipNotificationService;
 
     // Registro auxiliar para carregar dados do banco de dados antes de chamadas HTTP externas,
     // garantindo isolamento transacional e liberação rápida de conexões do pool HikariCP.
@@ -102,328 +110,393 @@ public class IngestAppointmentsUseCase {
         }
 
         int totalReceived = appointments.size();
-        int filteredReceived = appointments.size();
+        
+        // Agrupar agendamentos elegíveis por ID do Paciente
+        Map<String, List<FeegowAppointment>> grouped = appointments.stream()
+                .filter(appointment -> !"12".equals(appointment.statusId()))
+                .collect(Collectors.groupingBy(FeegowAppointment::patientId));
 
         int created = 0;
         int messagesSent = 0;
-        for (FeegowAppointment appointment : appointments) {
-            log.info("Processando agendamento Feegow ID: {} - Status: {}", appointment.id(), appointment.statusId());
+        int filteredReceived = 0;
 
-            if ("12".equals(appointment.statusId())) {
-                log.info("Agendamento ignorado pois é um ENCAIXE (status_id=12). appointmentId={}", appointment.id());
-                filteredReceived--;
-                continue;
-            }
+        for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
+            String patientId = entry.getKey();
+            List<FeegowAppointment> group = entry.getValue();
 
-            String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
-            if (feegowAppointmentId.isBlank()) {
-                log.warn("ID Feegow vazio. Conteúdo recebido: {} | rawId={}",
-                        serializeAppointmentForLog(appointment),
-                        appointment.id());
-                continue;
-            }
+            // Filtrar agendamentos elegíveis dentro do grupo
+            List<FeegowAppointment> eligibleAppointments = new ArrayList<>();
+            List<DbLookupResult> eligibleDbResults = new ArrayList<>();
 
-            // FASE 1: Leitura do Banco de Dados em Transação Microscópica
-            // O uso de TransactionTemplate aqui isola a leitura dos mapeamentos e sessões.
-            // Isso evita manter transações abertas e conexões HikariCP presas durante a posterior chamada de rede externa.
-            DbLookupResult dbData;
-            try {
-                dbData = transactionTemplate.execute(status -> {
-                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
-                    if (mappingOpt.isEmpty()) {
-                        return new DbLookupResult(false, null, null, false, Optional.empty(), false);
-                    }
-                    var mapping = mappingOpt.get();
-                    if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId())) {
-                        return new DbLookupResult(false, null, null, false, Optional.empty(), false);
-                    }
-                    String mappingQueue = mapping.getBlipQueueId();
-                    String mappingProfessionalNameLocal = mapping.getProfissionalNome();
-                    boolean ignoreAutoSchedule = mapping.isIgnoreAutoSchedule();
-
-                    Optional<AppointmentSession> existingSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
-
-                    boolean canSend = appointmentSendIdempotencyService
-                            .map(service -> service.registerIfFirstSend(feegowAppointmentId))
-                            .orElseGet(() -> noopAppointmentSendIdempotencyService
-                                    .map(service -> service.registerIfFirstSend(feegowAppointmentId))
-                                    .orElse(true));
-
-                    return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, ignoreAutoSchedule, existingSessionOpt, canSend);
-                });
-            } catch (RuntimeException ex) {
-                log.error("Erro na fase de leitura transacional para o agendamento Feegow ID: {}. Detalhes: {}", appointment.id(), ex.getMessage(), ex);
-                continue;
-            }
-
-            if (dbData == null || !dbData.hasMapped()) {
-                log.info("Agendamento ignorado por ausência de mapeamento do médico. appointmentId={}, profissional_id={}",
-                        appointment.id(),
-                        appointment.doctorId());
-                continue;
-            }
-
-            if (dbData.ignoreAutoSchedule()) {
-                log.info("Agendamento ignorado por exceção de médico (ignore_auto_schedule=true). appointmentId={}, profissional_id={}",
-                        appointment.id(),
-                        appointment.doctorId());
-                continue;
-            }
-
-            // Regra de Guarda: Evitar spam se a consulta já estiver confirmada localmente ou na Feegow
-            boolean isConfirmedLocally = dbData.existingSessionOpt()
-                    .map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED)
-                    .orElse(false);
-
-            String confirmedStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
-            if (confirmedStatusId == null || confirmedStatusId.isBlank()) {
-                confirmedStatusId = "7";
-            }
-            boolean isConfirmedOnFeegow = confirmedStatusId.trim().equalsIgnoreCase(appointment.statusId());
-
-            if (isConfirmedLocally || isConfirmedOnFeegow) {
-                log.info("[MENSAGERIA] Ignorando disparo de template: consulta já confirmada (Local: {}, Feegow: {}). appointmentId={}",
-                        isConfirmedLocally, isConfirmedOnFeegow, feegowAppointmentId);
-                continue;
-            }
-
-            if (dbData.existingSessionOpt().isPresent()) {
-                AppointmentSessionStatus status = dbData.existingSessionOpt().get().getStatus();
-                if (status == AppointmentSessionStatus.PENDING ||
-                    status == AppointmentSessionStatus.NUDGE_1_SENT ||
-                    status == AppointmentSessionStatus.NUDGE_FINAL_SENT ||
-                    status == AppointmentSessionStatus.CONFIRMED) {
-                    log.info("Agendamento ignorado: já existe uma AppointmentSession activa (status {}) para feegowAppointmentId={}", status, feegowAppointmentId);
+            for (FeegowAppointment appointment : group) {
+                String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
+                if (feegowAppointmentId.isBlank()) {
+                    log.warn("ID Feegow vazio. RawId={}", appointment.id());
                     continue;
                 }
+
+                DbLookupResult dbData;
+                try {
+                    dbData = transactionTemplate.execute(status -> {
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
+                        if (mappingOpt.isEmpty()) {
+                            return new DbLookupResult(false, null, null, false, Optional.empty(), false);
+                        }
+                        var mapping = mappingOpt.get();
+                        if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId())) {
+                            return new DbLookupResult(false, null, null, false, Optional.empty(), false);
+                        }
+                        String mappingQueue = mapping.getBlipQueueId();
+                        String mappingProfessionalNameLocal = mapping.getProfissionalNome();
+                        boolean ignoreAutoSchedule = mapping.isIgnoreAutoSchedule();
+
+                        Optional<AppointmentSession> existingSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+
+                        boolean canSend = appointmentSendIdempotencyService
+                                .map(service -> service.registerIfFirstSend(feegowAppointmentId))
+                                .orElseGet(() -> noopAppointmentSendIdempotencyService
+                                        .map(service -> service.registerIfFirstSend(feegowAppointmentId))
+                                        .orElse(true));
+
+                        return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, ignoreAutoSchedule, existingSessionOpt, canSend);
+                    });
+                } catch (RuntimeException ex) {
+                    log.error("Erro na fase de leitura transacional para o agendamento Feegow ID: {}. Detalhes: {}", appointment.id(), ex.getMessage(), ex);
+                    continue;
+                }
+
+                if (dbData == null || !dbData.hasMapped()) {
+                    log.info("Agendamento ignorado por ausência de mapeamento do médico. appointmentId={}, profissional_id={}",
+                            appointment.id(), appointment.doctorId());
+                    continue;
+                }
+
+                if (dbData.ignoreAutoSchedule()) {
+                    log.info("Agendamento ignorado por exceção de médico (ignore_auto_schedule=true). appointmentId={}, profissional_id={}",
+                            appointment.id(), appointment.doctorId());
+                    continue;
+                }
+
+                boolean isConfirmedLocally = dbData.existingSessionOpt()
+                        .map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED)
+                        .orElse(false);
+
+                String confirmedStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
+                if (confirmedStatusId == null || confirmedStatusId.isBlank()) {
+                    confirmedStatusId = "7";
+                }
+                boolean isConfirmedOnFeegow = confirmedStatusId.trim().equalsIgnoreCase(appointment.statusId());
+
+                if (isConfirmedLocally || isConfirmedOnFeegow) {
+                    log.info("[MENSAGERIA] Ignorando disparo de template: consulta já confirmada (Local: {}, Feegow: {}). appointmentId={}",
+                            isConfirmedLocally, isConfirmedOnFeegow, feegowAppointmentId);
+                    continue;
+                }
+
+                if (dbData.existingSessionOpt().isPresent()) {
+                    AppointmentSessionStatus status = dbData.existingSessionOpt().get().getStatus();
+                    if (status == AppointmentSessionStatus.PENDING ||
+                        status == AppointmentSessionStatus.NUDGE_1_SENT ||
+                        status == AppointmentSessionStatus.NUDGE_FINAL_SENT ||
+                        status == AppointmentSessionStatus.CONFIRMED) {
+                        log.info("Agendamento ignorado: já existe uma AppointmentSession activa (status {}) para feegowAppointmentId={}", status, feegowAppointmentId);
+                        continue;
+                    }
+                }
+
+                if (!dbData.canSend()) {
+                    log.info("Envio ignorado por idempotência Redis/Local. appointmentId={}", feegowAppointmentId);
+                    continue;
+                }
+
+                eligibleAppointments.add(appointment);
+                eligibleDbResults.add(dbData);
             }
 
-            if (!dbData.canSend()) {
-                log.info("Envio ignorado por idempotência Redis/Local. appointmentId={}", feegowAppointmentId);
+            if (eligibleAppointments.isEmpty()) {
                 continue;
             }
 
-            // FASE 2: Chamadas de Rede Externas (Fora de Transação)
-            // As requisições HTTP para obter detalhes do paciente e do profissional ocorrem fora de qualquer
-            // transação com o banco de dados. Isso impede o esgotamento do pool de conexões HikariCP.
-            String patientId = appointment.patientId();
-            FeegowPatient patientDetails;
-            final String appointmentDoctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : null;
+            filteredReceived += eligibleAppointments.size();
 
-            log.info("[MAPEAMENTO MÉDICO] profissional_id={} | fila_mapeada={}",
-                appointmentDoctorId, dbData.mappingQueue());
+            if (eligibleAppointments.size() == 1) {
+                // Fluxo tradicional
+                FeegowAppointment appointment = eligibleAppointments.get(0);
+                DbLookupResult dbData = eligibleDbResults.get(0);
+                String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
 
-            String resolvedProfessionalName;
-            if (dbData.mappingProfessionalName() != null
-                && !dbData.mappingProfessionalName().isBlank()
-                && !"null".equalsIgnoreCase(dbData.mappingProfessionalName().trim())) {
-                resolvedProfessionalName = dbData.mappingProfessionalName().trim();
-            } else {
-                resolvedProfessionalName = "Clínica Inovare";
-            }
+                final String appointmentDoctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : null;
+                String resolvedProfessionalName;
+                if (dbData.mappingProfessionalName() != null
+                    && !dbData.mappingProfessionalName().isBlank()
+                    && !"null".equalsIgnoreCase(dbData.mappingProfessionalName().trim())) {
+                    resolvedProfessionalName = dbData.mappingProfessionalName().trim();
+                } else {
+                    resolvedProfessionalName = "Clínica Inovare";
+                }
 
-            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                var patientFuture = CompletableFuture.supplyAsync(() ->
-                    patientExternalPort.patientInfo(patientId), executor);
+                FeegowPatient patientDetails;
+                try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                    var patientFuture = CompletableFuture.supplyAsync(() ->
+                        patientExternalPort.patientInfo(patientId), executor);
 
-                final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
-                final String currentResolvedName = resolvedProfessionalName;
+                    final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
+                    final String currentResolvedName = resolvedProfessionalName;
 
-                var professionalFuture = CompletableFuture.supplyAsync(() -> {
-                    if (!needFeegowName) return currentResolvedName;
+                    var professionalFuture = CompletableFuture.supplyAsync(() -> {
+                        if (!needFeegowName) return currentResolvedName;
+                        try {
+                            String feegowName = professionalExternalPort.getProfessionalName(appointmentDoctorId);
+                            if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
+                                return feegowName.trim();
+                            }
+                        } catch (Exception e) {
+                            log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointmentDoctorId, e.getMessage());
+                        }
+                        return currentResolvedName;
+                    }, executor);
+
                     try {
-                        String feegowName = professionalExternalPort.getProfessionalName(appointmentDoctorId);
-                        if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
-                            return feegowName.trim();
-                        }
-                    } catch (Exception e) {
-                        log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointmentDoctorId, e.getMessage());
-                    }
-                    return currentResolvedName;
-                }, executor);
-
-                try {
-                    patientDetails = patientFuture.join();
-                } catch (Exception ex) {
-                    RestClientResponseException rcre = null;
-                    if (ex instanceof RestClientResponseException e) {
-                        rcre = e;
-                    } else if (ex instanceof java.util.concurrent.CompletionException && ex.getCause() instanceof RestClientResponseException e) {
-                        rcre = e;
-                    }
-
-                    if (rcre != null) {
-                        int statusCode = rcre.getStatusCode().value();
-                        if (statusCode == 404 || statusCode == 500) {
-                            log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId, rcre);
-                        } else {
-                            log.error("Erro ao recuperar contato do paciente ID {}. statusCode={}. Pulando agendamento.", patientId,
-                                    statusCode,
-                                    rcre);
-                        }
-                    } else {
+                        patientDetails = patientFuture.join();
+                    } catch (Exception ex) {
                         log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId, ex);
-                    }
-                    continue;
-                }
-
-                try {
-                    String fetchedName = professionalFuture.join();
-                    if (fetchedName != null && !fetchedName.isBlank()) {
-                        resolvedProfessionalName = fetchedName;
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
-            String patientPhone = patientDetails != null ? patientDetails.phone() : null;
-
-            String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
-            if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
-                log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId);
-                continue;
-            }
-
-            if (appointmentMotorProperties.isTestMode()) {
-                // Filtra os IDs dos médicos homologados para o ambiente de teste
-                String testDoctorId = appointmentMotorProperties.getTestDoctorId();
-                java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
-                        .map(String::trim)
-                        .filter(id -> !id.isEmpty())
-                        .toList();
-                
-                String doctorId = appointment.doctorId() != null ? appointment.doctorId().trim() : "";
-                if (!allowedIds.contains(doctorId)) {
-                    log.info("[TRAVA DE TESTE] Agendamento pulado. Médico ID {} não está na lista de homologação ({}).", doctorId, testDoctorId);
-                    continue;
-                }
-
-                // Resolução de múltiplos telefones de teste permitidos (separados por vírgula)
-                String testPhone = appointmentMotorProperties.getTestPhone();
-                if (testPhone != null && !testPhone.isBlank()) {
-                    java.util.List<String> allowedPhones = java.util.Arrays.stream(testPhone.split(","))
-                            .map(String::trim)
-                            .filter(p -> !p.isEmpty())
-                            .map(this::normalizePhoneNumberForBlip)
-                            .filter(p -> !p.isEmpty())
-                            .toList();
-
-                    if (allowedPhones.isEmpty()) {
-                        log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste válido em (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
                         continue;
                     }
 
-                    // Se o telefone do paciente real (já normalizado) for um dos homologados, mantém o envio direto
-                    if (allowedPhones.contains(phoneNumber)) {
-                        log.info("[TEST MODE] Telefone do paciente real ({}) é um número de homologação permitido. Mantendo o número original.", patientPhone);
-                    } else {
-                        // Caso contrário, redireciona o envio para o primeiro número de teste cadastrado (número primário)
-                        phoneNumber = allowedPhones.get(0);
-                        log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado primário: {}", patientPhone, phoneNumber);
-                    }
-                } else {
-                    log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
+                    try {
+                        String fetchedName = professionalFuture.join();
+                        if (fetchedName != null && !fetchedName.isBlank()) {
+                            resolvedProfessionalName = fetchedName;
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                String patientPhone = patientDetails != null ? patientDetails.phone() : null;
+                String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
+                if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
+                    log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId);
                     continue;
                 }
-            }
 
-            log.info("Dados do paciente recuperados: ID={}, Telefone={}, CampoUtilizado={}",
-                patientId,
-                patientPhone,
-                "preferred_phone");
+                if (appointmentMotorProperties.isTestMode()) {
+                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, appointment.doctorId(), patientPhone);
+                    if (phoneNumber == null) continue;
+                }
 
-            log.info("Agendamento Ingerido: Paciente={}, Telefone Feegow={}, Telefone Normalizado para Blip={}",
-                patientDetails != null ? patientDetails.name() : null,
-                patientPhone,
-                phoneNumber);
+                AppointmentSession saved;
+                try {
+                    final String finalPhoneNumber = phoneNumber;
+                    saved = transactionTemplate.execute(status -> {
+                        Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                        AppointmentSession session = latestSessionOpt.orElseGet(AppointmentSession::new);
 
-            // FASE 3: Persistência no Banco de Dados em Transação Microscópica
-            // O escopo transacional é restrito estritamente à gravação da sessão e flush, garantindo liberação imediata da conexão.
-            AppointmentSession saved;
-            try {
-                final String finalPhoneNumber = phoneNumber;
-                saved = transactionTemplate.execute(status -> {
-                    Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
-                    AppointmentSession session = latestSessionOpt.orElseGet(AppointmentSession::new);
+                        session.setFeegowAppointmentId(feegowAppointmentId);
+                        session.setPatientId(appointment.patientId());
+                        session.setPhoneNumber(finalPhoneNumber);
+                        session.setDoctorProfissionalId(appointment.doctorId());
+                        session.setAppointmentAt(appointment.startAt());
+                        session.setStatus(AppointmentSessionStatus.PENDING);
+                        session.setLastInteractionAt(LocalDateTime.now());
+                        session.setClosedAt(null);
+                        session.setStatusDetails(null);
 
-                    session.setFeegowAppointmentId(feegowAppointmentId);
-                    session.setPatientId(appointment.patientId());
-                    session.setPhoneNumber(finalPhoneNumber);
-                    session.setDoctorProfissionalId(appointment.doctorId());
-                    session.setAppointmentAt(appointment.startAt());
-                    session.setStatus(AppointmentSessionStatus.PENDING);
-                    session.setLastInteractionAt(LocalDateTime.now());
-                    session.setClosedAt(null);
-                    session.setStatusDetails(null);
+                        AppointmentSession s = appointmentSessionRepository.save(session);
+                        entityManager.flush();
+                        return s;
+                    });
+                } catch (RuntimeException ex) {
+                    log.error("Falha grave na persistência da sessão de agendamento no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
+                    continue;
+                }
 
-                    AppointmentSession s = appointmentSessionRepository.save(session);
-                    entityManager.flush();
-                    return s;
-                });
-            } catch (RuntimeException ex) {
-                log.error("Falha grave na persistência da sessão de agendamento no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
-                continue;
-            }
+                String safeProfissionalNome = resolvedProfessionalName;
+                String safeFilaDestino = (dbData.mappingQueue() != null
+                    && !dbData.mappingQueue().isBlank()
+                    && !"null".equalsIgnoreCase(dbData.mappingQueue().trim()))
+                    ? dbData.mappingQueue().trim()
+                    : StringSanitizer.UNICODE_LTR_MARK;
 
-            log.info("Agendamento salvo localmente: ID Feegow = {}", saved.getFeegowAppointmentId());
+                final String finalPatientName = (patientDetails != null && patientDetails.name() != null)
+                    ? patientDetails.name().trim() : "Paciente";
+                final String finalPatientPhone = (patientDetails != null)
+                    ? patientDetails.phone() : null;
+                final String finalDate = saved.getAppointmentAt() != null
+                    ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+                final String finalDateShort = saved.getAppointmentAt() != null
+                    ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")) : "";
+                final String finalTime = saved.getAppointmentAt() != null
+                    ? saved.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) : "";
 
-            String safeProfissionalNome = (resolvedProfessionalName != null
-                && !resolvedProfessionalName.isBlank()
-                && !"null".equalsIgnoreCase(resolvedProfessionalName.trim()))
-                ? resolvedProfessionalName.trim()
-                : "Clínica Inovare";
+                AppointmentDispatchContext ctx = new AppointmentDispatchContext(
+                    saved.getId(),
+                    feegowAppointmentId,
+                    finalPatientName,
+                    finalPatientPhone,
+                    saved.getPatientId(),
+                    appointmentDoctorId,
+                    resolvedProfessionalName,
+                    safeFilaDestino,
+                    finalDate,
+                    finalDateShort,
+                    finalTime,
+                    phoneNumber
+                );
 
-            String safeFilaDestino = (dbData.mappingQueue() != null
-                && !dbData.mappingQueue().isBlank()
-                && !"null".equalsIgnoreCase(dbData.mappingQueue().trim()))
-                ? dbData.mappingQueue().trim()
-                : StringSanitizer.UNICODE_LTR_MARK;
+                boolean templateSent = sendAppointmentTemplateUseCase.execute(ctx, AppointmentCategory.CONFIRMATION);
+                created++;
+                if (templateSent) {
+                    messagesSent++;
+                }
 
-            log.info("[EXTRAS CONTATO] profissional_nome='{}' | fila_destino='{}'", safeProfissionalNome, safeFilaDestino);
+            } else {
+                // Fluxo de grupo (> 1 agendamento elegível)
+                log.info("[GRUPO] Paciente ID {} possui {} agendamentos elegíveis no dia.", patientId, eligibleAppointments.size());
 
-            final String finalPatientName = (patientDetails != null && patientDetails.name() != null)
-                ? patientDetails.name().trim() : "Paciente";
-            final String finalPatientPhone = (patientDetails != null)
-                ? patientDetails.phone() : null;
-            final String finalDate = saved.getAppointmentAt() != null
-                ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
-            final String finalDateShort = saved.getAppointmentAt() != null
-                ? saved.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")) : "";
-            final String finalTime = saved.getAppointmentAt() != null
-                ? saved.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) : "";
+                FeegowPatient patientDetails;
+                try {
+                    patientDetails = patientExternalPort.patientInfo(patientId);
+                } catch (Exception ex) {
+                    log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento agrupado.", patientId, ex);
+                    continue;
+                }
 
-            AppointmentDispatchContext ctx = new AppointmentDispatchContext(
-                saved.getId(),
-                feegowAppointmentId,
-                finalPatientName,
-                finalPatientPhone,
-                saved.getPatientId(),
-                appointmentDoctorId,
-                resolvedProfessionalName,
-                safeFilaDestino,
-                finalDate,
-                finalDateShort,
-                finalTime,
-                phoneNumber
-            );
+                String patientPhone = patientDetails != null ? patientDetails.phone() : null;
+                String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
+                if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
+                    log.error("Falha ao recuperar contato do paciente ID {} para agendamento agrupado.", patientId);
+                    continue;
+                }
 
-            // Chamada de rede externa Blip para envio do template (também fora de transação do IngestAppointmentsUseCase)
-            boolean templateSent = sendAppointmentTemplateUseCase.execute(ctx, AppointmentCategory.CONFIRMATION);
-            created++;
-            if (templateSent) {
+                if (appointmentMotorProperties.isTestMode()) {
+                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, eligibleAppointments.get(0).doctorId(), patientPhone);
+                    if (phoneNumber == null) continue;
+                }
+
+                List<AppointmentSession> savedSessions = new ArrayList<>();
+                for (FeegowAppointment appointment : eligibleAppointments) {
+                    String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
+                    try {
+                        final String finalPhoneNumber = phoneNumber;
+                        AppointmentSession session = transactionTemplate.execute(status -> {
+                            Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                            AppointmentSession s = latestSessionOpt.orElseGet(AppointmentSession::new);
+
+                            s.setFeegowAppointmentId(feegowAppointmentId);
+                            s.setPatientId(appointment.patientId());
+                            s.setPhoneNumber(finalPhoneNumber);
+                            s.setDoctorProfissionalId(appointment.doctorId());
+                            s.setAppointmentAt(appointment.startAt());
+                            s.setStatus(AppointmentSessionStatus.PENDING);
+                            s.setLastInteractionAt(LocalDateTime.now());
+                            s.setClosedAt(null);
+                            s.setStatusDetails(null);
+
+                            AppointmentSession savedS = appointmentSessionRepository.save(s);
+                            entityManager.flush();
+                            return savedS;
+                        });
+                        savedSessions.add(session);
+                    } catch (RuntimeException ex) {
+                        log.error("Falha grave na persistência da sessão no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
+                    }
+                }
+
+                if (savedSessions.size() < 2) {
+                    log.warn("Menos de 2 sessões salvas para o grupo do paciente ID {}. Abortando envio de grupo.", patientId);
+                    continue;
+                }
+
+                UUID groupId = UUID.randomUUID();
+                List<NotificationGroup> groupEntities = new ArrayList<>();
+                for (AppointmentSession session : savedSessions) {
+                    NotificationGroup ng = NotificationGroup.builder()
+                        .groupId(groupId)
+                        .sessionId(session.getId())
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                    groupEntities.add(ng);
+                }
+
+                try {
+                    notificationGroupRepository.saveAll(groupEntities);
+                    log.info("[GRUPO] NotificationGroup salvo no banco com groupId={} contendo {} sessões.", groupId, savedSessions.size());
+                } catch (RuntimeException ex) {
+                    log.error("Falha grave ao salvar NotificationGroup para groupId={}.", groupId, ex);
+                    continue;
+                }
+
+                // Atualiza lastNotificationSentAt = LocalDateTime.now() nas sessões salvas
+                for (AppointmentSession session : savedSessions) {
+                    session.setLastNotificationSentAt(LocalDateTime.now());
+                    try {
+                        transactionTemplate.executeWithoutResult(status -> {
+                            appointmentSessionRepository.save(session);
+                        });
+                    } catch (RuntimeException ex) {
+                        log.error("Erro ao atualizar lastNotificationSentAt para sessionId={}.", session.getId(), ex);
+                    }
+                }
+
+                final String finalPatientName = (patientDetails != null && patientDetails.name() != null)
+                    ? patientDetails.name().trim() : "Paciente";
+
+                // Envia template de grupo
+                blipNotificationService.sendGroupTemplateMessage(phoneNumber, "aviso_agendamento_grupo", groupId, finalPatientName);
+                created += savedSessions.size();
                 messagesSent++;
             }
         }
 
         String mode = appointmentMotorProperties.isTestMode() ? "TEST" : "PROD";
         log.info("Ingestão de consultas executada. totalRecebido={}, totalAposFiltro={}, sessoesCriadas={}, mensagensEnviadas={}, modo={}",
-                totalReceived,
-                filteredReceived,
-                created,
-                messagesSent,
-                mode);
+                totalReceived, filteredReceived, created, messagesSent, mode);
 
         return new IngestionSummary(totalReceived, filteredReceived, created, messagesSent, mode);
+    }
+
+    private String redirectTestPhoneIfNeeded(String phoneNumber, String doctorId, String patientPhone) {
+        // Filtra os IDs dos médicos homologados para o ambiente de teste
+        String testDoctorId = appointmentMotorProperties.getTestDoctorId();
+        java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .toList();
+        
+        String docId = doctorId != null ? doctorId.trim() : "";
+        if (!allowedIds.contains(docId)) {
+            log.info("[TRAVA DE TESTE] Agendamento pulado. Médico ID {} não está na lista de homologação ({}).", docId, testDoctorId);
+            return null;
+        }
+
+        // Resolução de múltiplos telefones de teste permitidos (separados por vírgula)
+        String testPhone = appointmentMotorProperties.getTestPhone();
+        if (testPhone != null && !testPhone.isBlank()) {
+            java.util.List<String> allowedPhones = java.util.Arrays.stream(testPhone.split(","))
+                    .map(String::trim)
+                    .filter(p -> !p.isEmpty())
+                    .map(this::normalizePhoneNumberForBlip)
+                    .filter(p -> !p.isEmpty())
+                    .toList();
+
+            if (allowedPhones.isEmpty()) {
+                log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste válido em (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
+                return null;
+            }
+
+            // Se o telefone do paciente real (já normalizado) for um dos homologados, mantém o envio direto
+            if (allowedPhones.contains(phoneNumber)) {
+                log.info("[TEST MODE] Telefone do paciente real ({}) é um número de homologação permitido. Mantendo o número original.", patientPhone);
+                return phoneNumber;
+            } else {
+                // Caso contrário, redireciona o envio para o primeiro número de teste cadastrado (número primário)
+                String redirectPhone = allowedPhones.get(0);
+                log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado primário: {}", patientPhone, redirectPhone);
+                return redirectPhone;
+            }
+        } else {
+            log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
+            return null;
+        }
     }
 
     public record IngestionSummary(int totalReceived, int filteredReceived, int sessionsCreated, int messagesSent, String mode) {

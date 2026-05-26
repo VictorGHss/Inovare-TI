@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -309,7 +308,6 @@ public class IngestAppointmentsUseCase {
                     continue;
                 }
 
-                String safeProfissionalNome = resolvedProfessionalName;
                 String safeFilaDestino = (dbData.mappingQueue() != null
                     && !dbData.mappingQueue().isBlank()
                     && !"null".equalsIgnoreCase(dbData.mappingQueue().trim()))
@@ -542,17 +540,5 @@ public class IngestAppointmentsUseCase {
         }
 
         return "+55" + digitsOnly;
-    }
-
-    private String serializeAppointmentForLog(FeegowAppointment appointment) {
-        if (appointment == null) {
-            return "{}";
-        }
-
-        try {
-            return objectMapper.writeValueAsString(appointment);
-        } catch (JsonProcessingException ex) {
-            return String.valueOf(appointment);
-        }
     }
 }

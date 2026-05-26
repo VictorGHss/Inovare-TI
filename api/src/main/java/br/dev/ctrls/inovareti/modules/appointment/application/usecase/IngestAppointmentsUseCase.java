@@ -22,6 +22,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCatego
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
@@ -55,6 +57,7 @@ public class IngestAppointmentsUseCase {
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final BlipNotificationService blipNotificationService;
+    private final AppointmentConfigRepositoryPort appointmentConfigRepository;
 
     // Registro auxiliar para carregar dados do banco de dados antes de chamadas HTTP externas,
     // garantindo isolamento transacional e liberação rápida de conexões do pool HikariCP.
@@ -434,8 +437,17 @@ public class IngestAppointmentsUseCase {
                 final String finalPatientName = (patientDetails != null && patientDetails.name() != null)
                     ? patientDetails.name().trim() : "Paciente";
 
+                // Resolve o nome do template de grupo dinamicamente via appointment_configs
+                // (evita hardcode — basta um UPDATE no banco para trocar o template sem redeploy)
+                String groupTemplateName = transactionTemplate.execute(status ->
+                    appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION)
+                        .map(AppointmentConfig::getTemplateId)
+                        .orElse("aviso_agendamento_grupo")
+                );
+                log.info("[GRUPO] Template de grupo resolvido: '{}'. groupId={}", groupTemplateName, groupId);
+
                 // Envia template de grupo
-                blipNotificationService.sendGroupTemplateMessage(phoneNumber, "aviso_agendamento_grupo", groupId, finalPatientName);
+                blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
                 created += savedSessions.size();
                 messagesSent++;
             }

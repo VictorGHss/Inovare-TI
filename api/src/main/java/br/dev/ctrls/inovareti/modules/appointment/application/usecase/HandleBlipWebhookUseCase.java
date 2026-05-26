@@ -260,7 +260,26 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
+        // Interceptação do botão "Ver Agendamentos" do template de grupo
+        if (action.toLowerCase().startsWith("ver_agenda_")) {
+            String groupIdStr = action.substring("ver_agenda_".length()).trim();
+            log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido para groupId={}", groupIdStr);
+            try {
+                UUID groupId = UUID.fromString(groupIdStr);
+                // Injeta contexto de grupo no Blip para que o bloco Exibir_Agenda possa usar {{lista_detalhada}}
+                blipContextService.setUserContextForUser(fromPhone, "groupId", groupId.toString());
+                blipContextService.setUserContextForUser(fromPhone, "isGroupFlow", "true");
+                // Redireciona o Builder para o bloco Exibir_Agenda (UUID confirmado)
+                blipContextService.setMasterState(fromPhone, "desk@msging.net", "1438bc97-34ef-4337-adf5-e03e463c042c");
+                log.info("[WEBHOOK] Contexto de grupo injetado e Builder redirecionado para Exibir_Agenda. groupId={}", groupIdStr);
+            } catch (IllegalArgumentException e) {
+                log.error("[WEBHOOK] groupId inválido no payload ver_agenda_. action={}", action);
+            }
+            return new WebhookResult("", "", "", "", "ver_agenda", "");
+        }
+
         boolean isGroupConfirm = action.toLowerCase().startsWith("confirm_group_");
+
         String actionType;
         String appointmentId;
 

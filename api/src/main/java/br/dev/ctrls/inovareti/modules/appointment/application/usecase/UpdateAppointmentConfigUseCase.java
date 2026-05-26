@@ -54,6 +54,7 @@ public class UpdateAppointmentConfigUseCase {
             case CONFIRMATION -> 0;
             case NUDGE_1 -> appointmentMotorProperties.getNudge1WaitHours();
             case NUDGE_FINAL -> appointmentMotorProperties.getNudgeFinalWaitHours();
+            case GROUP_NOTIFICATION -> 0;
         };
     }
 }

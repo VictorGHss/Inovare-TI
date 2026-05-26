@@ -230,7 +230,7 @@ public class BlipNotificationService {
 
         Map<String, Object> viewButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,
-            "parameters", List.of(Map.of("type", "payload", "payload", "group_" + groupId.toString()))
+            "parameters", List.of(Map.of("type", "payload", "payload", "ver_agenda_" + groupId.toString()))
         );
 
         List<Map<String, Object>> components = new ArrayList<>();

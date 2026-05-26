@@ -58,6 +58,26 @@ public class BlipWebhookInboundService {
     }
 
     private String extractFrom(Map<String, Object> payload) {
+        String identity = firstNonBlank(
+                asText(getNested(payload, "identity")),
+                asText(getNested(payload, "resource", "identity")),
+                asText(getNested(payload, "message", "identity")));
+
+        String category = firstNonBlank(
+                asText(getNested(payload, "category")),
+                asText(getNested(payload, "resource", "category")),
+                asText(getNested(payload, "message", "category")));
+
+        boolean isFlow = "flow".equalsIgnoreCase(category);
+
+        if (StringUtils.hasText(identity)) {
+            return identity;
+        }
+
+        if (isFlow) {
+            return identity;
+        }
+
         String from = firstNonBlank(
                 asText(getNested(payload, "from")),
                 asText(getNested(payload, "resource", "from")),

@@ -171,6 +171,7 @@ blip:
     alter-request: ${BLIP_TEXT_ALTER_REQUEST}
   webhook:
     secret: ${BLIP_WEBHOOK_SECRET:chave-secreta-blip}
+    token: ${APP_BLIP_SECURITY_WEBHOOK_TOKEN}
 
 # Token JWT de Segurança
 api:

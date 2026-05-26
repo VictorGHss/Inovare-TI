@@ -90,9 +90,11 @@ public class BlipWebhookController {
             && StringUtils.hasText(expectedToken)
             && expectedToken.equals(inovareToken);
 
-        // O bypass de assinatura por token é aceito em ambiente local/default ou quando o token confiável está configurado
+        // O bypass de assinatura por token é aceito quando o token confiável confere,
+        // mesmo em produção. Em local/default, aceita qualquer token não vazio.
         boolean isBypassProfile = env.acceptsProfiles(Profiles.of("local", "default"));
-        boolean isBypassEnabled = (isBypassProfile && StringUtils.hasText(inovareToken)) || hasTokenMatch;
+        boolean isBypassEnabled = hasTokenMatch
+            || (isBypassProfile && StringUtils.hasText(inovareToken));
 
         if (!isSignatureValid && !isBypassEnabled) {
             log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente. Bypass por token inativo no perfil de produção.");

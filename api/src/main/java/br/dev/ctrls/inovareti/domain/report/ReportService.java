@@ -86,7 +86,7 @@ public class ReportService {
                         try {
                             String ticketIdStr = mv.getReference().substring(7).trim();
                             UUID ticketId = UUID.fromString(ticketIdStr);
-                            originalTicket = ticketRepository.findById(ticketId).orElse(null);
+                            originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
                         } catch (Exception e) {
                             // swallow
                         }
@@ -130,7 +130,7 @@ public class ReportService {
                             if (endIdx > startIdx) {
                                 String ticketIdStr = desc.substring(startIdx, endIdx).trim();
                                 UUID ticketId = UUID.fromString(ticketIdStr);
-                                originalTicket = ticketRepository.findById(ticketId).orElse(null);
+                                originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
                             }
                         } catch (Exception e) {
                             // swallow

@@ -4,37 +4,34 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.UUID;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentSendIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
-import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,7 +46,6 @@ public class IngestAppointmentsUseCase {
     private final PatientExternalPort patientExternalPort;
     private final ProfessionalExternalPort professionalExternalPort;
     private final AppointmentExternalPort appointmentExternalPort;
-    private final ObjectMapper objectMapper;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;

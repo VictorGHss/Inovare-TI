@@ -198,3 +198,21 @@ cd front
 npm run build
 ```
 - Ambos os builds foram validados com sucesso após a refatoração.
+
+---
+
+## 7. Fase 2 - Evolução Visual do ITSM v17
+
+### A. Novos Indicadores do Dashboard
+- O backend passou a expor `ticketsBySectorAndPriority`, agregando chamados por setor e prioridade consolidada.
+- As prioridades técnicas `HIGH` e `URGENT` foram exibidas como `Alta` no painel, enquanto `NORMAL` virou `Média` e `LOW` virou `Baixa`.
+- O indicador `slaBreachesByCategory` passou a contar chamados finalizados cujo `closedAt` ultrapassou `slaDeadline`, usando `RESOLVED` e `CLOSED` como filtro de encerramento no SQL nativo.
+
+### B. Frontend com Recharts
+- Criado o gráfico empilhado de setor x prioridade em [ChartsBarStacked.tsx](front/src/components/ChartsBarStacked.tsx).
+- Criado o gráfico horizontal de estouros de SLA por categoria em [SlaBreachesBar.tsx](front/src/components/SlaBreachesBar.tsx).
+- O dashboard passou a renderizar os dois gráficos lado a lado em layout responsivo, consumindo diretamente os arrays do `DashboardAnalyticsDTO`.
+
+### C. Contrato e Validação
+- [finance.types.ts](front/src/types/models/finance.types.ts) foi expandido para refletir as novas séries agregadas.
+- A compilação do backend e o build do frontend foram revalidados após a expansão dos indicadores.

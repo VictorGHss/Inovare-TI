@@ -12,6 +12,8 @@ import SkeletonTable from '../../components/SkeletonTable';
 import SummaryAside from './SummaryAside';
 import ChartsPie from '../../components/ChartsPie';
 import ChartsBar from '../../components/ChartsBar';
+import ChartsBarStacked from '../../components/ChartsBarStacked';
+import SlaBreachesBar from '../../components/SlaBreachesBar';
 import InventorySummaryCard from '../../components/InventorySummaryCard';
 import ReceivedItemsCard from '../../components/ReceivedItemsCard';
 import UserTicketHistory from '../../components/UserTicketHistory';
@@ -163,6 +165,19 @@ export default function Dashboard() {
               </>
             )}
           </div>
+
+          {analytics && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+              <ChartsBarStacked
+                data={analytics.ticketsBySectorAndPriority}
+                title="Chamados por Setor e Prioridade"
+              />
+              <SlaBreachesBar
+                data={analytics.slaBreachesByCategory}
+                title="Estouro de SLA por Categoria"
+              />
+            </div>
+          )}
 
           {analytics && (
             <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6">

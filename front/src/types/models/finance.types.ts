@@ -10,6 +10,12 @@ export interface InventorySummaryDTO {
   receivedItemsCount: number;
 }
 
+export interface SectorPriorityMetricDTO {
+  sector: string;
+  priority: 'Baixa' | 'Média' | 'Alta' | string;
+  value: number;
+}
+
 export interface DashboardAnalyticsDTO {
   totalOpenTickets: number;
   totalInProgressTickets: number;
@@ -21,6 +27,8 @@ export interface DashboardAnalyticsDTO {
   ticketsByCategory: MetricDTO[];
   ticketsBySector: MetricDTO[];
   ticketsByRequester: MetricDTO[];
+  ticketsBySectorAndPriority: SectorPriorityMetricDTO[];
+  slaBreachesByCategory: MetricDTO[];
   ticketsByMonth: MetricDTO[];
   inventorySummary: InventorySummaryDTO;
   totalAssets: number;

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView;
+import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView;
 
 /**
  * Repositório de acesso a dados para a entidade {@link Ticket}.
@@ -113,6 +114,50 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
             order by count(*) desc, u.name asc
             """, nativeQuery = true)
     List<AnalyticsMetricView> countTicketsByRequester(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
+
+    @Query(value = """
+            select coalesce(s.name, 'Sem setor') as sector,
+                   case
+                       when t.priority in ('HIGH', 'URGENT') then 'Alta'
+                       when t.priority = 'NORMAL' then 'Média'
+                       else 'Baixa'
+                   end as priority,
+                   count(*) as value
+            from tickets t
+            join users u on u.id = t.requester_id
+            join sectors s on s.id = u.sector_id
+            where (:restrictToRequester = false or t.requester_id = :userId)
+            group by coalesce(s.name, 'Sem setor'),
+                     case
+                         when t.priority in ('HIGH', 'URGENT') then 'Alta'
+                         when t.priority = 'NORMAL' then 'Média'
+                         else 'Baixa'
+                     end
+            order by coalesce(s.name, 'Sem setor') asc,
+                     case
+                         when t.priority = 'LOW' then 1
+                         when t.priority = 'NORMAL' then 2
+                         else 3
+                     end asc
+            """, nativeQuery = true)
+    List<SectorPriorityMetricView> countTicketsBySectorAndPriority(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
+
+    @Query(value = """
+            select coalesce(tc.name, 'Sem categoria') as name, count(*) as value
+            from tickets t
+            join ticket_categories tc on tc.id = t.category_id
+            where (:restrictToRequester = false or t.requester_id = :userId)
+              and t.closed_at is not null
+              and t.closed_at > t.sla_deadline
+              and t.status in ('RESOLVED', 'CLOSED')
+            group by tc.name
+            order by count(*) desc, tc.name asc
+            """, nativeQuery = true)
+    List<AnalyticsMetricView> countSlaBreachesByCategory(
             @Param("restrictToRequester") boolean restrictToRequester,
             @Param("userId") UUID userId);
 

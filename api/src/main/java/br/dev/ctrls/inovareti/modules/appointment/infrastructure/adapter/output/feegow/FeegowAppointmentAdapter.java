@@ -215,7 +215,11 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
             log.warn("Formato raiz JSON da busca Feegow inesperado: {}", root.getClass().getName());
             return List.of();
         } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Falha ao converter JSON da busca Feegow.", ex);
+            log.error("[FEEGOW] [APPOINTMENT-ADAPTER] Falha ao ler/analisar JSON da busca de agendamentos. Body: {}", abbreviateResponseBody(responseBody), ex);
+            return List.of();
+        } catch (RuntimeException ex) {
+            log.error("[FEEGOW] [APPOINTMENT-ADAPTER] Falha na conversão ou estrutura indevida dos dados de busca de agendamentos. Body: {}", abbreviateResponseBody(responseBody), ex);
+            return List.of();
         }
     }
 

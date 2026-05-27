@@ -266,8 +266,13 @@ public class DiscordEventListener extends ListenerAdapter {
                 embedBuilder.setDescription("Resultados da busca para: *" + busca + "*\n\n");
 
                 if (resultados.isEmpty()) {
-                    embedBuilder.appendDescription("❌ Nenhuma dúvida correspondente encontrada no FAQ local.\n"
-                            + "Por favor, tente outras palavras-chave ou abra um chamado técnico usando o comando `/chamado`.");
+                    String descricaoSemResultados = """
+                            ❌ Nenhuma dúvida correspondente encontrada no FAQ local.
+                            Por favor, tente outras palavras-chave ou abra um chamado técnico usando o comando `/chamado`.
+                            """.strip();
+                    if (descricaoSemResultados != null) {
+                        embedBuilder.appendDescription(descricaoSemResultados);
+                    }
                 } else {
                     for (FaqTi faq : resultados) {
                         embedBuilder.addField("❓ " + faq.getPergunta(), "💡 " + faq.getResposta(), false);

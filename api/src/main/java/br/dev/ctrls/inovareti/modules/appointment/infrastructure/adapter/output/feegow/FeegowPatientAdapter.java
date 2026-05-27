@@ -147,7 +147,10 @@ public class FeegowPatientAdapter extends AbstractFeegowAdapter implements Patie
 
             return objectMapper.convertValue(firstItemNode, FeegowPatientDetailsDto.PatientItem.class);
         } catch (JsonProcessingException ex) {
-            log.error("[FEEGOW] Falha ao converter JSON de detalhes do paciente. Body: {}", abbreviateResponseBody(responseBody), ex);
+            log.error("[FEEGOW] Falha ao ler/analisar JSON de detalhes do paciente. Body: {}", abbreviateResponseBody(responseBody), ex);
+            return null;
+        } catch (RuntimeException ex) {
+            log.error("[FEEGOW] Falha na coerção de tipos ou estrutura inesperada na conversão dos detalhes do paciente. Body: {}", abbreviateResponseBody(responseBody), ex);
             return null;
         }
     }

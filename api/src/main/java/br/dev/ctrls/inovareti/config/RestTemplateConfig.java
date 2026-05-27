@@ -45,13 +45,25 @@ public class RestTemplateConfig {
         return restTemplate;
     }
 
+    private org.springframework.http.client.ClientHttpRequestFactory createJdkClientRequestFactory() {
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5))
+                .build();
+        org.springframework.http.client.JdkClientHttpRequestFactory factory = 
+                new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(java.time.Duration.ofSeconds(10));
+        return factory;
+    }
+
     /**
      * RestTemplate dedicado para Feegow, sem interceptores de outras integrações.
      */
     @Bean
     @Qualifier("feegowRestTemplate")
     public RestTemplate feegowRestTemplate() {
-        return new RestTemplate();
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setRequestFactory(createJdkClientRequestFactory());
+        return restTemplate;
     }
 
     /**
@@ -68,6 +80,7 @@ public class RestTemplateConfig {
         String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
         return RestClient.builder()
                 .baseUrl(normalizedBase)
+                .requestFactory(createJdkClientRequestFactory())
                 .defaultStatusHandler(HttpStatusCode::is4xxClientError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
                 .defaultStatusHandler(HttpStatusCode::is5xxServerError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
                 .build();

@@ -2,14 +2,13 @@ package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Executor;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -117,9 +116,11 @@ public class DiscordInteractionListener extends ListenerAdapter {
         // Processamento assíncrono na thread virtual
         discordExecutor.execute(() -> {
             try {
-                String resposta = Objects.requireNonNullElse(
-                        solicitarService.criarTicketDeSolicitacao(discordUserId, itemSelecionado, quantidade),
-                        "\u274c Erro inesperado ao registrar sua solicitação.");
+                String resposta = solicitarService.criarTicketDeSolicitacao(
+                        discordUserId, itemSelecionado, quantidade);
+                if (resposta == null) {
+                    resposta = "\u274c Erro inesperado ao registrar sua solicitação.";
+                }
                 event.getHook().sendMessage(resposta).queue();
             } catch (Exception ex) {
                 log.error("[DISCORD][/solicitar] Erro ao criar chamado de solicitação: {}", ex.getMessage(), ex);
@@ -141,7 +142,8 @@ public class DiscordInteractionListener extends ListenerAdapter {
             return;
         }
 
-        String textoDigitado = event.getFocusedOption().getValue();
+        String textoDigitado = Objects.requireNonNull(event.getFocusedOption().getValue(),
+            "textoDigitado");
         log.debug("[DISCORD][autocomplete] '/solicitar item' — filtro: '{}'", textoDigitado);
 
         // Autocomplete deve responder muito rápido, então roda síncrono ou assíncrono leve.
@@ -207,6 +209,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
         desabilitarBotoesDaMensagem(event, resultMessage);
     }
 
+    @SuppressWarnings("null")
     private void desabilitarBotoesDaMensagem(ButtonInteractionEvent event, String rodape) {
         List<Button> botoesDessa = List.copyOf(
                 event.getMessage().getButtons().stream()

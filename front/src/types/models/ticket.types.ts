@@ -31,6 +31,7 @@ export interface Ticket {
   attachments: AttachmentResponse[];
   tags?: string[] | null;
   relatedTicketIds?: string[] | null;
+  additionalUserIds?: string[] | null;
   solutionText?: string | null;
 }
 

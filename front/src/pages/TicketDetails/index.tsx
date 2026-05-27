@@ -34,6 +34,11 @@ export default function TicketDetails() {
     selectedUserId,
     assets,
     loadingAssets,
+    categories,
+    loadingCategories,
+    loadingUsers,
+    updatingCategory,
+    addingAdditionalUser,
     isResolved,
     loadTicket,
     setSelectedUserId,
@@ -43,6 +48,8 @@ export default function TicketDetails() {
     handleCancelTransfer,
     handleTransfer,
     handleAttachmentUpload,
+    handleChangeCategory,
+    handleAddAdditionalUser,
     openResolveModal,
     closeResolveModal,
   } = useTicketDetails({
@@ -202,6 +209,15 @@ export default function TicketDetails() {
             ticket={ticket}
             assets={assets}
             loadingAssets={loadingAssets}
+            userRole={user?.role}
+            categories={categories}
+            loadingCategories={loadingCategories}
+            updatingCategory={updatingCategory}
+            users={users}
+            loadingUsers={loadingUsers}
+            addingAdditionalUser={addingAdditionalUser}
+            onChangeCategory={handleChangeCategory}
+            onAddAdditionalUser={handleAddAdditionalUser}
             onRefresh={loadTicket}
           />
         </div>

@@ -117,3 +117,34 @@ O build foi concluído com absoluto **SUCESSO**:
 * **Total Time**: 11.851s
 * **Compilation Status**: BUILD SUCCESS
 * **Warnings/Errors**: 0 erros de compilação ou inconsistências de tipo no código adaptado.
+
+---
+
+## 4. Atualização Frontend - Categoria/SLA e Colaboradores Afetados (27/05/2026)
+
+### A. Tipagens e Integração com API
+- `Ticket` agora inclui `additionalUserIds` para refletir colaboradores afetados retornados pela API.
+- Adicionados endpoints no service de tickets para:
+    - `PATCH /tickets/{id}/category/{categoryId}` (troca de categoria + recálculo de SLA).
+    - `POST /tickets/{id}/additional-users/{userId}` (vincular colaborador adicional).
+
+### B. Transparência Controlada no Detalhe do Chamado
+- **Admin/Tech**: dropdown de categoria ativo para troca de SLA com atualização imediata na UI.
+- **Usuários comuns**: categoria exibida como texto estático; SLA continua visível.
+- Seção **Colaboradores Afetados** visível para todos com chips; botão `+` apenas para Admin/Tech.
+
+### C. Validação de Build
+
+Frontend:
+```powershell
+cd front
+npm run build
+```
+Resultado: build finalizado com sucesso via Vite + TypeScript.
+
+Backend:
+```powershell
+cd api
+mvn clean compile
+```
+Resultado: BUILD SUCCESS.

@@ -43,6 +43,18 @@ export async function transferTicket(id: string, userId: string): Promise<Ticket
   return data;
 }
 
+// Altera a categoria de um chamado e recalcula o SLA
+export async function changeTicketCategory(id: string, categoryId: string): Promise<Ticket> {
+  const { data } = await api.patch<Ticket>(`/tickets/${id}/category/${categoryId}`);
+  return data;
+}
+
+// Adiciona um colaborador afetado ao chamado
+export async function addAdditionalUser(id: string, userId: string): Promise<Ticket> {
+  const { data } = await api.post<Ticket>(`/tickets/${id}/additional-users/${userId}`);
+  return data;
+}
+
 // Faz upload de um anexo para um chamado específico
 export async function uploadTicketAttachment(ticketId: string, file: File): Promise<TicketAttachment> {
   const formData = new FormData();

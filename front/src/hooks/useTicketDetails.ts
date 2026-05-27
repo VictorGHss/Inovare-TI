@@ -3,14 +3,17 @@ import { toast } from 'react-toastify';
 
 import { getUsers } from '../services/userService';
 import {
+  addAdditionalUser,
+  changeTicketCategory,
   claimTicket,
   getTicketById,
+  getTicketCategories,
   resolveTicket,
   transferTicket,
   uploadTicketAttachment,
 } from '../services/ticketService';
 import { getAssetsByUser } from '../services/inventoryService';
-import type { Asset, ResolveTicketRequest, Ticket, User } from '../types/models';
+import type { Asset, ResolveTicketRequest, Ticket, TicketCategory, User } from '../types/models';
 
 interface UseTicketDetailsParams {
   ticketId?: string;
@@ -49,6 +52,11 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showResolveModal, setShowResolveModal] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [updatingCategory, setUpdatingCategory] = useState(false);
+  const [addingAdditionalUser, setAddingAdditionalUser] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -73,6 +81,8 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
       setLoading(false);
       setTicket(null);
       setTicketNotFound(false);
+      setCategories([]);
+      setUsers([]);
       return;
     }
 
@@ -80,6 +90,30 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     void loadTicket().finally(() => setLoading(false));
     // Dependência intencionalmente restrita ao id para evitar loops por referência de função.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (!ticketId) return;
+
+    async function loadLookups() {
+      setLoadingCategories(true);
+      setLoadingUsers(true);
+      try {
+        const [categoriesData, usersData] = await Promise.all([
+          getTicketCategories(),
+          getUsers(),
+        ]);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } catch {
+        toast.error('Erro ao carregar categorias e usuarios.');
+      } finally {
+        setLoadingCategories(false);
+        setLoadingUsers(false);
+      }
+    }
+
+    void loadLookups();
   }, [ticketId]);
 
   useEffect(() => {
@@ -136,6 +170,11 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
   }, [loadTicket, ticket]);
 
   const handleOpenTransfer = useCallback(async () => {
+    if (users.length > 0) {
+      setShowTransfer(true);
+      return;
+    }
+
     try {
       const usersData = await getUsers();
       setUsers(usersData);
@@ -143,7 +182,7 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     } catch {
       toast.error('Erro ao carregar usuarios para transferencia.');
     }
-  }, []);
+  }, [users.length]);
 
   const handleCancelTransfer = useCallback(() => {
     setShowTransfer(false);
@@ -185,6 +224,36 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     }
   }, [loadTicket, ticket]);
 
+  const handleChangeCategory = useCallback(async (categoryId: string) => {
+    if (!ticket) return;
+
+    setUpdatingCategory(true);
+    try {
+      const updated = await changeTicketCategory(ticket.id, categoryId);
+      setTicket(normalizeTechnicianId(updated as TicketBackendPayload));
+      toast.success('Categoria atualizada com sucesso!');
+    } catch {
+      toast.error('Erro ao atualizar categoria do chamado.');
+    } finally {
+      setUpdatingCategory(false);
+    }
+  }, [ticket]);
+
+  const handleAddAdditionalUser = useCallback(async (userId: string) => {
+    if (!ticket) return;
+
+    setAddingAdditionalUser(true);
+    try {
+      const updated = await addAdditionalUser(ticket.id, userId);
+      setTicket(normalizeTechnicianId(updated as TicketBackendPayload));
+      toast.success('Colaborador adicionado com sucesso!');
+    } catch {
+      toast.error('Erro ao adicionar colaborador afetado.');
+    } finally {
+      setAddingAdditionalUser(false);
+    }
+  }, [ticket]);
+
   const openResolveModal = useCallback(() => {
     setShowResolveModal(true);
   }, []);
@@ -211,6 +280,11 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     selectedUserId,
     assets,
     loadingAssets,
+    categories,
+    loadingCategories,
+    loadingUsers,
+    updatingCategory,
+    addingAdditionalUser,
     isResolved: ticket?.status === 'RESOLVED',
     loadTicket,
     setSelectedUserId: updateSelectedUserId,
@@ -220,6 +294,8 @@ export function useTicketDetails({ ticketId }: UseTicketDetailsParams) {
     handleCancelTransfer,
     handleTransfer,
     handleAttachmentUpload,
+    handleChangeCategory,
+    handleAddAdditionalUser,
     openResolveModal,
     closeResolveModal,
   };

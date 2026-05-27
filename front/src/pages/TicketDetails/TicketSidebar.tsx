@@ -11,18 +11,30 @@ import {
   Search,
   Link2,
   Loader2,
+  Users,
+  Plus,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 import SlaBadge from '../../components/SlaBadge';
 import { getTickets, relateTicket } from '../../services/ticketService';
-import type { Asset, Ticket } from '../../types/models';
+import type { Asset, Ticket, TicketCategory, User } from '../../types/models';
 
 interface TicketSidebarProps {
   ticket: Ticket;
   assets: Asset[];
   loadingAssets: boolean;
+  userRole?: string;
+  categories: TicketCategory[];
+  loadingCategories: boolean;
+  updatingCategory: boolean;
+  users: User[];
+  loadingUsers: boolean;
+  addingAdditionalUser: boolean;
+  onChangeCategory: (categoryId: string) => void;
+  onAddAdditionalUser: (userId: string) => Promise<void>;
   onRefresh?: () => void;
 }
 
@@ -46,6 +58,15 @@ export default function TicketSidebar({
   ticket,
   assets,
   loadingAssets,
+  userRole,
+  categories,
+  loadingCategories,
+  updatingCategory,
+  users,
+  loadingUsers,
+  addingAdditionalUser,
+  onChangeCategory,
+  onAddAdditionalUser,
   onRefresh,
 }: TicketSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +74,15 @@ export default function TicketSidebar({
   const [suggestions, setSuggestions] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [associatingId, setAssociatingId] = useState<string | null>(null);
+  const [showAddAdditionalUser, setShowAddAdditionalUser] = useState(false);
+  const [selectedAdditionalUserId, setSelectedAdditionalUserId] = useState('');
+
+  const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
+  const additionalUserIds = ticket.additionalUserIds ?? [];
+  const availableUsers = users
+    .filter((user) => user.id !== ticket.requesterId)
+    .filter((user) => !additionalUserIds.includes(user.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // Carrega a lista de chamados ao montar o componente
   useEffect(() => {
@@ -108,6 +138,18 @@ export default function TicketSidebar({
     }
   };
 
+  const handleCategoryChange = (categoryId: string) => {
+    if (categoryId === ticket.categoryId) return;
+    void onChangeCategory(categoryId);
+  };
+
+  const handleConfirmAdditionalUser = async () => {
+    if (!selectedAdditionalUserId) return;
+    await onAddAdditionalUser(selectedAdditionalUserId);
+    setSelectedAdditionalUserId('');
+    setShowAddAdditionalUser(false);
+  };
+
   return (
     <aside className="flex flex-col gap-4">
       <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
@@ -124,7 +166,28 @@ export default function TicketSidebar({
             <Tag size={15} className="mt-0.5 shrink-0 text-slate-400" />
             <div>
               <p className="text-xs text-slate-400">Categoria</p>
-              <p className="font-medium text-slate-700">{ticket.categoryName}</p>
+              {canManageTicket ? (
+                <div className="mt-1">
+                  <select
+                    value={ticket.categoryId}
+                    onChange={(event) => handleCategoryChange(event.target.value)}
+                    disabled={loadingCategories || updatingCategory}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary disabled:opacity-60"
+                  >
+                    {loadingCategories && <option value={ticket.categoryId}>Carregando...</option>}
+                    {!loadingCategories && categories.length === 0 && (
+                      <option value={ticket.categoryId}>{ticket.categoryName}</option>
+                    )}
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="font-medium text-slate-700">{ticket.categoryName}</p>
+              )}
             </div>
           </li>
           <li className="flex items-start gap-2.5 text-slate-600">
@@ -174,6 +237,92 @@ export default function TicketSidebar({
             </li>
           )}
         </ul>
+      </section>
+
+      <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <Users size={16} className="text-brand-primary" />
+            Colaboradores Afetados
+          </h3>
+          {canManageTicket && (
+            <button
+              type="button"
+              onClick={() => setShowAddAdditionalUser((prev) => !prev)}
+              disabled={addingAdditionalUser || loadingUsers || availableUsers.length === 0}
+              className="inline-flex items-center gap-1 rounded-xl border border-brand-primary/20 bg-brand-secondary/20 px-2.5 py-1.5 text-xs font-semibold text-brand-primary hover:bg-brand-secondary/40 transition-colors disabled:opacity-60"
+            >
+              {showAddAdditionalUser ? <X size={14} /> : <Plus size={14} />}
+              {showAddAdditionalUser ? 'Fechar' : 'Adicionar'}
+            </button>
+          )}
+        </div>
+
+        {loadingUsers ? (
+          <p className="text-sm text-slate-400">Carregando colaboradores...</p>
+        ) : additionalUserIds.length === 0 ? (
+          <p className="text-sm italic text-slate-400">Nenhum colaborador adicional vinculado.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {additionalUserIds.map((userId) => {
+              const user = users.find((u) => u.id === userId);
+              const fallbackName = `Usuario ${userId.slice(0, 8).toUpperCase()}`;
+              return (
+                <span
+                  key={userId}
+                  className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                >
+                  {user?.name ?? fallbackName}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {showAddAdditionalUser && canManageTicket && (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <label className="block text-xs font-semibold text-slate-500 mb-2">
+              Selecionar colaborador
+            </label>
+            <select
+              value={selectedAdditionalUserId}
+              onChange={(event) => setSelectedAdditionalUserId(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+              disabled={loadingUsers || availableUsers.length === 0}
+            >
+              <option value="">Selecione um usuario</option>
+              {availableUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddAdditionalUser(false);
+                  setSelectedAdditionalUserId('');
+                }}
+                disabled={addingAdditionalUser}
+                className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmAdditionalUser()}
+                disabled={!selectedAdditionalUserId || addingAdditionalUser}
+                className="rounded-xl bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary-dark transition-colors disabled:opacity-60"
+              >
+                {addingAdditionalUser ? 'Adicionando...' : 'Confirmar'}
+              </button>
+            </div>
+            {availableUsers.length === 0 && (
+              <p className="mt-2 text-xs text-slate-400">Nenhum usuario disponivel para adicionar.</p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">

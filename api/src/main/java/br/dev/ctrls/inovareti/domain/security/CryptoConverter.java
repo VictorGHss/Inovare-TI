@@ -98,23 +98,23 @@ public class CryptoConverter implements AttributeConverter<String, String> {
         }
 
         try {
-            String workingData = dbData;
             boolean isV1 = dbData.startsWith("v1:");
-            if (isV1) {
-                workingData = dbData.substring(3);
+            if (!isV1) {
+                // Se não tem o prefixo v1:, é garantido ser legado (ECB)
+                return decryptLegacy(dbData);
             }
 
+            String workingData = dbData.substring(3);
             byte[] decoded;
             try {
                 decoded = Base64.getDecoder().decode(workingData);
             } catch (IllegalArgumentException ex) {
-                // Se falhar a decodificação em Base64 direto (dados antigos/corrompidos), tenta o ECB diretamente
+                log.warn("Falha ao decodificar Base64 para dados com prefixo v1. Tentando fallback legado. {}", ex.getMessage());
                 return decryptLegacy(dbData);
             }
             
-            // Dados menores ou iguais a 12 bytes não podem conter o IV e a tag de autenticação GCM.
-            // Executa diretamente o fallback para o modo legado ECB.
             if (decoded.length <= IV_LENGTH_BYTES) {
+                log.warn("Dados GCM muito curtos para conter IV. Tentando fallback legado.");
                 return decryptLegacy(dbData);
             }
 
@@ -131,7 +131,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
                 byte[] decryptedBytes = cipher.doFinal(encryptedPayload);
                 return new String(decryptedBytes, StandardCharsets.UTF_8);
             } catch (Exception ex) {
-                log.warn("Falha ao descriptografar em modo AES-GCM. Ativando fallback resiliente para decodificação em modo legado AES-ECB: {}", ex.getMessage());
+                log.warn("Falha ao descriptografar em modo AES-GCM para dados v1. Ativando fallback para decodificação em modo legado AES-ECB: {}", ex.getMessage());
                 return decryptLegacy(dbData);
             }
         } catch (Exception e) {
@@ -161,6 +161,9 @@ public class CryptoConverter implements AttributeConverter<String, String> {
      * Gera uma chave AES simétrica de 128 bits a partir do segredo configurado usando hash SHA-256.
      */
     private SecretKeySpec generateKey() {
+        if (encryptionSecret == null || encryptionSecret.isBlank()) {
+            throw new IllegalStateException("A chave de criptografia (encryptionSecret) não foi inicializada! Certifique-se de que a propriedade 'app.security.encryption.secret' esteja configurada e carregada pelo Spring.");
+        }
         try {
             byte[] key = encryptionSecret.getBytes(StandardCharsets.UTF_8);
             MessageDigest sha = MessageDigest.getInstance("SHA-256");

@@ -135,12 +135,12 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
                          when t.priority = 'NORMAL' then 'Média'
                          else 'Baixa'
                      end
-            order by coalesce(s.name, 'Sem setor') asc,
-                     case
-                         when t.priority = 'LOW' then 1
-                         when t.priority = 'NORMAL' then 2
-                         else 3
-                     end asc
+                        order by sector asc,
+                                         case
+                                                 when priority = 'Baixa' then 1
+                                                 when priority = 'Média' then 2
+                                                 else 3
+                                         end asc
             """, nativeQuery = true)
     List<SectorPriorityMetricView> countTicketsBySectorAndPriority(
             @Param("restrictToRequester") boolean restrictToRequester,

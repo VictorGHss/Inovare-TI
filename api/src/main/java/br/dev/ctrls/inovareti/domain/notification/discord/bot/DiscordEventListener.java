@@ -1,9 +1,11 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,9 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 @RequiredArgsConstructor
 public class DiscordEventListener extends ListenerAdapter {
 
+    @Value("${discord.bot.guild-id:}")
+    private String discordTestGuildId;
+
     private final DiscordUserLinkingService discordUserLinkingService;
     private final DiscordTicketService discordTicketService;
     private final DiscordCommandService discordCommandService;
@@ -39,114 +44,73 @@ public class DiscordEventListener extends ListenerAdapter {
     private final Executor discordExecutor;
 
     /**
-     * Registra os slash commands globais quando o bot fica pronto.
+     * Registra os slash commands diretamente na guild de teste quando o bot fica pronto.
      */
     @Override
     public void onReady(@javax.annotation.Nonnull ReadyEvent event) {
-        log.info("✅ Bot do Discord pronto! Registrando slash commands...");
+        log.info("✅ Bot do Discord pronto! Registrando slash commands na guild de teste...");
 
         try {
-            var jda = event.getJDA();
-
-            // ── Comandos públicos ──────────────────────────────────────────────────────
-            jda.upsertCommand("chamado", "Abre um novo chamado na TI")
-                    .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
-                    .addOption(OptionType.STRING, "prioridade",
-                            "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false)
-                    .queue(
-                            success -> log.info("✅ Slash command '/chamado' registrado com sucesso"),
-                            error   -> log.error("❌ Falha ao registrar o comando /chamado", error)
-                    );
-
-            jda.upsertCommand("vincular", "Vincula sua conta Discord à sua conta da clínica")
-                    .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true)
-                    .queue(
-                            success -> log.info("✅ Slash command '/vincular' registrado com sucesso"),
-                            error   -> log.error("❌ Falha ao registrar o comando /vincular", error)
-                    );
-
-            jda.upsertCommand("status", "Verifica o status de um chamado")
-                    .addOption(OptionType.STRING, "id_chamado", "ID do chamado (UUID)", true)
-                    .queue(
-                            success -> log.info("✅ Slash command '/status' registrado com sucesso"),
-                            error   -> log.error("❌ Falha ao registrar o comando /status", error)
-                    );
-
-            jda.upsertCommand("meuschamados", "Lista os seus chamados em andamento na Inovare TI")
-                    .queue(
-                            success -> log.info("✅ Slash command '/meuschamados' registrado com sucesso"),
-                            error   -> log.error("❌ Falha ao registrar o comando /meuschamados", error)
-                    );
-
-            // Comando /ajuda para consulta no FAQ
-            jda.upsertCommand("ajuda", "Busca dúvidas e ajuda no FAQ local da TI")
-                    .addOption(OptionType.STRING, "busca", "Palavra-chave ou dúvida para busca no FAQ", true)
-                    .queue(
-                            success -> log.info("✅ Slash command '/ajuda' registrado com sucesso"),
-                            error   -> log.error("❌ Falha ao registrar o comando /ajuda", error)
-                    );
-
-            // ── Comandos restritos a técnicos/admin (ocultos de usuários comuns) ──────
-
-            // /ti status — visível apenas para membros com permissão de gerenciar mensagens
-            jda.upsertCommand(
-                            Commands.slash("ti", "Painel de TI — administração e monitoramento")
-                                     .addSubcommands(new SubcommandData("status",
-                                             "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)"))
-                                     .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
-                    .queue(
-                            ok    -> log.info("✅ Slash command '/ti status' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /ti", error)
-                    );
-
-            // /meusatendimentos — painel do técnico, restrito
-            jda.upsertCommand(
-                            Commands.slash("meusatendimentos",
-                                    "Lista os chamados em andamento atribuídos a você (TI)")
-                                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
-                    .queue(
-                            ok    -> log.info("✅ Slash command '/meusatendimentos' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /meusatendimentos", error)
-                    );
-
-            // /vincular_afetado — vincula colaborador afetado a um chamado, restrito
-            jda.upsertCommand(
-                            Commands.slash("vincular_afetado",
-                                    "Vincula um colaborador afetado a um chamado (TI)")
-                                    .addOption(OptionType.STRING, "id_chamado",
-                                            "ID do chamado (UUID completo ou 8 primeiros caracteres)", true)
-                                    .addOption(OptionType.USER, "usuario",
-                                            "Usuário do Discord a ser vinculado como afetado", true)
-                                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
-                    .queue(
-                            ok    -> log.info("✅ Slash command '/vincular_afetado' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /vincular_afetado", error)
-                    );
-
-            // /solicitar com autocomplete de item
-            jda.upsertCommand(
-                            Commands.slash("solicitar", "Solicita um item ou insumo ao setor de TI")
-                                    .addOption(OptionType.STRING, "item",
-                                            "Nome do item (use o autocomplete para buscar no inventário)",
-                                            true, true)  // obrigatório=true, autocomplete=true
-                                    .addOption(OptionType.INTEGER, "quantidade",
-                                            "Quantidade desejada (padrão: 1)", false))
-                    .queue(
-                            ok    -> log.info("✅ Slash command '/solicitar' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /solicitar", error)
-                    );
-
-            log.info("✅ Todos os slash commands foram registrados globalmente!");
-
-            // Limpa os comandos locais das guildas para evitar duplicação com os globais
-            for (var guild : jda.getGuilds()) {
-                guild.updateCommands().queue(
-                        success -> log.info("✅ Comandos locais purgados na guilda: {} para evitar duplicidade", guild.getName()),
-                        error   -> log.warn("⚠️ Não foi possível purgar comandos locais na guilda: {}", guild.getName())
-                );
+            if (discordTestGuildId == null || discordTestGuildId.isBlank()) {
+                log.warn("⚠️ discord.bot.guild-id não configurado. A sincronização imediata dos comandos do Discord foi ignorada.");
+                return;
             }
 
-        } catch (Exception e) {
+            long guildId = Long.parseLong(Objects.requireNonNull(discordTestGuildId, "discord.bot.guild-id não configurado").trim());
+            var guild = event.getJDA().getGuildById(guildId);
+            if (guild == null) {
+                log.warn("⚠️ Guild de teste não encontrada. Verifique discord.bot.guild-id para sincronização imediata dos comandos.");
+                return;
+            }
+
+            guild.updateCommands()
+                .addCommands(
+                    Commands.slash("chamado", "Abre um novo chamado na TI")
+                        .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
+                        .addOption(OptionType.STRING, "prioridade",
+                            "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false),
+
+                    Commands.slash("vincular", "Vincula sua conta Discord à sua conta da clínica")
+                        .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true),
+
+                    Commands.slash("status", "Verifica o status de um chamado")
+                        .addOption(OptionType.STRING, "id_chamado", "ID do chamado (UUID)", true),
+
+                    Commands.slash("meuschamados", "Lista os seus chamados em andamento na Inovare TI"),
+
+                    Commands.slash("ajuda", "Busca dúvidas e ajuda no FAQ local da TI")
+                        .addOption(OptionType.STRING, "busca", "Palavra-chave ou dúvida para busca no FAQ", true),
+
+                    Commands.slash("ti", "Painel de TI — administração e monitoramento")
+                        .addSubcommands(new SubcommandData("status",
+                            "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)"))
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)),
+
+                    Commands.slash("meusatendimentos",
+                        "Lista os chamados em andamento atribuídos a você (TI)")
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)),
+
+                    Commands.slash("vincular_afetado",
+                        "Vincula um colaborador afetado a um chamado (TI)")
+                        .addOption(OptionType.STRING, "id_chamado",
+                            "ID do chamado (UUID completo ou 8 primeiros caracteres)", true)
+                        .addOption(OptionType.USER, "usuario",
+                            "Usuário do Discord a ser vinculado como afetado", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)),
+
+                    Commands.slash("solicitar", "Solicita um item ou insumo ao setor de TI")
+                        .addOption(OptionType.STRING, "item",
+                            "Nome do item (use o autocomplete para buscar no inventário)",
+                            true, true)
+                        .addOption(OptionType.INTEGER, "quantidade",
+                            "Quantidade desejada (padrão: 1)", false)
+                )
+                .queue(
+                    success -> log.info("✅ Slash commands sincronizados imediatamente na guilda: {}", guild.getName()),
+                    error -> log.error("❌ Falha ao sincronizar os slash commands na guilda de teste", error)
+                );
+
+        } catch (RuntimeException e) {
             log.error("❌ Erro ao registrar os slash commands", e);
         }
     }

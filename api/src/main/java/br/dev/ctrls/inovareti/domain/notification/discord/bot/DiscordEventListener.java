@@ -382,7 +382,8 @@ public class DiscordEventListener extends ListenerAdapter {
                 }
 
                 String message = discordCommandService.vincularAfetado(discordIdTecnico, ticketIdStr, discordIdAfetado);
-                event.getHook().sendMessage(message).queue();
+                String safeMessage = message != null ? message : "❌ Erro inesperado ao vincular usuário afetado.";
+                event.getHook().sendMessage(safeMessage).queue();
             } catch (Exception e) {
                 log.error("❌ Erro ao processar o comando /vincular_afetado", e);
                 event.getHook().sendMessage("❌ Erro ao vincular usuário afetado. Tente novamente em instantes.").queue();

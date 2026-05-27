@@ -2,13 +2,13 @@ package br.dev.ctrls.inovareti.domain.ticket;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -34,7 +34,6 @@ public class SlaAlertScheduler {
     private static final int EMBED_COLOR_RED = 0xE53E3E;
 
     private final TicketRepository ticketRepository;
-    private final DiscordDirectMessageService discordDirectMessageService;
     private final ObjectProvider<JDA> jdaProvider;
 
     /**
@@ -122,7 +121,7 @@ public class SlaAlertScheduler {
                 .setTimestamp(java.time.Instant.now())
                 .build();
 
-        jda.retrieveUserById(discordUserId).queue(
+        jda.retrieveUserById(Objects.requireNonNull(discordUserId)).queue(
                 user -> user.openPrivateChannel().queue(
                         channel -> channel.sendMessageEmbeds(embed).queue(
                                 success -> log.info("[SLA-SCHEDULER] Alerta de SLA enviado via DM para técnico '{}' (chamado #{})",

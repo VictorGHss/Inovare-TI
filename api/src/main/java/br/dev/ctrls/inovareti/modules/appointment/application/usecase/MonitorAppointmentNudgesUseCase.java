@@ -44,11 +44,11 @@ public class MonitorAppointmentNudgesUseCase {
                 .orElse(appointmentMotorProperties.getNudgeFinalWaitHours());
 
         LocalDateTime pendingThreshold = resolvePendingThreshold(xHours);
-        LocalDateTime nudge1Threshold = LocalDateTime.now().minusHours(yHours);
-        LocalDateTime finalThreshold = LocalDateTime.now().minusHours(24);
+        LocalDateTime nudge1Threshold = resolveNudge1Threshold(yHours);
+        LocalDateTime finalThreshold = resolveFinalThreshold();
 
         List<AppointmentSession> pendingSessions = appointmentSessionRepository
-                .findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus.PENDING, pendingThreshold);
+                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.PENDING, pendingThreshold);
         List<AppointmentSession> nudge1Sessions = appointmentSessionRepository
                 .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, nudge1Threshold);
         List<AppointmentSession> finalSessions = appointmentSessionRepository
@@ -88,7 +88,17 @@ public class MonitorAppointmentNudgesUseCase {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                 if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
-                    appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    try {
+                        appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    } catch (Exception e) {
+                        log.error("Erro ao atualizar status do agendamento na Feegow para desmarcado. sessionId={}", lockedSession.getId(), e);
+                    }
+
+                    boolean sent = sendAppointmentTemplateUseCase.executeSimpleTemplate(lockedSession, "aviso_final_cancelamento");
+                    if (!sent) {
+                        log.warn("Template de cancelamento automático não enviado. sessionId={}", lockedSession.getId());
+                    }
+
                     confirmationStateMachineService.markCanceledByNoResponse(lockedSession);
                     appointmentSessionRepository.save(lockedSession);
                     blipContextService.setMasterState(lockedSession.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");
@@ -100,14 +110,34 @@ public class MonitorAppointmentNudgesUseCase {
                 pendingSessions.size(), nudge1Sessions.size(), finalSessions.size());
     }
 
-        private LocalDateTime resolvePendingThreshold(int xHours) {
-                if (!appointmentMotorProperties.isTestMode()) {
-                        return LocalDateTime.now().minusHours(xHours);
-                }
-
-                // Em modo de teste, libera NUDGE_1 imediatamente para facilitar validação com consulta de hoje/amanhã.
-                LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
-                log.warn("[TEST MODE ACTIVE] NUDGE_1 liberado imediatamente. pendingThreshold={}", immediateThreshold);
-                return immediateThreshold;
+    private LocalDateTime resolvePendingThreshold(int xHours) {
+        if (!appointmentMotorProperties.isTestMode()) {
+            return LocalDateTime.now().minusHours(xHours);
         }
+
+        // Em modo de teste, libera NUDGE_1 imediatamente para facilitar validação com consulta de hoje/amanhã.
+        LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
+        log.warn("[TEST MODE ACTIVE] NUDGE_1 liberado imediatamente. pendingThreshold={}", immediateThreshold);
+        return immediateThreshold;
+    }
+
+    private LocalDateTime resolveNudge1Threshold(int yHours) {
+        if (!appointmentMotorProperties.isTestMode()) {
+            return LocalDateTime.now().minusHours(yHours);
+        }
+
+        LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
+        log.warn("[TEST MODE ACTIVE] NUDGE_2 liberado imediatamente. nudge1Threshold={}", immediateThreshold);
+        return immediateThreshold;
+    }
+
+    private LocalDateTime resolveFinalThreshold() {
+        if (!appointmentMotorProperties.isTestMode()) {
+            return LocalDateTime.now().minusHours(24);
+        }
+
+        LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
+        log.warn("[TEST MODE ACTIVE] CANCELAMENTO liberado imediatamente. finalThreshold={}", immediateThreshold);
+        return immediateThreshold;
+    }
 }

@@ -258,6 +258,50 @@ public class BlipNotificationService {
             normalizedDestination, templateName, status, groupId);
     }
 
+    public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
+        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+
+        boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
+        if (!isHomologDoctor) {
+            log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
+                appointmentData != null ? appointmentData.doctorId() : "null",
+                destination,
+                templateName);
+            return;
+        }
+
+        List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
+        String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        if (!parameters.isEmpty()) {
+            components.add(Map.of("type", "body", "parameters", parameters));
+        }
+
+        Map<String, Object> content = Map.of(
+            "type", "template",
+            "template", Map.of(
+                "name", templateName,
+                "namespace", resolveWabaNamespace(),
+                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
+                "components", components
+            )
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
+            "type", "application/json",
+            "content", content,
+            "metadata", Map.of("appointmentId", appointmentId)
+        );
+
+        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+        Object status = response.getOrDefault("status", "unknown");
+        log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
+    }
+
     private String resolveWabaNamespace() {
         String ns = motorProperties.getBlipWabaNamespace();
         return (ns != null && !ns.isBlank()) ? ns : "";

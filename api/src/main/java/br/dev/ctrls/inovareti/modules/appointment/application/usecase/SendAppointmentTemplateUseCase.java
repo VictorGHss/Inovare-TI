@@ -341,4 +341,110 @@ public class SendAppointmentTemplateUseCase {
         }
         return null;
     }
+
+    public boolean executeSimpleTemplate(AppointmentSession session, String templateName) {
+        FeegowAppointment appointment = null;
+        try {
+            appointment = appointmentExternalPort.searchAppointments(
+                session.getAppointmentAt().toLocalDate(),
+                1, // status Marcado
+                session.getDoctorProfissionalId()
+            ).stream()
+             .filter(a -> a.id().equals(session.getFeegowAppointmentId()))
+             .findFirst()
+             .orElse(null);
+        } catch (Exception ex) {
+            log.warn("Erro ao buscar agendamento na Feegow para template simples. sessionId={}", session.getId(), ex);
+        }
+
+        if (appointment == null) {
+            appointment = new FeegowAppointment(
+                session.getFeegowAppointmentId(),
+                session.getPatientId(),
+                session.getDoctorProfissionalId(),
+                null,
+                null,
+                null,
+                null
+            );
+        }
+
+        FeegowPatient patient = null;
+        try {
+            patient = patientExternalPort.patientInfo(session.getPatientId());
+        } catch (Exception ex) {
+            log.warn("Erro ao buscar dados do paciente na Feegow para template simples. patientId={}", session.getPatientId(), ex);
+        }
+
+        String doctorName = null;
+        String normalizedProfissionalId = session.getDoctorProfissionalId() != null ? session.getDoctorProfissionalId().trim() : "";
+        if (!normalizedProfissionalId.isEmpty()) {
+            try {
+                String docId = normalizedProfissionalId;
+                doctorName = transactionTemplate.execute(status ->
+                    appointmentDoctorMappingRepository.findByProfissionalIdLocked(docId)
+                        .map(AppointmentDoctorMapping::getProfissionalNome)
+                        .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
+                        .orElse(null)
+                );
+            } catch (RuntimeException ex) {
+                log.warn("Erro ao buscar mapeamento de médico no banco para template simples. docId={}", normalizedProfissionalId, ex);
+            }
+        }
+            
+        if (doctorName == null || doctorName.isBlank() || "null".equalsIgnoreCase(doctorName.trim())) {
+            doctorName = appointment.doctorName();
+        }
+        
+        if (doctorName == null || doctorName.isBlank() || "null".equalsIgnoreCase(doctorName.trim())) {
+            doctorName = "Clínica Inovare";
+        }
+
+        String appointmentDate = appointment.startAt() != null
+            ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE)
+            : DEFAULT_TEMPLATE_VALUE;
+        String appointmentDateShort = appointment.startAt() != null
+            ? appointment.startAt().toLocalDate().format(SHORT_BRAZILIAN_DATE)
+            : DEFAULT_TEMPLATE_VALUE;
+        String appointmentTime = appointment.startAt() != null
+            ? appointment.startAt().toLocalTime().format(BRAZILIAN_TIME)
+            : DEFAULT_TEMPLATE_VALUE;
+
+        AppointmentTemplateData templateData = new AppointmentTemplateData(
+            fallbackValue(appointment.id()),
+            fallbackValue(appointment.patientId()),
+            fallbackValue(patient != null ? patient.name() : null),
+            fallbackValue(patient != null ? patient.phone() : null),
+            fallbackValue(appointment.doctorId()),
+            fallbackProviderValue(doctorName),
+            DEFAULT_PROVIDER_VALUE,
+            fallbackProviderValue(appointment.unitName()),
+            appointmentDate,
+            appointmentDateShort,
+            appointmentTime,
+            appointmentDate);
+
+        try {
+            blipNotificationService.sendSimpleTemplateMessage(session.getPhoneNumber(), templateName, templateData);
+            saveWithRetry(session, null);
+            log.info("[MENSAGERIA] Template simples '{}' disparado.", templateName);
+            return true;
+        } catch (RestClientResponseException ex) {
+            Integer blipCode = extractBlipErrorCode(ex.getResponseBodyAsString());
+            BlipErrorMapper mappedError = BlipErrorMapper.fromCode(blipCode);
+            String statusDetails = blipCode == null
+                    ? mappedError.getDescription()
+                    : "Código " + blipCode + ": " + mappedError.getDescription();
+
+            saveWithRetry(session, statusDetails);
+            log.error("Falha ao enviar template simples para Blip. template={}, statusHttp={}, blipCode={}",
+                    templateName, ex.getStatusCode().value(), blipCode);
+            return false;
+        } catch (RuntimeException ex) {
+            String statusDetails = "Erro desconhecido na API do Blip.";
+            saveWithRetry(session, statusDetails);
+            log.error("Falha inesperada ao enviar template simples para Blip. template={}", templateName, ex);
+            return false;
+        }
+    }
 }

@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -34,6 +34,7 @@ public class MonitorAppointmentNudgesUseCase {
     private final BlipContextService blipContextService;
     private final TransactionTemplate transactionTemplate;
 
+    @org.springframework.transaction.annotation.Transactional
     public void execute() {
         int xHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_1)
                 .map(config -> config.getTimingHours())

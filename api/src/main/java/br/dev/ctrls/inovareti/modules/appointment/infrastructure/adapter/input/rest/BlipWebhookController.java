@@ -144,6 +144,17 @@ public class BlipWebhookController {
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
+        // --- SAFETY-GUARD DE SEGURANÇA ESTRUTURAL (REJEITA PAYLOADS MALFORMADOS COM 400 BAD REQUEST) ---
+        if (!StringUtils.hasText(from) || !StringUtils.hasText(messageId)) {
+            log.warn("[SAFETY-GUARD] Payload Blip/LIME estruturalmente inválido. from={}, messageId={}", from, messageId);
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "reason", "bad-request",
+                "message", "Envelope LIME estruturalmente invalido: 'from' e 'id' sao obrigatorios."
+            ));
+        }
+        // -----------------------------------------------------------------------------------------------
+
         // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
         if (!isFirstTimeProcessing(messageId)) {
             log.info("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);

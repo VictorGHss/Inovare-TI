@@ -23,6 +23,7 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
 
     List<AppointmentSessionEntity> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<AppointmentSessionEntity> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.status = 'PENDING' AND a.lastNotificationSentAt IS NULL")

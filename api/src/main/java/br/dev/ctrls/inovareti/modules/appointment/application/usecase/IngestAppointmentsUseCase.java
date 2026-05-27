@@ -303,6 +303,19 @@ public class IngestAppointmentsUseCase {
                     final String finalPhoneNumber = phoneNumber;
                     saved = transactionTemplate.execute(status -> {
                         Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                        
+                        // VERIFICAÇÃO DUPLA DE SEGURANÇA (DOUBLE-CHECK DE IDEMPOTÊNCIA)
+                        if (latestSessionOpt.isPresent()) {
+                            AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
+                            if (currentStatus == AppointmentSessionStatus.PENDING ||
+                                currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
+                                currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT ||
+                                currentStatus == AppointmentSessionStatus.CONFIRMED) {
+                                log.warn("[DUPLICITY-CHECK] Sessão já persistida e ativa em rodada paralela/anterior. Abortando. status={}", currentStatus);
+                                return null;
+                            }
+                        }
+
                         AppointmentSession session = latestSessionOpt.orElseGet(AppointmentSession::new);
 
                         session.setFeegowAppointmentId(feegowAppointmentId);
@@ -321,6 +334,10 @@ public class IngestAppointmentsUseCase {
                     });
                 } catch (RuntimeException ex) {
                     log.error("Falha grave na persistência da sessão de agendamento no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
+                    continue;
+                }
+
+                if (saved == null) {
                     continue;
                 }
 
@@ -393,6 +410,19 @@ public class IngestAppointmentsUseCase {
                         final String finalPhoneNumber = phoneNumber;
                         AppointmentSession session = transactionTemplate.execute(status -> {
                             Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                            
+                            // VERIFICAÇÃO DUPLA DE SEGURANÇA (DOUBLE-CHECK DE IDEMPOTÊNCIA - GRUPOS)
+                            if (latestSessionOpt.isPresent()) {
+                                AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
+                                if (currentStatus == AppointmentSessionStatus.PENDING ||
+                                    currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
+                                    currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT ||
+                                    currentStatus == AppointmentSessionStatus.CONFIRMED) {
+                                    log.warn("[DUPLICITY-CHECK-GROUP] Sessão do grupo já ativa em rodada paralela/anterior. Abortando. status={}", currentStatus);
+                                    return null;
+                                }
+                            }
+
                             AppointmentSession s = latestSessionOpt.orElseGet(AppointmentSession::new);
 
                             s.setFeegowAppointmentId(feegowAppointmentId);
@@ -409,7 +439,9 @@ public class IngestAppointmentsUseCase {
                             entityManager.flush();
                             return savedS;
                         });
-                        savedSessions.add(session);
+                        if (session != null) {
+                            savedSessions.add(session);
+                        }
                     } catch (RuntimeException ex) {
                         log.error("Falha grave na persistência da sessão no banco de dados para feegowAppointmentId={}. Detalhes: {}", feegowAppointmentId, ex.getMessage(), ex);
                     }

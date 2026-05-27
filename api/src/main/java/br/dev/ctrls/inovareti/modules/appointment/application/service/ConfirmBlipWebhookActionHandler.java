@@ -53,6 +53,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 
                 log.info("[CONFIRM-BATCH] Processando confirmação em lote para o grupo: {}. Total de agendamentos: {}", groupId, listaSessoes.size());
                 
+                // --- ATUALIZAÇÃO IMEDIATA DO STATUS LOCAL (FIM DO LEMBRETE FANTASMA) ---
+                for (AppointmentSession groupSession : listaSessoes) {
+                    confirmationStateMachineService.markConfirmed(groupSession);
+                    try {
+                        appointmentSessionRepository.save(groupSession);
+                    } catch (Exception ex) {
+                        log.error("[CONFIRM-BATCH] Falha ao persistir status local CONFIRMED antes do Feegow para sessionId={}", groupSession.getId(), ex);
+                    }
+                }
+                // -----------------------------------------------------------------------
+
                 String confirmedStatusId = resolveConfirmedStatusId();
                 for (AppointmentSession groupSession : listaSessoes) {
                     try {

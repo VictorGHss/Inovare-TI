@@ -30,6 +30,12 @@ public class DiscordBotConfig {
     private final DiscordEventListener eventListener;
     private final DiscordInteractionListener interactionListener;
 
+    @Bean(name = "discordExecutor")
+    public java.util.concurrent.Executor discordExecutor() {
+        log.info("Inicializando Executor de Virtual Threads para processamento assíncrono do Discord...");
+        return java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+    }
+
     /**
      * Cria e inicializa o JDA Builder com o token do bot.
      * Registra o listener de eventos para processar slash commands e outros eventos.

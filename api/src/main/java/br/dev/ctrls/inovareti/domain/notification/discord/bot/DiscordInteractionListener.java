@@ -2,16 +2,13 @@ package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
 import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +22,7 @@ import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
 /**
- * Listener JDA responsável pelos novos eventos interativos do bot Discord:
+ * Listener JDA responsável pelos eventos interativos do bot Discord:
  *
  * <ul>
  *   <li><b>/ti status</b> — exibe métricas de infraestrutura do servidor</li>
@@ -33,12 +30,6 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
  *   <li><b>Botão ticket_accept:{id}</b> — técnico assume o chamado via clique no botão</li>
  *   <li><b>Botão ticket_reject:{id}</b> — técnico recusa o chamado via clique no botão</li>
  * </ul>
- *
- * <p>Prefixos de botão:
- * <pre>
- *   ticket_accept:{ticketId}
- *   ticket_reject:{ticketId}
- * </pre>
  */
 @Slf4j
 @Component
@@ -53,17 +44,15 @@ public class DiscordInteractionListener extends ListenerAdapter {
 
     private final DiscordInfraStatusService infraStatusService;
     private final DiscordSolicitarService solicitarService;
-    private final TicketRepository ticketRepository;
-    private final UserRepository userRepository;
+    private final DiscordCommandService discordCommandService;
+    
+    @Qualifier("discordExecutor")
+    private final Executor discordExecutor;
 
     // ─────────────────────────────────────────────────────────────────────────
     // SLASH COMMANDS
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Roteia eventos de slash command para os handlers específicos.
-     * Comandos gerenciados por este listener: /ti (subcomando 'status') e /solicitar.
-     */
     @Override
     public void onSlashCommandInteraction(@javax.annotation.Nonnull SlashCommandInteractionEvent event) {
         String nome = event.getName();
@@ -71,51 +60,41 @@ public class DiscordInteractionListener extends ListenerAdapter {
         switch (nome) {
             case "ti"        -> handleTiStatus(event);
             case "solicitar" -> handleSolicitar(event);
-            // Demais comandos (/chamado, /vincular, etc.) são tratados pelo DiscordEventListener
         }
     }
 
-    /**
-     * Responde ao comando '/ti status' com um embed de métricas de infraestrutura.
-     * Restrito a usuários com papéis ADMIN ou TECHNICIAN no sistema (verificação via discordUserId).
-     */
     private void handleTiStatus(SlashCommandInteractionEvent event) {
         log.info("[DISCORD][/ti status] Solicitado por: {} ({})",
                 event.getUser().getAsTag(), event.getUser().getId());
 
-        // Verifica se o Discord do usuário está vinculado a um ADMIN ou TECHNICIAN
+        // Adia a resposta imediatamente
+        event.deferReply().setEphemeral(true).queue();
+
         String discordId = event.getUser().getId();
-        User usuario = userRepository.findByDiscordUserId(discordId).orElse(null);
 
-        if (usuario == null || (usuario.getRole() != UserRole.ADMIN && usuario.getRole() != UserRole.TECHNICIAN)) {
-            event.reply("🔒 Acesso negado. Este comando é restrito a técnicos e administradores de TI.")
-                    .setEphemeral(true)
-                    .queue();
-            return;
-        }
+        // Processamento assíncrono na thread virtual
+        discordExecutor.execute(() -> {
+            try {
+                User usuario = discordCommandService.resolverTecnico(discordId);
+                if (usuario == null) {
+                    event.getHook().sendMessage("🔒 Acesso negado. Este comando é restrito a técnicos e administradores de TI.").queue();
+                    return;
+                }
 
-        try {
-            event.deferReply().queue(); // Adia a resposta enquanto coleta métricas (pode levar > 3s)
-            MessageEmbed embed = Objects.requireNonNull(
-                    infraStatusService.construirEmbedStatus(),
-                    "construirEmbedStatus() retornou null");
-            event.getHook().sendMessageEmbeds(embed).queue(
-                    ok  -> log.info("[DISCORD][/ti status] Embed enviado com sucesso para {}", discordId),
-                    err -> log.warn("[DISCORD][/ti status] Falha ao enviar embed: {}", err.getMessage())
-            );
-        } catch (Exception ex) {
-            log.error("[DISCORD][/ti status] Erro inesperado ao processar comando: {}", ex.getMessage(), ex);
-            event.reply("❌ Erro ao coletar métricas de infraestrutura. Verifique os logs do servidor.")
-                    .setEphemeral(true)
-                    .queue();
-        }
+                MessageEmbed embed = Objects.requireNonNull(
+                        infraStatusService.construirEmbedStatus(),
+                        "construirEmbedStatus() retornou null");
+                event.getHook().sendMessageEmbeds(embed).queue(
+                        ok  -> log.info("[DISCORD][/ti status] Embed enviado com sucesso para {}", discordId),
+                        err -> log.warn("[DISCORD][/ti status] Falha ao enviar embed: {}", err.getMessage())
+                );
+            } catch (Exception ex) {
+                log.error("[DISCORD][/ti status] Erro inesperado ao processar comando: {}", ex.getMessage(), ex);
+                event.getHook().sendMessage("❌ Erro ao coletar métricas de infraestrutura. Verifique os logs do servidor.").queue();
+            }
+        });
     }
 
-    /**
-     * Processa o comando '/solicitar item:[valor] quantidade:[n]'.
-     * Cria um Ticket de solicitação de insumo para o usuário vinculado.
-     */
-    @SuppressWarnings("null")
     private void handleSolicitar(SlashCommandInteractionEvent event) {
         log.info("[DISCORD][/solicitar] Acionado por: {} ({})",
                 event.getUser().getAsTag(), event.getUser().getId());
@@ -132,27 +111,27 @@ public class DiscordInteractionListener extends ListenerAdapter {
         String discordUserId  = event.getUser().getId();
         String itemSelecionado = opcaoItem.getAsString();
 
-        try {
-            String resposta = Objects.requireNonNullElse(
-                    solicitarService.criarTicketDeSolicitacao(discordUserId, itemSelecionado, quantidade),
-                    "\u274c Erro inesperado ao registrar sua solicitação.");
-            event.reply(resposta).queue();
-        } catch (Exception ex) {
-            log.error("[DISCORD][/solicitar] Erro ao criar chamado de solicitação: {}", ex.getMessage(), ex);
-            event.reply("❌ Erro ao registrar sua solicitação. Tente novamente ou contate a TI.")
-                    .setEphemeral(true)
-                    .queue();
-        }
+        // Adia a resposta imediatamente
+        event.deferReply().queue();
+
+        // Processamento assíncrono na thread virtual
+        discordExecutor.execute(() -> {
+            try {
+                String resposta = Objects.requireNonNullElse(
+                        solicitarService.criarTicketDeSolicitacao(discordUserId, itemSelecionado, quantidade),
+                        "\u274c Erro inesperado ao registrar sua solicitação.");
+                event.getHook().sendMessage(resposta).queue();
+            } catch (Exception ex) {
+                log.error("[DISCORD][/solicitar] Erro ao criar chamado de solicitação: {}", ex.getMessage(), ex);
+                event.getHook().sendMessage("❌ Erro ao registrar sua solicitação. Tente novamente ou contate a TI.").queue();
+            }
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // AUTOCOMPLETE
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Fornece opções de autocomplete para o parâmetro 'item' do comando '/solicitar'.
-     * Sempre inclui "Outros / Fora de Estoque" como primeira opção.
-     */
     @Override
     @SuppressWarnings("null")
     public void onCommandAutoCompleteInteraction(
@@ -165,13 +144,14 @@ public class DiscordInteractionListener extends ListenerAdapter {
         String textoDigitado = event.getFocusedOption().getValue();
         log.debug("[DISCORD][autocomplete] '/solicitar item' — filtro: '{}'", textoDigitado);
 
+        // Autocomplete deve responder muito rápido, então roda síncrono ou assíncrono leve.
+        // Como o JDA tem timeout curto para autocomplete, rodar diretamente é o padrão na API do Discord.
         try {
             List<Command.Choice> opcoes = List.copyOf(
                     solicitarService.buscarOpcoesAutocomplete(textoDigitado));
             event.replyChoices(opcoes).queue();
         } catch (Exception ex) {
             log.warn("[DISCORD][autocomplete] Erro ao buscar opções: {}", ex.getMessage());
-            // Em caso de falha, retorna pelo menos a opção estática
             event.replyChoices(
                     new Command.Choice(
                             DiscordSolicitarService.ITEM_FORA_DE_ESTOQUE_ID,
@@ -184,141 +164,56 @@ public class DiscordInteractionListener extends ListenerAdapter {
     // BOTÕES
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Processa cliques nos botões 'Assumir' e 'Recusar' de notificações de chamados.
-     *
-     * <p>Fluxo do botão Assumir ({@value #BOTAO_ASSUMIR_PREFIX}{ticketId}):
-     * <ol>
-     *   <li>Verifica se o Discord ID pertence a um ADMIN ou TECHNICIAN vinculado</li>
-     *   <li>Carrega o ticket pelo UUID extraído do Custom ID</li>
-     *   <li>Atribui o chamado ao técnico, muda o status para IN_PROGRESS</li>
-     *   <li>Edita a mensagem original desabilitando todos os botões</li>
-     * </ol>
-     *
-     * <p>Fluxo do botão Recusar ({@value #BOTAO_RECUSAR_PREFIX}{ticketId}):
-     * <ol>
-     *   <li>Mesma verificação de perfil</li>
-     *   <li>Registra a recusa em log e edita a mensagem desabilitando os botões</li>
-     * </ol>
-     */
     @Override
-    @Transactional
     public void onButtonInteraction(@javax.annotation.Nonnull ButtonInteractionEvent event) {
         String customId = event.getComponentId();
         log.info("[DISCORD][botão] Clique recebido. CustomId='{}', Usuário='{}'",
                 customId, event.getUser().getAsTag());
 
-        if (customId.startsWith(BOTAO_ASSUMIR_PREFIX)) {
-            handleBotaoAssumir(event, customId.substring(BOTAO_ASSUMIR_PREFIX.length()));
-        } else if (customId.startsWith(BOTAO_RECUSAR_PREFIX)) {
-            handleBotaoRecusar(event, customId.substring(BOTAO_RECUSAR_PREFIX.length()));
-        }
+        // Adia a edição imediatamente
+        event.deferEdit().queue();
+
+        // Processa lógica pesada assincronamente na thread virtual
+        discordExecutor.execute(() -> {
+            if (customId.startsWith(BOTAO_ASSUMIR_PREFIX)) {
+                handleBotaoAssumir(event, customId.substring(BOTAO_ASSUMIR_PREFIX.length()));
+            } else if (customId.startsWith(BOTAO_RECUSAR_PREFIX)) {
+                handleBotaoRecusar(event, customId.substring(BOTAO_RECUSAR_PREFIX.length()));
+            }
+        });
     }
 
     private void handleBotaoAssumir(ButtonInteractionEvent event, String ticketIdStr) {
-        // Valida técnico
-        User tecnico = resolverTecnico(event);
-        if (tecnico == null) return;
+        String discordUserId = event.getUser().getId();
+        String resultMessage = discordCommandService.assumirChamado(discordUserId, ticketIdStr);
 
-        // Carrega o ticket
-        Ticket ticket = resolverTicket(event, ticketIdStr);
-        if (ticket == null) return;
-
-        // Verifica se já foi assumido por outro técnico
-        if (ticket.getAssignedTo() != null && !ticket.getAssignedTo().getId().equals(tecnico.getId())) {
-            event.reply("⚠️ Este chamado já foi assumido por **" + ticket.getAssignedTo().getName() + "**.")
-                    .setEphemeral(true)
-                    .queue();
+        if (resultMessage.startsWith("🔒") || resultMessage.startsWith("❌") || resultMessage.startsWith("⚠️")) {
+            event.getHook().sendMessage(resultMessage).setEphemeral(true).queue();
             return;
         }
 
-        // Atribui e salva
-        ticket.setAssignedTo(tecnico);
-        ticket.setStatus(TicketStatus.IN_PROGRESS);
-        ticketRepository.save(ticket);
-
-        String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-        log.info("[DISCORD][botão] Chamado #{} assumido pelo técnico {} (Discord: {})",
-                shortId, tecnico.getName(), event.getUser().getId());
-
-        // Edita a mensagem original desabilitando os botões
-        desabilitarBotoesDaMensagem(event,
-                "✅ Chamado #" + shortId + " assumido por **" + tecnico.getName() + "**");
+        desabilitarBotoesDaMensagem(event, resultMessage);
     }
 
     private void handleBotaoRecusar(ButtonInteractionEvent event, String ticketIdStr) {
-        // Valida técnico
-        User tecnico = resolverTecnico(event);
-        if (tecnico == null) return;
+        String discordUserId = event.getUser().getId();
+        String resultMessage = discordCommandService.recusarChamado(discordUserId, ticketIdStr);
 
-        // Carrega o ticket
-        Ticket ticket = resolverTicket(event, ticketIdStr);
-        if (ticket == null) return;
-
-        String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-        log.info("[DISCORD][botão] Chamado #{} recusado pelo técnico {} (Discord: {})",
-                shortId, tecnico.getName(), event.getUser().getId());
-
-        // Edita a mensagem original desabilitando os botões
-        desabilitarBotoesDaMensagem(event,
-                "❌ Chamado #" + shortId + " recusado por **" + tecnico.getName() + "**. Aguardando outro técnico.");
-    }
-
-    /**
-     * Valida que o usuário Discord que clicou no botão é um técnico ou admin vinculado.
-     * Responde com mensagem efêmera de erro e retorna {@code null} se não for elegível.
-     */
-    private User resolverTecnico(ButtonInteractionEvent event) {
-        String discordId = event.getUser().getId();
-        User usuario = userRepository.findByDiscordUserId(discordId).orElse(null);
-
-        if (usuario == null || (usuario.getRole() != UserRole.ADMIN && usuario.getRole() != UserRole.TECHNICIAN)) {
-            event.reply("🔒 Apenas técnicos e administradores de TI podem assumir ou recusar chamados.")
-                    .setEphemeral(true)
-                    .queue();
-            log.warn("[DISCORD][botão] Acesso negado para Discord ID={} — não é técnico/admin vinculado.", discordId);
-            return null;
+        if (resultMessage.startsWith("🔒") || resultMessage.startsWith("❌")) {
+            event.getHook().sendMessage(resultMessage).setEphemeral(true).queue();
+            return;
         }
 
-        return usuario;
+        desabilitarBotoesDaMensagem(event, resultMessage);
     }
 
-    /**
-     * Carrega o Ticket pelo UUID extraído do Custom ID do botão.
-     * Responde com erro e retorna {@code null} se não encontrado ou UUID inválido.
-     */
-    private Ticket resolverTicket(ButtonInteractionEvent event, String ticketIdStr) {
-        try {
-            UUID ticketId = UUID.fromString(ticketIdStr.trim());
-            Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
-            if (ticket == null) {
-                event.reply("❌ Chamado não encontrado (ID: " + ticketIdStr + ").")
-                        .setEphemeral(true)
-                        .queue();
-                log.warn("[DISCORD][botão] Chamado {} não encontrado na base de dados.", ticketIdStr);
-                return null;
-            }
-            return ticket;
-        } catch (IllegalArgumentException ex) {
-            event.reply("❌ ID de chamado inválido.").setEphemeral(true).queue();
-            log.warn("[DISCORD][botão] UUID inválido extraído do customId: '{}'", ticketIdStr);
-            return null;
-        }
-    }
-
-    /**
-     * Edita a mensagem original substituindo os botões por versões desabilitadas
-     * e adiciona um rodapé com o resultado da ação.
-     */
-    @SuppressWarnings("null")
     private void desabilitarBotoesDaMensagem(ButtonInteractionEvent event, String rodape) {
-        // Cria versões desabilitadas de todos os botões da ActionRow original
         List<Button> botoesDessa = List.copyOf(
                 event.getMessage().getButtons().stream()
                         .map(Button::asDisabled)
                         .toList());
 
-        event.editComponents(ActionRow.of(botoesDessa))
+        event.getHook().editOriginalComponents(ActionRow.of(botoesDessa))
                 .setContent(event.getMessage().getContentRaw() + "\n\n" + rodape)
                 .queue(
                         ok  -> log.info("[DISCORD][botão] Mensagem editada com botões desabilitados. Rodapé: '{}'", rodape),
@@ -326,17 +221,6 @@ public class DiscordInteractionListener extends ListenerAdapter {
                 );
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // FÁBRICA DE BOTÕES (usado pelo DiscordWebhookService para montar ActionRows)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Cria o {@link ActionRow} com os botões "✅ Assumir" e "❌ Recusar" para
-     * notificações de novos chamados enviadas via JDA.
-     *
-     * @param ticketId UUID completo do chamado
-     * @return ActionRow com dois botões — PRIMARY para assumir, DANGER para recusar
-     */
     public static ActionRow criarBotoesDeAcao(UUID ticketId) {
         String idStr = ticketId.toString();
         Button botaoAssumir = Button.primary(BOTAO_ASSUMIR_PREFIX + idStr, "✅ Assumir");

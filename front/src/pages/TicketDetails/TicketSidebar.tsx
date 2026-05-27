@@ -76,6 +76,8 @@ export default function TicketSidebar({
   const [associatingId, setAssociatingId] = useState<string | null>(null);
   const [showAddAdditionalUser, setShowAddAdditionalUser] = useState(false);
   const [selectedAdditionalUserId, setSelectedAdditionalUserId] = useState('');
+  const [additionalUserQuery, setAdditionalUserQuery] = useState('');
+  const [sectorFilter, setSectorFilter] = useState('ALL');
 
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
   const additionalUserIds = ticket.additionalUserIds ?? [];
@@ -83,6 +85,25 @@ export default function TicketSidebar({
     .filter((user) => user.id !== ticket.requesterId)
     .filter((user) => !additionalUserIds.includes(user.id))
     .sort((a, b) => a.name.localeCompare(b.name));
+  const normalizedAdditionalQuery = additionalUserQuery.trim().toLowerCase();
+  const sectorOptions = Array.from(
+    new Set(users.map((user) => user.sectorName || 'Sem setor')),
+  ).sort((a, b) => a.localeCompare(b));
+  const filteredAvailableUsers = availableUsers.filter((user) => {
+    const userSector = user.sectorName || 'Sem setor';
+    if (sectorFilter !== 'ALL' && userSector !== sectorFilter) return false;
+
+    if (!normalizedAdditionalQuery) return true;
+    const matchesName = user.name.toLowerCase().includes(normalizedAdditionalQuery);
+    const matchesEmail = user.email.toLowerCase().includes(normalizedAdditionalQuery);
+    return matchesName || matchesEmail;
+  });
+  const groupedAvailableUsers = filteredAvailableUsers.reduce((acc, user) => {
+    const sectorName = user.sectorName || 'Sem setor';
+    if (!acc[sectorName]) acc[sectorName] = [];
+    acc[sectorName].push(user);
+    return acc;
+  }, {} as Record<string, User[]>);
 
   // Carrega a lista de chamados ao montar o componente
   useEffect(() => {
@@ -122,6 +143,14 @@ export default function TicketSidebar({
 
     setSuggestions(filtered.slice(0, 5)); // limita a 5 sugestões
   }, [searchQuery, allTickets, ticket.id, ticket.relatedTicketIds]);
+
+  useEffect(() => {
+    if (!selectedAdditionalUserId) return;
+    const stillAvailable = filteredAvailableUsers.some((user) => user.id === selectedAdditionalUserId);
+    if (!stillAvailable) {
+      setSelectedAdditionalUserId('');
+    }
+  }, [filteredAvailableUsers, selectedAdditionalUserId]);
 
   const handleAssociate = async (relatedId: string) => {
     try {
@@ -281,20 +310,57 @@ export default function TicketSidebar({
 
         {showAddAdditionalUser && canManageTicket && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <label className="block text-xs font-semibold text-slate-500 mb-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  Buscar por nome
+                </label>
+                <input
+                  type="text"
+                  value={additionalUserQuery}
+                  onChange={(event) => setAdditionalUserQuery(event.target.value)}
+                  placeholder="Digite o nome ou e-mail"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  Filtrar setor
+                </label>
+                <select
+                  value={sectorFilter}
+                  onChange={(event) => setSectorFilter(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                  disabled={loadingUsers || sectorOptions.length === 0}
+                >
+                  <option value="ALL">Todos os setores</option>
+                  {sectorOptions.map((sector) => (
+                    <option key={sector} value={sector}>
+                      {sector}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label className="mt-3 block text-xs font-semibold text-slate-500">
               Selecionar colaborador
             </label>
             <select
               value={selectedAdditionalUserId}
               onChange={(event) => setSelectedAdditionalUserId(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
               disabled={loadingUsers || availableUsers.length === 0}
             >
               <option value="">Selecione um usuario</option>
-              {availableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name} ({user.email})
-                </option>
+              {Object.entries(groupedAvailableUsers).map(([sector, sectorUsers]) => (
+                <optgroup key={sector} label={sector}>
+                  {sectorUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} - {user.sectorName || 'Sem setor'}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
@@ -303,6 +369,8 @@ export default function TicketSidebar({
                 onClick={() => {
                   setShowAddAdditionalUser(false);
                   setSelectedAdditionalUserId('');
+                  setAdditionalUserQuery('');
+                  setSectorFilter('ALL');
                 }}
                 disabled={addingAdditionalUser}
                 className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-60"
@@ -320,6 +388,9 @@ export default function TicketSidebar({
             </div>
             {availableUsers.length === 0 && (
               <p className="mt-2 text-xs text-slate-400">Nenhum usuario disponivel para adicionar.</p>
+            )}
+            {availableUsers.length > 0 && filteredAvailableUsers.length === 0 && (
+              <p className="mt-2 text-xs text-slate-400">Nenhum colaborador corresponde aos filtros.</p>
             )}
           </div>
         )}

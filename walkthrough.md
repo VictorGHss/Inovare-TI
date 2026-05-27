@@ -148,3 +148,21 @@ cd api
 mvn clean compile
 ```
 Resultado: BUILD SUCCESS.
+
+---
+
+## 5. Refinamento do Seletor de Colaboradores Afetados (27/05/2026)
+
+### A. Busca Preditiva e Filtro por Setor
+- O modal de vinculo agora possui campo de busca por nome/e-mail.
+- Inclusao de filtro por setor e agrupamento visual por setor na lista.
+- Opcoes exibem o setor junto ao nome do colaborador para facilitar a selecao.
+
+### B. Validação de Build
+
+Frontend:
+```powershell
+cd front
+npm run build
+```
+Resultado: build finalizado com sucesso via Vite + TypeScript.

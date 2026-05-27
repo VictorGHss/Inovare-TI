@@ -287,6 +287,30 @@ public class ResolveTicketUseCase {
                 + "**Resolução:** " + resolutionText;
         discordDirectMessageService.sendTicketUpdateDM(resolvedTicket, dmTitle, dmDescription);
 
+        // Loop de notificação: DM para cada usuário adicional afetado pelo chamado
+        if (resolvedTicket.getAdditionalUsers() != null && !resolvedTicket.getAdditionalUsers().isEmpty()) {
+            String affectedTitle = "Problema Resolvido — Chamado #" + shortId;
+            String affectedDescription = "Um chamado que lhe afetava (#" + shortId + ") foi resolvido.\n"
+                    + "**Título:** " + resolvedTicket.getTitle() + "\n"
+                    + "**Resolução:** " + resolutionText;
+
+            for (br.dev.ctrls.inovareti.domain.user.User affectedUser : resolvedTicket.getAdditionalUsers()) {
+                if (affectedUser.getDiscordUserId() != null && !affectedUser.getDiscordUserId().isBlank()) {
+                    discordDirectMessageService.sendTicketUpdateDMToUser(
+                            affectedUser.getDiscordUserId(),
+                            resolvedTicket.getId(),
+                            affectedTitle,
+                            affectedDescription
+                    );
+                    log.info("[TICKET] DM de resolução enviada para usuário adicional afetado '{}' no chamado {}",
+                            affectedUser.getName(), ticketId);
+                } else {
+                    log.debug("[TICKET] Usuário adicional '{}' não possui Discord vinculado. DM ignorada.",
+                            affectedUser.getName());
+                }
+            }
+        }
+
         createNotificationService.create(
                 resolvedTicket.getRequester().getId(),
                 "Chamado Resolvido",

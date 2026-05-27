@@ -129,4 +129,19 @@ public class Ticket {
     )
     @Column(name = "tag", nullable = false, length = 50)
     private Set<String> tags = new HashSet<>();
+
+    /**
+     * Usuários adicionais afetados pelo chamado.
+     * Vinculados via tabela de junção {@code ticket_additional_users}.
+     * Ao fechar o chamado, cada um desses usuários recebe uma DM no Discord
+     * informando a resolução do problema.
+     */
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "ticket_additional_users",
+        joinColumns = @JoinColumn(name = "ticket_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<br.dev.ctrls.inovareti.domain.user.User> additionalUsers = new HashSet<>();
 }

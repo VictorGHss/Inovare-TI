@@ -27,7 +27,9 @@ import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketCommentResponseDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.AddAdditionalUserUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.AddTicketCommentUseCase;
+import br.dev.ctrls.inovareti.domain.ticket.usecase.ChangeCategoryUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.ClaimTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.domain.ticket.usecase.FindTicketByIdUseCase;
@@ -66,6 +68,8 @@ public class TicketController {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final UpdateSolutionTextUseCase updateSolutionTextUseCase;
+    private final ChangeCategoryUseCase changeCategoryUseCase;
+    private final AddAdditionalUserUseCase addAdditionalUserUseCase;
 
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -311,5 +315,32 @@ public class TicketController {
             @RequestBody UpdateSolutionTextDTO request) {
         checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(updateSolutionTextUseCase.execute(id, request));
+    }
+
+    /**
+     * Altera a categoria de um chamado e recalcula o prazo de SLA.
+     * O novo {@code slaDeadline} é calculado somando {@code baseSlaHours} da nova categoria
+     * à {@code createdAt} original do chamado.
+     * Restrito a ADMIN e TECHNICIAN.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PatchMapping("/{id}/category/{categoryId}")
+    public ResponseEntity<TicketResponseDTO> changeCategory(
+            @PathVariable UUID id,
+            @PathVariable UUID categoryId) {
+        return ResponseEntity.ok(changeCategoryUseCase.execute(id, categoryId));
+    }
+
+    /**
+     * Vincula um usuário adicional afetado ao chamado.
+     * O usuário é inserido na tabela {@code ticket_additional_users}.
+     * Restrito a ADMIN e TECHNICIAN.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PostMapping("/{id}/additional-users/{userId}")
+    public ResponseEntity<TicketResponseDTO> addAdditionalUser(
+            @PathVariable UUID id,
+            @PathVariable UUID userId) {
+        return ResponseEntity.ok(addAdditionalUserUseCase.execute(id, userId));
     }
 }

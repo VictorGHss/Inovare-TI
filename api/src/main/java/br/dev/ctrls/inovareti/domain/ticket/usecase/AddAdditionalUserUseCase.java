@@ -1,0 +1,48 @@
+package br.dev.ctrls.inovareti.domain.ticket.usecase;
+
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
+import br.dev.ctrls.inovareti.domain.ticket.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Caso de uso: vincula um usuário adicional afetado a um chamado existente.
+ *
+ * <p>O usuário adicionado é inserido na tabela {@code ticket_additional_users}.
+ * Ao fechar o chamado, o {@link ResolveTicketUseCase} percorrerá essa lista e
+ * enviará uma DM no Discord para cada usuário adicional afetado.</p>
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class AddAdditionalUserUseCase {
+
+    private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
+
+    @Transactional
+    public TicketResponseDTO execute(UUID ticketId, UUID userId) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new NotFoundException("Chamado não encontrado: " + ticketId));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
+
+        ticket.getAdditionalUsers().add(user);
+        Ticket saved = ticketRepository.save(ticket);
+
+        log.info("[TICKET] Usuário adicional '{}' ({}) vinculado ao chamado {}",
+                user.getName(), userId, ticketId);
+
+        return TicketResponseDTO.from(saved);
+    }
+}

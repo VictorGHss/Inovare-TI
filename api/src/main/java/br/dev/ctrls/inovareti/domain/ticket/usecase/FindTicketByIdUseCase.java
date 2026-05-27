@@ -42,7 +42,7 @@ public class FindTicketByIdUseCase {
                 ))
                 .collect(Collectors.toList());
 
-        // Monta a resposta com os anexos incluídos
+        // Monta a resposta completa com anexos reais carregados do repositório
         return new TicketResponseDTO(
                 ticket.getId(),
                 ticket.getTitle(),
@@ -52,6 +52,7 @@ public class FindTicketByIdUseCase {
                 ticket.getPriority(),
                 ticket.getRequester().getId(),
                 ticket.getRequester().getName(),
+                ticket.getRequester().getLocation(),
                 ticket.getAssignedTo() != null ? ticket.getAssignedTo().getId() : null,
                 ticket.getAssignedTo() != null ? ticket.getAssignedTo().getName() : null,
                 ticket.getCategory().getId(),
@@ -66,8 +67,15 @@ public class FindTicketByIdUseCase {
                 attachments,
                 ticket.getSolutionText(),
                 ticket.getSolutionText(),
-                ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
-                ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of()
+                ticket.getRelatedTickets() != null
+                        ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList()
+                        : List.of(),
+                ticket.getTags() != null
+                        ? ticket.getTags().stream().toList()
+                        : List.of(),
+                ticket.getAdditionalUsers() != null
+                        ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList()
+                        : List.of()
         );
     }
 }

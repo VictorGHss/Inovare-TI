@@ -20,6 +20,7 @@ public record TicketResponseDTO(
         TicketPriority priority,
         UUID requesterId,
         String requesterName,
+        String requesterLocation,
         UUID assignedToId,
         String assignedToName,
         UUID categoryId,
@@ -35,7 +36,8 @@ public record TicketResponseDTO(
         String solutionText,
         String solucao,
         List<UUID> relatedTicketIds,
-        List<String> tags
+        List<String> tags,
+        List<UUID> additionalUserIds
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -48,6 +50,7 @@ public record TicketResponseDTO(
                 ticket.getPriority(),
                 ticket.getRequester().getId(),
                 ticket.getRequester().getName(),
+                ticket.getRequester().getLocation(),
                 ticket.getAssignedTo() != null ? ticket.getAssignedTo().getId() : null,
                 ticket.getAssignedTo() != null ? ticket.getAssignedTo().getName() : null,
                 ticket.getCategory().getId(),
@@ -63,7 +66,8 @@ public record TicketResponseDTO(
                 ticket.getSolutionText(),
                 ticket.getSolutionText(),
                 ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
-                ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of()
+                ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of(),
+                ticket.getAdditionalUsers() != null ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList() : List.of()
         );
     }
 

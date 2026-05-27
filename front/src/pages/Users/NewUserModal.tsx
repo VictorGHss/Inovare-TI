@@ -164,6 +164,20 @@ export default function NewUserModal({
             </div>
           </div>
 
+          {/* Localização */}
+          <div>
+            <label className={labelClassName}>Localização (unidade/andar)</label>
+            <input
+              type="text"
+              value={formData.location ?? ''}
+              onChange={(event) => onChange({ ...formData, location: event.target.value })}
+              className={`${inputClassName} mt-2`}
+              disabled={submitting}
+              placeholder="Ex: Sede - 2º andar, Unidade Centro..."
+              maxLength={150}
+            />
+          </div>
+
           <div>
             <label className={labelClassName}>ID Conta Azul (Opcional)</label>
             <div className="mt-2 flex items-center gap-2">

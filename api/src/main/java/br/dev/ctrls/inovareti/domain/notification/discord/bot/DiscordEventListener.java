@@ -9,9 +9,11 @@ import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
@@ -19,6 +21,10 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 /**
  * Listener de eventos do Discord baseado em JDA.
  * Gerencia slash commands globais do bot.
+ *
+ * <p>Comandos restritos a técnicos/admin são protegidos com
+ * {@link DefaultMemberPermissions#enabledFor(Permission...)} para que não
+ * apareçam no autocomplete de usuários comuns (médicos, secretárias).</p>
  */
 @Slf4j
 @Component
@@ -42,33 +48,34 @@ public class DiscordEventListener extends ListenerAdapter {
         try {
             var jda = event.getJDA();
 
+            // ── Comandos públicos ──────────────────────────────────────────────────────
             jda.upsertCommand("chamado", "Abre um novo chamado na TI")
                     .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
-                    .addOption(OptionType.STRING, "prioridade", 
+                    .addOption(OptionType.STRING, "prioridade",
                             "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false)
                     .queue(
                             success -> log.info("✅ Slash command '/chamado' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /chamado", error)
+                            error   -> log.error("❌ Falha ao registrar o comando /chamado", error)
                     );
 
             jda.upsertCommand("vincular", "Vincula sua conta Discord à sua conta da clínica")
                     .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true)
                     .queue(
                             success -> log.info("✅ Slash command '/vincular' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /vincular", error)
+                            error   -> log.error("❌ Falha ao registrar o comando /vincular", error)
                     );
 
             jda.upsertCommand("status", "Verifica o status de um chamado")
                     .addOption(OptionType.STRING, "id_chamado", "ID do chamado (UUID)", true)
                     .queue(
                             success -> log.info("✅ Slash command '/status' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /status", error)
+                            error   -> log.error("❌ Falha ao registrar o comando /status", error)
                     );
 
             jda.upsertCommand("meuschamados", "Lista os seus chamados em andamento na Inovare TI")
                     .queue(
-                        success -> log.info("✅ Slash command '/meuschamados' registrado com sucesso"),
-                        error -> log.error("❌ Falha ao registrar o comando /meuschamados", error)
+                            success -> log.info("✅ Slash command '/meuschamados' registrado com sucesso"),
+                            error   -> log.error("❌ Falha ao registrar o comando /meuschamados", error)
                     );
 
             // Comando /ajuda para consulta no FAQ
@@ -76,20 +83,47 @@ public class DiscordEventListener extends ListenerAdapter {
                     .addOption(OptionType.STRING, "busca", "Palavra-chave ou dúvida para busca no FAQ", true)
                     .queue(
                             success -> log.info("✅ Slash command '/ajuda' registrado com sucesso"),
-                            error -> log.error("❌ Falha ao registrar o comando /ajuda", error)
+                            error   -> log.error("❌ Falha ao registrar o comando /ajuda", error)
                     );
 
-            // Comando /ti com subcomando status
+            // ── Comandos restritos a técnicos/admin (ocultos de usuários comuns) ──────
+
+            // /ti status — visível apenas para membros com permissão de gerenciar mensagens
             jda.upsertCommand(
                             Commands.slash("ti", "Painel de TI — administração e monitoramento")
                                      .addSubcommands(new SubcommandData("status",
-                                             "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)")))
+                                             "Exibe métricas de infraestrutura do servidor (RAM, CPU, Banco)"))
+                                     .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
                     .queue(
                             ok    -> log.info("✅ Slash command '/ti status' registrado com sucesso"),
                             error -> log.error("❌ Falha ao registrar o comando /ti", error)
                     );
 
-            // Comando /solicitar com autocomplete de item
+            // /meusatendimentos — painel do técnico, restrito
+            jda.upsertCommand(
+                            Commands.slash("meusatendimentos",
+                                    "Lista os chamados em andamento atribuídos a você (TI)")
+                                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
+                    .queue(
+                            ok    -> log.info("✅ Slash command '/meusatendimentos' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /meusatendimentos", error)
+                    );
+
+            // /vincular_afetado — vincula colaborador afetado a um chamado, restrito
+            jda.upsertCommand(
+                            Commands.slash("vincular_afetado",
+                                    "Vincula um colaborador afetado a um chamado (TI)")
+                                    .addOption(OptionType.STRING, "id_chamado",
+                                            "ID do chamado (UUID completo ou 8 primeiros caracteres)", true)
+                                    .addOption(OptionType.USER, "usuario",
+                                            "Usuário do Discord a ser vinculado como afetado", true)
+                                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE)))
+                    .queue(
+                            ok    -> log.info("✅ Slash command '/vincular_afetado' registrado com sucesso"),
+                            error -> log.error("❌ Falha ao registrar o comando /vincular_afetado", error)
+                    );
+
+            // /solicitar com autocomplete de item
             jda.upsertCommand(
                             Commands.slash("solicitar", "Solicita um item ou insumo ao setor de TI")
                                     .addOption(OptionType.STRING, "item",
@@ -108,7 +142,7 @@ public class DiscordEventListener extends ListenerAdapter {
             for (var guild : jda.getGuilds()) {
                 guild.updateCommands().queue(
                         success -> log.info("✅ Comandos locais purgados na guilda: {} para evitar duplicidade", guild.getName()),
-                        error -> log.warn("⚠️ Não foi possível purgar comandos locais na guilda: {}", guild.getName())
+                        error   -> log.warn("⚠️ Não foi possível purgar comandos locais na guilda: {}", guild.getName())
                 );
             }
 
@@ -126,12 +160,14 @@ public class DiscordEventListener extends ListenerAdapter {
         log.info("📨 Slash command recebido: /{} do usuário {}", commandName, event.getUser().getAsTag());
 
         switch (commandName) {
-            case "chamado"      -> handleChamadoCommand(event);
-            case "vincular"     -> handleVincularCommand(event);
-            case "status"       -> handleStatusCommand(event);
-            case "meuschamados" -> handleMeusChamadosCommand(event);
-            case "ajuda"        -> handleAjudaCommand(event);
-            default             -> log.debug("Comando não tratado no DiscordEventListener: /{}", commandName);
+            case "chamado"           -> handleChamadoCommand(event);
+            case "vincular"          -> handleVincularCommand(event);
+            case "status"            -> handleStatusCommand(event);
+            case "meuschamados"      -> handleMeusChamadosCommand(event);
+            case "ajuda"             -> handleAjudaCommand(event);
+            case "meusatendimentos"  -> handleMeusAtendimentosCommand(event);
+            case "vincular_afetado"  -> handleVincularAfetadoCommand(event);
+            default -> log.debug("Comando não tratado no DiscordEventListener: /{}", commandName);
         }
     }
 
@@ -148,10 +184,8 @@ public class DiscordEventListener extends ListenerAdapter {
         var prioridadeOption = event.getOption("prioridade");
         String prioridadeStr = prioridadeOption != null ? prioridadeOption.getAsString().toUpperCase() : "NORMAL";
 
-        // Adia a resposta
         event.deferReply().queue();
 
-        // Processa de forma assíncrona na thread virtual
         discordExecutor.execute(() -> {
             try {
                 String discordUserId = event.getUser().getId();
@@ -177,10 +211,8 @@ public class DiscordEventListener extends ListenerAdapter {
         String email = emailOption.getAsString().trim();
         String discordUserId = event.getUser().getId();
 
-        // Adia a resposta como efêmera
         event.deferReply().setEphemeral(true).queue();
 
-        // Processa de forma assíncrona na thread virtual
         discordExecutor.execute(() -> {
             try {
                 log.debug("Tentando vincular o usuário do Discord {} ao e-mail {}", discordUserId, email);
@@ -204,11 +236,8 @@ public class DiscordEventListener extends ListenerAdapter {
         }
 
         String ticketIdStr = idOption.getAsString().trim();
-
-        // Adia a resposta
         event.deferReply().queue();
 
-        // Processa de forma assíncrona na thread virtual
         discordExecutor.execute(() -> {
             try {
                 String message = discordTicketService.getTicketStatusFromDiscord(ticketIdStr);
@@ -224,10 +253,8 @@ public class DiscordEventListener extends ListenerAdapter {
     private void handleMeusChamadosCommand(SlashCommandInteractionEvent event) {
         log.info("📋 Processando o comando /meuschamados do usuário {}", event.getUser().getId());
 
-        // Adia a resposta como efêmera
         event.deferReply().setEphemeral(true).queue();
 
-        // Processa de forma assíncrona na thread virtual
         discordExecutor.execute(() -> {
             try {
                 String discordUserId = event.getUser().getId();
@@ -251,18 +278,15 @@ public class DiscordEventListener extends ListenerAdapter {
         }
 
         String busca = buscaOption.getAsString().trim();
-
-        // Adia a resposta
         event.deferReply().queue();
 
-        // Processa de forma assíncrona na thread virtual
         discordExecutor.execute(() -> {
             try {
                 List<FaqTi> resultados = discordCommandService.buscarFaq(busca);
 
                 EmbedBuilder embedBuilder = new EmbedBuilder();
                 embedBuilder.setTitle("🔍 Ajuda e FAQ - Inovare TI");
-                embedBuilder.setColor(0x00A2FF); // Azul Inovare
+                embedBuilder.setColor(0x00A2FF);
                 embedBuilder.setDescription("Resultados da busca para: *" + busca + "*\n\n");
 
                 if (resultados.isEmpty()) {
@@ -284,6 +308,84 @@ public class DiscordEventListener extends ListenerAdapter {
             } catch (Exception e) {
                 log.error("❌ Erro ao processar o comando /ajuda", e);
                 event.getHook().sendMessage("❌ Erro ao processar sua solicitação de ajuda. Tente novamente mais tarde.").queue();
+            }
+        });
+    }
+
+    /**
+     * Handler para {@code /meusatendimentos}.
+     * Restrito a técnicos/admin. Exibe chamados atribuídos ao técnico com SLA e localização do solicitante.
+     */
+    private void handleMeusAtendimentosCommand(SlashCommandInteractionEvent event) {
+        log.info("🖥️ Processando o comando /meusatendimentos do usuário {}", event.getUser().getId());
+
+        event.deferReply().setEphemeral(true).queue();
+
+        discordExecutor.execute(() -> {
+            try {
+                String discordUserId = event.getUser().getId();
+                // Validação adicional de cargo em runtime (defesa em profundidade)
+                var usuario = discordCommandService.resolverTecnico(discordUserId);
+                if (usuario == null) {
+                    event.getHook().sendMessage(
+                            "🔒 Acesso negado. Este comando é restrito a técnicos e administradores de TI."
+                    ).queue();
+                    return;
+                }
+
+                String message = discordCommandService.listarMeusAtendimentos(discordUserId);
+                String safeMessage = message != null ? message : "Nenhum atendimento encontrado.";
+                event.getHook().sendMessage(safeMessage).queue();
+            } catch (Exception e) {
+                log.error("❌ Erro ao processar o comando /meusatendimentos", e);
+                event.getHook().sendMessage("❌ Erro ao listar atendimentos. Tente novamente em instantes.").queue();
+            }
+        });
+    }
+
+    /**
+     * Handler para {@code /vincular_afetado}.
+     * Restrito a técnicos/admin. Vincula um colaborador como afetado em um chamado.
+     */
+    private void handleVincularAfetadoCommand(SlashCommandInteractionEvent event) {
+        log.info("🔗 Processando o comando /vincular_afetado do usuário {}", event.getUser().getId());
+
+        var idChamadoOption = event.getOption("id_chamado");
+        var usuarioOption   = event.getOption("usuario");
+
+        if (idChamadoOption == null || idChamadoOption.getAsString().isBlank()) {
+            event.reply("❌ Informe o ID do chamado.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (usuarioOption == null) {
+            event.reply("❌ Informe o usuário Discord a ser vinculado.").setEphemeral(true).queue();
+            return;
+        }
+
+        String ticketIdStr      = idChamadoOption.getAsString().trim();
+        // Obtém o Discord ID puro do usuário mencionado via OptionType.USER
+        String discordIdAfetado = usuarioOption.getAsUser().getId();
+        String discordIdTecnico = event.getUser().getId();
+
+        event.deferReply().setEphemeral(true).queue();
+
+        discordExecutor.execute(() -> {
+            try {
+                // Validação adicional de cargo em runtime (defesa em profundidade)
+                var tecnico = discordCommandService.resolverTecnico(discordIdTecnico);
+                if (tecnico == null) {
+                    event.getHook().sendMessage(
+                            "🔒 Acesso negado. Este comando é restrito a técnicos e administradores de TI."
+                    ).queue();
+                    return;
+                }
+
+                String message = discordCommandService.vincularAfetado(discordIdTecnico, ticketIdStr, discordIdAfetado);
+                event.getHook().sendMessage(message).queue();
+            } catch (Exception e) {
+                log.error("❌ Erro ao processar o comando /vincular_afetado", e);
+                event.getHook().sendMessage("❌ Erro ao vincular usuário afetado. Tente novamente em instantes.").queue();
             }
         });
     }

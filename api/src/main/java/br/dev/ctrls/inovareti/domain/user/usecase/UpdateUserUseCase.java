@@ -62,6 +62,7 @@ public class UpdateUserUseCase {
         user.setEmail(request.email());
         user.setRole(request.role());
         user.setSector(sector);
+        user.setLocation(request.location());
         user.setContaAzulId(contaAzulId);
         if (request.receivesItNotifications() != null) {
             user.setReceivesItNotifications(request.receivesItNotifications());

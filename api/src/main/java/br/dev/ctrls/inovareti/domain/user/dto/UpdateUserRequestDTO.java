@@ -31,6 +31,9 @@ public record UpdateUserRequestDTO(
         @NotNull(message = "Sector is required.")
         UUID sectorId,
 
+        @Size(max = 150, message = "Location must have at most 150 characters.")
+        String location,
+
         @Size(max = 120, message = "Conta Azul ID must have at most 120 characters.")
         String contaAzulId,
 

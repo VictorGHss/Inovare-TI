@@ -22,6 +22,7 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
     email: '',
     role: 'USER',
     sectorId: '',
+    location: '',
     receives_it_notifications: true,
   });
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +35,7 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
         email: user.email,
         role: user.role,
         sectorId: user.sectorId ?? '',
+        location: user.location ?? '',
         receives_it_notifications: user.receives_it_notifications,
       });
     }
@@ -127,6 +129,20 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Localização */}
+          <div>
+            <label className={labelClassName}>Localização (unidade/andar)</label>
+            <input
+              type="text"
+              value={formData.location ?? ''}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className={inputClassName}
+              disabled={submitting}
+              placeholder="Ex: Sede - 2º andar, Unidade Centro..."
+              maxLength={150}
+            />
           </div>
 
           {/* Nível de Acesso */}

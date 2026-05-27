@@ -33,6 +33,7 @@ export interface UpdateUserDto {
   email: string;
   role: 'ADMIN' | 'TECHNICIAN' | 'USER';
   sectorId: string;
+  location?: string;
   contaAzulId?: string;
   receives_it_notifications: boolean;
 }

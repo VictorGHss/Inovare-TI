@@ -336,6 +336,7 @@ public class HandleBlipWebhookUseCase {
                         }
                     });
                     log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupIdStr);
+                    blipContextService.setMasterState(fromPhone, "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
                 } else {
                     log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
                 }

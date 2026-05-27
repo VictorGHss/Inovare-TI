@@ -291,6 +291,7 @@ public class HandleBlipWebhookUseCase {
                 || action.toLowerCase().contains("solicitar alter")) {
             fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
+                String normalizedPhone = fromPhone.trim();
                 String dbPhone = purifyPhoneNumber(fromPhone);
                 // FASE 1A: Leitura rápida no banco (micro-transação)
                 java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
@@ -319,6 +320,7 @@ public class HandleBlipWebhookUseCase {
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
                 if (fromPhone != null && !fromPhone.isBlank()) {
+                    String normalizedPhone = fromPhone.trim();
                     String dbPhone = purifyPhoneNumber(fromPhone);
                     transactionTemplate.executeWithoutResult(status -> {
                         java.util.List<AppointmentSession> activeSessions =

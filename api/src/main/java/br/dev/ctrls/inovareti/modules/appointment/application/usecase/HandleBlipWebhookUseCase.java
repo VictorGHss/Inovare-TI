@@ -174,16 +174,22 @@ public class HandleBlipWebhookUseCase {
                         }
                         String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
                         String specialty = "Consulta";
+                        String doctorName = "Clínica Inovare";
                         var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
                         if (mappingOpt.isPresent()) {
-                            String queue = mappingOpt.get().getBlipQueueId();
+                            var mapping = mappingOpt.get();
+                            String queue = mapping.getBlipQueueId();
                             if (queue != null && !queue.isBlank()) {
                                 specialty = queue.trim();
                             }
+                            String docName = mapping.getProfissionalNome();
+                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                                doctorName = docName.trim();
+                            }
                         }
-                        details.add(time + " - " + specialty);
+                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName);
                     }
-                    String listaDetalhada = String.join(" | ", details);
+                    String listaDetalhada = String.join("\n", details);
                     if (listaDetalhada == null || listaDetalhada.isBlank()) {
                         listaDetalhada = "Ops, nao encontrei seus agendamentos agora, aguarde um instante.";
                     }

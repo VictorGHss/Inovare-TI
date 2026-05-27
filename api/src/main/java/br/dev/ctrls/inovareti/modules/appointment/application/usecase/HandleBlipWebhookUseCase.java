@@ -88,12 +88,13 @@ public class HandleBlipWebhookUseCase {
             String from = payload.from();
             if (from != null && !from.isBlank()) {
                 String normalizedPhone = from.trim();
+                String dbPhone = purifyPhoneNumber(from);
                 if (isPrepararAtendimento) {
-                    log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {}", normalizedPhone);
+                    log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {} (DB Phone: {})", normalizedPhone, dbPhone);
                     boolean isGroup = false;
                     UUID groupId = null;
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
                     if (activeSessions != null) {
                         for (AppointmentSession activeSession : activeSessions) {
@@ -114,11 +115,11 @@ public class HandleBlipWebhookUseCase {
                     }
                     return new WebhookResult("", "", "", "", "processed", "");
                 } else {
-                    log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {}", normalizedPhone);
+                    log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);
                     UUID groupId = null;
                     java.util.List<String> activeAppointmentIds = new ArrayList<>();
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
                     if (activeSessions != null) {
                         for (AppointmentSession activeSession : activeSessions) {
@@ -134,18 +135,18 @@ public class HandleBlipWebhookUseCase {
 
                     if (groupId == null) {
                         NotificationGroup latestGroup = transactionTemplate.execute(status ->
-                            notificationGroupRepository.findLatestByPhone(normalizedPhone).orElse(null)
+                            notificationGroupRepository.findLatestByPhone(dbPhone).orElse(null)
                         );
                         if (latestGroup != null) {
                             groupId = latestGroup.getGroupId();
                             log.warn("[WEBHOOK-BLOCK] groupId recuperado via NotificationGroup para {}. groupId={}",
-                                normalizedPhone, groupId);
+                                dbPhone, groupId);
                         }
                     }
 
                     if (groupId == null) {
                         log.error("[WEBHOOK-BLOCK] groupId nulo apos retry. phone={}, feegowAppointments={}",
-                            normalizedPhone, activeAppointmentIds);
+                            dbPhone, activeAppointmentIds);
                         blipContextService.setUserContextForUser(
                             normalizedPhone,
                             "lista_detalhada",
@@ -237,9 +238,9 @@ public class HandleBlipWebhookUseCase {
             if (resolvedId == null || resolvedId.isBlank()) {
                 fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
-                    String normalizedPhone = fromPhone.trim();
+                    String dbPhone = purifyPhoneNumber(fromPhone);
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
-                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
                     if (activeSessions != null && !activeSessions.isEmpty()) {
                         resolvedId = activeSessions.get(0).getFeegowAppointmentId();
@@ -264,9 +265,9 @@ public class HandleBlipWebhookUseCase {
             if (resolvedId == null || resolvedId.isBlank()) {
                 fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
-                    String normalizedPhone = fromPhone.trim();
+                    String dbPhone = purifyPhoneNumber(fromPhone);
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
-                        appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
                     if (activeSessions != null && !activeSessions.isEmpty()) {
                         resolvedId = activeSessions.get(0).getFeegowAppointmentId();
@@ -290,10 +291,10 @@ public class HandleBlipWebhookUseCase {
                 || action.toLowerCase().contains("solicitar alter")) {
             fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
-                String normalizedPhone = fromPhone.trim();
+                String dbPhone = purifyPhoneNumber(fromPhone);
                 // FASE 1A: Leitura rápida no banco (micro-transação)
                 java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
-                    appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone)
+                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                 );
                 
                 if (activeSessions != null && !activeSessions.isEmpty()) {
@@ -318,10 +319,10 @@ public class HandleBlipWebhookUseCase {
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
                 if (fromPhone != null && !fromPhone.isBlank()) {
-                    String normalizedPhone = fromPhone.trim();
+                    String dbPhone = purifyPhoneNumber(fromPhone);
                     transactionTemplate.executeWithoutResult(status -> {
                         java.util.List<AppointmentSession> activeSessions =
-                            appointmentSessionRepository.findActiveByPhoneNumber(normalizedPhone);
+                            appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
                         if (activeSessions == null || activeSessions.isEmpty()) {
                             log.warn("[WEBHOOK] Nenhuma sessao ativa encontrada para {} ao salvar groupId={}",
                                 normalizedPhone, groupIdStr);
@@ -578,6 +579,29 @@ public class HandleBlipWebhookUseCase {
         String clean = doctorName.trim();
         clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
         return clean.trim();
+    }
+
+    private String purifyPhoneNumber(String originalPhone) {
+        if (originalPhone == null || originalPhone.isBlank()) {
+            return "";
+        }
+        
+        String trimmed = originalPhone.trim();
+        if (trimmed.contains("@")) {
+            trimmed = trimmed.substring(0, trimmed.indexOf('@')).trim();
+        }
+        
+        // Remove non-digit characters
+        String digitsOnly = trimmed.replaceAll("\\D", "");
+        if (digitsOnly.isBlank()) {
+            return "";
+        }
+        
+        if (digitsOnly.startsWith("55")) {
+            return "+" + digitsOnly;
+        }
+        
+        return "+55" + digitsOnly;
     }
 
     private String resolveTraceId() {

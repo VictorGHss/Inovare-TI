@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
@@ -57,7 +58,7 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
         if (phone == null || phone.isBlank()) {
             return Optional.empty();
         }
-        return springDataRepository.findByPhoneOrderByCreatedAtDesc(phone).stream()
+        return springDataRepository.findByPhoneOrderByCreatedAtDesc(phone, PageRequest.of(0, 1)).stream()
                 .findFirst()
                 .map(NotificationGroupEntity::toDomain);
     }

@@ -39,6 +39,7 @@ public class ContaAzulTokenService {
     private final RestTemplate restTemplate;
     private final ContaAzulOAuthTokenRepository tokenRepository;
     private final ContaAzulProperties properties;
+    private final java.util.concurrent.locks.ReentrantLock tokenLock = new java.util.concurrent.locks.ReentrantLock();
 
 
 
@@ -114,8 +115,22 @@ public class ContaAzulTokenService {
             .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
 
         if (isExpiringSoon(token)) {
-            token = refreshAndPersist(token);
-            token = reloadTokenFromDatabase(token.getId());
+            tokenLock.lock();
+            try {
+                // Checagem Dupla (Double-Checked Locking): recarrega o token do banco após obter o lock
+                token = tokenRepository.findTopByOrderByUpdatedAtDesc()
+                    .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
+
+                if (isExpiringSoon(token)) {
+                    log.info("Token expirando em breve. Iniciando renovação via refresh_token da ContaAzul.");
+                    token = refreshAndPersist(token);
+                    token = reloadTokenFromDatabase(token.getId());
+                } else {
+                    log.info("Token já foi renovado por outra execução paralela. Pulando refresh redundante.");
+                }
+            } finally {
+                tokenLock.unlock();
+            }
         }
 
         long minutesLeft = Duration.between(LocalDateTime.now(), token.getExpiresAt()).toMinutes();

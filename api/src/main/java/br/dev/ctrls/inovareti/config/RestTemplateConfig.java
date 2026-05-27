@@ -39,6 +39,7 @@ public class RestTemplateConfig {
     @Primary
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setRequestFactory(createJdkClientRequestFactory());
 
         // Blindagem global de saída: impede prefixo fantasma /api para host da Conta Azul.
         restTemplate.getInterceptors().add(new ContaAzulPathSanitizerInterceptor());

@@ -83,9 +83,17 @@ public class SendAppointmentTemplateUseCase {
 
         // FASE 2: Chamadas HTTP Externas ao Blip (Totalmente fora de transação do banco)
         try {
+            String templateId = config.getTemplateId();
+            if (category == AppointmentCategory.NUDGE_1 || category == AppointmentCategory.NUDGE_FINAL) {
+                if (templateId == null || templateId.isBlank() 
+                        || "confirmacao_consulta_v6_itsm".equalsIgnoreCase(templateId.trim())
+                        || "aviso_agendamento_grupo".equalsIgnoreCase(templateId.trim())) {
+                    templateId = "aviso_confirmacao_pendente";
+                }
+            }
             String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
-            blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), config.getTemplateId(), templateData);
+            blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);
 
             if (session != null) saveWithRetry(session, null);
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva e guardada no banco. Roteamento delegado ao payload do Builder.");
@@ -194,6 +202,15 @@ public class SendAppointmentTemplateUseCase {
         // FASE 2B: Chamadas de Rede Externas ao Blip (Fora de Transação)
         try {
             String templateId = config.getTemplateId();
+            if (category == AppointmentCategory.NUDGE_1 || category == AppointmentCategory.NUDGE_FINAL) {
+                if (templateId == null || templateId.isBlank() 
+                        || "confirmacao_consulta_v6_itsm".equalsIgnoreCase(templateId.trim())
+                        || "aviso_agendamento_grupo".equalsIgnoreCase(templateId.trim())) {
+                    templateId = "aviso_confirmacao_pendente";
+                }
+                log.info("[NUDGE-FORCE] Utilizando template estrito de Nudge. category={}, templateId={}, sessionId={}", 
+                    category, templateId, session.getId());
+            }
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);

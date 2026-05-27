@@ -18,6 +18,7 @@ public record DashboardAnalyticsDTO(
     List<MetricDTO> ticketsByCategory,
     List<MetricDTO> ticketsBySector,
     List<MetricDTO> ticketsByRequester,
+    List<MetricDTO> ticketsByMonth,
     InventorySummaryDTO inventorySummary,
     long totalAssets,
     long assetsInUse,

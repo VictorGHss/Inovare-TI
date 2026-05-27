@@ -21,6 +21,7 @@ export interface DashboardAnalyticsDTO {
   ticketsByCategory: MetricDTO[];
   ticketsBySector: MetricDTO[];
   ticketsByRequester: MetricDTO[];
+  ticketsByMonth: MetricDTO[];
   inventorySummary: InventorySummaryDTO;
   totalAssets: number;
   assetsInUse: number;

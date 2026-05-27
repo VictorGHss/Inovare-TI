@@ -38,6 +38,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Pattern REST_TEMPLATE_QUOTED_URL_PATTERN = Pattern.compile("for \\\"([^\\\"]+)\\\"");
     private static final Pattern GENERIC_HTTP_URL_PATTERN = Pattern.compile("https?://[^\\s]+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)Bearer\\s+[A-Za-z0-9\\-._~+/]+=*");
+    private static final Pattern JWT_PATTERN = Pattern.compile("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+");
+    private static final Pattern SENSITIVE_JSON_FIELD_PATTERN = Pattern.compile(
+            "(?i)(\\\"(?:access_token|refresh_token|id_token|token|secret|password|senha|cpf|cnpj|email|phone|telefone)\\\"\\s*:\\s*)\\\"[^\\\"]*\\\"");
+    private static final int MAX_ERROR_BODY_PREVIEW = 512;
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -129,21 +134,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         String requestUrl = resolveOutboundUrl(ex.getExternalUrl(), request);
         String responseBody = ex.getResponseBody();
+        String sanitizedBody = sanitizeExternalBody(responseBody);
         boolean planIneligible = isPlanIneligibleResponse(responseBody);
 
         if (status.is5xxServerError()) {
-            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
-                    status.value(), requestUrl, responseBody, requestId);
+            log.error("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status.value(), requestUrl, requestId, safeLength(responseBody), sanitizedBody);
         } else {
-            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
-                    status.value(), requestUrl, responseBody, requestId);
+            log.warn("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status.value(), requestUrl, requestId, safeLength(responseBody), sanitizedBody);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle("External service error");
         problem.setDetail(planIneligible
                 ? "Sem elegibilidade para API no plano atual (END_TRIAL)."
-                : ex.getMessage());
+                : sanitizeExternalBody(firstNonBlank(sanitizedBody, ex.getMessage())));
         problem.setProperty("request_id", requestId);
         attachTraceId(problem);
         return problem;
@@ -163,16 +169,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             body = ex.getResponseBodyAsString();
         } catch (Exception ignore) {
         }
+        String sanitizedBody = sanitizeExternalBody(body);
 
         if (status >= 500) {
-            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId, ex);
+            log.error("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody, ex);
         } else {
-            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId);
+            log.warn("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
         problem.setTitle("External service error");
-        problem.setDetail(body != null && !body.isBlank() ? body : ex.getMessage());
+        problem.setDetail(sanitizeExternalBody(firstNonBlank(sanitizedBody, ex.getMessage())));
         problem.setProperty("request_id", requestId);
         attachTraceId(problem);
         return problem;
@@ -194,18 +203,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         } catch (Exception ignore) {
             // ignore
         }
+        String sanitizedBody = sanitizeExternalBody(body);
 
         if (status >= 500) {
-            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
-                    status, requestUrl, body, requestId, ex);
+            log.error("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody);
         } else {
-            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}",
-                    status, requestUrl, body, requestId);
+            log.warn("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody);
         }
 
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(status));
         problem.setTitle("External service error");
-        problem.setDetail(ex.getMessage());
+        problem.setDetail(sanitizeExternalBody(firstNonBlank(sanitizedBody, ex.getMessage())));
         problem.setProperty("request_id", requestId);
         attachTraceId(problem);
         return problem;
@@ -225,11 +235,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             body = ex.getResponseBodyAsString();
         } catch (Exception ignore) {
         }
+        String sanitizedBody = sanitizeExternalBody(body);
 
         if (status >= 500) {
-            log.error("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId, ex);
+            log.error("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody, ex);
         } else {
-            log.warn("[API ERROR] Status: {} | URL: {} | Body: {} | request_id={}", status, requestUrl, body, requestId);
+            log.warn("[API ERROR] status={} url={} request_id={} payload_size={} payload_preview={}",
+                    status, requestUrl, requestId, safeLength(body), sanitizedBody);
         }
 
         // Propagate the original status and body from the external API to the frontend
@@ -329,5 +342,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
 
         return baseUrl + "?" + query;
+    }
+
+    private String sanitizeExternalBody(String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+
+        String sanitized = body;
+        sanitized = BEARER_TOKEN_PATTERN.matcher(sanitized).replaceAll("Bearer [REDACTED]");
+        sanitized = JWT_PATTERN.matcher(sanitized).replaceAll("[REDACTED_JWT]");
+        sanitized = SENSITIVE_JSON_FIELD_PATTERN.matcher(sanitized).replaceAll("$1\"[REDACTED]\"");
+        sanitized = sanitized.replaceAll("(?i)(access_token|refresh_token|id_token|token|secret|password|senha|cpf|cnpj|email|phone|telefone)=([^\\s&]+)", "$1=[REDACTED]");
+        sanitized = sanitized.replaceAll("\\s+", " ").trim();
+
+        if (sanitized.length() > MAX_ERROR_BODY_PREVIEW) {
+            return sanitized.substring(0, MAX_ERROR_BODY_PREVIEW) + "...[TRUNCATED]";
+        }
+
+        return sanitized;
+    }
+
+    private int safeLength(String body) {
+        return body == null ? 0 : body.length();
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return second;
     }
 }

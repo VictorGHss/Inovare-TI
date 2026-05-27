@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView;
+
 /**
  * Repositório de acesso a dados para a entidade {@link Ticket}.
  */
@@ -52,6 +54,21 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      */
     long countByStatus(TicketStatus status);
 
+        /**
+         * Conta chamados com data de fechamento preenchida.
+         */
+        long countByClosedAtIsNotNull();
+
+        /**
+         * Conta chamados de um solicitante com data de fechamento preenchida.
+         */
+        long countByRequesterIdAndClosedAtIsNotNull(@Param("requesterId") UUID requesterId);
+
+        /**
+         * Conta todos os chamados de um solicitante.
+         */
+        long countByRequesterId(UUID requesterId);
+
     /**
      * Conta chamados por solicitante e status para analítica individual.
      */
@@ -61,6 +78,54 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * Retorna todos os chamados de um solicitante.
      */
     List<Ticket> findByRequesterId(@Param("requesterId") UUID requesterId);
+
+    @Query(value = """
+            select coalesce(tc.name, 'Sem categoria') as name, count(*) as value
+            from tickets t
+            join ticket_categories tc on tc.id = t.category_id
+            where (:restrictToRequester = false or t.requester_id = :userId)
+            group by tc.name
+            order by count(*) desc, tc.name asc
+            """, nativeQuery = true)
+    List<AnalyticsMetricView> countTicketsByCategory(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
+
+    @Query(value = """
+            select coalesce(s.name, 'Sem setor') as name, count(*) as value
+            from tickets t
+            join users u on u.id = t.requester_id
+            join sectors s on s.id = u.sector_id
+            where (:restrictToRequester = false or t.requester_id = :userId)
+            group by s.name
+            order by count(*) desc, s.name asc
+            """, nativeQuery = true)
+    List<AnalyticsMetricView> countTicketsBySector(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
+
+    @Query(value = """
+            select coalesce(u.name, 'Sem solicitante') as name, count(*) as value
+            from tickets t
+            join users u on u.id = t.requester_id
+            where (:restrictToRequester = false or t.requester_id = :userId)
+            group by u.name
+            order by count(*) desc, u.name asc
+            """, nativeQuery = true)
+    List<AnalyticsMetricView> countTicketsByRequester(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
+
+    @Query(value = """
+            select to_char(date_trunc('month', t.created_at), 'YYYY-MM-01') as name, count(*) as value
+            from tickets t
+            where (:restrictToRequester = false or t.requester_id = :userId)
+            group by date_trunc('month', t.created_at)
+            order by date_trunc('month', t.created_at) asc
+            """, nativeQuery = true)
+    List<AnalyticsMetricView> countTicketsByMonth(
+            @Param("restrictToRequester") boolean restrictToRequester,
+            @Param("userId") UUID userId);
 
         /**
          * Retorna os chamados de um solicitante filtrados por status, mais recentes primeiro.

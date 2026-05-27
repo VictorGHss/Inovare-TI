@@ -2,11 +2,13 @@ package br.dev.ctrls.inovareti.domain.analytics.usecase;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView;
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.InventorySummaryDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
@@ -48,38 +50,50 @@ public class GetDashboardAnalyticsUseCase {
     public DashboardAnalyticsDTO execute(UUID userId, UserRole userRole) {
         log.info("Fetching dashboard analytics data for user: {} (role: {})", userId, userRole);
 
+        boolean restrictToRequester = userRole != UserRole.ADMIN && userRole != UserRole.TECHNICIAN;
+                List<Ticket> userTickets = restrictToRequester ? ticketRepository.findByRequesterId(userId) : List.of();
+
         long openTickets;
         long inProgressTickets;
         long resolvedTickets;
-        List<Ticket> allTickets;
 
-        if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
+        if (!restrictToRequester) {
             // ADMIN e TECHNICIAN visualizam todos os chamados
             openTickets = ticketRepository.countByStatus(TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByStatus(TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByStatus(TicketStatus.RESOLVED);
-            allTickets = ticketRepository.findAll();
         } else {
             // USER visualiza apenas seus próprios chamados
             openTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.OPEN);
             inProgressTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.IN_PROGRESS);
             resolvedTickets = ticketRepository.countByRequesterIdAndStatus(userId, TicketStatus.RESOLVED);
-            allTickets = ticketRepository.findByRequesterId(userId);
         }
 
-        long closedTickets = 0;
+        long closedTickets = restrictToRequester
+                ? ticketRepository.countByRequesterIdAndClosedAtIsNotNull(userId)
+                : ticketRepository.countByClosedAtIsNotNull();
 
         // Agrega métricas de chamados por status
         List<MetricDTO> ticketsByStatus = buildTicketsByStatusMetrics(openTickets, inProgressTickets, resolvedTickets);
 
         // Agrega métricas de chamados por categoria
-        List<MetricDTO> ticketsByCategory = buildTicketsByCategoryMetrics(allTickets);
+        List<MetricDTO> ticketsByCategory = buildMetrics(
+                ticketRepository.countTicketsByCategory(restrictToRequester, userId));
 
         // Agrega métricas de chamados por setor (Top 5)
-        List<MetricDTO> ticketsBySector = buildTicketsBySectorMetrics(allTickets);
+        List<MetricDTO> ticketsBySector = buildMetrics(
+                ticketRepository.countTicketsBySector(restrictToRequester, userId));
 
         // Agrega métricas de chamados por solicitante (Top 5)
-        List<MetricDTO> ticketsByRequester = buildTicketsByRequesterMetrics(allTickets);
+        List<MetricDTO> ticketsByRequester = buildMetrics(
+                ticketRepository.countTicketsByRequester(restrictToRequester, userId));
+
+        // Agrega série mensal de chamados para gráficos temporais
+        List<MetricDTO> ticketsByMonth = buildMetrics(
+                ticketRepository.countTicketsByMonth(restrictToRequester, userId))
+                .stream()
+                .map(metric -> new MetricDTO(formatMonthLabel(metric.name()), metric.value()))
+                .collect(Collectors.toList());
 
         // Agrega métricas de estoque
         // SEGURANÇA: apenas ADMIN e TECHNICIAN visualizam dados globais de estoque
@@ -94,7 +108,7 @@ public class GetDashboardAnalyticsUseCase {
             lowStockItems = 0;
             outOfStockItems = 0;
 
-            long receivedInventoryItems = allTickets.stream()
+                        long receivedInventoryItems = userTickets.stream()
                     .filter(ticket -> ticket.getStatus() == TicketStatus.RESOLVED)
                     .filter(ticket -> ticket.getRequestedItem() != null)
                     .mapToLong(ticket -> ticket.getRequestedQuantity() != null
@@ -120,11 +134,11 @@ public class GetDashboardAnalyticsUseCase {
                 receivedItemsCount
         );
 
-        log.info("Analytics retrieved: open={}, inProgress={}, resolved={}, closed={}, lowStock={}",
-                openTickets, inProgressTickets, resolvedTickets, closedTickets, lowStockItems);
+        log.info("Analytics retrieved: open={}, inProgress={}, resolved={}, closed={}, lowStock={}, monthSeries={}",
+                openTickets, inProgressTickets, resolvedTickets, closedTickets, lowStockItems, ticketsByMonth.size());
 
         // Total de chamados = soma de todos os status
-        long totalTickets = openTickets + inProgressTickets + resolvedTickets + closedTickets;
+        long totalTickets = restrictToRequester ? ticketRepository.countByRequesterId(userId) : ticketRepository.count();
 
         // Agrega métricas de ativos físicos
         long totalAssets = assetRepository.count();
@@ -142,6 +156,7 @@ public class GetDashboardAnalyticsUseCase {
                 ticketsByCategory,
                 ticketsBySector,
                 ticketsByRequester,
+                ticketsByMonth,
                 inventorySummary,
                 totalAssets,
                 assetsInUse,
@@ -160,52 +175,26 @@ public class GetDashboardAnalyticsUseCase {
         );
     }
 
-    /**
-     * Constrói a lista de métricas de chamados agrupados por categoria.
-     */
-    private List<MetricDTO> buildTicketsByCategoryMetrics(List<Ticket> tickets) {
-        return tickets.stream()
-                .collect(Collectors.groupingByConcurrent(
-                        ticket -> ticket.getCategory().getName(),
-                        Collectors.counting()
-                ))
-                .entrySet()
-                .stream()
-                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
-    }
+        private List<MetricDTO> buildMetrics(List<AnalyticsMetricView> metrics) {
+                return metrics.stream()
+                                .map(metric -> {
+                                        long safeValue = Objects.requireNonNullElse(metric.getValue(), 0L);
+                                        return new MetricDTO(metric.getName(), safeValue);
+                                })
+                                .collect(Collectors.toList());
+        }
 
-    /**
-     * Constrói a lista com o Top 5 de métricas de chamados agrupados por setor.
-     */
-    private List<MetricDTO> buildTicketsBySectorMetrics(List<Ticket> tickets) {
-        return tickets.stream()
-                .collect(Collectors.groupingByConcurrent(
-                        ticket -> ticket.getRequester().getSector().getName(),
-                        Collectors.counting()
-                ))
-                .entrySet()
-                .stream()
-                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
-                .limit(5)
-                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
-    }
+        private String formatMonthLabel(String monthKey) {
+                if (monthKey == null || monthKey.isBlank()) {
+                        return "Sem data";
+                }
 
-    /**
-     * Constrói a lista com o Top 5 de métricas de chamados agrupados por solicitante.
-     */
-    private List<MetricDTO> buildTicketsByRequesterMetrics(List<Ticket> tickets) {
-        return tickets.stream()
-                .collect(Collectors.groupingByConcurrent(
-                        ticket -> ticket.getRequester().getName(),
-                        Collectors.counting()
-                ))
-                .entrySet()
-                .stream()
-                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
-                .limit(5)
-                .map(entry -> new MetricDTO(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
+                try {
+                        java.time.LocalDate parsed = java.time.LocalDate.parse(monthKey);
+                        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("MMM/yy", java.util.Locale.forLanguageTag("pt-BR"));
+                        return parsed.format(formatter).toLowerCase(java.util.Locale.ROOT);
+                } catch (Exception ignored) {
+                        return monthKey;
+                }
     }
 }

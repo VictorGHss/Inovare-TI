@@ -53,22 +53,25 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ticketsData, analyticsData] = await Promise.all([
-          getTickets(),
-          getDashboardAnalytics(),
-        ]);
-        setTickets(ticketsData);
+        const analyticsData = await getDashboardAnalytics();
+        if (!isAdmin) {
+          const ticketsData = await getTickets();
+          setTickets(ticketsData);
+        } else {
+          setTickets([]);
+        }
         setAnalytics(analyticsData);
       } catch {
         toast.error('Erro ao carregar dados. Tente novamente.');
         setTickets([]);
+        setAnalytics(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     if (isAdmin || !user?.id) {
@@ -149,7 +152,7 @@ export default function Dashboard() {
             {!loading && (
               <>
                 <div className="lg:col-span-2">
-                  <ChartsBar tickets={tickets} title="Volume Mensal de Chamados" />
+                  <ChartsBar data={analytics?.ticketsByMonth ?? []} title="Volume Mensal de Chamados" />
                 </div>
                 {analytics && (
                   <InventorySummaryCard

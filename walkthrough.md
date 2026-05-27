@@ -166,3 +166,35 @@ cd front
 npm run build
 ```
 Resultado: build finalizado com sucesso via Vite + TypeScript.
+
+---
+
+## 6. Fase 1 - Segurança, Performance e Bugfixes
+
+### A. Analytics do Dashboard no Backend
+- `GetDashboardAnalyticsUseCase.java` deixou de carregar todos os chamados em memória para montar os gráficos.
+- As contagens por categoria, setor, solicitante e mês passaram a vir de consultas agregadas no `TicketRepository`.
+- O campo `totalClosedTickets` passou a ser calculado a partir de `closedAt IS NOT NULL`, eliminando o valor fixo `0`.
+- O contrato `DashboardAnalyticsDTO` ganhou a série `ticketsByMonth` para consumo direto pelo frontend.
+
+### B. Blindagem de Logs de Erro
+- `GlobalExceptionHandler.java` passou a sanitizar e truncar corpos de resposta de APIs externas antes de registrar logs.
+- Os logs agora registram apenas metadados estruturados como status HTTP, URL, request id e tamanho do payload, reduzindo risco de vazamento de tokens e PII.
+
+### C. Frontend do Dashboard
+- O componente `ChartsBar.tsx` passou a renderizar a série mensal agregada retornada pelo backend.
+- A tela de dashboard deixou de usar `getTickets()` para montar o gráfico de volume mensal e passou a consumir `ticketsByMonth`.
+- O fetch de tickets brutos foi mantido apenas para as áreas do dashboard que realmente dependem da lista individual do usuário.
+
+### D. Validação
+- Backend:
+```powershell
+cd api
+mvn clean compile
+```
+- Frontend:
+```powershell
+cd front
+npm run build
+```
+- Ambos os builds foram validados com sucesso após a refatoração.

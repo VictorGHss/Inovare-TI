@@ -1,44 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import type { Ticket } from '../types/models';
+import type { MetricDTO } from '../types/models';
 import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
 
 interface ChartsBarProps {
-  tickets: Ticket[];
+  data: MetricDTO[];
   title: string;
 }
 
-interface MonthlyData {
-  month: string;
-  tickets: number;
-}
-
-export default function ChartsBar({ tickets, title }: ChartsBarProps) {
-  // Process tickets to get monthly volume
-  const monthlyData: { [key: string]: number } = {};
-
-  tickets.forEach((ticket) => {
-    if (ticket.createdAt) {
-      const date = new Date(ticket.createdAt);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
-    }
-  });
-
-  // Convert to array and sort by date
-  const data: MonthlyData[] = Object.entries(monthlyData)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-12) // Last 12 months
-    .map(([month, count]) => {
-      const [yearStr, monthStr] = month.split('-');
-      const year = parseInt(yearStr, 10);
-      const monthIndex = parseInt(monthStr, 10) - 1; // Base-0 para Date no JS
-      const dateObj = new Date(year, monthIndex, 1);
-      return {
-        month: dateObj.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-        tickets: count,
-      };
-    });
-
+export default function ChartsBar({ data, title }: ChartsBarProps) {
   if (!data || data.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex items-center justify-center h-80">
@@ -53,13 +22,13 @@ export default function ChartsBar({ tickets, title }: ChartsBarProps) {
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="month" stroke="#64748b" />
+          <XAxis dataKey="name" stroke="#64748b" />
           <YAxis stroke="#64748b" />
           <Tooltip formatter={(value) => `${value}`} />
           <Legend />
-          <Bar dataKey="tickets" name="Chamados" radius={[8, 8, 0, 0]}>
+          <Bar dataKey="value" name="Chamados" radius={[8, 8, 0, 0]}>
             {data.map((entry, index) => (
-              <Cell key={`monthly-bar-${entry.month}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
+              <Cell key={`monthly-bar-${entry.name}`} fill={VIBRANT_CHART_COLORS[index % VIBRANT_CHART_COLORS.length]} />
             ))}
           </Bar>
         </BarChart>

@@ -150,7 +150,7 @@ public class NotificationAccumulatorService {
 
     @Scheduled(cron = "${app.appointment.motor.cleanup-cron:0 0 3 * * ?}")
     public void cleanupOldNotificationGroups() {
-        log.info("[CLEANUP] Iniciando rotina de limpeza diária de grupos de notificação antigos");
+        log.info("[CLEANUP] Iniciando rotina de limpeza diária de grupos de notificação e sessões antigas");
         LocalDateTime threshold = LocalDateTime.now().minusDays(45);
         try {
             long count = transactionTemplate.execute(status -> 
@@ -159,6 +159,25 @@ public class NotificationAccumulatorService {
             log.info("[CLEANUP] Removidos grupos de notificação com mais de 45 dias. Total: {}", count);
         } catch (Exception e) {
             log.error("[CLEANUP] Erro ao executar limpeza de grupos de notificação antigos", e);
+        }
+
+        cleanupOldClosedSessions(threshold);
+    }
+
+    private void cleanupOldClosedSessions(LocalDateTime threshold) {
+        log.info("[CLEANUP] Iniciando expurgo de sessões de agendamento concluídas/canceladas antigas");
+        try {
+            List<br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus> finalStatuses = List.of(
+                br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CONFIRMED,
+                br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED,
+                br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED_NO_RESPONSE
+            );
+            long countSessions = transactionTemplate.execute(status ->
+                appointmentSessionRepository.deleteByStatusInAndCreatedAtBefore(finalStatuses, threshold)
+            );
+            log.info("[CLEANUP] Removidas sessões concluídas/canceladas com mais de 45 dias. Total: {}", countSessions);
+        } catch (Exception e) {
+            log.error("[CLEANUP] Erro ao executar expurgo de sessões de agendamento antigas", e);
         }
     }
 }

@@ -19,6 +19,8 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
 
     Optional<AppointmentSessionEntity> findByFeegowAppointmentId(String feegowAppointmentId);
 
+    List<AppointmentSessionEntity> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
+
     List<AppointmentSessionEntity> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     List<AppointmentSessionEntity> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
@@ -38,4 +40,9 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
            "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
            "ORDER BY a.lastInteractionAt DESC")
     List<AppointmentSessionEntity> findActiveByPhoneNumber(@Param("phone") String phone);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("DELETE FROM AppointmentSessionEntity a WHERE a.status IN :statuses AND a.createdAt < :threshold")
+    long deleteByStatusInAndCreatedAtBefore(@Param("statuses") java.util.Collection<br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus> statuses, @Param("threshold") LocalDateTime threshold);
 }

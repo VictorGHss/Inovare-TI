@@ -16,6 +16,8 @@ public interface AppointmentSessionRepositoryPort {
 
     Optional<AppointmentSession> findByFeegowAppointmentId(String feegowAppointmentId);
 
+    List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
+
     List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
@@ -25,4 +27,6 @@ public interface AppointmentSessionRepositoryPort {
     List<AppointmentSession> findPendingNotifications();
 
     AppointmentSession save(AppointmentSession session);
+
+    long deleteByStatusInAndCreatedAtBefore(java.util.Collection<AppointmentSessionStatus> statuses, LocalDateTime threshold);
 }

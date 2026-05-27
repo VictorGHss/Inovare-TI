@@ -24,7 +24,13 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 
 @Entity
-@Table(name = "appointment_sessions")
+@Table(
+    name = "appointment_sessions",
+    indexes = {
+        @jakarta.persistence.Index(name = "idx_appointment_sessions_patient_phone", columnList = "patient_phone"),
+        @jakarta.persistence.Index(name = "idx_appointment_sessions_current_group_id", columnList = "current_group_id")
+    }
+)
 @Getter
 @Setter
 @Builder

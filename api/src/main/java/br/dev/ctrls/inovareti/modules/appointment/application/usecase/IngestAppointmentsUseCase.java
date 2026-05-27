@@ -109,6 +109,26 @@ public class IngestAppointmentsUseCase {
 
         int totalReceived = appointments.size();
         
+        // --- INÍCIO DA MITIGAÇÃO DE N+1 (BULK READ E CACHE EM MEMÓRIA) ---
+        // 1. Extrair e normalizar todos os IDs Feegow dos agendamentos
+        java.util.Set<String> feegowIds = appointments.stream()
+                .map(a -> normalizeFeegowAppointmentId(a.id()))
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toSet());
+
+        // 2. Bulk Read: Buscar as sessões existentes no banco em uma única consulta
+        Map<String, AppointmentSession> sessionCache = appointmentSessionRepository.findByFeegowAppointmentIdIn(feegowIds).stream()
+                .collect(Collectors.toMap(AppointmentSession::getFeegowAppointmentId, s -> s, (s1, s2) -> s1));
+
+        // 3. Bulk Read: Carregar todos os mapeamentos de médicos em memória
+        Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = appointmentDoctorMappingRepository.findAll().stream()
+                .collect(Collectors.toMap(
+                    br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping::getProfissionalId,
+                    m -> m,
+                    (m1, m2) -> m1
+                ));
+        // --- FIM DA MITIGAÇÃO DE N+1 ---
+
         // Agrupar agendamentos elegíveis por ID do Paciente
         Map<String, List<FeegowAppointment>> grouped = appointments.stream()
                 .filter(appointment -> !"12".equals(appointment.statusId()))
@@ -133,49 +153,31 @@ public class IngestAppointmentsUseCase {
                     continue;
                 }
 
-                DbLookupResult dbData;
-                try {
-                    dbData = transactionTemplate.execute(status -> {
-                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalIdLocked(appointment.doctorId());
-                        if (mappingOpt.isEmpty()) {
-                            return new DbLookupResult(false, null, null, false, Optional.empty(), false);
-                        }
-                        var mapping = mappingOpt.get();
-                        if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId())) {
-                            return new DbLookupResult(false, null, null, false, Optional.empty(), false);
-                        }
-                        String mappingQueue = mapping.getBlipQueueId();
-                        String mappingProfessionalNameLocal = mapping.getProfissionalNome();
-                        boolean ignoreAutoSchedule = mapping.isIgnoreAutoSchedule();
-
-                        Optional<AppointmentSession> existingSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
-
-                        boolean canSend = appointmentSendIdempotencyService
-                                .map(service -> service.registerIfFirstSend(feegowAppointmentId))
-                                .orElseGet(() -> noopAppointmentSendIdempotencyService
-                                        .map(service -> service.registerIfFirstSend(feegowAppointmentId))
-                                        .orElse(true));
-
-                        return new DbLookupResult(true, mappingQueue, mappingProfessionalNameLocal, ignoreAutoSchedule, existingSessionOpt, canSend);
-                    });
-                } catch (RuntimeException ex) {
-                    log.error("Erro na fase de leitura transacional para o agendamento Feegow ID: {}. Detalhes: {}", appointment.id(), ex.getMessage(), ex);
-                    continue;
-                }
-
-                if (dbData == null || !dbData.hasMapped()) {
+                // Substituição do método bloqueante 'findByProfissionalIdLocked' pela leitura do cache
+                var mapping = doctorMappingCache.get(appointment.doctorId());
+                if (mapping == null) {
                     log.info("Agendamento ignorado por ausência de mapeamento do médico. appointmentId={}, profissional_id={}",
                             appointment.id(), appointment.doctorId());
                     continue;
                 }
-
-                if (dbData.ignoreAutoSchedule()) {
+                if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId())) {
+                    log.info("Agendamento ignorado por ausência de mapeamento do médico. appointmentId={}, profissional_id={}",
+                            appointment.id(), appointment.doctorId());
+                    continue;
+                }
+                if (mapping.isIgnoreAutoSchedule()) {
                     log.info("Agendamento ignorado por exceção de médico (ignore_auto_schedule=true). appointmentId={}, profissional_id={}",
                             appointment.id(), appointment.doctorId());
                     continue;
                 }
 
-                boolean isConfirmedLocally = dbData.existingSessionOpt()
+                String mappingQueue = mapping.getBlipQueueId();
+                String mappingProfessionalNameLocal = mapping.getProfissionalNome();
+
+                AppointmentSession existingSession = sessionCache.get(feegowAppointmentId);
+                Optional<AppointmentSession> existingSessionOpt = Optional.ofNullable(existingSession);
+
+                boolean isConfirmedLocally = existingSessionOpt
                         .map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED)
                         .orElse(false);
 
@@ -191,8 +193,8 @@ public class IngestAppointmentsUseCase {
                     continue;
                 }
 
-                if (dbData.existingSessionOpt().isPresent()) {
-                    AppointmentSessionStatus status = dbData.existingSessionOpt().get().getStatus();
+                if (existingSessionOpt.isPresent()) {
+                    AppointmentSessionStatus status = existingSessionOpt.get().getStatus();
                     if (status == AppointmentSessionStatus.PENDING ||
                         status == AppointmentSessionStatus.NUDGE_1_SENT ||
                         status == AppointmentSessionStatus.NUDGE_FINAL_SENT ||
@@ -202,10 +204,25 @@ public class IngestAppointmentsUseCase {
                     }
                 }
 
-                if (!dbData.canSend()) {
+                boolean canSend = appointmentSendIdempotencyService
+                        .map(service -> service.registerIfFirstSend(feegowAppointmentId))
+                        .orElseGet(() -> noopAppointmentSendIdempotencyService
+                                .map(service -> service.registerIfFirstSend(feegowAppointmentId))
+                                .orElse(true));
+
+                if (!canSend) {
                     log.info("Envio ignorado por idempotência Redis/Local. appointmentId={}", feegowAppointmentId);
                     continue;
                 }
+
+                DbLookupResult dbData = new DbLookupResult(
+                    true,
+                    mappingQueue,
+                    mappingProfessionalNameLocal,
+                    false,
+                    existingSessionOpt,
+                    true
+                );
 
                 eligibleAppointments.add(appointment);
                 eligibleDbResults.add(dbData);

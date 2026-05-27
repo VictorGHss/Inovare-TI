@@ -41,6 +41,13 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    public List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds) {
+        return springDataRepository.findByFeegowAppointmentIdIn(feegowAppointmentIds).stream()
+                .map(AppointmentSessionEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold) {
         return springDataRepository.findByStatusAndLastInteractionAtBefore(status, threshold).stream()
                 .map(AppointmentSessionEntity::toDomain)
@@ -73,5 +80,10 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
         AppointmentSessionEntity entity = AppointmentSessionEntity.fromDomain(session);
         AppointmentSessionEntity saved = springDataRepository.save(entity);
         return saved.toDomain();
+    }
+
+    @Override
+    public long deleteByStatusInAndCreatedAtBefore(java.util.Collection<AppointmentSessionStatus> statuses, LocalDateTime threshold) {
+        return springDataRepository.deleteByStatusInAndCreatedAtBefore(statuses, threshold);
     }
 }

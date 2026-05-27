@@ -19,7 +19,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "notification_groups")
+@Table(
+    name = "notification_groups",
+    indexes = {
+        @jakarta.persistence.Index(name = "idx_notification_groups_session_id", columnList = "session_id")
+    }
+)
 @Getter
 @Setter
 @Builder

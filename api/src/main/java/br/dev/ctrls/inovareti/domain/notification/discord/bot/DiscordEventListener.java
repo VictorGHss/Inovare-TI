@@ -48,22 +48,32 @@ public class DiscordEventListener extends ListenerAdapter {
      */
     @Override
     public void onReady(@javax.annotation.Nonnull ReadyEvent event) {
-        log.info("✅ Bot do Discord pronto! Registrando slash commands na guild de teste...");
+        log.info("✅ Bot do Discord pronto! Registrando slash commands na guilda...");
 
         try {
-            if (discordTestGuildId == null || discordTestGuildId.isBlank()) {
-                log.warn("⚠️ discord.bot.guild-id não configurado. A sincronização imediata dos comandos do Discord foi ignorada.");
-                return;
+            net.dv8tion.jda.api.entities.Guild guild = null;
+            if (discordTestGuildId != null && !discordTestGuildId.isBlank()) {
+                try {
+                    long guildId = Long.parseLong(discordTestGuildId.trim());
+                    guild = event.getJDA().getGuildById(guildId);
+                } catch (NumberFormatException ignored) {}
             }
 
-            long guildId = Long.parseLong(Objects.requireNonNull(discordTestGuildId, "discord.bot.guild-id não configurado").trim());
-            var guild = event.getJDA().getGuildById(guildId);
             if (guild == null) {
-                log.warn("⚠️ Guild de teste não encontrada. Verifique discord.bot.guild-id para sincronização imediata dos comandos.");
+                // Fallback resiliente: registra na primeira guilda disponível em que o bot está inserido
+                guild = event.getJDA().getGuilds().stream().findFirst().orElse(null);
+            }
+
+            if (guild == null) {
+                log.warn("⚠️ Nenhuma Guild (Servidor) encontrada. A sincronização imediata dos comandos do Discord foi ignorada.");
                 return;
             }
 
-            guild.updateCommands()
+            final net.dv8tion.jda.api.entities.Guild finalGuild = guild;
+
+            log.info("Sincronizando slash commands na guilda: {} (ID: {})", finalGuild.getName(), finalGuild.getId());
+
+            finalGuild.updateCommands()
                 .addCommands(
                     Commands.slash("chamado", "Abre um novo chamado na TI")
                         .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
@@ -106,7 +116,7 @@ public class DiscordEventListener extends ListenerAdapter {
                             "Quantidade desejada (padrão: 1)", false)
                 )
                 .queue(
-                    success -> log.info("✅ Slash commands sincronizados imediatamente na guilda: {}", guild.getName()),
+                    success -> log.info("✅ Slash commands sincronizados imediatamente na guilda: {}", finalGuild.getName()),
                     error -> log.error("❌ Falha ao sincronizar os slash commands na guilda de teste", error)
                 );
 

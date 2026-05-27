@@ -118,29 +118,31 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
             @Param("userId") UUID userId);
 
     @Query(value = """
-            select coalesce(s.name, 'Sem setor') as sector,
-                   case
-                       when t.priority in ('HIGH', 'URGENT') then 'Alta'
-                       when t.priority = 'NORMAL' then 'Média'
-                       else 'Baixa'
-                   end as priority,
-                   count(*) as value
-            from tickets t
-            join users u on u.id = t.requester_id
-            join sectors s on s.id = u.sector_id
-            where (:restrictToRequester = false or t.requester_id = :userId)
-            group by coalesce(s.name, 'Sem setor'),
-                     case
-                         when t.priority in ('HIGH', 'URGENT') then 'Alta'
-                         when t.priority = 'NORMAL' then 'Média'
-                         else 'Baixa'
-                     end
-                        order by sector asc,
-                                         case
-                                                 when priority = 'Baixa' then 1
-                                                 when priority = 'Média' then 2
-                                                 else 3
-                                         end asc
+            SELECT sector, priority, value FROM (
+                SELECT coalesce(s.name, 'Sem setor') as sector,
+                       CASE
+                           WHEN t.priority IN ('HIGH', 'URGENT') THEN 'Alta'
+                           WHEN t.priority = 'NORMAL' THEN 'Média'
+                           ELSE 'Baixa'
+                       END as priority,
+                       COUNT(*) as value
+                FROM tickets t
+                JOIN users u ON u.id = t.requester_id
+                JOIN sectors s ON s.id = u.sector_id
+                WHERE (:restrictToRequester = false OR t.requester_id = :userId)
+                GROUP BY coalesce(s.name, 'Sem setor'),
+                         CASE
+                             WHEN t.priority IN ('HIGH', 'URGENT') THEN 'Alta'
+                             WHEN t.priority = 'NORMAL' THEN 'Média'
+                             ELSE 'Baixa'
+                         END
+            ) as subquery
+            ORDER BY sector ASC,
+                     CASE
+                         WHEN priority = 'Baixa' THEN 1
+                         WHEN priority = 'Média' THEN 2
+                         ELSE 3
+                     END ASC
             """, nativeQuery = true)
     List<SectorPriorityMetricView> countTicketsBySectorAndPriority(
             @Param("restrictToRequester") boolean restrictToRequester,

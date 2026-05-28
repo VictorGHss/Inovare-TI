@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 

@@ -6,8 +6,6 @@ import java.util.Set;
 import java.util.HashSet;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.JoinTable;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.CollectionTable;
 
 import br.dev.ctrls.inovareti.domain.inventory.Item;
 import br.dev.ctrls.inovareti.domain.security.CryptoConverter;

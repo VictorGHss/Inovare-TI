@@ -35,6 +35,7 @@ public class WeeklyDigestScheduler {
      */
     @Scheduled(cron = "0 0 17 * * FRI")
     @Transactional(readOnly = true)
+    @SuppressWarnings({"unchecked", "null"})
     public void sendWeeklyDigest() {
         log.info("[DIGEST] Iniciando compilação do relatório semanal de métricas de TI...");
 
@@ -120,12 +121,13 @@ public class WeeklyDigestScheduler {
             }
 
             // Fallback via webhook se JDA não disponível
-            String msgText = String.format("**📊 Relatório Semanal de TI:**\n"
-                    + "- **Total Concluído:** %d chamados\n"
-                    + "- **Conformidade SLA:** %.1f%%\n"
-                    + "- **Tag Gargalo:** %s (%d)\n"
-                    + "- **Setor Mais Impactado:** %s (%d)",
-                    closedCount, slaCompliance, tagGargalo, tagGargaloQty, sectorMostImpacted, sectorMostImpactedQty);
+            String msgText = """
+                    **📊 Relatório Semanal de TI:**
+                    - **Total Concluído:** %d chamados
+                    - **Conformidade SLA:** %.1f%%
+                    - **Tag Gargalo:** %s (%d)
+                    - **Setor Mais Impactado:** %s (%d)"""
+                    .formatted(closedCount, slaCompliance, tagGargalo, tagGargaloQty, sectorMostImpacted, sectorMostImpactedQty);
             discordWebhookService.sendOperationalAlert("Relatório Semanal de TI", msgText);
 
         } catch (Exception ex) {

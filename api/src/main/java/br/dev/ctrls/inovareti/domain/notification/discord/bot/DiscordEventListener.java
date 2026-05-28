@@ -52,8 +52,9 @@ public class DiscordEventListener extends ListenerAdapter {
     @Override
     public void onSessionDisconnect(@javax.annotation.Nonnull SessionDisconnectEvent event) {
         String closeCodeInfo = "N/A";
-        if (event.getCloseCode() != null) {
-            closeCodeInfo = String.format("Código: %d (%s)", event.getCloseCode().getCode(), event.getCloseCode().getMeaning());
+        net.dv8tion.jda.api.requests.CloseCode closeCode = event.getCloseCode();
+        if (closeCode != null) {
+            closeCodeInfo = String.format("Código: %d (%s)", closeCode.getCode(), closeCode.getMeaning());
         }
         log.warn("⚠️ [DISCORD BOT] Queda detectada na conexão com o Gateway do Discord! Horário: {}, Fechado pelo servidor: {}, Detalhes: {}",
                 event.getTimeDisconnected(),
@@ -83,8 +84,9 @@ public class DiscordEventListener extends ListenerAdapter {
     @Override
     public void onShutdown(@javax.annotation.Nonnull ShutdownEvent event) {
         String shutdownInfo = "N/A";
-        if (event.getCloseCode() != null) {
-            shutdownInfo = String.format("Código: %d (%s)", event.getCloseCode().getCode(), event.getCloseCode().getMeaning());
+        net.dv8tion.jda.api.requests.CloseCode closeCode = event.getCloseCode();
+        if (closeCode != null) {
+            shutdownInfo = String.format("Código: %d (%s)", closeCode.getCode(), closeCode.getMeaning());
         }
         log.warn("🛑 [DISCORD BOT] Instância do JDA está sendo destruída/finalizada. Horário: {}, Detalhes: {}",
                 event.getTimeShutdown(),

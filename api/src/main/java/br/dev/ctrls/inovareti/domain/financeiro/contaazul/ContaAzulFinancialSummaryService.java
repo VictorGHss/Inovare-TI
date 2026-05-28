@@ -55,7 +55,7 @@ public class ContaAzulFinancialSummaryService {
      * - `totalPaidCents`: total pago em centavos;
      * - `syncedReceiptsCount`: quantidade de recibos já registrados localmente.
      */
-    @Cacheable(value = "financialSummary", key = "'dashboard'")
+    @Cacheable(value = "contaAzulSummary", key = "'dashboard'")
     public FinancialSummary fetchSummary() {
         long syncedReceiptsCount = processedSaleRepository.count();
         ExecutorService executor = buildSummaryExecutor();
@@ -63,12 +63,25 @@ public class ContaAzulFinancialSummaryService {
         try {
             String accessToken = contaAzulTokenService.getValidAccessToken();
 
-            // Busca parcelas recebidas para calcular total pago real por baixas.
-            ReceivedParcelsResult receivedParcelsResult = safeFetchReceivedParcels(accessToken);
+            // Busca parcelas recebidas, contas em aberto e saldos em paralelo usando CompletableFuture.supplyAsync().
+            CompletableFuture<ReceivedParcelsResult> receivedParcelsFuture = CompletableFuture.supplyAsync(
+                    () -> safeFetchReceivedParcels(accessToken), executor);
+
+            CompletableFuture<StatusResult> pendingFuture = CompletableFuture.supplyAsync(
+                    () -> safeFetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO), executor);
+
+            CompletableFuture<StatusResult> balanceFuture = CompletableFuture.supplyAsync(
+                    () -> safeFetchConsolidatedBalance(accessToken, executor), executor);
+
+            // Utiliza CompletableFuture.allOf(...).join() para unificar e aguardar o retorno de ambos os payloads simultaneamente
+            CompletableFuture.allOf(receivedParcelsFuture, pendingFuture, balanceFuture).join();
+
+            ReceivedParcelsResult receivedParcelsResult = receivedParcelsFuture.join();
+            StatusResult pendingResult = pendingFuture.join();
+            StatusResult balanceResult = balanceFuture.join();
+
             log.info("Resumo financeiro: parcelas recebidas identificadas no período = {}", receivedParcelsResult.parcels().size());
-            StatusResult pendingResult = safeFetchTotalByStatus(accessToken, ContaAzulStatus.EM_ABERTO);
             StatusResult paidResult = safeFetchTotalPaidByBaixas(accessToken, receivedParcelsResult.parcels(), executor);
-            StatusResult balanceResult = safeFetchConsolidatedBalance(accessToken, executor);
 
             long totalPaidCents = paidResult.total();
             long totalPendingCents = pendingResult.total();
@@ -109,8 +122,8 @@ public class ContaAzulFinancialSummaryService {
     }
 
     private ExecutorService buildSummaryExecutor() {
-        // Limita o pool em 2 para reduzir spikes e evitar bloqueio 429 (Spike Arrest).
-        return Executors.newFixedThreadPool(2);
+        // Utiliza o pool dedicado de Virtual Threads (uma thread virtual por tarefa).
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 
     private StatusResult safeFetchTotalByStatus(String accessToken, String status) {

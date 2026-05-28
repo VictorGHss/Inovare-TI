@@ -32,8 +32,7 @@ public class ContaAzulHttpClient {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int SUMMARY_PAGE_SIZE = 100;
 
-    private static final LocalDate RECEIVED_DUE_DATE_FROM = LocalDate.of(2000, 1, 1);
-    private static final LocalDate RECEIVED_DUE_DATE_TO = LocalDate.of(2099, 12, 31);
+
 
     private final ContaAzulTokenService contaAzulTokenService;
     private final RestTemplate restTemplate;
@@ -109,8 +108,10 @@ public class ContaAzulHttpClient {
             int page,
             LocalDate dataPagamentoDeDate,
             LocalDate dataPagamentoAteDate) {
-        String dataVencimentoDe = formatDateForContaAzul(RECEIVED_DUE_DATE_FROM);
-        String dataVencimentoAte = formatDateForContaAzul(RECEIVED_DUE_DATE_TO);
+        LocalDate receivedDueDateFrom = LocalDate.now().withDayOfYear(1);
+        LocalDate receivedDueDateTo = LocalDate.now().withMonth(12).withDayOfMonth(31);
+        String dataVencimentoDe = formatDateForContaAzul(receivedDueDateFrom);
+        String dataVencimentoAte = formatDateForContaAzul(receivedDueDateTo);
         String dataPagamentoDe = formatDateForContaAzul(dataPagamentoDeDate);
         String dataPagamentoAte = formatDateForContaAzul(dataPagamentoAteDate);
 

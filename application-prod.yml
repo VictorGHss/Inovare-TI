@@ -28,6 +28,12 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: false # Evita logs de SQL verbosos em ambiente produtivo
     defer-datasource-initialization: true
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: America/Sao_Paulo
+  jackson:
+    time-zone: America/Sao_Paulo
 
   # Configuração do Redis Cache
   data:

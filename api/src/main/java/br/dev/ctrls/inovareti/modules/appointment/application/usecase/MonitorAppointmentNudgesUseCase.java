@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 public class MonitorAppointmentNudgesUseCase {
 
-    private static final int FEEGOW_STATUS_DESMARCADO = 6;
+    private static final int FEEGOW_STATUS_DESMARCADO = 11;
 
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final AppointmentConfigRepositoryPort appointmentConfigRepository;

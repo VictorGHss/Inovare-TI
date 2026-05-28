@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.domain.notification.discord.bot;
 
 import java.util.List;
+
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -130,7 +132,7 @@ public class WeeklyDigestScheduler {
                     .formatted(closedCount, slaCompliance, tagGargalo, tagGargaloQty, sectorMostImpacted, sectorMostImpactedQty);
             discordWebhookService.sendOperationalAlert("Relatório Semanal de TI", msgText);
 
-        } catch (Exception ex) {
+        } catch (BeansException ex) {
             log.error("[DIGEST] Erro ao compilar e enviar o relatório semanal do Discord: {}", ex.getMessage(), ex);
         }
     }

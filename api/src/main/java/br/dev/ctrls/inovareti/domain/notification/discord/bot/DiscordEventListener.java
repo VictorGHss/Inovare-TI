@@ -13,6 +13,10 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
+import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
+import net.dv8tion.jda.api.events.session.SessionResumeEvent;
+import net.dv8tion.jda.api.events.session.SessionRecreateEvent;
+import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -41,6 +45,51 @@ public class DiscordEventListener extends ListenerAdapter {
 
     @Qualifier("discordExecutor")
     private final Executor discordExecutor;
+
+    /**
+     * Monitora a queda de conexão do bot com o gateway do Discord.
+     */
+    @Override
+    public void onSessionDisconnect(@javax.annotation.Nonnull SessionDisconnectEvent event) {
+        String closeCodeInfo = "N/A";
+        if (event.getCloseCode() != null) {
+            closeCodeInfo = String.format("Código: %d (%s)", event.getCloseCode().getCode(), event.getCloseCode().getMeaning());
+        }
+        log.warn("⚠️ [DISCORD BOT] Queda detectada na conexão com o Gateway do Discord! Horário: {}, Fechado pelo servidor: {}, Detalhes: {}",
+                event.getTimeDisconnected(),
+                event.isClosedByServer(),
+                closeCodeInfo);
+    }
+
+    /**
+     * Monitora o restabelecimento da conexão com o gateway do Discord via retomada de sessão (Resume).
+     */
+    @Override
+    public void onSessionResume(@javax.annotation.Nonnull SessionResumeEvent event) {
+        log.info("🔄 [DISCORD BOT] Conexão com o Gateway do Discord foi restabelecida com sucesso (Sessão Retomada/Resumed)!");
+    }
+
+    /**
+     * Monitora o restabelecimento da conexão com o gateway do Discord via recriação de sessão (Recreate).
+     */
+    @Override
+    public void onSessionRecreate(@javax.annotation.Nonnull SessionRecreateEvent event) {
+        log.info("🔄 [DISCORD BOT] Conexão com o Gateway do Discord foi restabelecida com sucesso (Sessão Recriada/Recreated)!");
+    }
+
+    /**
+     * Monitora o encerramento do bot Discord.
+     */
+    @Override
+    public void onShutdown(@javax.annotation.Nonnull ShutdownEvent event) {
+        String shutdownInfo = "N/A";
+        if (event.getCloseCode() != null) {
+            shutdownInfo = String.format("Código: %d (%s)", event.getCloseCode().getCode(), event.getCloseCode().getMeaning());
+        }
+        log.warn("🛑 [DISCORD BOT] Instância do JDA está sendo destruída/finalizada. Horário: {}, Detalhes: {}",
+                event.getTimeShutdown(),
+                shutdownInfo);
+    }
 
     /**
      * Registra os slash commands diretamente na guild de teste quando o bot fica pronto.

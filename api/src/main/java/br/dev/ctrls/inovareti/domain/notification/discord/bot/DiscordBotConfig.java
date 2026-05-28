@@ -69,9 +69,13 @@ public class DiscordBotConfig {
                             )
                             // Define a atividade do bot
                             .setActivity(Activity.playing("Suporte de TI | /chamado"))
-                            // Configurações de conexão solicitadas
-                            .setAutoReconnect(false)
+                            // Configurações de conexão solicitadas: auto-reconnect habilitado para resiliência
+                            .setAutoReconnect(true)
                             .setEnableShutdownHook(true)
+                            // NOTA: Para evitar Carrier Thread Pinning, NÃO passamos o executor de Virtual Threads
+                            // para pools de infraestrutura do JDA (gatewayPool, rateLimitPool, callbackPool).
+                            // Deixamos o JDA gerenciar seus pools nativos e usamos o executor de Virtual Threads
+                            // apenas na execução assíncrona das nossas regras de negócio/UseCases.
                             // Registra os listeners de eventos
                             .addEventListeners(eventListener, interactionListener)
                             // Constrói sem bloquear infinitamente

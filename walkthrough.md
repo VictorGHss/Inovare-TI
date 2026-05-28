@@ -256,3 +256,24 @@ npm run build
 ### F. Builds e Validações Finais
 - **Backend Build**: `mvn clean compile` executado e bem-sucedido (**BUILD SUCCESS**).
 - **Frontend Build**: `npm run build` executado e empacotado sem qualquer erro ou aviso (**Vite Build Success**).
+
+---
+
+## 9. Ajuste de Infraestrutura do Discord (Isolamento de Concorrência & Observabilidade)
+
+Para sanar as quedas silenciosas do bot de Discord causadas por **Carrier Thread Pinning** na execução das APIs internas do JDA com Virtual Threads, isolamos a concorrência e implementamos listeners nativos de integridade de gateway.
+
+### A. Isolamento de Concorrência no `DiscordBotConfig.java`
+- Configurado o builder do JDA explicitamente com `.setAutoReconnect(true)` para garantir resiliência automática contra oscilações de rede.
+- Mantivemos o executor de Virtual Threads (`discordExecutor`) isolado das threads internas de infraestrutura do JDA (WebSocket e Heartbeat do gateway). O JDA agora gerencia autonomamente seus pools nativos padronizados (`gatewayPool`, `rateLimitPool` e `callbackPool`), evitando o gargalo de bloqueio síncrono profundo das Virtual Threads nas chamadas do WebSocket.
+- O `discordExecutor` (Virtual Threads) continua a ser injetado estritamente nos listeners de eventos de negócios e UseCases (`DiscordEventListener` e `DiscordInteractionListener`) de forma assíncrona e desacoplada, preservando a performance sem afetar o ciclo de vida de conexão do JDA.
+
+### B. Listeners de Saúde de Conexão no `DiscordEventListener.java`
+Sobrescrevemos os métodos nativos de monitoramento de sessão do JDA para garantir total observabilidade sobre o ciclo de vida do bot:
+- **`onDisconnect` (DisconnectEvent)**: Loga como `WARN` a queda de conexão com o Gateway do Discord, incluindo data/hora, se o encerramento partiu do servidor e o código/motivo detalhado do fechamento do socket.
+- **`onReconnected` (ReconnectedEvent)**: Loga como `INFO` o restabelecimento bem-sucedido do link de gateway e reativação do bot.
+- **`onShutdown` (ShutdownEvent)**: Loga como `WARN` o momento e o motivo caso a instância do JDA seja encerrada ou destruída.
+
+### C. Validação de Build e Compilação
+- O build da API Spring Boot passa sem erros de sintaxe ou de linkagem (`mvn clean compile`), validando as assinaturas dos novos métodos e dependências.
+

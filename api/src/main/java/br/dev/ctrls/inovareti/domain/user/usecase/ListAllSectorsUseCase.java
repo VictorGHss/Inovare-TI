@@ -23,9 +23,14 @@ public class ListAllSectorsUseCase {
      * @return lista de DTOs com os dados dos setores
      */
     @Transactional(readOnly = true)
-    public List<SectorResponseDTO> execute() {
-        return sectorRepository.findAll()
-                .stream()
+    public List<SectorResponseDTO> execute(Boolean activeOnly) {
+        java.util.List<br.dev.ctrls.inovareti.domain.user.Sector> list;
+        if (activeOnly != null && activeOnly) {
+            list = sectorRepository.findByActiveTrue();
+        } else {
+            list = sectorRepository.findAll();
+        }
+        return list.stream()
                 .map(SectorResponseDTO::from)
                 .toList();
     }

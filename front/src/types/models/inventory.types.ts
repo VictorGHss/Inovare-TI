@@ -27,6 +27,7 @@ export interface Asset {
   userId: string | null;
   assignedToName: string | null;
   assignedToNames?: string[] | null;
+  userIds?: string[] | null;
   name: string;
   patrimonyCode: string;
   categoryId?: string | null;
@@ -50,6 +51,7 @@ export interface GetAssetsParams {
 
 export interface CreateAssetDto {
   userId?: string;
+  userIds?: string[];
   name: string;
   patrimonyCode: string;
   categoryId?: string;

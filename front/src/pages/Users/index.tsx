@@ -62,7 +62,7 @@ export default function Users() {
 
   async function loadSectors() {
     try {
-      const data = await getSectors();
+      const data = await getSectors(true);
       setSectors(data);
     } catch {
       toast.error('Erro ao carregar setores.');

@@ -1,8 +1,8 @@
-// Página de listagem e cadastro de setores
+// Página de listagem, cadastro e gestão de setores
 import { useEffect, useState, useMemo } from 'react';
-import { PlusCircle, Building2, Search, X, ArrowDownWideNarrow } from 'lucide-react';
+import { PlusCircle, Building2, Search, X, ArrowDownWideNarrow, Edit2, Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getSectors, createSector } from '../../services/userService';
+import { getSectors, createSector, updateSector, toggleSectorActive } from '../../services/userService';
 import type { Sector } from '../../types/models';
 import PageHero from '../../components/PageHero';
 
@@ -16,6 +16,11 @@ export default function Sectors() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc'>('name-asc');
 
+  // Controle de Edição e Status
+  const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
+  const [editSectorName, setEditSectorName] = useState('');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
   useEffect(() => {
     loadSectors();
   }, []);
@@ -23,7 +28,8 @@ export default function Sectors() {
   async function loadSectors() {
     setLoading(true);
     try {
-      const data = await getSectors();
+      // Carrega TODOS os setores (ativos e inativos) para o painel de gestão do Admin
+      const data = await getSectors(false);
       setSectors(data);
     } catch {
       toast.error('Erro ao carregar setores.');
@@ -54,6 +60,38 @@ export default function Sectors() {
     }
   }
 
+  async function handleRename(id: string) {
+    if (!editSectorName.trim()) {
+      toast.error('Digite o nome do setor.');
+      return;
+    }
+
+    setUpdatingId(id);
+    try {
+      await updateSector(id, { name: editSectorName.trim() });
+      toast.success('Setor renomeado com sucesso!');
+      setEditingSectorId(null);
+      loadSectors();
+    } catch {
+      toast.error('Erro ao renomear setor. Tente outro nome.');
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleToggleActive(id: string) {
+    setUpdatingId(id);
+    try {
+      await toggleSectorActive(id);
+      toast.success('Estado do setor atualizado com sucesso!');
+      loadSectors();
+    } catch {
+      toast.error('Erro ao alternar ativação do setor.');
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const filteredAndSortedSectors = useMemo(() => {
     let result = [...sectors];
 
@@ -78,7 +116,7 @@ export default function Sectors() {
       <PageHero
         eyebrow="Organização"
         title="Setores"
-        description="Estruture departamentos e mantenha a segmentação organizacional usada em chamados e permissões."
+        description="Estruture departamentos e mantenha a segmentação organizacional usada em chamados, usuários e ativos."
         actions={(
           <button
             onClick={() => setShowForm((prev) => !prev)}
@@ -169,16 +207,103 @@ export default function Sectors() {
           <p className="text-center text-slate-400 py-12 text-sm">Nenhum setor localizado.</p>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filteredAndSortedSectors.map((sector) => (
-              <div key={sector.id} className="flex items-center gap-3 px-6 py-4 transition-colors hover:bg-orange-50/40 rounded-xl">
-                <Building2 size={20} className="text-slate-400" />
-                <span className="text-sm font-medium text-slate-800">{sector.name}</span>
-              </div>
-            ))}
+            {filteredAndSortedSectors.map((sector) => {
+              const isEditing = editingSectorId === sector.id;
+              const isUpdating = updatingId === sector.id;
+              const isActive = sector.active !== false; // default true
+
+              return (
+                <div
+                  key={sector.id}
+                  className={`flex items-center justify-between gap-3 px-6 py-4 transition-colors rounded-xl ${
+                    isActive ? 'hover:bg-slate-50/50' : 'bg-slate-50/40 opacity-70 hover:bg-slate-100/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <Building2
+                      size={20}
+                      className={isActive ? 'text-slate-400' : 'text-slate-300'}
+                    />
+                    
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editSectorName}
+                        onChange={(e) => setEditSectorName(e.target.value)}
+                        placeholder="Nome do setor..."
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                        disabled={isUpdating}
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-semibold ${isActive ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
+                          {sector.name}
+                        </span>
+                        {!isActive && (
+                          <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                            Inativo
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={() => handleRename(sector.id)}
+                          disabled={isUpdating}
+                          className="flex items-center justify-center p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors disabled:opacity-50"
+                          title="Salvar"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={() => setEditingSectorId(null)}
+                          disabled={isUpdating}
+                          className="flex items-center justify-center p-2 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                          title="Cancelar"
+                        >
+                          <X size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditingSectorId(sector.id);
+                            setEditSectorName(sector.name);
+                          }}
+                          disabled={isUpdating}
+                          className="flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                          title="Editar Nome"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleToggleActive(sector.id)}
+                          disabled={isUpdating}
+                          className={`flex items-center justify-center p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                            isActive
+                              ? 'text-orange-500 hover:text-orange-700 hover:bg-orange-50'
+                              : 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                          title={isActive ? 'Inativar Setor' : 'Ativar Setor'}
+                        >
+                          {isActive ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     </main>
   );
 }
-

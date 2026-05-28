@@ -9,18 +9,20 @@ import {
   Wrench,
   RefreshCw,
   Printer,
-  User,
+  User as UserIcon,
   PackageOpen,
   ClipboardList,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAssetById, downloadAssetInvoice, getAssetMaintenances } from '../../services/inventoryService';
-import type { Asset, AssetMaintenance } from '../../types/models';
+import { getAssetById, downloadAssetInvoice, getAssetMaintenances, getAssetCategories } from '../../services/inventoryService';
+import { getUsers } from '../../services/userService';
+import type { Asset, AssetMaintenance, User, AssetCategory } from '../../types/models';
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';
 import PrintLabelModal from '../../components/PrintLabelModal';
 import PageHero from '../../components/PageHero';
+import NewAssetModal from '../Assets/components/NewAssetModal';
 
 export default function AssetDetails() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +34,9 @@ export default function AssetDetails() {
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [categories, setCategories] = useState<AssetCategory[]>([]);
 
   const loadAsset = useCallback(async () => {
     if (!id) return;
@@ -45,6 +50,20 @@ export default function AssetDetails() {
       setLoading(false);
     }
   }, [id, navigate]);
+
+  const loadInitialData = useCallback(async () => {
+    try {
+      const [usersData, categoriesData] = await Promise.all([getUsers(), getAssetCategories()]);
+      setUsers(usersData);
+      setCategories(categoriesData);
+    } catch {
+      toast.error('Erro ao carregar usuários e categorias.');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInitialData();
+  }, [loadInitialData]);
 
   const loadMaintenances = useCallback(async () => {
     if (!id) return;
@@ -163,6 +182,13 @@ export default function AssetDetails() {
               Imprimir Etiqueta
             </button>
             <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark"
+            >
+              <FileText size={15} />
+              Editar Ativo
+            </button>
+            <button
               onClick={() => setIsTransferModalOpen(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-600"
             >
@@ -186,15 +212,28 @@ export default function AssetDetails() {
           {/* Assigned user */}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Usuário Vinculado
+              Colaboradores Vinculados
             </p>
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10">
-                <User size={15} className="text-brand-primary-dark" />
-              </span>
-              <p className="text-sm font-semibold text-slate-800">
-                {asset.assignedToName || 'Em Estoque (TI)'}
-              </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {asset.assignedToNames && asset.assignedToNames.length > 0 ? (
+                asset.assignedToNames.map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center rounded-full bg-brand-secondary/40 text-brand-primary-dark px-2.5 py-1 text-xs font-semibold shadow-sm transition-all"
+                  >
+                    {name}
+                  </span>
+                ))
+              ) : (
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10">
+                    <UserIcon size={15} className="text-brand-primary-dark" />
+                  </span>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {asset.assignedToName || 'Em Estoque (TI)'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -319,6 +358,15 @@ export default function AssetDetails() {
           asset={asset}
         />
       )}
+
+      <NewAssetModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        users={users}
+        categories={categories}
+        assetToEdit={asset}
+        onCreated={loadAsset}
+      />
     </main>
   );
 }

@@ -9,10 +9,11 @@ import br.dev.ctrls.inovareti.domain.user.Sector;
  */
 public record SectorResponseDTO(
         UUID id,
-        String name
+        String name,
+        boolean active
 ) {
     /** Converte uma entidade {@link Sector} para este DTO. */
     public static SectorResponseDTO from(Sector sector) {
-        return new SectorResponseDTO(sector.getId(), sector.getName());
+        return new SectorResponseDTO(sector.getId(), sector.getName(), sector.isActive());
     }
 }

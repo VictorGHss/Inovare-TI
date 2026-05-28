@@ -87,6 +87,8 @@ public enum AuditAction {
 
     // ── Gestão de usuários e setores ───────────────────────────────────────────
     SECTOR_CREATE,
+    SECTOR_UPDATE,
+    SECTOR_TOGGLE,
     USER_CREATE,
     /** @deprecated usar USER_EDIT */
     @Deprecated

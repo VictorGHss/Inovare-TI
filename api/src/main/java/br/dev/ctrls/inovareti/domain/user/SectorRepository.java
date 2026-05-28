@@ -15,4 +15,6 @@ public interface SectorRepository extends JpaRepository<Sector, UUID> {
     Optional<Sector> findByName(String name);
 
     boolean existsByName(String name);
+
+    java.util.List<Sector> findByActiveTrue();
 }

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public record AssetRequestDTO(
 
-        UUID userId,
+        java.util.List<UUID> userIds,
 
         @NotBlank(message = "Asset name is required.")
         @Size(max = 150, message = "Asset name must have at most 150 characters.")

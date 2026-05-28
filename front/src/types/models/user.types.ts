@@ -14,6 +14,7 @@ export interface User {
 export interface Sector {
   id: string;
   name: string;
+  active: boolean;
 }
 
 export interface CreateUserDto {

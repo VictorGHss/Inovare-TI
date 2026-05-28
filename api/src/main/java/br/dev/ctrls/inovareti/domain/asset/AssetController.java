@@ -102,16 +102,18 @@ public class AssetController {
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + id));
 
-        // Atualiza a coleção de usuários: se userId foi fornecido, substitui pelo novo usuário;
+        // Atualiza a coleção de usuários: se userIds foi fornecido, substitui pelos novos usuários;
         // caso contrário, mantém a coleção inalterada.
-        if (request.userId() != null) {
-            User novoUsuario = userRepository.findById(request.userId())
-                    .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + request.userId()));
+        if (request.userIds() != null) {
             if (asset.getUsers() == null) {
                 asset.setUsers(new java.util.HashSet<>());
             }
             asset.getUsers().clear();
-            asset.getUsers().add(novoUsuario);
+            for (UUID uid : request.userIds()) {
+                User novoUsuario = userRepository.findById(uid)
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
+                asset.getUsers().add(novoUsuario);
+            }
         }
 
         asset.setName(request.name().trim());

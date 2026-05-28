@@ -35,4 +35,8 @@ public class Sector {
     @NotBlank
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
+
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private boolean active = true;
 }

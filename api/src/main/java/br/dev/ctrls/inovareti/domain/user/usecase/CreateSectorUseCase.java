@@ -41,6 +41,7 @@ public class CreateSectorUseCase {
 
         Sector sector = Sector.builder()
                 .name(request.name())
+                .active(true)
                 .build();
 
         Sector savedSector = sectorRepository.save(sector);

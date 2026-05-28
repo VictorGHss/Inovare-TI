@@ -26,14 +26,28 @@ export async function resetUserPassword(id: string): Promise<void> {
 }
 
 // Busca todos os setores cadastrados (requer ADMIN)
-export async function getSectors(): Promise<Sector[]> {
-  const { data } = await api.get<Sector[]>('/sectors');
+export async function getSectors(activeOnly?: boolean): Promise<Sector[]> {
+  const { data } = await api.get<Sector[]>('/sectors', {
+    params: activeOnly !== undefined ? { activeOnly } : undefined
+  });
   return data;
 }
 
 // Cria um novo setor (requer ADMIN)
 export async function createSector(dto: CreateSectorDto): Promise<Sector> {
   const { data } = await api.post<Sector>('/sectors', dto);
+  return data;
+}
+
+// Atualiza o nome de um setor (requer ADMIN)
+export async function updateSector(id: string, dto: CreateSectorDto): Promise<Sector> {
+  const { data } = await api.put<Sector>(`/sectors/${id}`, dto);
+  return data;
+}
+
+// Alterna o estado de ativação de um setor (requer ADMIN)
+export async function toggleSectorActive(id: string): Promise<Sector> {
+  const { data } = await api.patch<Sector>(`/sectors/${id}/toggle-active`);
   return data;
 }
 

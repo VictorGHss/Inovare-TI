@@ -15,6 +15,8 @@ import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
 import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
 import br.dev.ctrls.inovareti.domain.user.usecase.CreateSectorUseCase;
 import br.dev.ctrls.inovareti.domain.user.usecase.ListAllSectorsUseCase;
+import br.dev.ctrls.inovareti.domain.user.usecase.UpdateSectorUseCase;
+import br.dev.ctrls.inovareti.domain.user.usecase.ToggleSectorActiveUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +31,8 @@ public class SectorController {
 
     private final CreateSectorUseCase createSectorUseCase;
     private final ListAllSectorsUseCase listAllSectorsUseCase;
+    private final UpdateSectorUseCase updateSectorUseCase;
+    private final ToggleSectorActiveUseCase toggleSectorActiveUseCase;
 
     /**
      * Cria um novo setor.
@@ -43,13 +47,39 @@ public class SectorController {
     }
 
     /**
-     * Lista todos os setores cadastrados.
+     * Lista os setores cadastrados, opcionalmente filtrando apenas os ativos.
      * Retorna 200 OK com a lista.
      * Requer autenticação.
      */
     @PreAuthorize("isAuthenticated()")
     @GetMapping
-    public ResponseEntity<List<SectorResponseDTO>> listAll() {
-        return ResponseEntity.ok(listAllSectorsUseCase.execute());
+    public ResponseEntity<List<SectorResponseDTO>> listAll(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Boolean activeOnly) {
+        return ResponseEntity.ok(listAllSectorsUseCase.execute(activeOnly));
+    }
+
+    /**
+     * Atualiza o nome de um setor existente.
+     * Requer permissão ADMIN.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PutMapping("/{id}")
+    public ResponseEntity<SectorResponseDTO> update(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id,
+            @Valid @RequestBody SectorRequestDTO request) {
+        SectorResponseDTO response = updateSectorUseCase.execute(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Alterna o estado de ativação (ativo/inativo) de um setor.
+     * Requer permissão ADMIN.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}/toggle-active")
+    public ResponseEntity<SectorResponseDTO> toggleActive(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        SectorResponseDTO response = toggleSectorActiveUseCase.execute(id);
+        return ResponseEntity.ok(response);
     }
 }

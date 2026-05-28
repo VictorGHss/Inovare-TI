@@ -29,12 +29,14 @@ public class AssetService {
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
-        // Valida e busca o usuário inicial, se informado no payload
-        User usuarioInicial = null;
-        if (request.userId() != null) {
-            usuarioInicial = userRepository.findById(request.userId())
-                    .orElseThrow(() -> new NotFoundException(
-                            "Usuário não encontrado com id: " + request.userId()));
+        // Valida e busca os usuários associados, se informados no payload
+        Set<User> usuarios = new HashSet<>();
+        if (request.userIds() != null && !request.userIds().isEmpty()) {
+            for (java.util.UUID uid : request.userIds()) {
+                User u = userRepository.findById(uid)
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
+                usuarios.add(u);
+            }
         }
 
         AssetCategory category = resolveCategory(request.categoryId());
@@ -51,14 +53,11 @@ public class AssetService {
                 throw new BadRequestException("Código de patrimônio já existe: " + patrimonyCode);
             }
 
-            // Popula a coleção de usuários com o usuário inicial, se fornecido
-            Set<User> usuarios = new HashSet<>();
-            if (usuarioInicial != null) {
-                usuarios.add(usuarioInicial);
-            }
+            // Popula a coleção de usuários com os usuários associados
+            Set<User> usuariosParaAtivo = new HashSet<>(usuarios);
 
             Asset asset = Asset.builder()
-                    .users(usuarios)
+                    .users(usuariosParaAtivo)
                     .name(request.name().trim())
                     .patrimonyCode(patrimonyCode)
                     .category(category)

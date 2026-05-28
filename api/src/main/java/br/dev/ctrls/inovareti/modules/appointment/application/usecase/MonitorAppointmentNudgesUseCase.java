@@ -59,6 +59,13 @@ public class MonitorAppointmentNudgesUseCase {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                 if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.PENDING) {
+                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
+                        log.info("[ATTENDANCE-GUARD] Abortando/pausando NUDGE_1 automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
+                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
+                        lockedSession.setLastInteractionAt(LocalDateTime.now());
+                        appointmentSessionRepository.save(lockedSession);
+                        return;
+                    }
                     boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_1);
                     if (!sent) {
                         log.warn("NUDGE_1 não enviado. Mantendo sessão pendente. sessionId={}", lockedSession.getId());
@@ -74,6 +81,13 @@ public class MonitorAppointmentNudgesUseCase {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                 if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_1_SENT) {
+                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
+                        log.info("[ATTENDANCE-GUARD] Abortando/pausando NUDGE_FINAL automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
+                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
+                        lockedSession.setLastInteractionAt(LocalDateTime.now());
+                        appointmentSessionRepository.save(lockedSession);
+                        return;
+                    }
                     boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_FINAL);
                     if (!sent) {
                         log.warn("NUDGE_FINAL não enviado. Mantendo sessão no estado atual. sessionId={}", lockedSession.getId());
@@ -89,6 +103,13 @@ public class MonitorAppointmentNudgesUseCase {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                 if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
+                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
+                        log.info("[ATTENDANCE-GUARD] Abortando/pausando CANCELAMENTO automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
+                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
+                        lockedSession.setLastInteractionAt(LocalDateTime.now());
+                        appointmentSessionRepository.save(lockedSession);
+                        return;
+                    }
                     try {
                         appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
                     } catch (Exception e) {

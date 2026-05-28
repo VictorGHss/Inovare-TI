@@ -46,12 +46,25 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
                 List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-                List<AppointmentSession> listaSessoes = new ArrayList<>();
+                
+                String userPhone = session.getPhoneNumber();
+                java.util.Map<UUID, AppointmentSession> sessoesUnicas = new java.util.LinkedHashMap<>();
                 for (NotificationGroup group : groups) {
-                    appointmentSessionRepository.findById(group.getSessionId()).ifPresent(listaSessoes::add);
+                    appointmentSessionRepository.findById(group.getSessionId()).ifPresent(s -> sessoesUnicas.put(s.getId(), s));
+                }
+                if (userPhone != null && !userPhone.isBlank()) {
+                    List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(userPhone);
+                    for (AppointmentSession s : activeContactSessions) {
+                        sessoesUnicas.put(s.getId(), s);
+                    }
+                }
+                if (session != null && session.getId() != null) {
+                    sessoesUnicas.put(session.getId(), session);
                 }
                 
-                log.info("[CONFIRM-BATCH] Processando confirmação em lote para o grupo: {}. Total de agendamentos: {}", groupId, listaSessoes.size());
+                List<AppointmentSession> listaSessoes = new ArrayList<>(sessoesUnicas.values());
+                
+                log.info("[CONFIRM-BATCH] Processando confirmação em lote para o grupo: {} / telefone: {}. Total de agendamentos: {}", groupId, userPhone, listaSessoes.size());
                 
                 // --- ATUALIZAÇÃO IMEDIATA DO STATUS LOCAL (FIM DO LEMBRETE FANTASMA) ---
                 for (AppointmentSession groupSession : listaSessoes) {
@@ -94,7 +107,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     targetQueue = "Recepção Central / Suporte";
                 }
 
-                String userPhone = session.getPhoneNumber();
+                userPhone = session.getPhoneNumber();
                 
                 // Configurar variável de contexto da fila no Blip
                 blipContextService.setQueueRedirect(userPhone, targetQueue);
@@ -129,14 +142,29 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
                 List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                
+                String userPhone = session.getPhoneNumber();
+                java.util.Map<UUID, AppointmentSession> sessoesUnicas = new java.util.LinkedHashMap<>();
                 for (NotificationGroup group : groups) {
-                    AppointmentSession groupSession = appointmentSessionRepository.findById(group.getSessionId()).orElse(null);
-                    if (groupSession != null) {
-                        confirmationStateMachineService.markConfirmed(groupSession);
+                    appointmentSessionRepository.findById(group.getSessionId()).ifPresent(s -> sessoesUnicas.put(s.getId(), s));
+                }
+                if (userPhone != null && !userPhone.isBlank()) {
+                    List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(userPhone);
+                    for (AppointmentSession s : activeContactSessions) {
+                        sessoesUnicas.put(s.getId(), s);
+                    }
+                }
+                if (session != null && session.getId() != null) {
+                    sessoesUnicas.put(session.getId(), session);
+                }
+
+                for (AppointmentSession groupSession : sessoesUnicas.values()) {
+                    confirmationStateMachineService.markConfirmed(groupSession);
+                    if (!groupSession.getId().equals(session.getId())) {
                         appointmentSessionRepository.save(groupSession);
                     }
                 }
-                log.info("[CONFIRM-BATCH] Sessões do grupo {} atualizadas para CONFIRMED no banco local.", groupId);
+                log.info("[CONFIRM-BATCH] Sessões do grupo {} / telefone {} atualizadas para CONFIRMED no banco local. Total: {}", groupId, userPhone, sessoesUnicas.size());
             } catch (Exception e) {
                 log.error("[CONFIRM-BATCH] Erro ao atualizar estados do grupo de sessões no banco local. grupo={}", groupIdStr, e);
             }

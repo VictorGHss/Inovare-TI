@@ -50,6 +50,9 @@ public class DiscordEventListener extends ListenerAdapter {
         log.info("✅ Bot do Discord pronto! Registrando slash commands na guilda...");
 
         try {
+            // Limpa todos os comandos globais para evitar duplicidade de autocomplete no Discord
+            event.getJDA().updateCommands().queue();
+
             net.dv8tion.jda.api.entities.Guild guild = null;
             if (discordTestGuildId != null && !discordTestGuildId.isBlank()) {
                 try {

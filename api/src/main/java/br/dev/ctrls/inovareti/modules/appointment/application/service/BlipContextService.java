@@ -206,6 +206,42 @@ public class BlipContextService {
         }
     }
 
+    /**
+     * Verifica se o contato possui um ticket de atendimento humano ativo ou aberto no Desk (live chat) do Blip.
+     * Útil como barreira de segurança para pausar/abortar nudges automáticos durante atendimento humano.
+     */
+    public boolean hasActiveTicket(String userIdentity) {
+        if (userIdentity == null || userIdentity.isBlank()) return false;
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", "postmaster@desk.msging.net",
+            "method", "get",
+            "uri", "/tickets?$filter=customerIdentity eq '" + normalizedIdentity + "' and (status eq 'Open' or status eq 'Waiting')"
+        );
+
+        try {
+            Map<String, Object> response = limeClient.executeCommand(command, br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient.AuthorizationScope.ROUTER);
+            if (response == null) return false;
+            Object resourceNode = response.get("resource");
+            if (resourceNode instanceof Map<?, ?> resourceMap) {
+                Object itemsNode = resourceMap.get("items");
+                if (itemsNode instanceof java.util.Collection<?> itemsList) {
+                    boolean hasActive = !itemsList.isEmpty();
+                    if (hasActive) {
+                        log.info("[ATTENDANCE-GUARD] Contato {} possui {} tickets de live chat ativos no Desk.", normalizedIdentity, itemsList.size());
+                    }
+                    return hasActive;
+                }
+            }
+            return false;
+        } catch (Exception ex) {
+            log.warn("[ATTENDANCE-GUARD] Falha ao verificar ticket ativo no Desk para {}: {}", normalizedIdentity, ex.getMessage());
+            return false; // Fail-open para não travar os nudges normais em caso de falha de rede/autorização
+        }
+    }
+
     public boolean setQueueRedirect(String userIdentity, String queueName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 

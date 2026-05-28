@@ -277,3 +277,21 @@ Sobrescrevemos os métodos nativos de monitoramento de sessão do JDA para garan
 ### C. Validação de Build e Compilação
 - O build da API Spring Boot passa sem erros de sintaxe ou de linkagem (`mvn clean compile`), validando as assinaturas dos novos métodos e dependências.
 
+---
+
+## 10. Estabilização do Ciclo de Vida React - Prevenção de Loops e Erro HTTP 429
+
+Para solucionar o problema de indisponibilidade decorrente de re-renderizações infinitas e consequentes erros de Rate Limit (HTTP 429) introduzidos pela Fase 3, otimizamos o gerenciamento de estado e dependências no frontend do chamado.
+
+### A. Auditoria e Correção de Dependências de Arrays (TicketSidebar.tsx)
+- **Memoização de Arrays Derivados:** Isolamos a geração das listas `availableUsers` e `filteredAvailableUsers` usando o hook `useMemo`. Anteriormente, a recriação dessas referências de array a cada ciclo de renderização acionava loops recorrentes em efeitos secundários como o validador de colaboradores vinculados.
+- **Serialização de Chaves de Comparação:** Substituímos a dependência direta de objetos e coleções complexas no array do `useEffect` de filtragem por comparadores de strings primitivas imutáveis (`ticket.relatedTicketIds?.join(',')`). Isso impede disparos indevidos por mudanças de referência na memória.
+
+### B. Cláusulas de Barreira e Guarda de Curto-Circuito
+- Adicionamos uma barreira explícita no início da rotina de busca de chamados similares (`getSimilarTickets`): o efeito é abortado imediatamente caso o `ticket.id` não seja válido ou o status não seja `IN_PROGRESS`.
+- **Memoização de Handlers:** Envelopamos os callbacks de eventos passados entre componentes (como `handleApplyMacro` e `handleSaveSolution` em `index.tsx`) com o hook `useCallback`, garantindo que referências idênticas sejam preservadas entre ciclos de desenho do React.
+
+### C. Validação do Build do Frontend
+- Executamos `npm run build` na pasta `front` e o empacotamento completo por meio do compilador TypeScript (`tsc`) e do `vite build` foi finalizado com absoluto **SUCESSO**.
+
+

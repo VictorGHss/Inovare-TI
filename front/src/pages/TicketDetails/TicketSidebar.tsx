@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -89,7 +89,11 @@ export default function TicketSidebar({
   const macroTag = ticket.tags?.find((t) => t.defaultResolution && t.defaultResolution.trim());
 
   useEffect(() => {
-    if (ticket.status !== 'IN_PROGRESS') return;
+    // Cláusula de barreira: só busca se o ticket tiver um id válido e status for IN_PROGRESS
+    if (!ticket?.id || ticket.status !== 'IN_PROGRESS') {
+      setSimilarTickets([]);
+      return;
+    }
 
     async function loadSimilar() {
       setLoadingSimilar(true);
@@ -103,27 +107,38 @@ export default function TicketSidebar({
       }
     }
     void loadSimilar();
-  }, [ticket.id, ticket.status]);
+  }, [ticket?.id, ticket?.status]);
 
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
   const additionalUserIds = ticket.additionalUserIds ?? [];
-  const availableUsers = users
-    .filter((user) => user.id !== ticket.requesterId)
-    .filter((user) => !additionalUserIds.includes(user.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Memoiza a lista de usuários disponíveis para evitar recriação de referências e loops de renderização
+  const availableUsers = useMemo(() => {
+    return users
+      .filter((user) => user.id !== ticket.requesterId)
+      .filter((user) => !additionalUserIds.includes(user.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [users, ticket.requesterId, additionalUserIds.join(',')]);
+
   const normalizedAdditionalQuery = additionalUserQuery.trim().toLowerCase();
+  
   const sectorOptions = Array.from(
     new Set(users.map((user) => user.sectorName || 'Sem setor')),
   ).sort((a, b) => a.localeCompare(b));
-  const filteredAvailableUsers = availableUsers.filter((user) => {
-    const userSector = user.sectorName || 'Sem setor';
-    if (sectorFilter !== 'ALL' && userSector !== sectorFilter) return false;
 
-    if (!normalizedAdditionalQuery) return true;
-    const matchesName = user.name.toLowerCase().includes(normalizedAdditionalQuery);
-    const matchesEmail = user.email.toLowerCase().includes(normalizedAdditionalQuery);
-    return matchesName || matchesEmail;
-  });
+  // Memoiza a lista filtrada de usuários disponíveis para evitar loops no useEffect de validação
+  const filteredAvailableUsers = useMemo(() => {
+    return availableUsers.filter((user) => {
+      const userSector = user.sectorName || 'Sem setor';
+      if (sectorFilter !== 'ALL' && userSector !== sectorFilter) return false;
+
+      if (!normalizedAdditionalQuery) return true;
+      const matchesName = user.name.toLowerCase().includes(normalizedAdditionalQuery);
+      const matchesEmail = user.email.toLowerCase().includes(normalizedAdditionalQuery);
+      return matchesName || matchesEmail;
+    });
+  }, [availableUsers, sectorFilter, normalizedAdditionalQuery]);
+
   const groupedAvailableUsers = filteredAvailableUsers.reduce((acc, user) => {
     const sectorName = user.sectorName || 'Sem setor';
     if (!acc[sectorName]) acc[sectorName] = [];
@@ -147,7 +162,7 @@ export default function TicketSidebar({
     void loadAllTickets();
   }, []);
 
-  // Filtra as sugestões conforme digita
+  // Filtra as sugestões conforme digita (depende do join(',') primitivo dos arrays para evitar loops por referência)
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
@@ -168,7 +183,7 @@ export default function TicketSidebar({
     });
 
     setSuggestions(filtered.slice(0, 5)); // limita a 5 sugestões
-  }, [searchQuery, allTickets, ticket.id, ticket.relatedTicketIds]);
+  }, [searchQuery, allTickets, ticket.id, ticket.relatedTicketIds?.join(',')]);
 
   useEffect(() => {
     if (!selectedAdditionalUserId) return;

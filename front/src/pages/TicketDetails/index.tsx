@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
@@ -20,11 +20,6 @@ export default function TicketDetails() {
   const [solutionInput, setSolutionInput] = useState('');
   const [isSavingSolution, setIsSavingSolution] = useState(false);
   const [resolveInitialNotes, setResolveInitialNotes] = useState('');
-
-  const handleApplyMacro = (macroText: string) => {
-    setResolveInitialNotes(macroText);
-    openResolveModal();
-  };
 
   const {
     ticket,
@@ -64,7 +59,12 @@ export default function TicketDetails() {
 
   const canEditSolution = user && (user.role === 'ADMIN' || user.role === 'TECHNICIAN');
 
-  const handleSaveSolution = async () => {
+  const handleApplyMacro = useCallback((macroText: string) => {
+    setResolveInitialNotes(macroText);
+    openResolveModal();
+  }, [openResolveModal]);
+
+  const handleSaveSolution = useCallback(async () => {
     if (!ticket) return;
     setIsSavingSolution(true);
     try {
@@ -77,7 +77,7 @@ export default function TicketDetails() {
     } finally {
       setIsSavingSolution(false);
     }
-  };
+  }, [ticket, solutionInput, loadTicket]);
 
   useEffect(() => {
     if (ticketNotFound) {

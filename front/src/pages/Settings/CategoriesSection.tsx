@@ -118,7 +118,7 @@ export default function CategoriesSection() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl border border-[#feb56c]/35 overflow-hidden shadow-sm">
       <header className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           Gerenciamento de Categorias
@@ -135,10 +135,10 @@ export default function CategoriesSection() {
             setActiveTab('items');
             setNewName('');
           }}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all ${
             activeTab === 'items'
-              ? 'bg-brand-primary/10 text-brand-primary'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-[#feb56c]/10 text-[#feb56c]'
+              : 'text-slate-500 hover:text-[#feb56c]/90 hover:bg-[#feb56c]/5'
           }`}
         >
           <Tag size={16} />
@@ -149,10 +149,10 @@ export default function CategoriesSection() {
             setActiveTab('assets');
             setNewName('');
           }}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all ${
             activeTab === 'assets'
-              ? 'bg-brand-primary/10 text-brand-primary'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-[#feb56c]/10 text-[#feb56c]'
+              : 'text-slate-500 hover:text-[#feb56c]/90 hover:bg-[#feb56c]/5'
           }`}
         >
           <Archive size={16} />
@@ -163,10 +163,10 @@ export default function CategoriesSection() {
             setActiveTab('tickets');
             setNewName('');
           }}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all ${
             activeTab === 'tickets'
-              ? 'bg-brand-primary/10 text-brand-primary'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-[#feb56c]/10 text-[#feb56c]'
+              : 'text-slate-500 hover:text-[#feb56c]/90 hover:bg-[#feb56c]/5'
           }`}
         >
           <MessageSquare size={16} />
@@ -190,7 +190,7 @@ export default function CategoriesSection() {
                 }
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary/25"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
                 required
               />
             </div>
@@ -202,7 +202,7 @@ export default function CategoriesSection() {
                   id="isConsumable"
                   checked={isConsumable}
                   onChange={(e) => setIsConsumable(e.target.checked)}
-                  className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                  className="h-4 w-4 cursor-pointer rounded border-slate-350 text-[#feb56c] focus:ring-[#feb56c]"
                 />
                 <label htmlFor="isConsumable" className="text-xs font-medium text-slate-600 cursor-pointer">
                   Esta categoria contém itens consumíveis
@@ -220,7 +220,7 @@ export default function CategoriesSection() {
                   min={1}
                   value={newSlaHours}
                   onChange={(e) => setNewSlaHours(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:outline-none focus:ring-2 focus:ring-brand-primary/25"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
                   required
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
@@ -232,7 +232,7 @@ export default function CategoriesSection() {
             <button
               type="submit"
               disabled={submitting || !newName.trim()}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-dark disabled:opacity-60"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-[#f6a455] disabled:opacity-60"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               {submitting ? 'Salvando...' : 'Adicionar Categoria'}
@@ -245,7 +245,7 @@ export default function CategoriesSection() {
           <h3 className="text-sm font-bold text-slate-800 mb-4">Categorias Cadastradas</h3>
           {loading ? (
             <div className="flex items-center gap-2 justify-center py-10 text-slate-400">
-              <Loader2 size={18} className="animate-spin text-brand-primary" />
+              <Loader2 size={18} className="animate-spin text-[#feb56c]" />
               Carregando categorias...
             </div>
           ) : activeTab === 'items' ? (

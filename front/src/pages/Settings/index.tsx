@@ -20,7 +20,7 @@ type TabType = 'system' | 'profile';
 type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups';
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all';
+  'w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all';
 
 const friendlyLabels: Record<string, string> = {
   SLA_URGENT_HOURS: 'SLA — Chamados Urgentes (Horas)',
@@ -200,56 +200,56 @@ export default function Settings() {
       title: 'Integrações',
       desc: 'Conecte Discord, Conta Azul, Feegow e Blip.',
       icon: Share2,
-      color: 'bg-indigo-50/70 text-indigo-700 border-indigo-100/50 hover:bg-indigo-50 hover:border-indigo-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'system-params',
       title: 'Parâmetros Globais',
       desc: 'Ajuste limites de anexos e chaves do sistema.',
       icon: Settings2,
-      color: 'bg-blue-50/70 text-blue-700 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'sla',
       title: 'Prazos de SLA',
       desc: 'Defina limites de atendimento por prioridade.',
       icon: Clock3,
-      color: 'bg-amber-50/70 text-amber-700 border-amber-100/50 hover:bg-amber-50 hover:border-amber-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'reports',
       title: 'Agendamento de Relatórios',
       desc: 'Programe envios automáticos de relatórios.',
       icon: FileText,
-      color: 'bg-emerald-50/70 text-emerald-700 border-emerald-100/50 hover:bg-emerald-50 hover:border-emerald-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'feegow',
       title: 'Mapeamento Feegow / Blip',
       desc: 'Vincule profissionais às filas de atendimento do Blip.',
       icon: MessageCircle,
-      color: 'bg-cyan-50/70 text-cyan-700 border-cyan-100/50 hover:bg-cyan-50 hover:border-cyan-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'categories',
       title: 'Categorias do Sistema',
       desc: 'Cadastre categorias de itens e ativos do inventário.',
       icon: Tag,
-      color: 'bg-purple-50/70 text-purple-700 border-purple-100/50 hover:bg-purple-50 hover:border-purple-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'tags',
       title: 'Tags e Macros do Sistema',
       desc: 'Gerencie tags corporativas e configure macros de resoluções.',
       icon: Tag,
-      color: 'bg-orange-50/70 text-orange-700 border-orange-100/50 hover:bg-orange-50 hover:border-orange-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
     {
       id: 'backups',
       title: 'Backups do Sistema',
       desc: 'Gere snapshots, baixe ZIPs ou delete backups.',
       icon: Database,
-      color: 'bg-rose-50/70 text-rose-700 border-rose-100/50 hover:bg-rose-50 hover:border-rose-200',
+      color: 'bg-[#feb56c]/10 text-[#feb56c]',
     },
   ] as const;
 
@@ -302,7 +302,7 @@ export default function Settings() {
       />
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 mb-6 bg-slate-100 rounded-2xl p-1 w-fit border border-slate-200/40">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -310,10 +310,10 @@ export default function Settings() {
               setActiveTab(id);
               if (id === 'profile') setActiveSubSection('menu');
             }}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${
               activeTab === id
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'bg-white text-[#feb56c] shadow-sm border border-slate-250/20'
+                : 'text-slate-500 hover:text-[#feb56c]/90'
             }`}
           >
             <Icon size={15} />
@@ -342,23 +342,23 @@ export default function Settings() {
                   transition={{ duration: 0.2 }}
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
-                  {subSections.map(({ id, title, desc, icon: Icon, color }) => (
+                  {subSections.map(({ id, title, desc, icon: Icon }) => (
                     <motion.button
                       key={id}
                       onClick={() => setActiveSubSection(id)}
                       whileHover={{ scale: 1.02, translateY: -4 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`flex flex-col text-left p-6 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden`}
+                      className="flex flex-col text-left p-6 rounded-2xl border border-[#feb56c]/30 bg-white shadow-sm hover:shadow-md hover:border-[#feb56c] transition-all cursor-pointer group relative overflow-hidden"
                     >
                       <div className="flex items-center gap-4 mb-3">
-                        <div className={`w-12 h-12 rounded-xl ${color.split(' ')[0]} ${color.split(' ')[1]} flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110`}>
+                        <div className="w-12 h-12 rounded-xl bg-[#feb56c]/10 text-[#feb56c] flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110 group-hover:bg-[#feb56c]/20">
                           <Icon size={22} />
                         </div>
-                        <h3 className="text-sm font-bold text-slate-800 group-hover:text-brand-primary transition-colors">{title}</h3>
+                        <h3 className="text-sm font-bold text-slate-800 group-hover:text-[#feb56c] transition-colors">{title}</h3>
                       </div>
                       <p className="text-xs text-slate-500 leading-relaxed pr-4">{desc}</p>
                       
-                      <div className="absolute bottom-4 right-4 text-slate-350 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                      <div className="absolute bottom-4 right-4 text-[#feb56c] opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
                         <ArrowLeft size={16} className="rotate-180" />
                       </div>
                     </motion.button>
@@ -382,11 +382,11 @@ export default function Settings() {
                   
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {/* Card: Discord */}
-                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                    <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 flex flex-col justify-between transition-all hover:shadow-md hover:border-[#feb56c]/60 shadow-sm animate-fade-in">
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-[#feb56c]/10 flex items-center justify-center text-[#feb56c] shrink-0 shadow-sm">
                               <MessageSquare size={20} />
                             </div>
                             <div>
@@ -410,21 +410,21 @@ export default function Settings() {
                             <WebhookBadge status={discordWebhookStatus ?? 'UNKNOWN'} />
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] text-slate-400">Somente leitura. Valores configurados via ENV.</p>
+                        <p className="mt-3 text-[11px] text-slate-400 font-medium">Somente leitura. Valores configurados via ENV.</p>
                       </div>
                     </div>
 
                     {/* Card: Conta Azul */}
-                    <div className="rounded-2xl border border-blue-100 bg-blue-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                    <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 flex flex-col justify-between transition-all hover:shadow-md hover:border-[#feb56c]/60 shadow-sm animate-fade-in">
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-[#feb56c]/10 flex items-center justify-center text-[#feb56c] shrink-0 shadow-sm">
                               <DollarSign size={20} />
                             </div>
                             <div>
                               <h3 className="text-sm font-bold text-slate-800">Conta Azul</h3>
-                              <p className="text-xs text-slate-400">ERP e conciliacao financeira</p>
+                              <p className="text-xs text-slate-400">ERP e conciliação financeira</p>
                             </div>
                           </div>
                           <PresenceBadge present={adminConfig?.contaAzulClientIdPresent && adminConfig?.contaAzulClientSecretPresent} />
@@ -443,21 +443,21 @@ export default function Settings() {
                             <span className="text-xs text-slate-400">Gerenciado no servidor</span>
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] text-slate-400">Somente leitura. Valores configurados via ENV.</p>
+                        <p className="mt-3 text-[11px] text-slate-400 font-medium">Somente leitura. Valores configurados via ENV.</p>
                       </div>
                     </div>
 
                     {/* Card: Feegow */}
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                    <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 flex flex-col justify-between transition-all hover:shadow-md hover:border-[#feb56c]/60 shadow-sm animate-fade-in">
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-[#feb56c]/10 flex items-center justify-center text-[#feb56c] shrink-0 shadow-sm">
                               <Activity size={20} />
                             </div>
                             <div>
                               <h3 className="text-sm font-bold text-slate-800">Feegow</h3>
-                              <p className="text-xs text-slate-400">Consultas e prontuarios medicos</p>
+                              <p className="text-xs text-slate-400">Consultas e prontuários médicos</p>
                             </div>
                           </div>
                           <PresenceBadge present={adminConfig?.feegowApiKeyPresent && adminConfig?.feegowUnitIdPresent} />
@@ -476,16 +476,16 @@ export default function Settings() {
                             <span className="text-xs text-slate-400">Gerenciado no servidor</span>
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] text-slate-400">Somente leitura. Valores configurados via ENV.</p>
+                        <p className="mt-3 text-[11px] text-slate-400 font-medium">Somente leitura. Valores configurados via ENV.</p>
                       </div>
                     </div>
 
                     {/* Card: Blip */}
-                    <div className="rounded-2xl border border-cyan-100 bg-cyan-50/10 p-5 flex flex-col justify-between transition-all hover:shadow-sm">
+                    <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 flex flex-col justify-between transition-all hover:shadow-md hover:border-[#feb56c]/60 shadow-sm animate-fade-in">
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center text-cyan-600 shrink-0 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-[#feb56c]/10 flex items-center justify-center text-[#feb56c] shrink-0 shadow-sm">
                               <MessageCircle size={20} />
                             </div>
                             <div>
@@ -514,10 +514,10 @@ export default function Settings() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-slate-500">Backup (ENV)</span>
-                            <span className="text-xs text-slate-400">Gerenciado no servidor</span>
+                            <span className="text-xs text-slate-400 font-semibold text-slate-500">Gerenciado no servidor</span>
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] text-slate-400">Somente leitura. Valores configurados via ENV.</p>
+                        <p className="mt-3 text-[11px] text-slate-400 font-medium">Somente leitura. Valores configurados via ENV.</p>
                       </div>
                     </div>
                   </div>
@@ -534,7 +534,7 @@ export default function Settings() {
                 >
                   {renderBackHeader()}
                   
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white rounded-2xl border border-[#feb56c]/35 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100">
                       <div className="flex items-center justify-between">
                         <div>
@@ -572,7 +572,7 @@ export default function Settings() {
                         type="button"
                         disabled={saving || !hasChanges}
                         onClick={handleSave}
-                        className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-[#f6a455] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
                       >
                         <Save size={14} />
                         {saving ? 'Salvando...' : 'Salvar Configurações'}
@@ -592,7 +592,7 @@ export default function Settings() {
                 >
                   {renderBackHeader()}
                   
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <div className="bg-white rounded-2xl border border-[#feb56c]/35 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
                         <Clock3 size={16} className="text-[#feb56c]" />
@@ -629,7 +629,7 @@ export default function Settings() {
                       <button
                         onClick={handleSaveSLA}
                         disabled={saving}
-                        className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-40"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-[#f6a455] disabled:opacity-40 shadow-sm"
                       >
                         <Save size={14} />
                         Salvar SLAs
@@ -713,7 +713,7 @@ export default function Settings() {
       {/* ── TAB: PERFIL ── */}
       {activeTab === 'profile' && (
         <div className="space-y-3 max-w-2xl">
-          <div className="bg-white rounded-2xl border border-slate-200 px-6 py-6 shadow-sm">
+          <div className="bg-white rounded-2xl border border-[#feb56c]/35 px-6 py-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-[#fff6ee] flex items-center justify-center">
                 <UserIcon size={20} className="text-[#feb56c]" />
@@ -739,7 +739,7 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={handleSavePreferences}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-dark"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-[#f6a455] shadow-sm"
               >
                 <Save size={14} />
                 Salvar Preferências

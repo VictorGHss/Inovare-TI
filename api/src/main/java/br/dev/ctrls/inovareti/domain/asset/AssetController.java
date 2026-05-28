@@ -97,31 +97,7 @@ public class AssetController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}")
     public ResponseEntity<AssetResponseDTO> update(@PathVariable UUID id, @Valid @RequestBody AssetRequestDTO request) {
-        AssetCategory category = assetService.resolveCategory(request.categoryId());
-
-        Asset asset = assetRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + id));
-
-        // Atualiza a coleção de usuários: se userIds foi fornecido, substitui pelos novos usuários;
-        // caso contrário, mantém a coleção inalterada.
-        if (request.userIds() != null) {
-            if (asset.getUsers() == null) {
-                asset.setUsers(new java.util.HashSet<>());
-            }
-            asset.getUsers().clear();
-            for (UUID uid : request.userIds()) {
-                User novoUsuario = userRepository.findById(uid)
-                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
-                asset.getUsers().add(novoUsuario);
-            }
-        }
-
-        asset.setName(request.name().trim());
-        asset.setPatrimonyCode(request.patrimonyCode().trim());
-        asset.setCategory(category);
-        asset.setSpecifications(request.specifications());
-
-        Asset savedAsset = assetRepository.save(asset);
+        Asset savedAsset = assetService.updateAsset(id, request);
 
         auditLogService.publish(AuditEvent.of(AuditAction.ASSET_EDIT)
                 .userId(getAuthenticatedUser().getId())

@@ -78,6 +78,35 @@ public class AssetService {
         return createdAssets;
     }
 
+    @Transactional
+    public Asset updateAsset(java.util.UUID id, AssetRequestDTO request) {
+        AssetCategory category = resolveCategory(request.categoryId());
+
+        Asset asset = assetRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + id));
+
+        // Atualiza a coleção de usuários: se userIds foi fornecido, substitui pelos novos usuários;
+        // caso contrário, mantém a coleção inalterada.
+        if (request.userIds() != null) {
+            if (asset.getUsers() == null) {
+                asset.setUsers(new java.util.HashSet<>());
+            }
+            asset.getUsers().clear();
+            for (java.util.UUID uid : request.userIds()) {
+                User novoUsuario = userRepository.findById(uid)
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
+                asset.getUsers().add(novoUsuario);
+            }
+        }
+
+        asset.setName(request.name().trim());
+        asset.setPatrimonyCode(request.patrimonyCode().trim());
+        asset.setCategory(category);
+        asset.setSpecifications(request.specifications());
+
+        return assetRepository.save(asset);
+    }
+
     public AssetCategory resolveCategory(java.util.UUID categoryId) {
         if (categoryId == null) {
             return null;

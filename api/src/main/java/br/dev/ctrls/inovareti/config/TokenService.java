@@ -24,7 +24,7 @@ import br.dev.ctrls.inovareti.domain.user.User;
 public class TokenService {
 
     private static final String ISSUER = "inovare-ti";
-    private static final int EXPIRATION_HOURS = 8;
+    private static final int EXPIRATION_HOURS = 24;
     private static final int RESET_EXPIRATION_MINUTES = 15;
 
     private final String secret;

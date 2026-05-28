@@ -32,7 +32,14 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error),
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('@InovareTI:token');
+      localStorage.removeItem('@InovareTI:user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  },
 );
 
 export default api;

@@ -133,7 +133,7 @@ export default function TagsSection() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+    <div className="bg-white rounded-2xl border border-[#feb56c]/35 overflow-hidden shadow-sm flex flex-col">
       <header className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
           Gerenciamento de Tags & Macros Contextuais
@@ -159,7 +159,7 @@ export default function TagsSection() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: #🚨ParadaCrítica, #RedeLocal"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
                 disabled={submitting}
               />
             </div>
@@ -181,7 +181,7 @@ export default function TagsSection() {
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
                   placeholder="#000000"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
                   disabled={submitting}
                 />
               </div>
@@ -201,7 +201,7 @@ export default function TagsSection() {
                 value={defaultResolution}
                 onChange={(e) => setDefaultResolution(e.target.value)}
                 placeholder="Descreva a solução padrão para chamados com esta tag..."
-                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all"
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
                 rows={5}
                 disabled={submitting}
               />
@@ -214,7 +214,7 @@ export default function TagsSection() {
                   id="active"
                   checked={active}
                   onChange={(e) => setActive(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer rounded border-slate-350 text-brand-primary focus:ring-brand-primary"
+                  className="h-4 w-4 cursor-pointer rounded border-slate-350 text-[#feb56c] focus:ring-[#feb56c]"
                   disabled={submitting}
                 />
                 <label htmlFor="active" className="cursor-pointer text-sm font-semibold text-slate-700">
@@ -228,7 +228,7 @@ export default function TagsSection() {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="px-5 py-2.5 rounded-2xl text-sm font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
                   disabled={submitting}
                 >
                   Cancelar
@@ -237,7 +237,7 @@ export default function TagsSection() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-brand-primary-dark disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 transition-colors hover:bg-[#f6a455] disabled:opacity-50 shadow-sm"
               >
                 {submitting ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -260,7 +260,7 @@ export default function TagsSection() {
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-brand-primary" />
+              <Loader2 size={24} className="animate-spin text-[#feb56c]" />
             </div>
           ) : tags.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">

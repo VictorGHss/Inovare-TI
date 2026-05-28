@@ -91,10 +91,11 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
 
     setSubmitting(true);
     try {
+      // Garanta o envio da lista completa de userIds atualizada no payload do service.
       const payload: CreateAssetDto = {
         name: formData.name.trim(),
         patrimonyCode: formData.patrimonyCode.trim(),
-        userIds: selectedUserIds,
+        userIds: selectedUserIds || [],
         categoryId: formData.categoryId || undefined,
         specifications: formData.specifications?.trim() || undefined,
         quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,

@@ -19,6 +19,12 @@ export default function TicketDetails() {
   const [isEditingSolution, setIsEditingSolution] = useState(false);
   const [solutionInput, setSolutionInput] = useState('');
   const [isSavingSolution, setIsSavingSolution] = useState(false);
+  const [resolveInitialNotes, setResolveInitialNotes] = useState('');
+
+  const handleApplyMacro = (macroText: string) => {
+    setResolveInitialNotes(macroText);
+    openResolveModal();
+  };
 
   const {
     ticket,
@@ -219,16 +225,21 @@ export default function TicketDetails() {
             onChangeCategory={handleChangeCategory}
             onAddAdditionalUser={handleAddAdditionalUser}
             onRefresh={loadTicket}
+            onApplyMacro={handleApplyMacro}
           />
         </div>
       </div>
 
       <ResolveTicketModal
         isOpen={showResolveModal}
-        onClose={closeResolveModal}
+        onClose={() => {
+          closeResolveModal();
+          setResolveInitialNotes('');
+        }}
         onResolve={handleResolve}
         requesterId={ticket.requesterId}
         ticket={ticket}
+        initialNotes={resolveInitialNotes}
       />
     </main>
   );

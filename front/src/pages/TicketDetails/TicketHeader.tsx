@@ -32,10 +32,15 @@ export default function TicketHeader({ ticket }: TicketHeaderProps) {
         <div className="mb-4 flex flex-wrap gap-2">
           {ticket.tags.map((tag) => (
             <span
-              key={tag}
-              className="inline-flex items-center rounded-full bg-brand-secondary/35 text-brand-primary px-2.5 py-0.5 text-xs font-semibold"
+              key={tag.id || tag.name}
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border shadow-sm"
+              style={{
+                backgroundColor: `${tag.color}15`,
+                color: tag.color,
+                borderColor: `${tag.color}35`,
+              }}
             >
-              {tag}
+              {tag.name}
             </span>
           ))}
         </div>

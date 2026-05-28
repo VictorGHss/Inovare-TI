@@ -216,3 +216,43 @@ npm run build
 ### C. Contrato e Validação
 - [finance.types.ts](front/src/types/models/finance.types.ts) foi expandido para refletir as novas séries agregadas.
 - A compilação do backend e o build do frontend foram revalidados após a expansão dos indicadores.
+
+---
+
+## 8. Fase 3 - Inteligência Contextual, Macros e Automações Críticas (V19)
+
+### A. Evolução do Banco de Dados (Flyway Migration V19)
+- Criado o arquivo [V19__ticket_tags_and_critical_assets.sql](file:///C:/Projeto/Inovare-TI/api/src/main/resources/db/migration/V19__ticket_tags_and_critical_assets.sql) que:
+  - Limpou a antiga tabela de tags de texto legado com `DROP TABLE IF EXISTS ticket_tags CASCADE;`.
+  - Criou a tabela mestre `ticket_tags` (`id uuid`, `name` unique, `color`, `active`, `default_resolution` macro text).
+  - Criou a tabela de junção `ticket_tag_relations` ligando chamados e tags em formato Many-to-Many.
+  - Adicionou a flag `is_critical` (default false) na tabela `assets` (CMDB) e o relacionamento `asset_id` em `tickets`.
+
+### B. JPA, CRUD de Tags e Filtros no Dashboard (Backend)
+- Mapeada a entidade [TicketTag.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/ticket/TicketTag.java) e seu repositório [TicketTagRepository.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/ticket/TicketTagRepository.java).
+- Atualizado o relacionamento Many-to-Many em [Ticket.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/ticket/Ticket.java) e a flag em [Asset.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/asset/Asset.java).
+- Criado o [TicketTagController.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/ticket/TicketTagController.java) expondo o CRUD completo `/api/ticket-tags` e o soft-delete via PATCH `/toggle-active`.
+- Adicionado suporte a parâmetros de filtros por múltiplos IDs de tags em `GET /api/tickets` e no `ListAllTicketsUseCase.java`.
+- Atualizado o [TicketResponseDTO.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/ticket/dto/TicketResponseDTO.java) para expor as novas informações ricas de tags, `assetId`, `assetName` e `isAssetCritical`.
+
+### C. Chamados Similares, Auto-Tagging e SLA de Parada Crítica
+- Criado o endpoint `GET /api/tickets/{id}/similar` buscando de forma otimizada chamados já resolvidos que compartilhem tags com o atual, agindo como uma base de conhecimento contextual.
+- No `CreateTicketUseCase.java`, se o ativo associado for crítico (`is_critical = true`), o sistema força automaticamente a prioridade para `URGENT`, encurta o SLA para **exatamente 1 hora**, injeta a tag especial `#🚨ParadaCrítica` e envia uma DM privada em formato rico (Embed vermelho) via Discord (JDA) para o técnico responsável.
+- Refatorado o `TicketTagExtractor.java` para buscar dinamicamente as tags ativas do banco e injetá-las de modo case-insensitive.
+- Atualizados o `DiscordTicketService.java` e `DiscordEventListener.java` para aceitar opcionalmente o parâmetro `patrimonio` ou detectá-lo por expressões regulares (`INV-\d{4}-\d+`) nos comandos `/chamado`.
+
+### D. Scheduled Weekly Digest (Discord Scheduler)
+- Criado o [WeeklyDigestScheduler.java](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/domain/notification/discord/bot/WeeklyDigestScheduler.java) rodando toda sexta-feira às 17h via cron `@Scheduled`.
+- Computa agregados semanais via consultas nativas (`EntityManager`): total resolvido, % de conformidade de SLA, tag mais ativa (gargalo) e setor mais afetado. Envia um Embed executivo premium no canal de TI (com fallback para webhook corporativo).
+
+### E. Módulos Frontend (React / TypeScript)
+- **Painel de Tags**: Criado o componente [TagsSection.tsx](file:///C:/Projeto/Inovare-TI/front/src/pages/Settings/TagsSection.tsx) permitindo criar, editar, alternar ativação lógica (soft-delete) e definir o texto da macro padrão, utilizando o seletor nativo `<input type="color" />`.
+- **Filtro Avançado**: Integrado um dropdown customizado de Multi-Select com chips responsivos na barra superior de filtros de [Tickets/index.tsx](file:///C:/Projeto/Inovare-TI/front/src/pages/Tickets/index.tsx).
+- **Base de Conhecimento e Macros**:
+  - Em [TicketSidebar.tsx](file:///C:/Projeto/Inovare-TI/front/src/pages/TicketDetails/TicketSidebar.tsx), se o chamado estiver em andamento (`IN_PROGRESS`), exibe um acordeão contendo os chamados similares resolvidos com suas respectivas soluções.
+  - Se alguma tag do chamado atual possuir uma macro de resolução configurada, renderiza o botão premium "🚀 Aplicar Solução Padrão". Ao clicar, preenche automaticamente a nota de resolução no modal [ResolveTicketModal.tsx](file:///C:/Projeto/Inovare-TI/front/src/pages/TicketDetails/ResolveTicketModal.tsx) e abre-o de forma imediata.
+- **Visualização Estilizada**: Atualizado o [TicketHeader.tsx](file:///C:/Projeto/Inovare-TI/front/src/pages/TicketDetails/TicketHeader.tsx) para renderizar os badges de tags com bordas e cores de fundo harmonizadas dinamicamente a partir dos códigos hexadecimais salvos no banco.
+
+### F. Builds e Validações Finais
+- **Backend Build**: `mvn clean compile` executado e bem-sucedido (**BUILD SUCCESS**).
+- **Frontend Build**: `npm run build` executado e empacotado sem qualquer erro ou aviso (**Vite Build Success**).

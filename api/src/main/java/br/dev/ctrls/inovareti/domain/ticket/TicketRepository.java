@@ -45,6 +45,18 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     List<Ticket> findAllByStatus(TicketStatus status);
 
+    @Query("""
+            SELECT DISTINCT t FROM Ticket t
+            JOIN FETCH t.requester r
+            LEFT JOIN FETCH r.sector
+            JOIN FETCH t.category
+            JOIN t.tags tag
+            WHERE t.status = br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED
+              AND t.id <> :ticketId
+              AND tag IN :tags
+            """)
+    List<Ticket> findSimilarResolvedTickets(@Param("ticketId") UUID ticketId, @Param("tags") java.util.Set<TicketTag> tags);
+
     @Query("SELECT t FROM Ticket t WHERE CAST(t.id AS string) ILIKE CONCAT(:shortId, '%')")
     List<Ticket> findByShortIdStartingWith(@Param("shortId") String shortId);
 

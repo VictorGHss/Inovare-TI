@@ -75,7 +75,10 @@ public class FindTicketByIdUseCase {
                         : List.of(),
                 ticket.getAdditionalUsers() != null
                         ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList()
-                        : List.of()
+                        : List.of(),
+                ticket.getAsset() != null ? ticket.getAsset().getId() : null,
+                ticket.getAsset() != null ? ticket.getAsset().getName() : null,
+                ticket.getAsset() != null && ticket.getAsset().isCritical()
         );
     }
 }

@@ -14,9 +14,10 @@ import AppointmentControlPanel from './AppointmentControlPanel';
 import ProfessionalMappingPanel from './ProfessionalMappingPanel';
 import CategoriesSection from './CategoriesSection';
 import BackupsSection from './BackupsSection';
+import TagsSection from './TagsSection';
 
 type TabType = 'system' | 'profile';
-type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'backups';
+type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-all';
@@ -237,6 +238,13 @@ export default function Settings() {
       color: 'bg-purple-50/70 text-purple-700 border-purple-100/50 hover:bg-purple-50 hover:border-purple-200',
     },
     {
+      id: 'tags',
+      title: 'Tags e Macros do Sistema',
+      desc: 'Gerencie tags corporativas e configure macros de resoluções.',
+      icon: Tag,
+      color: 'bg-orange-50/70 text-orange-700 border-orange-100/50 hover:bg-orange-50 hover:border-orange-200',
+    },
+    {
       id: 'backups',
       title: 'Backups do Sistema',
       desc: 'Gere snapshots, baixe ZIPs ou delete backups.',
@@ -253,6 +261,7 @@ export default function Settings() {
     reports: 'Agendamento de Relatórios',
     feegow: 'Mapeamento Feegow / Blip',
     categories: 'Categorias do Sistema',
+    tags: 'Tags e Macros Contextuais',
     backups: 'Backups do Sistema',
   };
 
@@ -264,6 +273,7 @@ export default function Settings() {
     reports: 'Monitore e configure a geração automática de relatórios gerenciais.',
     feegow: 'Gerencie chaves do WhatsApp e associe médicos às filas do Blip.',
     categories: 'Configure e gerencie categorias de itens e de ativos.',
+    tags: 'Configure tags visuais com cores e macros para resoluções de um clique.',
     backups: 'Gere backups de banco de dados, baixe snapshots de segurança ou delete antigos.',
   };
 
@@ -667,6 +677,19 @@ export default function Settings() {
                 >
                   {renderBackHeader()}
                   <CategoriesSection />
+                </motion.div>
+              )}
+
+              {activeSubSection === 'tags' && (
+                <motion.div
+                  key="tags"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <TagsSection />
                 </motion.div>
               )}
 

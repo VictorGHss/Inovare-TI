@@ -29,9 +29,12 @@ public class DiscordTicketService {
     private final TicketRepository ticketRepository;
     private final TicketCategoryRepository ticketCategoryRepository;
     private final DiscordWebhookService discordWebhookService;
+    private final br.dev.ctrls.inovareti.domain.asset.AssetRepository assetRepository;
+    private final br.dev.ctrls.inovareti.domain.ticket.TicketTagRepository ticketTagRepository;
+    private final br.dev.ctrls.inovareti.domain.ticket.TicketTagExtractor ticketTagExtractor;
 
     @Transactional
-    public String createTicketFromDiscord(String discordUserId, String description, String priorityRaw) {
+    public String createTicketFromDiscord(String discordUserId, String description, String priorityRaw, String patrimonioOption) {
         User requester = userRepository.findByDiscordUserId(discordUserId).orElse(null);
         if (requester == null) {
             return "⚠️ Seu Discord não está vinculado à sua conta da clínica. Use o comando /vincular [seu-email].";
@@ -41,25 +44,62 @@ public class DiscordTicketService {
                 .findFirst()
             .orElseThrow(() -> new IllegalStateException("Nenhuma categoria de chamado foi encontrada no banco de dados"));
 
-        TicketPriority priority = parsePriority(priorityRaw);
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
-
         String normalizedDescription = description.trim();
         String title = normalizedDescription.length() > 40
             ? normalizedDescription.substring(0, 37) + "..."
             : normalizedDescription;
         String storedDescription = "[DISCORD] " + normalizedDescription;
 
+        // 1. Resolve o ativo (Asset) por ID/código ou por varredura de Regex no texto
+        br.dev.ctrls.inovareti.domain.asset.Asset asset = null;
+        if (patrimonioOption != null && !patrimonioOption.isBlank()) {
+            asset = assetRepository.findByPatrimonyCode(patrimonioOption.trim().toUpperCase()).orElse(null);
+        } else {
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("INV-\\d{4}-\\d+");
+            java.util.regex.Matcher matcher = pattern.matcher(description);
+            if (matcher.find()) {
+                String code = matcher.group();
+                asset = assetRepository.findByPatrimonyCode(code.trim().toUpperCase()).orElse(null);
+            }
+        }
+
+        // 2. Extrai as tags automáticas
+        java.util.Set<br.dev.ctrls.inovareti.domain.ticket.TicketTag> extractedTags = ticketTagExtractor.extractTags(title, storedDescription);
+
+        // 3. Aplica prioridade e SLA de acordo com a criticidade
+        TicketPriority priority = parsePriority(priorityRaw);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime finalSlaDeadline = now.plusHours(category.getBaseSlaHours());
+
+        if (asset != null && asset.isCritical()) {
+            priority = TicketPriority.URGENT;
+            finalSlaDeadline = now.plusHours(1); // 1h SLA agressivo
+
+            // Injeta tag #🚨ParadaCrítica
+            br.dev.ctrls.inovareti.domain.ticket.TicketTag criticalTag = ticketTagRepository.findByNameIgnoreCase("#🚨ParadaCrítica").orElseGet(() -> {
+                br.dev.ctrls.inovareti.domain.ticket.TicketTag newTag = br.dev.ctrls.inovareti.domain.ticket.TicketTag.builder()
+                        .name("#🚨ParadaCrítica")
+                        .color("#EF4444")
+                        .active(true)
+                        .defaultResolution("Equipamento crítico paralisado. Substituição emergencial ou manutenção prioritária realizada.")
+                        .build();
+                return ticketTagRepository.save(newTag);
+            });
+            extractedTags.add(criticalTag);
+        }
+
         Ticket ticket = Ticket.builder()
             .title(title)
-                .description(storedDescription)
-                .status(TicketStatus.OPEN)
-                .priority(priority)
-                .requester(requester)
-                .category(category)
-                .slaDeadline(now.plusHours(category.getBaseSlaHours()))
-                .createdAt(now)
-                .build();
+            .description(storedDescription)
+            .status(TicketStatus.OPEN)
+            .priority(priority)
+            .requester(requester)
+            .category(category)
+            .slaDeadline(finalSlaDeadline)
+            .createdAt(now)
+            .tags(extractedTags)
+            .asset(asset)
+            .build();
 
         Ticket savedTicket = ticketRepository.save(ticket);
         initializeWebhookRelations(savedTicket);

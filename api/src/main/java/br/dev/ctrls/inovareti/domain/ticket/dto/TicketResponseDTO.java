@@ -7,6 +7,7 @@ import java.util.UUID;
 import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import br.dev.ctrls.inovareti.domain.ticket.TicketPriority;
 import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
+import br.dev.ctrls.inovareti.domain.ticket.TicketTag;
 
 /**
  * DTO de saída com os dados públicos de um chamado.
@@ -36,8 +37,11 @@ public record TicketResponseDTO(
         String solutionText,
         String solucao,
         List<UUID> relatedTicketIds,
-        List<String> tags,
-        List<UUID> additionalUserIds
+        List<TicketTag> tags,
+        List<UUID> additionalUserIds,
+        UUID assetId,
+        String assetName,
+        boolean isAssetCritical
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -67,7 +71,10 @@ public record TicketResponseDTO(
                 ticket.getSolutionText(),
                 ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
                 ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of(),
-                ticket.getAdditionalUsers() != null ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList() : List.of()
+                ticket.getAdditionalUsers() != null ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList() : List.of(),
+                ticket.getAsset() != null ? ticket.getAsset().getId() : null,
+                ticket.getAsset() != null ? ticket.getAsset().getName() : null,
+                ticket.getAsset() != null && ticket.getAsset().isCritical()
         );
     }
 

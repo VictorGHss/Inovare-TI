@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Search, X, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getTickets } from '../../services/ticketService';
-import type { Ticket } from '../../types/models';
+import { getTickets, getTicketTags } from '../../services/ticketService';
+import type { Ticket, TicketTag } from '../../types/models';
 import SkeletonTable from '../../components/SkeletonTable';
 import PageHero from '../../components/PageHero';
 import TicketsTable from '../Dashboard/TicketsTable';
@@ -13,6 +13,9 @@ export default function Tickets() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [availableTags, setAvailableTags] = useState<TicketTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [isTagsDropdownOpen, setIsTagsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
   const [searchTitle, setSearchTitle] = useState('');
@@ -23,18 +26,23 @@ export default function Tickets() {
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
   useEffect(() => {
-    const fetchTickets = async () => {
+    const fetchTicketsAndTags = async () => {
       try {
-        const data = await getTickets();
-        setTickets(data);
+        const [ticketsData, tagsData] = await Promise.all([
+          getTickets(),
+          getTicketTags(true),
+        ]);
+        setTickets(ticketsData);
+        setAvailableTags(tagsData);
       } catch {
         toast.error('Erro ao carregar chamados. Tente novamente.');
         setTickets([]);
+        setAvailableTags([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchTickets();
+    fetchTicketsAndTags();
   }, []);
 
   const filteredTickets = tickets.filter((ticket) => {
@@ -54,6 +62,14 @@ export default function Tickets() {
     // Filter by category
     if (selectedCategory !== 'all' && ticket.categoryId !== selectedCategory) {
       return false;
+    }
+
+    // Filter by tags
+    if (selectedTagIds.length > 0) {
+      if (!ticket.tags || ticket.tags.length === 0) return false;
+      const ticketTagIds = ticket.tags.map((t) => t.id);
+      const hasMatchingTag = selectedTagIds.some((id) => ticketTagIds.includes(id));
+      if (!hasMatchingTag) return false;
     }
     
     return true;
@@ -199,11 +215,76 @@ export default function Tickets() {
               <option value="oldest">Mais Antigos</option>
             </select>
           </div>
+
+          {/* Tag Filter (Multi-Select) */}
+          <div className="w-full sm:w-56 relative">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Filtrar por Tags
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsTagsDropdownOpen(!isTagsDropdownOpen)}
+                className="w-full text-left rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all flex items-center justify-between"
+              >
+                <span className="truncate">
+                  {selectedTagIds.length === 0
+                    ? 'Todas as Tags'
+                    : `${selectedTagIds.length} Tag(s) selecionada(s)`}
+                </span>
+                <span className="ml-2 text-slate-400">▼</span>
+              </button>
+
+              {isTagsDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsTagsDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 left-0 mt-2 z-20 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg max-h-60 overflow-y-auto flex flex-col gap-1">
+                    {availableTags.length === 0 ? (
+                      <p className="text-xs text-slate-400 p-2 text-center">Nenhuma tag ativa cadastrada.</p>
+                    ) : (
+                      availableTags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTagIds((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== tag.id)
+                                  : [...prev, tag.id]
+                              );
+                            }}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left w-full"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="rounded border-slate-350 text-brand-primary focus:ring-brand-primary cursor-pointer shrink-0"
+                            />
+                            <span
+                              className="inline-block w-3 h-3 rounded-full shrink-0 shadow-sm border border-black/10"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            <span className="truncate">{tag.name}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Active Filters Indicator */}
-        {(searchTitle || selectedPriority !== 'all' || selectedCategory !== 'all') && (
-          <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">
+        {(searchTitle || selectedPriority !== 'all' || selectedCategory !== 'all' || selectedTagIds.length > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
             <span className="text-xs text-slate-600 font-medium">Filtros ativos:</span>
             {searchTitle && (
               <span className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-2.5 py-0.5 text-xs font-medium text-brand-primary">
@@ -229,11 +310,35 @@ export default function Tickets() {
                 </button>
               </span>
             )}
+            {selectedTagIds.map(tagId => {
+              const tagObj = availableTags.find(t => t.id === tagId);
+              if (!tagObj) return null;
+              return (
+                <span
+                  key={tagId}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                  style={{
+                    backgroundColor: `${tagObj.color}15`,
+                    color: tagObj.color,
+                    borderColor: `${tagObj.color}35`
+                  }}
+                >
+                  {tagObj.name}
+                  <button
+                    onClick={() => setSelectedTagIds(prev => prev.filter(id => id !== tagId))}
+                    className="hover:opacity-75"
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              );
+            })}
             <button
               onClick={() => {
                 setSearchTitle('');
                 setSelectedPriority('all');
                 setSelectedCategory('all');
+                setSelectedTagIds([]);
               }}
               className="ml-auto text-xs text-slate-500 hover:text-slate-700 font-medium"
             >

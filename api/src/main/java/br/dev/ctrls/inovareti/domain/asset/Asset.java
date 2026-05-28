@@ -88,6 +88,10 @@ public class Asset {
     @Column(name = "acquisition_value", precision = 19, scale = 2)
     private BigDecimal acquisitionValue;
 
+    @Column(name = "is_critical", nullable = false)
+    @Builder.Default
+    private boolean isCritical = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

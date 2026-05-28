@@ -1,9 +1,13 @@
 import api from './api';
-import type { CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment } from '../types/models';
+import type { CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment, TicketTag } from '../types/models';
 
-// Busca todos os tickets do usuário autenticado
-export async function getTickets(): Promise<Ticket[]> {
-  const { data } = await api.get<Ticket[]>('/tickets');
+// Busca todos os tickets do usuário autenticado (suporta filtro opcional por tags)
+export async function getTickets(tagIds?: string[]): Promise<Ticket[]> {
+  const params = new URLSearchParams();
+  if (tagIds && tagIds.length > 0) {
+    tagIds.forEach(id => params.append('tagIds', id));
+  }
+  const { data } = await api.get<Ticket[]>('/tickets', { params });
   return data;
 }
 
@@ -96,5 +100,43 @@ export async function updateTicketSolution(id: string, solutionText: string): Pr
   const { data } = await api.patch<Ticket>(`/tickets/${id}/solution`, { solutionText });
   return data;
 }
+
+// Busca todos os tags cadastrados
+export async function getTicketTags(activeOnly?: boolean): Promise<TicketTag[]> {
+  const { data } = await api.get<TicketTag[]>('/ticket-tags', {
+    params: activeOnly !== undefined ? { activeOnly } : undefined,
+  });
+  return data;
+}
+
+// Cria uma nova tag
+export async function createTicketTag(tag: { name: string; color: string; active?: boolean; defaultResolution?: string | null }): Promise<TicketTag> {
+  const { data } = await api.post<TicketTag>('/ticket-tags', tag);
+  return data;
+}
+
+// Atualiza uma tag existente
+export async function updateTicketTag(id: string, tag: { name: string; color: string; active?: boolean; defaultResolution?: string | null }): Promise<TicketTag> {
+  const { data } = await api.put<TicketTag>(`/ticket-tags/${id}`, tag);
+  return data;
+}
+
+// Alterna o estado ativo/inativo da tag (soft-delete)
+export async function toggleTicketTagActive(id: string): Promise<TicketTag> {
+  const { data } = await api.patch<TicketTag>(`/ticket-tags/${id}/toggle-active`);
+  return data;
+}
+
+// Remove fisicamente uma tag
+export async function deleteTicketTag(id: string): Promise<void> {
+  await api.delete(`/ticket-tags/${id}`);
+}
+
+// Busca chamados similares resolvidos/fechados
+export async function getSimilarTickets(id: string): Promise<Ticket[]> {
+  const { data } = await api.get<Ticket[]>(`/tickets/${id}/similar`);
+  return data;
+}
+
 
 

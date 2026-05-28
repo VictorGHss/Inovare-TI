@@ -5,6 +5,14 @@ export interface AttachmentResponse {
   fileType: string;
 }
 
+export interface TicketTag {
+  id: string;
+  name: string;
+  color: string;
+  active: boolean;
+  defaultResolution?: string | null;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -29,16 +37,20 @@ export interface Ticket {
   createdAt: string;
   closedAt: string | null;
   attachments: AttachmentResponse[];
-  tags?: string[] | null;
+  tags?: TicketTag[] | null;
   relatedTicketIds?: string[] | null;
   additionalUserIds?: string[] | null;
   solutionText?: string | null;
+  assetId?: string | null;
+  assetName?: string | null;
+  isAssetCritical?: boolean;
 }
 
 export interface TicketCategory {
   id: string;
   name: string;
 }
+
 
 /** Categoria de chamado retornada pelo backend (inclui SLA base). */
 export interface TicketCategoryResponse {

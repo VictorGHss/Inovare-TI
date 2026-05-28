@@ -80,7 +80,8 @@ public class DiscordEventListener extends ListenerAdapter {
                     Commands.slash("chamado", "Abre um novo chamado na TI")
                         .addOption(OptionType.STRING, "descricao", "Descrição do problema", true)
                         .addOption(OptionType.STRING, "prioridade",
-                            "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false),
+                            "Prioridade do chamado (LOW, NORMAL, HIGH, URGENT)", false)
+                        .addOption(OptionType.STRING, "patrimonio", "Código de patrimônio do ativo (ex: INV-2026-00421)", false),
 
                     Commands.slash("vincular", "Vincula sua conta Discord à sua conta da clínica")
                         .addOption(OptionType.STRING, "email", "Seu email de usuário na clínica", true),
@@ -159,13 +160,15 @@ public class DiscordEventListener extends ListenerAdapter {
         String descricao = descricaoOption.getAsString();
         var prioridadeOption = event.getOption("prioridade");
         String prioridadeStr = prioridadeOption != null ? prioridadeOption.getAsString().toUpperCase() : "NORMAL";
+        var patrimonioOption = event.getOption("patrimonio");
+        String patrimonioStr = patrimonioOption != null ? patrimonioOption.getAsString().trim() : null;
 
         event.deferReply().queue();
 
         discordExecutor.execute(() -> {
             try {
                 String discordUserId = event.getUser().getId();
-                String message = discordTicketService.createTicketFromDiscord(discordUserId, descricao, prioridadeStr);
+                String message = discordTicketService.createTicketFromDiscord(discordUserId, descricao, prioridadeStr, patrimonioStr);
                 String safeMessage = message != null ? message : "❌ Erro ao criar seu chamado. Entre em contato com um administrador.";
                 event.getHook().sendMessage(safeMessage).queue();
             } catch (Exception e) {

@@ -26,6 +26,12 @@ import br.dev.ctrls.inovareti.domain.ticket.TicketTagExtractor;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.domain.asset.Asset;
+import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
+import br.dev.ctrls.inovareti.domain.ticket.TicketTag;
+import br.dev.ctrls.inovareti.domain.ticket.TicketTagRepository;
+import br.dev.ctrls.inovareti.domain.ticket.TicketPriority;
+import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,6 +56,9 @@ public class CreateTicketUseCase {
     private final DiscordWebhookService discordWebhookService;
     private final AuditLogService auditLogService;
     private final TicketTagExtractor ticketTagExtractor;
+    private final AssetRepository assetRepository;
+    private final TicketTagRepository ticketTagRepository;
+    private final DiscordDirectMessageService discordDirectMessageService;
 
     /**
      * Abre um chamado com os dados fornecidos.
@@ -86,20 +95,59 @@ public class CreateTicketUseCase {
 
         LocalDateTime now = LocalDateTime.now();
 
+        // 1. Resolve o ativo (Asset) por ID ou por varredura de Regex no título/descrição
+        Asset asset = null;
+        if (request.assetId() != null) {
+            asset = assetRepository.findById(request.assetId()).orElse(null);
+        } else {
+            String combinedText = request.title() + " " + (request.description() != null ? request.description() : "");
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("INV-\\d{4}-\\d+");
+            java.util.regex.Matcher matcher = pattern.matcher(combinedText);
+            if (matcher.find()) {
+                String code = matcher.group();
+                asset = assetRepository.findByPatrimonyCode(code.trim().toUpperCase()).orElse(null);
+            }
+        }
+
+        // 2. Extrai as tags automáticas a partir do texto
+        java.util.Set<TicketTag> extractedTags = ticketTagExtractor.extractTags(request.title(), request.description());
+
+        // 3. Aplica regras de criticidade se o ativo associado for crítico
+        TicketPriority finalPriority = request.priority();
+        LocalDateTime finalSlaDeadline = now.plusHours(category.getBaseSlaHours());
+
+        if (asset != null && asset.isCritical()) {
+            finalPriority = TicketPriority.URGENT;
+            finalSlaDeadline = now.plusHours(1); // Exigência: 1 hora de SLA agressivo
+
+            // Injeta tag #🚨ParadaCrítica
+            TicketTag criticalTag = ticketTagRepository.findByNameIgnoreCase("#🚨ParadaCrítica").orElseGet(() -> {
+                TicketTag newTag = TicketTag.builder()
+                        .name("#🚨ParadaCrítica")
+                        .color("#EF4444")
+                        .active(true)
+                        .defaultResolution("Equipamento crítico paralisado. Substituição emergencial ou manutenção prioritária realizada.")
+                        .build();
+                return ticketTagRepository.save(newTag);
+            });
+            extractedTags.add(criticalTag);
+        }
+
         Ticket ticket = Ticket.builder()
                 .title(request.title())
                 .description(request.description())
                 .anydeskCode(request.anydeskCode())
                 .status(TicketStatus.OPEN)
-                .priority(request.priority())
+                .priority(finalPriority)
                 .requester(requester)
                 .assignedTo(assignedTo)
                 .category(category)
                 .requestedItem(requestedItem)
                 .requestedQuantity(request.requestedQuantity())
-                .slaDeadline(now.plusHours(category.getBaseSlaHours()))
+                .slaDeadline(finalSlaDeadline)
                 .createdAt(now)
-                .tags(ticketTagExtractor.extractTags(request.title(), request.description()))
+                .tags(extractedTags)
+                .asset(asset)
                 .build();
 
         Ticket savedTicket = ticketRepository.save(ticket);
@@ -112,6 +160,21 @@ public class CreateTicketUseCase {
         log.info("Ticket created with ID: {} by user: {} ({}), category: {}, priority: {}",
                 savedTicket.getId(), requester.getName(), requester.getEmail(),
                 category.getName(), savedTicket.getPriority());
+
+        // Envia alerta de DM se o ativo for crítico e houver técnico atribuído
+        if (asset != null && asset.isCritical() && assignedTo != null) {
+            String shortId = savedTicket.getId().toString().substring(0, 8).toUpperCase();
+            String discordId = assignedTo.getDiscordUserId();
+            if (discordId != null && !discordId.isBlank()) {
+                String alertTitle = "🚨 ALERTA VERMELHO: EQUIPAMENTO CRÍTICO PARADO — Chamado #" + shortId;
+                String alertMsg = "**Urgente!** O chamado sob sua responsabilidade envolve um ativo crítico da operação:\n\n"
+                        + "🖥️ **Ativo:** " + asset.getName() + " (" + asset.getPatrimonyCode() + ")\n"
+                        + "📋 **Título:** " + savedTicket.getTitle() + "\n"
+                        + "⏱️ **SLA reduzido:** 1 hora (Expira às " + finalSlaDeadline.toLocalTime().toString().substring(0, 5) + ")\n\n"
+                        + "⚡ Dirija-se imediatamente para o atendimento físico ou remoto deste ativo!";
+                discordDirectMessageService.sendTicketUpdateDMToUser(discordId, savedTicket.getId(), alertTitle, alertMsg);
+            }
+        }
 
         // Envia notificação de webhook do Discord de forma assíncrona
         discordWebhookService.sendNewTicketAlert(savedTicket);

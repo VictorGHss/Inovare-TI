@@ -122,13 +122,13 @@ public class Ticket {
     private Set<Ticket> relatedTickets = new HashSet<>();
 
     @Builder.Default
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(
-        name = "ticket_tags",
-        joinColumns = @JoinColumn(name = "ticket_id")
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "ticket_tag_relations",
+        joinColumns = @JoinColumn(name = "ticket_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
-    @Column(name = "tag", nullable = false, length = 50)
-    private Set<String> tags = new HashSet<>();
+    private Set<TicketTag> tags = new HashSet<>();
 
     /**
      * Usuários adicionais afetados pelo chamado.
@@ -144,4 +144,9 @@ public class Ticket {
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private Set<br.dev.ctrls.inovareti.domain.user.User> additionalUsers = new HashSet<>();
+
+    /** Ativo (CMDB) associado a este chamado, se aplicável. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "asset_id")
+    private br.dev.ctrls.inovareti.domain.asset.Asset asset;
 }

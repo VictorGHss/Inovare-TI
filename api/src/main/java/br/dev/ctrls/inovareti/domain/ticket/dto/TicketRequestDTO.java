@@ -37,6 +37,9 @@ public record TicketRequestDTO(
         UUID requestedItemId,
 
         @Positive(message = "Requested quantity must be greater than zero.")
-        Integer requestedQuantity
+        Integer requestedQuantity,
+
+        /** ID do ativo associado. Opcional. */
+        UUID assetId
 
 ) {}

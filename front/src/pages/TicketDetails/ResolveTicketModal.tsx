@@ -10,6 +10,7 @@ interface ResolveTicketModalProps {
   requesterId: string;
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
   ticket?: Ticket;
+  initialNotes?: string;
 }
 
 export default function ResolveTicketModal({
@@ -18,6 +19,7 @@ export default function ResolveTicketModal({
   requesterId,
   onResolve,
   ticket,
+  initialNotes,
 }: ResolveTicketModalProps) {
   const {
     resolutionNotes,
@@ -57,6 +59,7 @@ export default function ResolveTicketModal({
     requesterId,
     onResolve,
     ticket,
+    initialNotes,
   });
 
   if (!isOpen) return null;

@@ -10,6 +10,7 @@ interface UseResolveTicketParams {
   requesterId: string;
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
   ticket?: Ticket;
+  initialNotes?: string;
 }
 
 export function useResolveTicket({
@@ -18,8 +19,16 @@ export function useResolveTicket({
   requesterId,
   onResolve,
   ticket,
+  initialNotes = '',
 }: UseResolveTicketParams) {
   const [resolutionNotes, setResolutionNotes] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setResolutionNotes(initialNotes);
+    }
+  }, [isOpen, initialNotes]);
+
   const [deliverEquipment, setDeliverEquipment] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'asset' | 'item'>('asset');
   const [assetMode, setAssetMode] = useState<'existing' | 'new'>('existing');

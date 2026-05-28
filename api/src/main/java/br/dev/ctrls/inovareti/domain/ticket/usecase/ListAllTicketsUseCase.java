@@ -31,23 +31,25 @@ public class ListAllTicketsUseCase {
      * @return lista de chamados visíveis ao usuário
      */
     @Transactional(readOnly = true)
-    public List<TicketResponseDTO> execute(UUID userId, UserRole userRole) {
-        List<TicketResponseDTO> tickets;
+    public List<TicketResponseDTO> execute(UUID userId, UserRole userRole, List<UUID> tagIds) {
+        List<br.dev.ctrls.inovareti.domain.ticket.Ticket> tickets;
         
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
             // ADMIN e TECHNICIAN podem ver todos os chamados
-            tickets = ticketRepository.findAllWithRelations()
-                    .stream()
-                    .map(TicketResponseDTO::from)
-                    .toList();
+            tickets = ticketRepository.findAllWithRelations();
         } else {
             // USER só pode ver chamados que criou
-            tickets = ticketRepository.findByRequesterIdOrderByCreatedAtDesc(userId)
-                    .stream()
-                    .map(TicketResponseDTO::from)
+            tickets = ticketRepository.findByRequesterIdOrderByCreatedAtDesc(userId);
+        }
+
+        if (tagIds != null && !tagIds.isEmpty()) {
+            tickets = tickets.stream()
+                    .filter(t -> t.getTags().stream().anyMatch(tag -> tagIds.contains(tag.getId())))
                     .toList();
         }
         
-        return tickets;
+        return tickets.stream()
+                .map(TicketResponseDTO::from)
+                .toList();
     }
 }

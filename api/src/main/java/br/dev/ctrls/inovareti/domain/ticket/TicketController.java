@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 
 import br.dev.ctrls.inovareti.domain.ticket.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.domain.ticket.dto.UpdateSolutionTextDTO;
@@ -107,7 +108,8 @@ public class TicketController {
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
-    public ResponseEntity<List<TicketResponseDTO>> listAll() {
+    public ResponseEntity<List<TicketResponseDTO>> listAll(
+            @RequestParam(required = false) List<UUID> tagIds) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         
@@ -123,7 +125,7 @@ public class TicketController {
             return ResponseEntity.notFound().build();
         }
         
-        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole()));
+        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds));
     }
 
     /**
@@ -134,6 +136,28 @@ public class TicketController {
     public ResponseEntity<TicketResponseDTO> findById(@PathVariable UUID id) {
         checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(findTicketByIdUseCase.execute(id));
+    }
+
+    /**
+     * Retorna chamados resolvidos/fechados que compartilham tags com o chamado atual,
+     * para atuar como base de conhecimento inline.
+     */
+    @GetMapping("/{id}/similar")
+    public ResponseEntity<List<TicketResponseDTO>> findSimilar(@PathVariable UUID id) {
+        checkTicketOwnershipOrStaff(id);
+        Ticket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + id));
+
+        if (ticket.getTags() == null || ticket.getTags().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<TicketResponseDTO> response = ticketRepository.findSimilarResolvedTickets(id, ticket.getTags())
+                .stream()
+                .map(TicketResponseDTO::from)
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     /**

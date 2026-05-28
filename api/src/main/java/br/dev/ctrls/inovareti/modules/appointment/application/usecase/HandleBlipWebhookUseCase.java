@@ -292,33 +292,10 @@ public class HandleBlipWebhookUseCase {
                         }
                     }
 
-                    // 3. Resolver de forma determinista a fila de destino (attendanceQueueToRedirect)
-                    String targetQueue = null;
-                    for (AppointmentSession session : activeSessions) {
-                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
-                        if (mappingOpt.isPresent()) {
-                            String queueName = mappingOpt.get().getBlipQueueId();
-                            if (queueName != null && !queueName.isBlank() && !"null".equalsIgnoreCase(queueName.trim())) {
-                                targetQueue = queueName.trim();
-                                break;
-                            }
-                        }
-                    }
-                    if (targetQueue == null || targetQueue.isBlank()) {
-                        targetQueue = "Recepção Central / Suporte";
-                    }
-
-                    targetQueue = blipContextService.cleanQueueName(targetQueue);
-                    if (targetQueue.isBlank()) {
-                        targetQueue = "Recepção Central / Suporte";
-                    }
-
-                    // 4. Forçar Transbordo para o Atendimento Humano (Desk) via LIME
-                    blipContextService.setQueueRedirect(fromPhone, targetQueue);
+                    // 3. Forçar Transbordo para o Atendimento Humano (Desk) via LIME
                     blipContextService.setMasterState(fromPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
                     
-                    log.info("[WEBHOOK-NUDGE] Transbordo concluído para {}. Fila: {}, Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
-                        fromPhone, targetQueue);
+                    log.info("[WEBHOOK-NUDGE] Transbordo concluído para {} direcionando ao Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'", fromPhone);
                 } else {
                     log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida de {}, mas nenhuma sessão ativa encontrada.",
                         action, fromPhone);

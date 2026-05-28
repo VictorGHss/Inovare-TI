@@ -32,7 +32,24 @@ O motor de chamados centraliza e agiliza o fluxo de suporte de TI da clínica:
 * **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculado de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
 * **Gestão de Atribuições**: Técnicos podem assumir chamados autonomamente (Claim) ou administradores podem designar operadores específicos.
 * **Comentários e Histórico**: Suporte a diálogos e troca de mensagens entre os solicitantes e a equipe de suporte técnico, com upload de anexos legados integrados ao chamado.
+* **Base de Conhecimento Lateral & Macros de 1-Clique**:
+  * **Pesquisa de Chamados Similares**: Na sidebar de detalhes de chamados em progresso (`IN_PROGRESS`), a aplicação executa uma lógica consultiva automática em background buscando chamados finalizados (`RESOLVED`/`CLOSED`) que compartilham de tags em comum. Isto apresenta runbooks e soluções antigas instantaneamente ao técnico na mesma tela.
+  * **Botão Premium "Aplicar Solução Padrão"**: Se qualquer uma das tags do chamado possuir uma macro de resolução (`default_resolution`) cadastrada, um botão de atalho premium surge na sidebar. Com **1-clique**, ele abre o modal de resolução e preenche automaticamente toda a nota de fechamento padrão, acelerando a finalização com segurança e padronização.
 * **Notificações Operacionais**: Notificações por e-mail e web baseadas no perfil do operador, com preferência individual configurável de recebimento de alertas no Discord.
+
+---
+
+## 🚨 Regra de Negócio de Parada Crítica (Incidentes Críticos)
+
+Para blindar a operação de saúde contra paradas tecnológicas severas que afetem o atendimento ao paciente, o sistema possui uma esteira dedicada e prioritária de detecção e contenção de falhas em ativos críticos:
+
+1. **Associação de Ativo Crítico**: No momento da criação do chamado, se for associado um ativo que esteja sinalizado no CMDB como crítico (`is_critical = true`), a regra é acionada instantaneamente.
+2. **Varredura Inteligente por Regex (Discord)**: Ao abrir chamados via slash command `/chamado` no Bot do Discord (onde a descrição é texto livre), o sistema executa em background uma varredura por expressão regular (`INV-\d{4}-\d+`) para capturar códigos de patrimônio digitados pelo usuário. Se corresponder a um patrimônio crítico cadastrado, a automação é disparada automaticamente.
+3. **Escalonamento Agressivo de SLA e Prioridade**:
+   * A prioridade do chamado é forçada para `URGENT`.
+   * O SLA (`sla_deadline`) é recalculado para **exatamente 1 hora** a partir do momento da criação, independente do SLA padrão da categoria.
+   * A tag mestre `#🚨ParadaCrítica` é injetada de forma automática no chamado.
+4. **Alerta Vermelho ao Técnico Responsável**: O bot do Discord despacha de forma síncrona uma mensagem privada de embed rico, estilizada com a barra vermelha e contendo detalhes do incidente urgente diretamente na Direct Message (DM) do técnico de plantão para ação imediata.
 
 ---
 
@@ -55,9 +72,10 @@ Para evitar qualquer discrepância entre a redução do saldo físico (`current_
 * **Persistência de Fallback**: Caso ocorra alguma falha pontual de comunicação e o serviço principal de dedução de lote não registre a movimentação, o caso de uso executa uma barreira de proteção ativa. Ele realiza uma consulta rápida pós-dedução e, caso não localize a movimentação, cria e persiste de forma autônoma um registro em `stock_movements` do tipo `OUT` associado ao ticket de origem (referência: `TICKET:{ticketId}`).
 * **Tratamento Fiel de Valores**: Os relatórios financeiros de saídas de inventário realizam filtragem exclusiva por movimentações do tipo `OUT` e tratam valores de aquisição (`unit_price_at_time`) nulos como zero, prevenindo travamento de relatórios e assegurando que nenhum consumo seja ignorado por falta de dados financeiros de entrada históricos.
 
-### 4. Controle de Ativos e QR Codes
-* Rastreamento individualizado de patrimônio de hardware da clínica, com associação direta a setores e usuários.
-* Geração e scanner nativo de QR Codes no frontend para abertura imediata da página de auditoria do ativo ou chamado de suporte associado ao computador ou impressora.
+### 4. Controle de Ativos e QR Codes (CMDB Avançado)
+* **Gestão de Ativos Multi-usuário**: Suporta o relacionamento Many-to-Many entre ativos físicos e múltiplos usuários (ex: impressoras de balcão ou servidores locais compartilhados por secretárias de diferentes especialidades, como cardiologia e oftalmologia). Isto permite o rastreamento preciso e a injeção do contexto dos setores envolvidos.
+* **Sinalização de Criticidade**: Ativos podem ser marcados como críticos (`is_critical = true`), desencadeando fluxos urgentes de resolução e prioridade máxima quando associados a chamados de suporte.
+* **Geração e scanner nativo de QR Codes**: Frontend integrado para scanner de QR Codes físicos usando a câmera do celular, abrindo instantaneamente a tela de auditoria ou gerando chamados pré-configurados associados ao ativo.
 
 ---
 

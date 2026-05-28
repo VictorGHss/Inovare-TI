@@ -104,6 +104,28 @@ O sistema utiliza um fluxo de autenticação em duas etapas refletido nas claims
 
 ---
 
+## 🌍 Configuração de Timezone e Fuso Horário (GMT-3 Brasília)
+
+Para sanar por completo discrepâncias de compensação de datas (+3 horas) na persistência e na geração de relatórios, o fuso horário oficial de todo o ecossistema Inovare-TI foi rigidamente alinhado e alocado no fuso de Brasília (**America/Sao_Paulo**).
+
+Esta estabilidade é obtida através de três frentes coordenadas:
+
+1. **Congelamento da JVM (`@PostConstruct`)**: Na inicialização do Spring Boot, em `InovareTiApplication.java`, forçamos explicitamente o fuso horário padrão do sistema:
+   ```java
+   @PostConstruct
+   public void init() {
+       TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));
+   }
+   ```
+2. **Propriedades Casadas do Jackson & Hibernate**: No arquivo `application.properties`, alinhamos os fusos de conversão JSON e conexões JDBC:
+   ```properties
+   spring.jpa.properties.hibernate.jdbc.time_zone=America/Sao_Paulo
+   spring.jackson.time-zone=America/Sao_Paulo
+   ```
+3. **Persistência de Datas**: Todas as datas no banco de dados utilizam o tipo `timestamp` sem fuso no Postgres, mas são lidas e gravadas com as compensações corretas em Brasília, assegurando relatórios de auditoria e logs consistentes.
+
+---
+
 ## 🛡️ Manipulação de Erros — Padrão RFC 7807
 
 O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` para formatar e normalizar respostas de erro seguindo a especificação **RFC 7807 (Problem Details)**:
@@ -116,6 +138,7 @@ O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` par
 | `IllegalStateException`| `422 Unprocessable`| `ERR_BUSINESS_RULE` | Violação de regra de negócio da aplicação |
 | `AccessDeniedException`| `403 Forbidden` | `ERR_ACCESS_DENIED` | Usuário autenticado mas sem permissão (Role) |
 | `MaxUploadSizeExceeded`| `413 Payload Too Large`| `ERR_UPLOAD_LIMIT` | Upload excede o tamanho configurado (5MB) |
+| `SQLGrammarException` / `DataAccessException` | `500 Internal Error` | `ERR_DATABASE_FAILURE` | Exceção de persistência mitigada e envelopada de forma segura para não vazar a DDL física |
 
 > [!IMPORTANT]
 > Todas as mensagens estruturadas no Problem Details visíveis na interface do usuário devem ser redigidas em **português brasileiro (PT-BR)**.
@@ -160,7 +183,16 @@ Os contêineres de banco de dados e cache possuem monitoramento automático:
 
 ---
 
-### 3. Runbook: Re-autorização Manual da ContaAzul
+### 3. Cronograma de Agendamentos e Schedulers de Sistema
+
+O ecossistema conta com rotinas automatizadas e agendadas em background para auditoria, automação financeira e relatórios executivos corporativos:
+
+*   **Automação ContaAzul**: Varreduras programadas executando processamento de baixas e disparos de recibos.
+*   **Weekly Digest Scheduler (`WeeklyDigestScheduler.java`)**: Cron de alta fidelidade configurado com `@Scheduled(cron = "0 0 17 * * FRI")` (todas as sextas-feiras às 17:00). Ele consolida de forma atômica e nativa métricas operacionais semanais do ITSM (total resolvido, conformidade de SLA, tags mais frequentes e setores afetados) e despacha um Embed executivo com cores harmonizadas direto para o Discord.
+
+---
+
+### 4. Runbook: Re-autorização Manual da ContaAzul
 Caso os tokens OAuth2 sejam revogados ou corrompidos na tabela `contaazul_oauth_tokens`, siga o procedimento seguro de re-autorização:
 
 1. Obtenha um token JWT de administrador:
@@ -185,7 +217,7 @@ DELETE FROM contaazul_oauth_tokens;
 
 ---
 
-### 4. Runbook: Triagem do Alerta `ContaAzulForceRefreshThrottled`
+### 5. Runbook: Triagem do Alerta `ContaAzulForceRefreshThrottled`
 Este alerta dispara quando há tentativas consecutivas e excessivas de atualização de tokens, acionando o rate-limiter.
 
 1. Acesse o Prometheus (`http://localhost:9095`) ou o Grafana e avalie o volume de bloqueios:
@@ -200,7 +232,7 @@ docker logs inovareti_api --tail=100 | grep "ContaAzul force-refresh"
 
 ---
 
-### 5. Runbook: Alerta de Falha na Captura de Recibo (20 Tentativas Excedidas)
+### 6. Runbook: Alerta de Falha na Captura de Recibo (20 Tentativas Excedidas)
 A captura do PDF do recibo emitido na ContaAzul é realizada de forma assíncrona. Caso a automação falhe por 20 tentativas consecutivas:
 
 1. Colete o ID da baixa/venda (`baixaId` ou `saleId`) contido no corpo do alerta.
@@ -213,7 +245,7 @@ curl -X POST http://localhost:8085/api/financeiro/backfill \
 ```
 4. Se o erro de captura persistir por falha na API do ERP, baixe o PDF manualmente e faça o upload direto na interface administrativa da Inovare TI para encerrar a pendência e notificar o cliente por e-mail.
 
-### 6. Validação de Alertas em Testes (Simulação Crítica)
+### 7. Validação de Alertas em Testes (Simulação Crítica)
 Para testar o fluxo completo de disparo de incidentes (Alerta → Evento → Listener → Notificação via Embed do Discord):
 ```bash
 curl -X POST http://localhost:8085/api/financeiro/test/simulate-critical-alert \

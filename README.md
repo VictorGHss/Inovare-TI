@@ -14,10 +14,11 @@ Sistema premium de **Gerenciamento de Serviços de TI (ITSM)** customizado para 
 
 O Inovare TI é uma aplicação corporativa full-stack de alto padrão projetada para automatizar e blindar a operação de suporte tecnológico de ambientes de saúde:
 
-*   **Motor de Chamados (Helpdesk)**: Abertura e triagem rápida com cálculo dinâmico de prazos de SLA baseados em categorias de serviços de TI.
-*   **Inventário FIFO & Ativos**: Gestão rígida de estoque organizada por lotes de aquisição. Saídas de insumos realizam o consumo automático e transacional baseando-se no algoritmo FIFO (First-In, First-Out).
+*   **Motor de Chamados (Helpdesk)**: Abertura e triagem rápida com cálculo dinâmico de prazos de SLA baseados em categorias de serviços de TI, além de uma **Base de Conhecimento Contextual Inteligente** com injeção de **Macros de Resolução** em um clique para acelerar o fechamento de incidentes.
+*   **Inventário FIFO & Ativos (CMDB Avançado)**: Gestão rígida de estoque e patrimônio organizada por lotes de aquisição. Saídas de insumos realizam o consumo automático no algoritmo FIFO. Adiciona suporte a **Gestão de Ativos Multi-usuário** (como impressoras e servidores de rede compartilhados).
 *   **Cofre Seguro (Vault)**: Proteção de credenciais e notas confidenciais utilizando criptografia simétrica robusta **AES-256-GCM** na camada de aplicação, blindada por barreira obrigatória de 2FA.
-*   **Automação de Recibos**: Integração com ERP ContaAzul para monitorar faturamentos e despachar de forma autônoma e-mails de recibos fiscais com controle de idempotência.
+*   **Automação de Recibos & Performance**: Integração de alta performance com o ERP ContaAzul, otimizada via chamadas HTTP paralelas por Virtual Threads e caching estratégico de curta duração.
+*   **Relatório Executivo de TI Automatizado**: Schedulers de alta fidelidade integrados que consolidam métricas operacionais e despacham automaticamente informativos executivos de TI ao Discord.
 *   **Auditoria Imutável 360**: Trilha assíncrona e desacoplada que registra ações críticas e logs de conformidade de acessos para conformidade LGPD.
 
 ---

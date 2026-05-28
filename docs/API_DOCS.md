@@ -552,16 +552,68 @@ Retorna todos os setores cadastrados.
 [
   {
     "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "name": "Tecnologia da Informação"
+    "name": "Tecnologia da Informação",
+    "active": true
   },
   {
     "id": "b2c3d4e5-f6a7-8901-bcde-fa2345678901",
-    "name": "Recursos Humanos"
+    "name": "Recursos Humanos",
+    "active": true
   }
 ]
 ```
 
 > Retorna lista vazia `[]` caso não haja setores cadastrados.
+
+---
+
+### `PUT /api/sectors/{id}`
+
+Atualiza o nome de um setor existente (renomear).
+
+**Request Body:**
+
+```json
+{
+  "name": "Suporte Técnico TI"
+}
+```
+
+| Campo  | Tipo   | Obrigatório | Restrições          |
+|--------|--------|-------------|---------------------|
+| `name` | string | Sim         | Máximo 100 chars    |
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Suporte Técnico TI",
+  "active": true
+}
+```
+
+---
+
+### `PATCH /api/sectors/{id}/toggle-active`
+
+Ativa ou inativa logicamente um setor corporativo (soft-delete). Setores inativos são omitidos de buscas padrão do frontend e preenchimento de dropdowns.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Suporte Técnico TI",
+  "active": false
+}
+```
+
+**Respostas de Erro:**
+
+| Código | Situação                  |
+|--------|---------------------------|
+| `404`  | Setor especificado não existe |
 
 ---
 
@@ -906,6 +958,108 @@ Operação atômica: cria o lote **e** atualiza o `currentStock` do item na mesm
 
 ---
 
+## Módulo: Tags de Chamado (`/api/ticket-tags`)
+
+### `POST /api/ticket-tags`
+
+Cria uma nova tag corporativa para categorização e macros de resolução.
+
+**Request Body:**
+
+```json
+{
+  "name": "#🚨ParadaCrítica",
+  "color": "#EF4444",
+  "defaultResolution": "Ativo crítico reestabelecido após verificação de conectividade e reboot."
+}
+```
+
+| Campo | Tipo | Obrigatório | Restrições |
+|-------|------|-------------|------------|
+| `name` | string | Sim | Único, máximo 100 chars |
+| `color` | string | Não | Máximo 20 chars, formato HEX (ex: `#EF4444`) |
+| `defaultResolution` | string | Não | Texto livre de macro de resolução |
+
+**Resposta de Sucesso — `201 Created`:**
+
+```json
+{
+  "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "#🚨ParadaCrítica",
+  "color": "#EF4444",
+  "active": true,
+  "defaultResolution": "Ativo crítico reestabelecido após verificação de conectividade e reboot."
+}
+```
+
+---
+
+### `GET /api/ticket-tags`
+
+Retorna todas as tags cadastradas no sistema.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "#🚨ParadaCrítica",
+    "color": "#EF4444",
+    "active": true,
+    "defaultResolution": "Ativo crítico reestabelecido após verificação de conectividade e reboot."
+  }
+]
+```
+
+---
+
+### `PUT /api/ticket-tags/{id}`
+
+Atualiza as propriedades de uma tag existente.
+
+**Request Body:**
+
+```json
+{
+  "name": "#🚨ParadaCrítica-Resolvida",
+  "color": "#10B981",
+  "defaultResolution": "Chamado crítico resolvido e validado."
+}
+```
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "#🚨ParadaCrítica-Resolvida",
+  "color": "#10B981",
+  "active": true,
+  "defaultResolution": "Chamado crítico resolvido e validado."
+}
+```
+
+---
+
+### `PATCH /api/ticket-tags/{id}/toggle-active`
+
+Alterna o estado ativo da tag (inativação lógica/soft-delete). Tags inativas não são sugeridas em auto-tagging de novos chamados.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+{
+  "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "#🚨ParadaCrítica-Resolvida",
+  "color": "#10B981",
+  "active": false,
+  "defaultResolution": "Chamado crítico resolvido e validado."
+}
+```
+
+---
+
 ## Módulo: Chamados / Helpdesk (`/api/tickets`)
 
 ### `POST /api/tickets`
@@ -972,6 +1126,83 @@ somando `baseSlaHours` da categoria ao momento da criação.
 |--------|------------------------------------------------------------------|
 | `400`  | Campos obrigatórios ausentes ou inválidos                        |
 | `404`  | `requesterId`, `assignedToId`, `categoryId` ou `requestedItemId` não existem |
+
+---
+
+### `GET /api/tickets`
+
+Retorna todos os chamados cadastrados (para administradores e técnicos) ou os chamados abertos pelo próprio solicitante (para usuários normais).
+
+**Parâmetros de Query (Opcionais):**
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `tagIds`  | List<UUID> | Filtra os chamados que possuem qualquer uma das tags especificadas pelos seus IDs. |
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+    "title": "Impressora não responde na sala 202",
+    "description": "A impressora HP LaserJet trava ao imprimir PDF.",
+    "anydeskCode": "123 456 789",
+    "status": "OPEN",
+    "priority": "HIGH",
+    "requesterId": "f1e2d3c4-b5a6-7890-fedc-ba0987654321",
+    "requesterName": "João Silva",
+    "assignedToId": null,
+    "assignedToName": null,
+    "categoryId": "c3d4e5f6-a7b8-9012-cdef-ab3456789012",
+    "categoryName": "Suporte Hardware",
+    "requestedItemId": null,
+    "requestedItemName": null,
+    "requestedQuantity": null,
+    "slaDeadline": "2026-03-02T22:30:00",
+    "createdAt": "2026-03-02T14:30:00",
+    "closedAt": null,
+    "tags": [
+      {
+        "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "#🚨ParadaCrítica",
+        "color": "#EF4444",
+        "active": true,
+        "defaultResolution": "Ativo crítico reestabelecido após verificação de conectividade e reboot."
+      }
+    ],
+    "assetId": "e1f2a3b4-c5d6-7890-abcd-ef1234567890",
+    "assetName": "HP LaserJet Sala 202",
+    "isAssetCritical": true
+  }
+]
+```
+
+---
+
+### `GET /api/tickets/{id}/similar`
+
+Retorna chamados históricos similares finalizados (`RESOLVED` ou `CLOSED`) com base em tags compartilhadas em comum com o chamado ativo.
+
+**Resposta de Sucesso — `200 OK`:**
+
+```json
+[
+  {
+    "id": "77cc88dd-99ee-1122-3344-556677889900",
+    "title": "Impressora da recepção travando",
+    "solution": "Efetuada limpeza de fila no spooler local do Windows e reiniciada a impressora física.",
+    "closedAt": "2026-05-15T10:15:00",
+    "tags": [
+      {
+        "id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "#🚨ParadaCrítica",
+        "color": "#EF4444"
+      }
+    ]
+  }
+]
+```
 
 ---
 
@@ -1243,8 +1474,9 @@ Abaixo um resumo dos endpoints disponíveis no backend (método + rota) com obse
   - POST `/api/financeiro/contaazul/force-refresh` — forçar refresh do token ContaAzul (ADMIN)
 
 - **Chamados / Tickets (`/api/tickets`)**
-  - GET `/api/tickets` — listar (ADMIN/TECH veem todos; USER vê próprios)
+  - GET `/api/tickets` — listar (ADMIN/TECH veem todos; USER vê próprios) com suporte a filtro `tagIds`
   - GET `/api/tickets/{id}` — detalhes do chamado
+  - GET `/api/tickets/{id}/similar` — obter chamados similares resolvidos com base em tags
   - POST `/api/tickets` — criar chamado (autenticado)
   - PATCH `/api/tickets/{id}/resolve` — resolver chamado (dono ou ADMIN/TECH)
   - PATCH `/api/tickets/{id}/claim` — assumir chamado (ADMIN/TECH)
@@ -1265,6 +1497,14 @@ Abaixo um resumo dos endpoints disponíveis no backend (método + rota) com obse
 - **Setores (`/api/sectors`)**
   - POST `/api/sectors` — criar setor (ADMIN)
   - GET `/api/sectors` — listar setores
+  - PUT `/api/sectors/{id}` — renomear setor (ADMIN)
+  - PATCH `/api/sectors/{id}/toggle-active` — alternar ativação do setor (ADMIN)
+
+- **Tags de Chamado (`/api/ticket-tags`)**
+  - POST `/api/ticket-tags` — criar tag (ADMIN)
+  - GET `/api/ticket-tags` — listar todas as tags
+  - PUT `/api/ticket-tags/{id}` — editar propriedades da tag (ADMIN)
+  - PATCH `/api/ticket-tags/{id}/toggle-active` — alternar ativação lógica da tag (ADMIN)
 
 - **Itens e Inventário (`/api/items`)**
   - GET `/api/items` — listar itens

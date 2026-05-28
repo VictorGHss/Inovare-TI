@@ -76,7 +76,7 @@ networks:
 
 ### Componentes de Infraestrutura Adicionais
 
-* **Redis**: O serviço `redis` é utilizado como camada de estabilidade para caching e para o rate-limiter distribuído (`RedisRateLimiter`) usado pelo endpoint de refresh e autenticação. A aplicação obtém host/porta via variáveis de ambiente (`SPRING_REDIS_HOST`, `SPRING_REDIS_PORT`) e registra o bean `StringRedisTemplate`.
+* **Redis & Cache**: O serviço `redis` é utilizado como camada de estabilidade para caching distribuído e para o rate-limiter (`RedisRateLimiter`). Implementamos um mecanismo de **Cache Temporário de Curta Duração (10 minutos TTL)** anotado sob `@Cacheable(value = "contaAzulSummary")` no resumo financeiro mensal (`fetchSummary`), blindando chamadas HTTP externas e repetitivas contra a API da ContaAzul a cada troca de tela no frontend React. O cachemanager do Redis centraliza essa expiração de forma integrada no ecossistema Spring Boot (`@EnableCaching`).
 * **Prometheus**: O projeto expõe métricas de SRE via Micrometer/Actuator em `/api/actuator/prometheus`. O serviço local `prometheus` permite visualizar dados e avaliar regras de alertas (regras em `docs/prometheus/alert.rules.yml`).
 * **Healthcheck e Readiness**: O serviço `api` depende do banco de dados `db` e do cache `redis` estarem totalmente saudáveis antes de iniciar o bootstrap da aplicação, evitando falhas de conexão prematuras.
 
@@ -170,6 +170,7 @@ O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente
 |--------|------|------------|-----------|
 | `id` | `uuid` | PK, NOT NULL | Identificador único do setor |
 | `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo do setor |
+| `active` | `boolean` | NOT NULL, default `true` | Status ativo do setor para soft-delete lógico |
 
 #### Tabela: `users` (Usuários e Operadores)
 | Coluna | Tipo | Restrições | Descrição |
@@ -215,6 +216,26 @@ O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente
 | `sla_deadline` | `timestamp` | NOT NULL | Data limite calculada para conclusão |
 | `created_at` | `timestamp` | NOT NULL | Criação da solicitação |
 | `closed_at` | `timestamp` | NULLABLE | Encerramento do chamado |
+| `asset_id` | `uuid` | NULLABLE, FK → `assets.id` ON DELETE SET NULL | ID do ativo/patrimônio associado |
+
+---
+
+### Domínio: Gestão de Tags e Base de Conhecimento
+
+#### Tabela: `ticket_tags` (Entidade Mestre de Tags)
+| Coluna | Tipo | Restrições | Descrição |
+|--------|------|------------|-----------|
+| `id` | `uuid` | PK, NOT NULL | Identificador único da tag |
+| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo da tag (ex. #🚨ParadaCrítica) |
+| `color` | `varchar(20)` | NULLABLE | Cor associada para renderização visual em formato HEX |
+| `active` | `boolean` | NOT NULL, default `true` | Status ativo para inativação lógica / soft-delete |
+| `default_resolution` | `text` | NULLABLE | Macro de resolução associada à tag (nota de fechamento automático) |
+
+#### Tabela: `ticket_tag_relations` (Relação Many-to-Many entre Chamados e Tags)
+| Coluna | Tipo | Restrições | Descrição |
+|--------|------|------------|-----------|
+| `ticket_id` | `uuid` | PK, FK → `tickets.id` ON DELETE CASCADE | Chamado associado |
+| `tag_id` | `uuid` | PK, FK → `ticket_tags.id` ON DELETE CASCADE | Tag mestre associada |
 
 ---
 
@@ -256,6 +277,26 @@ O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente
 | `reference` | `varchar(150)` | NOT NULL | Identificador de referência (ex: `TICKET:{id}`) |
 | `unit_price_at_time`| `numeric(12,2)` | NULLABLE | Valor de aquisição praticado |
 | `created_at` | `timestamp` | NOT NULL | Data da movimentação |
+
+---
+
+### Domínio: Patrimônio e Ativos de Hardware (CMDB)
+
+#### Tabela: `assets` (Patrimônio e Ativos)
+| Coluna | Tipo | Restrições | Descrição |
+|--------|------|------------|-----------|
+| `id` | `uuid` | PK, NOT NULL | Identificador do ativo |
+| `name` | `varchar(100)` | NOT NULL | Nome descritivo (ex. Impressora Balcão) |
+| `type` | `varchar(50)` | NOT NULL | Tipo do ativo (ex. HARDWARE, SOFTWARE) |
+| `tag` | `varchar(50)` | NOT NULL, UNIQUE | Código único de patrimônio (ex. INV-2026-004) |
+| `active` | `boolean` | NOT NULL, default `true` | Status ativo do bem |
+| `is_critical` | `boolean` | NOT NULL, default `false` | Sinalização de ativo crítico para SLA de 1 hora e parada crítica |
+
+#### Tabela: `asset_users` (Relacionamento Multi-usuário de Ativos)
+| Coluna | Tipo | Restrições | Descrição |
+|--------|------|------------|-----------|
+| `asset_id` | `uuid` | PK, FK → `assets.id` ON DELETE CASCADE | Identificador do ativo compartilhado |
+| `user_id` | `uuid` | PK, FK → `users.id` ON DELETE CASCADE | Identificador do usuário associado |
 
 ---
 
@@ -369,11 +410,14 @@ ticket_categories   (1) ──<  tickets            (N)
 users               (1) ──<  tickets            (N)  [solicitante]
 users               (1) ──<  tickets            (N)  [técnico, nullable]
 items               (1) ──<  tickets            (N)  [item de estoque, nullable]
+assets              (1) ──<  tickets            (N)  [patrimônio, nullable]
 vault_items         (1) ──<  vault_item_shares  (N)
 users               (1) ──<  vault_items        (N)  [proprietário]
 users               (1) ──<  vault_item_shares  (N)  [destinatário de share]
 financial_link      (1) ──<  processed_receipts (N)
 users               (1) ──<  financial_link     (N)  [usuário vinculado]
+assets              (N) ──o  asset_users        (N)  [muitos-para-muitos com users]
+tickets             (N) ──o  ticket_tag_relations (N) [muitos-para-muitos com ticket_tags]
 audit_logs                (Sem FK — Registros isolados e imutáveis)
 system_alerts             (Focado em falhas operacionais e de integrações)
 ```

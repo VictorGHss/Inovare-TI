@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
 
 import java.util.UUID;
 
@@ -54,6 +56,8 @@ public class HandleBlipWebhookUseCase {
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
+    private final AppointmentExternalPort appointmentExternalPort;
+    private final ConfirmationStateMachineService confirmationStateMachineService;
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -233,6 +237,98 @@ public class HandleBlipWebhookUseCase {
         }
 
         String normalizedAction = action.trim().toLowerCase();
+
+        // Intercepção de respostas do Nudge para redirecionar deterministamente ao Desk (Atendimento Humano)
+        boolean isManterAgendamento = normalizedAction.equals("manter agendamento")
+                || normalizedAction.contains("manter_agendamento");
+        boolean isCancelarConsulta = normalizedAction.equals("cancelar consulta")
+                || normalizedAction.contains("cancelar_consulta");
+
+        if (isManterAgendamento || isCancelarConsulta) {
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                String dbPhone = purifyPhoneNumber(fromPhone);
+                log.info("[WEBHOOK-NUDGE] Interceptando resposta do nudge: '{}' para o telefone: {} (DB Phone: {})",
+                    action, fromPhone, dbPhone);
+                
+                // 1. Busca todas as sessões ativas do contato em transação microscópica
+                java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
+                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
+                );
+                
+                if (activeSessions != null && !activeSessions.isEmpty()) {
+                    log.info("[WEBHOOK-NUDGE] Encontradas {} sessões ativas para processar.", activeSessions.size());
+                    
+                    // 2. Atualiza os status locais e externos
+                    for (AppointmentSession session : activeSessions) {
+                        try {
+                            if (isManterAgendamento) {
+                                // Atualiza local para CONFIRMED e Feegow para '7'
+                                log.info("[WEBHOOK-NUDGE] Confirmando sessão local e Feegow para sessionId={}, feegowAppointmentId={}",
+                                    session.getId(), session.getFeegowAppointmentId());
+                                transactionTemplate.executeWithoutResult(status -> {
+                                    AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                                    if (lockedSession != null) {
+                                        confirmationStateMachineService.markConfirmed(lockedSession);
+                                        appointmentSessionRepository.save(lockedSession);
+                                    }
+                                });
+                                appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), "7");
+                            } else {
+                                // Atualiza local para CANCELED e Feegow para '11' (desmarcado)
+                                log.info("[WEBHOOK-NUDGE] Cancelando sessão local e Feegow para sessionId={}, feegowAppointmentId={}",
+                                    session.getId(), session.getFeegowAppointmentId());
+                                transactionTemplate.executeWithoutResult(status -> {
+                                    AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                                    if (lockedSession != null) {
+                                        confirmationStateMachineService.markCanceled(lockedSession);
+                                        appointmentSessionRepository.save(lockedSession);
+                                    }
+                                });
+                                appointmentExternalPort.updateStatus(session.getFeegowAppointmentId(), 11);
+                            }
+                        } catch (Exception ex) {
+                            log.error("[WEBHOOK-NUDGE] Falha ao atualizar sessão no lote. sessionId={}, erro={}",
+                                session.getId(), ex.getMessage(), ex);
+                        }
+                    }
+
+                    // 3. Resolver de forma determinista a fila de destino (attendanceQueueToRedirect)
+                    String targetQueue = null;
+                    for (AppointmentSession session : activeSessions) {
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            String queueName = mappingOpt.get().getBlipQueueId();
+                            if (queueName != null && !queueName.isBlank() && !"null".equalsIgnoreCase(queueName.trim())) {
+                                targetQueue = queueName.trim();
+                                break;
+                            }
+                        }
+                    }
+                    if (targetQueue == null || targetQueue.isBlank()) {
+                        targetQueue = "Recepção Central / Suporte";
+                    }
+
+                    targetQueue = blipContextService.cleanQueueName(targetQueue);
+                    if (targetQueue.isBlank()) {
+                        targetQueue = "Recepção Central / Suporte";
+                    }
+
+                    // 4. Forçar Transbordo para o Atendimento Humano (Desk) via LIME
+                    blipContextService.setQueueRedirect(fromPhone, targetQueue);
+                    blipContextService.setMasterState(fromPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
+                    
+                    log.info("[WEBHOOK-NUDGE] Transbordo concluído para {}. Fila: {}, Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
+                        fromPhone, targetQueue);
+                } else {
+                    log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida de {}, mas nenhuma sessão ativa encontrada.",
+                        action, fromPhone);
+                }
+            } else {
+                log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida sem 'fromPhone' identificado.", action);
+            }
+            return new WebhookResult("", "", "", "", "nudge_response_processed", "");
+        }
+
 
         // Intercepção de texto livre / intenções em português de Confirmação:
         if (normalizedAction.equals("sim")

@@ -457,6 +457,61 @@ public class HandleBlipWebhookUseCase {
                 return null;
             }
             appointmentId = resolvedAppointmentId;
+        } else if (action.toLowerCase().startsWith("group_view_")) {
+            String groupIdStr = action.substring("group_view_".length()).trim();
+            log.info("[WEBHOOK] Clique em visualização de grupo recebido para groupId={}", groupIdStr);
+            try {
+                UUID groupId = UUID.fromString(groupIdStr);
+                java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                java.util.List<AppointmentSession> groupedSessions = new ArrayList<>();
+                for (NotificationGroup g : groups) {
+                    appointmentSessionRepository.findById(g.getSessionId()).ifPresent(groupedSessions::add);
+                }
+
+                groupedSessions.sort((s1, s2) -> {
+                    if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                    if (s1.getAppointmentAt() == null) return 1;
+                    if (s2.getAppointmentAt() == null) return -1;
+                    return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                });
+
+                java.util.List<String> details = new ArrayList<>();
+                for (AppointmentSession s : groupedSessions) {
+                    if (s.getAppointmentAt() == null) {
+                        continue;
+                    }
+                    String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                    String specialty = "Consulta";
+                    String doctorName = "Clínica Inovare";
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+                    if (mappingOpt.isPresent()) {
+                        var mapping = mappingOpt.get();
+                        String queue = mapping.getBlipQueueId();
+                        if (queue != null && !queue.isBlank()) {
+                            specialty = queue.trim();
+                        }
+                        String docName = mapping.getProfissionalNome();
+                        if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                            doctorName = docName.trim();
+                        }
+                    }
+                    details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getFeegowAppointmentId() + ")");
+                }
+
+                String listaDetalhada = String.join("\n", details);
+                if (listaDetalhada.isBlank()) {
+                    listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+                }
+
+                if (fromPhone != null && !fromPhone.isBlank()) {
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
+                    blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
+                    log.info("[WEBHOOK] Injetada lista_detalhada para grupo {} e direcionado para o fluxo de grupo.", groupIdStr);
+                }
+            } catch (IllegalArgumentException e) {
+                log.error("[WEBHOOK] groupId inválido no payload group_view_. action={}", action);
+            }
+            return new WebhookResult("", "", "", "", "group_view_processed", "");
         } else {
             // Captura confirm_{ID}, alter_{ID} ou cancel_{ID}
             java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter|cancel)_(\\d+(?:\\.\\d+)?)");

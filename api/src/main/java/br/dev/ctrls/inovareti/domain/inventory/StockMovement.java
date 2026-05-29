@@ -66,4 +66,62 @@ public class StockMovement {
 
     @Column(name = "recipient_user_id")
     private UUID recipientUserId;
+
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+
+    public UUID getItemId() { return itemId; }
+    public void setItemId(UUID itemId) { this.itemId = itemId; }
+
+    public StockMovementType getType() { return type; }
+    public void setType(StockMovementType type) { this.type = type; }
+
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+
+    public String getReference() { return reference; }
+    public void setReference(String reference) { this.reference = reference; }
+
+    public LocalDateTime getDate() { return date; }
+    public void setDate(LocalDateTime date) { this.date = date; }
+
+    public BigDecimal getUnitPriceAtTime() { return unitPriceAtTime; }
+    public void setUnitPriceAtTime(BigDecimal unitPriceAtTime) { this.unitPriceAtTime = unitPriceAtTime; }
+
+    public UUID getRecipientUserId() { return recipientUserId; }
+    public void setRecipientUserId(UUID recipientUserId) { this.recipientUserId = recipientUserId; }
+
+    public static StockMovementBuilder builder() {
+        return new StockMovementBuilder();
+    }
+
+    public static class StockMovementBuilder {
+        private UUID itemId;
+        private StockMovementType type;
+        private Integer quantity;
+        private String reference;
+        private LocalDateTime date;
+        private BigDecimal unitPriceAtTime;
+        private UUID recipientUserId;
+
+        public StockMovementBuilder itemId(UUID itemId) { this.itemId = itemId; return this; }
+        public StockMovementBuilder type(StockMovementType type) { this.type = type; return this; }
+        public StockMovementBuilder quantity(Integer quantity) { this.quantity = quantity; return this; }
+        public StockMovementBuilder reference(String reference) { this.reference = reference; return this; }
+        public StockMovementBuilder date(LocalDateTime date) { this.date = date; return this; }
+        public StockMovementBuilder unitPriceAtTime(BigDecimal unitPriceAtTime) { this.unitPriceAtTime = unitPriceAtTime; return this; }
+        public StockMovementBuilder recipientUserId(UUID recipientUserId) { this.recipientUserId = recipientUserId; return this; }
+
+        public StockMovement build() {
+            StockMovement movement = new StockMovement();
+            movement.setItemId(itemId);
+            movement.setType(type);
+            movement.setQuantity(quantity);
+            movement.setReference(reference);
+            movement.setDate(date);
+            movement.setUnitPriceAtTime(unitPriceAtTime);
+            movement.setRecipientUserId(recipientUserId);
+            return movement;
+        }
+    }
 }

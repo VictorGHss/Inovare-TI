@@ -523,35 +523,9 @@ public class IngestAppointmentsUseCase {
             return null;
         }
 
-        // Resolução de múltiplos telefones de teste permitidos (separados por vírgula)
-        String testPhone = appointmentMotorProperties.getTestPhone();
-        if (testPhone != null && !testPhone.isBlank()) {
-            java.util.List<String> allowedPhones = java.util.Arrays.stream(testPhone.split(","))
-                    .map(String::trim)
-                    .filter(p -> !p.isEmpty())
-                    .map(this::normalizePhoneNumberForBlip)
-                    .filter(p -> !p.isEmpty())
-                    .toList();
-
-            if (allowedPhones.isEmpty()) {
-                log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste válido em (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
-                return null;
-            }
-
-            // Se o telefone do paciente real (já normalizado) for um dos homologados, mantém o envio direto
-            if (allowedPhones.contains(phoneNumber)) {
-                log.info("[TEST MODE] Telefone do paciente real ({}) é um número de homologação permitido. Mantendo o número original.", patientPhone);
-                return phoneNumber;
-            } else {
-                // Caso contrário, redireciona o envio para o primeiro número de teste cadastrado (número primário)
-                String redirectPhone = allowedPhones.get(0);
-                log.info("[TEST MODE] Telefone do paciente real ({}) redirecionado para o número de teste homologado primário: {}", patientPhone, redirectPhone);
-                return redirectPhone;
-            }
-        } else {
-            log.warn("[TEST MODE] Envio bloqueado para o paciente real ({}): nenhum telefone de teste (APP_APPOINTMENT_MOTOR_TEST_PHONE) configurado no ambiente.", patientPhone);
-            return null;
-        }
+        // Mantém o envio direto para o telefone do paciente real, sem interceptações
+        log.info("[TEST MODE] Médico ID {} homologado. Enviando diretamente para o número real do paciente: {}", docId, phoneNumber);
+        return phoneNumber;
     }
 
     public record IngestionSummary(int totalReceived, int filteredReceived, int sessionsCreated, int messagesSent, String mode) {

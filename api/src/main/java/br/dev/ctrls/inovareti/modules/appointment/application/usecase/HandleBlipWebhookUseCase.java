@@ -22,6 +22,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +60,7 @@ public class HandleBlipWebhookUseCase {
     private final AppointmentExternalPort appointmentExternalPort;
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
+    private final BlipNotificationService blipNotificationService;
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -464,7 +466,7 @@ public class HandleBlipWebhookUseCase {
 
                     // 2. Injeta no contexto do usuário
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                    log.info("[WEBHOOK] Injetada lista_detalhada antes do master-state para ver_agenda_{}", groupIdStr);
+                    log.info("[WEBHOOK] Injetada lista_detalhada para ver_agenda_{}", groupIdStr);
 
                     transactionTemplate.executeWithoutResult(status -> {
                         java.util.List<AppointmentSession> activeSessions =
@@ -481,8 +483,9 @@ public class HandleBlipWebhookUseCase {
                     });
                     log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupIdStr);
 
-                    // 3. Muda o master-state legítimo do Builder
-                    blipContextService.setBuilderMasterState(fromPhone, "a0776d9c-6486-42f3-8a4f-2706f0185908");
+                    // 3. Disparo ativo de texto — substitui o comando silencioso de master-state
+                    log.info("[WEBHOOK] Disparando mensagem de texto ativa para {} com a lista de agendamentos.", fromPhone);
+                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
                 } else {
                     log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
                 }
@@ -602,8 +605,10 @@ public class HandleBlipWebhookUseCase {
 
                     if (fromPhone != null && !fromPhone.isBlank()) {
                         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                        blipContextService.setBuilderMasterState(fromPhone.trim(), "a0776d9c-6486-42f3-8a4f-2706f0185908");
                         log.info("[WEBHOOK] Fallback de visualização de grupo injetado para {}. groupId={}", fromPhone, groupId);
+                        // Disparo ativo de texto — substitui o comando silencioso de master-state
+                        log.info("[WEBHOOK] Disparando mensagem de texto ativa (fallback) para {} com a lista de agendamentos.", fromPhone);
+                        blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
                     }
                 } else {
                     log.warn("[WEBHOOK] Nenhum grupo ativo encontrado para o telefone real: {}", targetPhone);
@@ -660,8 +665,9 @@ public class HandleBlipWebhookUseCase {
 
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                    blipContextService.setBuilderMasterState(fromPhone.trim(), "a0776d9c-6486-42f3-8a4f-2706f0185908");
-                    log.info("[WEBHOOK] Injetada lista_detalhada para grupo {} e direcionado para o fluxo de grupo.", groupIdStr);
+                    log.info("[WEBHOOK] Injetada lista_detalhada para grupo {}. Disparando mensagem ativa.", groupIdStr);
+                    // Disparo ativo de texto — substitui o comando silencioso de master-state
+                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
                 }
             } catch (IllegalArgumentException e) {
                 log.error("[WEBHOOK] groupId inválido no payload group_view_. action={}", action);

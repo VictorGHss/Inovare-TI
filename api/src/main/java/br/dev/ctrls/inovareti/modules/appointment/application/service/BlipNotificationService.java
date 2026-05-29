@@ -302,6 +302,34 @@ public class BlipNotificationService {
         log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
 
+    /**
+     * Envia uma mensagem de texto simples (text/plain) diretamente para o WhatsApp do destinatário
+     * via protocolo LIME. Disparo ativo — não depende de transição de bloco no Builder.
+     *
+     * @param destination identidade do destinatário (ex: "5511999999999@wa.gw.msging.net")
+     * @param text        corpo da mensagem a ser enviada
+     */
+    public void sendPlainTextMessage(String destination, String text) {
+        if (destination == null || destination.isBlank() || text == null || text.isBlank()) {
+            log.warn("[PLAIN-TEXT] Destino ou texto inválido. Envio cancelado. destination={}", destination);
+            return;
+        }
+        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("id", UUID.randomUUID().toString());
+        payload.put("to", normalizedDestination);
+        payload.put("from", "roteadorprincipal57@msging.net");
+        payload.put("type", "text/plain");
+        payload.put("content", text);
+        try {
+            var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            Object status = response.getOrDefault("status", "unknown");
+            log.info("[PLAIN-TEXT] Mensagem de texto enviada ativamente. destination={}, status={}", normalizedDestination, status);
+        } catch (RuntimeException ex) {
+            log.error("[PLAIN-TEXT] Falha ao enviar mensagem de texto para {}. Erro: {}", normalizedDestination, ex.getMessage(), ex);
+        }
+    }
+
     private String resolveWabaNamespace() {
         String ns = motorProperties.getBlipWabaNamespace();
         return (ns != null && !ns.isBlank()) ? ns : "";

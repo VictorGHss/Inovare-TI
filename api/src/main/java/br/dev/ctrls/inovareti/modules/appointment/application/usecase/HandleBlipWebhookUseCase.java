@@ -22,7 +22,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +60,6 @@ public class HandleBlipWebhookUseCase {
     private final AppointmentExternalPort appointmentExternalPort;
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
-    private final BlipNotificationService blipNotificationService;
     private final BlipProperties blipProperties; // ADICIONADO: Propriedades injetadas do Blip sem UUIDs hardcoded
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
@@ -235,7 +233,7 @@ public class HandleBlipWebhookUseCase {
                                 });
                                 appointmentExternalPort.updateStatus(session.getFeegowAppointmentId(), 11);
                             }
-                        } catch (Exception ex) {
+                        } catch (TransactionException | RestClientException | DataAccessException ex) {
                             log.error("[WEBHOOK-NUDGE] Falha ao atualizar sessão no lote. sessionId={}, erro={}",
                                 session.getId(), ex.getMessage(), ex);
                         }

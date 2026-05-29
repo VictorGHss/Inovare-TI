@@ -250,6 +250,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.valueOf(status)).body(responseBody);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.error("Erro de integridade de dados no banco (Database constraint violation): {}", ex.getMessage());
+        
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Conflito de integridade de dados");
+        problem.setDetail("Não foi possível realizar a operação devido a uma restrição de integridade de dados (ex: registro duplicado ou chave inexistente).");
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
+        problem.setProperty("timestamp", LocalDateTime.now());
+        attachTraceId(problem);
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<ProblemDetail> handleDataAccess(org.springframework.dao.DataAccessException ex, HttpServletRequest request) {
+        log.error("Erro de persistência ou acesso ao banco de dados:", ex);
+        
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problem.setTitle("Erro de acesso a banco de dados");
+        problem.setDetail("Ocorreu uma falha na comunicação com o banco de dados. A operação foi abortada para garantir a consistência.");
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
+        problem.setProperty("timestamp", LocalDateTime.now());
+        attachTraceId(problem);
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Erro inesperado no sistema:", ex);

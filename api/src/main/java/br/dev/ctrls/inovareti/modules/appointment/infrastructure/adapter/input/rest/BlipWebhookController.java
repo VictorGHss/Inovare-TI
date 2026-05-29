@@ -105,25 +105,27 @@ public class BlipWebhookController {
             log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
         }
 
-        // 2. FAST-FAIL GUARD (Early Return): Verifica se a requisição contém nossas palavras-chave de ação de forma case-insensitive
+        // 2. FAST-FAIL GUARD (Early Return): Validação estrutural genérica por padrões
         String rawLower = rawJson.toLowerCase();
-        boolean hasActionKeyword = rawLower.contains("confirm_")
+
+        // Compila uma Regex genérica para capturar QUALQUER UUID presente no JSON bruto
+        boolean containsAnyUuid = rawLower.matches(".*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*");
+
+        boolean hasActionKeyword = containsAnyUuid
+                || rawLower.contains("confirm_")
                 || rawLower.contains("alter_")
+                || rawLower.contains("cancel_")
                 || rawLower.contains("confirmar")
-                || rawLower.contains("sim")
-                || rawLower.contains("confirm")
                 || rawLower.contains("alterar")
                 || rawLower.contains("cancelar")
-            || rawLower.contains("preparar_atendimento")
-            || rawLower.contains("exibir_agenda")
-            || rawLower.contains("ver agendamentos")
-            || rawLower.contains("ver_agendamentos")
-            || rawLower.contains("group_view_fallback")
-                || rawLower.contains("a0776d9c-6486-42f3-8a4f-2706f0185908")
-                || rawLower.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
+                || rawLower.contains("ver agendamentos")
+                || rawLower.contains("ver_agendamentos")
+                || rawLower.contains("group_view_fallback")
+                || rawLower.contains("preparar_atendimento")
+                || rawLower.contains("exibir_agenda");
 
         if (!hasActionKeyword) {
-            return ResponseEntity.ok().build(); // Retorna 200 OK instantaneamente (< 10ms)
+            return ResponseEntity.ok().build(); // Ignora spams irrelevantes de forma segura e veloz
         }
 
         Map<String, Object> payload;

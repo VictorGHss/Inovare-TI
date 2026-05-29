@@ -23,6 +23,8 @@ public class BlipProperties {
         private String confirmSuccess;      // Mapeado de blip.blocks.confirm-success (Agradecer Confirmação)
         private String alterRequest;        // Mapeado de blip.blocks.alter-request (Encaminhar Alter)
         private String prepararAtendimento; // Mapeado de blip.blocks.preparar-atendimento (Preparar Atendimento)
+        private String exibirAgenda;        // Mapeado de blip.blocks.exibir-agenda (Exibir Agenda)
+        private String deskStateId;        // Mapeado de blip.blocks.desk-state-id (Redirecionamento ao Desk)
     }
 
     @Data

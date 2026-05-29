@@ -24,6 +24,7 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContex
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,6 +62,7 @@ public class HandleBlipWebhookUseCase {
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final BlipNotificationService blipNotificationService;
+    private final BlipProperties blipProperties; // ADICIONADO: Propriedades injetadas do Blip sem UUIDs hardcoded
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -86,10 +88,14 @@ public class HandleBlipWebhookUseCase {
         String rawText = actionValue + " " + (payload.content() != null ? payload.content().toString() : "");
         String rawLower = rawText.toLowerCase();
 
+        // CORREÇÃO DE SEGURANÇA: Mapeamento dinâmico de UUIDs com Regex estrito (barreira de limite de palavras \b) para evitar detecção errônea de substring
+        String prepararUuid = blipProperties.getBlocks().getPrepararAtendimento();
+        String exibirUuid = blipProperties.getBlocks().getExibirAgenda();
+
         boolean isPrepararAtendimento = "preparar_atendimento".equalsIgnoreCase(actionValue)
-            || rawLower.contains("a0776d9c-6486-42f3-8a4f-2706f0185908");
+            || (prepararUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(prepararUuid.toLowerCase()) + "\\b").matcher(rawLower).find());
         boolean isExibirAgenda = "exibir_agenda".equalsIgnoreCase(actionValue)
-            || rawLower.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
+            || (exibirUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(exibirUuid.toLowerCase()) + "\\b").matcher(rawLower).find());
 
         if (isPrepararAtendimento || isExibirAgenda) {
             String from = payload.from();
@@ -313,9 +319,10 @@ public class HandleBlipWebhookUseCase {
                     }
 
                     // 3. Forçar Transbordo para o Atendimento Humano (Desk) via LIME
-                    blipContextService.setMasterState(fromPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
+                    String deskBlockId = blipProperties.getBlocks().getDeskStateId();
+                    blipContextService.setMasterState(fromPhone, "desk@msging.net", deskBlockId);
                     
-                    log.info("[WEBHOOK-NUDGE] Transbordo concluído para {} direcionando ao Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'", fromPhone);
+                    log.info("[WEBHOOK-NUDGE] Transbordo concluído para {} direcionando ao Bloco: 'desk:{}'", fromPhone, deskBlockId);
                 } else {
                     log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida de {}, mas nenhuma sessão ativa encontrada.",
                         action, fromPhone);

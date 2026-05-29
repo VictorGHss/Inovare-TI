@@ -178,7 +178,7 @@ public class TicketController {
     @PatchMapping("/{id}/resolve")
     public ResponseEntity<TicketResponseDTO> resolve(
             @PathVariable UUID id,
-            @RequestBody ResolveTicketDTO request) {
+            @Valid @RequestBody ResolveTicketDTO request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID authenticatedUserId;
 

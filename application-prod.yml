@@ -172,6 +172,8 @@ blip:
     confirm-success: ${BLIP_BLOCKS_CONFIRM_SUCCESS}
     alter-request: ${BLIP_BLOCKS_ALTER_REQUEST}
     preparar-atendimento: ${BLIP_BLOCKS_PREPARAR_ATENDIMENTO:a0776d9c-6486-42f3-8a4f-2706f0185908}
+    exibir-agenda: ${BLIP_BLOCKS_EXIBIR_AGENDA:1438bc97-34ef-4337-adf5-e03e463c042c}
+    desk-state-id: ${BLIP_BLOCKS_DESK_STATE_ID:644d54dd-aefd-478b-93eb-10081acdd387}
   texts:
     confirm-success: ${BLIP_TEXT_CONFIRM_SUCCESS}
     alter-request: ${BLIP_TEXT_ALTER_REQUEST}

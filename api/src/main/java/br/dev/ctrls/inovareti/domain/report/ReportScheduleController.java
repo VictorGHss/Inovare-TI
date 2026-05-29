@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -42,11 +45,7 @@ public class ReportScheduleController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ReportSchedule> create(@RequestBody ReportScheduleRequest req) {
-        if (req.getReportType() == null || req.getReportType().isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
+    public ResponseEntity<ReportSchedule> create(@Valid @RequestBody ReportScheduleRequest req) {
         var entity = new ReportSchedule();
         entity.setReportType(req.getReportType());
         entity.setTargetUserId(req.getTargetUserId());
@@ -74,7 +73,7 @@ public class ReportScheduleController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ReportSchedule> update(@PathVariable UUID id, @RequestBody ReportScheduleRequest req) {
+    public ResponseEntity<ReportSchedule> update(@PathVariable UUID id, @Valid @RequestBody ReportScheduleRequest req) {
         return repository.findById(id).map(existing -> {
             // Preserve all original fields and update only 'isActive' when provided to avoid nulling required columns
             Boolean isActiveBox = req.getIsActive();
@@ -112,11 +111,16 @@ public class ReportScheduleController {
     @Data
     public static class ReportScheduleRequest {
         // nullable request fields allow partial updates
+        @NotBlank(message = "O tipo de relatório é obrigatório.")
         private String reportType;
+        
+        @NotNull(message = "O usuário de destino é obrigatório.")
         private UUID targetUserId;
+        
         private Boolean sendEmail;
         private Boolean sendDiscord;
         private Integer scheduleDay;
+        
         @JsonProperty("isActive")
         private Boolean isActive;
     }

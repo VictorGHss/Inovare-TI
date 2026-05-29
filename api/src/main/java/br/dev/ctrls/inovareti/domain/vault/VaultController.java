@@ -34,6 +34,8 @@ import br.dev.ctrls.inovareti.domain.vault.dto.VaultUpdateItemRequestDTO;
 import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Validator;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -47,6 +49,7 @@ public class VaultController {
     private final ObjectMapper objectMapper;
     private final LocalFileStorageService fileStorageService;
     private final AuditLogService auditLogService;
+    private final Validator validator; // CORREÇÃO DE SEGURANÇA: Injeção do validador para multipart/part manual
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<VaultItemResponseDTO> createItem(
@@ -168,7 +171,13 @@ public class VaultController {
 
     private VaultCreateItemRequestDTO parseCreatePayload(String payload) {
         try {
-            return objectMapper.readValue(payload, VaultCreateItemRequestDTO.class);
+            VaultCreateItemRequestDTO dto = objectMapper.readValue(payload, VaultCreateItemRequestDTO.class);
+            // CORREÇÃO DE SEGURANÇA: Validação manual para garantir que restrições Bean Validation sejam aplicadas
+            var violations = validator.validate(dto);
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+            return dto;
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             throw new BadRequestException("Payload do item do cofre inválido.");
         }
@@ -176,7 +185,13 @@ public class VaultController {
 
     private VaultUpdateItemRequestDTO parseUpdatePayload(String payload) {
         try {
-            return objectMapper.readValue(payload, VaultUpdateItemRequestDTO.class);
+            VaultUpdateItemRequestDTO dto = objectMapper.readValue(payload, VaultUpdateItemRequestDTO.class);
+            // CORREÇÃO DE SEGURANÇA: Validação manual para garantir que restrições Bean Validation sejam aplicadas
+            var violations = validator.validate(dto);
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+            return dto;
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             throw new BadRequestException("Payload de atualização do item do cofre inválido.");
         }

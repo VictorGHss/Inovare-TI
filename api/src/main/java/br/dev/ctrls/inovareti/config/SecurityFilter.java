@@ -54,18 +54,44 @@ public class SecurityFilter extends OncePerRequestFilter {
         // colete métricas sem exigir um token JWT.
         // Ignora a validação JWT apenas para a rota de coleta pública de métricas do Prometheus.
         // Outros caminhos do Actuator (como /actuator/env, /actuator/beans) exigem a validação do token JWT do Admin.
-        boolean isPrometheusPath = requestUri.contains("/actuator/prometheus") 
+        
+        // CORREÇÃO DE SEGURANÇA: Substituição de checagens fracas por checagens de caminho estritas.
+        boolean isPrometheusPath = requestUri.equals("/actuator/prometheus")
+            || requestUri.equals("/actuator/prometheus/")
             || requestUri.startsWith("/api/actuator/prometheus");
 
         // Ignora a validação para o webhook comum do Blip, mas exige validação de autenticação
         // caso seja o endpoint de trigger manual administrativo (/webhooks/blip/manual-trigger).
-        boolean isWebhooksPath = (requestUri.startsWith("/webhooks/") && !requestUri.contains(BLIP_MANUAL_TRIGGER_PATH))
-            || (requestUri.startsWith("/api/webhooks/") && !requestUri.contains(BLIP_MANUAL_TRIGGER_PATH));
+        boolean isWebhooksPath = (requestUri.startsWith("/webhooks/") && !requestUri.equals(BLIP_MANUAL_TRIGGER_PATH) && !requestUri.equals(BLIP_MANUAL_TRIGGER_PATH + "/"))
+            || (requestUri.startsWith("/api/webhooks/") && !requestUri.equals(BLIP_MANUAL_TRIGGER_PATH) && !requestUri.equals(BLIP_MANUAL_TRIGGER_PATH + "/"));
 
-        return requestUri.contains("/auth/login")
-            || requestUri.contains("/auth/reset-initial-password")
-            || requestUri.contains(CONTA_AZUL_AUTHORIZE_PATH)
-            || requestUri.contains(CONTA_AZUL_CALLBACK_PATH)
+        boolean isAuthPath = requestUri.equals("/auth/login")
+            || requestUri.equals("/auth/login/")
+            || requestUri.equals("/api/auth/login")
+            || requestUri.equals("/api/auth/login/")
+            || requestUri.equals("/auth/reset-initial-password")
+            || requestUri.equals("/auth/reset-initial-password/")
+            || requestUri.equals("/api/auth/reset-initial-password")
+            || requestUri.equals("/api/auth/reset-initial-password/");
+
+        boolean isContaAzulPath = requestUri.equals(CONTA_AZUL_AUTHORIZE_PATH)
+            || requestUri.equals(CONTA_AZUL_AUTHORIZE_PATH + "/")
+            || requestUri.equals("/api" + CONTA_AZUL_AUTHORIZE_PATH)
+            || requestUri.equals("/api" + CONTA_AZUL_AUTHORIZE_PATH + "/")
+            || requestUri.equals(CONTA_AZUL_CALLBACK_PATH)
+            || requestUri.equals(CONTA_AZUL_CALLBACK_PATH + "/")
+            || requestUri.equals("/api" + CONTA_AZUL_CALLBACK_PATH)
+            || requestUri.equals("/api" + CONTA_AZUL_CALLBACK_PATH + "/");
+
+        boolean isWebSocketPath = requestUri.startsWith("/ws/")
+            || requestUri.startsWith("/api/ws/")
+            || requestUri.equals("/ws")
+            || requestUri.equals("/api/ws")
+            || requestUri.equals("/ws/")
+            || requestUri.equals("/api/ws/");
+
+        return isAuthPath
+            || isContaAzulPath
             || requestUri.equals(BLIP_WEBHOOK_PATH)
             || requestUri.equals(BLIP_WEBHOOK_PATH + "/")
             || requestUri.equals("/api" + BLIP_WEBHOOK_PATH)
@@ -82,9 +108,7 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.equals(APPOINTMENT_DEBUG_QUEUES_PATH)
             || requestUri.equals("/api" + APPOINTMENT_DEBUG_QUEUES_PATH)
             || isPrometheusPath
-            || requestUri.contains("/ws/")
-            || requestUri.startsWith("/api/ws/")
-            || requestUri.startsWith("/ws/");
+            || isWebSocketPath;
     }
 
     @Override
@@ -102,11 +126,13 @@ public class SecurityFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Libera a passagem direta para os Webhooks comuns da Blip sem exigir JWT.
-        // O trigger manual foi removido desta verificação para que administradores humanos autenticados via JWT também possam acessá-lo.
-        if (path.contains("/v1/appointments/blip/webhook")
-            || path.contains("/v1/webhook/blip")
-            || path.contains(BLIP_WEBHOOK_ALIAS_PATH)) {
+        // CORREÇÃO DE SEGURANÇA: Libera a passagem direta para os Webhooks comuns da Blip com checagem estrita de caminhos.
+        if (path.equals("/v1/appointments/blip/webhook")
+            || path.equals("/v1/appointments/blip/webhook/")
+            || path.equals("/v1/webhook/blip")
+            || path.equals("/v1/webhook/blip/")
+            || path.equals(BLIP_WEBHOOK_ALIAS_PATH)
+            || path.equals(BLIP_WEBHOOK_ALIAS_PATH + "/")) {
             filterChain.doFilter(request, response);
             return;
         }

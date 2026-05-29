@@ -419,6 +419,53 @@ public class HandleBlipWebhookUseCase {
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     String normalizedPhone = fromPhone.trim();
                     String dbPhone = purifyPhoneNumber(fromPhone);
+
+                    // 1. Carrega as sessões do grupo e gera a lista_detalhada
+                    java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                    java.util.List<AppointmentSession> groupedSessions = new ArrayList<>();
+                    for (NotificationGroup g : groups) {
+                        appointmentSessionRepository.findById(g.getSessionId()).ifPresent(groupedSessions::add);
+                    }
+
+                    groupedSessions.sort((s1, s2) -> {
+                        if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                        if (s1.getAppointmentAt() == null) return 1;
+                        if (s2.getAppointmentAt() == null) return -1;
+                        return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                    });
+
+                    java.util.List<String> details = new ArrayList<>();
+                    for (AppointmentSession s : groupedSessions) {
+                        if (s.getAppointmentAt() == null) {
+                            continue;
+                        }
+                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                        String specialty = "Consulta";
+                        String doctorName = "Clínica Inovare";
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            var mapping = mappingOpt.get();
+                            String queue = mapping.getBlipQueueId();
+                            if (queue != null && !queue.isBlank()) {
+                                specialty = queue.trim();
+                            }
+                            String docName = mapping.getProfissionalNome();
+                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                                doctorName = docName.trim();
+                            }
+                        }
+                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
+                    }
+
+                    String listaDetalhada = String.join("\n", details);
+                    if (listaDetalhada.isBlank()) {
+                        listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+                    }
+
+                    // 2. Injeta no contexto do usuário
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
+                    log.info("[WEBHOOK] Injetada lista_detalhada antes do master-state para ver_agenda_{}", groupIdStr);
+
                     transactionTemplate.executeWithoutResult(status -> {
                         java.util.List<AppointmentSession> activeSessions =
                             appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
@@ -433,7 +480,9 @@ public class HandleBlipWebhookUseCase {
                         }
                     });
                     log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupIdStr);
-                    blipContextService.setMasterState(fromPhone, "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
+
+                    // 3. Muda o master-state legítimo do Builder
+                    blipContextService.setBuilderMasterState(fromPhone, "a0776d9c-6486-42f3-8a4f-2706f0185908");
                 } else {
                     log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
                 }
@@ -553,7 +602,7 @@ public class HandleBlipWebhookUseCase {
 
                     if (fromPhone != null && !fromPhone.isBlank()) {
                         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                        blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
+                        blipContextService.setBuilderMasterState(fromPhone.trim(), "a0776d9c-6486-42f3-8a4f-2706f0185908");
                         log.info("[WEBHOOK] Fallback de visualização de grupo injetado para {}. groupId={}", fromPhone, groupId);
                     }
                 } else {
@@ -611,7 +660,7 @@ public class HandleBlipWebhookUseCase {
 
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                    blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
+                    blipContextService.setBuilderMasterState(fromPhone.trim(), "a0776d9c-6486-42f3-8a4f-2706f0185908");
                     log.info("[WEBHOOK] Injetada lista_detalhada para grupo {} e direcionado para o fluxo de grupo.", groupIdStr);
                 }
             } catch (IllegalArgumentException e) {

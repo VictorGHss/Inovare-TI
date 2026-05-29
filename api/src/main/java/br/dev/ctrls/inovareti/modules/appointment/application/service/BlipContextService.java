@@ -144,6 +144,27 @@ public class BlipContextService {
         }
     }
 
+    public void setBuilderMasterState(String userIdentity, String stateId) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "method", "set",
+            "uri", "/contexts/" + normalizedIdentity + "/master-state",
+            "type", "text/plain",
+            "metadata", Map.of("expiration", "86400"),
+            "resource", stateId
+        );
+
+        try {
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[LIME] Builder Master-State atualizado para o bloco stateId={}, user={}", stateId, normalizedIdentity);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            log.error("Erro ao atualizar Builder Master-State. stateId={}", stateId, ex);
+        }
+    }
+
     public void setUserState(String userIdentity, String stateName) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 

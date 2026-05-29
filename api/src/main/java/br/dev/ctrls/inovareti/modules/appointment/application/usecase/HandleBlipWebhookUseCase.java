@@ -58,6 +58,7 @@ public class HandleBlipWebhookUseCase {
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final AppointmentExternalPort appointmentExternalPort;
     private final ConfirmationStateMachineService confirmationStateMachineService;
+    private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -234,6 +235,23 @@ public class HandleBlipWebhookUseCase {
             if (fallbackAction != null && !fallbackAction.isBlank()) {
                 action = fallbackAction.trim();
             }
+        }
+
+        java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+        if (uuidPattern.matcher(action).matches()) {
+            log.info("[WEBHOOK] UUID puro detectado na ação. Carregando sessão de agendamento: {}", action);
+            UUID sessionId = UUID.fromString(action);
+            AppointmentSession session = transactionTemplate.execute(status ->
+                appointmentSessionRepository.findById(sessionId).orElse(null)
+            );
+
+            if (session != null) {
+                log.info("[WEBHOOK] Sessão encontrada para UUID puro. Enviando template individual para o agendamento Feegow={}", session.getFeegowAppointmentId());
+                sendAppointmentTemplateUseCase.execute(session, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory.CONFIRMATION);
+            } else {
+                log.warn("[WEBHOOK] Nenhuma sessão encontrada para a ação de UUID: {}", action);
+            }
+            return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
         }
 
         String normalizedAction = action.trim().toLowerCase();

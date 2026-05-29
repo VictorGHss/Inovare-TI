@@ -364,37 +364,12 @@ public class HandleBlipWebhookUseCase {
                         return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
                     });
 
-                    java.util.List<String> details = new ArrayList<>();
-                    for (AppointmentSession s : groupedSessions) {
-                        if (s.getAppointmentAt() == null) {
-                            continue;
-                        }
-                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                        String specialty = "Consulta";
-                        String doctorName = "Clínica Inovare";
-                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-                        if (mappingOpt.isPresent()) {
-                            var mapping = mappingOpt.get();
-                            String queue = mapping.getBlipQueueId();
-                            if (queue != null && !queue.isBlank()) {
-                                specialty = queue.trim();
-                            }
-                            String docName = mapping.getProfissionalNome();
-                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                                doctorName = docName.trim();
-                            }
-                        }
-                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
-                    }
-
-                    String listaDetalhada = String.join("\n", details);
-                    if (listaDetalhada.isBlank()) {
-                        listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
-                    }
+                    String listaDetalhada = buildListaDetalhada(groupedSessions);
 
                     // 2. Injeta no contexto do usuário
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                    log.info("[WEBHOOK] Injetada lista_detalhada para ver_agenda_{}", groupIdStr);
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
+                    log.info("[WEBHOOK] Injetada lista_detalhada e groupId para ver_agenda_{}", groupIdStr);
 
                     transactionTemplate.executeWithoutResult(status -> {
                         java.util.List<AppointmentSession> activeSessions =
@@ -423,39 +398,132 @@ public class HandleBlipWebhookUseCase {
             return new WebhookResult("", "", "", "", "ver_agenda", "");
         }
 
-        String normalizedActionLower = action.toLowerCase();
-        boolean isGroupConfirm = normalizedActionLower.startsWith("confirm_group_");
-        boolean isGroupAlter = normalizedActionLower.startsWith("alter_group_");
-
-        String actionType;
-        String appointmentId;
-
-        if (isGroupConfirm || isGroupAlter) {
-            String groupPrefix = isGroupConfirm ? "confirm_group_" : "alter_group_";
-            actionType = isGroupConfirm ? "confirm" : "alter";
-            String groupIdStr = action.substring(groupPrefix.length()).trim();
-            String resolvedAppointmentId = null;
+        if (action.toLowerCase().startsWith("confirm_group_")) {
+            String groupIdStr = action.substring("confirm_group_".length()).trim();
+            log.info("[WEBHOOK] Interceptando confirm_group_{} para confirmação em lote.", groupIdStr);
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
+                java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                
+                String userPhone = fromPhone;
+                java.util.Map<UUID, AppointmentSession> uniqueSessions = new java.util.LinkedHashMap<>();
+                for (NotificationGroup group : groups) {
+                    appointmentSessionRepository.findById(group.getSessionId()).ifPresent(s -> uniqueSessions.put(s.getId(), s));
+                }
+                
+                if (userPhone != null && !userPhone.isBlank()) {
+                    String dbPhone = purifyPhoneNumber(userPhone);
+                    java.util.List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                    for (AppointmentSession s : activeContactSessions) {
+                        uniqueSessions.put(s.getId(), s);
+                    }
+                }
+
+                java.util.List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
+                log.info("[WEBHOOK-BATCH] Processando confirmação em lote. Total de agendamentos: {}", sessionList.size());
+
+                // 1. Atualizar status local de todas as sessões
+                for (AppointmentSession groupSession : sessionList) {
+                    transactionTemplate.executeWithoutResult(status -> {
+                        AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(groupSession.getId()).orElse(null);
+                        if (lockedSession != null) {
+                            confirmationStateMachineService.markConfirmed(lockedSession);
+                            appointmentSessionRepository.save(lockedSession);
+                        }
+                    });
+                }
+
+                // 2. Disparar API do Feegow individualmente para cada agendamento
+                String confirmedStatusId = "7"; // Status Confirmado padrão no Feegow
+                String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
+                if (configuredStatusId != null && !configuredStatusId.isBlank()) {
+                    String trimmed = configuredStatusId.trim();
+                    if (!"2".equals(trimmed)) {
+                        confirmedStatusId = trimmed;
+                    }
+                }
+
+                for (AppointmentSession groupSession : sessionList) {
+                    try {
+                        appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
+                        log.info("[WEBHOOK-BATCH] Status atualizado no Feegow para CONFIRMADO: {}", groupSession.getFeegowAppointmentId());
+                    } catch (RestClientException | IllegalStateException ex) {
+                        log.error("[WEBHOOK-BATCH] Falha ao atualizar status na Feegow para ID: {}, erro: {}",
+                            groupSession.getFeegowAppointmentId(), ex.getMessage(), ex);
+                    }
+                }
+
+                // 3. Estratégia de desempate determinista para fila Blip e redirecionamento de estado
+                String targetQueue = null;
+                for (AppointmentSession groupSession : sessionList) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(groupSession.getDoctorProfissionalId());
+                    if (mappingOpt.isPresent()) {
+                        String queue = mappingOpt.get().getBlipQueueId();
+                        if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                            targetQueue = queue.trim();
+                            break;
+                        }
+                    }
+                }
+
+                if (targetQueue == null || targetQueue.isBlank()) {
+                    targetQueue = "Recepção Central / Suporte";
+                }
+
+                if (userPhone != null && !userPhone.isBlank()) {
+                    blipContextService.setQueueRedirect(userPhone.trim(), targetQueue);
+                    // Redireciona para o Atendimento Humano (Desk)
+                    String deskBlockId = blipProperties.getBlocks().getDeskStateId();
+                    blipContextService.setMasterState(userPhone.trim(), "desk@msging.net", deskBlockId);
+                    log.info("[WEBHOOK-BATCH] Usuário {} redirecionado para a fila '{}', bloco desk: '{}'", userPhone, targetQueue, deskBlockId);
+                }
+
+            } catch (Exception e) {
+                log.error("[WEBHOOK-BATCH] Erro ao processar confirmação em lote para grupo " + groupIdStr, e);
+            }
+            return new WebhookResult("", "", "", "", "confirm_group_processed", "");
+
+        } else if (action.toLowerCase().startsWith("alter_group_")) {
+            String groupIdStr = action.substring("alter_group_".length()).trim();
+            log.info("[WEBHOOK] Interceptando alter_group_{} para alteração em lote.", groupIdStr);
+            try {
+                UUID groupId = UUID.fromString(groupIdStr);
+                // Para alter_group, redirecionamos para o atendimento humano (Desk)
+                String targetQueue = "Recepção Central / Suporte";
                 java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
                 if (groups != null && !groups.isEmpty()) {
                     UUID firstSessionId = groups.get(0).getSessionId();
                     AppointmentSession firstSession = transactionTemplate.execute(status ->
-                            appointmentSessionRepository.findById(firstSessionId).orElse(null)
+                        appointmentSessionRepository.findById(firstSessionId).orElse(null)
                     );
                     if (firstSession != null) {
-                        resolvedAppointmentId = firstSession.getFeegowAppointmentId();
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(firstSession.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            String queue = mappingOpt.get().getBlipQueueId();
+                            if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                                targetQueue = queue.trim();
+                            }
+                        }
                     }
                 }
-            } catch (TransactionException e) {
-                log.error("[WEBHOOK] Falha ao processar grupo de confirmação para ação: " + action, e);
+
+                String userPhone = fromPhone;
+                if (userPhone != null && !userPhone.isBlank()) {
+                    blipContextService.setQueueRedirect(userPhone.trim(), targetQueue);
+                    String deskBlockId = blipProperties.getBlocks().getDeskStateId();
+                    blipContextService.setMasterState(userPhone.trim(), "desk@msging.net", deskBlockId);
+                    log.info("[WEBHOOK-BATCH] Usuário {} redirecionado para alteração de grupo na fila '{}', bloco desk: '{}'", userPhone, targetQueue, deskBlockId);
+                }
+            } catch (Exception e) {
+                log.error("[WEBHOOK-BATCH] Erro ao processar alteração em lote para grupo " + groupIdStr, e);
             }
-            if (resolvedAppointmentId == null) {
-                log.warn("[WEBHOOK] Nenhuma sessão encontrada para a ação de grupo: {}", action);
-                return null;
-            }
-            appointmentId = resolvedAppointmentId;
-        } else if ("group_view_fallback".equalsIgnoreCase(action)) {
+            return new WebhookResult("", "", "", "", "alter_group_processed", "");
+        }
+
+        String actionType;
+        String appointmentId;
+
+        if ("group_view_fallback".equalsIgnoreCase(action)) {
             log.info("[WEBHOOK] Interceptando group_view_fallback para resolucao de tunel.");
             String realPhone = null;
             if (payload.metadata() != null) {
@@ -503,39 +571,12 @@ public class HandleBlipWebhookUseCase {
                         return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
                     });
 
-                    java.util.List<String> details = new ArrayList<>();
-                    for (AppointmentSession s : groupedSessions) {
-                        if (s.getAppointmentAt() == null) {
-                            continue;
-                        }
-                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                        String specialty = "Consulta";
-                        String doctorName = "Clínica Inovare";
-                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-                        if (mappingOpt.isPresent()) {
-                            var mapping = mappingOpt.get();
-                            String queue = mapping.getBlipQueueId();
-                            if (queue != null && !queue.isBlank()) {
-                                specialty = queue.trim();
-                            }
-                            String docName = mapping.getProfissionalNome();
-                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                                doctorName = docName.trim();
-                            }
-                        }
-                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
-                    }
-
-                    String listaDetalhada = String.join("\n", details);
-                    if (listaDetalhada.isBlank()) {
-                        listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
-                    }
+                    String listaDetalhada = buildListaDetalhada(groupedSessions);
 
                     if (fromPhone != null && !fromPhone.isBlank()) {
                         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
+                        blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
                         log.info("[WEBHOOK] Fallback de visualização de grupo injetado para {}. groupId={}", fromPhone, groupId);
-                        // AJUSTE DE ARQUITETURA: Não enviar mensagem de texto puro no chat pelo Java.
-                        // O Blip Builder cuidará da renderização visual nativa utilizando botões e formatação nativa do WhatsApp.
                         log.info("[WEBHOOK] Dados de agendamento (fallback) persistidos no contexto de {}. Delegando a renderização de UI para o Blip Builder.", fromPhone);
                     }
                 } else {
@@ -563,39 +604,12 @@ public class HandleBlipWebhookUseCase {
                     return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
                 });
 
-                java.util.List<String> details = new ArrayList<>();
-                for (AppointmentSession s : groupedSessions) {
-                    if (s.getAppointmentAt() == null) {
-                        continue;
-                    }
-                    String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                    String specialty = "Consulta";
-                    String doctorName = "Clínica Inovare";
-                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-                    if (mappingOpt.isPresent()) {
-                        var mapping = mappingOpt.get();
-                        String queue = mapping.getBlipQueueId();
-                        if (queue != null && !queue.isBlank()) {
-                            specialty = queue.trim();
-                        }
-                        String docName = mapping.getProfissionalNome();
-                        if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                            doctorName = docName.trim();
-                        }
-                    }
-                    details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
-                }
-
-                String listaDetalhada = String.join("\n", details);
-                if (listaDetalhada.isBlank()) {
-                    listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
-                }
+                String listaDetalhada = buildListaDetalhada(groupedSessions);
 
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
                     log.info("[WEBHOOK] Injetada lista_detalhada para o grupo {}.", groupIdStr);
-                    // AJUSTE DE ARQUITETURA: Não enviar mensagem de texto puro no chat pelo Java.
-                    // O Blip Builder cuidará da renderização visual nativa utilizando botões e formatação nativa do WhatsApp.
                     log.info("[WEBHOOK] Dados de agendamento persistidos no contexto para o grupo {}. Delegando a renderização de UI para o Blip Builder.", groupIdStr);
                 }
             } catch (IllegalArgumentException e) {
@@ -700,6 +714,83 @@ public class HandleBlipWebhookUseCase {
                 queue,
                 dispatchIdentity
         );
+    }
+
+    /**
+     * Sanitiza o nome do profissional (médico), separando-o rigorosamente
+     * de nomes de procedimentos, filas ou pacientes de teste que possam vir concatenados.
+     *
+     * @param doctorName nome bruto vindo da Feegow ou do mapeamento
+     * @return nome do profissional higienizado
+     */
+    private String sanitizeDoctorName(String doctorName) {
+        if (doctorName == null || doctorName.isBlank()) {
+            return "Clínica Inovare";
+        }
+        String clean = doctorName.trim();
+        // Separar de hifens (ex: "Dr. João - Cardiologia")
+        if (clean.contains(" - ")) {
+            clean = clean.split(" - ")[0].trim();
+        } else if (clean.contains("-")) {
+            clean = clean.split("-")[0].trim();
+        }
+        // Separar de parênteses (ex: "Dr. João (Ortopedia)")
+        if (clean.contains("(")) {
+            clean = clean.split("\\(")[0].trim();
+        }
+        // Separar de barras (ex: "Dr. João/Cardiologia")
+        if (clean.contains("/")) {
+            clean = clean.split("/")[0].trim();
+        }
+        // Remove prefixos como Dr., Dra., etc.
+        clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
+        return clean.trim();
+    }
+
+    /**
+     * Constrói a string formatada da lista de agendamentos (lista_detalhada) de acordo
+     * com o padrão visual corporativo rigoroso para agendamentos múltiplos.
+     *
+     * @param groupedSessions lista de sessões de agendamento do grupo
+     * @return string formatada contendo data, horário e profissional
+     */
+    private String buildListaDetalhada(java.util.List<AppointmentSession> groupedSessions) {
+        if (groupedSessions == null || groupedSessions.isEmpty()) {
+            return "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+        }
+
+        java.util.List<String> details = new ArrayList<>();
+        details.add("PRÓXIMOS ATENDIMENTOS:");
+
+        for (AppointmentSession s : groupedSessions) {
+            if (s.getAppointmentAt() == null) {
+                continue;
+            }
+            String dateStr = s.getAppointmentAt().toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"));
+            String timeStr = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
+            String doctorName = "Clínica Inovare";
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+            if (mappingOpt.isPresent()) {
+                var mapping = mappingOpt.get();
+                String docName = mapping.getProfissionalNome();
+                if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                    doctorName = docName.trim();
+                }
+            }
+            doctorName = sanitizeDoctorName(doctorName);
+
+            details.add("🔹 " + doctorName);
+            details.add("  Data: " + dateStr);
+            details.add("  Horario: " + timeStr);
+        }
+
+        if (details.size() <= 1) {
+            return "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+        }
+
+        details.add("Por favor, confirme se você comparecerá aos horários listados acima.");
+        return String.join("\n", details);
     }
 
     private String normalizeFeegowAppointmentId(String feegowAppointmentId) {

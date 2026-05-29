@@ -128,7 +128,8 @@ public class ItemController {
                 request.unitPrice(),
                 request.brand(),
                 request.supplier(),
-                request.purchaseReason()
+                request.purchaseReason(),
+                request.installments()
         );
 
         return ResponseEntity

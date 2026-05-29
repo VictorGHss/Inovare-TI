@@ -88,4 +88,8 @@ public class StockBatch {
     /** Caminho do arquivo da nota fiscal no disco (ex: uploads/invoices/batch-{id}-{timestamp}.pdf). */
     @Column(name = "invoice_file_path", length = 500)
     private String invoiceFilePath;
+
+    @Builder.Default
+    @jakarta.persistence.OneToMany(mappedBy = "stockBatch", cascade = jakarta.persistence.CascadeType.ALL, fetch = FetchType.LAZY)
+    private java.util.List<StockBatchInstallment> installments = new java.util.ArrayList<>();
 }

@@ -694,16 +694,22 @@ export default function Settings() {
               )}
 
               {activeSubSection === 'backups' && (
-                <motion.div
-                  key="backups"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {renderBackHeader()}
-                  <BackupsSection />
-                </motion.div>
+                !isTwoFactorVerified ? (
+                  <FinancialTwoFactorChallenge
+                    onClose={() => setActiveSubSection('menu')}
+                  />
+                ) : (
+                  <motion.div
+                    key="backups"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {renderBackHeader()}
+                    <BackupsSection />
+                  </motion.div>
+                )
               )}
             </AnimatePresence>
           )}

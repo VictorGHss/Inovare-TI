@@ -85,6 +85,10 @@ export interface CreateBatchDto {
   brand?: string;
   supplier?: string;
   purchaseReason?: string;
+  installments?: {
+    dueDate: string;
+    amount: number;
+  }[];
 }
 
 export interface Batch {

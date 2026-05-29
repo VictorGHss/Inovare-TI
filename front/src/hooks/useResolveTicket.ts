@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 
-import { getAssetCategories, getAssets, getItems } from '../services/inventoryService';
+import { getAssetCategories, getAssets, getItems, getAssetById } from '../services/inventoryService';
 import type { Asset, AssetCategory, Item, ResolveTicketRequest, Ticket } from '../types/models';
 
 interface UseResolveTicketParams {
@@ -22,6 +22,9 @@ export function useResolveTicket({
   initialNotes = '',
 }: UseResolveTicketParams) {
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [recipientUserId, setRecipientUserId] = useState('');
+  const [assetUsers, setAssetUsers] = useState<{ id: string; name: string }[]>([]);
+  const [loadingAssetUsers, setLoadingAssetUsers] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -104,6 +107,42 @@ export function useResolveTicket({
     void loadAssetCategories();
   }, [assetMode, deliverEquipment, deliveryType, isOpen]);
 
+  // Carrega os usuários associados ao ativo do chamado
+  useEffect(() => {
+    async function loadAssetUsers() {
+      if (!isOpen || !ticket?.assetId) {
+        setAssetUsers([]);
+        setRecipientUserId('');
+        return;
+      }
+
+      setLoadingAssetUsers(true);
+      try {
+        const asset = await getAssetById(ticket.assetId);
+        if (asset && asset.userIds && asset.assignedToNames) {
+          const mappedUsers = asset.userIds.map((id, index) => ({
+            id,
+            name: asset.assignedToNames?.[index] || id,
+          }));
+          setAssetUsers(mappedUsers);
+          if (mappedUsers.length > 0) {
+            setRecipientUserId(mappedUsers[0].id);
+          }
+        } else {
+          setAssetUsers([]);
+          setRecipientUserId('');
+        }
+      } catch {
+        setAssetUsers([]);
+        setRecipientUserId('');
+      } finally {
+        setLoadingAssetUsers(false);
+      }
+    }
+
+    void loadAssetUsers();
+  }, [isOpen, ticket?.assetId]);
+
   // Carrega itens de consumo com estoque disponível.
   useEffect(() => {
     async function loadItems() {
@@ -141,6 +180,8 @@ export function useResolveTicket({
     setNewAssetCategoryId('');
     setNewAssetPatrimonyCode('');
     setNewAssetSpecifications('');
+    setRecipientUserId('');
+    setAssetUsers([]);
   }
 
   function validateBeforeSubmit() {
@@ -196,6 +237,7 @@ export function useResolveTicket({
         await onResolve({
           resolutionNotes,
           assetIdToDeliver: selectedAssetId,
+          recipientUserId: recipientUserId || undefined,
         });
       } else if (deliverEquipment && deliveryType === 'asset' && assetMode === 'new') {
         await onResolve({
@@ -207,15 +249,20 @@ export function useResolveTicket({
             categoryId: newAssetCategoryId,
             specifications: newAssetSpecifications.trim() || undefined,
           },
+          recipientUserId: recipientUserId || undefined,
         });
       } else if (deliverEquipment && deliveryType === 'item') {
         await onResolve({
           resolutionNotes,
           inventoryItemIdToDeliver: selectedItemId,
           quantityToDeliver: quantity,
+          recipientUserId: recipientUserId || undefined,
         });
       } else {
-        await onResolve({ resolutionNotes });
+        await onResolve({
+          resolutionNotes,
+          recipientUserId: recipientUserId || undefined,
+        });
       }
 
       resetForm();
@@ -258,6 +305,10 @@ export function useResolveTicket({
     loadingAssetCategories,
     isSubmitting,
     hasAutoInventoryDeduction,
+    recipientUserId,
+    setRecipientUserId,
+    assetUsers,
+    loadingAssetUsers,
     handleSubmit,
   };
 }

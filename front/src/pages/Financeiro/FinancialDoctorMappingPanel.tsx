@@ -16,6 +16,104 @@ import type { DoctorMapping, User } from '../../types/models';
 const inlineInputClass =
   'w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25';
 
+interface UserAutocompleteSelectProps {
+  users: User[];
+  selectedUserId: string | null;
+  onChange: (userId: string | null) => void;
+}
+
+function UserAutocompleteSelect({
+  users,
+  selectedUserId,
+  onChange,
+}: UserAutocompleteSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const selectedUser = useMemo(() => {
+    return users.find((u) => u.id === selectedUserId);
+  }, [users, selectedUserId]);
+
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users.slice(0, 10);
+    const s = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(s) ||
+        (u.email && u.email.toLowerCase().includes(s)) ||
+        (u.sectorName && u.sectorName.toLowerCase().includes(s))
+    );
+  }, [users, search]);
+
+  const handleBlur = () => {
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
+  };
+
+  if (selectedUser) {
+    return (
+      <div className="flex items-center gap-1.5 p-1 max-w-full">
+        <span className="inline-flex items-center gap-1 rounded-2xl bg-amber-50 border border-[#feb56c]/30 px-2.5 py-1 text-xs font-semibold text-slate-700 max-w-full truncate shadow-sm">
+          <span className="truncate max-w-[150px]">{selectedUser.name}</span>
+          <button
+            type="button"
+            onClick={() => {
+              onChange(null);
+              setSearch('');
+            }}
+            className="text-slate-400 hover:text-brand-primary-dark ml-1 font-bold text-xs"
+          >
+            ✕
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full">
+      <input
+        type="text"
+        placeholder="Buscar usuário..."
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={handleBlur}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition-all focus:border-[#feb56c] focus:outline-none focus:ring-2 focus:ring-[#feb56c]/20 placeholder:text-slate-400"
+      />
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+          {filteredUsers.length === 0 ? (
+            <div className="px-3 py-2.5 text-xs text-slate-400">Nenhum usuário encontrado</div>
+          ) : (
+            filteredUsers.map((u) => (
+              <button
+                key={u.id}
+                type="button"
+                onClick={() => {
+                  onChange(u.id);
+                  setIsOpen(false);
+                  setSearch('');
+                }}
+                className="w-full px-3 py-2 text-left text-xs hover:bg-amber-50 hover:text-slate-900 text-slate-700 transition-colors flex flex-col border-b border-slate-50 last:border-b-0"
+              >
+                <span className="font-semibold">{u.name}</span>
+                <span className="text-[10px] text-slate-400 truncate">
+                  {u.email} {u.sectorName ? `• ${u.sectorName}` : ''}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ExtendedDoctorMapping extends DoctorMapping {
   isNew?: boolean;
 }
@@ -296,18 +394,11 @@ export default function FinancialDoctorMappingPanel() {
 
                   {/* Usuário Vinculado */}
                   <td className="px-4 py-3 align-middle">
-                    <select
-                      value={row.userId || ''}
-                      onChange={(e) => updateField(idx, 'userId', e.target.value || null)}
-                      className={`${inlineInputClass} border border-slate-200 bg-white`}
-                    >
-                      <option value="">Nenhum usuário vinculado (Usar Fallback)</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.email})
-                        </option>
-                      ))}
-                    </select>
+                    <UserAutocompleteSelect
+                      users={users}
+                      selectedUserId={row.userId}
+                      onChange={(val) => updateField(idx, 'userId', val)}
+                    />
                   </td>
 
                   {/* Ações */}

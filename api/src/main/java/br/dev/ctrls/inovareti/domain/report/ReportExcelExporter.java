@@ -85,7 +85,7 @@ public class ReportExcelExporter {
         }
     }
 
-    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches) {
+    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches, Map<UUID, BigDecimal> periodCosts) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Entradas");
 
@@ -113,7 +113,7 @@ public class ReportExcelExporter {
                 row.createCell(4).setCellValue(batch.getSupplier() != null ? batch.getSupplier() : "-");
                 row.createCell(5).setCellValue(CURRENCY_FORMATTER.format(batch.getUnitPrice()));
 
-                BigDecimal totalPrice = batch.getUnitPrice().multiply(BigDecimal.valueOf(batch.getOriginalQuantity()));
+                BigDecimal totalPrice = periodCosts.getOrDefault(batch.getId(), BigDecimal.ZERO);
                 row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
 
                 row.createCell(7).setCellValue(batch.getPurchaseReason() != null ? batch.getPurchaseReason() : "-");

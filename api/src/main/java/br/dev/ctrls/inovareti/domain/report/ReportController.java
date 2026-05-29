@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.domain.report;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -130,11 +131,41 @@ public class ReportController {
         LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
         LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
 
+        LocalDate startDateLoc = start.toLocalDate();
+        LocalDate endDateLoc = end.toLocalDate();
+
         List<StockBatch> batches = stockBatchRepository.findAll().stream()
-            .filter(b -> b.getEntryDate() != null && (b.getEntryDate().isEqual(start) || b.getEntryDate().isAfter(start)) && (b.getEntryDate().isBefore(end) || b.getEntryDate().isEqual(end)))
+            .filter(b -> {
+                if (b.getInstallments() == null || b.getInstallments().isEmpty()) {
+                    return b.getEntryDate() != null &&
+                           (b.getEntryDate().isEqual(start) || b.getEntryDate().isAfter(start)) &&
+                           (b.getEntryDate().isBefore(end) || b.getEntryDate().isEqual(end));
+                } else {
+                    return b.getInstallments().stream().anyMatch(inst ->
+                        inst.getDueDate() != null &&
+                        (inst.getDueDate().isEqual(startDateLoc) || inst.getDueDate().isAfter(startDateLoc)) &&
+                        (inst.getDueDate().isBefore(endDateLoc) || inst.getDueDate().isEqual(endDateLoc))
+                    );
+                }
+            })
             .toList();
 
-        ByteArrayInputStream excelFile = reportService.exportInventoryEntriesToExcel(batches);
+        java.util.Map<UUID, BigDecimal> periodCosts = new java.util.HashMap<>();
+        for (StockBatch b : batches) {
+            if (b.getInstallments() == null || b.getInstallments().isEmpty()) {
+                periodCosts.put(b.getId(), b.getUnitPrice().multiply(BigDecimal.valueOf(b.getOriginalQuantity())));
+            } else {
+                BigDecimal sum = b.getInstallments().stream()
+                    .filter(inst -> inst.getDueDate() != null &&
+                                    (inst.getDueDate().isEqual(startDateLoc) || inst.getDueDate().isAfter(startDateLoc)) &&
+                                    (inst.getDueDate().isBefore(endDateLoc) || inst.getDueDate().isEqual(endDateLoc)))
+                    .map(br.dev.ctrls.inovareti.domain.inventory.StockBatchInstallment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                periodCosts.put(b.getId(), sum);
+            }
+        }
+
+        ByteArrayInputStream excelFile = reportService.exportInventoryEntriesToExcel(batches, periodCosts);
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=entradas_estoque.xlsx");

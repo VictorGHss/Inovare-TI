@@ -36,8 +36,8 @@ public class ReportService {
         return reportExcelExporter.exportTicketsToExcel(tickets);
     }
 
-    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches) {
-        return reportExcelExporter.exportInventoryEntriesToExcel(batches);
+    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches, Map<UUID, BigDecimal> periodCosts) {
+        return reportExcelExporter.exportInventoryEntriesToExcel(batches, periodCosts);
     }
 
     public ByteArrayInputStream exportInventoryExitsToExcel(java.time.LocalDateTime start, java.time.LocalDateTime end) {

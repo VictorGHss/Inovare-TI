@@ -77,6 +77,7 @@ export interface ResolveTicketRequest {
     categoryId: string;
     specifications?: string;
   };
+  recipientUserId?: string;
 }
 
 export interface TicketAttachment {

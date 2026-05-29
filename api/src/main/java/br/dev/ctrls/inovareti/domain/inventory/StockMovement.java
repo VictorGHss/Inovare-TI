@@ -63,4 +63,7 @@ public class StockMovement {
      */
     @Column(name = "unit_price_at_time", precision = 19, scale = 2)
     private BigDecimal unitPriceAtTime;
+
+    @Column(name = "recipient_user_id")
+    private UUID recipientUserId;
 }

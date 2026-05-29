@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, Trash2, Download, Database, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import type { FinanceAlert } from '../../types/models';
 
 interface BackupInfo {
@@ -11,6 +12,7 @@ interface BackupInfo {
 }
 
 export default function BackupsSection() {
+  const { isTwoFactorVerified } = useAuth();
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
@@ -49,9 +51,23 @@ export default function BackupsSection() {
   };
 
   useEffect(() => {
-    void loadBackups();
-    void loadBackupAlerts();
-  }, []);
+    if (isTwoFactorVerified) {
+      void loadBackups();
+      void loadBackupAlerts();
+    }
+  }, [isTwoFactorVerified]);
+
+  if (!isTwoFactorVerified) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-start gap-3">
+        <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-600" />
+        <div>
+          <p className="font-semibold">Acesso Bloqueado</p>
+          <p className="mt-1">A visualização e gerenciamento de backups exigem verificação de segurança de dois fatores (2FA) ativa.</p>
+        </div>
+      </div>
+    );
+  }
 
   async function handleTriggerBackup() {
     setTriggering(true);

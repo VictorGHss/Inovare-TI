@@ -52,6 +52,10 @@ export default function ResolveTicketModal({
     loadingAssetCategories,
     isSubmitting,
     hasAutoInventoryDeduction,
+    recipientUserId,
+    setRecipientUserId,
+    assetUsers,
+    loadingAssetUsers,
     handleSubmit,
   } = useResolveTicket({
     isOpen,
@@ -100,15 +104,40 @@ export default function ResolveTicketModal({
           </div>
 
           {hasAutoInventoryDeduction ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-brand-primary/35 bg-brand-secondary/55 p-4">
-              <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-primary-dark" />
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Dedução Automática</p>
-                <p className="mt-1 text-sm text-slate-700">
-                  O item <strong>{ticket?.requestedItemName ?? 'selecionado'}</strong> ({ticket?.requestedQuantity} unidade
-                  {ticket?.requestedQuantity && ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do
-                  stock ao fechar este chamado.
-                </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3 rounded-2xl border border-brand-primary/35 bg-brand-secondary/55 p-4">
+                <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-primary-dark" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Dedução Automática</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    O item <strong>{ticket?.requestedItemName ?? 'selecionado'}</strong> ({ticket?.requestedQuantity} unidade
+                    {ticket?.requestedQuantity && ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do
+                    stock ao fechar este chamado.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-slate-700">Quem recebeu o item?</label>
+                {loadingAssetUsers ? (
+                  <div className="text-sm text-slate-500">Carregando usuários do ativo...</div>
+                ) : assetUsers.length === 0 ? (
+                  <div className="text-sm text-amber-600">Nenhum usuário associado ao ativo deste chamado.</div>
+                ) : (
+                  <select
+                    value={recipientUserId}
+                    onChange={(event) => setRecipientUserId(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">-- Selecione quem recebeu --</option>
+                    {assetUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           ) : (

@@ -39,7 +39,7 @@ public class StockDeductionService {
      * gerar lançamentos financeiros por centro de custo.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public BigDecimal deductWithFifo(UUID itemId, int quantity, String reference) {
+    public BigDecimal deductWithFifo(UUID itemId, int quantity, String reference, UUID recipientUserId) {
         if (quantity <= 0) {
             throw new IllegalStateException("A quantidade a deduzir deve ser maior que zero.");
         }
@@ -99,6 +99,7 @@ public class StockDeductionService {
             .reference(reference)
             .date(LocalDateTime.now())
             .unitPriceAtTime(totalValue)
+            .recipientUserId(recipientUserId)
             .build();
         stockMovementRepository.save(movement);
 

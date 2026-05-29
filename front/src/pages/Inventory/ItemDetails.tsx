@@ -1,6 +1,6 @@
 // Página de detalhes de um item — exibe especificações e histórico de lotes
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, FileText, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
@@ -106,6 +106,23 @@ export default function ItemDetails() {
     } catch {
       toast.error('Erro ao baixar nota fiscal.');
     }
+  }
+
+  function renderReference(ref: string) {
+    if (!ref) return '-';
+    if (ref.startsWith('TICKET:')) {
+      const ticketId = ref.replace('TICKET:', '');
+      const shortId = ticketId.slice(0, 8);
+      return (
+        <Link
+          to={`/tickets/${ticketId}`}
+          className="inline-flex items-center gap-1 rounded-2xl bg-brand-secondary/70 border border-brand-primary/30 px-2.5 py-0.5 text-xs font-semibold text-orange-800 hover:bg-orange-100 hover:text-brand-primary-dark transition-colors shadow-sm"
+        >
+          🎟️ Chamado #{shortId}
+        </Link>
+      );
+    }
+    return ref;
   }
 
   if (loading) {
@@ -298,7 +315,7 @@ export default function ItemDetails() {
                   <tr key={movement.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3 text-slate-700">{formatDate(movement.date)}</td>
                     <td className="py-3 text-right text-red-600 font-medium">-{movement.quantity}</td>
-                    <td className="py-3 text-slate-600">{movement.reference}</td>
+                    <td className="py-3 text-slate-600">{renderReference(movement.reference)}</td>
                   </tr>
                 ))}
               </tbody>

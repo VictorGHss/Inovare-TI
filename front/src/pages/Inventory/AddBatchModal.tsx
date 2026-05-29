@@ -30,6 +30,10 @@ export default function AddBatchModal({
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
   const invoiceInputId = 'batch-invoice-input';
 
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [numInstallments, setNumInstallments] = useState(2);
+  const [installments, setInstallments] = useState<{ dueDate: string; amount: string }[]>([]);
+
   // Update selected item when preselected changes
   useEffect(() => {
     if (preselectedItemId) {
@@ -37,11 +41,53 @@ export default function AddBatchModal({
     }
   }, [preselectedItemId]);
 
+  // Calcula parcelas automaticamente ao alterar dados do lote
+  useEffect(() => {
+    if (!isInstallment) {
+      setInstallments([]);
+      return;
+    }
+    const total = (parseFloat(unitPrice) || 0) * (quantity || 0);
+    const baseAmount = total / numInstallments;
+    const list = Array.from({ length: numInstallments }).map((_, idx) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + idx);
+      const dateStr = d.toISOString().split('T')[0];
+
+      let amt = baseAmount.toFixed(2);
+      if (idx === numInstallments - 1) {
+        const sumOfPrev = parseFloat(baseAmount.toFixed(2)) * (numInstallments - 1);
+        amt = (total - sumOfPrev).toFixed(2);
+      }
+
+      return {
+        dueDate: dateStr,
+        amount: amt,
+      };
+    });
+    setInstallments(list);
+  }, [isInstallment, numInstallments, quantity, unitPrice]);
+
+  const handleInstallmentChange = (index: number, field: 'dueDate' | 'amount', value: string) => {
+    setInstallments((prev) =>
+      prev.map((inst, idx) => (idx === index ? { ...inst, [field]: value } : inst))
+    );
+  };
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!selectedItemId || quantity < 1 || !unitPrice) {
       toast.error('Preencha todos os campos corretamente.');
       return;
+    }
+
+    const total = parseFloat(unitPrice) * quantity;
+    if (isInstallment) {
+      const sumOfInstallments = installments.reduce((acc, inst) => acc + (parseFloat(inst.amount) || 0), 0);
+      if (Math.abs(sumOfInstallments - total) > 0.02) {
+        toast.error(`A soma das parcelas (R$ ${sumOfInstallments.toFixed(2)}) deve ser igual ao valor total do lote (R$ ${total.toFixed(2)}).`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -52,6 +98,12 @@ export default function AddBatchModal({
         brand: brand.trim() || undefined,
         supplier: supplier.trim() || undefined,
         purchaseReason: purchaseReason.trim() || undefined,
+        installments: isInstallment
+          ? installments.map((inst) => ({
+              dueDate: inst.dueDate,
+              amount: parseFloat(inst.amount) || 0,
+            }))
+          : undefined,
       });
 
       if (selectedInvoiceFile) {
@@ -70,6 +122,9 @@ export default function AddBatchModal({
       setSupplier('');
       setPurchaseReason('');
       setSelectedInvoiceFile(null);
+      setIsInstallment(false);
+      setNumInstallments(2);
+      setInstallments([]);
     } catch {
       toast.error('Erro ao registrar lote. Tente novamente.');
     } finally {
@@ -219,6 +274,69 @@ export default function AddBatchModal({
             </div>
             <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
           </div>
+
+          {/* Compra Parcelada? */}
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="checkbox"
+              id="isInstallment"
+              checked={isInstallment}
+              onChange={(e) => setIsInstallment(e.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded border-slate-350 text-[#feb56c] focus:ring-[#feb56c]"
+              disabled={submitting}
+            />
+            <label htmlFor="isInstallment" className="cursor-pointer text-sm font-semibold text-slate-700">
+              Compra Parcelada?
+            </label>
+          </div>
+
+          {isInstallment && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#feb56c]/35 bg-slate-50/50 p-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600">Número de Parcelas</label>
+                <input
+                  type="number"
+                  min={2}
+                  max={24}
+                  value={numInstallments}
+                  onChange={(e) => setNumInstallments(Math.max(2, parseInt(e.target.value) || 2))}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
+                  disabled={submitting}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto mt-2 pr-1">
+                {installments.map((inst, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <span className="text-xs text-slate-500 font-bold w-12 shrink-0">Parc. {index + 1}</span>
+                    <input
+                      type="date"
+                      value={inst.dueDate}
+                      onChange={(e) => handleInstallmentChange(index, 'dueDate', e.target.value)}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] flex-1"
+                      disabled={submitting}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={inst.amount}
+                      onChange={(e) => handleInstallmentChange(index, 'amount', e.target.value)}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] w-24 text-right font-semibold"
+                      disabled={submitting}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-slate-500 font-semibold border-t border-slate-200/60 pt-2 mt-1">
+                <span>Valor Total:</span>
+                <span className="text-slate-800 font-bold">
+                  R$ {((parseFloat(unitPrice) || 0) * (quantity || 0)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Botões de ação */}
           <div className="flex items-center justify-end gap-3 pt-2">

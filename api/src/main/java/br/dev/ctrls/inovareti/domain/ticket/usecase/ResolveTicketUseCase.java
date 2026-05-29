@@ -104,7 +104,8 @@ public class ResolveTicketUseCase {
             java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
                     ticket.getRequestedItem().getId(),
                     ticket.getRequestedQuantity(),
-                    reference
+                    reference,
+                    request.recipientUserId()
             );
 
             // Registra débito financeiro com base no valor apurado pela dedução FIFO
@@ -126,6 +127,7 @@ public class ResolveTicketUseCase {
                             .reference(reference)
                             .date(LocalDateTime.now())
                             .unitPriceAtTime(totalDeduction)
+                            .recipientUserId(request.recipientUserId())
                             .build();
                     stockMovementRepository.save(movement);
                     log.info("Fallback: StockMovement criado para ticket {} (requestedItem)", ticketId);
@@ -236,7 +238,8 @@ public class ResolveTicketUseCase {
             java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
                     request.inventoryItemIdToDeliver(),
                     request.quantityToDeliver(),
-                    reference
+                    reference,
+                    request.recipientUserId()
             );
 
             // Registra débito financeiro para a entrega manual de item (INVENTORY)
@@ -256,6 +259,7 @@ public class ResolveTicketUseCase {
                             .reference(reference)
                             .date(LocalDateTime.now())
                             .unitPriceAtTime(totalDeduction)
+                            .recipientUserId(request.recipientUserId())
                             .build();
                     stockMovementRepository.save(movement);
                     log.info("Fallback: StockMovement criado para ticket {} (manual delivery)", ticketId);

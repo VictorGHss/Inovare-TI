@@ -29,6 +29,8 @@ public record StockBatchRequestDTO(
 
         String supplier,
 
-        String purchaseReason
+        String purchaseReason,
+
+        java.util.List<StockBatchInstallmentRequestDTO> installments
 
 ) {}

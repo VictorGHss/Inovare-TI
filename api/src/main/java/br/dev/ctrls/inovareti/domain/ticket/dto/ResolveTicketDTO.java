@@ -12,5 +12,6 @@ public record ResolveTicketDTO(
     UUID assetIdToDeliver,
     UUID inventoryItemIdToDeliver,
     Integer quantityToDeliver,
-    AssetRequestDTO newAssetToDeliver
+    AssetRequestDTO newAssetToDeliver,
+    UUID recipientUserId
 ) {}

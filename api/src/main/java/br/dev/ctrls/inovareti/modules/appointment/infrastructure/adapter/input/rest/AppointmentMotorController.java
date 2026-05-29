@@ -181,13 +181,32 @@ public class AppointmentMotorController {
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
+        @SuppressWarnings("unchecked")
+        Map<String, Object> metadata = null;
+        if (payload != null) {
+            Object metadataObj = payload.get("metadata");
+            if (metadataObj == null) {
+                Object messageObj = payload.get("message");
+                if (messageObj instanceof Map<?, ?> msgMap) {
+                    metadataObj = msgMap.get("metadata");
+                }
+            }
+            if (metadataObj instanceof Map<?, ?> metaMap) {
+                metadata = (Map<String, Object>) metaMap;
+            }
+        }
+        if (metadata == null) {
+            metadata = Map.of();
+        }
+
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 parsed.messageId(),
                 parsed.appointmentId(),
                 parsed.action(),
                 parsed.from(),
                 inovareToken,
-                parsed.content()));
+                parsed.content(),
+                metadata));
 
         return ResponseEntity.ok(Map.of("status", "processed"));
     }

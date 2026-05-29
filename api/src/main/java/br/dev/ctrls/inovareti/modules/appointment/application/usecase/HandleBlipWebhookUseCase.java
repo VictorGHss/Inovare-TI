@@ -475,6 +475,94 @@ public class HandleBlipWebhookUseCase {
                 return null;
             }
             appointmentId = resolvedAppointmentId;
+        } else if ("group_view_fallback".equalsIgnoreCase(action)) {
+            log.info("[WEBHOOK] Interceptando group_view_fallback para resolucao de tunel.");
+            String realPhone = null;
+            if (payload.metadata() != null) {
+                Object origFrom = payload.metadata().get("#tunnel.originalFrom");
+                if (origFrom != null) {
+                    realPhone = origFrom.toString().trim();
+                    log.info("[WEBHOOK] Telefone real recuperado via #tunnel.originalFrom: {}", realPhone);
+                }
+            }
+            
+            if (realPhone == null || realPhone.isBlank()) {
+                realPhone = fromPhone;
+            }
+
+            if (realPhone != null) {
+                if (realPhone.contains("@")) {
+                    realPhone = realPhone.substring(0, realPhone.indexOf("@")).trim();
+                }
+                realPhone = purifyPhoneNumber(realPhone);
+            }
+
+            log.info("[WEBHOOK] Telefone real purificado: {}", realPhone);
+
+            if (realPhone != null && !realPhone.isBlank()) {
+                final String targetPhone = realPhone;
+                // Buscar o último grupo de notificações ativo para esse destinatário
+                NotificationGroup latestGroup = transactionTemplate.execute(status ->
+                    notificationGroupRepository.findLatestByPhone(targetPhone).orElse(null)
+                );
+
+                if (latestGroup != null) {
+                    UUID groupId = latestGroup.getGroupId();
+                    log.info("[WEBHOOK] Último grupo ativo encontrado: {} para telefone: {}", groupId, targetPhone);
+
+                    java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                    java.util.List<AppointmentSession> groupedSessions = new ArrayList<>();
+                    for (NotificationGroup g : groups) {
+                        appointmentSessionRepository.findById(g.getSessionId()).ifPresent(groupedSessions::add);
+                    }
+
+                    groupedSessions.sort((s1, s2) -> {
+                        if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                        if (s1.getAppointmentAt() == null) return 1;
+                        if (s2.getAppointmentAt() == null) return -1;
+                        return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                    });
+
+                    java.util.List<String> details = new ArrayList<>();
+                    for (AppointmentSession s : groupedSessions) {
+                        if (s.getAppointmentAt() == null) {
+                            continue;
+                        }
+                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                        String specialty = "Consulta";
+                        String doctorName = "Clínica Inovare";
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            var mapping = mappingOpt.get();
+                            String queue = mapping.getBlipQueueId();
+                            if (queue != null && !queue.isBlank()) {
+                                specialty = queue.trim();
+                            }
+                            String docName = mapping.getProfissionalNome();
+                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                                doctorName = docName.trim();
+                            }
+                        }
+                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
+                    }
+
+                    String listaDetalhada = String.join("\n", details);
+                    if (listaDetalhada.isBlank()) {
+                        listaDetalhada = "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+                    }
+
+                    if (fromPhone != null && !fromPhone.isBlank()) {
+                        blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
+                        blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908");
+                        log.info("[WEBHOOK] Fallback de visualização de grupo injetado para {}. groupId={}", fromPhone, groupId);
+                    }
+                } else {
+                    log.warn("[WEBHOOK] Nenhum grupo ativo encontrado para o telefone real: {}", targetPhone);
+                }
+            } else {
+                log.warn("[WEBHOOK] Não foi possível resolver o telefone real do paciente.");
+            }
+            return new WebhookResult("", "", "", "", "group_view_processed", "");
         } else if (action.toLowerCase().startsWith("group_view_")) {
             String groupIdStr = action.substring("group_view_".length()).trim();
             log.info("[WEBHOOK] Clique em visualização de grupo recebido para groupId={}", groupIdStr);
@@ -774,7 +862,7 @@ public class HandleBlipWebhookUseCase {
         return ex.getMessage();
     }
 
-    public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content) {
+    public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content, Map<String, Object> metadata) {
     }
 
     public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {

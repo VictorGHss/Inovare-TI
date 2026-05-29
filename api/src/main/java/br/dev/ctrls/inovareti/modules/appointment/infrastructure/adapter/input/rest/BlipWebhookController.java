@@ -116,6 +116,9 @@ public class BlipWebhookController {
                 || rawLower.contains("cancelar")
             || rawLower.contains("preparar_atendimento")
             || rawLower.contains("exibir_agenda")
+            || rawLower.contains("ver agendamentos")
+            || rawLower.contains("ver_agendamentos")
+            || rawLower.contains("group_view_fallback")
                 || rawLower.contains("a0776d9c-6486-42f3-8a4f-2706f0185908")
                 || rawLower.contains("1438bc97-34ef-4337-adf5-e03e463c042c");
 
@@ -164,6 +167,36 @@ public class BlipWebhookController {
             ));
         }
 
+        @SuppressWarnings("unchecked")
+        Map<String, Object> metadata = null;
+        if (payload != null) {
+            Object metadataObj = payload.get("metadata");
+            if (metadataObj == null) {
+                Object messageObj = payload.get("message");
+                if (messageObj instanceof Map<?, ?> msgMap) {
+                    metadataObj = msgMap.get("metadata");
+                }
+            }
+            if (metadataObj == null) {
+                Object resourceObj = payload.get("resource");
+                if (resourceObj instanceof Map<?, ?> resMap) {
+                    metadataObj = resMap.get("metadata");
+                    if (metadataObj == null) {
+                        Object innerMsg = resMap.get("message");
+                        if (innerMsg instanceof Map<?, ?> innerMsgMap) {
+                            metadataObj = innerMsgMap.get("metadata");
+                        }
+                    }
+                }
+            }
+            if (metadataObj instanceof Map<?, ?> metaMap) {
+                metadata = (Map<String, Object>) metaMap;
+            }
+        }
+        if (metadata == null) {
+            metadata = Map.of();
+        }
+
         log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, Ação: {}", from, action);
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
@@ -172,7 +205,8 @@ public class BlipWebhookController {
                 action,
                 from,
                 inovareToken,
-                content));
+                content,
+                metadata));
 
         if (result == null) {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));
@@ -231,7 +265,8 @@ public class BlipWebhookController {
                 action,
                 body.identity().trim(),
                 inovareToken,
-                null), true);
+                null,
+                Map.of()), true);
 
         return ResponseEntity.ok(Map.of());
     }

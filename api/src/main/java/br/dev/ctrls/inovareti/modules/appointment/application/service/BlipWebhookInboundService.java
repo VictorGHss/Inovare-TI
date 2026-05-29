@@ -43,6 +43,20 @@ public class BlipWebhookInboundService {
         String messageId = extractMessageId(payload);
         String appointmentId = extractAppointmentId(payload);
 
+        if (!org.springframework.util.StringUtils.hasText(action) || "Ver Agendamentos".equals(action.trim())) {
+            String messageText = firstNonBlank(
+                    asText(getNested(payload, "content", "text")),
+                    asText(getNested(payload, "content")),
+                    asText(getNested(payload, "resource", "content", "text")),
+                    asText(getNested(payload, "resource", "content")),
+                    asText(getNested(payload, "message", "content", "text")),
+                    asText(getNested(payload, "message", "content"))
+            );
+            if (messageText != null && "Ver Agendamentos".equals(messageText.trim())) {
+                action = "group_view_fallback";
+            }
+        }
+
         String breadcrumbAppointmentId = resolveBreadcrumbAppointmentId(action, from);
         if (breadcrumbAppointmentId != null) {
             appointmentId = breadcrumbAppointmentId;

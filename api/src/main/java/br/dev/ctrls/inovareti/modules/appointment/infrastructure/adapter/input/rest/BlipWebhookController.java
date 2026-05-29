@@ -167,35 +167,7 @@ public class BlipWebhookController {
             ));
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = null;
-        if (payload != null) {
-            Object metadataObj = payload.get("metadata");
-            if (metadataObj == null) {
-                Object messageObj = payload.get("message");
-                if (messageObj instanceof Map<?, ?> msgMap) {
-                    metadataObj = msgMap.get("metadata");
-                }
-            }
-            if (metadataObj == null) {
-                Object resourceObj = payload.get("resource");
-                if (resourceObj instanceof Map<?, ?> resMap) {
-                    metadataObj = resMap.get("metadata");
-                    if (metadataObj == null) {
-                        Object innerMsg = resMap.get("message");
-                        if (innerMsg instanceof Map<?, ?> innerMsgMap) {
-                            metadataObj = innerMsgMap.get("metadata");
-                        }
-                    }
-                }
-            }
-            if (metadataObj instanceof Map<?, ?> metaMap) {
-                metadata = (Map<String, Object>) metaMap;
-            }
-        }
-        if (metadata == null) {
-            metadata = Map.of();
-        }
+        Map<String, Object> metadata = extractMetadata(payload);
 
         log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, Ação: {}", from, action);
 
@@ -314,6 +286,36 @@ public class BlipWebhookController {
         // Registra o ID no cache em memória por 1 hora
         processedEventsCache.put(messageId, now + 3600_000L);
         return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractMetadata(Map<String, Object> payload) {
+        if (payload == null) {
+            return Map.of();
+        }
+        Object metadataObj = payload.get("metadata");
+        if (metadataObj == null) {
+            Object messageObj = payload.get("message");
+            if (messageObj instanceof Map<?, ?> msgMap) {
+                metadataObj = msgMap.get("metadata");
+            }
+        }
+        if (metadataObj == null) {
+            Object resourceObj = payload.get("resource");
+            if (resourceObj instanceof Map<?, ?> resMap) {
+                metadataObj = resMap.get("metadata");
+                if (metadataObj == null) {
+                    Object innerMsg = resMap.get("message");
+                    if (innerMsg instanceof Map<?, ?> innerMsgMap) {
+                        metadataObj = innerMsgMap.get("metadata");
+                    }
+                }
+            }
+        }
+        if (metadataObj instanceof Map<?, ?> metaMap) {
+            return (Map<String, Object>) metaMap;
+        }
+        return Map.of();
     }
 
     public record ManualTriggerRequest(

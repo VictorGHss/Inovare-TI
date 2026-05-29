@@ -181,23 +181,7 @@ public class AppointmentMotorController {
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = null;
-        if (payload != null) {
-            Object metadataObj = payload.get("metadata");
-            if (metadataObj == null) {
-                Object messageObj = payload.get("message");
-                if (messageObj instanceof Map<?, ?> msgMap) {
-                    metadataObj = msgMap.get("metadata");
-                }
-            }
-            if (metadataObj instanceof Map<?, ?> metaMap) {
-                metadata = (Map<String, Object>) metaMap;
-            }
-        }
-        if (metadata == null) {
-            metadata = Map.of();
-        }
+        Map<String, Object> metadata = extractMetadata(payload);
 
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 parsed.messageId(),
@@ -209,6 +193,36 @@ public class AppointmentMotorController {
                 metadata));
 
         return ResponseEntity.ok(Map.of("status", "processed"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractMetadata(Map<String, Object> payload) {
+        if (payload == null) {
+            return Map.of();
+        }
+        Object metadataObj = payload.get("metadata");
+        if (metadataObj == null) {
+            Object messageObj = payload.get("message");
+            if (messageObj instanceof Map<?, ?> msgMap) {
+                metadataObj = msgMap.get("metadata");
+            }
+        }
+        if (metadataObj == null) {
+            Object resourceObj = payload.get("resource");
+            if (resourceObj instanceof Map<?, ?> resMap) {
+                metadataObj = resMap.get("metadata");
+                if (metadataObj == null) {
+                    Object innerMsg = resMap.get("message");
+                    if (innerMsg instanceof Map<?, ?> innerMsgMap) {
+                        metadataObj = innerMsgMap.get("metadata");
+                    }
+                }
+            }
+        }
+        if (metadataObj instanceof Map<?, ?> metaMap) {
+            return (Map<String, Object>) metaMap;
+        }
+        return Map.of();
     }
 
     public record SyncMappingRequest(

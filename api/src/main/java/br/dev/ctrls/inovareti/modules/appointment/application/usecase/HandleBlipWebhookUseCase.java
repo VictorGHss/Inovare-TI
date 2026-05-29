@@ -490,9 +490,9 @@ public class HandleBlipWebhookUseCase {
                     });
                     log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupIdStr);
 
-                    // 3. Disparo ativo de texto — substitui o comando silencioso de master-state
-                    log.info("[WEBHOOK] Disparando mensagem de texto ativa para {} com a lista de agendamentos.", fromPhone);
-                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
+                    // AJUSTE DE ARQUITETURA: Não enviar mensagem de texto puro no chat pelo Java.
+                    // O Blip Builder cuidará da renderização visual nativa utilizando botões e formatação nativa do WhatsApp.
+                    log.info("[WEBHOOK] Dados de agendamento em lote persistidos no contexto de {}. Delegando a renderização de UI para o Blip Builder.", fromPhone);
                 } else {
                     log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
                 }
@@ -613,9 +613,9 @@ public class HandleBlipWebhookUseCase {
                     if (fromPhone != null && !fromPhone.isBlank()) {
                         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
                         log.info("[WEBHOOK] Fallback de visualização de grupo injetado para {}. groupId={}", fromPhone, groupId);
-                        // Disparo ativo de texto — substitui o comando silencioso de master-state
-                        log.info("[WEBHOOK] Disparando mensagem de texto ativa (fallback) para {} com a lista de agendamentos.", fromPhone);
-                        blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
+                        // AJUSTE DE ARQUITETURA: Não enviar mensagem de texto puro no chat pelo Java.
+                        // O Blip Builder cuidará da renderização visual nativa utilizando botões e formatação nativa do WhatsApp.
+                        log.info("[WEBHOOK] Dados de agendamento (fallback) persistidos no contexto de {}. Delegando a renderização de UI para o Blip Builder.", fromPhone);
                     }
                 } else {
                     log.warn("[WEBHOOK] Nenhum grupo ativo encontrado para o telefone real: {}", targetPhone);
@@ -672,9 +672,10 @@ public class HandleBlipWebhookUseCase {
 
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-                    log.info("[WEBHOOK] Injetada lista_detalhada para grupo {}. Disparando mensagem ativa.", groupIdStr);
-                    // Disparo ativo de texto — substitui o comando silencioso de master-state
-                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), listaDetalhada);
+                    log.info("[WEBHOOK] Injetada lista_detalhada para o grupo {}.", groupIdStr);
+                    // AJUSTE DE ARQUITETURA: Não enviar mensagem de texto puro no chat pelo Java.
+                    // O Blip Builder cuidará da renderização visual nativa utilizando botões e formatação nativa do WhatsApp.
+                    log.info("[WEBHOOK] Dados de agendamento persistidos no contexto para o grupo {}. Delegando a renderização de UI para o Blip Builder.", groupIdStr);
                 }
             } catch (IllegalArgumentException e) {
                 log.error("[WEBHOOK] groupId inválido no payload group_view_. action={}", action);

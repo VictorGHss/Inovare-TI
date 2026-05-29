@@ -192,7 +192,7 @@ public class HandleBlipWebhookUseCase {
                                 doctorName = docName.trim();
                             }
                         }
-                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName);
+                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
                     }
                     String listaDetalhada = String.join("\n", details);
                     if (listaDetalhada == null || listaDetalhada.isBlank()) {
@@ -513,7 +513,7 @@ public class HandleBlipWebhookUseCase {
                             doctorName = docName.trim();
                         }
                     }
-                    details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getFeegowAppointmentId() + ")");
+                    details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
                 }
 
                 String listaDetalhada = String.join("\n", details);

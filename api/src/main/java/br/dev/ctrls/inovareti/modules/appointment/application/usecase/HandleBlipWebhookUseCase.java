@@ -128,86 +128,9 @@ public class HandleBlipWebhookUseCase {
                     }
                     return new WebhookResult("", "", "", "", "processed", "");
                 } else {
-                    log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);
-                    UUID groupId = null;
-                    java.util.List<String> activeAppointmentIds = new ArrayList<>();
-                    java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
-                    );
-                    if (activeSessions != null) {
-                        for (AppointmentSession activeSession : activeSessions) {
-                            if (activeSession.getFeegowAppointmentId() != null) {
-                                activeAppointmentIds.add(activeSession.getFeegowAppointmentId());
-                            }
-                            if (activeSession.getCurrentGroupId() != null) {
-                                groupId = activeSession.getCurrentGroupId();
-                                break;
-                            }
-                        }
-                    }
-
-                    if (groupId == null) {
-                        NotificationGroup latestGroup = transactionTemplate.execute(status ->
-                            notificationGroupRepository.findLatestByPhone(dbPhone).orElse(null)
-                        );
-                        if (latestGroup != null) {
-                            groupId = latestGroup.getGroupId();
-                            log.warn("[WEBHOOK-BLOCK] groupId recuperado via NotificationGroup para {}. groupId={}",
-                                dbPhone, groupId);
-                        }
-                    }
-
-                    if (groupId == null) {
-                        log.error("[WEBHOOK-BLOCK] groupId nulo apos retry. phone={}, feegowAppointments={}",
-                            dbPhone, activeAppointmentIds);
-                        blipContextService.setUserContextForUser(
-                            normalizedPhone,
-                            "lista_detalhada",
-                            "Ops, nao encontrei seus agendamentos agora, aguarde um instante."
-                        );
-                        return new WebhookResult("", "", "", "", "processed", "");
-                    }
-
-                    java.util.List<AppointmentSession> groupedSessions = new ArrayList<>();
-                    java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-                    for (NotificationGroup g : groups) {
-                        appointmentSessionRepository.findById(g.getSessionId()).ifPresent(groupedSessions::add);
-                    }
-
-                    groupedSessions.sort((s1, s2) -> {
-                        if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
-                        if (s1.getAppointmentAt() == null) return 1;
-                        if (s2.getAppointmentAt() == null) return -1;
-                        return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
-                    });
-                    java.util.List<String> details = new ArrayList<>();
-                    for (AppointmentSession s : groupedSessions) {
-                        if (s.getAppointmentAt() == null) {
-                            continue;
-                        }
-                        String time = s.getAppointmentAt().toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                        String specialty = "Consulta";
-                        String doctorName = "Clínica Inovare";
-                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-                        if (mappingOpt.isPresent()) {
-                            var mapping = mappingOpt.get();
-                            String queue = mapping.getBlipQueueId();
-                            if (queue != null && !queue.isBlank()) {
-                                specialty = queue.trim();
-                            }
-                            String docName = mapping.getProfissionalNome();
-                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                                doctorName = docName.trim();
-                            }
-                        }
-                        details.add("🔹 " + time + " - " + specialty + " - " + doctorName + " (ID: " + s.getId().toString() + ")");
-                    }
-                    String listaDetalhada = String.join("\n", details);
-                    if (listaDetalhada == null || listaDetalhada.isBlank()) {
-                        listaDetalhada = "Ops, nao encontrei seus agendamentos agora, aguarde um instante.";
-                    }
-                    blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
-                    log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada='{}' para {}", listaDetalhada, normalizedPhone);
+                    // AJUSTE DE ARQUITETURA: Ao receber a ação de entrada do bloco Exibir_Agenda, respondemos com HTTP 200 OK limpo.
+                    // Os dados da lista de consultas já foram injetados atômica e anteriormente nos fluxos de agrupamento.
+                    log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda de forma limpa para {} - Respondendo com sucesso sem efeitos colaterais.", dbPhone);
                     return new WebhookResult("", "", "", "", "processed", "");
                 }
             }

@@ -13,6 +13,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +33,8 @@ public class FeegowBulkIntegrationHandler {
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final TransactionTemplate transactionTemplate;
+    private final BlipContextService blipContextService;
+    private final BlipProperties blipProperties;
 
     /**
      * Executa a confirmação em lote de todos os agendamentos pertencentes ao grupo
@@ -168,5 +171,77 @@ public class FeegowBulkIntegrationHandler {
             }
         }
         return targetQueue;
+    }
+
+    /**
+     * Processa de forma assíncrona a confirmação em lote de todos os agendamentos pertencentes ao grupo
+     * e os sincroniza com a API do Feegow ERP, redirecionando o fluxo do paciente no Blip.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void confirmGroupAsync(UUID groupId, String fromPhone) {
+        log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de confirm_group para groupId: {}", groupId);
+        try {
+            String dbPhone = fromPhone != null ? purifyPhoneNumber(fromPhone) : null;
+            
+            // 1. Executa a confirmação em lote local e na API Feegow
+            List<AppointmentSession> sessionList = executeConfirmBatch(groupId, dbPhone);
+            
+            // 2. Resolve a fila de desempate
+            String targetQueue = resolveTargetQueue(sessionList);
+
+            // 3. Executa o redirecionamento no Blip em background
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
+                String deskBlockId = blipProperties.getBlocks().getDeskStateId();
+                blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
+                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para a fila '{}', bloco desk: '{}'", 
+                    fromPhone, targetQueue, deskBlockId);
+            }
+        } catch (Exception e) {
+            log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de confirmação do grupo: " + groupId, e);
+        }
+    }
+
+    /**
+     * Processa de forma assíncrona o redirecionamento de alteração em lote do grupo de agendamentos no Blip.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void alterGroupAsync(UUID groupId, String fromPhone) {
+        log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de alter_group para groupId: {}", groupId);
+        try {
+            String targetQueue = resolveAlterGroupQueue(groupId);
+
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
+                String deskBlockId = blipProperties.getBlocks().getDeskStateId();
+                blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
+                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteração na fila '{}', bloco desk: '{}'", 
+                    fromPhone, targetQueue, deskBlockId);
+            }
+        } catch (Exception e) {
+            log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de alteração do grupo: " + groupId, e);
+        }
+    }
+
+    private String purifyPhoneNumber(String originalPhone) {
+        if (originalPhone == null || originalPhone.isBlank()) {
+            return "";
+        }
+        
+        String trimmed = originalPhone.trim();
+        if (trimmed.contains("@")) {
+            trimmed = trimmed.substring(0, trimmed.indexOf('@')).trim();
+        }
+        
+        String digitsOnly = trimmed.replaceAll("\\D", "");
+        if (digitsOnly.isBlank()) {
+            return "";
+        }
+        
+        if (digitsOnly.startsWith("55")) {
+            return "+" + digitsOnly;
+        }
+        
+        return "+55" + digitsOnly;
     }
 }

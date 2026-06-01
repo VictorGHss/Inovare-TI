@@ -129,7 +129,7 @@ public class IngestAppointmentsUseCase {
                     }
                     
                     // Aguarda o término de todas as requisições em paralelo
-                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                    CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
                 }
             }
             appointments = new ArrayList<>(threadSafeAppointments);
@@ -188,7 +188,7 @@ public class IngestAppointmentsUseCase {
                         }
                     }, executor));
                 }
-                CompletableFuture.allOf(patientFutures.toArray(new CompletableFuture[0])).join();
+                CompletableFuture.allOf(patientFutures.toArray(CompletableFuture[]::new)).join();
             }
             log.info("[VIRTUAL-THREADS] Busca em lote de pacientes concluída com sucesso. {} registros em cache.", patientDetailsCache.size());
         }
@@ -356,7 +356,7 @@ public class IngestAppointmentsUseCase {
                 }
 
                 if (appointmentMotorProperties.isTestMode()) {
-                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, appointment.doctorId(), patientPhone);
+                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, appointment.doctorId());
                     if (phoneNumber == null) continue;
                 }
 
@@ -467,7 +467,7 @@ public class IngestAppointmentsUseCase {
                 }
 
                 if (appointmentMotorProperties.isTestMode()) {
-                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, eligibleAppointments.get(0).doctorId(), patientPhone);
+                    phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, eligibleAppointments.get(0).doctorId());
                     if (phoneNumber == null) continue;
                 }
 
@@ -577,7 +577,7 @@ public class IngestAppointmentsUseCase {
         return new IngestionSummary(totalReceived, filteredReceived, created, messagesSent, mode);
     }
 
-    private String redirectTestPhoneIfNeeded(String phoneNumber, String doctorId, String patientPhone) {
+    private String redirectTestPhoneIfNeeded(String phoneNumber, String doctorId) {
         // Filtra os IDs dos médicos homologados para o ambiente de teste
         String testDoctorId = appointmentMotorProperties.getTestDoctorId();
         java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))

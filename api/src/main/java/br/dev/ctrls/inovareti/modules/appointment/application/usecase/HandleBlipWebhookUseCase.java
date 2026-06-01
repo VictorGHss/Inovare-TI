@@ -406,46 +406,25 @@ public class HandleBlipWebhookUseCase {
 
         if (action.toLowerCase().startsWith("confirm_group_")) {
             String groupIdStr = action.substring("confirm_group_".length()).trim();
-            log.info("[WEBHOOK] Interceptando confirm_group_{} para confirmação em lote.", groupIdStr);
+            log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento assíncrono em lote.", groupIdStr);
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
-                String userPhone = fromPhone;
-                String dbPhone = userPhone != null ? purifyPhoneNumber(userPhone) : null;
-
-                // Executa a confirmação em lote (atualizando DB local e API Feegow)
-                java.util.List<AppointmentSession> sessionList = feegowBulkIntegrationHandler.executeConfirmBatch(groupId, dbPhone);
-                
-                // Resolve a fila de desempate
-                String targetQueue = feegowBulkIntegrationHandler.resolveTargetQueue(sessionList);
-
-                if (userPhone != null && !userPhone.isBlank()) {
-                    blipContextService.setQueueRedirect(userPhone.trim(), targetQueue);
-                    // Redireciona para o Atendimento Humano (Desk)
-                    String deskBlockId = blipProperties.getBlocks().getDeskStateId();
-                    blipContextService.setMasterState(userPhone.trim(), "desk@msging.net", deskBlockId);
-                    log.info("[WEBHOOK-BATCH] Usuário {} redirecionado para a fila '{}', bloco desk: '{}'", userPhone, targetQueue, deskBlockId);
-                }
+                // Dispara o processamento pesado e de rede em background para liberar o webhook em < 10ms
+                feegowBulkIntegrationHandler.confirmGroupAsync(groupId, fromPhone);
             } catch (Exception e) {
-                log.error("[WEBHOOK-BATCH] Erro ao processar confirmação em lote para grupo " + groupIdStr, e);
+                log.error("[WEBHOOK-BATCH] Erro ao agendar confirmação assíncrona para grupo " + groupIdStr, e);
             }
             return new WebhookResult("", "", "", "", "confirm_group_processed", "");
 
         } else if (action.toLowerCase().startsWith("alter_group_")) {
             String groupIdStr = action.substring("alter_group_".length()).trim();
-            log.info("[WEBHOOK] Interceptando alter_group_{} para alteração em lote.", groupIdStr);
+            log.info("[WEBHOOK] Interceptando alter_group_{} para processamento assíncrono em lote.", groupIdStr);
             try {
                 UUID groupId = UUID.fromString(groupIdStr);
-                String targetQueue = feegowBulkIntegrationHandler.resolveAlterGroupQueue(groupId);
-
-                String userPhone = fromPhone;
-                if (userPhone != null && !userPhone.isBlank()) {
-                    blipContextService.setQueueRedirect(userPhone.trim(), targetQueue);
-                    String deskBlockId = blipProperties.getBlocks().getDeskStateId();
-                    blipContextService.setMasterState(userPhone.trim(), "desk@msging.net", deskBlockId);
-                    log.info("[WEBHOOK-BATCH] Usuário {} redirecionado para alteração de grupo na fila '{}', bloco desk: '{}'", userPhone, targetQueue, deskBlockId);
-                }
+                // Dispara a alteração e redirecionamento de fila de forma assíncrona em background
+                feegowBulkIntegrationHandler.alterGroupAsync(groupId, fromPhone);
             } catch (Exception e) {
-                log.error("[WEBHOOK-BATCH] Erro ao processar alteração em lote para grupo " + groupIdStr, e);
+                log.error("[WEBHOOK-BATCH] Erro ao agendar alteração assíncrona para grupo " + groupIdStr, e);
             }
             return new WebhookResult("", "", "", "", "alter_group_processed", "");
         }

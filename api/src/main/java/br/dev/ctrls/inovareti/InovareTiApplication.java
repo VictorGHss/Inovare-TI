@@ -13,10 +13,12 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication
 @EnableCaching
 @EnableScheduling
+@EnableRetry
 public class InovareTiApplication {
 
     public static void main(String[] args) {

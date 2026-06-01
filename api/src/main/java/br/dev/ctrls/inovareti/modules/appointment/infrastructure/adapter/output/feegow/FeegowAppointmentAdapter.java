@@ -24,6 +24,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.web.client.RestClientException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -62,6 +66,11 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
 
     @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackSearchAppointments")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId, String profissionalId) {
         LocalDate effectiveDate = date != null ? date : LocalDate.now();
         String formattedDate = effectiveDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
@@ -113,6 +122,11 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
 
     @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackUpdateAppointmentStatus")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public void updateAppointmentStatus(String appointmentId, String statusId) {
         String normalizedAppointmentId = appointmentId == null ? "" : appointmentId.trim();
         if (normalizedAppointmentId.isBlank()) {
@@ -293,5 +307,24 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
         } catch (NumberFormatException ignored) {
             return value.trim();
         }
+    }
+
+    /**
+     * Captura graciosamente a falha definitiva após 3 tentativas de busca de agendamentos.
+     */
+    @Recover
+    public List<FeegowAppointment> recoverSearchAppointments(RestClientException ex, LocalDate date, int statusId, String profissionalId) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de busca de agendamentos na Feegow ERP. Erro: {}", 
+            ex.getMessage(), ex);
+        return List.of();
+    }
+
+    /**
+     * Captura graciosamente a falha definitiva após 3 tentativas de atualização de status.
+     */
+    @Recover
+    public void recoverUpdateAppointmentStatus(RestClientException ex, String appointmentId, String statusId) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de atualização de status do agendamento {} na Feegow ERP. Erro: {}", 
+            appointmentId, ex.getMessage(), ex);
     }
 }

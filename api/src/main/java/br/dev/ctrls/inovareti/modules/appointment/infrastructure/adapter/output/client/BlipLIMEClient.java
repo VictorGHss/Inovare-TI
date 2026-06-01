@@ -28,6 +28,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipClientPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import io.github.resilience4j.retry.annotation.Retry; // Mantido, pois é usado
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import java.util.concurrent.locks.LockSupport; // Mantido, pois é usado
 import lombok.extern.slf4j.Slf4j;
 
@@ -142,7 +145,11 @@ public class BlipLIMEClient implements BlipClientPort {
     }
 
     @Override
-    @Retry(name = "blipRetry", fallbackMethod = "fallbackExecuteCommand")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public Map<String, Object> executeCommand(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
         
@@ -223,7 +230,11 @@ public class BlipLIMEClient implements BlipClientPort {
     }
 
     @Override
-    @Retry(name = "blipRetry", fallbackMethod = "fallbackExecuteMessage")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public Map<String, Object> executeMessage(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
         URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
@@ -328,5 +339,25 @@ public class BlipLIMEClient implements BlipClientPort {
             }
         }
         lastRequestAt.set(System.currentTimeMillis());
+    }
+
+    /**
+     * Recuperador gracioso do Spring Retry para falhas definitivas no executeCommand.
+     */
+    @Recover
+    public Map<String, Object> recoverExecuteCommand(RestClientException ex, Map<String, Object> payload, AuthorizationScope scope) {
+        log.error("[RECOVERY-BLIP] Falha definitiva após 3 tentativas de execução de comando LIME na Blip. Erro: {}", 
+            ex.getMessage(), ex);
+        return Map.of("status", "offline-queued", "message", ex.getMessage());
+    }
+
+    /**
+     * Recuperador gracioso do Spring Retry para falhas definitivas no executeMessage.
+     */
+    @Recover
+    public Map<String, Object> recoverExecuteMessage(RestClientException ex, Map<String, Object> payload, AuthorizationScope scope) {
+        log.error("[RECOVERY-BLIP] Falha definitiva após 3 tentativas de envio de mensagem na Blip. Erro: {}", 
+            ex.getMessage(), ex);
+        return Map.of("status", "offline-queued", "message", ex.getMessage());
     }
 }

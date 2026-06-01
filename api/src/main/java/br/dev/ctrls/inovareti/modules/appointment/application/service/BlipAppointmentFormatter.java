@@ -28,11 +28,10 @@ public class BlipAppointmentFormatter {
      */
     public String buildListaDetalhada(List<AppointmentSession> groupedSessions) {
         if (groupedSessions == null || groupedSessions.isEmpty()) {
-            return "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
+            return "";
         }
 
         List<String> details = new ArrayList<>();
-        details.add("PRÓXIMOS ATENDIMENTOS:");
 
         for (AppointmentSession s : groupedSessions) {
             if (s.getAppointmentAt() == null) {
@@ -52,16 +51,11 @@ public class BlipAppointmentFormatter {
             }
             doctorName = blipTextSanitizer.sanitizeDoctorName(doctorName);
 
-            details.add("🔹 " + doctorName);
-            details.add("  Data: " + dateStr);
-            details.add("  Horario: " + timeStr);
+            // Comentário em Português:
+            // Formatação minimalista estrita contendo o emoji, o nome do profissional higienizado, a data (dd/MM) e o horário (HH:mm).
+            details.add("🔹 " + doctorName + " - " + dateStr + " às " + timeStr);
         }
 
-        if (details.size() <= 1) {
-            return "Ops, não encontrei seus agendamentos agora, aguarde um instante.";
-        }
-
-        details.add("Por favor, confirme se você comparecerá aos horários listados acima.");
         return String.join("\n", details);
     }
 }

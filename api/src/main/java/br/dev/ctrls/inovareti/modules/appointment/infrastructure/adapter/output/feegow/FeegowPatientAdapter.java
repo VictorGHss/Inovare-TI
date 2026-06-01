@@ -15,6 +15,10 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowPr
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.web.client.RestClientException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -61,6 +65,11 @@ public class FeegowPatientAdapter extends AbstractFeegowAdapter implements Patie
     }
 
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackGetPatientDetails")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public FeegowPatientDetailsDto.PatientItem getPatientDetails(String patientId) {
         String path = resolvePatientDetailsPath();
         URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
@@ -183,5 +192,15 @@ public class FeegowPatientAdapter extends AbstractFeegowAdapter implements Patie
             return "";
         }
         return cpf.replaceAll("\\D", "");
+    }
+
+    /**
+     * Captura graciosamente a falha definitiva após 3 tentativas de busca de detalhes do paciente.
+     */
+    @Recover
+    public FeegowPatientDetailsDto.PatientItem recoverGetPatientDetails(RestClientException ex, String patientId) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de busca de detalhes do paciente {} no Feegow ERP. Erro: {}", 
+            patientId, ex.getMessage(), ex);
+        return null;
     }
 }

@@ -52,7 +52,9 @@ public class RestTemplateConfig {
                 .build();
         org.springframework.http.client.JdkClientHttpRequestFactory factory = 
                 new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
-        factory.setReadTimeout(java.time.Duration.ofSeconds(10));
+        // Comentário em Português:
+        // Configuração de timeout estrito de leitura limitado a 5 segundos (5000ms)
+        factory.setReadTimeout(java.time.Duration.ofSeconds(5));
         return factory;
     }
 

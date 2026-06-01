@@ -39,12 +39,12 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Caso de uso: resolve um chamado com entrega opcional de equipamento ou item.
- * Regras de negócio críticas:
+ * Regras de negÃ³cio crÃ­ticas:
  * 1. Se o chamado possuir requestedItem e requestedQuantity,
- *    o estoque atual do item é decrementado atomicamente na mesma transação.
- * 2. Se assetIdToDeliver for fornecido, a propriedade do equipamento é transferida para o solicitante
- *    e um registro AssetMaintenance de TRANSFER é criado.
- * 3. Se inventoryItemIdToDeliver for fornecido, o estoque é decrementado.
+ *    o estoque atual do item Ã© decrementado atomicamente na mesma transaÃ§Ã£o.
+ * 2. Se assetIdToDeliver for fornecido, a propriedade do equipamento Ã© transferida para o solicitante
+ *    e um registro AssetMaintenance de TRANSFER Ã© criado.
+ * 3. Se inventoryItemIdToDeliver for fornecido, o estoque Ã© decrementado.
  */
 @Slf4j
 @Component
@@ -58,7 +58,7 @@ public class ResolveTicketUseCase {
         private final CreateNotificationService createNotificationService;
         private final StockDeductionService stockDeductionService;
         private final StockMovementRepository stockMovementRepository;
-        private final br.dev.ctrls.inovareti.domain.financeiro.FinancialService financialService;
+        private final br.dev.ctrls.inovareti.modules.finance.application.service.FinancialService financialService;
         private final DiscordDirectMessageService discordDirectMessageService;
         private final UserRepository userRepository;
         private final AuditLogService auditLogService;
@@ -67,34 +67,34 @@ public class ResolveTicketUseCase {
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
      *
      * @param ticketId UUID do chamado a ser resolvido
-     * @param request DTO com notas de resolução e dados opcionais de entrega
+     * @param request DTO com notas de resoluÃ§Ã£o e dados opcionais de entrega
      * @return DTO com os dados atualizados do chamado
-     * @throws NotFoundException se o chamado ou equipamento/item não for encontrado
-     * @throws IllegalStateException se regras de negócio forem violadas
+     * @throws NotFoundException se o chamado ou equipamento/item nÃ£o for encontrado
+     * @throws IllegalStateException se regras de negÃ³cio forem violadas
      */
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, ResolveTicketDTO request, UUID authenticatedUserId) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Chamado não encontrado com id: " + ticketId));
+                        "Chamado nÃ£o encontrado com id: " + ticketId));
 
         User authenticatedUser = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Usuário autenticado não encontrado com id: " + authenticatedUserId));
+                        "UsuÃ¡rio autenticado nÃ£o encontrado com id: " + authenticatedUserId));
 
         boolean isAdminOrTechnician = authenticatedUser.getRole() == UserRole.ADMIN
                 || authenticatedUser.getRole() == UserRole.TECHNICIAN;
         boolean isRequester = ticket.getRequester().getId().equals(authenticatedUserId);
 
         if (!isAdminOrTechnician && !isRequester) {
-            throw new AccessDeniedException("Você não tem permissão para alterar este chamado.");
+            throw new AccessDeniedException("VocÃª nÃ£o tem permissÃ£o para alterar este chamado.");
         }
 
         // Debita estoque se o chamado tiver item solicitado
-        // Observações em Português: garantimos aqui que a dedução de estoque
-        // será realizada dentro da mesma transação que marca o chamado como RESOLVED.
-        // O parâmetro `reference` segue o padrão: "TICKET:{ticketId}" para garantir
-        // que relatórios que buscam por prefixo (ex.: TICKET:{id}) encontrem o movimento.
+        // ObservaÃ§Ãµes em PortuguÃªs: garantimos aqui que a deduÃ§Ã£o de estoque
+        // serÃ¡ realizada dentro da mesma transaÃ§Ã£o que marca o chamado como RESOLVED.
+        // O parÃ¢metro `reference` segue o padrÃ£o: "TICKET:{ticketId}" para garantir
+        // que relatÃ³rios que buscam por prefixo (ex.: TICKET:{id}) encontrem o movimento.
         if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
             if (ticket.getRequestedQuantity() <= 0) {
                 throw new IllegalStateException("Quantidade solicitada deve ser maior ou igual a 1.");
@@ -108,15 +108,15 @@ public class ResolveTicketUseCase {
                     request.recipientUserId()
             );
 
-            // Registra débito financeiro com base no valor apurado pela dedução FIFO
+            // Registra dÃ©bito financeiro com base no valor apurado pela deduÃ§Ã£o FIFO
             financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("[ESTOQUE] Baixa automática realizada para item solicitado no chamado. "
+            log.info("[ESTOQUE] Baixa automÃ¡tica realizada para item solicitado no chamado. "
                     + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
                     ticketId, ticket.getRequestedItem().getId(), ticket.getRequestedQuantity(), totalDeduction);
 
-            // Fallback de segurança: caso o StockDeductionService não tenha persistido
-            // o movimento (situação incomum), cria-se um registro adicional para
-            // preservar a trilha de auditoria e permitir que relatórios encontrem a saída.
+            // Fallback de seguranÃ§a: caso o StockDeductionService nÃ£o tenha persistido
+            // o movimento (situaÃ§Ã£o incomum), cria-se um registro adicional para
+            // preservar a trilha de auditoria e permitir que relatÃ³rios encontrem a saÃ­da.
             try {
                 var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
                 if (movements == null || movements.isEmpty()) {
@@ -146,26 +146,26 @@ public class ResolveTicketUseCase {
         if (request.assetIdToDeliver() != null) {
             Asset asset = assetRepository.findById(request.assetIdToDeliver())
                     .orElseThrow(() -> new NotFoundException(
-                            "Ativo não encontrado com id: " + request.assetIdToDeliver()));
+                            "Ativo nÃ£o encontrado com id: " + request.assetIdToDeliver()));
 
-                        // Verifica se o ativo já está em uso exclusivo por outro usuário
+                        // Verifica se o ativo jÃ¡ estÃ¡ em uso exclusivo por outro usuÃ¡rio
                         boolean emUso = asset.getUsers() != null && !asset.getUsers().isEmpty();
                         boolean pertenceAoSolicitante = emUso
                                 && asset.getUsers().stream().anyMatch(u -> u.getId().equals(ticket.getRequester().getId()));
 
                         if (emUso && !pertenceAoSolicitante) {
                                 throw new IllegalStateException(
-                                                "Ativo '" + asset.getName() + "' já está atribuído a outro usuário. "
-                                                + "Não é possível entregar um ativo que já está em uso.");
+                                                "Ativo '" + asset.getName() + "' jÃ¡ estÃ¡ atribuÃ­do a outro usuÃ¡rio. "
+                                                + "NÃ£o Ã© possÃ­vel entregar um ativo que jÃ¡ estÃ¡ em uso.");
                         }
 
-            // Adiciona o solicitante à coleção de usuários do ativo
+            // Adiciona o solicitante Ã  coleÃ§Ã£o de usuÃ¡rios do ativo
             if (asset.getUsers() == null) {
                 asset.setUsers(new HashSet<>());
             }
             asset.getUsers().add(ticket.getRequester());
             Asset deliveredAsset = assetRepository.save(asset);
-            log.info("[ATIVO] Ativo {} vinculado ao usuário {} via chamado {}",
+            log.info("[ATIVO] Ativo {} vinculado ao usuÃ¡rio {} via chamado {}",
                     asset.getId(), ticket.getRequester().getId(), ticketId);
 
             AssetMaintenance maintenance = AssetMaintenance.builder()
@@ -228,7 +228,7 @@ public class ResolveTicketUseCase {
 
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
         // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
-        // Garantimos quantidade mínima e uso do padrão de referência `TICKET:{id}`
+        // Garantimos quantidade mÃ­nima e uso do padrÃ£o de referÃªncia `TICKET:{id}`
         if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
             if (request.quantityToDeliver() <= 0) {
                 throw new IllegalStateException("Quantidade para entrega deve ser maior ou igual a 1.");
@@ -242,13 +242,13 @@ public class ResolveTicketUseCase {
                     request.recipientUserId()
             );
 
-            // Registra débito financeiro para a entrega manual de item (INVENTORY)
+            // Registra dÃ©bito financeiro para a entrega manual de item (INVENTORY)
             financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("[ESTOQUE] Baixa automática realizada via encerramento do chamado. "
+            log.info("[ESTOQUE] Baixa automÃ¡tica realizada via encerramento do chamado. "
                     + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
                     ticketId, request.inventoryItemIdToDeliver(), request.quantityToDeliver(), totalDeduction);
 
-            // Mesmo fallback para entregas manuais: garante persistência do movimento OUT
+            // Mesmo fallback para entregas manuais: garante persistÃªncia do movimento OUT
             try {
                 var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
                 if (movements == null || movements.isEmpty()) {
@@ -269,7 +269,7 @@ public class ResolveTicketUseCase {
             }
         }
 
-        // Marca o chamado como resolvido e salva a nota de resolução (texto da solução)
+        // Marca o chamado como resolvido e salva a nota de resoluÃ§Ã£o (texto da soluÃ§Ã£o)
         ticket.setStatus(TicketStatus.RESOLVED);
         ticket.setClosedAt(LocalDateTime.now());
         ticket.setSolutionText(request.resolutionNotes() != null ? request.resolutionNotes().trim() : null);
@@ -285,18 +285,18 @@ public class ResolveTicketUseCase {
         String shortId = resolvedTicket.getId().toString().substring(0, 8).toUpperCase();
         String resolutionText = request.resolutionNotes() != null && !request.resolutionNotes().isBlank()
                 ? request.resolutionNotes().trim()
-                : "Não informada.";
+                : "NÃ£o informada.";
         String dmTitle = "Chamado Resolvido";
         String dmDescription = "Seu chamado #" + shortId + " foi marcado como resolvido.\n"
-                + "**Resolução:** " + resolutionText;
+                + "**ResoluÃ§Ã£o:** " + resolutionText;
         discordDirectMessageService.sendTicketUpdateDM(resolvedTicket, dmTitle, dmDescription);
 
-        // Loop de notificação: DM para cada usuário adicional afetado pelo chamado
+        // Loop de notificaÃ§Ã£o: DM para cada usuÃ¡rio adicional afetado pelo chamado
         if (resolvedTicket.getAdditionalUsers() != null && !resolvedTicket.getAdditionalUsers().isEmpty()) {
-            String affectedTitle = "Problema Resolvido — Chamado #" + shortId;
+            String affectedTitle = "Problema Resolvido â€” Chamado #" + shortId;
             String affectedDescription = "Um chamado que lhe afetava (#" + shortId + ") foi resolvido.\n"
-                    + "**Título:** " + resolvedTicket.getTitle() + "\n"
-                    + "**Resolução:** " + resolutionText;
+                    + "**TÃ­tulo:** " + resolvedTicket.getTitle() + "\n"
+                    + "**ResoluÃ§Ã£o:** " + resolutionText;
 
             for (br.dev.ctrls.inovareti.domain.user.User affectedUser : resolvedTicket.getAdditionalUsers()) {
                 if (affectedUser.getDiscordUserId() != null && !affectedUser.getDiscordUserId().isBlank()) {
@@ -306,10 +306,10 @@ public class ResolveTicketUseCase {
                             affectedTitle,
                             affectedDescription
                     );
-                    log.info("[TICKET] DM de resolução enviada para usuário adicional afetado '{}' no chamado {}",
+                    log.info("[TICKET] DM de resoluÃ§Ã£o enviada para usuÃ¡rio adicional afetado '{}' no chamado {}",
                             affectedUser.getName(), ticketId);
                 } else {
-                    log.debug("[TICKET] Usuário adicional '{}' não possui Discord vinculado. DM ignorada.",
+                    log.debug("[TICKET] UsuÃ¡rio adicional '{}' nÃ£o possui Discord vinculado. DM ignorada.",
                             affectedUser.getName());
                 }
             }
@@ -328,4 +328,5 @@ public class ResolveTicketUseCase {
     }
 
 }
+
 

@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptAlertService;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ReceiptConcurrencyHandler;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -12,8 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o de domÃƒÂ­nio puro (Domain Service) responsÃƒÂ¡vel por gerenciar e aplicar a polÃƒÂ­tica de retry (tentativas)
- * e o ciclo de falhas crÃƒÂ­ticas ou permanentes de processamento de recibos.
+ * ServiÃƒÆ’Ã‚Â§o de domÃƒÆ’Ã‚Â­nio puro (Domain Service) responsÃƒÆ’Ã‚Â¡vel por gerenciar e aplicar a polÃƒÆ’Ã‚Â­tica de retry (tentativas)
+ * e o ciclo de falhas crÃƒÆ’Ã‚Â­ticas ou permanentes de processamento de recibos.
  */
 @Slf4j
 @Service
@@ -31,7 +30,7 @@ public class ContaAzulReceiptRetryPolicy {
      * Caso o limite de tentativas seja atingido, encerra o ciclo marcando o recibo como processado
      * e dispara um alerta de falha permanente administrativo.
      *
-     * @return true se o limite foi atingido (falha permanente), false caso contrÃƒÂ¡rio.
+     * @return true se o limite foi atingido (falha permanente), false caso contrÃƒÆ’Ã‚Â¡rio.
      */
     public boolean registerAttemptAndCheckIfPermanentFailure(
             String baixaId,
@@ -58,15 +57,15 @@ public class ContaAzulReceiptRetryPolicy {
         }
 
         if (attempts >= MAX_RETRIES) {
-            // Salva marcador para evitar reprocessamentos infinitos e concorrÃƒÂªncia no loop
+            // Salva marcador para evitar reprocessamentos infinitos e concorrÃƒÆ’Ã‚Âªncia no loop
             saveProcessedSaleIfNeeded(baixaId,
-                    "Recibo {} marcado como processado apÃƒÂ³s limite mÃƒÂ¡ximo de falhas recorrentes.",
-                    "Recibo {} jÃƒÂ¡ registrado por concorrÃƒÂªncia ao marcar como processado apÃƒÂ³s limite de falhas.");
+                    "Recibo {} marcado como processado apÃƒÆ’Ã‚Â³s limite mÃƒÆ’Ã‚Â¡ximo de falhas recorrentes.",
+                    "Recibo {} jÃƒÆ’Ã‚Â¡ registrado por concorrÃƒÆ’Ã‚Âªncia ao marcar como processado apÃƒÆ’Ã‚Â³s limite de falhas.");
 
             // Limpa as tentativas da tabela de retries
             processingAttemptRepository.deleteBySaleId(baixaId);
 
-            // Notifica o erro crÃƒÂ­tico e permanente via canais administrativos
+            // Notifica o erro crÃƒÆ’Ã‚Â­tico e permanente via canais administrativos
             receiptAlertService.notifyPermanentReceiptFailure(
                     baixaId,
                     resolvedSaleId,
@@ -77,13 +76,13 @@ public class ContaAzulReceiptRetryPolicy {
             return true;
         }
 
-        log.info("Recibo ainda nÃƒÂ£o gerado ou falhou para a baixa {}. Tentando novamente na prÃƒÂ³xima execuÃƒÂ§ÃƒÂ£o. Tentativa {}/{}",
+        log.info("Recibo ainda nÃƒÆ’Ã‚Â£o gerado ou falhou para a baixa {}. Tentando novamente na prÃƒÆ’Ã‚Â³xima execuÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o. Tentativa {}/{}",
                 baixaId, attempts, MAX_RETRIES);
         return false;
     }
 
     /**
-     * Trata o cenÃƒÂ¡rio de falha SMTP no envio de e-mails para preservar o trabalho jÃƒÂ¡ realizado.
+     * Trata o cenÃƒÆ’Ã‚Â¡rio de falha SMTP no envio de e-mails para preservar o trabalho jÃƒÆ’Ã‚Â¡ realizado.
      * Salva o recibo como processado e envia alerta permanente imediato.
      */
     public void handleEmailFailure(
@@ -100,7 +99,7 @@ public class ContaAzulReceiptRetryPolicy {
 
         saveProcessedSaleIfNeeded(baixaId,
                 "Recibo {} marcado como processado mesmo com falha de e-mail SMTP.",
-                "Recibo {} jÃƒÂ¡ estava marcado como processado ao tratar falha de e-mail SMTP.");
+                "Recibo {} jÃƒÆ’Ã‚Â¡ estava marcado como processado ao tratar falha de e-mail SMTP.");
 
         // Limpa tentativas da tabela se houver
         processingAttemptRepository.deleteBySaleId(baixaId);
@@ -115,7 +114,7 @@ public class ContaAzulReceiptRetryPolicy {
     }
 
     /**
-     * Limpa o rastro de tentativas de uma baixa apÃƒÂ³s sucesso do processamento concorrente.
+     * Limpa o rastro de tentativas de uma baixa apÃƒÆ’Ã‚Â³s sucesso do processamento concorrente.
      */
     public void clearAttempts(String baixaId) {
         if (StringUtils.hasText(baixaId)) {
@@ -124,7 +123,7 @@ public class ContaAzulReceiptRetryPolicy {
     }
 
     /**
-     * Salva a venda processada na tabela de controle de concorrÃƒÂªncia se necessÃƒÂ¡rio.
+     * Salva a venda processada na tabela de controle de concorrÃƒÆ’Ã‚Âªncia se necessÃƒÆ’Ã‚Â¡rio.
      */
     public void saveProcessedSaleIfNeeded(String saleId, String successMessage, String duplicateMessage) {
         concurrencyHandler.markAsProcessed(saleId, successMessage, duplicateMessage);

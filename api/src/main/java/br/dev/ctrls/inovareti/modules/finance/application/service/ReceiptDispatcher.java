@@ -3,7 +3,6 @@ package br.dev.ctrls.inovareti.modules.finance.application.service;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedReceiptRepository;
-import br.dev.ctrls.inovareti.modules.finance.application.service.CustomerEmailSyncService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialLink;
 
@@ -100,12 +99,12 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             byte[] pdfBytes,
             boolean includePdfAttachment) {
-        // Garante linguagem consistente no e-mail mesmo quando a API nÃƒÂ£o retorna nÃƒÂºmero comercial.
+        // Garante linguagem consistente no e-mail mesmo quando a API nÃƒÆ’Ã‚Â£o retorna nÃƒÆ’Ã‚Âºmero comercial.
         String saleNumber = StringUtils.hasText(parcela.saleNumber()) ? parcela.saleNumber().trim() : "N/D";
 
         if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
             throw new IllegalStateException(
-                    "Canal DISCORD nÃƒÂ£o possui destinatÃƒÂ¡rio vinculado no financial_link para customerId="
+                    "Canal DISCORD nÃƒÆ’Ã‚Â£o possui destinatÃƒÆ’Ã‚Â¡rio vinculado no financial_link para customerId="
                             + parcela.customerId());
         }
 
@@ -113,7 +112,7 @@ public class ReceiptDispatcher {
             financeEmailService.sendReceiptEmailWithPdf(
                 parcela.medicoNome(),
                 receipt.getOriginalRecipientEmail(),
-                "OlÃƒÂ¡ " + parcela.medicoNome() + ", seu recibo financeiro referente ÃƒÂ  Venda " + saleNumber + " estÃƒÂ¡ em anexo.",
+                "OlÃƒÆ’Ã‚Â¡ " + parcela.medicoNome() + ", seu recibo financeiro referente ÃƒÆ’Ã‚Â  Venda " + saleNumber + " estÃƒÆ’Ã‚Â¡ em anexo.",
                 pdfBytes,
                 "recibo-venda-" + saleNumber + ".pdf",
                 saleNumber);
@@ -123,7 +122,7 @@ public class ReceiptDispatcher {
         financeEmailService.sendReceiptEmail(
             parcela.medicoNome(),
             receipt.getOriginalRecipientEmail(),
-            "OlÃƒÂ¡ " + parcela.medicoNome() + ", registramos o recebimento financeiro referente ÃƒÂ  Venda "
+            "OlÃƒÆ’Ã‚Â¡ " + parcela.medicoNome() + ", registramos o recebimento financeiro referente ÃƒÆ’Ã‚Â  Venda "
                 + saleNumber + ".",
             saleNumber);
     }
@@ -141,7 +140,7 @@ public class ReceiptDispatcher {
         payload.put("updatedAt", LocalDateTime.now().toString());
 
         if (StringUtils.hasText(saleNumber)) {
-            // MantÃƒÂ©m o nÃƒÂºmero comercial disponÃƒÂ­vel para UI/DTO sem perder a chave UUID interna.
+            // MantÃƒÆ’Ã‚Â©m o nÃƒÆ’Ã‚Âºmero comercial disponÃƒÆ’Ã‚Â­vel para UI/DTO sem perder a chave UUID interna.
             String normalizedSaleNumber = saleNumber.trim();
             payload.put("numero", normalizedSaleNumber);
             payload.put("numero_venda", normalizedSaleNumber);
@@ -168,7 +167,7 @@ public class ReceiptDispatcher {
         return financialLinkRepository
                 .findByContaAzulCustomerNameIgnoreCase(parcela.medicoNome())
                 .orElseThrow(() -> new IllegalStateException(
-                        "FinancialLink nÃƒÂ£o encontrado e customerId ausente para: "
+                        "FinancialLink nÃƒÆ’Ã‚Â£o encontrado e customerId ausente para: "
                                 + parcela.medicoNome()));
     }
 
@@ -181,7 +180,7 @@ public class ReceiptDispatcher {
                     .orElseThrow();
         }
 
-        log.info("FinancialLink nÃƒÂ£o encontrado Ã¢â‚¬â€ criando automaticamente. customerId={}, nome={}",
+        log.info("FinancialLink nÃƒÆ’Ã‚Â£o encontrado ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â criando automaticamente. customerId={}, nome={}",
                 parcela.customerId(), parcela.medicoNome());
 
         FinancialLink link = FinancialLink.builder()

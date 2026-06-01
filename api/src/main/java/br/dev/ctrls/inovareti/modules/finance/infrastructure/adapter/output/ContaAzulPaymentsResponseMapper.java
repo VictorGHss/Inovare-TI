@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.JsonSafeReader;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulStatus;
 
@@ -23,7 +22,7 @@ import lombok.RequiredArgsConstructor;
  *
  * Responsabilidades:
  * - parse de payloads de parcelas;
- * - extraÃƒÂ§ÃƒÂ£o segura de dados relevantes;
+ * - extraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o segura de dados relevantes;
  * - regra de status de pagamento considerado quitado.
  */
 @Component
@@ -34,7 +33,7 @@ public class ContaAzulPaymentsResponseMapper {
     private final JsonSafeReader jsonSafeReader;
 
     /**
-     * Converte payload de listagem de parcelas em objetos de domÃƒÂ­nio.
+     * Converte payload de listagem de parcelas em objetos de domÃƒÆ’Ã‚Â­nio.
      */
     public List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
@@ -153,7 +152,7 @@ public class ContaAzulPaymentsResponseMapper {
     }
 
     /**
-     * Procura uma parcela especÃƒÂ­fica dentro de um payload de listagem de contas a receber.
+     * Procura uma parcela especÃƒÆ’Ã‚Â­fica dentro de um payload de listagem de contas a receber.
      */
     public Optional<ContaAzulPaymentParcel> findParcelIdentityByParcelaId(String jsonPayload, String parcelaId) {
         if (!StringUtils.hasText(jsonPayload) || !StringUtils.hasText(parcelaId)) {
@@ -194,7 +193,7 @@ public class ContaAzulPaymentsResponseMapper {
     }
 
     /**
-     * Determina se o status da parcela representa pagamento/quitacÃƒÂ£o.
+     * Determina se o status da parcela representa pagamento/quitacÃƒÆ’Ã‚Â£o.
      */
     public boolean isPaidParcelStatus(String status) {
         return "QUITADO".equalsIgnoreCase(status) || ContaAzulStatus.RECEBIDO.equalsIgnoreCase(status);

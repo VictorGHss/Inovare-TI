@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.InternalReceiptService;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 
 import java.util.Optional;
@@ -14,9 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o de aplicaÃƒÂ§ÃƒÂ£o encarregado pela lÃƒÂ³gica de fallback de emissÃƒÂ£o de recibos.
- * Quando a API do Conta Azul falha em entregar o anexo, aciona a geraÃƒÂ§ÃƒÂ£o interna
- * local do PDF usando metadados e persistÃƒÂªncia de documentos.
+ * ServiÃƒÆ’Ã‚Â§o de aplicaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o encarregado pela lÃƒÆ’Ã‚Â³gica de fallback de emissÃƒÆ’Ã‚Â£o de recibos.
+ * Quando a API do Conta Azul falha em entregar o anexo, aciona a geraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o interna
+ * local do PDF usando metadados e persistÃƒÆ’Ã‚Âªncia de documentos.
  */
 @Slf4j
 @Service
@@ -33,10 +32,10 @@ public class InternalReceiptEmissionService {
      * Gera o PDF de recibo interno Inovare (fallback) para a baixa informada.
      *
      * @param baixaId Identificador da baixa de pagamento.
-     * @param doctorName Nome do mÃƒÂ©dico/profissional.
-     * @param mapping O mapeamento de e-mail do mÃƒÂ©dico.
+     * @param doctorName Nome do mÃƒÆ’Ã‚Â©dico/profissional.
+     * @param mapping O mapeamento de e-mail do mÃƒÆ’Ã‚Â©dico.
      * @param customerUuidFromSale UUID do cliente na venda.
-     * @param saleDescription DescriÃƒÂ§ÃƒÂ£o formatada da venda/parcela.
+     * @param saleDescription DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o formatada da venda/parcela.
      * @return O vetor de bytes do PDF gerado.
      */
     public byte[] generateInternalReceiptPdf(
@@ -68,7 +67,7 @@ public class InternalReceiptEmissionService {
     }
 
     /**
-     * Resolve o CPF/CNPJ do mÃƒÂ©dico. Tenta buscar no mapping local ou faz a consulta na API da Conta Azul.
+     * Resolve o CPF/CNPJ do mÃƒÆ’Ã‚Â©dico. Tenta buscar no mapping local ou faz a consulta na API da Conta Azul.
      */
     private String resolveDoctorDocumentForReceipt(
             DoctorEmailMapping mapping,
@@ -83,7 +82,7 @@ public class InternalReceiptEmissionService {
             return mappedDocument;
         }
 
-        String doctorName = mapping != null ? mapping.getDoctorName() : "(mÃƒÂ©dico nÃƒÂ£o identificado)";
+        String doctorName = mapping != null ? mapping.getDoctorName() : "(mÃƒÆ’Ã‚Â©dico nÃƒÆ’Ã‚Â£o identificado)";
         log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
 
         if (StringUtils.hasText(customerUuidFromSale)) {
@@ -120,7 +119,7 @@ public class InternalReceiptEmissionService {
     }
 
     /**
-     * Persiste o CPF/CNPJ resolvido no mapeamento de mÃƒÂ©dico existente no banco.
+     * Persiste o CPF/CNPJ resolvido no mapeamento de mÃƒÆ’Ã‚Â©dico existente no banco.
      */
     private void persistDoctorDocumentOnMapping(
             DoctorEmailMapping mapping,

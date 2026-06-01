@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
 
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -13,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsÃƒÆ’Ã‚Â¡vel pelo controle de concorrÃƒÆ’Ã‚Âªncia e locks locais/banco
+ * Componente responsÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡vel pelo controle de concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia e locks locais/banco
  * para evitar o processamento duplicado de recibos.
  */
 @Slf4j
@@ -25,7 +24,7 @@ public class ReceiptConcurrencyHandler {
     private final ConcurrentHashMap<String, Boolean> activeLocks = new ConcurrentHashMap<>();
 
     /**
-     * Verifica se o recibo jÃƒÆ’Ã‚Â¡ foi processado anteriormente (persiste no banco).
+     * Verifica se o recibo jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ foi processado anteriormente (persiste no banco).
      */
     public boolean isAlreadyProcessed(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
@@ -35,8 +34,8 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Adquire um lock em memÃƒÆ’Ã‚Â³ria para evitar concorrÃƒÆ’Ã‚Âªncia local imediata.
-     * Retorna true se o lock foi adquirido com sucesso, false caso contrÃƒÆ’Ã‚Â¡rio.
+     * Adquire um lock em memÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ria para evitar concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia local imediata.
+     * Retorna true se o lock foi adquirido com sucesso, false caso contrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio.
      */
     public boolean acquireLock(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
@@ -46,7 +45,7 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Libera o lock em memÃƒÆ’Ã‚Â³ria.
+     * Libera o lock em memÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ria.
      */
     public void releaseLock(String baixaId) {
         if (StringUtils.hasText(baixaId)) {
@@ -55,7 +54,7 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Registra o recibo como processado no banco de dados, tratando possÃƒÆ’Ã‚Â­veis colisÃƒÆ’Ã‚Âµes de concorrÃƒÆ’Ã‚Âªncia.
+     * Registra o recibo como processado no banco de dados, tratando possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­veis colisÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes de concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia.
      */
     public void markAsProcessed(String saleId, String successMessage, String duplicateMessage) {
         if (!StringUtils.hasText(saleId)) {

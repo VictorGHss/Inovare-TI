@@ -1,10 +1,8 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptEmailService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.NoReceiptAvailableException;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.FinancialResponseMapper;
 
 import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
@@ -18,8 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Adaptador de infraestrutura (Outbound Adapter) responsÃƒÂ¡vel pela lÃƒÂ³gica de download fÃƒÂ­sico
- * dos PDFs dos recibos e resoluÃƒÂ§ÃƒÂ£o de anexos via APIs do Conta Azul.
+ * Adaptador de infraestrutura (Outbound Adapter) responsÃƒÆ’Ã‚Â¡vel pela lÃƒÆ’Ã‚Â³gica de download fÃƒÆ’Ã‚Â­sico
+ * dos PDFs dos recibos e resoluÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de anexos via APIs do Conta Azul.
  */
 @Slf4j
 @Component
@@ -39,7 +37,7 @@ public class ContaAzulReceiptStorageAdapter {
      */
     public byte[] downloadReceiptPdf(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
-            throw new IllegalArgumentException("baixaId nÃƒÂ£o pode ser nulo/vazio para baixar recibo.");
+            throw new IllegalArgumentException("baixaId nÃƒÆ’Ã‚Â£o pode ser nulo/vazio para baixar recibo.");
         }
 
         String normalizedBaixaId = baixaId.trim();
@@ -55,7 +53,7 @@ public class ContaAzulReceiptStorageAdapter {
      * Busca detalhes da baixa para extrair URL do recibo.
      *
      * Regra: quando o array de anexos vier vazio, aguarda 15 segundos e tenta
-     * mais uma vez (mÃƒÂ¡ximo 2 tentativas).
+     * mais uma vez (mÃƒÆ’Ã‚Â¡ximo 2 tentativas).
      */
     private Optional<String> resolveReceiptUrlFromSettlementWithRetry(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {

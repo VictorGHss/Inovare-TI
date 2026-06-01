@@ -15,16 +15,14 @@ import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceAlertResponseDTO;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceReceiptResponseDTO;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceSummaryResponseDTO;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulFinancialSummaryService;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o de aplicaÃƒÂ§ÃƒÂ£o focado em consultas e mapeamentos do subsistema financeiro.
+ * ServiÃƒÆ’Ã‚Â§o de aplicaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o focado em consultas e mapeamentos do subsistema financeiro.
  *
- * Restabelece a separaÃƒÂ§ÃƒÂ£o de responsabilidades da Arquitetura Hexagonal, removendo lÃƒÂ³gicas
- * de agregaÃƒÂ§ÃƒÂ£o, filtros, paginaÃƒÂ§ÃƒÂ£o e validaÃƒÂ§ÃƒÂ£o do controlador de entrada REST.
+ * Restabelece a separaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de responsabilidades da Arquitetura Hexagonal, removendo lÃƒÆ’Ã‚Â³gicas
+ * de agregaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, filtros, paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o do controlador de entrada REST.
  */
 @Slf4j
 @Service
@@ -36,26 +34,26 @@ public class FinanceiroQueryService {
     private final ContaAzulTokenService contaAzulTokenService;
 
     /**
-     * Valida se o intervalo de datas fornecido para a automaÃƒÂ§ÃƒÂ£o ÃƒÂ© coerente.
+     * Valida se o intervalo de datas fornecido para a automaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© coerente.
      *
-     * @param dataInicio Data de inÃƒÂ­cio da busca.
+     * @param dataInicio Data de inÃƒÆ’Ã‚Â­cio da busca.
      * @param dataFim Data final da busca.
-     * @throws BadRequestException se o perÃƒÂ­odo for invÃƒÂ¡lido.
+     * @throws BadRequestException se o perÃƒÆ’Ã‚Â­odo for invÃƒÆ’Ã‚Â¡lido.
      */
     public void validarIntervaloDatas(LocalDate dataInicio, LocalDate dataFim) {
         if (dataInicio == null || dataFim == null) {
-            throw new BadRequestException("As datas de inÃƒÂ­cio e fim nÃƒÂ£o podem ser nulas.");
+            throw new BadRequestException("As datas de inÃƒÆ’Ã‚Â­cio e fim nÃƒÆ’Ã‚Â£o podem ser nulas.");
         }
         if (dataInicio.isAfter(dataFim)) {
-            throw new BadRequestException("A data de inÃƒÂ­cio nÃƒÂ£o pode ser posterior ÃƒÂ  data de fim.");
+            throw new BadRequestException("A data de inÃƒÆ’Ã‚Â­cio nÃƒÆ’Ã‚Â£o pode ser posterior ÃƒÆ’Ã‚Â  data de fim.");
         }
         if (dataInicio.plusDays(365).isBefore(dataFim)) {
-            throw new BadRequestException("O perÃƒÂ­odo mÃƒÂ¡ximo permitido para sincronizaÃƒÂ§ÃƒÂ£o ÃƒÂ© de 365 dias.");
+            throw new BadRequestException("O perÃƒÆ’Ã‚Â­odo mÃƒÆ’Ã‚Â¡ximo permitido para sincronizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© de 365 dias.");
         }
     }
 
     /**
-     * Consolida e constrÃƒÂ³i o resumo financeiro atualizado, verificando tambÃƒÂ©m o status da integraÃƒÂ§ÃƒÂ£o.
+     * Consolida e constrÃƒÆ’Ã‚Â³i o resumo financeiro atualizado, verificando tambÃƒÆ’Ã‚Â©m o status da integraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.
      *
      * @return DTO com o resumo consolidado dos faturamentos e status do Conta Azul.
      */
@@ -87,11 +85,11 @@ public class FinanceiroQueryService {
     }
 
     /**
-     * Lista recibos com paginaÃƒÂ§ÃƒÂ£o em memÃƒÂ³ria e filtros por status opcionais.
+     * Lista recibos com paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o em memÃƒÆ’Ã‚Â³ria e filtros por status opcionais.
      *
      * @param status Status de processamento do recibo (opcional).
-     * @param page NÃƒÂºmero da pÃƒÂ¡gina a ser retornada (0-indexed, opcional).
-     * @param size Quantidade de elementos por pÃƒÂ¡gina (opcional).
+     * @param page NÃƒÆ’Ã‚Âºmero da pÃƒÆ’Ã‚Â¡gina a ser retornada (0-indexed, opcional).
+     * @param size Quantidade de elementos por pÃƒÆ’Ã‚Â¡gina (opcional).
      * @return Lista filtrada e paginada de recibos formatados em DTO.
      */
     public List<FinanceReceiptResponseDTO> listReceipts(ProcessedReceiptStatus status, Integer page, Integer size) {
@@ -110,7 +108,7 @@ public class FinanceiroQueryService {
                 .map(this::mapReceipt)
                 .toList();
 
-        // PaginaÃƒÂ§ÃƒÂ£o customizada em sublista com tratamento seguro de ÃƒÂ­ndices
+        // PaginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o customizada em sublista com tratamento seguro de ÃƒÆ’Ã‚Â­ndices
         if (page != null && size != null && size > 0 && page >= 0) {
             int fromIndex = page * size;
             if (fromIndex >= mapped.size()) {

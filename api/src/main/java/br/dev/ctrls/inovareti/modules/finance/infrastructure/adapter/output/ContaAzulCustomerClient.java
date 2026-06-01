@@ -1,8 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.CustomerResponseMapper;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulRequestExecutor;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -18,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente especializado para operaÃƒÂ§ÃƒÂµes de clientes/pessoas na Conta Azul.
+ * Cliente especializado para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes de clientes/pessoas na Conta Azul.
  */
 @Slf4j
 @Component
@@ -86,7 +83,7 @@ public class ContaAzulCustomerClient {
     }
 
     /**
-     * Busca todas as pessoas com paginaÃƒÂ§ÃƒÂ£o.
+     * Busca todas as pessoas com paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.
      */
     public List<ContaAzulClient.PessoaItem> fetchAllPessoas() {
         List<ContaAzulClient.PessoaItem> pessoas = new ArrayList<>();

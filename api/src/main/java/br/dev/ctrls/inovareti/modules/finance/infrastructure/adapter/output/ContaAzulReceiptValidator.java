@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -12,8 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente de validaÃƒÂ§ÃƒÂ£o de domÃƒÂ­nio responsÃƒÂ¡vel por verificar a integridade da venda/baixa
- * e a consistÃƒÂªncia dos mapeamentos e metadados de e-mail dos profissionais.
+ * Componente de validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de domÃƒÆ’Ã‚Â­nio responsÃƒÆ’Ã‚Â¡vel por verificar a integridade da venda/baixa
+ * e a consistÃƒÆ’Ã‚Âªncia dos mapeamentos e metadados de e-mail dos profissionais.
  */
 @Slf4j
 @Component
@@ -26,29 +25,29 @@ public class ContaAzulReceiptValidator {
      * Valida os metadados e integridade de um item de venda.
      *
      * @param sale O item de venda a ser validado.
-     * @return O resultado da validaÃƒÂ§ÃƒÂ£o contendo status e dados resolvidos ou mensagens de erro.
+     * @return O resultado da validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o contendo status e dados resolvidos ou mensagens de erro.
      */
     public ValidationResult validate(ContaAzulClient.SaleItem sale) {
         if (sale == null) {
-            return new ValidationResult(false, null, null, null, "NULL_SALE", "Item de venda nulo recebido para validaÃƒÂ§ÃƒÂ£o.");
+            return new ValidationResult(false, null, null, null, "NULL_SALE", "Item de venda nulo recebido para validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.");
         }
 
-        // 1. Validar se a parcela possui identificador bÃƒÂ¡sico consistente
+        // 1. Validar se a parcela possui identificador bÃƒÆ’Ã‚Â¡sico consistente
         if (!StringUtils.hasText(sale.parcelaId())) {
-            return new ValidationResult(false, null, null, null, "MISSING_PARCELA_ID", "A parcela nÃƒÂ£o possui parcelaId.");
+            return new ValidationResult(false, null, null, null, "MISSING_PARCELA_ID", "A parcela nÃƒÆ’Ã‚Â£o possui parcelaId.");
         }
 
         // 2. Validar e normalizar o customerUuid
         String customerUuid = normalizeUuid(sale.customerUuid());
         if (!StringUtils.hasText(customerUuid)) {
-            return new ValidationResult(false, null, null, null, "CUSTOMER_UUID_MISSING", "O recibo nÃƒÂ£o possui customer UUID vÃƒÂ¡lido.");
+            return new ValidationResult(false, null, null, null, "CUSTOMER_UUID_MISSING", "O recibo nÃƒÆ’Ã‚Â£o possui customer UUID vÃƒÆ’Ã‚Â¡lido.");
         }
 
-        // 3. Localizar o mapeamento do mÃƒÂ©dico pelo UUID
+        // 3. Localizar o mapeamento do mÃƒÆ’Ã‚Â©dico pelo UUID
         Optional<DoctorEmailMapping> mappingOpt = findDoctorMappingByCustomerUuid(customerUuid);
         if (mappingOpt.isEmpty()) {
-            String errorMsg = String.format("Cadastro faltando para o mÃƒÂ©dico: %s | UUID API='%s' | UUID normalizado='%s'",
-                    StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponÃƒÂ­vel)",
+            String errorMsg = String.format("Cadastro faltando para o mÃƒÆ’Ã‚Â©dico: %s | UUID API='%s' | UUID normalizado='%s'",
+                    StringUtils.hasText(sale.customerName()) ? sale.customerName() : "(nome indisponÃƒÆ’Ã‚Â­vel)",
                     sale.customerUuid(),
                     customerUuid);
             return new ValidationResult(false, customerUuid, null, null, "MAPPING_NOT_FOUND", errorMsg);
@@ -56,7 +55,7 @@ public class ContaAzulReceiptValidator {
 
         DoctorEmailMapping mapping = mappingOpt.get();
 
-        // 4. Resolver o e-mail de destino (direto ou do usuÃƒÂ¡rio associado) e validar sua presenÃƒÂ§a
+        // 4. Resolver o e-mail de destino (direto ou do usuÃƒÆ’Ã‚Â¡rio associado) e validar sua presenÃƒÆ’Ã‚Â§a
         String recipientEmail = resolveRecipientEmail(mapping);
         if (!StringUtils.hasText(recipientEmail)) {
             String errorMsg = String.format("Mapeamento sem e-mail de destino (user/fallback) para customer UUID %s.", customerUuid);
@@ -67,7 +66,7 @@ public class ContaAzulReceiptValidator {
     }
 
     /**
-     * Resolve o e-mail de destino do mapeamento do mÃƒÂ©dico.
+     * Resolve o e-mail de destino do mapeamento do mÃƒÆ’Ã‚Â©dico.
      */
     public String resolveRecipientEmail(DoctorEmailMapping mapping) {
         if (mapping == null) {
@@ -80,7 +79,7 @@ public class ContaAzulReceiptValidator {
     }
 
     /**
-     * Resolve o nome amigÃƒÂ¡vel do mÃƒÂ©dico com base no mapeamento e nome do cliente da API.
+     * Resolve o nome amigÃƒÆ’Ã‚Â¡vel do mÃƒÆ’Ã‚Â©dico com base no mapeamento e nome do cliente da API.
      */
     public String resolveDoctorName(DoctorEmailMapping mapping, String customerName) {
         if (mapping == null) {
@@ -96,7 +95,7 @@ public class ContaAzulReceiptValidator {
     }
 
     /**
-     * Localiza o mapeamento de mÃƒÂ©dico pelo customer UUID normalizado ou direto.
+     * Localiza o mapeamento de mÃƒÆ’Ã‚Â©dico pelo customer UUID normalizado ou direto.
      */
     public Optional<DoctorEmailMapping> findDoctorMappingByCustomerUuid(String customerUuidFromParcel) {
         if (!StringUtils.hasText(customerUuidFromParcel)) {
@@ -124,7 +123,7 @@ public class ContaAzulReceiptValidator {
     }
 
     /**
-     * Normaliza UUID removendo espaÃƒÂ§os e convertendo para minÃƒÂºsculas.
+     * Normaliza UUID removendo espaÃƒÆ’Ã‚Â§os e convertendo para minÃƒÆ’Ã‚Âºsculas.
      */
     public String normalizeUuid(String value) {
         if (!StringUtils.hasText(value)) {
@@ -135,7 +134,7 @@ public class ContaAzulReceiptValidator {
     }
 
     /**
-     * Registro com os resultados detalhados da validaÃƒÂ§ÃƒÂ£o de uma parcela de recibo.
+     * Registro com os resultados detalhados da validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de uma parcela de recibo.
      */
     public record ValidationResult(
             boolean valid,

@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,16 +7,15 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.AlertService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o responsÃƒÂ¡vel por registrar alertas crÃƒÂ­ticos do fluxo de recibos.
+ * ServiÃƒÆ’Ã‚Â§o responsÃƒÆ’Ã‚Â¡vel por registrar alertas crÃƒÆ’Ã‚Â­ticos do fluxo de recibos.
  *
- * ObservaÃƒÂ§ÃƒÂ£o:
- * o registro do SystemAlert tambÃƒÂ©m publica evento assÃƒÂ­ncrono,
- * que ÃƒÂ© encaminhado ao Discord pelo listener financeiro.
+ * ObservaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o:
+ * o registro do SystemAlert tambÃƒÆ’Ã‚Â©m publica evento assÃƒÆ’Ã‚Â­ncrono,
+ * que ÃƒÆ’Ã‚Â© encaminhado ao Discord pelo listener financeiro.
  */
 @Slf4j
 @Service
@@ -52,7 +50,7 @@ public class ReceiptAlertService {
                 "FINANCEIRO_RECEIPT_CRITICAL",
                 "HIGH");
 
-        log.error("Alerta crÃƒÂ­tico registrado para baixa {} apÃƒÂ³s {} tentativas.", baixaId, attempts);
+        log.error("Alerta crÃƒÆ’Ã‚Â­tico registrado para baixa {} apÃƒÆ’Ã‚Â³s {} tentativas.", baixaId, attempts);
     }
 }
 

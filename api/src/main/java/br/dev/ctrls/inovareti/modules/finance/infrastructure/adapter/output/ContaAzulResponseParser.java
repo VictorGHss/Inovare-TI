@@ -1,12 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.JsonSafeReader;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.SalesResponseMapper;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialAccountRef;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivableParcelRef;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.CustomerResponseMapper;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.FinancialResponseMapper;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulStatus;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivablesPageData;
 
@@ -31,8 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente utilitÃƒÂ¡rio e Fachada encarregada pelo parsing de respostas brutas da API da Conta Azul,
- * contendo engenharia defensiva para interpretaÃƒÂ§ÃƒÂ£o de payloads JSON, busca segura de nÃƒÂ³s e tratamento de fusos horÃƒÂ¡rios.
+ * Componente utilitÃƒÆ’Ã‚Â¡rio e Fachada encarregada pelo parsing de respostas brutas da API da Conta Azul,
+ * contendo engenharia defensiva para interpretaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de payloads JSON, busca segura de nÃƒÆ’Ã‚Â³s e tratamento de fusos horÃƒÆ’Ã‚Â¡rios.
  */
 @Slf4j
 @Component
@@ -171,7 +166,7 @@ public class ContaAzulResponseParser {
     }
 
     /**
-     * Faz o parsing dos valores lÃƒÂ­quidos de baixas de uma parcela.
+     * Faz o parsing dos valores lÃƒÆ’Ã‚Â­quidos de baixas de uma parcela.
      */
     public List<BigDecimal> parseParcelaBaixasValorLiquido(String body, String parcelaId) {
         if (body == null || body.isBlank()) {
@@ -215,7 +210,7 @@ public class ContaAzulResponseParser {
     }
 
     /**
-     * Faz o parsing da pÃƒÂ¡gina de contas a receber.
+     * Faz o parsing da pÃƒÆ’Ã‚Â¡gina de contas a receber.
      */
     public ReceivablesPageData parseReceivablesPage(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
@@ -274,7 +269,7 @@ public class ContaAzulResponseParser {
                     "valor_bruto",
                     "valorBruto");
 
-                log.info("Parcela encontrada: ID={}, DescriÃƒÂ§ÃƒÂ£o={}, Valor Bruto={}", parcelaId, descricaoParcela, valorBruto);
+                log.info("Parcela encontrada: ID={}, DescriÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o={}, Valor Bruto={}", parcelaId, descricaoParcela, valorBruto);
 
                 parcels.add(new ReceivableParcelRef(parcelaId.trim(), displayIdentifier));
 
@@ -312,11 +307,11 @@ public class ContaAzulResponseParser {
 
             String totalPath;
             if (null == status) {
-                throw new IllegalStateException("Status nÃƒÂ£o suportado para cÃƒÂ¡lculo do resumo: " + status);
+                throw new IllegalStateException("Status nÃƒÆ’Ã‚Â£o suportado para cÃƒÆ’Ã‚Â¡lculo do resumo: " + status);
             } else switch (status) {
                 case ContaAzulStatus.RECEBIDO -> totalPath = "totais.pago.valor";
                 case ContaAzulStatus.EM_ABERTO -> totalPath = "totais.aberto.valor";
-                default -> throw new IllegalStateException("Status nÃƒÂ£o suportado para cÃƒÂ¡lculo do resumo: " + status);
+                default -> throw new IllegalStateException("Status nÃƒÆ’Ã‚Â£o suportado para cÃƒÆ’Ã‚Â¡lculo do resumo: " + status);
             }
 
             return readDecimalFromPaths(root, totalPath);
@@ -449,7 +444,7 @@ public class ContaAzulResponseParser {
     }
 
     /**
-     * Representa uma pÃƒÂ¡gina de pessoas retornada pelo parser.
+     * Representa uma pÃƒÆ’Ã‚Â¡gina de pessoas retornada pelo parser.
      */
     public record PessoasPage(List<ContaAzulClient.PessoaItem> itens, Long total) {
     }

@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.JsonSafeReader;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

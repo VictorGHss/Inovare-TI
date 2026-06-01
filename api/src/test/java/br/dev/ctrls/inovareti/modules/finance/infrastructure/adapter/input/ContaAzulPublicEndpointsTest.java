@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
+package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -11,6 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
+import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutomationService;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 
 /**
  * Testes dos endpoints públicos do controller ContaAzul.

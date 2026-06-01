@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
+package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +15,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.Mockito.when;
+
+import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
+import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutomationService;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulOAuthToken;
 
 class ContaAzulControllerTest {
 

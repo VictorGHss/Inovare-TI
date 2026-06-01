@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
+package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
+import br.dev.ctrls.inovareti.modules.finance.domain.port.ContaAzulOAuthTokenRepository;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulOAuthToken;
 
 class ContaAzulMetricsTest {
 

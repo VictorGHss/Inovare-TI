@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.financeiro.contaazul;
+package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 import java.util.Optional;
 
@@ -9,6 +9,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+
+import br.dev.ctrls.inovareti.modules.finance.domain.port.ContaAzulOAuthTokenRepository;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulOAuthToken;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "app.contaazul.metrics.enabled=true",
@@ -27,12 +30,12 @@ public class ContaAzulPrometheusIntegrationTest {
             ContaAzulOAuthTokenRepository mock = org.mockito.Mockito.mock(ContaAzulOAuthTokenRepository.class);
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             ContaAzulOAuthToken token = ContaAzulOAuthToken.builder()
-                    .accessToken("access")
-                    .refreshToken("refresh")
-                    .tokenType("bearer")
-                    .expiresAt(now.plusHours(1))
-                    .refreshedAt(now)
-                    .build();
+                     .accessToken("access")
+                     .refreshToken("refresh")
+                     .tokenType("bearer")
+                     .expiresAt(now.plusHours(1))
+                     .refreshedAt(now)
+                     .build();
             org.mockito.Mockito.when(mock.findTopByOrderByUpdatedAtDesc()).thenReturn(Optional.of(token));
             return mock;
         }

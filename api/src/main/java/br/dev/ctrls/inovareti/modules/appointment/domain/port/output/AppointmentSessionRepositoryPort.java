@@ -27,6 +27,10 @@ public interface AppointmentSessionRepositoryPort {
 
     List<AppointmentSession> findActiveByPhoneNumber(String phone);
 
+    List<AppointmentSession> findActiveByBlipGuid(String blipGuid);
+
+    List<AppointmentSession> findActiveByBsuid(String bsuid);
+
     List<AppointmentSession> findPendingNotifications();
 
     AppointmentSession save(AppointmentSession session);

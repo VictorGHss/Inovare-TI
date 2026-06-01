@@ -20,4 +20,6 @@ public interface BlipClientPort {
     Map<String, Object> executeMessage(Map<String, Object> payload, AuthorizationScope scope);
 
     String normalizeUserIdentity(String userIdentity);
+
+    Map<String, Object> getContactProfile(String userIdentity);
 }

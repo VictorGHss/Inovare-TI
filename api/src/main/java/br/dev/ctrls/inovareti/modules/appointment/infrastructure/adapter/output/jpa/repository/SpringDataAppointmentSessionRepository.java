@@ -45,6 +45,16 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
            "ORDER BY a.lastInteractionAt DESC")
     List<AppointmentSessionEntity> findActiveByPhoneNumber(@Param("phone") String phone);
 
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.blipGuid = :blipGuid " +
+           "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
+           "ORDER BY a.lastInteractionAt DESC")
+    List<AppointmentSessionEntity> findActiveByBlipGuid(@Param("blipGuid") String blipGuid);
+
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.bsuid = :bsuid " +
+           "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
+           "ORDER BY a.lastInteractionAt DESC")
+    List<AppointmentSessionEntity> findActiveByBsuid(@Param("bsuid") String bsuid);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional
     @Query("DELETE FROM AppointmentSessionEntity a WHERE a.status IN :statuses AND a.createdAt < :threshold")

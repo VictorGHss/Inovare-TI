@@ -9,27 +9,24 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Modelo de Domínio: BlipUserIdentityReconciliation.
+ * COMENTÁRIO EM PORTUGUÊS (PT-BR):
+ * Representa no domínio a reconciliação e o mapeamento entre a identidade digital (GUID)
+ * gerada pela plataforma Blip, o identificador do negócio da Meta (BSUID) e o número
+ * de telefone físico do paciente, permitindo total rastreabilidade.
+ */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AppointmentSession {
+public class BlipUserIdentityReconciliation {
 
     private UUID id;
-    private String feegowAppointmentId;
-    private String patientId;
-    private String phoneNumber;
     private String blipGuid;
     private String bsuid;
-    private UUID currentGroupId;
-    private String doctorProfissionalId;
-    private LocalDateTime appointmentAt;
-    private AppointmentSessionStatus status;
-    private LocalDateTime lastInteractionAt;
-    private LocalDateTime lastNotificationSentAt;
-    private LocalDateTime closedAt;
-    private String statusDetails;
+    private String phoneNumber;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

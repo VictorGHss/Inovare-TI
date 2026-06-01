@@ -30,18 +30,20 @@ public class BlipWebhookInboundService {
             String action,
             String messageId,
             String appointmentId,
-            Object content) {
+            Object content,
+            String bsuid) {
     }
 
     public ParsedInbound parse(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
-            return new ParsedInbound(null, null, null, null, null);
+            return new ParsedInbound(null, null, null, null, null, null);
         }
 
         String from = extractFrom(payload);
         String action = extractActionText(payload);
         String messageId = extractMessageId(payload);
         String appointmentId = extractAppointmentId(payload);
+        String bsuid = extractBsuid(payload);
 
         if (!org.springframework.util.StringUtils.hasText(action) || "Ver Agendamentos".equals(action.trim())) {
             String messageText = firstNonBlank(
@@ -68,7 +70,17 @@ public class BlipWebhookInboundService {
                 getNested(payload, "resource", "content"),
                 getNested(payload, "message", "content"));
 
-        return new ParsedInbound(from, action, messageId, appointmentId, content);
+        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid);
+    }
+
+    private String extractBsuid(Map<String, Object> payload) {
+        return firstNonBlank(
+                asText(getNested(payload, "metadata", "#wa.bsuid")),
+                asText(getNested(payload, "envelope", "metadata", "#wa.bsuid")),
+                asText(getNested(payload, "message", "metadata", "#wa.bsuid")),
+                asText(getNested(payload, "resource", "metadata", "#wa.bsuid")),
+                asText(getNested(payload, "resource", "envelope", "metadata", "#wa.bsuid")),
+                asText(getNested(payload, "resource", "message", "metadata", "#wa.bsuid")));
     }
 
     private String extractFrom(Map<String, Object> payload) {

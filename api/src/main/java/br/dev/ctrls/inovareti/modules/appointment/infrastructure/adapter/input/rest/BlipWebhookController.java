@@ -180,7 +180,8 @@ public class BlipWebhookController {
                 from,
                 inovareToken,
                 content,
-                metadata));
+                metadata,
+                parsed.bsuid()));
 
         if (result == null) {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));

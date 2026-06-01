@@ -34,6 +34,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Notificatio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 
 import java.util.UUID;
 
@@ -67,6 +68,8 @@ public class HandleBlipWebhookUseCase {
     private final BlipTextSanitizer blipTextSanitizer;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipClientPort blipClientPort;
 
     // Registro auxiliar para carregar dados da sessão e mapeamento do médico de forma rápida,
     // garantindo liberação imediata da conexão com o banco antes do I/O de rede com Feegow/Blip.
@@ -104,8 +107,8 @@ public class HandleBlipWebhookUseCase {
         if (isPrepararAtendimento || isExibirAgenda) {
             String from = payload.from();
             if (from != null && !from.isBlank()) {
+                String dbPhone = resolveAndReconcileIdentity(from, payload.bsuid());
                 String normalizedPhone = from.trim();
-                String dbPhone = purifyPhoneNumber(from);
                 if (isPrepararAtendimento) {
                     log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {} (DB Phone: {})", normalizedPhone, dbPhone);
                     boolean isGroup = false;
@@ -199,7 +202,7 @@ public class HandleBlipWebhookUseCase {
 
         if (isManterAgendamento || isCancelarConsulta) {
             if (fromPhone != null && !fromPhone.isBlank()) {
-                String dbPhone = purifyPhoneNumber(fromPhone);
+                String dbPhone = resolveAndReconcileIdentity(fromPhone, payload.bsuid());
                 log.info("[WEBHOOK-NUDGE] Interceptando resposta do nudge: '{}' para o telefone: {} (DB Phone: {})",
                     action, fromPhone, dbPhone);
                 
@@ -271,7 +274,7 @@ public class HandleBlipWebhookUseCase {
             if (resolvedId == null || resolvedId.isBlank()) {
                 fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
-                    String dbPhone = purifyPhoneNumber(fromPhone);
+                    String dbPhone = resolveAndReconcileIdentity(fromPhone, payload.bsuid());
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
                         appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
@@ -298,7 +301,7 @@ public class HandleBlipWebhookUseCase {
             if (resolvedId == null || resolvedId.isBlank()) {
                 fromPhone = payload.from();
                 if (fromPhone != null && !fromPhone.isBlank()) {
-                    String dbPhone = purifyPhoneNumber(fromPhone);
+                    String dbPhone = resolveAndReconcileIdentity(fromPhone, payload.bsuid());
                     java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
                         appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
@@ -325,7 +328,7 @@ public class HandleBlipWebhookUseCase {
             fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
                 String normalizedPhone = fromPhone.trim();
-                String dbPhone = purifyPhoneNumber(fromPhone);
+                String dbPhone = resolveAndReconcileIdentity(fromPhone, payload.bsuid());
                 // FASE 1A: Leitura rápida no banco (micro-transação)
                 java.util.List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
                     appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
@@ -354,7 +357,7 @@ public class HandleBlipWebhookUseCase {
                 UUID groupId = UUID.fromString(groupIdStr);
                 if (fromPhone != null && !fromPhone.isBlank()) {
                     String normalizedPhone = fromPhone.trim();
-                    String dbPhone = purifyPhoneNumber(fromPhone);
+                    String dbPhone = resolveAndReconcileIdentity(fromPhone, payload.bsuid());
 
                     // 1. Carrega as sessões do grupo e gera a lista_detalhada
                     java.util.List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
@@ -447,12 +450,11 @@ public class HandleBlipWebhookUseCase {
                 realPhone = fromPhone;
             }
 
-            if (realPhone != null) {
-                if (realPhone.contains("@")) {
-                    realPhone = realPhone.substring(0, realPhone.indexOf("@")).trim();
-                }
-                realPhone = purifyPhoneNumber(realPhone);
+            if (realPhone != null && !realPhone.isBlank()) {
+                realPhone = resolveAndReconcileIdentity(realPhone, payload.bsuid());
             }
+            
+
 
             log.info("[WEBHOOK] Telefone real purificado: {}", realPhone);
 
@@ -726,6 +728,102 @@ public class HandleBlipWebhookUseCase {
 
 
 
+    private String resolveAndReconcileIdentity(String originalIdentity, String metadataBsuid) {
+        if (originalIdentity == null || originalIdentity.isBlank()) {
+            return "";
+        }
+        
+        String identity = originalIdentity.trim();
+        String localPart = identity;
+        if (identity.contains("@")) {
+            localPart = identity.substring(0, identity.indexOf('@'));
+        }
+        
+        // Se contiver caracteres alfabéticos ou hifens, é GUID mascarado / Username
+        boolean isGuidOrUser = localPart.matches(".*[a-zA-Z\\-].*");
+        if (!isGuidOrUser) {
+            return purifyPhoneNumber(identity);
+        }
+        
+        String blipGuid = localPart;
+        
+        // 1) Busca na tabela de reconciliação local
+        java.util.Optional<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> existing = 
+                blipUserIdentityReconciliationRepository.findByBlipGuid(blipGuid);
+        if (existing.isPresent()) {
+            log.info("[RECONCILIATION] Correspondência de identidade em cache local: GUID={} -> Telefone={}", 
+                blipGuid, existing.get().getPhoneNumber());
+            return existing.get().getPhoneNumber();
+        }
+        
+        // 2) Fallback A: Metadado wa.bsuid purificado
+        String resolvedPhone = null;
+        String bsuid = metadataBsuid != null ? metadataBsuid.trim() : null;
+        
+        if (bsuid != null && !bsuid.isBlank() && !bsuid.matches(".*[a-zA-Z\\-].*")) {
+            resolvedPhone = purifyPhoneNumber(bsuid);
+            log.info("[RECONCILIATION] Identidade reconciliada via metadado BSUID: GUID={} -> Telefone={}", 
+                blipGuid, resolvedPhone);
+        }
+        
+        // 3) Fallback B: Consulta de contato na API LIME do Blip
+        if (resolvedPhone == null || resolvedPhone.isBlank()) {
+            try {
+                Map<String, Object> profileResponse = blipClientPort.getContactProfile(identity);
+                if (profileResponse != null && profileResponse.containsKey("resource")) {
+                    Object resource = profileResponse.get("resource");
+                    if (resource instanceof Map<?, ?> resourceMap) {
+                        Object phoneObj = resourceMap.get("phoneNumber");
+                        if (phoneObj == null) {
+                            phoneObj = resourceMap.get("cellPhoneNumber");
+                        }
+                        if (phoneObj != null) {
+                            resolvedPhone = purifyPhoneNumber(phoneObj.toString());
+                            log.info("[RECONCILIATION] Perfil consultado na API do Blip: GUID={} -> Telefone={}", 
+                                blipGuid, resolvedPhone);
+                        }
+                        
+                        Object extrasObj = resourceMap.get("extras");
+                        if (extrasObj instanceof Map<?, ?> extrasMap) {
+                            Object bsuidObj = extrasMap.get("bsuid");
+                            if (bsuidObj == null) {
+                                bsuidObj = extrasMap.get("wa.bsuid");
+                            }
+                            if (bsuidObj != null) {
+                                bsuid = bsuidObj.toString().trim();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("[RECONCILIATION] Falha ao consultar o perfil do contato no Blip para {}: {}", 
+                    identity, ex.getMessage(), ex);
+            }
+        }
+        
+        // 4) Se resolvido, persiste mapeamento localmente
+        if (resolvedPhone != null && !resolvedPhone.isBlank()) {
+            try {
+                br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation newReconciliation = 
+                    br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation.builder()
+                        .blipGuid(blipGuid)
+                        .bsuid(bsuid)
+                        .phoneNumber(resolvedPhone)
+                        .build();
+                blipUserIdentityReconciliationRepository.save(newReconciliation);
+                log.info("[RECONCILIATION] Novo mapeamento de identidade salvo: GUID={} -> Telefone={} (BSUID={})", 
+                    blipGuid, resolvedPhone, bsuid);
+            } catch (Exception ex) {
+                log.warn("[RECONCILIATION] Falha ao salvar reconciliação no banco local (pode ser inserção concorrente): {}", 
+                    ex.getMessage());
+            }
+            return resolvedPhone;
+        }
+        
+        log.warn("[RECONCILIATION] Não foi possível reconciliar o GUID do WhatsApp {} para nenhum número telefônico.", blipGuid);
+        return "";
+    }
+
     private String purifyPhoneNumber(String originalPhone) {
         if (originalPhone == null || originalPhone.isBlank()) {
             return "";
@@ -764,7 +862,19 @@ public class HandleBlipWebhookUseCase {
         return ex.getMessage();
     }
 
-    public record BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content, Map<String, Object> metadata) {
+    public record BlipWebhookPayload(
+        String messageId, 
+        String appointmentId, 
+        String action, 
+        String from, 
+        String token, 
+        Object content, 
+        Map<String, Object> metadata,
+        String bsuid
+    ) {
+        public BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content, Map<String, Object> metadata) {
+            this(messageId, appointmentId, action, from, token, content, metadata, null);
+        }
     }
 
     public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {

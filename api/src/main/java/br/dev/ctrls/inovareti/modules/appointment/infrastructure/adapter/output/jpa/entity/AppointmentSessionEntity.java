@@ -51,6 +51,12 @@ public class AppointmentSessionEntity {
     @Column(name = "patient_phone", length = 40)
     private String phoneNumber;
 
+    @Column(name = "blip_guid", length = 255)
+    private String blipGuid;
+
+    @Column(name = "bsuid", length = 255)
+    private String bsuid;
+
     @Column(name = "current_group_id")
     private UUID currentGroupId;
 
@@ -90,6 +96,8 @@ public class AppointmentSessionEntity {
                 .feegowAppointmentId(this.feegowAppointmentId)
                 .patientId(this.patientId)
                 .phoneNumber(this.phoneNumber)
+                .blipGuid(this.blipGuid)
+                .bsuid(this.bsuid)
                 .currentGroupId(this.currentGroupId)
                 .doctorProfissionalId(this.doctorProfissionalId)
                 .appointmentAt(this.appointmentAt)
@@ -110,6 +118,8 @@ public class AppointmentSessionEntity {
                 .feegowAppointmentId(domain.getFeegowAppointmentId())
                 .patientId(domain.getPatientId())
                 .phoneNumber(domain.getPhoneNumber())
+                .blipGuid(domain.getBlipGuid())
+                .bsuid(domain.getBsuid())
                 .currentGroupId(domain.getCurrentGroupId())
                 .doctorProfissionalId(domain.getDoctorProfissionalId())
                 .appointmentAt(domain.getAppointmentAt())

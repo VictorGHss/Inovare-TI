@@ -76,6 +76,26 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    public List<AppointmentSession> findActiveByBlipGuid(String blipGuid) {
+        if (blipGuid == null || blipGuid.isBlank()) {
+            return List.of();
+        }
+        return springDataRepository.findActiveByBlipGuid(blipGuid.trim()).stream()
+                .map(AppointmentSessionEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AppointmentSession> findActiveByBsuid(String bsuid) {
+        if (bsuid == null || bsuid.isBlank()) {
+            return List.of();
+        }
+        return springDataRepository.findActiveByBsuid(bsuid.trim()).stream()
+                .map(AppointmentSessionEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<AppointmentSession> findPendingNotifications() {
         return springDataRepository.findPendingNotifications().stream()
                 .map(AppointmentSessionEntity::toDomain)

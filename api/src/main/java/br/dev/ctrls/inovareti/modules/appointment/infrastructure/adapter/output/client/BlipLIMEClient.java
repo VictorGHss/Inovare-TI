@@ -267,14 +267,32 @@ public class BlipLIMEClient implements BlipClientPort {
         if (userIdentity == null || userIdentity.isBlank()) return "unknown@wa.gw.msging.net";
         String sanitized = userIdentity.trim();
         
+        String localPart = sanitized;
+        String domainPart = "wa.gw.msging.net";
+        
         if (sanitized.contains("@")) {
             int separatorIndex = sanitized.indexOf('@');
-            String localPart = separatorIndex >= 0 ? sanitized.substring(0, separatorIndex) : sanitized;
-            String domainPart = separatorIndex >= 0 ? sanitized.substring(separatorIndex + 1) : "";
-            if (!"wa.gw.msging.net".equalsIgnoreCase(domainPart)) return sanitized;
-            return normalizePhone(localPart) + "@wa.gw.msging.net";
+            localPart = separatorIndex >= 0 ? sanitized.substring(0, separatorIndex) : sanitized;
+            domainPart = separatorIndex >= 0 ? sanitized.substring(separatorIndex + 1) : "wa.gw.msging.net";
         }
-        return normalizePhone(sanitized) + "@wa.gw.msging.net";
+        
+        if (!"wa.gw.msging.net".equalsIgnoreCase(domainPart)) {
+            return sanitized;
+        }
+        
+        if (isGuidOrUsername(localPart)) {
+            return localPart + "@wa.gw.msging.net";
+        }
+        
+        return normalizePhone(localPart) + "@wa.gw.msging.net";
+    }
+
+    private boolean isGuidOrUsername(String value) {
+        if (value == null || value.isBlank()) return false;
+        // COMENTÁRIO EM PORTUGUÊS (PT-BR):
+        // Detecta se a parte local da identidade é um GUID mascarado ou Username do WhatsApp.
+        // Se contiver qualquer caractere alfabético (a-z, A-Z) ou hifens, é tratado como GUID/Username.
+        return value.matches(".*[a-zA-Z\\-].*");
     }
 
     private String normalizePhone(String phone) {
@@ -283,6 +301,25 @@ public class BlipLIMEClient implements BlipClientPort {
             ? phone.substring(1).replaceAll("[^0-9]", "") 
             : phone.replaceAll("[^0-9]", "");
         return digitsOnly.isBlank() ? "" : digitsOnly;
+    }
+
+    @Override
+    public Map<String, Object> getContactProfile(String userIdentity) {
+        if (userIdentity == null || userIdentity.isBlank()) return Map.of();
+        String normalizedIdentity = normalizeUserIdentity(userIdentity);
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", "postmaster@contacts.msging.net",
+            "method", "get",
+            "uri", "/contacts/" + normalizedIdentity
+        );
+        try {
+            log.info("[LIME-CLIENT] [CONTACT-PROFILE] Consultando perfil do contato para identity={}", normalizedIdentity);
+            return executeCommand(command, AuthorizationScope.ROUTER);
+        } catch (RestClientException ex) {
+            log.error("[LIME-CLIENT] [CONTACT-PROFILE] Falha ao buscar perfil do contato no Blip para {}", normalizedIdentity, ex);
+            return Map.of();
+        }
     }
 
     private HttpHeaders buildHeaders(AuthorizationScope scope) {

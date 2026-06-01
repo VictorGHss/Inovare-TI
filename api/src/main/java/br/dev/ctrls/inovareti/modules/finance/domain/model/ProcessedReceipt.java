@@ -1,8 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.domain.model;
 
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialLink;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,14 +21,10 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "processed_receipts")
-@Getter
-@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -73,5 +66,85 @@ public class ProcessedReceipt {
     @Column(name = "retry_count", nullable = false)
     @Builder.Default
     private int retryCount = 0;
-}
 
+    // Métodos Getter e Setter explícitos para blindar a IDE contra falhas do Lombok
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public FinancialLink getFinancialLink() {
+        return financialLink;
+    }
+
+    public void setFinancialLink(FinancialLink financialLink) {
+        this.financialLink = financialLink;
+    }
+
+    public String getParcelaId() {
+        return parcelaId;
+    }
+
+    public void setParcelaId(String parcelaId) {
+        this.parcelaId = parcelaId;
+    }
+
+    public String getReceiptHash() {
+        return receiptHash;
+    }
+
+    public void setReceiptHash(String receiptHash) {
+        this.receiptHash = receiptHash;
+    }
+
+    public String getOriginalRecipientEmail() {
+        return originalRecipientEmail;
+    }
+
+    public void setOriginalRecipientEmail(String originalRecipientEmail) {
+        this.originalRecipientEmail = originalRecipientEmail;
+    }
+
+    public ProcessedReceiptStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ProcessedReceiptStatus status) {
+        this.status = status;
+    }
+
+    public String getBrevoMessageId() {
+        return brevoMessageId;
+    }
+
+    public void setBrevoMessageId(String brevoMessageId) {
+        this.brevoMessageId = brevoMessageId;
+    }
+
+    public Map<String, Object> getPayload() {
+        return payload;
+    }
+
+    public void setPayload(Map<String, Object> payload) {
+        this.payload = payload;
+    }
+
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
+    }
+
+    public void setProcessedAt(LocalDateTime processedAt) {
+        this.processedAt = processedAt;
+    }
+
+    public int getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
+    }
+}

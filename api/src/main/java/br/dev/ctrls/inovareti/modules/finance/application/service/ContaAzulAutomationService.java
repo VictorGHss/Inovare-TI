@@ -1,10 +1,8 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulSyncService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.TesteEnvioRealResult;
-import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulReceiptProcessor;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SyncDoctorsResult;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,7 +13,6 @@ import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulPro
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

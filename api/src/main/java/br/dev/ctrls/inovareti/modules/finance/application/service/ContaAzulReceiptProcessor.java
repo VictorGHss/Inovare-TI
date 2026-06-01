@@ -1,11 +1,8 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.TesteEnvioRealResult;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
-import br.dev.ctrls.inovareti.modules.finance.application.service.InternalReceiptEmissionService;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptEmailService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.NoReceiptAvailableException;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ReceiptConcurrencyHandler;
 import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptAuditLogService;

@@ -1,9 +1,6 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutomationService;
-import br.dev.ctrls.inovareti.modules.finance.application.service.EmailRetryScheduler;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
-import br.dev.ctrls.inovareti.modules.finance.application.service.AlertEventListener;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.SystemAlertRepository;
 
 import java.util.Map;

@@ -1,16 +1,16 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.StatusResult;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialAccountRef;
-import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivableParcelRef;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulSummaryCalculator;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivedParcelsResult;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulStatus;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivablesPageData;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.AccountBalanceAudit;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulStatus;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialAccountRef;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivableParcelRef;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivedParcelsResult;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.StatusResult;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulRestClientAdapter;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulSummaryCalculator;
+import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.ReceivablesPageData;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -27,8 +27,6 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedSaleRepository;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

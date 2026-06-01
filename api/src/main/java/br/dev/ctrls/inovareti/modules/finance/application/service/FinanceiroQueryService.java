@@ -1,9 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
-import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
-import br.dev.ctrls.inovareti.modules.finance.application.service.FinanceiroOperationsService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
 
 import java.time.LocalDate;

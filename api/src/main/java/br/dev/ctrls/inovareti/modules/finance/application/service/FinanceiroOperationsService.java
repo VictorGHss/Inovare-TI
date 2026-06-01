@@ -2,10 +2,8 @@ package br.dev.ctrls.inovareti.modules.finance.application.service;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptDispatcher;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedReceiptRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
-import br.dev.ctrls.inovareti.modules.finance.application.service.CustomerEmailSyncService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.SystemAlertRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialLink;

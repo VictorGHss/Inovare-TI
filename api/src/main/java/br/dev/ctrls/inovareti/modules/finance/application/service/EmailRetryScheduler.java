@@ -1,8 +1,6 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.AlertService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
-import br.dev.ctrls.inovareti.modules.finance.application.service.ReceiptDispatcher;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedReceiptRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
 

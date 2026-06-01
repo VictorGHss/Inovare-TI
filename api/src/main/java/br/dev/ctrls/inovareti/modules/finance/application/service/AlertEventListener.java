@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.finance.application.service.AlertService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
 
 import org.springframework.scheduling.annotation.Async;

@@ -42,22 +42,17 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements AppointmentExternalPort {
+@lombok.RequiredArgsConstructor
+public class FeegowAppointmentAdapter implements AppointmentExternalPort {
 
     private static final DateTimeFormatter FEEGOW_RESPONSE_DATE_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter FEEGOW_RESPONSE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter FEEGOW_RESPONSE_TIME_WITH_SECONDS_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
+    private final AppointmentMotorProperties properties;
+    private final FeegowProperties feegowProperties;
+    private final ObjectMapper objectMapper;
     private final FeegowAppointmentClient appointmentClient;
-
-    public FeegowAppointmentAdapter(
-            AppointmentMotorProperties properties,
-            FeegowProperties feegowProperties,
-            ObjectMapper objectMapper,
-            FeegowAppointmentClient appointmentClient) {
-        super(properties, feegowProperties, objectMapper);
-        this.appointmentClient = appointmentClient;
-    }
 
     @Override
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId) {
@@ -326,5 +321,35 @@ public class FeegowAppointmentAdapter extends AbstractFeegowAdapter implements A
     public void recoverUpdateAppointmentStatus(RestClientException ex, String appointmentId, String statusId) {
         log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de atualização de status do agendamento {} na Feegow ERP. Erro: {}", 
             appointmentId, ex.getMessage(), ex);
+    }
+
+    /**
+     * Retorna a chave de acesso (API Key) normalizada da Feegow.
+     */
+    private String getAccessToken() {
+        String apiKey = feegowProperties.getApiKey();
+        if (apiKey == null) {
+            return "";
+        }
+        String normalized = apiKey.trim();
+        if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            normalized = normalized.substring(7).trim();
+        }
+        return normalized;
+    }
+
+    /**
+     * Abrevia a resposta da requisição Feegow para evitar logs extremamente grandes.
+     */
+    private String abbreviateResponseBody(String responseBody) {
+        if (responseBody == null) {
+            return "";
+        }
+        String normalized = responseBody.trim();
+        int maxLength = 500;
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLength) + "...";
     }
 }

@@ -21,6 +21,9 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
 
     List<AppointmentSessionEntity> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
 
+    // Método para buscar sessões associadas ao currentGroupId diretamente na tabela de agendamentos
+    List<AppointmentSessionEntity> findByCurrentGroupId(UUID currentGroupId);
+
     List<AppointmentSessionEntity> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

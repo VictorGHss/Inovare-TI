@@ -48,6 +48,13 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    public List<AppointmentSession> findByCurrentGroupId(UUID currentGroupId) {
+        return springDataRepository.findByCurrentGroupId(currentGroupId).stream()
+                .map(AppointmentSessionEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold) {
         return springDataRepository.findByStatusAndLastInteractionAtBefore(status, threshold).stream()
                 .map(AppointmentSessionEntity::toDomain)

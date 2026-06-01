@@ -18,6 +18,9 @@ public interface AppointmentSessionRepositoryPort {
 
     List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
 
+    // Método para buscar sessões associadas ao currentGroupId diretamente
+    List<AppointmentSession> findByCurrentGroupId(UUID currentGroupId);
+
     List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);

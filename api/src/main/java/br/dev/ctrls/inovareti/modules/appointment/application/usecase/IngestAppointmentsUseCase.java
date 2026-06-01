@@ -81,24 +81,58 @@ public class IngestAppointmentsUseCase {
             String testDoctorId = appointmentMotorProperties.getTestDoctorId();
             log.info("[TEST MODE] Buscando agendamentos apenas para os médicos de teste ID: {}", testDoctorId);
             
-            appointments = new ArrayList<>();
+            // Lista thread-safe para coletar os resultados paralelos
+            List<FeegowAppointment> threadSafeAppointments = java.util.Collections.synchronizedList(new ArrayList<>());
             if (testDoctorId != null && !testDoctorId.isBlank()) {
                 String[] doctorIds = testDoctorId.split(",");
-                for (String docId : doctorIds) {
-                    String trimmedDocId = docId.trim();
-                    if (!trimmedDocId.isEmpty()) {
-                        appointments.addAll(appointmentExternalPort.searchAppointments(
-                            LocalDate.now(),
-                            FEEGOW_STATUS_AGENDADO,
-                            trimmedDocId));
-                        
-                        appointments.addAll(appointmentExternalPort.searchAppointments(
-                            targetDate,
-                            FEEGOW_STATUS_AGENDADO,
-                            trimmedDocId));
+                
+                // Comentário em Português:
+                // Paralelização das buscas externas HTTP à API da Feegow utilizando Virtual Threads
+                try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                    List<CompletableFuture<Void>> futures = new ArrayList<>();
+                    
+                    for (String docId : doctorIds) {
+                        String trimmedDocId = docId.trim();
+                        if (!trimmedDocId.isEmpty()) {
+                            // Busca em paralelo para data atual (hoje)
+                            futures.add(CompletableFuture.runAsync(() -> {
+                                try {
+                                    List<FeegowAppointment> res = appointmentExternalPort.searchAppointments(
+                                        LocalDate.now(),
+                                        FEEGOW_STATUS_AGENDADO,
+                                        trimmedDocId
+                                    );
+                                    if (res != null) {
+                                        threadSafeAppointments.addAll(res);
+                                    }
+                                } catch (Exception e) {
+                                    log.error("[VIRTUAL-THREADS] Erro ao buscar consultas para hoje, médico ID: {}", trimmedDocId, e);
+                                }
+                            }, executor));
+
+                            // Busca em paralelo para data alvo (amanhã)
+                            futures.add(CompletableFuture.runAsync(() -> {
+                                try {
+                                    List<FeegowAppointment> res = appointmentExternalPort.searchAppointments(
+                                        targetDate,
+                                        FEEGOW_STATUS_AGENDADO,
+                                        trimmedDocId
+                                    );
+                                    if (res != null) {
+                                        threadSafeAppointments.addAll(res);
+                                    }
+                                } catch (Exception e) {
+                                    log.error("[VIRTUAL-THREADS] Erro ao buscar consultas para amanhã, médico ID: {}", trimmedDocId, e);
+                                }
+                            }, executor));
+                        }
                     }
+                    
+                    // Aguarda o término de todas as requisições em paralelo
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
                 }
             }
+            appointments = new ArrayList<>(threadSafeAppointments);
         } else {
             log.info("Consultando Feegow para ingestão de agendamentos com status Marcado (ID={})", FEEGOW_STATUS_AGENDADO);
             appointments = appointmentExternalPort.searchAppointments(
@@ -133,6 +167,31 @@ public class IngestAppointmentsUseCase {
         Map<String, List<FeegowAppointment>> grouped = appointments.stream()
                 .filter(appointment -> !"12".equals(appointment.statusId()))
                 .collect(Collectors.groupingBy(FeegowAppointment::patientId));
+
+        // Comentário em Português:
+        // Paralelização exaustiva da busca de detalhes de pacientes via API externa do Feegow
+        // utilizando Virtual Threads para eliminar por completo o gargalo de rede de 1 minuto em produção.
+        java.util.concurrent.ConcurrentHashMap<String, FeegowPatient> patientDetailsCache = new java.util.concurrent.ConcurrentHashMap<>();
+        if (!grouped.isEmpty()) {
+            log.info("[VIRTUAL-THREADS] Iniciando busca assíncrona de detalhes para {} pacientes em paralelo.", grouped.size());
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Void>> patientFutures = new ArrayList<>();
+                for (String patientId : grouped.keySet()) {
+                    patientFutures.add(CompletableFuture.runAsync(() -> {
+                        try {
+                            FeegowPatient details = patientExternalPort.patientInfo(patientId);
+                            if (details != null) {
+                                patientDetailsCache.put(patientId, details);
+                            }
+                        } catch (Exception e) {
+                            log.error("[VIRTUAL-THREADS] Falha ao obter informações do paciente ID: {}", patientId, e);
+                        }
+                    }, executor));
+                }
+                CompletableFuture.allOf(patientFutures.toArray(new CompletableFuture[0])).join();
+            }
+            log.info("[VIRTUAL-THREADS] Busca em lote de pacientes concluída com sucesso. {} registros em cache.", patientDetailsCache.size());
+        }
 
         int created = 0;
         int messagesSent = 0;
@@ -250,40 +309,43 @@ public class IngestAppointmentsUseCase {
                     resolvedProfessionalName = "Clínica Inovare";
                 }
 
-                FeegowPatient patientDetails;
-                try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-                    var patientFuture = CompletableFuture.supplyAsync(() ->
-                        patientExternalPort.patientInfo(patientId), executor);
-
-                    final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
-                    final String currentResolvedName = resolvedProfessionalName;
-
-                    var professionalFuture = CompletableFuture.supplyAsync(() -> {
-                        if (!needFeegowName) return currentResolvedName;
-                        try {
-                            String feegowName = professionalExternalPort.getProfessionalName(appointmentDoctorId);
-                            if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
-                                return feegowName.trim();
-                            }
-                        } catch (Exception e) {
-                            log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointmentDoctorId, e.getMessage());
-                        }
-                        return currentResolvedName;
-                    }, executor);
-
+                FeegowPatient patientDetails = patientDetailsCache.get(patientId);
+                if (patientDetails == null) {
+                    log.warn("[FALLBACK] Detalhes do paciente ID {} não encontrados no cache paralelo. Buscando síncrono.", patientId);
                     try {
-                        patientDetails = patientFuture.join();
+                        patientDetails = patientExternalPort.patientInfo(patientId);
+                        if (patientDetails != null) {
+                            patientDetailsCache.put(patientId, patientDetails);
+                        }
                     } catch (Exception ex) {
-                        log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId, ex);
+                        log.error("Falha de fallback ao recuperar contato do paciente ID {}. Pulando agendamento.", patientId, ex);
                         continue;
                     }
+                }
 
-                    try {
-                        String fetchedName = professionalFuture.join();
-                        if (fetchedName != null && !fetchedName.isBlank()) {
-                            resolvedProfessionalName = fetchedName;
-                        }
-                    } catch (Exception ignored) {}
+                final boolean needFeegowName = "Clínica Inovare".equals(resolvedProfessionalName);
+                if (needFeegowName) {
+                    final String currentResolvedName = resolvedProfessionalName;
+                    try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                        var professionalFuture = CompletableFuture.supplyAsync(() -> {
+                            try {
+                                String feegowName = professionalExternalPort.getProfessionalName(appointmentDoctorId);
+                                if (feegowName != null && !feegowName.isBlank() && !"null".equalsIgnoreCase(feegowName.trim())) {
+                                    return feegowName.trim();
+                                }
+                            } catch (Exception e) {
+                                log.warn("Falha ao recuperar nome do profissional via Feegow para id {}: {}", appointmentDoctorId, e.getMessage());
+                            }
+                            return currentResolvedName;
+                        }, executor);
+
+                        try {
+                            String fetchedName = professionalFuture.join();
+                            if (fetchedName != null && !fetchedName.isBlank()) {
+                                resolvedProfessionalName = fetchedName;
+                            }
+                        } catch (Exception ignored) {}
+                    }
                 }
 
                 String patientPhone = patientDetails != null ? patientDetails.phone() : null;
@@ -383,12 +445,18 @@ public class IngestAppointmentsUseCase {
                 // Fluxo de grupo (> 1 agendamento elegível)
                 log.info("[GRUPO] Paciente ID {} possui {} agendamentos elegíveis no dia.", patientId, eligibleAppointments.size());
 
-                FeegowPatient patientDetails;
-                try {
-                    patientDetails = patientExternalPort.patientInfo(patientId);
-                } catch (Exception ex) {
-                    log.error("Falha ao recuperar contato do paciente ID {}. Pulando agendamento agrupado.", patientId, ex);
-                    continue;
+                FeegowPatient patientDetails = patientDetailsCache.get(patientId);
+                if (patientDetails == null) {
+                    log.warn("[FALLBACK-GROUP] Detalhes do paciente ID {} não encontrados no cache paralelo. Buscando síncrono.", patientId);
+                    try {
+                        patientDetails = patientExternalPort.patientInfo(patientId);
+                        if (patientDetails != null) {
+                            patientDetailsCache.put(patientId, patientDetails);
+                        }
+                    } catch (Exception ex) {
+                        log.error("Falha de fallback ao recuperar contato do paciente ID {} para agendamento agrupado.", patientId, ex);
+                        continue;
+                    }
                 }
 
                 String patientPhone = patientDetails != null ? patientDetails.phone() : null;

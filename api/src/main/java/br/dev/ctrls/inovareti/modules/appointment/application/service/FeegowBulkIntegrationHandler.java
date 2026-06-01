@@ -42,34 +42,59 @@ public class FeegowBulkIntegrationHandler {
      * @return lista de sessões de agendamento afetadas
      */
     public List<AppointmentSession> executeConfirmBatch(UUID groupId, String purifiedPhone) {
-        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+        log.info("[BULK-INTEGRATION] Iniciando busca robusta de grupo para confirmação em lote. groupId: {}", groupId);
+
         java.util.Map<UUID, AppointmentSession> uniqueSessions = new java.util.LinkedHashMap<>();
+
+        // 1. Estratégia A: Buscar da tabela 'notification_groups'
+        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+        log.info("[BULK-INTEGRATION] Busca por groupId na tabela 'notification_groups' retornou {} registros.", groups.size());
         for (NotificationGroup group : groups) {
-            appointmentSessionRepository.findById(group.getSessionId()).ifPresent(s -> uniqueSessions.put(s.getId(), s));
+            appointmentSessionRepository.findById(group.getSessionId())
+                .ifPresent(s -> {
+                    uniqueSessions.put(s.getId(), s);
+                    log.info("[BULK-INTEGRATION] Sessão vinculada via grupo carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                });
+        }
+
+        // 2. Estratégia B: Buscar diretamente na tabela de agendamentos pelo 'currentGroupId'
+        List<AppointmentSession> sessionsByGroupField = appointmentSessionRepository.findByCurrentGroupId(groupId);
+        log.info("[BULK-INTEGRATION] Busca direta por 'currentGroupId' na tabela de agendamentos retornou {} registros.", sessionsByGroupField.size());
+        for (AppointmentSession s : sessionsByGroupField) {
+            if (!uniqueSessions.containsKey(s.getId())) {
+                uniqueSessions.put(s.getId(), s);
+                log.info("[BULK-INTEGRATION] Sessão vinculada via campo currentGroupId carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+            }
         }
         
-        if (purifiedPhone != null && !purifiedPhone.isBlank()) {
+        // 3. Estratégia C (Fallback): Se a lista ainda estiver vazia e tivermos o telefone, buscar sessões ativas do telefone
+        if (uniqueSessions.isEmpty() && purifiedPhone != null && !purifiedPhone.isBlank()) {
+            log.warn("[BULK-INTEGRATION] Nenhuma sessão encontrada para groupId={}. Aplicando fallback para sessões ativas do telefone: {}", groupId, purifiedPhone);
             List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
             for (AppointmentSession s : activeContactSessions) {
                 uniqueSessions.put(s.getId(), s);
+                log.info("[BULK-INTEGRATION] Sessão de fallback ativa carregada do telefone: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
             }
         }
 
         List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
-        log.info("[BULK-INTEGRATION] Processando confirmação em lote no banco e ERP Feegow. Total: {}", sessionList.size());
+        log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
 
-        // 1. Atualizar status local de todas as sessões para CONFIRMADO
+        // 4. Atualizar status local de todas as sessões para CONFIRMADO de forma transacional e com bloqueio pessimista
         for (AppointmentSession groupSession : sessionList) {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(groupSession.getId()).orElse(null);
                 if (lockedSession != null) {
                     confirmationStateMachineService.markConfirmed(lockedSession);
                     appointmentSessionRepository.save(lockedSession);
+                    log.info("[BULK-INTEGRATION] Status local da sessão {} atualizado para CONFIRMED com sucesso.", lockedSession.getId());
+                } else {
+                    log.warn("[BULK-INTEGRATION] Não foi possível bloquear a sessão {} para atualização de status.", groupSession.getId());
                 }
             });
         }
 
-        // 2. Disparar API do Feegow individualmente para cada agendamento
+        // 5. Disparar API do Feegow individualmente em lote para cada agendamento
         String confirmedStatusId = "7"; // Status Confirmado padrão no Feegow
         String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
         if (configuredStatusId != null && !configuredStatusId.isBlank()) {
@@ -79,12 +104,13 @@ public class FeegowBulkIntegrationHandler {
             }
         }
 
+        log.info("[BULK-INTEGRATION] Disparando atualizações de status para o Feegow (status={}). Total: {}", confirmedStatusId, sessionList.size());
         for (AppointmentSession groupSession : sessionList) {
             try {
                 appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
-                log.info("[BULK-INTEGRATION] Status atualizado no Feegow para CONFIRMADO: {}", groupSession.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] Status enviado à API do Feegow para ID: {}", groupSession.getFeegowAppointmentId());
             } catch (RestClientException | IllegalStateException ex) {
-                log.error("[BULK-INTEGRATION] Falha ao atualizar status na Feegow para ID: {}, erro: {}",
+                log.error("[BULK-INTEGRATION] Falha crítica ao enviar atualização de status para a Feegow. ID: {}, erro: {}",
                     groupSession.getFeegowAppointmentId(), ex.getMessage(), ex);
             }
         }

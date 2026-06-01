@@ -27,7 +27,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipClientPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
-import io.github.resilience4j.retry.annotation.Retry; // Mantido, pois é usado
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;

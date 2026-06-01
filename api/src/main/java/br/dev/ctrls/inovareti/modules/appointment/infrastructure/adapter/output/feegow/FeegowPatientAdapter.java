@@ -32,18 +32,13 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-public class FeegowPatientAdapter extends AbstractFeegowAdapter implements PatientExternalPort {
+@lombok.RequiredArgsConstructor
+public class FeegowPatientAdapter implements PatientExternalPort {
 
+    private final AppointmentMotorProperties properties;
+    private final FeegowProperties feegowProperties;
+    private final ObjectMapper objectMapper;
     private final FeegowPatientClient patientClient;
-
-    public FeegowPatientAdapter(
-            AppointmentMotorProperties properties,
-            FeegowProperties feegowProperties,
-            ObjectMapper objectMapper,
-            FeegowPatientClient patientClient) {
-        super(properties, feegowProperties, objectMapper);
-        this.patientClient = patientClient;
-    }
 
     @Override
     public FeegowPatient patientInfo(String patientId) {
@@ -202,5 +197,35 @@ public class FeegowPatientAdapter extends AbstractFeegowAdapter implements Patie
         log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de busca de detalhes do paciente {} no Feegow ERP. Erro: {}", 
             patientId, ex.getMessage(), ex);
         return null;
+    }
+
+    /**
+     * Retorna a chave de acesso (API Key) normalizada da Feegow.
+     */
+    private String getAccessToken() {
+        String apiKey = feegowProperties.getApiKey();
+        if (apiKey == null) {
+            return "";
+        }
+        String normalized = apiKey.trim();
+        if (normalized.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            normalized = normalized.substring(7).trim();
+        }
+        return normalized;
+    }
+
+    /**
+     * Abrevia a resposta da requisição Feegow para evitar logs extremamente grandes.
+     */
+    private String abbreviateResponseBody(String responseBody) {
+        if (responseBody == null) {
+            return "";
+        }
+        String normalized = responseBody.trim();
+        int maxLength = 500;
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLength) + "...";
     }
 }

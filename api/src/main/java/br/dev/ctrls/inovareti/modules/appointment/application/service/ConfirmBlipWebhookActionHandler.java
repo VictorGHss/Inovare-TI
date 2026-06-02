@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * EstratÃ©gia de processamento especÃ­fica para a aÃ§Ã£o de confirmaÃ§Ã£o de consulta ("confirm").
+ * Estratégia de processamento específica para a ação de confirmação de consulta ("confirm").
  */
 @Slf4j
 @Component
@@ -67,9 +67,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 
                 List<AppointmentSession> listaSessoes = new ArrayList<>(sessoesUnicas.values());
                 
-                log.info("[CONFIRM-BATCH] Processando confirmaÃ§Ã£o em lote para o grupo: {} / telefone: {}. Total de agendamentos: {}", groupId, userPhone, listaSessoes.size());
+                log.info("[CONFIRM-BATCH] Processando confirmação em lote para o grupo: {} / telefone: {}. Total de agendamentos: {}", groupId, userPhone, listaSessoes.size());
                 
-                // --- ATUALIZAÃ‡ÃƒO IMEDIATA DO STATUS LOCAL (FIM DO LEMBRETE FANTASMA) ---
+                // --- ATUALIZAÇÃO IMEDIATA DO STATUS LOCAL (FIM DO LEMBRETE FANTASMA) ---
                 for (AppointmentSession groupSession : listaSessoes) {
                     confirmationStateMachineService.markConfirmed(groupSession);
                     try {
@@ -83,8 +83,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 String confirmedStatusId = resolveConfirmedStatusId();
                 for (AppointmentSession groupSession : listaSessoes) {
                     try {
+                        log.info("Enviando confirmação para Feegow: {}", groupSession.getFeegowAppointmentId());
                         appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
+                        log.info("Resposta do Feegow: SUCCESS");
                     } catch (RestClientException | IllegalStateException ex) {
+                        log.error("Resposta do Feegow: ERROR");
                         log.error(
                             "[CONFIRM-BATCH] Falha ao atualizar status na Feegow. appointmentId={}, erro={}",
                             groupSession.getFeegowAppointmentId(),
@@ -93,7 +96,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     }
                 }
 
-                // EstratÃ©gia de desempate determinista: extrair a primeira fila vÃ¡lida dos mÃ©dicos associados ao grupo
+                // Estratégia de desempate determinista: extrair a primeira fila válida dos médicos associados ao grupo
                 String targetQueue = null;
                 for (AppointmentSession groupSession : listaSessoes) {
                     var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(groupSession.getDoctorProfissionalId());
@@ -107,33 +110,21 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
 
                 if (targetQueue == null || targetQueue.isBlank()) {
-                    targetQueue = "RecepÃ§Ã£o Central / Suporte";
+                    targetQueue = "Recepção Central / Suporte";
                 }
 
                 userPhone = session.getPhoneNumber();
                 
-                // Configurar variÃ¡vel de contexto da fila no Blip
+                // Configurar variável de contexto da fila no Blip
                 blipContextService.setQueueRedirect(userPhone, targetQueue);
 
                 // Enviar redirecionamento de estado (Change State) para o bloco Atendimento Humano
                 blipContextService.setMasterState(userPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
-                log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para usuÃ¡rio {}. Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
+                log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para usuário {}. Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
                         userPhone, targetQueue);
 
             } catch (Exception e) {
-                log.error("[CONFIRM-BATCH] Erro no processamento em lote da Feegow para aÃ§Ã£o: " + action, e);
-            }
-        } else {
-            String confirmedStatusId = resolveConfirmedStatusId();
-            log.info("[CONFIRM] Atualizando status na Feegow com cÃ³digo {}.", confirmedStatusId);
-            try {
-                appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
-            } catch (RestClientException | IllegalStateException ex) {
-                log.error(
-                    "[CONFIRM] Falha ao atualizar status na Feegow (continuando redirecionamento Blip). appointmentId={}, erro={}",
-                    session.getFeegowAppointmentId(),
-                    ex.getMessage(),
-                    ex);
+                log.error("[CONFIRM-BATCH] Erro no processamento em lote da Feegow para ação: " + action, e);
             }
         }
     }
@@ -167,13 +158,24 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         appointmentSessionRepository.save(groupSession);
                     }
                 }
-                log.info("[CONFIRM-BATCH] SessÃµes do grupo {} / telefone {} atualizadas para CONFIRMED no banco local. Total: {}", groupId, userPhone, sessoesUnicas.size());
+                log.info("[CONFIRM-BATCH] Sessões do grupo {} / telefone {} atualizadas para CONFIRMED no banco local. Total: {}", groupId, userPhone, sessoesUnicas.size());
             } catch (Exception e) {
-                log.error("[CONFIRM-BATCH] Erro ao atualizar estados do grupo de sessÃµes no banco local. grupo={}", groupIdStr, e);
+                log.error("[CONFIRM-BATCH] Erro ao atualizar estados do grupo de sessões no banco local. grupo={}", groupIdStr, e);
             }
         } else {
+            String confirmedStatusId = resolveConfirmedStatusId();
+            log.info("Enviando confirmação para Feegow: {}", session.getFeegowAppointmentId());
+            try {
+                appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
+                log.info("Resposta do Feegow: SUCCESS");
+            } catch (Exception ex) {
+                log.error("Resposta do Feegow: ERROR");
+                log.error("[CONFIRM] Falha ao atualizar status na Feegow para ID: {}. Detalhes: {}", 
+                    session.getFeegowAppointmentId(), ex.getMessage());
+                throw new RuntimeException("Falha na atualização do Feegow para o agendamento " + session.getFeegowAppointmentId() + ". Cancelando confirmação local (rollback).", ex);
+            }
             confirmationStateMachineService.markConfirmed(session);
-            log.info("[MENSAGERIA] AÃ§Ã£o de {} processada com sucesso no banco e na Feegow. NavegaÃ§Ã£o entregue ao Builder nativo.", "confirmaÃ§Ã£o");
+            log.info("[MENSAGERIA] Ação de confirmação processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.");
         }
     }
 
@@ -189,5 +191,3 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
         return trimmed;
     }
 }
-
-

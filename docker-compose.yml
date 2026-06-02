@@ -52,6 +52,7 @@ services:
       - SERVER_PORT=8085
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/inovareti
       - TZ=America/Sao_Paulo
+      - JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8
     expose:
       - "8085"
     ports:

@@ -199,6 +199,7 @@ public class HandleBlipWebhookUseCase {
                 return new WebhookResult("", "", "", "", "processed", "");
             } else {
                 log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);
+                // Busca ativa de agendamentos e injeção formatada de consultas no contexto Blip
                 List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
                     appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                 );

@@ -110,7 +110,10 @@ public class HandleBlipWebhookUseCase {
 
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
         if (uuidPattern.matcher(action).matches()) {
-            return handleUuidAction(action, fromPhone);
+            WebhookResult result = handleUuidAction(action);
+            if (result != null) {
+                return result;
+            }
         }
 
         String normalizedAction = action.trim().toLowerCase();
@@ -231,7 +234,7 @@ public class HandleBlipWebhookUseCase {
         }
     }
 
-    private WebhookResult handleUuidAction(String action, String fromPhone) {
+    private WebhookResult handleUuidAction(String action) {
         log.info("[WEBHOOK] UUID puro detectado na ação. Carregando sessão de agendamento: {}", action);
         UUID sessionId = UUID.fromString(action);
         AppointmentSession session = transactionTemplate.execute(status ->
@@ -243,11 +246,8 @@ public class HandleBlipWebhookUseCase {
             sendAppointmentTemplateUseCase.execute(session, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory.CONFIRMATION);
             return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
         } else {
-            log.warn("[WEBHOOK] Nenhuma sessão encontrada para a ação de UUID: {}", action);
-            if (fromPhone != null && !fromPhone.isBlank()) {
-                blipContextService.setUserContextForUser(fromPhone, "session_status", "session_not_found");
-            }
-            return new WebhookResult("", "", "", "", "session_expired", "");
+            log.info("[WEBHOOK] Nenhuma sessão encontrada para a ação de UUID: {}", action);
+            return null;
         }
     }
 

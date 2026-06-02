@@ -10,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipAppointmentFormatter;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipGroupActionHandler;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
@@ -57,6 +58,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipPayloadParser blipPayloadParser;
     private final BlipNudgeResponseHandler blipNudgeResponseHandler;
     private final BlipGroupActionHandler blipGroupActionHandler;
+    private final BlipAppointmentFormatter blipAppointmentFormatter;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -108,7 +110,7 @@ public class HandleBlipWebhookUseCase {
 
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
         if (uuidPattern.matcher(action).matches()) {
-            return handleUuidAction(action);
+            return handleUuidAction(action, fromPhone);
         }
 
         String normalizedAction = action.trim().toLowerCase();
@@ -193,7 +195,21 @@ public class HandleBlipWebhookUseCase {
                 blipContextService.setUserContextForUser(normalizedPhone, "groupId", isGroup && groupId != null ? groupId.toString() : "");
                 return new WebhookResult("", "", "", "", "processed", "");
             } else {
-                log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda de forma limpa para {} - Respondendo com sucesso sem efeitos colaterais.", dbPhone);
+                log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);
+                List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
+                );
+                if (activeSessions != null) {
+                    activeSessions.sort((s1, s2) -> {
+                        if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                        if (s1.getAppointmentAt() == null) return 1;
+                        if (s2.getAppointmentAt() == null) return -1;
+                        return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                    });
+                }
+                String listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
+                log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada para {}.", normalizedPhone);
                 return new WebhookResult("", "", "", "", "processed", "");
             }
         }
@@ -215,7 +231,7 @@ public class HandleBlipWebhookUseCase {
         }
     }
 
-    private WebhookResult handleUuidAction(String action) {
+    private WebhookResult handleUuidAction(String action, String fromPhone) {
         log.info("[WEBHOOK] UUID puro detectado na ação. Carregando sessão de agendamento: {}", action);
         UUID sessionId = UUID.fromString(action);
         AppointmentSession session = transactionTemplate.execute(status ->
@@ -225,10 +241,14 @@ public class HandleBlipWebhookUseCase {
         if (session != null) {
             log.info("[WEBHOOK] Sessão encontrada para UUID puro. Enviando template individual para o agendamento Feegow={}", session.getFeegowAppointmentId());
             sendAppointmentTemplateUseCase.execute(session, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory.CONFIRMATION);
+            return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
         } else {
             log.warn("[WEBHOOK] Nenhuma sessão encontrada para a ação de UUID: {}", action);
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                blipContextService.setUserContextForUser(fromPhone, "session_status", "session_not_found");
+            }
+            return new WebhookResult("", "", "", "", "session_expired", "");
         }
-        return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
     }
 
     private enum WebhookIntent {

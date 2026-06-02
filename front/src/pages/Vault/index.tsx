@@ -5,7 +5,7 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { getUsers } from '../../services/userService';
-import { deleteVaultItem, getVaultItemFileBlob, getVaultItemSecret, getVaultItems } from '../../services/inventoryService';
+import { deleteVaultItem, getVaultItemFileBlob, getVaultItemSecret, getVaultItems } from '../../services/vaultService';
 import type { User, VaultItem } from '../../types/models';
 
 import VaultAttachmentPreview from './components/VaultAttachmentPreview';

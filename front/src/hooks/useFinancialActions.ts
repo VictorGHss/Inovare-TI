@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { executeFinanceAutomationNow } from '../services/financeService';
-import { exportInventoryExitsReport } from '../services/inventoryService';
+import { exportInventoryExitsReport } from '../services/reportService';
 
 interface UseFinancialActionsParams {
   startDate: string;

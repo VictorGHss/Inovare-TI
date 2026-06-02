@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, ReportSchedule, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload, VaultCreateItemRequestDTO, VaultItem, VaultSecretResponseDTO, VaultUpdateItemRequestDTO } from '../types/models';
+import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload } from '../types/models';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
@@ -62,31 +62,6 @@ export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<Bat
   const { data } = await api.post<Batch>(`/items/${itemId}/batches`, dto);
   return data;
 }
-
-export async function getReportSchedules(): Promise<ReportSchedule[]> {
-  const { data } = await api.get<ReportSchedule[]>('/report-schedules');
-  return data;
-}
-
-export async function createReportSchedule(payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.post<ReportSchedule>('/report-schedules', payload);
-  return data;
-}
-
-export async function updateReportSchedule(id: string, payload: Partial<ReportSchedule>): Promise<ReportSchedule> {
-  const { data } = await api.put<ReportSchedule>(`/report-schedules/${id}`, payload);
-  return data;
-}
-
-export async function deleteReportSchedule(id: string): Promise<void> {
-  await api.delete(`/report-schedules/${id}`);
-}
-
-export async function triggerReportScheduleTest(id: string): Promise<void> {
-  await api.post(`/report-schedules/${id}/trigger-test`);
-}
-
-
 
 export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
   const sanitizedParams = Object.fromEntries(
@@ -156,99 +131,6 @@ export async function transferAsset(assetId: string, dto: TransferAssetData): Pr
 // Lista transações de consumo interno por período.
 export async function getFinancialTransactions(params?: { startDate?: string; endDate?: string }): Promise<FinancialTransactionLineDTO[]> {
   const { data } = await api.get<FinancialTransactionLineDTO[]>('/financial/transactions', { params });
-  return data;
-}
-
-export async function getVaultItems(): Promise<VaultItem[]> {
-  const { data } = await api.get<VaultItem[]>('/vault');
-  return data;
-}
-
-export async function createVaultItem(
-  payload: VaultCreateItemRequestDTO,
-  file?: File | null,
-): Promise<VaultItem> {
-  const formData = new FormData();
-  formData.append('payload', JSON.stringify(payload));
-
-  if (file) {
-    formData.append('file', file);
-  }
-
-  const { data } = await api.post<VaultItem>('/vault', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return data;
-}
-
-export async function updateVaultItem(
-  vaultItemId: string,
-  payload: VaultUpdateItemRequestDTO,
-  file?: File | null,
-): Promise<VaultItem> {
-  const formData = new FormData();
-  formData.append('payload', JSON.stringify(payload));
-
-  if (file) {
-    formData.append('file', file);
-  }
-
-  const { data } = await api.patch<VaultItem>(`/vault/${vaultItemId}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return data;
-}
-
-export async function deleteVaultItem(vaultItemId: string): Promise<void> {
-  await api.delete(`/vault/${vaultItemId}`);
-}
-
-export async function shareVaultItem(vaultItemId: string, userId: string): Promise<void> {
-  await api.post(`/vault/${vaultItemId}/share`, { userId });
-}
-
-export async function getVaultItemSecret(vaultItemId: string): Promise<VaultSecretResponseDTO> {
-  const { data } = await api.get<VaultSecretResponseDTO>(`/vault/${vaultItemId}/secret`);
-  return data;
-}
-
-export async function getVaultItemFileBlob(vaultItemId: string): Promise<Blob> {
-  const { data } = await api.get(`/vault/${vaultItemId}/file`, {
-    responseType: 'blob',
-  });
-  return data;
-}
-
-// Exporta relatório de tickets em Excel
-export async function exportTicketsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/reports/tickets', {
-    params,
-    responseType: 'blob',
-  });
-  return data;
-}
-
-// Exporta relatório de entradas de estoque (compras)
-export async function exportInventoryEntriesReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/reports/inventory/entries', {
-    params,
-    responseType: 'blob',
-  });
-  return data;
-}
-
-// Exporta relatório de saídas de estoque (consumo)
-export async function exportInventoryExitsReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/reports/inventory/exits', {
-    params,
-    responseType: 'blob',
-  });
   return data;
 }
 

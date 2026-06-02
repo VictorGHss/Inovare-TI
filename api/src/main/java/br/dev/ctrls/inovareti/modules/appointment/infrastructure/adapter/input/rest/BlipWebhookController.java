@@ -73,7 +73,7 @@ public class BlipWebhookController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
             @RequestBody(required = false) String rawJson) {
 
-        log.info("[ALERTA REDE] RequisiÃ§Ã£o bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
+        log.debug("[ALERTA REDE] RequisiÃ§Ã£o bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
         if (rawJson == null || rawJson.isBlank()) {
             log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");

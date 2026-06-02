@@ -23,7 +23,7 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
 
     private static final int MAX_PAYLOAD_LENGTH = 256 * 1024;
     private static final String BLIP_WEBHOOK_PREFIX = "/api/webhooks/blip";
-    private static final String APPOINTMENT_EVENTS_PATH = "/ws/appointment-events";
+    private static final String WS_PATH_FRAGMENT = "/ws/";
 
     /**
      * Não envolve com {@link ContentCachingRequestWrapper} rotas em que o corpo deve ser lido intacto pelo
@@ -66,7 +66,7 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
             return false;
         }
 
-        return uri.startsWith(BLIP_WEBHOOK_PREFIX) || uri.contains(APPOINTMENT_EVENTS_PATH);
+        return uri.startsWith(BLIP_WEBHOOK_PREFIX) || uri.contains(WS_PATH_FRAGMENT);
     }
 
     private Charset resolveCharset(String encoding) {

@@ -19,8 +19,8 @@ public interface VaultItemJpaRepository extends JpaRepository<VaultItem, UUID> {
             FROM VaultItem item
             LEFT JOIN VaultItemShare share ON share.vaultItem.id = item.id
             WHERE item.owner.id = :userId
-               OR (item.sharingType = br.dev.ctrls.inovareti.domain.vault.VaultSharingType.ALL_TECH_ADMIN AND :isTechAdmin = true)
-               OR (item.sharingType = br.dev.ctrls.inovareti.domain.vault.VaultSharingType.CUSTOM AND share.sharedWithUser.id = :userId)
+                    OR (item.sharingType = br.dev.ctrls.inovareti.modules.vault.domain.model.VaultSharingType.ALL_TECH_ADMIN AND :isTechAdmin = true)
+                    OR (item.sharingType = br.dev.ctrls.inovareti.modules.vault.domain.model.VaultSharingType.CUSTOM AND share.sharedWithUser.id = :userId)
             """)
     List<VaultItem> findVisibleItems(@Param("userId") UUID userId, @Param("isTechAdmin") boolean isTechAdmin);
 }

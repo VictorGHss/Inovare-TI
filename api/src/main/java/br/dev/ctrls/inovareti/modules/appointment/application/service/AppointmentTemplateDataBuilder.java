@@ -75,7 +75,7 @@ public class AppointmentTemplateDataBuilder {
              .filter(a -> a.id().equals(session.getFeegowAppointmentId()))
              .findFirst()
              .orElse(buildFallbackAppointment(session));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.warn("Erro ao buscar agendamento na Feegow: {}", ex.getMessage());
             return buildFallbackAppointment(session);
         }
@@ -93,7 +93,7 @@ public class AppointmentTemplateDataBuilder {
     private FeegowPatient fetchPatient(String patientId) {
         try {
             return patientExternalPort.patientInfo(patientId);
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.warn("Erro ao buscar dados do paciente: {}", ex.getMessage());
             return null;
         }
@@ -110,7 +110,7 @@ public class AppointmentTemplateDataBuilder {
                         .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
                         .orElse(null)
                 );
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.warn("Erro ao buscar mapeamento no banco para doctorId={}", doctorId, ex);
             }
         }

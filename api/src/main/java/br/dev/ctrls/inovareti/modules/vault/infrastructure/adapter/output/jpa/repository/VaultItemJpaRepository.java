@@ -1,7 +1,4 @@
 package br.dev.ctrls.inovareti.modules.vault.infrastructure.adapter.output.jpa.repository;
-import br.dev.ctrls.inovareti.modules.vault.domain.model.VaultItemShare;
-
-import br.dev.ctrls.inovareti.modules.vault.domain.model.VaultSharingType;
 
 import br.dev.ctrls.inovareti.modules.vault.domain.model.VaultItem;
 

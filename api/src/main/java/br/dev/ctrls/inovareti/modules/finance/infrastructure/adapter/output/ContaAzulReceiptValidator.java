@@ -1,10 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-
-
-
 import java.util.Optional;
+
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 

@@ -1,14 +1,12 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
+import java.util.List;
 
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulReceiptRetryPolicy;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ReceiptConcurrencyHandler;
-
-import java.util.List;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

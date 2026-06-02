@@ -1,32 +1,5 @@
 package br.dev.ctrls.inovareti.modules.ticket.application.usecase;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-
-import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
-
-
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,21 +16,22 @@ import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetCategory;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.application.service.StockDeductionService;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
 import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.RequiredArgsConstructor;

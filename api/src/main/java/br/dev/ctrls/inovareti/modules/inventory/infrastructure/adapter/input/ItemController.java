@@ -1,5 +1,4 @@
 package br.dev.ctrls.inovareti.modules.inventory.infrastructure.adapter.input;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
 

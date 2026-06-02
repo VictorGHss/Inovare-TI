@@ -1,6 +1,4 @@
 package br.dev.ctrls.inovareti.modules.asset.application.dto;
-import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-
 
 import java.util.UUID;
 

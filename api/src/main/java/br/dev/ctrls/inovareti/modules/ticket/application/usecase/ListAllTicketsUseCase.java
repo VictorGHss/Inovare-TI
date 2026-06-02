@@ -1,6 +1,4 @@
 package br.dev.ctrls.inovareti.modules.ticket.application.usecase;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-
 
 import java.util.List;
 import java.util.UUID;

@@ -2,9 +2,6 @@ package br.dev.ctrls.inovareti.modules.vault.infrastructure.adapter.input;
 
 import br.dev.ctrls.inovareti.modules.vault.application.service.VaultService;
 
-import br.dev.ctrls.inovareti.modules.vault.domain.model.VaultItem;
-
-
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;

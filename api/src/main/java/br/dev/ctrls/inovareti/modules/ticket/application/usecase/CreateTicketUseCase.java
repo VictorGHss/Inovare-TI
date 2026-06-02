@@ -1,17 +1,5 @@
 package br.dev.ctrls.inovareti.modules.ticket.application.usecase;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-
-import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-
-
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -23,26 +11,27 @@ import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundExcepti
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
-import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
-import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketRequestDTO;
-import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTagExtractor;
-import br.dev.ctrls.inovareti.modules.user.domain.model.User;
-import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
-import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
+import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketRequestDTO;
+import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTagExtractor;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -178,11 +167,20 @@ public class CreateTicketUseCase {
             String discordId = assignedTo.getDiscordUserId();
             if (discordId != null && !discordId.isBlank()) {
                 String alertTitle = "🚨 ALERTA VERMELHO: EQUIPAMENTO CRÍTICO PARADO — Chamado #" + shortId;
-                String alertMsg = "**Urgente!** O chamado sob sua responsabilidade envolve um ativo crítico da operação:\n\n"
-                        + "🖥️ **Ativo:** " + asset.getName() + " (" + asset.getPatrimonyCode() + ")\n"
-                        + "📋 **Título:** " + savedTicket.getTitle() + "\n"
-                        + "⏱️ **SLA reduzido:** 1 hora (Expira às " + finalSlaDeadline.toLocalTime().toString().substring(0, 5) + ")\n\n"
-                        + "⚡ Dirija-se imediatamente para o atendimento físico ou remoto deste ativo!";
+                String alertMsg = """
+                        **Urgente!** O chamado sob sua responsabilidade envolve um ativo crítico da operação:
+
+                        🖥️ **Ativo:** %s (%s)
+                        📋 **Título:** %s
+                        ⏱️ **SLA reduzido:** 1 hora (Expira às %s)
+
+                        ⚡ Dirija-se imediatamente para o atendimento físico ou remoto deste ativo!
+                        """.formatted(
+                        asset.getName(),
+                        asset.getPatrimonyCode(),
+                        savedTicket.getTitle(),
+                        finalSlaDeadline.toLocalTime().toString().substring(0, 5)
+                );
                 discordDirectMessageService.sendTicketUpdateDMToUser(discordId, savedTicket.getId(), alertTitle, alertMsg);
             }
         }
@@ -193,12 +191,12 @@ public class CreateTicketUseCase {
         // Notifica todos os usuários ADMIN e TECHNICIAN sobre o novo chamado
         var adminUsers = userRepository.findAllByRole(UserRole.ADMIN);
         var technicianUsers = userRepository.findAllByRole(UserRole.TECHNICIAN);
-        
+
         String ticketIdShort = savedTicket.getId().toString().substring(0, 8).toUpperCase();
         String notificationTitle = "Novo chamado aberto";
         String notificationMessage = String.format("Novo chamado #%s: %s", ticketIdShort, savedTicket.getTitle());
         String notificationLink = "/tickets/" + savedTicket.getId();
-        
+
         for (User admin : adminUsers) {
             createNotificationService.create(
                 admin.getId(),
@@ -207,7 +205,7 @@ public class CreateTicketUseCase {
                 notificationLink
             );
         }
-        
+
         for (User technician : technicianUsers) {
             createNotificationService.create(
                 technician.getId(),

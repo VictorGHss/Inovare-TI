@@ -1,6 +1,4 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-
 
 import java.util.List;
 import java.util.Map;

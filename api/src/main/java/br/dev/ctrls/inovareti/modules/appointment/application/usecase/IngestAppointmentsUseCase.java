@@ -63,7 +63,14 @@ public class IngestAppointmentsUseCase {
         log.info("Iniciando ingestão de agendamentos para a data: {}", targetDate);
 
         List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate);
-        int totalReceived = appointments.size();
+        int total = appointments.size();
+        appointments = appointments.stream()
+                .filter(a -> a.startAt() != null && !a.startAt().toLocalDate().isBefore(LocalDate.now()))
+                .collect(Collectors.toList());
+        int filtrados = appointments.size();
+        log.info("Filtrando agendamentos antigos. Total antes: {}, Total depois: {}", total, filtrados);
+
+        int totalReceived = filtrados;
 
         java.util.Set<String> feegowIds = appointments.stream()
                 .map(a -> normalizeFeegowAppointmentId(a.id()))

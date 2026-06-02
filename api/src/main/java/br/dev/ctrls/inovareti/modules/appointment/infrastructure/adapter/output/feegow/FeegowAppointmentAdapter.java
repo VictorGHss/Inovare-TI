@@ -68,6 +68,9 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
     )
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId, String profissionalId) {
         LocalDate effectiveDate = date != null ? date : LocalDate.now();
+        if (effectiveDate.isBefore(LocalDate.now())) {
+            effectiveDate = LocalDate.now();
+        }
         String formattedDate = effectiveDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
@@ -95,6 +98,15 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
             for (FeegowSearchResponseDto.FeegowSearchAppointmentDto item : searchItems) {
                 FeegowAppointment parsedAppointment = parseAppointment(item);
                 if (parsedAppointment == null) {
+                    continue;
+                }
+                // Filtro por status para ignorar agendamentos 'CANCELADOS' ou 'FALTAS'
+                String status = parsedAppointment.statusId();
+                if ("11".equals(status) || "12".equals(status)) {
+                    continue;
+                }
+                // Filtro para buscar apenas agendamentos com data maior ou igual a LocalDate.now()
+                if (parsedAppointment.startAt() != null && parsedAppointment.startAt().toLocalDate().isBefore(LocalDate.now())) {
                     continue;
                 }
                 appointments.add(parsedAppointment);

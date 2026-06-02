@@ -114,6 +114,10 @@ public class HandleBlipWebhookUseCase {
             if (result != null) {
                 return result;
             }
+            WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());
+            if (groupResult != null) {
+                return groupResult;
+            }
         }
 
         String normalizedAction = action.trim().toLowerCase();
@@ -124,8 +128,9 @@ public class HandleBlipWebhookUseCase {
 
         action = resolveTextIntentions(normalizedAction, action, payload);
 
-        if (blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata())) {
-            return new WebhookResult("", "", "", "", "group_action_processed", "");
+        WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());
+        if (groupResult != null) {
+            return groupResult;
         }
 
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)(confirm|alter|cancel)_(\\d+(?:\\.\\d+)?)");

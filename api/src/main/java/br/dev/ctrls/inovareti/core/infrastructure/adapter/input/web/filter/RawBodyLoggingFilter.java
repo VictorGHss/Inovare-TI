@@ -43,22 +43,23 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        if (isBlacklisted(request.getRequestURI())) {
+        String uri = request.getRequestURI();
+        if (uri != null && uri.contains(WS_PATH_FRAGMENT)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, MAX_PAYLOAD_LENGTH);
-        // Executa a cadeia primeiro: somente após o DispatcherServlet ler o corpo o cache de
-        // ContentCachingRequestWrapper fica preenchido para getContentAsByteArray() (log pós-fato).
         filterChain.doFilter(wrapped, response);
 
-        byte[] body = wrapped.getContentAsByteArray();
-        String rawBody = body.length == 0
-                ? "<empty>"
-                : new String(body, resolveCharset(wrapped.getCharacterEncoding()));
+        if (!isBlacklisted(uri)) {
+            byte[] body = wrapped.getContentAsByteArray();
+            String rawBody = body.length == 0
+                    ? "<empty>"
+                    : new String(body, resolveCharset(wrapped.getCharacterEncoding()));
 
-        log.info("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+            log.info("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+        }
     }
 
     private boolean isBlacklisted(String uri) {

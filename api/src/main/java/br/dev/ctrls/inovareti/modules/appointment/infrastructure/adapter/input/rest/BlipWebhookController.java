@@ -71,6 +71,7 @@ public class BlipWebhookController {
     public ResponseEntity<?> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
+            jakarta.servlet.http.HttpServletRequest request,
             @RequestBody(required = false) String rawJson) {
 
         log.debug("[ALERTA REDE] RequisiÃ§Ã£o bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
@@ -82,8 +83,16 @@ public class BlipWebhookController {
                     "reason", "body-empty"));
         }
 
-        // 1. VALIDAÃ‡ÃƒO DE ASSINATURA CRIPTOGRÃFICA (HMAC-SHA256)
-        boolean isSignatureValid = webhookSignatureValidator.isValid(rawJson, blipSignature, blipWebhookSecret);
+        // 1. VALIDAÃ‡ÃƒO DE ASSINATURA CRIPTOGRÃ FICA (HMAC-SHA256)
+        byte[] bodyBytes = null;
+        if (request instanceof org.springframework.web.util.ContentCachingRequestWrapper wrappedRequest) {
+            bodyBytes = wrappedRequest.getContentAsByteArray();
+        }
+        if (bodyBytes == null || bodyBytes.length == 0) {
+            bodyBytes = rawJson.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        boolean isSignatureValid = webhookSignatureValidator.isValid(bodyBytes, blipSignature, blipWebhookSecret);
 
         String expectedToken = StringUtils.hasText(blipWebhookToken)
             ? blipWebhookToken

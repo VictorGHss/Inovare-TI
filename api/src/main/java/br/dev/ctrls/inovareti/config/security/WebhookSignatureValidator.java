@@ -28,7 +28,22 @@ public class WebhookSignatureValidator {
      * @return true se a assinatura for válida, false caso contrário
      */
     public boolean isValid(String payload, String signature, String secret) {
-        if (payload == null || signature == null || secret == null) {
+        if (payload == null) {
+            return false;
+        }
+        return isValid(payload.getBytes(StandardCharsets.UTF_8), signature, secret);
+    }
+
+    /**
+     * Valida se a assinatura enviada corresponde ao hash HMAC-SHA256 do payload bruto em bytes.
+     *
+     * @param payloadBytes O corpo bruto da requisição HTTP (byte[])
+     * @param signature A assinatura recebida no cabeçalho HTTP (Hexadecimal)
+     * @param secret A chave secreta compartilhada para computar o hash
+     * @return true se a assinatura for válida, false caso contrário
+     */
+    public boolean isValid(byte[] payloadBytes, String signature, String secret) {
+        if (payloadBytes == null || signature == null || secret == null) {
             log.debug("Falha na validação de assinatura: parâmetros nulos.");
             return false;
         }
@@ -42,7 +57,7 @@ public class WebhookSignatureValidator {
             mac.init(secretKeySpec);
 
             // Gera o hash HMAC do payload bruto enviado
-            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            byte[] rawHmac = mac.doFinal(payloadBytes);
             
             // Converte os bytes do hash binário para representação Hexadecimal textual minúscula
             StringBuilder hexString = new StringBuilder();
@@ -54,6 +69,11 @@ public class WebhookSignatureValidator {
                 hexString.append(hex);
             }
             String generatedSignature = hexString.toString();
+
+            // Log de diagnóstico (Debugging de Assinatura)
+            if (log.isDebugEnabled()) {
+                log.debug("Assinatura recebida: [{}], Assinatura calculada: [{}]", signature, generatedSignature);
+            }
 
             // OBRIGATÓRIO: Utiliza MessageDigest.isEqual para comparação resistente a Timing Attacks (O(1))
             byte[] generatedBytes = generatedSignature.getBytes(StandardCharsets.UTF_8);

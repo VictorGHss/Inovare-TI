@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 public class RawBodyLoggingFilter extends OncePerRequestFilter {
 
     private static final int MAX_PAYLOAD_LENGTH = 256 * 1024;
+    private static final String BLIP_WEBHOOK_PREFIX = "/api/webhooks/blip";
+    private static final String APPOINTMENT_EVENTS_PATH = "/ws/appointment-events";
 
     /**
      * Não envolve com {@link ContentCachingRequestWrapper} rotas em que o corpo deve ser lido intacto pelo
@@ -41,6 +43,11 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        if (isBlacklisted(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         ContentCachingRequestWrapper wrapped = new ContentCachingRequestWrapper(request, MAX_PAYLOAD_LENGTH);
         // Executa a cadeia primeiro: somente após o DispatcherServlet ler o corpo o cache de
         // ContentCachingRequestWrapper fica preenchido para getContentAsByteArray() (log pós-fato).
@@ -52,6 +59,14 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
                 : new String(body, resolveCharset(wrapped.getCharacterEncoding()));
 
         log.info("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+    }
+
+    private boolean isBlacklisted(String uri) {
+        if (uri == null || uri.isBlank()) {
+            return false;
+        }
+
+        return uri.startsWith(BLIP_WEBHOOK_PREFIX) || uri.contains(APPOINTMENT_EVENTS_PATH);
     }
 
     private Charset resolveCharset(String encoding) {

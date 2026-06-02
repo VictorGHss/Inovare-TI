@@ -29,7 +29,7 @@ public class WebhookSignatureValidator {
      */
     public boolean isValid(String payload, String signature, String secret) {
         if (payload == null || signature == null || secret == null) {
-            log.warn("Falha na validação de assinatura: parâmetros nulos.");
+            log.debug("Falha na validação de assinatura: parâmetros nulos.");
             return false;
         }
 
@@ -61,7 +61,7 @@ public class WebhookSignatureValidator {
 
             boolean result = MessageDigest.isEqual(generatedBytes, signatureBytes);
             if (!result) {
-                log.warn("Assinatura de webhook inválida. Assinatura gerada não condiz com a recebida.");
+                log.debug("Assinatura de webhook inválida. Assinatura gerada não condiz com a recebida.");
             }
             return result;
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {

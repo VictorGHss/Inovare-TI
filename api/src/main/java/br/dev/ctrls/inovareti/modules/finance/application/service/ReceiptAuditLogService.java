@@ -1,8 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
-import java.util.List;
-
-import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulReceiptRetryPolicy;
@@ -15,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
  * de recibos da Conta Azul.
  */
 @Slf4j
-@Service
+@org.springframework.stereotype.Service
 @RequiredArgsConstructor
 public class ReceiptAuditLogService {
 
@@ -53,7 +50,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra uma falha SMTP de e-mail.
      */
-    public void recordEmailFailure(String baixaId, String resolvedSaleId, String doctorName, Exception emailEx, List<String> errors) {
+    public void recordEmailFailure(String baixaId, String resolvedSaleId, String doctorName, Exception emailEx, java.util.List<String> errors) {
         String details = "Falha SMTP no envio do recibo da baixa " + baixaId
                 + ". O processamento da parcela foi preservado no banco para não perder trabalho. Erro: "
                 + emailEx.getMessage();
@@ -64,7 +61,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra uma falha de download do recibo.
      */
-    public void recordDownloadFailure(String baixaId, String resolvedSaleId, String doctorName, Exception ex, List<String> errors) {
+    public void recordDownloadFailure(String baixaId, String resolvedSaleId, String doctorName, Exception ex, java.util.List<String> errors) {
         String details = "Falha ao baixar recibo para baixa " + baixaId + ": " + ex.getMessage();
         boolean failedPermanently = retryPolicy.registerAttemptAndCheckIfPermanentFailure(baixaId, resolvedSaleId, doctorName, details);
         if (failedPermanently) {
@@ -76,7 +73,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra uma falha no fallback de geração de recibo interno.
      */
-    public void recordFallbackFailure(String baixaId, Exception fallbackEx, List<String> errors) {
+    public void recordFallbackFailure(String baixaId, Exception fallbackEx, java.util.List<String> errors) {
         log.error("Falha ao gerar recibo interno para baixa {}.", baixaId, fallbackEx);
         registerError(errors, "Falha ao gerar recibo interno para baixa " + baixaId + ": " + fallbackEx.getMessage());
     }
@@ -84,7 +81,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra falha de PDF vazio/nulo.
      */
-    public void recordEmptyPdfFailure(String baixaId, String resolvedSaleId, String doctorName, List<String> errors) {
+    public void recordEmptyPdfFailure(String baixaId, String resolvedSaleId, String doctorName, java.util.List<String> errors) {
         String details = "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.";
         boolean failedPermanently = retryPolicy.registerAttemptAndCheckIfPermanentFailure(baixaId, resolvedSaleId, doctorName, details);
         if (failedPermanently) {
@@ -96,7 +93,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra um alerta/erro de baixaId inválido.
      */
-    public void recordInvalidBaixaId(String parcelaId, List<String> errors) {
+    public void recordInvalidBaixaId(String parcelaId, java.util.List<String> errors) {
         log.warn("baixaId inválido (nulo/vazio) para parcela {}. Item ignorado para segurança.", parcelaId);
         registerError(errors, "baixaId inválido para parcela " + parcelaId + ". Item ignorado para segurança.");
     }
@@ -104,7 +101,7 @@ public class ReceiptAuditLogService {
     /**
      * Registra quando nenhuma baixa é encontrada para a parcela.
      */
-    public void recordNoBaixaFound(String parcelaId, String resolvedSaleId, List<String> errors) {
+    public void recordNoBaixaFound(String parcelaId, String resolvedSaleId, java.util.List<String> errors) {
         log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.", parcelaId);
         registerError(errors, "Nenhuma baixa encontrada para a parcela " + parcelaId + ". Item não processado.");
 
@@ -124,7 +121,7 @@ public class ReceiptAuditLogService {
     /**
      * Auxiliar para adicionar erros respeitando o limite máximo.
      */
-    public void registerError(List<String> errors, String message) {
+    public void registerError(java.util.List<String> errors, String message) {
         if (!StringUtils.hasText(message)) {
             return;
         }

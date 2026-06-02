@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 import lombok.RequiredArgsConstructor;
 
@@ -27,9 +26,9 @@ public class FindItemByIdUseCase {
      * @throws NotFoundException se o item não existir
      */
     @Transactional(readOnly = true)
-    public ItemResponseDTO execute(UUID id) {
+    public br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO execute(UUID id) {
         return itemRepository.findByIdWithCategory(id)
-                .map(ItemResponseDTO::from)
+                .map(br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO::from)
                 .orElseThrow(() -> new NotFoundException("Item não encontrado"));
     }
 }

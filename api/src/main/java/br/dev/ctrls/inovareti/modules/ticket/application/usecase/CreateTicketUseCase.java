@@ -24,8 +24,8 @@ import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.domain.notification.CreateNotificationService;
-import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
+import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
@@ -42,7 +42,7 @@ import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPo
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
-import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

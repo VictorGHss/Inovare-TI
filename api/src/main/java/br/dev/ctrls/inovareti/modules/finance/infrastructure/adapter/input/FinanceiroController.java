@@ -29,7 +29,7 @@ import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutom
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SyncDoctorsResult;
-import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
+import br.dev.ctrls.inovareti.modules.notification.application.service.FinanceEmailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

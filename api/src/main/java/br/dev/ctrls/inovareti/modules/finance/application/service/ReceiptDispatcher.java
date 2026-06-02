@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPaymentParcel;
-import br.dev.ctrls.inovareti.domain.notification.FinanceEmailService;
+import br.dev.ctrls.inovareti.modules.notification.application.service.FinanceEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

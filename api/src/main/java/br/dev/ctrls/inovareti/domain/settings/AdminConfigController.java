@@ -37,7 +37,7 @@ public class AdminConfigController {
     @Value("${blip.webhook.secret:}")
     private String blipWebhookSecret;
 
-    private final br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService discordWebhookService;
+    private final br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService discordWebhookService;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties feegowProperties;
     private final br.dev.ctrls.inovareti.modules.finance.infrastructure.config.ContaAzulProperties contaAzulProperties;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties appointmentMotorProperties;

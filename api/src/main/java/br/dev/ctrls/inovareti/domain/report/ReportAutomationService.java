@@ -10,9 +10,9 @@ import java.util.UUID;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.notification.ReportDeliveryService;
-import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
-import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessageService;
+import br.dev.ctrls.inovareti.modules.notification.application.service.ReportDeliveryService;
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

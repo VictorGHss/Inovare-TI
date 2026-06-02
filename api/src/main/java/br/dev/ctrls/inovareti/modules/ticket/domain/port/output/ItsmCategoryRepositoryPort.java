@@ -1,10 +1,8 @@
 package br.dev.ctrls.inovareti.modules.ticket.domain.port.output;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.ItsmCategoryRepositoryPort;
-
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
+
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.ItsmCategory;
 
 public interface ItsmCategoryRepositoryPort {

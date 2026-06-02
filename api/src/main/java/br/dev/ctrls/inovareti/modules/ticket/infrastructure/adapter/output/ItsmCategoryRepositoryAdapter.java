@@ -2,7 +2,6 @@ package br.dev.ctrls.inovareti.modules.ticket.infrastructure.adapter.output;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.ItsmCategory;

@@ -3,37 +3,36 @@ package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSanitizer;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipAppointmentFormatter;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipGroupActionHandler;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdentityReconciler;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNudgeResponseHandler;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipPayloadParser;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSanitizer;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.FeegowBulkIntegrationHandler;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdentityReconciler;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipPayloadParser;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNudgeResponseHandler;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipGroupActionHandler;
 
 /**
  * Caso de Uso orquestrador principal para recepção e roteamento de Webhooks do Blip.

@@ -1,6 +1,5 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;

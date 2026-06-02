@@ -1,18 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
-
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
-
-
-import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
-import br.dev.ctrls.inovareti.modules.finance.application.service.FinancialTransactionSpecification;
-import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -29,8 +16,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.finance.application.service.FinancialTransactionSpecification;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;

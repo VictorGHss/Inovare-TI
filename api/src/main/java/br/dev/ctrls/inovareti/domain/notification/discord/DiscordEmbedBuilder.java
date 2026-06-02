@@ -11,7 +11,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 
 /**
  * Builder responsável por montar payloads de embed para o Discord.

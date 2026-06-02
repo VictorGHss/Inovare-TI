@@ -1,4 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
+
 
 import java.util.List;
 import java.util.Optional;

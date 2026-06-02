@@ -1,5 +1,14 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
+
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
+
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 import br.dev.ctrls.inovareti.modules.finance.application.service.FinancialTransactionSpecification;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
@@ -20,9 +29,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
-import br.dev.ctrls.inovareti.domain.inventory.StockMovement;
-import br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
 import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,8 +48,8 @@ import lombok.RequiredArgsConstructor;
 public class FinancialTransactionsController {
 
     private final FinancialTransactionRepository transactionRepository;
-    private final StockMovementRepository stockMovementRepository;
-    private final ItemRepository itemRepository;
+    private final StockMovementRepositoryPort stockMovementRepository;
+    private final ItemRepositoryPort itemRepository;
     private final UserRepository userRepository;
     private final SectorRepository sectorRepository;
 

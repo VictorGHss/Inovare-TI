@@ -8,8 +8,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -27,10 +27,10 @@ public class ReportService {
     private final ReportExcelExporter reportExcelExporter;
     private final ReportPdfExporter reportPdfExporter;
 
-    private final br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository stockMovementRepository;
-    private final br.dev.ctrls.inovareti.domain.inventory.ItemRepository itemRepository;
-    private final br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository assetMaintenanceRepository;
-    private final br.dev.ctrls.inovareti.domain.ticket.TicketRepository ticketRepository;
+    private final br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort stockMovementRepository;
+    private final br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort itemRepository;
+    private final br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort assetMaintenanceRepository;
+    private final br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort ticketRepository;
 
     public ByteArrayInputStream exportTicketsToExcel(List<Ticket> tickets) {
         return reportExcelExporter.exportTicketsToExcel(tickets);
@@ -67,7 +67,7 @@ public class ReportService {
                 try {
                     String refPrefix = "TICKET:" + ticket.getId();
                     var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(
-                            refPrefix, br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
+                            refPrefix, br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType.OUT);
                     if (movements != null && !movements.isEmpty()) {
                         cost = movements.stream()
                                 .map(m -> m.getUnitPriceAtTime() != null ? m.getUnitPriceAtTime() : BigDecimal.ZERO)
@@ -88,9 +88,9 @@ public class ReportService {
         //    Esses movimentos não possuem chamado vinculado
         // -----------------------------------------------------------------------
         try {
-            List<br.dev.ctrls.inovareti.domain.inventory.StockMovement> movements =
+            List<br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement> movements =
                     stockMovementRepository.findByDateBetweenAndTypeOrderByDateDesc(
-                            start, end, br.dev.ctrls.inovareti.domain.inventory.StockMovementType.OUT);
+                            start, end, br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType.OUT);
 
             if (movements != null) {
                 for (var mv : movements) {
@@ -106,8 +106,8 @@ public class ReportService {
                         Ticket mockTicket = Ticket.builder()
                                 .id(mockId)
                                 .title("Saída Direta de Material: " + item.getName())
-                                .status(br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
-                                .priority(br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
+                                .status(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus.RESOLVED)
+                                .priority(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority.NORMAL)
                                 .requester(null)
                                 .assignedTo(null)
                                 .category(null)
@@ -130,9 +130,9 @@ public class ReportService {
         // 3) Ativos entregues via AssetMaintenance do tipo TRANSFER no período
         // -----------------------------------------------------------------------
         try {
-            List<br.dev.ctrls.inovareti.domain.asset.AssetMaintenance> maintenances =
+            List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> maintenances =
                     assetMaintenanceRepository.findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(
-                            start, end, br.dev.ctrls.inovareti.domain.asset.AssetMaintenance.MaintenanceType.TRANSFER);
+                            start, end, br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance.MaintenanceType.TRANSFER);
 
             if (maintenances != null) {
                 for (var tf : maintenances) {
@@ -168,14 +168,14 @@ public class ReportService {
                             }
                         }
 
-                        br.dev.ctrls.inovareti.domain.inventory.ItemCategory mockCategory =
-                                br.dev.ctrls.inovareti.domain.inventory.ItemCategory.builder()
+                        br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory mockCategory =
+                                br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory.builder()
                                         .name(catName)
                                         .isConsumable(false)
                                         .build();
 
-                        br.dev.ctrls.inovareti.domain.inventory.Item mockItem =
-                                br.dev.ctrls.inovareti.domain.inventory.Item.builder()
+                        br.dev.ctrls.inovareti.modules.inventory.domain.model.Item mockItem =
+                                br.dev.ctrls.inovareti.modules.inventory.domain.model.Item.builder()
                                         .name(asset.getName() + " [Patr: " + asset.getPatrimonyCode() + "]")
                                         .itemCategory(mockCategory)
                                         .currentStock(1)
@@ -192,8 +192,8 @@ public class ReportService {
                         Ticket mockTicket = Ticket.builder()
                                 .id(mockId)
                                 .title(originalTicket != null ? originalTicket.getTitle() : "Entrega Direta de Ativo: " + asset.getName())
-                                .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.domain.ticket.TicketStatus.RESOLVED)
-                                .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.domain.ticket.TicketPriority.NORMAL)
+                                .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus.RESOLVED)
+                                .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority.NORMAL)
                                 .requester(recipient)
                                 .assignedTo(originalTicket != null ? originalTicket.getAssignedTo() : tf.getTechnician())
                                 .category(originalTicket != null ? originalTicket.getCategory() : null)

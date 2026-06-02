@@ -8,10 +8,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
-import br.dev.ctrls.inovareti.domain.ticket.usecase.AddAdditionalUserUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddAdditionalUserUseCase;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DiscordCommandService {
 
     private final UserRepository userRepository;
-    private final TicketRepository ticketRepository;
+    private final TicketRepositoryPort ticketRepository;
     private final FaqTiRepository faqTiRepository;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
 

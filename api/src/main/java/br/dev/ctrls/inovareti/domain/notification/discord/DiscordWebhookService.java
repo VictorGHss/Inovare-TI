@@ -22,8 +22,8 @@ import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordDirectMessa
 import br.dev.ctrls.inovareti.domain.notification.discord.bot.DiscordInteractionListener;
 import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
@@ -54,7 +54,7 @@ public class DiscordWebhookService {
     private final RestTemplate restTemplate;
     private final SystemAlertRepository systemAlertRepository;
     private final SystemSettingRepository systemSettingRepository;
-    private final TicketRepository ticketRepository;
+    private final TicketRepositoryPort ticketRepository;
     private final DiscordEmbedBuilder discordEmbedBuilder;
     private final DiscordWebhookRetryUtility discordWebhookRetryUtility;
     /** Provider lazy do JDA para envio de mensagens com botÃƒÂµes interativos. */

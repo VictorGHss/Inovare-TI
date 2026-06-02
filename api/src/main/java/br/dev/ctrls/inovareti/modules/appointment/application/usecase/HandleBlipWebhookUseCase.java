@@ -6,8 +6,7 @@ import java.util.UUID;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.client.RestClientException;
-import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
@@ -242,37 +241,41 @@ public class HandleBlipWebhookUseCase {
         return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
     }
 
+    private enum WebhookIntent {
+        CONFIRM, CANCEL, ALTER, UNKNOWN
+    }
+
+    private WebhookIntent detectIntent(String text) {
+        if (text == null) return WebhookIntent.UNKNOWN;
+        String normalized = text.trim().toLowerCase();
+        
+        return switch (normalized) {
+            case "sim", "confirmar", "confirm" -> WebhookIntent.CONFIRM;
+            case "cancelar", "cancel" -> WebhookIntent.CANCEL;
+            case "solicitar alteração", "solicitar alteracao", "alterar" -> WebhookIntent.ALTER;
+            case String s when s.contains("confirmar presença") || s.contains("confirmar consulta") -> WebhookIntent.CONFIRM;
+            case String s when s.contains("cancelar presença") || s.contains("cancelar consulta") -> WebhookIntent.CANCEL;
+            case String s when s.contains("solicitar alter") -> WebhookIntent.ALTER;
+            default -> WebhookIntent.UNKNOWN;
+        };
+    }
+
     private String resolveTextIntentions(String normalizedAction, String action, BlipWebhookPayload payload) {
-        if (normalizedAction.equals("sim")
-                || normalizedAction.equals("confirmar")
-                || normalizedAction.equals("confirm")
-                || normalizedAction.contains("confirmar presença")
-                || normalizedAction.contains("confirmar consulta")) {
-            String resolvedId = resolveActiveAppointmentId(payload);
-            if (resolvedId != null && !resolvedId.isBlank()) {
-                log.info("[WEBHOOK] Texto livre de confirmação '{}' interceptado. Mapeando para confirm_{}", action, resolvedId);
-                return "confirm_" + resolvedId;
-            }
-        }
-        if (normalizedAction.equals("cancelar")
-                || normalizedAction.equals("cancel")
-                || normalizedAction.contains("cancelar presença")
-                || normalizedAction.contains("cancelar consulta")) {
-            String resolvedId = resolveActiveAppointmentId(payload);
-            if (resolvedId != null && !resolvedId.isBlank()) {
-                log.info("[WEBHOOK] Texto livre de cancelamento '{}' interceptado. Mapeando para cancel_{}", action, resolvedId);
-                return "cancel_" + resolvedId;
-            }
-        }
-        if (action.equalsIgnoreCase("Solicitar Alteração")
-                || action.equalsIgnoreCase("Solicitar Alteracao")
-                || action.equalsIgnoreCase("alterar")
-                || action.toLowerCase().contains("solicitar alter")) {
-            String resolvedId = resolveActiveAppointmentId(payload);
-            if (resolvedId != null && !resolvedId.isBlank()) {
-                log.info("[WEBHOOK] Texto livre '{}' interceptado. Mapeando para alter_{}", action, resolvedId);
-                return "alter_" + resolvedId;
-            }
+        WebhookIntent intent = detectIntent(normalizedAction);
+        
+        return switch (intent) {
+            case CONFIRM -> processIntent("confirm", action, payload, "confirmação");
+            case CANCEL -> processIntent("cancel", action, payload, "cancelamento");
+            case ALTER -> processIntent("alter", action, payload, "alteração");
+            case UNKNOWN -> action;
+        };
+    }
+
+    private String processIntent(String prefix, String action, BlipWebhookPayload payload, String label) {
+        String resolvedId = resolveActiveAppointmentId(payload);
+        if (resolvedId != null && !resolvedId.isBlank()) {
+            log.info("[WEBHOOK] Texto livre de {} '{}' interceptado. Mapeando para {}_{}", label, action, prefix, resolvedId);
+            return prefix + "_" + resolvedId;
         }
         return action;
     }
@@ -304,8 +307,11 @@ public class HandleBlipWebhookUseCase {
                         .orElse(null);
                 return new SessionDbData(session, doctorMapping);
             });
-        } catch (NotFoundException | DataAccessException | IllegalStateException ex) {
+        } catch (NotFoundException | IllegalStateException ex) {
             log.error("Erro na leitura transacional inicial do webhook para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
+            return null;
+        } catch (RuntimeException ex) {
+            log.error("Erro de infraestrutura ao buscar sessão do webhook para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
             return null;
         }
     }
@@ -315,8 +321,16 @@ public class HandleBlipWebhookUseCase {
         if (doctorName == null || doctorName.isBlank()) {
             try {
                 doctorName = professionalExternalPort.getProfessionalName(dbData.session().getDoctorProfissionalId());
-            } catch (RestClientException | IllegalStateException e) {
+            } catch (IllegalStateException e) {
                 log.warn("Não foi possível buscar o nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
+                auditPort.record(
+                        "APPOINTMENT_MOTOR",
+                        "CIRCUIT_BREAKER_FALLBACK",
+                        "Fallback ao buscar nome do profissional na Feegow. appointmentId=" + appointmentId
+                                + ", erro=" + safeMessage(e),
+                        resolveTraceId());
+            } catch (RuntimeException e) {
+                log.warn("Erro de integração ao buscar nome do médico na Feegow, usando fallback. erro={}", e.getMessage());
                 auditPort.record(
                         "APPOINTMENT_MOTOR",
                         "CIRCUIT_BREAKER_FALLBACK",

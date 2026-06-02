@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.reports.dto.TicketReportDTO;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TicketReportUseCase {
 
-    private final TicketRepository ticketRepository;
+    private final TicketRepositoryPort ticketRepository;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 

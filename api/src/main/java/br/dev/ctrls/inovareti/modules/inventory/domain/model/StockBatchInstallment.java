@@ -1,0 +1,57 @@
+package br.dev.ctrls.inovareti.modules.inventory.domain.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+/**
+ * Entidade que registra uma parcela individual de compra vinculada a um lote de estoque.
+ * Permite fragmentar o custo total do lote financeiramente ao longo de múltiplos meses.
+ */
+@Entity
+@Table(name = "stock_batch_installments")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class StockBatchInstallment {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "stock_batch_id", nullable = false)
+    private StockBatch stockBatch;
+
+    @NotNull
+    @Column(name = "due_date", nullable = false)
+    private LocalDate dueDate;
+
+    @NotNull
+    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
+
+    @NotNull
+    @Column(name = "installment_number", nullable = false)
+    private Integer installmentNumber;
+}

@@ -9,12 +9,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.asset.Asset;
-import br.dev.ctrls.inovareti.domain.asset.AssetCategory;
-import br.dev.ctrls.inovareti.domain.asset.AssetCategoryRepository;
-import br.dev.ctrls.inovareti.domain.asset.AssetMaintenance;
-import br.dev.ctrls.inovareti.domain.asset.AssetMaintenanceRepository;
-import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
+import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
+import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetCategory;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
 import br.dev.ctrls.inovareti.domain.user.Sector;
 import br.dev.ctrls.inovareti.domain.user.SectorRepository;
 import br.dev.ctrls.inovareti.domain.user.User;
@@ -35,9 +35,9 @@ public class CsvPersistenceService {
 
     private final UserRepository userRepository;
     private final SectorRepository sectorRepository;
-    private final AssetRepository assetRepository;
-    private final AssetCategoryRepository assetCategoryRepository;
-    private final AssetMaintenanceRepository assetMaintenanceRepository;
+    private final AssetRepositoryPort assetRepository;
+    private final AssetCategoryRepositoryPort assetCategoryRepository;
+    private final AssetMaintenanceRepositoryPort assetMaintenanceRepository;
     private final PasswordEncoder passwordEncoder;
     private final CsvRowParser csvRowParser;
 

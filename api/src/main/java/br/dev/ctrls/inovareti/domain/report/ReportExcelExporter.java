@@ -25,8 +25,8 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import lombok.extern.slf4j.Slf4j;
 
 /**

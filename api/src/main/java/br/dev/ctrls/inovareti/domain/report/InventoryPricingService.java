@@ -11,12 +11,12 @@ import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
-import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
-import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
-import br.dev.ctrls.inovareti.domain.inventory.StockMovement;
-import br.dev.ctrls.inovareti.domain.inventory.StockMovementRepository;
-import br.dev.ctrls.inovareti.domain.inventory.StockMovementType;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockBatchRepositoryPort;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class InventoryPricingService {
 
-    private final StockBatchRepository stockBatchRepository;
-    private final StockMovementRepository stockMovementRepository;
+    private final StockBatchRepositoryPort stockBatchRepository;
+    private final StockMovementRepositoryPort stockMovementRepository;
     private final FinancialTransactionRepository transactionRepository;
 
     /**

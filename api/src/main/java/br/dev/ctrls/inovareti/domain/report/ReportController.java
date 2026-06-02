@@ -22,11 +22,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.inventory.StockBatch;
-import br.dev.ctrls.inovareti.domain.inventory.StockBatchRepository;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockBatchRepositoryPort;
 import br.dev.ctrls.inovareti.domain.reports.usecase.TicketReportUseCase;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,15 +36,15 @@ import lombok.extern.slf4j.Slf4j;
 public class ReportController {
 
     private final ReportService reportService;
-    private final TicketRepository ticketRepository;
-    private final StockBatchRepository stockBatchRepository;
+    private final TicketRepositoryPort ticketRepository;
+    private final StockBatchRepositoryPort stockBatchRepository;
     private final TicketReportUseCase ticketReportUseCase;
     private final UserRepository userRepository;
 
     public ReportController(
             ReportService reportService,
-            TicketRepository ticketRepository,
-            StockBatchRepository stockBatchRepository,
+            TicketRepositoryPort ticketRepository,
+            StockBatchRepositoryPort stockBatchRepository,
             TicketReportUseCase ticketReportUseCase,
             UserRepository userRepository) {
         this.reportService = reportService;
@@ -159,7 +159,7 @@ public class ReportController {
                     .filter(inst -> inst.getDueDate() != null &&
                                     (inst.getDueDate().isEqual(startDateLoc) || inst.getDueDate().isAfter(startDateLoc)) &&
                                     (inst.getDueDate().isBefore(endDateLoc) || inst.getDueDate().isEqual(endDateLoc)))
-                    .map(br.dev.ctrls.inovareti.domain.inventory.StockBatchInstallment::getAmount)
+                    .map(br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatchInstallment::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
                 periodCosts.put(b.getId(), sum);
             }

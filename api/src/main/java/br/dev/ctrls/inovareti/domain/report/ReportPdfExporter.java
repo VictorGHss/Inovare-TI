@@ -29,7 +29,7 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import lombok.extern.slf4j.Slf4j;
 
 /**

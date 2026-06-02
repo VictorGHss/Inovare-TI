@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.SystemAlertRepository;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;

@@ -8,12 +8,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.domain.notification.discord.DiscordWebhookService;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
-import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketPriority;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +25,12 @@ import lombok.extern.slf4j.Slf4j;
 public class DiscordTicketService {
 
     private final UserRepository userRepository;
-    private final TicketRepository ticketRepository;
-    private final TicketCategoryRepository ticketCategoryRepository;
+    private final TicketRepositoryPort ticketRepository;
+    private final TicketCategoryRepositoryPort ticketCategoryRepository;
     private final DiscordWebhookService discordWebhookService;
-    private final br.dev.ctrls.inovareti.domain.asset.AssetRepository assetRepository;
-    private final br.dev.ctrls.inovareti.domain.ticket.TicketTagRepository ticketTagRepository;
-    private final br.dev.ctrls.inovareti.domain.ticket.TicketTagExtractor ticketTagExtractor;
+    private final br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository;
+    private final br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort ticketTagRepository;
+    private final br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTagExtractor ticketTagExtractor;
 
     @Transactional
     public String createTicketFromDiscord(String discordUserId, String description, String priorityRaw, String patrimonioOption) {
@@ -50,7 +50,7 @@ public class DiscordTicketService {
         String storedDescription = "[DISCORD] " + normalizedDescription;
 
         // 1. Resolve o ativo (Asset) por ID/código ou por varredura de Regex no texto
-        br.dev.ctrls.inovareti.domain.asset.Asset asset = null;
+        br.dev.ctrls.inovareti.modules.asset.domain.model.Asset asset = null;
         if (patrimonioOption != null && !patrimonioOption.isBlank()) {
             asset = assetRepository.findByPatrimonyCode(patrimonioOption.trim().toUpperCase()).orElse(null);
         } else {
@@ -63,7 +63,7 @@ public class DiscordTicketService {
         }
 
         // 2. Extrai as tags automáticas
-        java.util.Set<br.dev.ctrls.inovareti.domain.ticket.TicketTag> extractedTags = ticketTagExtractor.extractTags(title, storedDescription);
+        java.util.Set<br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag> extractedTags = ticketTagExtractor.extractTags(title, storedDescription);
 
         // 3. Aplica prioridade e SLA de acordo com a criticidade
         TicketPriority priority = parsePriority(priorityRaw);
@@ -75,8 +75,8 @@ public class DiscordTicketService {
             finalSlaDeadline = now.plusHours(1); // 1h SLA agressivo
 
             // Injeta tag #🚨ParadaCrítica
-            br.dev.ctrls.inovareti.domain.ticket.TicketTag criticalTag = ticketTagRepository.findByNameIgnoreCase("#🚨ParadaCrítica").orElseGet(() -> {
-                br.dev.ctrls.inovareti.domain.ticket.TicketTag newTag = br.dev.ctrls.inovareti.domain.ticket.TicketTag.builder()
+            br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag criticalTag = ticketTagRepository.findByNameIgnoreCase("#🚨ParadaCrítica").orElseGet(() -> {
+                br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag newTag = br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag.builder()
                         .name("#🚨ParadaCrítica")
                         .color("#EF4444")
                         .active(true)

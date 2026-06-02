@@ -1,5 +1,8 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+
+
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
@@ -9,7 +12,6 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.RequiredArgsConstructor;
 
 /**

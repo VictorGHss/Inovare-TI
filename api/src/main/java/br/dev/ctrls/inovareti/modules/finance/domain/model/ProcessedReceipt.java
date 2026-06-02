@@ -23,11 +23,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
 @Table(name = "processed_receipts")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 public class ProcessedReceipt {
 
     @Id
@@ -67,84 +72,4 @@ public class ProcessedReceipt {
     @Builder.Default
     private int retryCount = 0;
 
-    // Métodos Getter e Setter explícitos para blindar a IDE contra falhas do Lombok
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public FinancialLink getFinancialLink() {
-        return financialLink;
-    }
-
-    public void setFinancialLink(FinancialLink financialLink) {
-        this.financialLink = financialLink;
-    }
-
-    public String getParcelaId() {
-        return parcelaId;
-    }
-
-    public void setParcelaId(String parcelaId) {
-        this.parcelaId = parcelaId;
-    }
-
-    public String getReceiptHash() {
-        return receiptHash;
-    }
-
-    public void setReceiptHash(String receiptHash) {
-        this.receiptHash = receiptHash;
-    }
-
-    public String getOriginalRecipientEmail() {
-        return originalRecipientEmail;
-    }
-
-    public void setOriginalRecipientEmail(String originalRecipientEmail) {
-        this.originalRecipientEmail = originalRecipientEmail;
-    }
-
-    public ProcessedReceiptStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ProcessedReceiptStatus status) {
-        this.status = status;
-    }
-
-    public String getBrevoMessageId() {
-        return brevoMessageId;
-    }
-
-    public void setBrevoMessageId(String brevoMessageId) {
-        this.brevoMessageId = brevoMessageId;
-    }
-
-    public Map<String, Object> getPayload() {
-        return payload;
-    }
-
-    public void setPayload(Map<String, Object> payload) {
-        this.payload = payload;
-    }
-
-    public LocalDateTime getProcessedAt() {
-        return processedAt;
-    }
-
-    public void setProcessedAt(LocalDateTime processedAt) {
-        this.processedAt = processedAt;
-    }
-
-    public int getRetryCount() {
-        return retryCount;
-    }
-
-    public void setRetryCount(int retryCount) {
-        this.retryCount = retryCount;
-    }
 }

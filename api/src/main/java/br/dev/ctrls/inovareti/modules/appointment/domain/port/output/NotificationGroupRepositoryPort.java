@@ -1,4 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+
 
 import java.time.LocalDateTime;
 import java.util.List;

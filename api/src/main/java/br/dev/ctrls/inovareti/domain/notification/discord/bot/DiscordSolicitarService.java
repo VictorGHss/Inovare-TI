@@ -9,14 +9,14 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.domain.inventory.Item;
-import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketCategory;
-import br.dev.ctrls.inovareti.domain.ticket.TicketCategoryRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketPriority;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,10 +46,10 @@ public class DiscordSolicitarService {
     /** Label exibida no autocomplete para itens fora do inventário. */
     private static final String LABEL_FORA_ESTOQUE = "Outros / Fora de Estoque";
 
-    private final ItemRepository itemRepository;
+    private final ItemRepositoryPort itemRepository;
     private final UserRepository userRepository;
-    private final TicketRepository ticketRepository;
-    private final TicketCategoryRepository ticketCategoryRepository;
+    private final TicketRepositoryPort ticketRepository;
+    private final TicketCategoryRepositoryPort ticketCategoryRepository;
 
     /**
      * Monta as opções de autocomplete para o parâmetro 'item' do comando /solicitar.

@@ -1,4 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentVariableLogRepositoryPort;
+
 
 import java.util.Optional;
 import java.util.UUID;

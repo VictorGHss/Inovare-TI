@@ -1,5 +1,8 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
+
+
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulReceiptRetryPolicy;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ReceiptConcurrencyHandler;
 

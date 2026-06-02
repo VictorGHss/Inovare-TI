@@ -14,11 +14,11 @@ import br.dev.ctrls.inovareti.domain.analytics.dto.InventorySummaryDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.MetricDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricDTO;
 import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView;
-import br.dev.ctrls.inovareti.domain.asset.AssetRepository;
-import br.dev.ctrls.inovareti.domain.inventory.ItemRepository;
-import br.dev.ctrls.inovareti.domain.ticket.Ticket;
-import br.dev.ctrls.inovareti.domain.ticket.TicketRepository;
-import br.dev.ctrls.inovareti.domain.ticket.TicketStatus;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.domain.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,9 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class GetDashboardAnalyticsUseCase {
 
-    private final TicketRepository ticketRepository;
-    private final ItemRepository itemRepository;
-    private final AssetRepository assetRepository;
+    private final TicketRepositoryPort ticketRepository;
+    private final ItemRepositoryPort itemRepository;
+    private final AssetRepositoryPort assetRepository;
 
     private static final int LOW_STOCK_THRESHOLD = 3;
     private static final int OUT_OF_STOCK_THRESHOLD = 0;

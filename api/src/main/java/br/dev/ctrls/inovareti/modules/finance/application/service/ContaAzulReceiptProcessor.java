@@ -29,8 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço que atua como orquestrador do fluxo da camada de aplicação (Application Service)
- * para processamento de recibos quitados da Conta Azul.
+ * Serviço que atua como orquestrador do fluxo da camada de aplicação para processamento de recibos quitados.
  */
 @Slf4j
 @Service
@@ -44,39 +43,25 @@ public class ContaAzulReceiptProcessor {
     private final ContaAzulTokenService contaAzulTokenService;
     private final ReceiptEmailService receiptEmailService;
     private final ContaAzulProperties properties;
-
     private final ContaAzulReceiptStorageAdapter storageAdapter;
-
     private final ContaAzulReceiptValidator validator;
     private final InternalReceiptEmissionService fallbackService;
-
     private final ReceiptConcurrencyHandler concurrencyHandler;
     private final ReceiptAuditLogService auditService;
 
+    private record SaleDetails(String customerUuid, String resolvedSaleId, String resolvedSaleNumber, String saleDescription) {}
+    private record ReceiptPdfResult(byte[] pdfBytes, boolean usedInternalFallback, boolean isNoAttachment, String errorMessage) {}
+    private record ProcessResult(boolean success, boolean skippedProcessed, boolean skippedMapping, boolean isNoAttachment, boolean isMappingWarning) {}
+
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
-        String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
-        String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
-
-        log.info(
-                "Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}, app.contaazul.payments-url={}, app.contaazul.sales-v2-url={}, app.contaazul.sales-pdf-v1-url-template={}, CONTAAZUL_SALES_V2_URL={}, CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE={}",
-                properties.getApiV2BaseUrl(),
-                properties.getPaymentsUrl(),
-                StringUtils.hasText(properties.getSalesV2Url()) ? "preenchida" : "vazia",
-                StringUtils.hasText(properties.getSalesPdfV1UrlTemplate()) ? "preenchida" : "vazia",
-                StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia",
-                StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
+        log.info("Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}", properties.getApiV2BaseUrl());
     }
 
     public TesteEnvioRealResult processRealSaleTest(String saleId) {
         log.info("Iniciando teste real para venda {}...", saleId);
-
-        if (!contaAzulClient.hasSalesConfiguration()) {
-            throw new IllegalStateException(buildSalesConfigurationErrorMessage());
-        }
-
-        if (!contaAzulTokenService.hasAuthorizedToken()) {
-            throw new IllegalStateException("Token da Conta Azul ainda não autorizado para execução del teste real.");
+        if (!contaAzulClient.hasSalesConfiguration() || !contaAzulTokenService.hasAuthorizedToken()) {
+            throw new IllegalStateException("Configuração ou token incompleto para teste real.");
         }
 
         ContaAzulClient.SaleItem sale = contaAzulClient.findAcquittedSaleById(saleId)
@@ -91,32 +76,16 @@ public class ContaAzulReceiptProcessor {
         String recipientEmail = validationResult.recipientEmail();
         String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
 
-        Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
-        if (baixaIdOpt.isEmpty()) {
-            throw new IllegalStateException("Nenhuma baixa encontrada para a parcela da venda informada.");
-        }
-
         String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
         String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
 
-        String baixaId = baixaIdOpt.get().trim();
-        if (!StringUtils.hasText(baixaId)) {
-            throw new IllegalStateException("baixaId inválido (nulo/vazio) para a parcela da venda informada.");
-        }
-
-        log.info("Baixa ID extraído com sucesso para parcela {}: {}", sale.parcelaId(), baixaId);
+        String baixaId = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId())
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .orElseThrow(() -> new IllegalStateException("Nenhuma baixa válida encontrada."));
 
         byte[] pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
-        log.info("PDF baixado ({} bytes) para a venda {}.", pdfBytes.length, sale.saleId());
-
-        log.info("Enviando para {}", recipientEmail);
-        receiptEmailService.sendReceiptForRealSaleTest(
-                doctorName,
-                recipientEmail,
-                resolvedSaleNumber,
-                pdfBytes);
-
-        log.info("Teste real finalizado com sucesso para a venda {}.", resolvedSaleNumber);
+        receiptEmailService.sendReceiptForRealSaleTest(doctorName, recipientEmail, resolvedSaleNumber, pdfBytes);
         return new TesteEnvioRealResult(resolvedSaleId, doctorName, recipientEmail, pdfBytes.length);
     }
 
@@ -127,41 +96,35 @@ public class ContaAzulReceiptProcessor {
     }
 
     public ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
-        if (!properties.getAutomation().isEnabled()) {
-            log.info("Pooling Conta Azul desativado por configuração.");
-            return ReceiptProcessingResult.empty();
-        }
-
-        if (!contaAzulClient.hasSalesConfiguration()) {
-            log.warn("Automação ContaAzul desabilitada: {}", buildSalesConfigurationErrorMessage());
-            return ReceiptProcessingResult.empty();
-        }
-
-        if (!contaAzulTokenService.hasAuthorizedToken()) {
-            log.debug("Automação ContaAzul: token ainda não autorizado. Pulando execução.");
+        if (!properties.getAutomation().isEnabled() || !contaAzulClient.hasSalesConfiguration() || !contaAzulTokenService.hasAuthorizedToken()) {
             return ReceiptProcessingResult.empty();
         }
 
         if (dataInicio == null || dataFim == null || dataInicio.isAfter(dataFim)) {
-            log.warn("Período inválido para sincronização: dataInicio={} dataFim={}", dataInicio, dataFim);
             return ReceiptProcessingResult.empty();
         }
 
-        log.info("Automação ContaAzul: consultando endpoint de parcelas recebidas no período: {} a {}", dataInicio, dataFim);
-
+        log.info("Automação ContaAzul: consultando parcelas recebidas no período: {} a {}", dataInicio, dataFim);
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataInicio.format(DATE_FORMATTER), dataFim.format(DATE_FORMATTER));
         } catch (RuntimeException ex) {
-            if (ex instanceof ContaAzulHttpException httpEx && httpEx.isStatus(403) && isPlanIneligibleResponse(httpEx.getResponseBody())) {
-                String message = "Conta Azul indisponível para automação: conta sem elegibilidade de API (END_TRIAL).";
-                log.warn(message);
-                return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of(message));
-            }
-            log.error("Falha ao buscar vendas liquidadas no Conta Azul.", ex);
-            return new ReceiptProcessingResult(0, 0, 0, 0, 1, 0, 0, List.of("Falha ao buscar vendas liquidadas no Conta Azul: " + ex.getMessage()));
+            return handleFetchException(ex);
         }
 
+        return executeProcessingLoop(acquittedSales);
+    }
+
+    private ReceiptProcessingResult handleFetchException(RuntimeException ex) {
+        if (ex instanceof ContaAzulHttpException httpEx && httpEx.isStatus(403) && isPlanIneligibleResponse(httpEx.getResponseBody())) {
+            String msg = "Conta Azul indisponível: conta sem elegibilidade de API (END_TRIAL).";
+            log.warn(msg);
+            return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of(msg));
+        }
+        return new ReceiptProcessingResult(0, 0, 0, 0, 1, 0, 0, List.of("Falha ao buscar vendas: " + ex.getMessage()));
+    }
+
+    private ReceiptProcessingResult executeProcessingLoop(List<ContaAzulClient.SaleItem> acquittedSales) {
         int sent = 0;
         int skippedProcessed = 0;
         int skippedMapping = 0;
@@ -172,122 +135,116 @@ public class ContaAzulReceiptProcessor {
 
         for (ContaAzulClient.SaleItem sale : acquittedSales) {
             try {
-                if (!applyThrottle()) {
-                    continue;
-                }
-
-                auditService.logStart(sale.descricao(), sale.origem(), sale.parcelaId());
-
-                String customerUuidFromParcel = validator.normalizeUuid(sale.customerUuid());
-                String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
-                String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
-                String saleDescriptionForReceipt = resolveSaleDescriptionForReceiptFlow(sale, resolvedSaleNumber);
-
-                Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
-                if (baixaIdOpt.isEmpty()) {
-                    auditService.recordNoBaixaFound(sale.parcelaId(), resolvedSaleId, errors);
-                    continue;
-                }
-
-                String baixaId = baixaIdOpt.get().trim();
-                if (!StringUtils.hasText(baixaId)) {
-                    failures++;
-                    auditService.recordInvalidBaixaId(sale.parcelaId(), errors);
-                    continue;
-                }
-
-                if (concurrencyHandler.isAlreadyProcessed(baixaId)) {
-                    skippedProcessed++;
-                    log.info("Recibo/baixa {} já processado anteriormente. Ignorando.", baixaId);
-                    continue;
-                }
-
-                if (!concurrencyHandler.acquireLock(baixaId)) {
-                    skippedProcessed++;
-                    log.info("Recibo/baixa {} já sendo processado em outra execução simultânea. Ignorando.", baixaId);
-                    continue;
-                }
-
-                try {
-                    ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
-                    if (validationResult.isNotValid()) {
-                        skippedMapping++;
-                        mappingWarnings++;
-                        log.warn("Recibo {} inválido ou sem mapeamento: {}", baixaId, validationResult.errorMessage());
-                        auditService.registerError(errors, validationResult.errorMessage());
-                        continue;
-                    }
-
-                    DoctorEmailMapping mapping = validationResult.mapping();
-                    String recipientEmail = validationResult.recipientEmail();
-                    String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
-
-                    byte[] pdfBytes;
-                    boolean usedInternalFallback = false;
-
-                    if (!StringUtils.hasText(sale.idReciboDigital())) {
-                        noAttachmentWarnings++;
-                        try {
-                            pdfBytes = fallbackService.generateInternalReceiptPdf(baixaId, doctorName, mapping, customerUuidFromParcel, saleDescriptionForReceipt);
-                            usedInternalFallback = true;
-                        } catch (RuntimeException fallbackEx) {
-                            failures++;
-                            auditService.recordFallbackFailure(baixaId, fallbackEx, errors);
-                            continue;
-                        }
-                    } else {
-                        try {
-                            pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
-                        } catch (NoReceiptAvailableException nr) {
-                            noAttachmentWarnings++;
-                            try {
-                                pdfBytes = fallbackService.generateInternalReceiptPdf(baixaId, doctorName, mapping, customerUuidFromParcel, saleDescriptionForReceipt);
-                                usedInternalFallback = true;
-                            } catch (RuntimeException fallbackEx) {
-                                failures++;
-                                auditService.recordFallbackFailure(baixaId, fallbackEx, errors);
-                                continue;
-                            }
-                        } catch (RuntimeException ex) {
-                            failures++;
-                            auditService.recordDownloadFailure(baixaId, resolvedSaleId, doctorName, ex, errors);
-                            continue;
-                        }
-                    }
-
-                    if (pdfBytes == null || pdfBytes.length == 0) {
-                        failures++;
-                        auditService.recordEmptyPdfFailure(baixaId, resolvedSaleId, doctorName, errors);
-                        continue;
-                    }
-
-                    try {
-                        receiptEmailService.sendReceiptForBaixa(doctorName, recipientEmail, resolvedSaleNumber, baixaId, pdfBytes);
-                    } catch (RuntimeException emailEx) {
-                        failures++;
-                        auditService.recordEmailFailure(baixaId, resolvedSaleId, doctorName, emailEx, errors);
-                        continue;
-                    }
-
-                    auditService.recordSuccess(baixaId, doctorName, usedInternalFallback, sale.customerName());
-                    sent++;
-                } finally {
-                    concurrencyHandler.releaseLock(baixaId);
-                }
+                ProcessResult result = processSingleSale(sale, errors);
+                if (result.success()) sent++;
+                if (result.skippedProcessed()) skippedProcessed++;
+                if (result.skippedMapping()) skippedMapping++;
+                if (!result.success() && !result.skippedProcessed() && !result.skippedMapping()) failures++;
+                if (result.isNoAttachment()) noAttachmentWarnings++;
+                if (result.isMappingWarning()) mappingWarnings++;
             } catch (DataIntegrityViolationException ex) {
                 skippedProcessed++;
-                log.debug("Recibo já registrado como processado em execução concorrente.", ex);
             } catch (RuntimeException ex) {
                 failures++;
-                log.error("Falha ao processar recibo.", ex);
-                auditService.registerError(errors, "Falha ao processar recibo: " + ex.getMessage());
+                errors.add(ex.getMessage());
             }
         }
-
-        log.info("Automação ContaAzul finalizada: acquitted={}, sent={}, skippedProcessed={}, skippedMapping={}, failures={}",
-                acquittedSales.size(), sent, skippedProcessed, skippedMapping, failures);
-
         return new ReceiptProcessingResult(acquittedSales.size(), sent, skippedProcessed, skippedMapping, failures, noAttachmentWarnings, mappingWarnings, List.copyOf(errors));
+    }
+
+    private ProcessResult processSingleSale(ContaAzulClient.SaleItem sale, List<String> errors) {
+        if (!applyThrottle()) return new ProcessResult(false, false, false, false, false);
+        auditService.logStart(sale.descricao(), sale.origem(), sale.parcelaId());
+
+        SaleDetails details = resolveSaleDetails(sale);
+        Optional<String> baixaIdOpt = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId());
+        if (baixaIdOpt.isEmpty()) {
+            auditService.recordNoBaixaFound(sale.parcelaId(), details.resolvedSaleId(), errors);
+            return new ProcessResult(false, false, false, false, false);
+        }
+
+        String baixaId = baixaIdOpt.get().trim();
+        if (!StringUtils.hasText(baixaId)) {
+            auditService.recordInvalidBaixaId(sale.parcelaId(), errors);
+            return new ProcessResult(false, false, false, false, false);
+        }
+
+        if (concurrencyHandler.isAlreadyProcessed(baixaId) || !concurrencyHandler.acquireLock(baixaId)) {
+            return new ProcessResult(false, true, false, false, false);
+        }
+
+        try {
+            return processLockedSale(sale, details, baixaId, errors);
+        } finally {
+            concurrencyHandler.releaseLock(baixaId);
+        }
+    }
+
+    private ProcessResult processLockedSale(ContaAzulClient.SaleItem sale, SaleDetails details, String baixaId, List<String> errors) {
+        ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
+        if (validationResult.isNotValid()) {
+            auditService.registerError(errors, validationResult.errorMessage());
+            return new ProcessResult(false, false, true, false, true);
+        }
+
+        DoctorEmailMapping mapping = validationResult.mapping();
+        String recipientEmail = validationResult.recipientEmail();
+        String doctorName = validator.resolveDoctorName(mapping, sale.customerName());
+
+        ReceiptPdfResult pdfResult = downloadOrGenerateReceipt(baixaId, doctorName, mapping, details, sale.idReciboDigital());
+        if (pdfResult.pdfBytes() == null || pdfResult.pdfBytes().length == 0) {
+            auditService.registerError(errors, pdfResult.errorMessage() != null ? pdfResult.errorMessage() : "PDF vazio.");
+            return new ProcessResult(false, false, false, pdfResult.isNoAttachment(), false);
+        }
+
+        if (!sendReceiptEmail(doctorName, recipientEmail, details.resolvedSaleNumber(), baixaId, pdfResult.pdfBytes())) {
+            auditService.registerError(errors, "Erro no envio de e-mail.");
+            return new ProcessResult(false, false, false, pdfResult.isNoAttachment(), false);
+        }
+
+        auditService.recordSuccess(baixaId, doctorName, pdfResult.usedInternalFallback(), sale.customerName());
+        return new ProcessResult(true, false, false, pdfResult.isNoAttachment(), false);
+    }
+
+    private SaleDetails resolveSaleDetails(ContaAzulClient.SaleItem sale) {
+        String customerUuid = validator.normalizeUuid(sale.customerUuid());
+        String resolvedSaleId = resolveSaleIdForReceiptFlow(sale);
+        String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
+        String saleDescription = resolveSaleDescriptionForReceiptFlow(sale, resolvedSaleNumber);
+        return new SaleDetails(customerUuid, resolvedSaleId, resolvedSaleNumber, saleDescription);
+    }
+
+    private ReceiptPdfResult downloadOrGenerateReceipt(String baixaId, String doctorName, DoctorEmailMapping mapping, SaleDetails details, String idReciboDigital) {
+        if (!StringUtils.hasText(idReciboDigital)) {
+            return generateFallbackPdf(baixaId, doctorName, mapping, details);
+        }
+        try {
+            byte[] pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
+            return new ReceiptPdfResult(pdfBytes, false, false, null);
+        } catch (NoReceiptAvailableException nr) {
+            return generateFallbackPdf(baixaId, doctorName, mapping, details);
+        } catch (RuntimeException ex) {
+            return new ReceiptPdfResult(null, false, false, "Download falhou: " + ex.getMessage());
+        }
+    }
+
+    private ReceiptPdfResult generateFallbackPdf(String baixaId, String doctorName, DoctorEmailMapping mapping, SaleDetails details) {
+        try {
+            byte[] pdfBytes = fallbackService.generateInternalReceiptPdf(baixaId, doctorName, mapping, details.customerUuid(), details.saleDescription());
+            return new ReceiptPdfResult(pdfBytes, true, true, null);
+        } catch (RuntimeException fallbackEx) {
+            return new ReceiptPdfResult(null, false, true, "Fallback falhou: " + fallbackEx.getMessage());
+        }
+    }
+
+    private boolean sendReceiptEmail(String doctorName, String recipientEmail, String resolvedSaleNumber, String baixaId, byte[] pdfBytes) {
+        try {
+            receiptEmailService.sendReceiptForBaixa(doctorName, recipientEmail, resolvedSaleNumber, baixaId, pdfBytes);
+            return true;
+        } catch (RuntimeException emailEx) {
+            log.error("Falha ao enviar e-mail do recibo para a baixa: {}", baixaId, emailEx);
+            return false;
+        }
     }
 
     private String resolveSaleIdForReceiptFlow(ContaAzulClient.SaleItem sale) {
@@ -301,15 +258,13 @@ public class ContaAzulReceiptProcessor {
                 return detailOpt.get().saleId().trim();
             }
         } catch (RuntimeException ex) {
-            log.warn("Não foi possível resolver sale_id pela parcela {}. Mantendo fallback do item.", sale.parcelaId(), ex);
+            log.warn("Não foi possível resolver sale_id pela parcela {}.", sale.parcelaId(), ex);
         }
         return fallbackSaleId;
     }
 
     private boolean isPlanIneligibleResponse(String responseBody) {
-        if (!StringUtils.hasText(responseBody)) {
-            return false;
-        }
+        if (!StringUtils.hasText(responseBody)) return false;
         String normalized = responseBody.toUpperCase();
         return normalized.contains("END_TRIAL") || normalized.contains("NAO ESTA ELEGIVEL");
     }
@@ -319,9 +274,7 @@ public class ContaAzulReceiptProcessor {
             return sale.saleNumber().trim();
         }
         String fromDescription = extractSaleNumber(sale.descricao());
-        if (StringUtils.hasText(fromDescription)) {
-            return fromDescription;
-        }
+        if (StringUtils.hasText(fromDescription)) return fromDescription;
         String fromResolvedSaleId = extractSaleNumber(resolvedSaleId);
         return StringUtils.hasText(fromResolvedSaleId) ? fromResolvedSaleId : "N/D";
     }
@@ -334,27 +287,14 @@ public class ContaAzulReceiptProcessor {
     }
 
     private String extractSaleNumber(String rawValue) {
-        if (!StringUtils.hasText(rawValue)) {
-            return null;
-        }
+        if (!StringUtils.hasText(rawValue)) return null;
         String normalized = rawValue.trim();
-        if (normalized.matches("\\d{3,}")) {
-            return normalized;
-        }
+        if (normalized.matches("\\d{3,}")) return normalized;
         Matcher matcher = SALE_NUMBER_PATTERN.matcher(normalized);
         return matcher.find() ? matcher.group(1) : null;
     }
 
-    public record ReceiptProcessingResult(
-            int acquitted,
-            int sent,
-            int skippedProcessed,
-            int skippedMapping,
-            int failures,
-            int noAttachmentWarnings,
-            int mappingWarnings,
-            List<String> errors) {
-
+    public record ReceiptProcessingResult(int acquitted, int sent, int skippedProcessed, int skippedMapping, int failures, int noAttachmentWarnings, int mappingWarnings, List<String> errors) {
         static ReceiptProcessingResult empty() {
             return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of());
         }
@@ -362,39 +302,6 @@ public class ContaAzulReceiptProcessor {
 
     private boolean applyThrottle() {
         LockSupport.parkNanos(350_000_000L);
-        if (Thread.currentThread().isInterrupted()) {
-            log.warn("Thread interrompida durante throttling anti-429 da automação financeira.");
-            return false;
-        }
-        return true;
-    }
-
-    private String buildSalesConfigurationErrorMessage() {
-        List<String> missingProperties = new ArrayList<>();
-        if (!StringUtils.hasText(properties.getSalesV2Url())) {
-            missingProperties.add("app.contaazul.sales-v2-url");
-        }
-        if (!StringUtils.hasText(properties.getPaymentsUrl())) {
-            missingProperties.add("app.contaazul.payments-url");
-        }
-        if (!StringUtils.hasText(properties.getSalesPdfV1UrlTemplate())) {
-            missingProperties.add("app.contaazul.sales-pdf-v1-url-template");
-        }
-        String envSalesV2 = System.getenv("CONTAAZUL_SALES_V2_URL");
-        String envSalesPdf = System.getenv("CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE");
-
-        return "Configuração da Conta Azul incompleta. Propriedades vazias: "
-                + (missingProperties.isEmpty() ? "nenhuma" : String.join(", ", missingProperties))
-                + ". Estado atual -> app.contaazul.sales-v2-url="
-                + (StringUtils.hasText(properties.getSalesV2Url()) ? "preenchida" : "vazia")
-                + ", app.contaazul.payments-url="
-                + (StringUtils.hasText(properties.getPaymentsUrl()) ? "preenchida" : "vazia")
-                + ", app.contaazul.sales-pdf-v1-url-template="
-                + (StringUtils.hasText(properties.getSalesPdfV1UrlTemplate()) ? "preenchida" : "vazia")
-                + ", CONTAAZUL_SALES_V2_URL="
-                + (StringUtils.hasText(envSalesV2) ? "preenchida" : "vazia")
-                + ", CONTAAZUL_SALE_PDF_V1_URL_TEMPLATE="
-                + (StringUtils.hasText(envSalesPdf) ? "preenchida" : "vazia");
+        return !Thread.currentThread().isInterrupted();
     }
 }
-

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.modules.finance.domain.model;
+package br.dev.ctrls.inovareti.modules.finance.application.dto;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,4 +44,3 @@ public record ContaAzulPessoaDTO(
                 .findFirst();
     }
 }
-

@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
 
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulPessoaClient;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPessoaDTO;
+import br.dev.ctrls.inovareti.modules.finance.application.dto.ContaAzulPessoaDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

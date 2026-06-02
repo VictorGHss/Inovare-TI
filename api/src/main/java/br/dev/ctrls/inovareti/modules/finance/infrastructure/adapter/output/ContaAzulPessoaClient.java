@@ -1,7 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulTokenService;
-import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPessoaDTO;
+import br.dev.ctrls.inovareti.modules.finance.application.dto.ContaAzulPessoaDTO;
 
 import java.util.List;
 import java.util.Optional;

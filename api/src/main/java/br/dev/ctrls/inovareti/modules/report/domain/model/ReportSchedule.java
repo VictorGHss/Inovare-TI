@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.report;
+package br.dev.ctrls.inovareti.modules.report.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Entidade que representa o agendamento de um relatório automatizado.
+ */
 @Entity
 @Table(name = "report_schedules")
 @Data

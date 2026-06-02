@@ -1,6 +1,5 @@
-package br.dev.ctrls.inovareti.domain.report;
+package br.dev.ctrls.inovareti.modules.report.infrastructure.adapter.output;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -30,24 +29,22 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportPdfExporterPort;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Exportador especializado em relatórios PDF.
- *
- * Centraliza layout, tabelas, fontes e higienização de conteúdo textual
- * para geração de relatórios em PDF.
+ * Adaptador de infraestrutura especializado em relatórios PDF físicos.
+ * Implementa o contrato puro Java do domínio utilizando iText/OpenPDF.
  */
 @Component
 @Slf4j
-public class ReportPdfExporter {
+public class ReportPdfExporter implements ReportPdfExporterPort {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.of("pt", "BR"));
 
-    public ByteArrayInputStream exportInventoryExitsToPdf(
-            List<Ticket> tickets,
-            Map<UUID, BigDecimal> totalsByTicket) {
+    @Override
+    public byte[] exportInventoryExitsToPdf(List<Ticket> tickets, Map<UUID, BigDecimal> totalsByTicket) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 50, 50, 50, 50);
         try {
@@ -97,7 +94,7 @@ public class ReportPdfExporter {
                         : null);
 
                 int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
-                qty = Math.abs(qty); // Garante quantidade positiva para saídas no PDF
+                qty = Math.abs(qty);
                 BigDecimal totalPrice = totalsByTicket.getOrDefault(ticket.getId(), BigDecimal.ZERO);
 
                 tableTotalValue = tableTotalValue.add(totalPrice);
@@ -181,7 +178,7 @@ public class ReportPdfExporter {
             document.add(resumo);
 
             document.close();
-            return new ByteArrayInputStream(out.toByteArray());
+            return out.toByteArray();
         } catch (DocumentException e) {
             log.error("Erro ao gerar PDF profissional de saídas", e);
             if (document.isOpen()) {

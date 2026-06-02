@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.report;
+package br.dev.ctrls.inovareti.modules.report.infrastructure.adapter.input;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,15 +20,21 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import br.dev.ctrls.inovareti.modules.report.domain.model.ReportSchedule;
+import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportScheduleRepositoryPort;
+import br.dev.ctrls.inovareti.modules.report.application.service.ReportAutomationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Controlador REST para gerenciar agendamentos de relatórios automatizados.
+ */
 @RestController
 @RequestMapping("/report-schedules")
 @RequiredArgsConstructor
 public class ReportScheduleController {
 
-    private final ReportScheduleRepository repository;
+    private final ReportScheduleRepositoryPort repository;
     private final ReportAutomationService automationService;
 
     @GetMapping
@@ -50,7 +56,6 @@ public class ReportScheduleController {
         entity.setReportType(req.getReportType());
         entity.setTargetUserId(req.getTargetUserId());
 
-        // apply defaults when request omits optional fields (use boxed locals to avoid unboxing warnings)
         Boolean sendEmailBox = req.getSendEmail();
         boolean sendEmail = sendEmailBox != null ? sendEmailBox : true;
         Boolean sendDiscordBox = req.getSendDiscord();
@@ -75,7 +80,6 @@ public class ReportScheduleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ReportSchedule> update(@PathVariable UUID id, @Valid @RequestBody ReportScheduleRequest req) {
         return repository.findById(id).map(existing -> {
-            // Preserve all original fields and update only 'isActive' when provided to avoid nulling required columns
             Boolean isActiveBox = req.getIsActive();
             if (isActiveBox != null) {
                 existing.setActive(isActiveBox);
@@ -110,7 +114,6 @@ public class ReportScheduleController {
 
     @Data
     public static class ReportScheduleRequest {
-        // nullable request fields allow partial updates
         @NotBlank(message = "O tipo de relatório é obrigatório.")
         private String reportType;
         

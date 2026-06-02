@@ -1,6 +1,5 @@
-package br.dev.ctrls.inovareti.domain.report;
+package br.dev.ctrls.inovareti.modules.report.infrastructure.adapter.output;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -22,27 +21,29 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.report.application.dto.TicketReportDTO;
+import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportExcelExporterPort;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Exportador especializado em relatórios Excel.
- *
- * Toda a lógica de geração de planilhas e formatação de células
- * foi movida para este componente.
+ * Adaptador de infraestrutura especializado em relatórios Excel físicos.
+ * Implementa o contrato puro Java da camada de domínio utilizando o Apache POI.
  */
 @Component
 @Slf4j
-public class ReportExcelExporter {
+public class ReportExcelExporter implements ReportExcelExporterPort {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.of("pt", "BR"));
 
-    public ByteArrayInputStream exportTicketsToExcel(List<Ticket> tickets) {
+    @Override
+    public byte[] exportTicketsToExcel(List<Ticket> tickets) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Chamados");
 
@@ -65,12 +66,12 @@ public class ReportExcelExporter {
 
                 row.createCell(0).setCellValue(ticket.getId().toString());
                 row.createCell(1).setCellValue(ticket.getTitle());
-                row.createCell(2).setCellValue(ticket.getRequester().getName());
-                row.createCell(3).setCellValue(ticket.getRequester().getSector().getName());
-                row.createCell(4).setCellValue(ticket.getCategory().getName());
-                row.createCell(5).setCellValue(ticket.getStatus().toString());
-                row.createCell(6).setCellValue(ticket.getPriority().toString());
-                row.createCell(7).setCellValue(ticket.getCreatedAt().format(DATE_FORMATTER));
+                row.createCell(2).setCellValue(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
+                row.createCell(3).setCellValue(ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-");
+                row.createCell(4).setCellValue(ticket.getCategory() != null ? ticket.getCategory().getName() : "-");
+                row.createCell(5).setCellValue(ticket.getStatus() != null ? ticket.getStatus().toString() : "-");
+                row.createCell(6).setCellValue(ticket.getPriority() != null ? ticket.getPriority().toString() : "-");
+                row.createCell(7).setCellValue(ticket.getCreatedAt() != null ? ticket.getCreatedAt().format(DATE_FORMATTER) : "");
                 row.createCell(8).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
             }
 
@@ -78,14 +79,15 @@ public class ReportExcelExporter {
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
-            return new ByteArrayInputStream(outputStream.toByteArray());
+            return outputStream.toByteArray();
         } catch (IOException e) {
-            log.error("Error generating Excel report for tickets", e);
+            log.error("Erro ao gerar relatório Excel para chamados", e);
             throw new RuntimeException("Failed to generate Excel report", e);
         }
     }
 
-    public ByteArrayInputStream exportInventoryEntriesToExcel(List<StockBatch> batches, Map<UUID, BigDecimal> periodCosts) {
+    @Override
+    public byte[] exportInventoryEntriesToExcel(List<StockBatch> batches, Map<UUID, BigDecimal> periodCosts) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Entradas");
 
@@ -106,8 +108,8 @@ public class ReportExcelExporter {
             for (StockBatch batch : batches) {
                 Row row = sheet.createRow(rowNum++);
 
-                row.createCell(0).setCellValue(batch.getItem().getItemCategory().getName());
-                row.createCell(1).setCellValue(batch.getItem().getName());
+                row.createCell(0).setCellValue(batch.getItem() != null && batch.getItem().getItemCategory() != null ? batch.getItem().getItemCategory().getName() : "-");
+                row.createCell(1).setCellValue(batch.getItem() != null ? batch.getItem().getName() : "-");
                 row.createCell(2).setCellValue(batch.getBrand() != null ? batch.getBrand() : "-");
                 row.createCell(3).setCellValue(batch.getOriginalQuantity());
                 row.createCell(4).setCellValue(batch.getSupplier() != null ? batch.getSupplier() : "-");
@@ -117,23 +119,22 @@ public class ReportExcelExporter {
                 row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
 
                 row.createCell(7).setCellValue(batch.getPurchaseReason() != null ? batch.getPurchaseReason() : "-");
-                row.createCell(8).setCellValue(batch.getEntryDate().format(DATE_FORMATTER));
+                row.createCell(8).setCellValue(batch.getEntryDate() != null ? batch.getEntryDate().format(DATE_FORMATTER) : "");
             }
 
             autoSizeColumns(sheet, headers.length);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
-            return new ByteArrayInputStream(outputStream.toByteArray());
+            return outputStream.toByteArray();
         } catch (IOException e) {
-            log.error("Error generating Excel report for inventory entries", e);
+            log.error("Erro ao gerar relatório Excel para entradas de estoque", e);
             throw new RuntimeException("Failed to generate Excel report", e);
         }
     }
 
-    public ByteArrayInputStream exportInventoryExitsToExcel(
-            List<Ticket> tickets,
-            Map<UUID, BigDecimal> totalsByTicket) {
+    @Override
+    public byte[] exportInventoryExitsToExcel(List<Ticket> tickets, Map<UUID, BigDecimal> totalsByTicket) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Saídas");
 
@@ -152,16 +153,16 @@ public class ReportExcelExporter {
 
             int rowNum = 1;
             for (Ticket ticket : tickets) {
-                if (ticket.getStatus().toString().equals("RESOLVED")
+                if (ticket.getStatus() != null && ticket.getStatus().toString().equals("RESOLVED")
                         && ticket.getRequestedItem() != null
                         && ticket.getRequestedQuantity() != null) {
 
                     Row row = sheet.createRow(rowNum++);
 
                     int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
-                    qty = Math.abs(qty); // Garante quantidade positiva para saídas na planilha
+                    qty = Math.abs(qty);
 
-                    row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory().getName());
+                    row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory() != null ? ticket.getRequestedItem().getItemCategory().getName() : "-");
                     row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
                     row.createCell(2).setCellValue(qty);
                     row.createCell(3).setCellValue(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
@@ -179,10 +180,53 @@ public class ReportExcelExporter {
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
-            return new ByteArrayInputStream(outputStream.toByteArray());
+            return outputStream.toByteArray();
         } catch (IOException e) {
-            log.error("Error generating Excel report for inventory exits", e);
+            log.error("Erro ao gerar relatório Excel para saídas de estoque", e);
             throw new RuntimeException("Failed to generate Excel report", e);
+        }
+    }
+
+    @Override
+    public byte[] generateTicketReport(List<TicketReportDTO> reports) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            XSSFSheet sheet = workbook.createSheet("Relatório de Chamados");
+
+            CellStyle headerStyle = createHeaderStyle(workbook);
+
+            String[] headers = {"ID", "Título", "Solicitante", "Setor", "Status", "Criado Em", "Resolvido Em"};
+            var headerRow = sheet.createRow(0);
+
+            for (int i = 0; i < headers.length; i++) {
+                var cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (TicketReportDTO report : reports) {
+                var row = sheet.createRow(rowNum++);
+
+                row.createCell(0).setCellValue(report.id().toString());
+                row.createCell(1).setCellValue(report.title());
+                row.createCell(2).setCellValue(report.requesterName());
+                row.createCell(3).setCellValue(report.sectorName());
+                row.createCell(4).setCellValue(report.status());
+                row.createCell(5).setCellValue(report.createdAt() != null ? report.createdAt().format(DATE_FORMATTER) : "");
+                row.createCell(6).setCellValue(report.resolvedAt() != null ? report.resolvedAt().format(DATE_FORMATTER) : "");
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            log.error("Erro ao gerar relatório de chamados personalizado em Excel", e);
+            throw new RuntimeException("Erro ao gerar relatório em Excel", e);
         }
     }
 

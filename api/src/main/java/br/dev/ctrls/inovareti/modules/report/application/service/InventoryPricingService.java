@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.report;
+package br.dev.ctrls.inovareti.modules.report.application.service;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -21,12 +21,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o especializado em precificaÃƒÂ§ÃƒÂ£o de saÃƒÂ­das de inventÃƒÂ¡rio para relatÃƒÂ³rios.
+ * Serviço especializado em precificação de saídas de inventário para relatórios.
  *
  * Responsabilidades:
- * - centralizar cÃƒÂ¡lculo de valor total por ticket de saÃƒÂ­da;
- * - manter o mesmo comportamento matemÃƒÂ¡tico legado (sem alterar fÃƒÂ³rmulas);
- * - encapsular o motor de fallback de preÃƒÂ§o utilizado hoje pela aplicaÃƒÂ§ÃƒÂ£o.
+ * - centralizar cálculo de valor total por ticket de saída;
+ * - manter o mesmo comportamento matemático legado (sem alterar fórmulas);
+ * - encapsular o motor de fallback de preço utilizado hoje pela aplicação.
  */
 @Service
 @Slf4j
@@ -38,10 +38,10 @@ public class InventoryPricingService {
     private final FinancialTransactionRepository transactionRepository;
 
     /**
-     * Calcula o valor total de saÃƒÂ­da para uma lista de tickets.
+     * Calcula o valor total de saída para uma lista de tickets.
      *
-     * O mapa ÃƒÂ© indexado pelo ID do ticket para ser reutilizado por exportadores
-     * (Excel/PDF) sem duplicar regra de cÃƒÂ¡lculo.
+     * O mapa é indexado pelo ID do ticket para ser reutilizado por exportadores
+     * (Excel/PDF) sem duplicar regra de cálculo.
      */
     public Map<UUID, BigDecimal> calculateExitTotalsByTicket(List<Ticket> tickets) {
         Map<UUID, BigDecimal> totals = new LinkedHashMap<>();
@@ -59,15 +59,15 @@ public class InventoryPricingService {
     }
 
     /**
-     * Calcula o preÃƒÂ§o total de uma saÃƒÂ­da de item priorizando o valor registrado
+     * Calcula o preço total de uma saída de item priorizando o valor registrado
      * em financial_transactions.amount (se existir) ou, alternativamente,
      * somando unit_price_at_time dos movimentos de estoque relacionados ao chamado.
      *
-     * Como fallback final, utiliza o preÃƒÂ§o do lote mais recente multiplicado pela
-     * quantidade. Esta matemÃƒÂ¡tica foi preservada integralmente do comportamento legado.
+     * Como fallback final, utiliza o preço do lote mais recente multiplicado pela
+     * quantidade. Esta matemática foi preservada integralmente do comportamento legado.
      */
     public BigDecimal calculateExitTotalPrice(Ticket ticket, int quantity) {
-        // 1) Tenta obter lanÃƒÂ§amentos financeiros vinculados ao ticket
+        // 1) Tenta obter lançamentos financeiros vinculados ao ticket
         try {
             var txs = transactionRepository.findByTicketId(ticket.getId());
             if (txs != null && !txs.isEmpty()) {
@@ -83,7 +83,7 @@ public class InventoryPricingService {
                 }
             }
         } catch (Exception e) {
-            log.warn("Erro ao buscar lanÃƒÂ§amentos financeiros para ticket {}: {}", ticket.getId(), e.getMessage());
+            log.warn("Erro ao buscar lançamentos financeiros para ticket {}: {}", ticket.getId(), e.getMessage());
         }
 
         // 2) Fallback: somar unit_price_at_time dos movimentos de estoque referenciando o ticket
@@ -92,24 +92,18 @@ public class InventoryPricingService {
             // Busca apenas movimentos do tipo OUT referenciando o chamado
             List<StockMovement> movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(prefix, StockMovementType.OUT);
             if (movements != null && !movements.isEmpty()) {
-                // Se existirem movimentos vinculados ao ticket, somamos seus valores.
-                // ObservaÃƒÂ§ÃƒÂ£o: alguns movimentos gerados automaticamente podem ter
-                // `unit_price_at_time` nulo. Tratamos nulos como zero para que o
-                // relatÃƒÂ³rio inclua as saÃƒÂ­das do ticket (mesmo com preÃƒÂ§o nÃƒÂ£o registrado).
                 BigDecimal sum = BigDecimal.ZERO;
                 for (StockMovement movement : movements) {
                     BigDecimal price = Optional.ofNullable(movement.getUnitPriceAtTime()).orElse(BigDecimal.ZERO);
                     sum = sum.add(price);
                 }
-                // Retornamos a soma mesmo que seja zero Ã¢â‚¬â€ isso garante que tickets
-                // com movimentos registrados apareÃƒÂ§am no RelatÃƒÂ³rio de SaÃƒÂ­das.
                 return sum;
             }
         } catch (Exception e) {
             log.warn("Erro ao buscar movimentos para ticket {}: {}", ticket.getId(), e.getMessage());
         }
 
-        // 3) Fallback final: preÃƒÂ§o unitÃƒÂ¡rio do lote mais recente * quantidade
+        // 3) Fallback final: preço unitário do lote mais recente * quantidade
         var item = ticket.getRequestedItem();
         if (item == null) {
             return BigDecimal.ZERO;
@@ -117,7 +111,7 @@ public class InventoryPricingService {
 
         List<StockBatch> batches = stockBatchRepository.findByItemOrderByEntryDateDesc(item);
         if (batches.isEmpty()) {
-            log.warn("No batches found for item {}, returning zero price", item.getId());
+            log.warn("Nenhum lote encontrado para o item {}, retornando preço zero", item.getId());
             return BigDecimal.ZERO;
         }
 
@@ -125,4 +119,3 @@ public class InventoryPricingService {
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 }
-

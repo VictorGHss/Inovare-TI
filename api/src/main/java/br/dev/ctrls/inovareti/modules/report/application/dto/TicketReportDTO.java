@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.reports.dto;
+package br.dev.ctrls.inovareti.modules.report.application.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

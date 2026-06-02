@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -26,12 +28,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço de aplicação responsável pelo processamento de mapeamentos,
- * enriquecimento com dados da API Feegow e sincronização do motor de agendamentos.
+ * ServiÃ§o de aplicaÃ§Ã£o responsÃ¡vel pelo processamento de mapeamentos,
+ * enriquecimento com dados da API Feegow e sincronizaÃ§Ã£o do motor de agendamentos.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class AppointmentEnrichmentService {
 
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
@@ -210,7 +213,7 @@ public class AppointmentEnrichmentService {
             try {
                 userRepository.findById(UUID.fromString(itsmUserId)).ifPresent(u -> mapping.setSecretaryNames(u.getName()));
             } catch (IllegalArgumentException e) {
-                log.warn("itsmUserId inválido: {}", itsmUserId);
+                log.warn("itsmUserId invÃ¡lido: {}", itsmUserId);
             }
         }
     }
@@ -305,3 +308,5 @@ public class AppointmentEnrichmentService {
         return sb.toString().trim();
     }
 }
+
+

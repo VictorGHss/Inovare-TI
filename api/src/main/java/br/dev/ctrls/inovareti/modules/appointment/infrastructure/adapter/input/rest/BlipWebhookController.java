@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.rest;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,13 +32,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controller que gerencia a recepção de webhooks de mensagens e notificações da Blip.
- * Implementa validação criptográfica de integridade HMAC-SHA256 e prevenção de duplicidade.
+ * Controller que gerencia a recepÃ§Ã£o de webhooks de mensagens e notificaÃ§Ãµes da Blip.
+ * Implementa validaÃ§Ã£o criptogrÃ¡fica de integridade HMAC-SHA256 e prevenÃ§Ã£o de duplicidade.
  */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Webhooks - Blip", description = "Endpoints de integração de webhooks para o motor de agendamentos e controle da Blip")
+@Tag(name = "Webhooks - Blip", description = "Endpoints de integraÃ§Ã£o de webhooks para o motor de agendamentos e controle da Blip")
+@Observed
 public class BlipWebhookController {
 
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
@@ -52,12 +55,12 @@ public class BlipWebhookController {
     @Value("${blip.webhook.token:}")
     private String blipWebhookToken;
 
-    // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
+    // Cache local em memÃ³ria concorrente com expiraÃ§Ã£o para garantir resiliÃªncia caso o Redis esteja indisponÃ­vel
     private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Operation(
         summary = "Recebe e processa webhooks enviados pelo Blip",
-        description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validação de assinatura criptográfica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotência de eventos."
+        description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validaÃ§Ã£o de assinatura criptogrÃ¡fica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotÃªncia de eventos."
     )
     @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip", "/api/webhooks/blip"},
         consumes = {
@@ -70,7 +73,7 @@ public class BlipWebhookController {
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
             @RequestBody(required = false) String rawJson) {
 
-        log.info("[ALERTA REDE] Requisição bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
+        log.info("[ALERTA REDE] RequisiÃ§Ã£o bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
         if (rawJson == null || rawJson.isBlank()) {
             log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");
@@ -79,7 +82,7 @@ public class BlipWebhookController {
                     "reason", "body-empty"));
         }
 
-        // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256)
+        // 1. VALIDAÃ‡ÃƒO DE ASSINATURA CRIPTOGRÃFICA (HMAC-SHA256)
         boolean isSignatureValid = webhookSignatureValidator.isValid(rawJson, blipSignature, blipWebhookSecret);
 
         String expectedToken = StringUtils.hasText(blipWebhookToken)
@@ -90,25 +93,25 @@ public class BlipWebhookController {
             && StringUtils.hasText(expectedToken)
             && expectedToken.equals(inovareToken);
 
-        // O bypass de assinatura por token é aceito quando o token confiável confere,
-        // mesmo em produção. Em local/default, aceita qualquer token não vazio.
+        // O bypass de assinatura por token Ã© aceito quando o token confiÃ¡vel confere,
+        // mesmo em produÃ§Ã£o. Em local/default, aceita qualquer token nÃ£o vazio.
         boolean isBypassProfile = env.acceptsProfiles(Profiles.of("local", "default"));
         boolean isBypassEnabled = hasTokenMatch
             || (isBypassProfile && StringUtils.hasText(inovareToken));
 
         if (!isSignatureValid && !isBypassEnabled) {
-            log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente. Bypass por token inativo no perfil de produção.");
+            log.warn("[ACESSO NEGADO] Assinatura do webhook invÃ¡lida ou ausente. Bypass por token inativo no perfil de produÃ§Ã£o.");
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         }
 
         if (!isSignatureValid && isBypassEnabled) {
-            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
+            log.info("[BYPASS] Assinatura ausente ou invÃ¡lida, mas acesso liberado por token confiÃ¡vel configurado.");
         }
 
-        // 2. FAST-FAIL GUARD (Early Return): Validação estrutural genérica por padrões
+        // 2. FAST-FAIL GUARD (Early Return): ValidaÃ§Ã£o estrutural genÃ©rica por padrÃµes
         String rawLower = rawJson.toLowerCase();
 
-        // Compila uma Regex genérica para capturar QUALQUER UUID presente no JSON bruto
+        // Compila uma Regex genÃ©rica para capturar QUALQUER UUID presente no JSON bruto
         boolean containsAnyUuid = rawLower.matches(".*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*");
 
         boolean hasActionKeyword = containsAnyUuid
@@ -149,9 +152,9 @@ public class BlipWebhookController {
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
-        // --- SAFETY-GUARD DE SEGURANÇA ESTRUTURAL (REJEITA PAYLOADS MALFORMADOS COM 400 BAD REQUEST) ---
+        // --- SAFETY-GUARD DE SEGURANÃ‡A ESTRUTURAL (REJEITA PAYLOADS MALFORMADOS COM 400 BAD REQUEST) ---
         if (!StringUtils.hasText(from) || !StringUtils.hasText(messageId)) {
-            log.warn("[SAFETY-GUARD] Payload Blip/LIME estruturalmente inválido. from={}, messageId={}", from, messageId);
+            log.warn("[SAFETY-GUARD] Payload Blip/LIME estruturalmente invÃ¡lido. from={}, messageId={}", from, messageId);
             return ResponseEntity.badRequest().body(Map.of(
                 "status", "error",
                 "reason", "bad-request",
@@ -160,9 +163,9 @@ public class BlipWebhookController {
         }
         // -----------------------------------------------------------------------------------------------
 
-        // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
+        // 3. IDEMPOTÃŠNCIA (PrevenÃ§Ã£o de Duplicidade): Early Return 200 se for duplicado
         if (!isFirstTimeProcessing(messageId)) {
-            log.info("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
+            log.info("[IDEMPOTÃŠNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
             return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "duplicate-ignored"
@@ -171,7 +174,7 @@ public class BlipWebhookController {
 
         Map<String, Object> metadata = extractMetadata(payload);
 
-        log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, Ação: {}", from, action);
+        log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, AÃ§Ã£o: {}", from, action);
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 messageId,
@@ -199,7 +202,7 @@ public class BlipWebhookController {
 
     @Operation(
         summary = "Dispara manualmente fluxos de agendamento por API",
-        description = "Permite simular ou forçar requisições de webhooks Blip de forma controlada via painel administrativo para depuração e testes."
+        description = "Permite simular ou forÃ§ar requisiÃ§Ãµes de webhooks Blip de forma controlada via painel administrativo para depuraÃ§Ã£o e testes."
     )
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/webhooks/blip/manual-trigger", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -247,14 +250,14 @@ public class BlipWebhookController {
     }
 
     /**
-     * Verifica e registra o processamento do evento para garantir idempotência de forma resiliente.
+     * Verifica e registra o processamento do evento para garantir idempotÃªncia de forma resiliente.
      *
-     * @param messageId ID único do evento/mensagem
+     * @param messageId ID Ãºnico do evento/mensagem
      * @return true se for o primeiro processamento (deve processar), false se for duplicado (deve ignorar)
      */
     private boolean isFirstTimeProcessing(String messageId) {
         if (!StringUtils.hasText(messageId)) {
-            return true; // Fail-open para mensagens sem identificação
+            return true; // Fail-open para mensagens sem identificaÃ§Ã£o
         }
 
         String cacheKey = "webhook:idempotency:blip:" + messageId.trim();
@@ -262,31 +265,31 @@ public class BlipWebhookController {
 
         if (redis != null) {
             try {
-                // Tenta registrar no Redis de forma atômica com expiração de 24 horas
+                // Tenta registrar no Redis de forma atÃ´mica com expiraÃ§Ã£o de 24 horas
                 Boolean success = redis.opsForValue().setIfAbsent(cacheKey, "1", java.time.Duration.ofHours(24));
                 if (success != null) {
                     return success;
                 }
             } catch (Exception ex) {
-                log.warn("Redis indisponível para registro de idempotência. Ativando fallback em memória local: {}", ex.getMessage());
+                log.warn("Redis indisponÃ­vel para registro de idempotÃªncia. Ativando fallback em memÃ³ria local: {}", ex.getMessage());
             }
         }
 
-        // Fallback em memória
+        // Fallback em memÃ³ria
         long now = System.currentTimeMillis();
 
-        // Evita vazamento de memória do cache local se o mapa crescer além do limite de 10.000 entradas
+        // Evita vazamento de memÃ³ria do cache local se o mapa crescer alÃ©m do limite de 10.000 entradas
         if (processedEventsCache.size() > 10000) {
             processedEventsCache.entrySet().removeIf(entry -> entry.getValue() < now);
         }
 
-        // Verifica se a chave existe no cache local e se ela ainda é válida
+        // Verifica se a chave existe no cache local e se ela ainda Ã© vÃ¡lida
         Long expiration = processedEventsCache.get(messageId);
         if (expiration != null && expiration > now) {
             return false;
         }
 
-        // Registra o ID no cache em memória por 1 hora
+        // Registra o ID no cache em memÃ³ria por 1 hora
         processedEventsCache.put(messageId, now + 3600_000L);
         return true;
     }
@@ -336,3 +339,5 @@ public class BlipWebhookController {
             @JsonProperty("doctorName") String doctorName) {
     }
 }
+
+

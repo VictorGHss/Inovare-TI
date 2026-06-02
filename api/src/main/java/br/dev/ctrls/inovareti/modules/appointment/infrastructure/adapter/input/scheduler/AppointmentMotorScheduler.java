@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.scheduler;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -12,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class AppointmentMotorScheduler {
 
     private final AppointmentMotorProperties properties;
@@ -24,7 +27,7 @@ public class AppointmentMotorScheduler {
             return;
         }
 
-        log.info("Scheduler de ingestão de agendamentos iniciado");
+        log.info("Scheduler de ingestÃ£o de agendamentos iniciado");
         ingestAppointmentsUseCase.execute();
     }
 
@@ -38,3 +41,5 @@ public class AppointmentMotorScheduler {
         monitorAppointmentNudgesUseCase.execute();
     }
 }
+
+

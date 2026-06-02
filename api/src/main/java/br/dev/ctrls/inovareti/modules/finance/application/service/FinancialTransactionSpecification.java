@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 
 import jakarta.persistence.criteria.Predicate;
@@ -11,11 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Implementação do Specification Pattern para filtrar FinancialTransactions.
- * Permite construir consultas dinâmicas e reutilizáveis sem acoplamento ao Controller.
+ * ImplementaÃ§Ã£o do Specification Pattern para filtrar FinancialTransactions.
+ * Permite construir consultas dinÃ¢micas e reutilizÃ¡veis sem acoplamento ao Controller.
  * <p>Removidos imports redundantes (LocalDateTime, LocalTime) e garantida a integridade da classe.</p>
  */
 @Builder
+@Observed
 public class FinancialTransactionSpecification implements Specification<FinancialTransaction> {
 
     private final LocalDate startDate;
@@ -36,9 +39,11 @@ public class FinancialTransactionSpecification implements Specification<Financia
             predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
         }
 
-        // Ordenação padrão decrescente por data de criação
+        // OrdenaÃ§Ã£o padrÃ£o decrescente por data de criaÃ§Ã£o
         query.orderBy(criteriaBuilder.desc(root.get("createdAt")));
 
         return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
     }
 }
+
+

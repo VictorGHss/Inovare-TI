@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.notification.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.UUID;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -11,26 +13,27 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.Notificati
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case para marcar uma notificação como lida.
+ * Use case para marcar uma notificaÃ§Ã£o como lida.
  */
 @Service
 @RequiredArgsConstructor
+@Observed
 public class MarkNotificationAsReadUseCase {
 
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Executa a marcação de notificação como lida.
-     * @param notificationId o UUID da notificação
-     * @param authenticatedUserId o UUID do usuário autenticado
-     * @return a notificação atualizada
+     * Executa a marcaÃ§Ã£o de notificaÃ§Ã£o como lida.
+     * @param notificationId o UUID da notificaÃ§Ã£o
+     * @param authenticatedUserId o UUID do usuÃ¡rio autenticado
+     * @return a notificaÃ§Ã£o atualizada
      */
     public NotificationResponseDTO execute(UUID notificationId, UUID authenticatedUserId) {
         Notification notification = notificationRepository.findById(notificationId)
-            .orElseThrow(() -> new IllegalArgumentException("Notificação não encontrada: " + notificationId));
+            .orElseThrow(() -> new IllegalArgumentException("NotificaÃ§Ã£o nÃ£o encontrada: " + notificationId));
 
         if (!notification.getUserId().equals(authenticatedUserId)) {
-            throw new AccessDeniedException("Você não tem permissão para acessar esta notificação.");
+            throw new AccessDeniedException("VocÃª nÃ£o tem permissÃ£o para acessar esta notificaÃ§Ã£o.");
         }
 
         notification.setIsRead(true);
@@ -39,3 +42,5 @@ public class MarkNotificationAsReadUseCase {
         return NotificationResponseDTO.from(updated);
     }
 }
+
+

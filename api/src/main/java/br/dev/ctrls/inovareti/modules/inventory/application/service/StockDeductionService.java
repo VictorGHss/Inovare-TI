@@ -1,4 +1,5 @@
 package br.dev.ctrls.inovareti.modules.inventory.application.service;
+import io.micrometer.observation.annotation.Observed;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class StockDeductionService {
 
     private final ItemRepositoryPort itemRepository;
@@ -37,20 +39,20 @@ public class StockDeductionService {
     private final StockMovementRepositoryPort stockMovementRepository;
 
     /**
-     * Deduz quantidade do estoque seguindo a política FIFO por lotes.
+     * Deduz quantidade do estoque seguindo a polÃ­tica FIFO por lotes.
      * Para cada lote consumido calcula-se o custo: `unit_price * quantidade_consumida`
-     * e acumula-se no total. O valor total consumido é salvo no campo
+     * e acumula-se no total. O valor total consumido Ã© salvo no campo
      * `unit_price_at_time` do `StockMovement` para registrar a "verdade financeira"
-     * do custo por lote na saída.
+     * do custo por lote na saÃ­da.
      *
-     * IMPORTANTE: este método exige que exista uma transação ativa no caller.
-     * A anotação `@Transactional(propagation = Propagation.MANDATORY)` força que
-     * a dedução ocorra na mesma transação que a operação de fechamento do chamado
+     * IMPORTANTE: este mÃ©todo exige que exista uma transaÃ§Ã£o ativa no caller.
+     * A anotaÃ§Ã£o `@Transactional(propagation = Propagation.MANDATORY)` forÃ§a que
+     * a deduÃ§Ã£o ocorra na mesma transaÃ§Ã£o que a operaÃ§Ã£o de fechamento do chamado
      * (por exemplo, `ResolveTicketUseCase.execute(...)`), garantindo atomicidade
-     * entre a redução de `current_stock` e a persistência do `StockMovement`.
+     * entre a reduÃ§Ã£o de `current_stock` e a persistÃªncia do `StockMovement`.
      *
-     * Retorna o valor total (BigDecimal) da dedução, que pode ser utilizado para
-     * gerar lançamentos financeiros por centro de custo.
+     * Retorna o valor total (BigDecimal) da deduÃ§Ã£o, que pode ser utilizado para
+     * gerar lanÃ§amentos financeiros por centro de custo.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public BigDecimal deductWithFifo(UUID itemId, int quantity, String reference, UUID recipientUserId) {
@@ -59,7 +61,7 @@ public class StockDeductionService {
         }
 
         Item lockedItem = itemRepository.findByIdForUpdate(itemId)
-            .orElseThrow(() -> new NotFoundException("Item não encontrado com id: " + itemId));
+            .orElseThrow(() -> new NotFoundException("Item nÃ£o encontrado com id: " + itemId));
 
         if (lockedItem.getCurrentStock() < quantity) {
                 throw new IllegalStateException(
@@ -96,7 +98,7 @@ public class StockDeductionService {
         }
 
         if (remainingToDeduct > 0) {
-            log.warn("Fallback FIFO: {} unidades não puderam ser atendidas a partir dos lotes. Tratando como estoque legado/fantasma para itemId={}, referência={}", 
+            log.warn("Fallback FIFO: {} unidades nÃ£o puderam ser atendidas a partir dos lotes. Tratando como estoque legado/fantasma para itemId={}, referÃªncia={}", 
                 remainingToDeduct, itemId, reference);
         }
 
@@ -105,7 +107,7 @@ public class StockDeductionService {
         lockedItem.setCurrentStock(lockedItem.getCurrentStock() - quantity);
         itemRepository.save(lockedItem);
 
-        // Registra o movimento de saída com o valor total apurado no momento da saída.
+        // Registra o movimento de saÃ­da com o valor total apurado no momento da saÃ­da.
         StockMovement movement = StockMovement.builder()
             .itemId(itemId)
             .type(StockMovementType.OUT)
@@ -117,8 +119,10 @@ public class StockDeductionService {
             .build();
         stockMovementRepository.save(movement);
 
-        log.info("Dedução FIFO aplicada. itemId={}, quantidade={}, referência={}, valorTotal={}", itemId, quantity, reference, totalValue);
+        log.info("DeduÃ§Ã£o FIFO aplicada. itemId={}, quantidade={}, referÃªncia={}, valorTotal={}", itemId, quantity, reference, totalValue);
 
         return totalValue;
     }
 }
+
+

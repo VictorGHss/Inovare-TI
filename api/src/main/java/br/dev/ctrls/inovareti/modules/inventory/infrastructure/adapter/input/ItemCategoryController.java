@@ -1,4 +1,5 @@
 package br.dev.ctrls.inovareti.modules.inventory.infrastructure.adapter.input;
+import io.micrometer.observation.annotation.Observed;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemCategoryRepositoryPort;
@@ -27,12 +28,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controller REST para gerenciamento de categorias de item de inventário.
+ * Controller REST para gerenciamento de categorias de item de inventÃ¡rio.
  * Base path: /api/item-categories
  */
 @RestController
 @RequestMapping("/item-categories")
 @RequiredArgsConstructor
+@Observed
 public class ItemCategoryController {
 
     private final CreateItemCategoryUseCase createItemCategoryUseCase;
@@ -41,7 +43,7 @@ public class ItemCategoryController {
     private final ItemRepositoryPort itemRepository;
 
     /**
-     * Cria uma nova categoria de item de inventário.
+     * Cria uma nova categoria de item de inventÃ¡rio.
      * Retorna 201 Created com a categoria criada no corpo da resposta.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -60,7 +62,7 @@ public class ItemCategoryController {
     /**
      * Lista todas as categorias de item cadastradas.
      * Retorna 200 OK com a lista.
-     * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
+     * Todos os usuÃ¡rios autenticados podem ler (necessÃ¡rio para formulÃ¡rios de chamados).
      */
     @GetMapping
     public ResponseEntity<List<ItemCategoryResponseDTO>> listAll() {
@@ -73,10 +75,12 @@ public class ItemCategoryController {
         return itemCategoryRepository.findById(id).map(existing -> {
             long linked = itemRepository.countByItemCategory_Id(id);
             if (linked > 0) {
-                throw new ConflictException("Não é possível excluir esta categoria: existem itens vinculados a ela.");
+                throw new ConflictException("NÃ£o Ã© possÃ­vel excluir esta categoria: existem itens vinculados a ela.");
             }
             itemCategoryRepository.deleteById(id);
             return ResponseEntity.noContent().<Void>build();
         }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
+
+

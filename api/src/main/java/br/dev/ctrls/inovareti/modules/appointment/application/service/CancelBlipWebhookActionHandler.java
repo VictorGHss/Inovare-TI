@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
@@ -9,11 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Estratégia de processamento específica para a ação de cancelamento de consulta ("cancel").
+ * EstratÃ©gia de processamento especÃ­fica para a aÃ§Ã£o de cancelamento de consulta ("cancel").
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler {
 
     private final AppointmentExternalPort appointmentExternalPort;
@@ -26,7 +29,7 @@ public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler 
 
     @Override
     public void prePersistence(AppointmentSession session, String action) {
-        log.info("[CANCEL] Paciente solicita cancelamento. Atualizando status na Feegow com código 100.");
+        log.info("[CANCEL] Paciente solicita cancelamento. Atualizando status na Feegow com cÃ³digo 100.");
         try {
             appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), "100");
         } catch (RestClientException | IllegalStateException ex) {
@@ -43,3 +46,5 @@ public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler 
         confirmationStateMachineService.markCanceled(session);
     }
 }
+
+

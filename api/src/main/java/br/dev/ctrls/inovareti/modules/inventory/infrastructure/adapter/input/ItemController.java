@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.inventory.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
@@ -44,12 +46,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controller REST para gerenciamento de itens de inventário e seus lotes de estoque.
+ * Controller REST para gerenciamento de itens de inventÃ¡rio e seus lotes de estoque.
  * Base path: /api/items
  */
 @RestController
 @RequestMapping("/items")
 @RequiredArgsConstructor
+@Observed
 public class ItemController {
 
     private final CreateItemUseCase createItemUseCase;
@@ -62,9 +65,9 @@ public class ItemController {
     private final FileStorageService fileStorageService;
 
     /**
-     * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
-     * Retorna 200 OK com a lista (vazia se não houver itens).
-     * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
+     * Retorna todos os itens de inventÃ¡rio, com categoria carregada via JOIN FETCH.
+     * Retorna 200 OK com a lista (vazia se nÃ£o houver itens).
+     * Todos os usuÃ¡rios autenticados podem ler (necessÃ¡rio para formulÃ¡rios de chamados).
      */
     @GetMapping
     public ResponseEntity<List<ItemResponseDTO>> listAll(
@@ -77,9 +80,9 @@ public class ItemController {
     }
 
     /**
-     * Busca um item de inventário específico por ID.
-     * Retorna 200 OK com os dados do item ou 404 se não encontrado.
-     * Todos os usuários autenticados podem ler (necessário para visualização em chamados).
+     * Busca um item de inventÃ¡rio especÃ­fico por ID.
+     * Retorna 200 OK com os dados do item ou 404 se nÃ£o encontrado.
+     * Todos os usuÃ¡rios autenticados podem ler (necessÃ¡rio para visualizaÃ§Ã£o em chamados).
      */
     @GetMapping("/{id}")
     public ResponseEntity<ItemResponseDTO> findById(@PathVariable UUID id) {
@@ -87,10 +90,10 @@ public class ItemController {
     }
 
     /**
-     * Lista todos os lotes de estoque de um item específico.
-     * Os lotes são retornados ordenados do mais recente para o mais antigo.
-     * Retorna 200 OK com a lista (vazia se não houver lotes).
-     * Todos os usuários autenticados podem ler informações de estoque.
+     * Lista todos os lotes de estoque de um item especÃ­fico.
+     * Os lotes sÃ£o retornados ordenados do mais recente para o mais antigo.
+     * Retorna 200 OK com a lista (vazia se nÃ£o houver lotes).
+     * Todos os usuÃ¡rios autenticados podem ler informaÃ§Ãµes de estoque.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{id}/batches")
@@ -110,7 +113,7 @@ public class ItemController {
     }
 
     /**
-     * Cria um novo item de inventário com estoque inicial zero.
+     * Cria um novo item de inventÃ¡rio com estoque inicial zero.
      * Retorna 201 Created com os dados do item.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -130,7 +133,7 @@ public class ItemController {
             @PathVariable UUID id,
             @Valid @RequestBody StockBatchRequestDTO request) {
 
-        // Garante que o itemId do path e do body são consistentes
+        // Garante que o itemId do path e do body sÃ£o consistentes
         StockBatchRequestDTO consistentRequest = new StockBatchRequestDTO(
                 id,
                 request.quantity(),
@@ -148,7 +151,7 @@ public class ItemController {
 
     /**
      * Upload de nota fiscal (PDF ou imagem) para um lote de estoque.
-     * O arquivo é salvo em disco e os metadados são armazenados na entidade StockBatch.
+     * O arquivo Ã© salvo em disco e os metadados sÃ£o armazenados na entidade StockBatch.
      *
      * POST /api/items/{itemId}/batches/{batchId}/invoice
      * Content-Type: multipart/form-data
@@ -156,7 +159,7 @@ public class ItemController {
      *
      * @param itemId  UUID do Item
      * @param batchId UUID do StockBatch
-     * @param file    Arquivo PDF ou Imagem (máx 5MB)
+     * @param file    Arquivo PDF ou Imagem (mÃ¡x 5MB)
      * @return        Lote atualizado com metadados da NF
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -174,7 +177,7 @@ public class ItemController {
             throw new BadRequestException("Stock batch does not belong to the specified item.");
         }
 
-        // Se já existe um arquivo anterior, remove-o do disco
+        // Se jÃ¡ existe um arquivo anterior, remove-o do disco
         if (batch.getInvoiceFilePath() != null) {
             fileStorageService.deleteInvoiceFile(batch.getInvoiceFilePath());
         }
@@ -198,7 +201,7 @@ public class ItemController {
      *
      * @param itemId  UUID do Item
      * @param batchId UUID do StockBatch
-     * @return        Arquivo binário com headers apropriados (Content-Disposition, Content-Type)
+     * @return        Arquivo binÃ¡rio com headers apropriados (Content-Disposition, Content-Type)
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{itemId}/batches/{batchId}/invoice")
@@ -227,3 +230,5 @@ public class ItemController {
                 .body(fileContent);
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.user.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
+@Observed
 public class ToggleSectorActiveUseCase {
 
     private final SectorRepositoryPort sectorRepository;
@@ -23,7 +26,7 @@ public class ToggleSectorActiveUseCase {
     @Transactional
     public SectorResponseDTO execute(UUID id) {
         Sector sector = sectorRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Setor não encontrado com o ID: " + id));
+                .orElseThrow(() -> new NotFoundException("Setor nÃ£o encontrado com o ID: " + id));
 
         boolean oldStatus = sector.isActive();
         sector.setActive(!oldStatus);
@@ -38,3 +41,5 @@ public class ToggleSectorActiveUseCase {
         return SectorResponseDTO.from(saved);
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.JsonSafeReader;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.NumberToWords;
 
@@ -35,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class InternalReceiptService {
 
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
@@ -57,10 +60,10 @@ public class InternalReceiptService {
             String htmlLogoBase64 = resolveLogoDataUri();
             String doctorDocument = resolveDoctorDocument(doctorCpfCnpj);
 
-            if ("Documento não cadastrado".equals(doctorDocument)) {
-                log.info("Recibo interno gerado para médico sem CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+            if ("Documento nÃ£o cadastrado".equals(doctorDocument)) {
+                log.info("Recibo interno gerado para mÃ©dico sem CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
             } else {
-                log.info("Recibo interno gerado para médico com CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+                log.info("Recibo interno gerado para mÃ©dico com CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
             }
 
             Context context = new Context(Locale.forLanguageTag("pt-BR"));
@@ -86,7 +89,7 @@ public class InternalReceiptService {
                 return output.toByteArray();
             }
         } catch (RuntimeException ex) {
-            log.error("Falha em tempo de execução ao gerar recibo interno em PDF.", ex);
+            log.error("Falha em tempo de execuÃ§Ã£o ao gerar recibo interno em PDF.", ex);
             throw new IllegalStateException("Falha ao gerar recibo interno em PDF.", ex);
         } catch (java.io.IOException ex) {
             log.error("Falha ao gerar recibo interno em PDF.", ex);
@@ -258,7 +261,7 @@ public class InternalReceiptService {
             return doctorCpfCnpj.trim();
         }
 
-        return "Documento não cadastrado";
+        return "Documento nÃ£o cadastrado";
     }
 
     private BigDecimal parseCurrencyValue(String rawValue) {
@@ -287,4 +290,6 @@ public class InternalReceiptService {
         return formatter.format(Objects.requireNonNullElse(value, BigDecimal.ZERO));
     }
 }
+
+
 

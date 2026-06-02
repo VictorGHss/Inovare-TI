@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.report.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -14,15 +16,16 @@ import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportPdfExporte
 import lombok.RequiredArgsConstructor;
 
 /**
- * Fachada pura de relatórios.
+ * Fachada pura de relatÃ³rios.
  *
  * Responsabilidades desta classe:
- * - receber requisições de exportação;
- * - delegar cálculo de valores;
- * - delegar a geração do arquivo para os Ports correspondentes (Excel/PDF) retornando byte[].
+ * - receber requisiÃ§Ãµes de exportaÃ§Ã£o;
+ * - delegar cÃ¡lculo de valores;
+ * - delegar a geraÃ§Ã£o do arquivo para os Ports correspondentes (Excel/PDF) retornando byte[].
  */
 @Service
 @RequiredArgsConstructor
+@Observed
 public class ReportService {
 
     private final ReportExcelExporterPort reportExcelExporter;
@@ -56,7 +59,7 @@ public class ReportService {
     private List<Ticket> buildUnifiedExitRows(java.time.LocalDateTime start, java.time.LocalDateTime end, Map<UUID, BigDecimal> totalsByTicket) {
         List<Ticket> unifiedRows = new java.util.ArrayList<>();
 
-        // 1) Chamados de SOLICITAÇÃO resolvidos no período (requestedItem preenchido)
+        // 1) Chamados de SOLICITAÃ‡ÃƒO resolvidos no perÃ­odo (requestedItem preenchido)
         try {
             List<Ticket> requestTickets = ticketRepository.findResolvedRequestTicketsInPeriod(start, end);
             for (Ticket ticket : requestTickets) {
@@ -80,7 +83,7 @@ public class ReportService {
             // Ignorado
         }
 
-        // 2) Saídas DIRETAS de consumíveis (StockMovements sem referência TICKET:)
+        // 2) SaÃ­das DIRETAS de consumÃ­veis (StockMovements sem referÃªncia TICKET:)
         try {
             List<br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement> movements =
                     stockMovementRepository.findByDateBetweenAndTypeOrderByDateDesc(
@@ -98,7 +101,7 @@ public class ReportService {
 
                         Ticket mockTicket = Ticket.builder()
                                 .id(mockId)
-                                .title("Saída Direta de Material: " + item.getName())
+                                .title("SaÃ­da Direta de Material: " + item.getName())
                                 .status(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus.RESOLVED)
                                 .priority(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority.NORMAL)
                                 .requester(null)
@@ -119,7 +122,7 @@ public class ReportService {
             // Ignorado
         }
 
-        // 3) Ativos entregues via AssetMaintenance do tipo TRANSFER no período
+        // 3) Ativos entregues via AssetMaintenance do tipo TRANSFER no perÃ­odo
         try {
             List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> maintenances =
                     assetMaintenanceRepository.findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(
@@ -201,7 +204,7 @@ public class ReportService {
             // Ignorado
         }
 
-        // Ordenação por data mais antiga até mais nova
+        // OrdenaÃ§Ã£o por data mais antiga atÃ© mais nova
         unifiedRows.sort((a, b) -> {
             if (a.getClosedAt() == null && b.getClosedAt() == null) return 0;
             if (a.getClosedAt() == null) return 1;
@@ -212,3 +215,5 @@ public class ReportService {
         return unifiedRows;
     }
 }
+
+

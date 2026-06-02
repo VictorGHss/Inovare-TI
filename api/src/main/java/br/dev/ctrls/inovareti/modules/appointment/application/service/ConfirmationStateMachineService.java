@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import java.time.LocalDateTime;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+@Observed
 public class ConfirmationStateMachineService {
 
     public AppointmentSession markNudge1Sent(AppointmentSession session) {
@@ -57,3 +60,5 @@ public class ConfirmationStateMachineService {
         return session;
     }
 }
+
+

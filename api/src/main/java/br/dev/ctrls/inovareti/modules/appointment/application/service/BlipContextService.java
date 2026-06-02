@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -11,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @org.springframework.stereotype.Service
+@Observed
 public class BlipContextService {
 
     private final BlipLIMEClient limeClient;
@@ -89,11 +92,11 @@ public class BlipContextService {
 
     /**
      * Envia um contexto JSON ao Blip via comando LIME.
-     * O resource é passado como Object (Map, record, etc.) e serializado para string JSON,
+     * O resource Ã© passado como Object (Map, record, etc.) e serializado para string JSON,
      * sendo enviado como type: "text/plain".
      * Isso evita o erro Code 21 (quando enviado como application/json com string) AND
      * evita o erro de [object Object] / Redirecionamento incorreto no Javascript do Blip
-     * (já que o Blip receberá e armazenará uma string JSON pura que o script consegue parsear).
+     * (jÃ¡ que o Blip receberÃ¡ e armazenarÃ¡ uma string JSON pura que o script consegue parsear).
      */
     public void setJsonContext(String normalizedIdentity, String key, Object resourceObject) {
         if (normalizedIdentity == null || normalizedIdentity.isBlank() || resourceObject == null) return;
@@ -196,9 +199,9 @@ public class BlipContextService {
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
             String normalizedPhone = limeClient.normalizeUserIdentity(userPhone);
-            String userIdentity = normalizedPhone; // A identidade já possui o domínio correto pós-normalização
+            String userIdentity = normalizedPhone; // A identidade jÃ¡ possui o domÃ­nio correto pÃ³s-normalizaÃ§Ã£o
 
-            // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistência imediata)
+            // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistÃªncia imediata)
             BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
             BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
             contactResource.setIdentity(userIdentity);
@@ -219,17 +222,17 @@ public class BlipContextService {
 
             // Roteamento delegado ao payload nativo do Blip Builder.
             // Os Passos 3 e 4 (Master-State e stateid) foram removidos intencionalmente:
-            // o próprio Blip detecta 'confirm_' ou 'alter_' no payload do botão e faz o desvio
+            // o prÃ³prio Blip detecta 'confirm_' ou 'alter_' no payload do botÃ£o e faz o desvio
             // de fluxo de forma nativa, eliminando a disputa de estado com o Roteador principal.
             log.info("[MENSAGERIA] Registro processado. Delegando roteamento ao payload nativo do Blip Builder para a identidade: {}", userIdentity);
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
+            throw new RuntimeException("Falha ao executar orquestraÃ§Ã£o de push no Blip", e);
         }
     }
 
     /**
      * Verifica se o contato possui um ticket de atendimento humano ativo ou aberto no Desk (live chat) do Blip.
-     * Útil como barreira de segurança para pausar/abortar nudges automáticos durante atendimento humano.
+     * Ãštil como barreira de seguranÃ§a para pausar/abortar nudges automÃ¡ticos durante atendimento humano.
      */
     public boolean hasActiveTicket(String userIdentity) {
         if (userIdentity == null || userIdentity.isBlank()) return false;
@@ -259,7 +262,7 @@ public class BlipContextService {
             return false;
         } catch (Exception ex) {
             log.warn("[ATTENDANCE-GUARD] Falha ao verificar ticket ativo no Desk para {}: {}", normalizedIdentity, ex.getMessage());
-            return false; // Fail-open para não travar os nudges normais em caso de falha de rede/autorização
+            return false; // Fail-open para nÃ£o travar os nudges normais em caso de falha de rede/autorizaÃ§Ã£o
         }
     }
 
@@ -268,13 +271,13 @@ public class BlipContextService {
 
         String safeQueueName = cleanQueueName(queueName);
         if (safeQueueName.isBlank()) {
-            safeQueueName = "Recepção Central / Suporte";
-            log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueName, safeQueueName);
+            safeQueueName = "RecepÃ§Ã£o Central / Suporte";
+            log.warn("[QUEUE] Nome de fila invÃ¡lido ('{}') substituÃ­do por fallback: '{}'", queueName, safeQueueName);
         }
 
         if (!safeQueueName.isBlank()
-                && !"Recepção Central / Suporte".equalsIgnoreCase(safeQueueName)
-                && !"Recepção".equalsIgnoreCase(safeQueueName)
+                && !"RecepÃ§Ã£o Central / Suporte".equalsIgnoreCase(safeQueueName)
+                && !"RecepÃ§Ã£o".equalsIgnoreCase(safeQueueName)
                 && !safeQueueName.contains(" - ")) {
             log.warn("[QUEUE WARNING] Nome da fila pode estar incompleto para o Desk. fila='{}'", safeQueueName);
         }
@@ -321,3 +324,4 @@ public class BlipContextService {
         return cleaned;
     }
 }
+

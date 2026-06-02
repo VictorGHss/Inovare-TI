@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.vault.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.vault.application.service.VaultService;
 
 import java.io.IOException;
@@ -44,6 +46,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/vault")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@Observed
 public class VaultController {
 
     private final VaultService vaultService;
@@ -51,7 +54,7 @@ public class VaultController {
     private final ObjectMapper objectMapper;
     private final LocalFileStorageService fileStorageService;
     private final AuditLogService auditLogService;
-    private final Validator validator; // CORREÇÃO DE SEGURANÇA: Injeção do validador para multipart/part manual
+    private final Validator validator; // CORREÃ‡ÃƒO DE SEGURANÃ‡A: InjeÃ§Ã£o do validador para multipart/part manual
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<VaultItemResponseDTO> createItem(
@@ -59,7 +62,7 @@ public class VaultController {
             @RequestPart(value = "file", required = false) MultipartFile file,
             HttpServletRequest httpRequest) {
 
-        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de criar qualquer item no cofre.
+        // Exige validaÃ§Ã£o ativa do segundo fator de autenticaÃ§Ã£o (MFA/2FA) antes de criar qualquer item no cofre.
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         twoFactorSessionGuard.assertVerified(authentication);
 
@@ -83,7 +86,7 @@ public class VaultController {
             @RequestPart(value = "file", required = false) MultipartFile file,
             HttpServletRequest httpRequest) {
 
-        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de modificar qualquer item no cofre.
+        // Exige validaÃ§Ã£o ativa do segundo fator de autenticaÃ§Ã£o (MFA/2FA) antes de modificar qualquer item no cofre.
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         twoFactorSessionGuard.assertVerified(authentication);
 
@@ -95,7 +98,7 @@ public class VaultController {
 
     @DeleteMapping("/{itemId}")
     public ResponseEntity<Void> deleteItem(@PathVariable UUID itemId, HttpServletRequest httpRequest) {
-        // Exige validação ativa do segundo fator de autenticação (MFA/2FA) antes de excluir qualquer item no cofre.
+        // Exige validaÃ§Ã£o ativa do segundo fator de autenticaÃ§Ã£o (MFA/2FA) antes de excluir qualquer item no cofre.
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         twoFactorSessionGuard.assertVerified(authentication);
 
@@ -123,7 +126,7 @@ public class VaultController {
         UUID userId = getAuthenticatedUserId();
         var item = vaultService.findAccessibleItem(userId, itemId);
         if (item.getFilePath() == null || item.getFilePath().isBlank()) {
-            throw new BadRequestException("Este item não possui anexo para visualização.");
+            throw new BadRequestException("Este item nÃ£o possui anexo para visualizaÃ§Ã£o.");
         }
 
         try {
@@ -131,7 +134,7 @@ public class VaultController {
             byte[] fileBytes = resource.getInputStream().readAllBytes();
             String contentType = resolveContentType(item.getFilePath());
 
-            // Registra visualização de arquivo do Vault na trilha de auditoria
+            // Registra visualizaÃ§Ã£o de arquivo do Vault na trilha de auditoria
                 auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_VIEW)
                     .userId(userId)
                     .resourceType("VaultItem")
@@ -145,20 +148,20 @@ public class VaultController {
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + item.getFilePath() + "\"")
                     .body(fileBytes);
         } catch (IOException ex) {
-            throw new BadRequestException("Não foi possível carregar o anexo do item do cofre.");
+            throw new BadRequestException("NÃ£o foi possÃ­vel carregar o anexo do item do cofre.");
         }
     }
 
     private UUID getAuthenticatedUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
-            throw new BadRequestException("Usuário autenticado não encontrado.");
+            throw new BadRequestException("UsuÃ¡rio autenticado nÃ£o encontrado.");
         }
 
         try {
             return UUID.fromString(authentication.getPrincipal().toString());
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
         }
     }
 
@@ -174,28 +177,28 @@ public class VaultController {
     private VaultCreateItemRequestDTO parseCreatePayload(String payload) {
         try {
             VaultCreateItemRequestDTO dto = objectMapper.readValue(payload, VaultCreateItemRequestDTO.class);
-            // CORREÇÃO DE SEGURANÇA: Validação manual para garantir que restrições Bean Validation sejam aplicadas
+            // CORREÃ‡ÃƒO DE SEGURANÃ‡A: ValidaÃ§Ã£o manual para garantir que restriÃ§Ãµes Bean Validation sejam aplicadas
             var violations = validator.validate(dto);
             if (!violations.isEmpty()) {
                 throw new ConstraintViolationException(violations);
             }
             return dto;
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
-            throw new BadRequestException("Payload do item do cofre inválido.");
+            throw new BadRequestException("Payload do item do cofre invÃ¡lido.");
         }
     }
 
     private VaultUpdateItemRequestDTO parseUpdatePayload(String payload) {
         try {
             VaultUpdateItemRequestDTO dto = objectMapper.readValue(payload, VaultUpdateItemRequestDTO.class);
-            // CORREÇÃO DE SEGURANÇA: Validação manual para garantir que restrições Bean Validation sejam aplicadas
+            // CORREÃ‡ÃƒO DE SEGURANÃ‡A: ValidaÃ§Ã£o manual para garantir que restriÃ§Ãµes Bean Validation sejam aplicadas
             var violations = validator.validate(dto);
             if (!violations.isEmpty()) {
                 throw new ConstraintViolationException(violations);
             }
             return dto;
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
-            throw new BadRequestException("Payload de atualização do item do cofre inválido.");
+            throw new BadRequestException("Payload de atualizaÃ§Ã£o do item do cofre invÃ¡lido.");
         }
     }
 
@@ -214,3 +217,4 @@ public class VaultController {
         return "application/octet-stream";
     }
 }
+

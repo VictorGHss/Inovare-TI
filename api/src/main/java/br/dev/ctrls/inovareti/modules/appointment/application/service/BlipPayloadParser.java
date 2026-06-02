@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.Map;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,17 +11,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Utilitário responsável por analisar payloads do Blip e extrair metadados úteis para o roteamento do webhook.
+ * UtilitÃ¡rio responsÃ¡vel por analisar payloads do Blip e extrair metadados Ãºteis para o roteamento do webhook.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class BlipPayloadParser {
 
     private final ObjectMapper objectMapper;
 
     /**
-     * Tenta identificar e extrair a ação do usuário de dentro do payload 'content'.
+     * Tenta identificar e extrair a aÃ§Ã£o do usuÃ¡rio de dentro do payload 'content'.
      */
     public String resolveActionFromContent(Object content) {
         if (content == null) {
@@ -47,7 +50,7 @@ public class BlipPayloadParser {
     }
 
     /**
-     * Retorna o primeiro valor não-nulo e não-vazio.
+     * Retorna o primeiro valor nÃ£o-nulo e nÃ£o-vazio.
      */
     public String firstNonBlank(String... values) {
         if (values == null) {
@@ -62,7 +65,7 @@ public class BlipPayloadParser {
     }
 
     /**
-     * Converte um objeto para String se aplicável.
+     * Converte um objeto para String se aplicÃ¡vel.
      */
     public String asText(Object value) {
         if (value == null) {
@@ -78,7 +81,7 @@ public class BlipPayloadParser {
     }
 
     /**
-     * Converte o valor para um Map genérico usando Jackson.
+     * Converte o valor para um Map genÃ©rico usando Jackson.
      */
     public Map<String, Object> toMap(Object value) {
         if (value == null) {
@@ -97,7 +100,7 @@ public class BlipPayloadParser {
     }
 
     /**
-     * Normaliza e purifica o ID de consulta da Feegow removendo casas decimais desnecessárias.
+     * Normaliza e purifica o ID de consulta da Feegow removendo casas decimais desnecessÃ¡rias.
      */
     public String normalizeFeegowAppointmentId(String feegowAppointmentId) {
         if (feegowAppointmentId == null) {
@@ -121,7 +124,7 @@ public class BlipPayloadParser {
         String sessionPhone = session != null ? session.getPhoneNumber() : null;
         String fallback = normalizeDispatchIdentity(sessionPhone);
         if (fallback == null) {
-            log.warn("Identidade de disparo inválida. from={}, sessionPhone={}", from, sessionPhone);
+            log.warn("Identidade de disparo invÃ¡lida. from={}, sessionPhone={}", from, sessionPhone);
         }
         return fallback;
     }
@@ -136,3 +139,5 @@ public class BlipPayloadParser {
         return identity.trim();
     }
 }
+
+

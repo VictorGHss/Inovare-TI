@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.auth.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -28,13 +30,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controlador REST para os endpoints de autenticação.
+ * Controlador REST para os endpoints de autenticaÃ§Ã£o.
  * Caminho base: /api/auth
  */
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@Observed
 public class AuthController {
 
     private final LoginUseCase loginUseCase;
@@ -44,8 +47,8 @@ public class AuthController {
     private final TokenPort tokenPort;
 
     /**
-     * Autentica o usuário e retorna um token JWT assinado.
-     * Este é o único endpoint público da API.
+     * Autentica o usuÃ¡rio e retorna um token JWT assinado.
+     * Este Ã© o Ãºnico endpoint pÃºblico da API.
      *
      * @param request credenciais de login (e-mail + senha)
      * @return 200 OK com o token JWT
@@ -91,8 +94,8 @@ public class AuthController {
     }
 
     /**
-     * Solicita a recuperação do 2FA: gera um código e envia ao Discord do usuário.
-     * Requer JWT válido (sem necessidade de 2FA verificado).
+     * Solicita a recuperaÃ§Ã£o do 2FA: gera um cÃ³digo e envia ao Discord do usuÃ¡rio.
+     * Requer JWT vÃ¡lido (sem necessidade de 2FA verificado).
      */
     @PostMapping("/2fa/reset-request")
     public ResponseEntity<Void> requestTwoFactorReset() {
@@ -101,7 +104,7 @@ public class AuthController {
     }
 
     /**
-     * Confirma a recuperação do 2FA: valida o código recebido + senha atual.
+     * Confirma a recuperaÃ§Ã£o do 2FA: valida o cÃ³digo recebido + senha atual.
      * Se correto, limpa o totp_secret e retorna novo JWT.
      */
     @PostMapping("/2fa/reset-confirm")
@@ -117,16 +120,16 @@ public class AuthController {
     private UUID getAuthenticatedUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
-            throw new BadRequestException("Usuário autenticado não encontrado.");
+            throw new BadRequestException("UsuÃ¡rio autenticado nÃ£o encontrado.");
         }
 
         Object principal = authentication.getPrincipal();
 
-        // Caso o principal seja a entidade User (definida no domínio), retornamos o id
+        // Caso o principal seja a entidade User (definida no domÃ­nio), retornamos o id
         if (principal instanceof User user) {
             UUID id = user.getId();
             if (id == null) {
-                throw new BadRequestException("Identificador do usuário autenticado inválido.");
+                throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
             }
             return id;
         }
@@ -136,7 +139,7 @@ public class AuthController {
             try {
                 return UUID.fromString(s);
             } catch (IllegalArgumentException ex) {
-                throw new BadRequestException("Identificador do usuário autenticado inválido.");
+                throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
             }
         }
 
@@ -145,7 +148,7 @@ public class AuthController {
         try {
             return UUID.fromString(principalStr);
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
         }
     }
 
@@ -157,3 +160,5 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 }
+
+

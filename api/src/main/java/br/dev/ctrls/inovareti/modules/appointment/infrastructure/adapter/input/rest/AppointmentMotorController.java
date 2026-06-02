@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.input.rest;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,13 +32,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controlador de entrada REST responsável por expor as rotas HTTP do Motor de Agendamentos.
- * Todas as lógicas de enriquecimento e cruzamento de dados foram delegadas ao {@link AppointmentEnrichmentService}.
+ * Controlador de entrada REST responsÃ¡vel por expor as rotas HTTP do Motor de Agendamentos.
+ * Todas as lÃ³gicas de enriquecimento e cruzamento de dados foram delegadas ao {@link AppointmentEnrichmentService}.
  */
 @Slf4j
 @RestController
 @RequestMapping("/v1/appointments")
 @RequiredArgsConstructor
+@Observed
 public class AppointmentMotorController {
 
     private final BlipWebhookInboundService blipWebhookInboundService;
@@ -248,3 +251,5 @@ public class AppointmentMotorController {
         @JsonProperty("ignoreAutoSchedule") Boolean ignoreAutoSchedule) {
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.auth.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Observed
 public class TwoFactorAuthService {
 
     private final UserRepositoryPort userRepository;
@@ -117,3 +120,5 @@ public class TwoFactorAuthService {
         }
     }
 }
+
+

@@ -1,4 +1,5 @@
 package br.dev.ctrls.inovareti.modules.ticket.infrastructure.adapter.input;
+import io.micrometer.observation.annotation.Observed;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketAttachmentRepositoryPort;
 
 
@@ -23,13 +24,14 @@ import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controlador para servir arquivos de anexos estáticos.
+ * Controlador para servir arquivos de anexos estÃ¡ticos.
  * Caminho base: /api/attachments
  */
 @RestController
 @RequestMapping("/attachments")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@Observed
 public class FileController {
 
     private final LocalFileStorageService fileStorageService;
@@ -38,7 +40,7 @@ public class FileController {
 
     /**
      * Serve um arquivo pelo nome armazenado.
-     * Retorna o arquivo com o content type adequado para exibição inline ou download.
+     * Retorna o arquivo com o content type adequado para exibiÃ§Ã£o inline ou download.
      */
     @GetMapping("/{filename}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
@@ -75,7 +77,7 @@ public class FileController {
         try {
             Resource resource = fileStorageService.load(filename);
             
-            // Determina o content type com base na extensão do arquivo
+            // Determina o content type com base na extensÃ£o do arquivo
             String contentType = "application/octet-stream";
             if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
                 contentType = "image/jpeg";
@@ -98,3 +100,5 @@ public class FileController {
         }
     }
 }
+
+

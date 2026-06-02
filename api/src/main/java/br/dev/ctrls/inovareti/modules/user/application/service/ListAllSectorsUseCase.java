@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.user.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.application.dto.SectorResponseDTO;
@@ -14,6 +16,7 @@ import java.util.List;
  */
 @Component
 @RequiredArgsConstructor
+@Observed
 public class ListAllSectorsUseCase {
 
     private final SectorRepositoryPort sectorRepository;
@@ -36,3 +39,5 @@ public class ListAllSectorsUseCase {
                 .toList();
     }
 }
+
+

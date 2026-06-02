@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -29,7 +31,7 @@ class ContaAzulControllerTest {
 
     @Test
     void forceRefreshReturnsOk() throws Exception {
-        // Inicializa mocks localmente para evitar método de setup global
+        // Inicializa mocks localmente para evitar mÃ©todo de setup global
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
@@ -63,5 +65,7 @@ class ContaAzulControllerTest {
             .andExpect(status().isTooManyRequests());
     }
 
-    // Método de setup removido; os testes inicializam mocks localmente.
+    // MÃ©todo de setup removido; os testes inicializam mocks localmente.
 }
+
+

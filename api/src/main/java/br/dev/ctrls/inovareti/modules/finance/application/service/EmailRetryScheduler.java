@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedReceiptRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceiptStatus;
@@ -21,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class EmailRetryScheduler {
 
     private static final int MAX_RETRIES = 3;
@@ -69,7 +72,7 @@ public class EmailRetryScheduler {
                 }
             }
         } catch (RuntimeException ex) {
-            log.error("Falha geral no scheduler de retry financeiro. O serviço continuará ativo para próxima execução.", ex);
+            log.error("Falha geral no scheduler de retry financeiro. O serviÃ§o continuarÃ¡ ativo para prÃ³xima execuÃ§Ã£o.", ex);
         }
     }
 
@@ -95,5 +98,7 @@ public class EmailRetryScheduler {
         }
     }
 }
+
+
 
 

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ProcessedReceipt;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ProcessedReceiptRepository;
@@ -35,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class FinanceiroOperationsService {
 
     private static final int BACKFILL_DAYS = 30;
@@ -59,13 +62,13 @@ public class FinanceiroOperationsService {
         return systemAlertRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    public ParcelProcessingResult conciliarParcelaPorId(String parcelaId) { // Renomeado para refletir linguagem ubíqua
+    public ParcelProcessingResult conciliarParcelaPorId(String parcelaId) { // Renomeado para refletir linguagem ubÃ­qua
         if (!StringUtils.hasText(parcelaId)) {
-            throw new BadRequestException("Parcela inválida para processamento manual.");
+            throw new BadRequestException("Parcela invÃ¡lida para processamento manual.");
         }
 
         if (processedReceiptRepository.existsByParcelaId(parcelaId)) {
-            return new ParcelProcessingResult(parcelaId, false, true, "Parcela já processada anteriormente.");
+            return new ParcelProcessingResult(parcelaId, false, true, "Parcela jÃ¡ processada anteriormente.");
         }
 
         ContaAzulPaymentParcel parcela = contaAzulPaymentsClient.fetchParcelById(parcelaId);
@@ -75,7 +78,7 @@ public class FinanceiroOperationsService {
             receiptDispatcher.dispatchReceipt(parcela, pdfBytes, receiptHash);
         } catch (HttpClientErrorException.NotFound ex) {
             log.warn(
-                    "Recibo PDF não encontrado na ContaAzul para parcela {}. Processando sem anexo.",
+                    "Recibo PDF nÃ£o encontrado na ContaAzul para parcela {}. Processando sem anexo.",
                     parcela.parcelaId());
             String receiptHash = sha256("manual-no-pdf:" + parcela.parcelaId());
             receiptDispatcher.dispatchReceiptWithoutPdf(parcela, receiptHash);
@@ -87,12 +90,12 @@ public class FinanceiroOperationsService {
     @Transactional
     public void requeueAlertReceipt(UUID alertId, UUID resolvedBy) {
         SystemAlert alert = systemAlertRepository.findById(alertId)
-                .orElseThrow(() -> new BadRequestException("Alerta financeiro não encontrado."));
+                .orElseThrow(() -> new BadRequestException("Alerta financeiro nÃ£o encontrado."));
 
         String parcelaId = readParcelaIdFromAlert(alert);
 
         ProcessedReceipt receipt = processedReceiptRepository.findByParcelaId(parcelaId)
-                .orElseThrow(() -> new BadRequestException("Recibo financeiro não encontrado para a parcela informada no alerta."));
+                .orElseThrow(() -> new BadRequestException("Recibo financeiro nÃ£o encontrado para a parcela informada no alerta."));
 
         receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
         receipt.setRetryCount(0);
@@ -112,7 +115,7 @@ public class FinanceiroOperationsService {
         systemAlertRepository.save(alert);
     }
 
-    public BackfillResult executarBackfillUltimos30Dias() { // Renomeado para refletir linguagem ubíqua
+    public BackfillResult executarBackfillUltimos30Dias() { // Renomeado para refletir linguagem ubÃ­qua
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime from = now.minusDays(BACKFILL_DAYS);
 
@@ -156,7 +159,7 @@ public class FinanceiroOperationsService {
 
                     if (financialLink == null) {
                         skippedWithoutLink++;
-                        log.warn("Backfill ignorou parcela {}: vínculo financeiro não encontrado para customer {}.",
+                        log.warn("Backfill ignorou parcela {}: vÃ­nculo financeiro nÃ£o encontrado para customer {}.",
                                 parcel.parcelaId(),
                                 parcel.customerId());
                         continue;
@@ -211,7 +214,7 @@ public class FinanceiroOperationsService {
     }
 
     private void pauseBetweenWindows() {
-        LockSupport.parkNanos(Duration.ofMillis(WINDOW_DELAY_MS).toNanos()); // Usando LockSupport.parkNanos para delays não bloqueantes
+        LockSupport.parkNanos(Duration.ofMillis(WINDOW_DELAY_MS).toNanos()); // Usando LockSupport.parkNanos para delays nÃ£o bloqueantes
         if (Thread.currentThread().isInterrupted()) {
             throw new IllegalStateException("Backfill interrompido durante rate limit entre janelas.");
         }
@@ -219,12 +222,12 @@ public class FinanceiroOperationsService {
 
     private String readParcelaIdFromAlert(SystemAlert alert) {
         if (alert.getContext() == null) {
-            throw new BadRequestException("Contexto do alerta financeiro não contém parcela associada.");
+            throw new BadRequestException("Contexto do alerta financeiro nÃ£o contÃ©m parcela associada.");
         }
 
         Object parcelaId = alert.getContext().get("parcelaId");
         if (!(parcelaId instanceof String parcela) || parcela.isBlank()) {
-            throw new BadRequestException("Contexto do alerta financeiro inválido para reenvio manual.");
+            throw new BadRequestException("Contexto do alerta financeiro invÃ¡lido para reenvio manual.");
         }
 
         return parcela;
@@ -236,7 +239,7 @@ public class FinanceiroOperationsService {
             byte[] hash = digest.digest(rawValue.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("Falha ao calcular hash do recibo histórico.", ex);
+            throw new IllegalStateException("Falha ao calcular hash do recibo histÃ³rico.", ex);
         }
     }
 
@@ -265,5 +268,7 @@ public class FinanceiroOperationsService {
             String message) {
     }
 }
+
+
 
 

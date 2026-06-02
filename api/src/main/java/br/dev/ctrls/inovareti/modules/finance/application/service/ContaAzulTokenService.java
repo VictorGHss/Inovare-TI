@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulOAuthToken;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.ContaAzulOAuthTokenRepository;
 
@@ -27,11 +29,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço de gerenciamento do token OAuth2 da integração com Conta Azul.
+ * ServiÃ§o de gerenciamento do token OAuth2 da integraÃ§Ã£o com Conta Azul.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class ContaAzulTokenService {
 
     private final RestTemplate restTemplate;
@@ -43,7 +46,7 @@ public class ContaAzulTokenService {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : properties.getRedirectUri();
         String state = UUID.randomUUID().toString();
         
-        log.debug("Construindo URL de autorização da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
+        log.debug("Construindo URL de autorizaÃ§Ã£o da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
         
         String authorizationUrl = UriComponentsBuilder
             .fromUriString(properties.getAuthorizationUrl())
@@ -55,7 +58,7 @@ public class ContaAzulTokenService {
                 .encode()
                 .toUriString();
         
-        log.debug("URL de autorização construída: {}", authorizationUrl);
+        log.debug("URL de autorizaÃ§Ã£o construÃ­da: {}", authorizationUrl);
         return authorizationUrl;
     }
 
@@ -72,20 +75,20 @@ public class ContaAzulTokenService {
 
     public ContaAzulOAuthToken getValidTokenFromDatabase() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado. Complete a autorização OAuth2 primeiro."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul nÃ£o inicializado. Complete a autorizaÃ§Ã£o OAuth2 primeiro."));
 
         if (isExpiringSoon(token)) {
             tokenLock.lock();
             try {
                 token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-                    .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado."));
+                    .orElseThrow(() -> new IllegalStateException("Token da ContaAzul nÃ£o inicializado."));
 
                 if (isExpiringSoon(token)) {
-                    log.info("Token expirando em breve. Iniciando renovação via refresh_token da ContaAzul.");
+                    log.info("Token expirando em breve. Iniciando renovaÃ§Ã£o via refresh_token da ContaAzul.");
                     token = refreshAndPersist(token);
                     token = reloadTokenFromDatabase(token.getId());
                 } else {
-                    log.info("Token já foi renovado por outra execução paralela. Pulando refresh.");
+                    log.info("Token jÃ¡ foi renovado por outra execuÃ§Ã£o paralela. Pulando refresh.");
                 }
             } finally {
                 tokenLock.unlock();
@@ -93,28 +96,28 @@ public class ContaAzulTokenService {
         }
 
         long minutesLeft = Duration.between(LocalDateTime.now(), token.getExpiresAt()).toMinutes();
-        log.info("Token válido por mais {} minutos", minutesLeft);
+        log.info("Token vÃ¡lido por mais {} minutos", minutesLeft);
         return token;
     }
 
     public String forceRefresh() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul nÃ£o inicializado."));
 
         ContaAzulOAuthToken refreshed = refreshAndPersist(token);
         long minutesLeft = Duration.between(LocalDateTime.now(), refreshed.getExpiresAt()).toMinutes();
-        log.info("Token renovado manualmente. Token válido por mais {} minutos", minutesLeft);
+        log.info("Token renovado manualmente. Token vÃ¡lido por mais {} minutos", minutesLeft);
         return refreshed.getAccessToken();
     }
 
     public ContaAzulOAuthToken forceRefreshAndReloadFromDatabase() {
         ContaAzulOAuthToken token = tokenRepository.findTopByOrderByUpdatedAtDesc()
-            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não inicializado."));
+            .orElseThrow(() -> new IllegalStateException("Token da ContaAzul nÃ£o inicializado."));
 
         ContaAzulOAuthToken refreshed = refreshAndPersist(token);
         ContaAzulOAuthToken reloaded = reloadTokenFromDatabase(refreshed.getId());
         long minutesLeft = Duration.between(LocalDateTime.now(), reloaded.getExpiresAt()).toMinutes();
-        log.info("Token renovado manualmente com recarga. Token válido por mais {} minutos", minutesLeft);
+        log.info("Token renovado manualmente com recarga. Token vÃ¡lido por mais {} minutos", minutesLeft);
         return reloaded;
     }
 
@@ -141,7 +144,7 @@ public class ContaAzulTokenService {
     public void refreshTokenProactively() {
         tokenRepository.findTopByOrderByUpdatedAtDesc().ifPresentOrElse(
                 this::refreshExistingToken,
-                () -> log.debug("Refresh de token ContaAzul ignorado: nenhum token disponível ainda."));
+                () -> log.debug("Refresh de token ContaAzul ignorado: nenhum token disponÃ­vel ainda."));
     }
 
     private void refreshExistingToken(ContaAzulOAuthToken token) {
@@ -156,7 +159,7 @@ public class ContaAzulTokenService {
     private ContaAzulOAuthToken refreshAndPersist(ContaAzulOAuthToken token) {
         ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
         if (!StringUtils.hasText(response.refreshToken())) {
-            throw new IllegalStateException("Resposta de refresh da ContaAzul não forneceu um novo refresh_token.");
+            throw new IllegalStateException("Resposta de refresh da ContaAzul nÃ£o forneceu um novo refresh_token.");
         }
         updateTokenFromResponse(token, response);
         ContaAzulOAuthToken saved = tokenRepository.save(token);
@@ -176,7 +179,7 @@ public class ContaAzulTokenService {
         try {
             return postTokenRequest(payload);
         } catch (IllegalStateException ex) {
-            log.error("Erro ao obter token de acesso da Conta Azul. Verifique as configurações.", ex);
+            log.error("Erro ao obter token de acesso da Conta Azul. Verifique as configuraÃ§Ãµes.", ex);
             throw ex;
         }
     }
@@ -200,7 +203,7 @@ public class ContaAzulTokenService {
                 ContaAzulTokenResponse.class);
 
         if (response == null || !StringUtils.hasText(response.accessToken()) || !StringUtils.hasText(response.refreshToken())) {
-            throw new IllegalStateException("Resposta de token da ContaAzul inválida.");
+            throw new IllegalStateException("Resposta de token da ContaAzul invÃ¡lida.");
         }
         return response;
     }
@@ -224,7 +227,7 @@ public class ContaAzulTokenService {
 
     private long resolveExpiresIn(Long expiresIn) {
         if (expiresIn == null || expiresIn <= 0) {
-            log.warn("ContaAzul token response returned expires_in inválido ({}). Aplicando fallback.", expiresIn);
+            log.warn("ContaAzul token response returned expires_in invÃ¡lido ({}). Aplicando fallback.", expiresIn);
         }
         return expiresIn != null && expiresIn > 0 ? expiresIn : 3600L;
     }
@@ -251,7 +254,7 @@ public class ContaAzulTokenService {
     private ContaAzulOAuthToken reloadTokenFromDatabase(UUID tokenId) {
         return tokenRepository.findById(tokenId)
                 .or(() -> tokenRepository.findTopByOrderByUpdatedAtDesc())
-                .orElseThrow(() -> new IllegalStateException("Token da ContaAzul não encontrado após refresh."));
+                .orElseThrow(() -> new IllegalStateException("Token da ContaAzul nÃ£o encontrado apÃ³s refresh."));
     }
 
     private record ContaAzulTokenResponse(
@@ -268,3 +271,5 @@ public class ContaAzulTokenService {
             LocalDateTime refreshedAt) {
     }
 }
+
+

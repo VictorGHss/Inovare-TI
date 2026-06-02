@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialLink;
 
@@ -16,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Observed
 public class CustomerEmailSyncService {
 
     private static final Duration EMAIL_CACHE_TTL = Duration.ofDays(7);
@@ -28,20 +31,20 @@ public class CustomerEmailSyncService {
             return link.getEmail();
         }
 
-        log.info("Cache expirado Ã¢â‚¬â€ buscando e-mail na API Conta Azul. customerId={}",
+        log.info("Cache expirado ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â buscando e-mail na API Conta Azul. customerId={}",
                 link.getContaAzulCustomerId());
 
         ContaAzulPessoaDTO pessoa = link.getContaAzulPessoaUuid() != null
                 ? pessoaClient.findById(link.getContaAzulPessoaUuid())
                         .orElseThrow(() -> new IllegalStateException(
-                                "UUID invÃƒÂ¡lido: " + link.getContaAzulPessoaUuid()))
+                                "UUID invÃƒÆ’Ã‚Â¡lido: " + link.getContaAzulPessoaUuid()))
                 : pessoaClient.findByLegacyId(link.getContaAzulCustomerId())
                         .orElseThrow(() -> new IllegalStateException(
-                                "Cliente nÃƒÂ£o encontrado no Conta Azul: " + link.getContaAzulCustomerId()));
+                                "Cliente nÃƒÆ’Ã‚Â£o encontrado no Conta Azul: " + link.getContaAzulCustomerId()));
 
         String email = pessoa.resolveEmail()
                 .orElseThrow(() -> new IllegalStateException(
-                        "MÃƒÂ©dico sem e-mail no Conta Azul. customerId=" + link.getContaAzulCustomerId()));
+                        "MÃƒÆ’Ã‚Â©dico sem e-mail no Conta Azul. customerId=" + link.getContaAzulCustomerId()));
 
         link.setEmail(email);
         link.setNomeCliente(pessoa.nome());
@@ -52,5 +55,7 @@ public class CustomerEmailSyncService {
         return email;
     }
 }
+
+
 
 

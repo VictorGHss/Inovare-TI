@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.AccountBalanceAudit;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulStatus;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialAccountRef;
@@ -27,11 +29,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço que atua como orquestrador da camada de aplicação para recuperar o resumo financeiro mensal.
+ * ServiÃ§o que atua como orquestrador da camada de aplicaÃ§Ã£o para recuperar o resumo financeiro mensal.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class ContaAzulFinancialSummaryService {
 
     private final ContaAzulTokenService contaAzulTokenService;
@@ -123,7 +126,7 @@ public class ContaAzulFinancialSummaryService {
         try {
             return contaAzulReceivablesFetcher.fetchReceivedParcels(accessToken);
         } catch (Exception ex) {
-            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
+            log.warn("Falha ao consultar parcelas RECEBIDO para cÃ¡lculo real por baixas.", ex);
             return new ReceivedParcelsResult(List.of(), false, null);
         }
     }
@@ -236,3 +239,5 @@ public class ContaAzulFinancialSummaryService {
         private static final long serialVersionUID = 1L;
     }
 }
+
+

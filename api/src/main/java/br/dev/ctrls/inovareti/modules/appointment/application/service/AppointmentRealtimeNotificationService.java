@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -8,11 +10,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço responsável por publicar eventos de agendamento para o frontend.
+ * ServiÃ§o responsÃ¡vel por publicar eventos de agendamento para o frontend.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class AppointmentRealtimeNotificationService {
 
     private static final String APPOINTMENT_EVENTS_TOPIC = "/topic/appointment-events";
@@ -20,7 +23,7 @@ public class AppointmentRealtimeNotificationService {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * Método de envio usado pelo fluxo de webhook de confirmação.
+     * MÃ©todo de envio usado pelo fluxo de webhook de confirmaÃ§Ã£o.
      */
     public void sendNotification(String patientName, String doctorName, String status) {
         AppointmentEventMessage payload = new AppointmentEventMessage(patientName, doctorName, status);
@@ -33,3 +36,5 @@ public class AppointmentRealtimeNotificationService {
         sendNotification(patientName, doctorName, status);
     }
 }
+
+

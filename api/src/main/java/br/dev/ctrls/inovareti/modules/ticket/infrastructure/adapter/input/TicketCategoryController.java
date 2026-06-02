@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.ticket.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCategoryRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCategoryResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.CreateTicketCategoryUseCase;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @RequestMapping("/ticket-categories")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@Observed
 public class TicketCategoryController {
 
     private final CreateTicketCategoryUseCase createTicketCategoryUseCase;
@@ -67,4 +70,6 @@ public class TicketCategoryController {
         return ResponseEntity.noContent().build();
     }
 }
+
+
 

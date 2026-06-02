@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,11 +16,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente especialista na gestão de ações de grupos de consultas e fallback de visualização de agenda.
+ * Componente especialista na gestÃ£o de aÃ§Ãµes de grupos de consultas e fallback de visualizaÃ§Ã£o de agenda.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class BlipGroupActionHandler {
 
     private final NotificationGroupRepositoryPort notificationGroupRepository;
@@ -30,7 +33,7 @@ public class BlipGroupActionHandler {
     private final BlipIdentityReconciler blipIdentityReconciler;
 
     /**
-     * Intercepta e processa as ações voltadas a agendamento de grupo.
+     * Intercepta e processa as aÃ§Ãµes voltadas a agendamento de grupo.
      */
     public boolean handleGroupAction(String action, String fromPhone, String bsuid, Object metadata) {
         String lowerAction = action.toLowerCase();
@@ -88,29 +91,29 @@ public class BlipGroupActionHandler {
                 log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupIdStr);
             }
         } catch (IllegalArgumentException e) {
-            log.error("[WEBHOOK] groupId inválido no payload ver_agenda_. action={}", action);
+            log.error("[WEBHOOK] groupId invÃ¡lido no payload ver_agenda_. action={}", action);
         }
     }
 
     private void handleConfirmGroup(String action, String fromPhone) {
         String groupIdStr = action.substring("confirm_group_".length()).trim();
-        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento assíncrono em lote.", groupIdStr);
+        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento assÃ­ncrono em lote.", groupIdStr);
         try {
             UUID groupId = UUID.fromString(groupIdStr);
             feegowBulkIntegrationHandler.confirmGroupAsync(groupId, fromPhone);
         } catch (Exception e) {
-            log.error("[WEBHOOK-BATCH] Erro ao agendar confirmação assíncrona para grupo " + groupIdStr, e);
+            log.error("[WEBHOOK-BATCH] Erro ao agendar confirmaÃ§Ã£o assÃ­ncrona para grupo " + groupIdStr, e);
         }
     }
 
     private void handleAlterGroup(String action, String fromPhone) {
         String groupIdStr = action.substring("alter_group_".length()).trim();
-        log.info("[WEBHOOK] Interceptando alter_group_{} para processamento assíncrono em lote.", groupIdStr);
+        log.info("[WEBHOOK] Interceptando alter_group_{} para processamento assÃ­ncrono em lote.", groupIdStr);
         try {
             UUID groupId = UUID.fromString(groupIdStr);
             feegowBulkIntegrationHandler.alterGroupAsync(groupId, fromPhone);
         } catch (Exception e) {
-            log.error("[WEBHOOK-BATCH] Erro ao agendar alteração assíncrona para grupo " + groupIdStr, e);
+            log.error("[WEBHOOK-BATCH] Erro ao agendar alteraÃ§Ã£o assÃ­ncrona para grupo " + groupIdStr, e);
         }
     }
 
@@ -143,24 +146,24 @@ public class BlipGroupActionHandler {
 
             if (latestGroup != null) {
                 UUID groupId = latestGroup.getGroupId();
-                log.info("[WEBHOOK] Último grupo ativo encontrado: {} para telefone: {}", groupId, targetPhone);
+                log.info("[WEBHOOK] Ãšltimo grupo ativo encontrado: {} para telefone: {}", groupId, targetPhone);
                 injectGroupSessionsContext(fromPhone, groupId);
             } else {
                 log.warn("[WEBHOOK] Nenhum grupo ativo encontrado para o telefone real: {}", targetPhone);
             }
         } else {
-            log.warn("[WEBHOOK] Não foi possível resolver o telefone real do paciente.");
+            log.warn("[WEBHOOK] NÃ£o foi possÃ­vel resolver o telefone real do paciente.");
         }
     }
 
     private void handleGroupView(String action, String fromPhone) {
         String groupIdStr = action.substring("group_view_".length()).trim();
-        log.info("[WEBHOOK] Clique em visualização de grupo recebido para groupId={}", groupIdStr);
+        log.info("[WEBHOOK] Clique em visualizaÃ§Ã£o de grupo recebido para groupId={}", groupIdStr);
         try {
             UUID groupId = UUID.fromString(groupIdStr);
             injectGroupSessionsContext(fromPhone, groupId);
         } catch (IllegalArgumentException e) {
-            log.error("[WEBHOOK] groupId inválido no payload group_view_. action={}", action);
+            log.error("[WEBHOOK] groupId invÃ¡lido no payload group_view_. action={}", action);
         }
     }
 
@@ -187,3 +190,5 @@ public class BlipGroupActionHandler {
         log.info("[WEBHOOK] Injetada lista_detalhada e groupId={} para {}.", groupId, fromPhone);
     }
 }
+
+

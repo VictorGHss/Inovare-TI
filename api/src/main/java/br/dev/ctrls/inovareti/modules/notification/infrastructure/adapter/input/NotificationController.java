@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controller REST para gerenciamento de notificações in-app.
+ * Controller REST para gerenciamento de notificaÃ§Ãµes in-app.
  * Base path: /api/notifications
  */
 @Slf4j
@@ -31,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/notifications")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@Observed
 public class NotificationController {
 
     private final GetUnreadNotificationsUseCase getUnreadNotificationsUseCase;
@@ -38,8 +41,8 @@ public class NotificationController {
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Lista todas as notificações do usuário autenticado (lidas e não lidas).
-     * Retorna 200 OK com a lista de notificações ordenadas por data decrescente.
+     * Lista todas as notificaÃ§Ãµes do usuÃ¡rio autenticado (lidas e nÃ£o lidas).
+     * Retorna 200 OK com a lista de notificaÃ§Ãµes ordenadas por data decrescente.
      */
     @GetMapping
     public ResponseEntity<List<NotificationResponseDTO>> getAll() {
@@ -49,7 +52,7 @@ public class NotificationController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
+            log.warn("NÃ£o foi possÃ­vel obter ID do usuÃ¡rio a partir da autenticaÃ§Ã£o");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -63,8 +66,8 @@ public class NotificationController {
     }
 
     /**
-     * Lista todas as notificações não lidas do usuário autenticado.
-     * Retorna 200 OK com a lista de notificações.
+     * Lista todas as notificaÃ§Ãµes nÃ£o lidas do usuÃ¡rio autenticado.
+     * Retorna 200 OK com a lista de notificaÃ§Ãµes.
      */
     @GetMapping("/unread")
     public ResponseEntity<List<NotificationResponseDTO>> getUnread() {
@@ -74,7 +77,7 @@ public class NotificationController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
+            log.warn("NÃ£o foi possÃ­vel obter ID do usuÃ¡rio a partir da autenticaÃ§Ã£o");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -83,8 +86,8 @@ public class NotificationController {
     }
 
     /**
-     * Marca uma notificação específica como lida.
-     * Retorna 200 OK com a notificação atualizada.
+     * Marca uma notificaÃ§Ã£o especÃ­fica como lida.
+     * Retorna 200 OK com a notificaÃ§Ã£o atualizada.
      */
     @PatchMapping("/{id}/read")
     public ResponseEntity<NotificationResponseDTO> markAsRead(@PathVariable UUID id) {
@@ -94,7 +97,7 @@ public class NotificationController {
         try {
             authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
+            log.warn("NÃ£o foi possÃ­vel obter ID do usuÃ¡rio a partir da autenticaÃ§Ã£o");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -107,3 +110,5 @@ public class NotificationController {
         }
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.user.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
+@Observed
 public class ChangeMyPasswordUseCase {
 
     private final UserRepositoryPort userRepository;
@@ -28,10 +31,10 @@ public class ChangeMyPasswordUseCase {
         UUID userId = UUID.fromString(authenticatedUserId);
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Usuário não encontrado com o ID: " + userId));
+                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com o ID: " + userId));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            throw new BadRequestException("Senha atual inválida.");
+            throw new BadRequestException("Senha atual invÃ¡lida.");
         }
 
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
@@ -49,3 +52,5 @@ public class ChangeMyPasswordUseCase {
                 .build());
     }
 }
+
+

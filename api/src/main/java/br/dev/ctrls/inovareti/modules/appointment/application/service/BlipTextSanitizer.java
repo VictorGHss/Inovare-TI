@@ -1,16 +1,19 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import org.springframework.stereotype.Component;
 
 /**
- * Componente responsável pela higienização, limpeza de strings e tratamento
- * de dados brutos de profissionais (médicos) vindos da API do Feegow ERP.
+ * Componente responsÃ¡vel pela higienizaÃ§Ã£o, limpeza de strings e tratamento
+ * de dados brutos de profissionais (mÃ©dicos) vindos da API do Feegow ERP.
  */
 @Component
+@Observed
 public class BlipTextSanitizer {
 
     /**
-     * Sanitiza o nome do profissional (médico), separando-o rigorosamente
+     * Sanitiza o nome do profissional (mÃ©dico), separando-o rigorosamente
      * de nomes de procedimentos, filas ou pacientes de teste concatenados.
      *
      * @param doctorName nome bruto vindo da Feegow ou do mapeamento
@@ -18,20 +21,20 @@ public class BlipTextSanitizer {
      */
     public String sanitizeDoctorName(String doctorName) {
         if (doctorName == null || doctorName.isBlank()) {
-            return "Clínica Inovare";
+            return "ClÃ­nica Inovare";
         }
         String clean = doctorName.trim();
-        // Separar de hifens (ex: "Dr. João - Cardiologia")
+        // Separar de hifens (ex: "Dr. JoÃ£o - Cardiologia")
         if (clean.contains(" - ")) {
             clean = clean.split(" - ")[0].trim();
         } else if (clean.contains("-")) {
             clean = clean.split("-")[0].trim();
         }
-        // Separar de parênteses (ex: "Dr. João (Ortopedia)")
+        // Separar de parÃªnteses (ex: "Dr. JoÃ£o (Ortopedia)")
         if (clean.contains("(")) {
             clean = clean.split("\\(")[0].trim();
         }
-        // Separar de barras (ex: "Dr. João/Cardiologia")
+        // Separar de barras (ex: "Dr. JoÃ£o/Cardiologia")
         if (clean.contains("/")) {
             clean = clean.split("/")[0].trim();
         }
@@ -41,17 +44,19 @@ public class BlipTextSanitizer {
     }
 
     /**
-     * Remove prefixos simples do nome do médico (Dr., Dra., etc.).
+     * Remove prefixos simples do nome do mÃ©dico (Dr., Dra., etc.).
      *
-     * @param doctorName nome bruto do médico
+     * @param doctorName nome bruto do mÃ©dico
      * @return nome sem prefixos
      */
     public String cleanDoctorName(String doctorName) {
         if (doctorName == null || doctorName.isBlank()) {
-            return "Clínica Inovare";
+            return "ClÃ­nica Inovare";
         }
         String clean = doctorName.trim();
         clean = clean.replaceAll("(?i)^(Dr\\.|Dra\\.|Dr|Dra)\\s+", "");
         return clean.trim();
     }
 }
+
+

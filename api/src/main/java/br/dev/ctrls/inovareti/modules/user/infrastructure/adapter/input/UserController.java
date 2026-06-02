@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -33,12 +35,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controller REST para gerenciamento de usuários.
+ * Controller REST para gerenciamento de usuÃ¡rios.
  * Base path: /api/users
  */
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
+@Observed
 public class UserController {
 
     private final CreateUserUseCase createUserUseCase;
@@ -49,9 +52,9 @@ public class UserController {
     private final TwoFactorResetService twoFactorResetService;
 
     /**
-     * Cria um novo usuário.
-     * Retorna 201 Created com o usuário criado no corpo da resposta.
-     * Requer permissão ADMIN.
+     * Cria um novo usuÃ¡rio.
+     * Retorna 201 Created com o usuÃ¡rio criado no corpo da resposta.
+     * Requer permissÃ£o ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -60,9 +63,9 @@ public class UserController {
     }
 
     /**
-     * Lista todos os usuários cadastrados.
+     * Lista todos os usuÃ¡rios cadastrados.
      * Retorna 200 OK com a lista.
-     * Requer permissão ADMIN, TECHNICIAN ou USER.
+     * Requer permissÃ£o ADMIN, TECHNICIAN ou USER.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping
@@ -81,7 +84,7 @@ public class UserController {
     }
 
     /**
-     * Atualiza nome, e-mail, perfil e setor de um usuário.
+     * Atualiza nome, e-mail, perfil e setor de um usuÃ¡rio.
      * Restrito a ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -95,8 +98,8 @@ public class UserController {
     }
 
     /**
-     * Redefine a senha de um usuário para o valor padrão "Mudar@123"
-     * e força a troca de senha no próximo login.
+     * Redefine a senha de um usuÃ¡rio para o valor padrÃ£o "Mudar@123"
+     * e forÃ§a a troca de senha no prÃ³ximo login.
      * Restrito a ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -107,22 +110,22 @@ public class UserController {
     }
 
     /**
-     * Reseta o 2FA de um usuário diretamente (sem código de recuperação).
-     * Exclusivo para ADMIN — útil quando o usuário perdeu completamente o acesso.
+     * Reseta o 2FA de um usuÃ¡rio diretamente (sem cÃ³digo de recuperaÃ§Ã£o).
+     * Exclusivo para ADMIN â€” Ãºtil quando o usuÃ¡rio perdeu completamente o acesso.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/2fa/reset")
     public ResponseEntity<Void> adminResetTwoFactor(@PathVariable UUID id, HttpServletRequest httpRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
-            throw new BadRequestException("Usuário autenticado não encontrado.");
+            throw new BadRequestException("UsuÃ¡rio autenticado nÃ£o encontrado.");
         }
 
         UUID adminUserId;
         try {
             adminUserId = UUID.fromString(authentication.getPrincipal().toString());
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
         }
 
         twoFactorResetService.adminReset(id, adminUserId, getClientIp(httpRequest));
@@ -132,12 +135,12 @@ public class UserController {
     private UUID getAuthenticatedUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getPrincipal() == null) {
-            throw new BadRequestException("Usuário autenticado não encontrado.");
+            throw new BadRequestException("UsuÃ¡rio autenticado nÃ£o encontrado.");
         }
         try {
             return UUID.fromString(auth.getPrincipal().toString());
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuário autenticado inválido.");
+            throw new BadRequestException("Identificador do usuÃ¡rio autenticado invÃ¡lido.");
         }
     }
 
@@ -149,3 +152,5 @@ public class UserController {
         return request.getRemoteAddr();
     }
 }
+
+

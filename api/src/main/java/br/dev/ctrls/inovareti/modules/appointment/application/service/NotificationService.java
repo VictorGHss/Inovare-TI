@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentVariableLog;
@@ -30,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class NotificationService {
 
     private static final DateTimeFormatter BRAZILIAN_TIME = DateTimeFormatter.ofPattern("HH:mm");
@@ -53,7 +56,7 @@ public class NotificationService {
 
     public void notifySecretary(AppointmentSession session, String message) {
         if (session == null || session.getId() == null) {
-            log.warn("Notificação de secretária ignorada: sessão nula ou sem id.");
+            log.warn("NotificaÃ§Ã£o de secretÃ¡ria ignorada: sessÃ£o nula ou sem id.");
             return;
         }
 
@@ -69,7 +72,7 @@ public class NotificationService {
         }
 
         if (routing.usingSystemUserTarget()) {
-            log.warn("Não foi possível notificar usando o usuário do sistema resolvido por itsmUserId. sessionId={}, appointmentId={}, target={}",
+            log.warn("NÃ£o foi possÃ­vel notificar usando o usuÃ¡rio do sistema resolvido por itsmUserId. sessionId={}, appointmentId={}, target={}",
                     session.getId(),
                     session.getFeegowAppointmentId(),
                     routing.notificationTarget());
@@ -85,7 +88,7 @@ public class NotificationService {
             return;
         }
 
-        log.warn("Não foi possível notificar secretária. sessionId={}, appointmentId={}",
+        log.warn("NÃ£o foi possÃ­vel notificar secretÃ¡ria. sessionId={}, appointmentId={}",
                 session.getId(),
                 session.getFeegowAppointmentId());
     }
@@ -111,7 +114,7 @@ public class NotificationService {
                     String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Notificação de secretária enviada via Discord webhook (fonte={}). sessionId={}, appointmentId={}",
+                log.info("NotificaÃ§Ã£o de secretÃ¡ria enviada via Discord webhook (fonte={}). sessionId={}, appointmentId={}",
                         usingSpecificWebhook ? "mapping" : "global",
                         session.getId(),
                         session.getFeegowAppointmentId());
@@ -119,7 +122,7 @@ public class NotificationService {
             }
 
             log.warn(
-                    "Discord webhook respondeu status não esperado para notificação de secretária. fonte={}, status={}, sessionId={}, appointmentId={}",
+                    "Discord webhook respondeu status nÃ£o esperado para notificaÃ§Ã£o de secretÃ¡ria. fonte={}, status={}, sessionId={}, appointmentId={}",
                     usingSpecificWebhook ? "mapping" : "global",
                     response.getStatusCode().value(),
                     session.getId(),
@@ -127,7 +130,7 @@ public class NotificationService {
             return false;
         } catch (RestClientException ex) {
             log.warn(
-                    "Falha ao enviar notificação de secretária via Discord webhook. fonte={}, sessionId={}, appointmentId={}, error={}",
+                    "Falha ao enviar notificaÃ§Ã£o de secretÃ¡ria via Discord webhook. fonte={}, sessionId={}, appointmentId={}, error={}",
                     usingSpecificWebhook ? "mapping" : "global",
                     session.getId(),
                     session.getFeegowAppointmentId(),
@@ -172,7 +175,7 @@ public class NotificationService {
                     String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-            log.info("Notificação de secretária enviada via API do bot ITSM (target={}). sessionId={}, appointmentId={}",
+            log.info("NotificaÃ§Ã£o de secretÃ¡ria enviada via API do bot ITSM (target={}). sessionId={}, appointmentId={}",
                 usingSpecificItsmUserId ? "mapping-user-id" : "global-default",
                         session.getId(),
                         session.getFeegowAppointmentId());
@@ -180,7 +183,7 @@ public class NotificationService {
             }
 
             log.warn(
-                "API do bot ITSM respondeu status não esperado para notificação de secretária. target={}, status={}, sessionId={}, appointmentId={}",
+                "API do bot ITSM respondeu status nÃ£o esperado para notificaÃ§Ã£o de secretÃ¡ria. target={}, status={}, sessionId={}, appointmentId={}",
                 usingSpecificItsmUserId ? "mapping-user-id" : "global-default",
                     response.getStatusCode().value(),
                     session.getId(),
@@ -188,7 +191,7 @@ public class NotificationService {
             return false;
         } catch (RestClientException ex) {
             log.warn(
-                "Falha ao enviar notificação de secretária via API do bot ITSM. target={}, sessionId={}, appointmentId={}, error={}",
+                "Falha ao enviar notificaÃ§Ã£o de secretÃ¡ria via API do bot ITSM. target={}, sessionId={}, appointmentId={}, error={}",
                 usingSpecificItsmUserId ? "mapping-user-id" : "global-default",
                     session.getId(),
                     session.getFeegowAppointmentId(),
@@ -203,7 +206,7 @@ public class NotificationService {
         String appointmentHour = resolveAppointmentHour(session);
 
         return String.format(
-                "✅ Confirmação: Paciente %s confirmou consulta com %s às %s",
+                "âœ… ConfirmaÃ§Ã£o: Paciente %s confirmou consulta com %s Ã s %s",
                 patientName,
                 doctorName,
                 appointmentHour);
@@ -217,7 +220,7 @@ public class NotificationService {
                 return name.trim();
             }
         } catch (RuntimeException ex) {
-            log.warn("Falha ao resolver nome do paciente para notificação de secretária. sessionId={}, patientId={}, error={}",
+            log.warn("Falha ao resolver nome do paciente para notificaÃ§Ã£o de secretÃ¡ria. sessionId={}, patientId={}, error={}",
                     session.getId(),
                     session.getPatientId(),
                     ex.getMessage());
@@ -283,13 +286,13 @@ public class NotificationService {
         String normalizedItsmUserId = itsmUserId.trim();
         User user = findUserByItsmUserId(normalizedItsmUserId);
         if (user == null) {
-            log.warn("itsmUserId do mapeamento sem usuário correspondente no sistema. itsmUserId={}", normalizedItsmUserId);
+            log.warn("itsmUserId do mapeamento sem usuÃ¡rio correspondente no sistema. itsmUserId={}", normalizedItsmUserId);
             return null;
         }
 
         String notificationTarget = firstNonBlank(user.getDiscordUserId(), user.getEmail());
         if (!StringUtils.hasText(notificationTarget)) {
-            log.warn("Usuário encontrado sem discordUserId/email para notificação. userId={}", user.getId());
+            log.warn("UsuÃ¡rio encontrado sem discordUserId/email para notificaÃ§Ã£o. userId={}", user.getId());
             return null;
         }
 
@@ -308,7 +311,7 @@ public class NotificationService {
                 return userById;
             }
         } catch (IllegalArgumentException ignored) {
-            // Não é UUID: tenta resolver por outros identificadores.
+            // NÃ£o Ã© UUID: tenta resolver por outros identificadores.
         }
 
         User userByDiscordId = userRepository.findByDiscordUserId(itsmUserId.trim()).orElse(null);
@@ -361,3 +364,4 @@ public class NotificationService {
             boolean usingSpecificDiscordWebhook) {
     }
 }
+

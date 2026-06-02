@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,12 +16,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsável por consultar agendamentos marcados na API do Feegow,
+ * Componente responsÃ¡vel por consultar agendamentos marcados na API do Feegow,
  * gerenciando o paralelismo via Virtual Threads quando em modo de testes.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class FeegowAppointmentSearcher {
 
     private static final int FEEGOW_STATUS_AGENDADO = 1;
@@ -35,7 +38,7 @@ public class FeegowAppointmentSearcher {
             return searchTestModeAppointments(targetDate);
         }
 
-        log.info("Consultando Feegow para ingestão de agendamentos com status Marcado (ID={})", FEEGOW_STATUS_AGENDADO);
+        log.info("Consultando Feegow para ingestÃ£o de agendamentos com status Marcado (ID={})", FEEGOW_STATUS_AGENDADO);
         return appointmentExternalPort.searchAppointments(
             targetDate,
             FEEGOW_STATUS_AGENDADO,
@@ -45,7 +48,7 @@ public class FeegowAppointmentSearcher {
 
     private List<FeegowAppointment> searchTestModeAppointments(LocalDate targetDate) {
         String testDoctorId = appointmentMotorProperties.getTestDoctorId();
-        log.info("[TEST MODE] Buscando agendamentos apenas para os médicos de teste ID: {}", testDoctorId);
+        log.info("[TEST MODE] Buscando agendamentos apenas para os mÃ©dicos de teste ID: {}", testDoctorId);
         
         List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
         if (testDoctorId != null && !testDoctorId.isBlank()) {
@@ -78,8 +81,10 @@ public class FeegowAppointmentSearcher {
                     list.addAll(res);
                 }
             } catch (Exception e) {
-                log.error("[VIRTUAL-THREADS] Erro ao buscar consultas para {}, médico ID: {}", date, docId, e);
+                log.error("[VIRTUAL-THREADS] Erro ao buscar consultas para {}, mÃ©dico ID: {}", date, docId, e);
             }
         }, executor);
     }
 }
+
+

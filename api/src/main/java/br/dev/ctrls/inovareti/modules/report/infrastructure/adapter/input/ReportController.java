@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.report.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -32,11 +34,12 @@ import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controlador REST para endpoints relacionados a relatórios.
+ * Controlador REST para endpoints relacionados a relatÃ³rios.
  */
 @Slf4j
 @RestController
 @RequestMapping("/reports")
+@Observed
 public class ReportController {
 
     private final ReportService reportService;
@@ -89,24 +92,24 @@ public class ReportController {
 
     /**
      * GET /api/reports/tickets/export
-     * Gera relatório de chamados em Excel com isolamento por perfil de usuário.
+     * Gera relatÃ³rio de chamados em Excel com isolamento por perfil de usuÃ¡rio.
      * USER exporta apenas seus chamados; ADMIN e TECHNICIAN exportam todos.
      */
     @GetMapping("/tickets/export")
     public ResponseEntity<InputStreamResource> exportTicketsReport() throws IOException {
-        log.info("GET /api/reports/tickets/export - Exportando relatório de chamados");
+        log.info("GET /api/reports/tickets/export - Exportando relatÃ³rio de chamados");
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("Não foi possível identificar o usuário autenticado");
+            log.warn("NÃ£o foi possÃ­vel identificar o usuÃ¡rio autenticado");
             return ResponseEntity.badRequest().build();
         }
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new RuntimeException("UsuÃ¡rio nÃ£o encontrado"));
 
         byte[] bytes = ticketReportUseCase.generateTicketReport(userId, user.getRole());
         ByteArrayInputStream stream = new ByteArrayInputStream(bytes);
@@ -184,7 +187,7 @@ public class ReportController {
     }
 
     /**
-     * Gera relatório de saídas de inventário.
+     * Gera relatÃ³rio de saÃ­das de inventÃ¡rio.
      * Suporta formato PDF e Excel.
      */
     @GetMapping("/inventory/exits")
@@ -208,7 +211,7 @@ public class ReportController {
                 if (fp != null && !fp.isBlank()) format = fp.toLowerCase();
             }
         } catch (Exception e) {
-            // Mantém default
+            // MantÃ©m default
         }
 
         if ("pdf".equalsIgnoreCase(format)) {
@@ -238,3 +241,5 @@ public class ReportController {
                 .body(new InputStreamResource(excelFile));
     }
 }
+
+

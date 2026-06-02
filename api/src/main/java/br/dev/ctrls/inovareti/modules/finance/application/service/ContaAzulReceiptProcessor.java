@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.domain.model.TesteEnvioRealResult;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
@@ -29,11 +31,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço que atua como orquestrador do fluxo da camada de aplicação para processamento de recibos quitados.
+ * ServiÃ§o que atua como orquestrador do fluxo da camada de aplicaÃ§Ã£o para processamento de recibos quitados.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class ContaAzulReceiptProcessor {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -55,17 +58,17 @@ public class ContaAzulReceiptProcessor {
 
     @PostConstruct
     public void logContaAzulAutomationConfigOnBoot() {
-        log.info("Diagnóstico Conta Azul no boot: app.contaazul.api-v2-base-url={}", properties.getApiV2BaseUrl());
+        log.info("DiagnÃ³stico Conta Azul no boot: app.contaazul.api-v2-base-url={}", properties.getApiV2BaseUrl());
     }
 
     public TesteEnvioRealResult processRealSaleTest(String saleId) {
         log.info("Iniciando teste real para venda {}...", saleId);
         if (!contaAzulClient.hasSalesConfiguration() || !contaAzulTokenService.hasAuthorizedToken()) {
-            throw new IllegalStateException("Configuração ou token incompleto para teste real.");
+            throw new IllegalStateException("ConfiguraÃ§Ã£o ou token incompleto para teste real.");
         }
 
         ContaAzulClient.SaleItem sale = contaAzulClient.findAcquittedSaleById(saleId)
-                .orElseThrow(() -> new IllegalArgumentException("Venda não encontrada com status ACQUITTED: " + saleId));
+                .orElseThrow(() -> new IllegalArgumentException("Venda nÃ£o encontrada com status ACQUITTED: " + saleId));
 
         ContaAzulReceiptValidator.ValidationResult validationResult = validator.validate(sale);
         if (validationResult.isNotValid()) {
@@ -82,7 +85,7 @@ public class ContaAzulReceiptProcessor {
         String baixaId = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId())
                 .map(String::trim)
                 .filter(StringUtils::hasText)
-                .orElseThrow(() -> new IllegalStateException("Nenhuma baixa válida encontrada."));
+                .orElseThrow(() -> new IllegalStateException("Nenhuma baixa vÃ¡lida encontrada."));
 
         byte[] pdfBytes = storageAdapter.downloadReceiptPdf(baixaId);
         receiptEmailService.sendReceiptForRealSaleTest(doctorName, recipientEmail, resolvedSaleNumber, pdfBytes);
@@ -104,7 +107,7 @@ public class ContaAzulReceiptProcessor {
             return ReceiptProcessingResult.empty();
         }
 
-        log.info("Automação ContaAzul: consultando parcelas recebidas no período: {} a {}", dataInicio, dataFim);
+        log.info("AutomaÃ§Ã£o ContaAzul: consultando parcelas recebidas no perÃ­odo: {} a {}", dataInicio, dataFim);
         List<ContaAzulClient.SaleItem> acquittedSales;
         try {
             acquittedSales = contaAzulClient.fetchAcquittedSales(dataInicio.format(DATE_FORMATTER), dataFim.format(DATE_FORMATTER));
@@ -117,7 +120,7 @@ public class ContaAzulReceiptProcessor {
 
     private ReceiptProcessingResult handleFetchException(RuntimeException ex) {
         if (ex instanceof ContaAzulHttpException httpEx && httpEx.isStatus(403) && isPlanIneligibleResponse(httpEx.getResponseBody())) {
-            String msg = "Conta Azul indisponível: conta sem elegibilidade de API (END_TRIAL).";
+            String msg = "Conta Azul indisponÃ­vel: conta sem elegibilidade de API (END_TRIAL).";
             log.warn(msg);
             return new ReceiptProcessingResult(0, 0, 0, 0, 0, 0, 0, List.of(msg));
         }
@@ -258,7 +261,7 @@ public class ContaAzulReceiptProcessor {
                 return detailOpt.get().saleId().trim();
             }
         } catch (RuntimeException ex) {
-            log.warn("Não foi possível resolver sale_id pela parcela {}.", sale.parcelaId(), ex);
+            log.warn("NÃ£o foi possÃ­vel resolver sale_id pela parcela {}.", sale.parcelaId(), ex);
         }
         return fallbackSaleId;
     }
@@ -305,3 +308,5 @@ public class ContaAzulReceiptProcessor {
         return !Thread.currentThread().isInterrupted();
     }
 }
+
+

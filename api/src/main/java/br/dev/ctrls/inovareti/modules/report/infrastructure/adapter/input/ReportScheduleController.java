@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.report.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,11 +29,12 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controlador REST para gerenciar agendamentos de relatórios automatizados.
+ * Controlador REST para gerenciar agendamentos de relatÃ³rios automatizados.
  */
 @RestController
 @RequestMapping("/report-schedules")
 @RequiredArgsConstructor
+@Observed
 public class ReportScheduleController {
 
     private final ReportScheduleRepositoryPort repository;
@@ -114,10 +117,10 @@ public class ReportScheduleController {
 
     @Data
     public static class ReportScheduleRequest {
-        @NotBlank(message = "O tipo de relatório é obrigatório.")
+        @NotBlank(message = "O tipo de relatÃ³rio Ã© obrigatÃ³rio.")
         private String reportType;
         
-        @NotNull(message = "O usuário de destino é obrigatório.")
+        @NotNull(message = "O usuÃ¡rio de destino Ã© obrigatÃ³rio.")
         private UUID targetUserId;
         
         private Boolean sendEmail;
@@ -128,3 +131,5 @@ public class ReportScheduleController {
         private Boolean isActive;
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.notification.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -11,18 +13,19 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.Notificati
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case para buscar notificações não lidas de um usuário.
+ * Use case para buscar notificaÃ§Ãµes nÃ£o lidas de um usuÃ¡rio.
  */
 @Service
 @RequiredArgsConstructor
+@Observed
 public class GetUnreadNotificationsUseCase {
 
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Executa a busca de notificações não lidas.
-     * @param userId o UUID do usuário autenticado
-     * @return lista de notificações não lidas
+     * Executa a busca de notificaÃ§Ãµes nÃ£o lidas.
+     * @param userId o UUID do usuÃ¡rio autenticado
+     * @return lista de notificaÃ§Ãµes nÃ£o lidas
      */
     public List<NotificationResponseDTO> execute(UUID userId) {
         return notificationRepository
@@ -32,3 +35,5 @@ public class GetUnreadNotificationsUseCase {
             .collect(Collectors.toList());
     }
 }
+
+

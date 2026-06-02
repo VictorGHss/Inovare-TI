@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/sectors")
 @RequiredArgsConstructor
+@Observed
 public class SectorController {
 
     private final CreateSectorUseCase createSectorUseCase;
@@ -38,7 +41,7 @@ public class SectorController {
     /**
      * Cria um novo setor.
      * Retorna 201 Created com o setor criado no corpo da resposta.
-     * Requer permissão ADMIN.
+     * Requer permissÃ£o ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -50,7 +53,7 @@ public class SectorController {
     /**
      * Lista os setores cadastrados, opcionalmente filtrando apenas os ativos.
      * Retorna 200 OK com a lista.
-     * Requer autenticação.
+     * Requer autenticaÃ§Ã£o.
      */
     @PreAuthorize("isAuthenticated()")
     @GetMapping
@@ -61,7 +64,7 @@ public class SectorController {
 
     /**
      * Atualiza o nome de um setor existente.
-     * Requer permissão ADMIN.
+     * Requer permissÃ£o ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PutMapping("/{id}")
@@ -73,8 +76,8 @@ public class SectorController {
     }
 
     /**
-     * Alterna o estado de ativação (ativo/inativo) de um setor.
-     * Requer permissão ADMIN.
+     * Alterna o estado de ativaÃ§Ã£o (ativo/inativo) de um setor.
+     * Requer permissÃ£o ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PatchMapping("/{id}/toggle-active")
@@ -84,3 +87,5 @@ public class SectorController {
         return ResponseEntity.ok(response);
     }
 }
+
+

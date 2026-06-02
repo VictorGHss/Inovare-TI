@@ -1,10 +1,13 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Service;
 
 @Service
 @ConditionalOnMissingBean(WebhookIdempotencyService.class)
+@Observed
 public class NoopWebhookIdempotencyService {
 
     public boolean registerIfFirstTime(String messageId) {
@@ -26,3 +29,5 @@ public class NoopWebhookIdempotencyService {
         return null;
     }
 }
+
+

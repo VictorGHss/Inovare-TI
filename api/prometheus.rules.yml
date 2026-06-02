@@ -14,3 +14,71 @@ groups:
         annotations:
           summary: "Disjuntor Feegow Aberto (Chamadas Interrompidas)"
           description: "O disjuntor da API Feegow ('feegowApiCircuit') entrou no estado 'OPEN' (aberto). As chamadas de integracao externa estao temporariamente suspensas para evitar sobrecarga e falhas cascata."
+
+  - name: module-http-p99-latency-rules
+    rules:
+      - alert: FinanceModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/(financeiro|contaazul|financial-transactions|doctor-mapping).*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: finance
+        annotations:
+          summary: "Finance module p99 latency high"
+          description: "A latencia p99 do modulo finance esta acima de 2s por 10 minutos."
+
+      - alert: AppointmentModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/(v1/appointments|appointments|webhooks/blip).*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: appointment
+        annotations:
+          summary: "Appointment module p99 latency high"
+          description: "A latencia p99 do modulo appointment esta acima de 2s por 10 minutos."
+
+      - alert: UserModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/(auth|users|sectors).*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: user
+        annotations:
+          summary: "User module p99 latency high"
+          description: "A latencia p99 do modulo user esta acima de 2s por 10 minutos."
+
+      - alert: InventoryModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/(items|item-categories).*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: inventory
+        annotations:
+          summary: "Inventory module p99 latency high"
+          description: "A latencia p99 do modulo inventory esta acima de 2s por 10 minutos."
+
+      - alert: VaultModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/vault.*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: vault
+        annotations:
+          summary: "Vault module p99 latency high"
+          description: "A latencia p99 do modulo vault esta acima de 2s por 10 minutos."
+
+      - alert: ReportModuleHttpP99High
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{service="inovareti-api",uri=~"/api/(reports|report).*"}[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: inovareti-api
+          module: report
+        annotations:
+          summary: "Report module p99 latency high"
+          description: "A latencia p99 do modulo report esta acima de 2s por 10 minutos."

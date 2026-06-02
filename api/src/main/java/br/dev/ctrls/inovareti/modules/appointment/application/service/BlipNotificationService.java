@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -21,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+@Observed
 public class BlipNotificationService {
 
     private final BlipLIMEClient limeClient;
@@ -45,7 +48,7 @@ public class BlipNotificationService {
         );
         try {
             var response = limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
-            // A resposta agora é um Map direto, não um ResponseEntity
+            // A resposta agora Ã© um Map direto, nÃ£o um ResponseEntity
             Map<String, Object> body = response;
             if (body == null || !body.containsKey("resource")) return List.of();
             
@@ -101,7 +104,7 @@ public class BlipNotificationService {
         log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", normalizedDestination, templateName, parameters);
 
         if (parameters.isEmpty()) {
-            log.error("[ABORT] Parâmetros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteúdo. destination={}",
+            log.error("[ABORT] ParÃ¢metros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteÃºdo. destination={}",
                 templateName, normalizedDestination);
             return;
         }
@@ -140,7 +143,7 @@ public class BlipNotificationService {
         );
 
         var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        // Verifica o status customizado no Map de fallback ou a presença da resposta
+        // Verifica o status customizado no Map de fallback ou a presenÃ§a da resposta
         Object status = response.getOrDefault("status", "unknown");
         log.info("Template enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
@@ -161,13 +164,13 @@ public class BlipNotificationService {
                 String fieldName = mapping.getFeegowFieldName();
                 String value = resolveDynamicFieldValue(appointmentData, fieldName);
                 
-                String safeValue = "Recepção";
-                if (value != null && !value.isBlank() && !"null".equalsIgnoreCase(value.trim()) && !"Informação não disponível".equalsIgnoreCase(value.trim())) {
+                String safeValue = "RecepÃ§Ã£o";
+                if (value != null && !value.isBlank() && !"null".equalsIgnoreCase(value.trim()) && !"InformaÃ§Ã£o nÃ£o disponÃ­vel".equalsIgnoreCase(value.trim())) {
                     safeValue = value.trim();
                 } else {
                     if (fieldName != null) {
                         if (fieldName.toLowerCase().contains("profissional") || fieldName.toLowerCase().contains("doctor") || fieldName.toLowerCase().contains("medico")) {
-                            safeValue = "Clínica Inovare";
+                            safeValue = "ClÃ­nica Inovare";
                         } else if (fieldName.toLowerCase().contains("patient") || fieldName.toLowerCase().contains("paciente")) {
                             safeValue = "Paciente";
                         }
@@ -178,15 +181,15 @@ public class BlipNotificationService {
                 parameters.add(Map.of("type", "text", "text", safeValue));
             });
 
-        log.debug("[PARAMS] Template [{}]: {} parâmetro(s) mapeados", templateName, parameters.size());
+        log.debug("[PARAMS] Template [{}]: {} parÃ¢metro(s) mapeados", templateName, parameters.size());
         return parameters;
     }
 
     private String resolveDynamicFieldValue(AppointmentTemplateData data, String fieldName) {
         if (data == null || fieldName == null || fieldName.isBlank()) return null;
 
-        // Mapa explícito: nome do campo no banco → extrator do record.
-        // Aceita tanto snake_case quanto camelCase para resiliência.
+        // Mapa explÃ­cito: nome do campo no banco â†’ extrator do record.
+        // Aceita tanto snake_case quanto camelCase para resiliÃªncia.
         String key = fieldName.trim().toLowerCase();
         return switch (key) {
             // Paciente
@@ -194,7 +197,7 @@ public class BlipNotificationService {
             case "patientphone", "patient_phone", "telefone_paciente"          -> data.patientPhone();
             case "patientid", "patient_id"                                     -> data.patientId();
 
-            // Médico — usa o doctorName JA resolvido no SendAppointmentTemplateUseCase
+            // MÃ©dico â€” usa o doctorName JA resolvido no SendAppointmentTemplateUseCase
             case "doctorname", "doctor_name",
                  "profissionalnome", "profissional_nome",
                  "nome_medico", "medico", "professional_name"                  -> data.doctorName();
@@ -213,7 +216,7 @@ public class BlipNotificationService {
             case "unitname", "unit_name", "unidade", "local"                   -> data.unitName();
 
             default -> {
-                log.warn("[FIELD MAPPING] Campo '{}' não mapeado em AppointmentTemplateData. Revise a tabela appointment_template_mapping.", fieldName);
+                log.warn("[FIELD MAPPING] Campo '{}' nÃ£o mapeado em AppointmentTemplateData. Revise a tabela appointment_template_mapping.", fieldName);
                 yield null;
             }
         };
@@ -303,15 +306,15 @@ public class BlipNotificationService {
     }
 
     /**
-     * Envia uma mensagem de texto simples (text/plain) diretamente para o WhatsApp do destinatário
-     * via protocolo LIME. Disparo ativo — não depende de transição de bloco no Builder.
+     * Envia uma mensagem de texto simples (text/plain) diretamente para o WhatsApp do destinatÃ¡rio
+     * via protocolo LIME. Disparo ativo â€” nÃ£o depende de transiÃ§Ã£o de bloco no Builder.
      *
-     * @param destination identidade do destinatário (ex: "5511999999999@wa.gw.msging.net")
+     * @param destination identidade do destinatÃ¡rio (ex: "5511999999999@wa.gw.msging.net")
      * @param text        corpo da mensagem a ser enviada
      */
     public void sendPlainTextMessage(String destination, String text) {
         if (destination == null || destination.isBlank() || text == null || text.isBlank()) {
-            log.warn("[PLAIN-TEXT] Destino ou texto inválido. Envio cancelado. destination={}", destination);
+            log.warn("[PLAIN-TEXT] Destino ou texto invÃ¡lido. Envio cancelado. destination={}", destination);
             return;
         }
         String normalizedDestination = limeClient.normalizeUserIdentity(destination);
@@ -335,3 +338,4 @@ public class BlipNotificationService {
         return (ns != null && !ns.isBlank()) ? ns : "";
     }
 }
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.asset.infrastructure.adapter.input;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetCategory;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
 
@@ -29,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/asset-categories")
 @RequiredArgsConstructor
+@Observed
 public class AssetCategoryController {
 
     private final AssetCategoryRepositoryPort assetCategoryRepository;
@@ -40,7 +43,7 @@ public class AssetCategoryController {
         String normalizedName = request.name().trim();
 
         if (assetCategoryRepository.existsByName(normalizedName)) {
-            throw new ConflictException("Já existe uma categoria de equipamento com o nome: " + normalizedName);
+            throw new ConflictException("JÃ¡ existe uma categoria de equipamento com o nome: " + normalizedName);
         }
 
         AssetCategory created = assetCategoryRepository.save(
@@ -67,10 +70,12 @@ public class AssetCategoryController {
         return assetCategoryRepository.findById(id).map(existing -> {
             long linked = assetRepository.countByCategory_Id(id);
             if (linked > 0) {
-                throw new ConflictException("Não é possível excluir esta categoria: existem ativos vinculados a ela.");
+                throw new ConflictException("NÃ£o Ã© possÃ­vel excluir esta categoria: existem ativos vinculados a ela.");
             }
             assetCategoryRepository.deleteById(id);
             return ResponseEntity.noContent().<Void>build();
         }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Observed
 public class BlipWebhookInboundService {
 
     private static final String LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY = "last_pending_appointment_id";
@@ -130,13 +133,13 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "resource", "type")),
                 asText(getNested(payload, "message", "type")));
 
-        // WhatsApp / LIME: clique em botão rápido (application/vnd.lime.reply+json) — valor em content.replied.value
+        // WhatsApp / LIME: clique em botÃ£o rÃ¡pido (application/vnd.lime.reply+json) â€” valor em content.replied.value
         String replyButtonAction = firstNonBlank(
                 asText(getNested(payload, "content", "replied", "value")),
                 asText(getNested(payload, "resource", "content", "replied", "value")),
                 asText(getNested(payload, "message", "content", "replied", "value")));
         if (replyButtonAction != null) {
-            log.info("[WEBHOOK] action extraído (reply+json content.replied.value): '{}'", replyButtonAction);
+            log.info("[WEBHOOK] action extraÃ­do (reply+json content.replied.value): '{}'", replyButtonAction);
             return replyButtonAction;
         }
 
@@ -149,20 +152,20 @@ public class BlipWebhookInboundService {
             if ("application/vnd.lime.reply+json".equalsIgnoreCase(messageType)) {
                 String fromReplied = firstNonBlank(asText(getNested(contentMap, "replied", "value")));
                 if (fromReplied != null) {
-                    log.info("[WEBHOOK] action extraído (reply+json via content map): '{}'", fromReplied);
+                    log.info("[WEBHOOK] action extraÃ­do (reply+json via content map): '{}'", fromReplied);
                     return fromReplied;
                 }
             }
             if ("application/vnd.lime.select+json".equalsIgnoreCase(messageType)) {
                 String selectText = firstNonBlank(asText(contentMap.get("text")));
                 if (selectText != null) {
-                    log.info("[WEBHOOK] action extraído (select+json text): '{}'", selectText);
+                    log.info("[WEBHOOK] action extraÃ­do (select+json text): '{}'", selectText);
                     return selectText;
                 }
             }
             String objectText = firstNonBlank(asText(contentMap.get("text")));
             if (objectText != null) {
-                log.info("[WEBHOOK] action extraído (select+json text): '{}'", objectText);
+                log.info("[WEBHOOK] action extraÃ­do (select+json text): '{}'", objectText);
                 return objectText;
             }
             String selectValue = firstNonBlank(
@@ -170,7 +173,7 @@ public class BlipWebhookInboundService {
                     asText(contentMap.get("payload")),
                     asText(contentMap.get("id")));
             if (selectValue != null) {
-                log.info("[WEBHOOK] action extraído (select+json): '{}'", selectValue);
+                log.info("[WEBHOOK] action extraÃ­do (select+json): '{}'", selectValue);
                 return selectValue;
             }
         }
@@ -187,7 +190,7 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "resource", "content")),
                 asText(getNested(payload, "resource", "content", "text")),
                 asText(getNested(payload, "resource", "content", "title")));
-        log.info("[WEBHOOK] action extraído: '{}'", action);
+        log.info("[WEBHOOK] action extraÃ­do: '{}'", action);
         return action;
     }
 
@@ -219,7 +222,7 @@ public class BlipWebhookInboundService {
 
         String breadcrumbId = blipContextService.getUserContext(from, LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY);
         if (!StringUtils.hasText(breadcrumbId)) {
-            log.warn("[WEBHOOK] Contexto '{}' não encontrado para {}", LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, from);
+            log.warn("[WEBHOOK] Contexto '{}' nÃ£o encontrado para {}", LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, from);
             return null;
         }
         return breadcrumbId.trim();
@@ -244,11 +247,11 @@ public class BlipWebhookInboundService {
     }
 
     private boolean isConfirmAction(String action) {
-        return "Confirmar Presença".equalsIgnoreCase(action);
+        return "Confirmar PresenÃ§a".equalsIgnoreCase(action);
     }
 
     private boolean isAlterAction(String action) {
-        return "Solicitar Alteração".equalsIgnoreCase(action)
+        return "Solicitar AlteraÃ§Ã£o".equalsIgnoreCase(action)
                 || "Solicitar Alteracao".equalsIgnoreCase(action);
     }
 
@@ -319,3 +322,5 @@ public class BlipWebhookInboundService {
         return null;
     }
 }
+
+

@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.asset.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Observed
 public class AssetMaintenanceService {
 
     private final AssetMaintenanceRepositoryPort maintenanceRepository;
@@ -77,3 +80,5 @@ public class AssetMaintenanceService {
         maintenanceRepository.save(maintenance);
     }
 }
+
+

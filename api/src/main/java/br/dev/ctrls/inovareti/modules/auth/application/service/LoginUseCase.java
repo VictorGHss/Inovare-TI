@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.auth.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Component;
 
@@ -16,12 +18,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Caso de uso responsável por autenticar um usuário e retornar um token JWT.
- * Delega a verificação das credenciais ao AuthenticatorPort da infraestrutura.
+ * Caso de uso responsÃ¡vel por autenticar um usuÃ¡rio e retornar um token JWT.
+ * Delega a verificaÃ§Ã£o das credenciais ao AuthenticatorPort da infraestrutura.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class LoginUseCase {
 
     private final AuthenticatorPort authenticator;
@@ -32,8 +35,8 @@ public class LoginUseCase {
      * Autentica as credenciais informadas e retorna um JWT assinado.
      *
      * @param request as credenciais de login (e-mail + senha)
-     * @param ipAddress endereço IP de origem da requisição
-     * @return {@link AuthResponseDTO} com o token JWT e os dados do usuário
+     * @param ipAddress endereÃ§o IP de origem da requisiÃ§Ã£o
+     * @return {@link AuthResponseDTO} com o token JWT e os dados do usuÃ¡rio
      */
     public AuthResponseDTO execute(AuthRequestDTO request, String ipAddress) {
         try {
@@ -57,7 +60,7 @@ public class LoginUseCase {
             return AuthResponseDTO.authenticated(token, UserResponseDTO.from(user));
 
         } catch (BadCredentialsException ex) {
-            // Registra falha de autenticação sem expor detalhes ao chamador
+            // Registra falha de autenticaÃ§Ã£o sem expor detalhes ao chamador
             auditLogService.publish(AuditEvent.of(AuditAction.LOGIN_FAILURE)
                     .details("{\"email\": \"" + request.email() + "\"}")
                     .ipAddress(ipAddress)
@@ -67,3 +70,5 @@ public class LoginUseCase {
         }
     }
 }
+
+

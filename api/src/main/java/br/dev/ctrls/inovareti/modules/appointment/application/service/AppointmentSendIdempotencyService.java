@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.time.Duration;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnBean(StringRedisTemplate.class)
+@Observed
 public class AppointmentSendIdempotencyService {
 
     private final StringRedisTemplate redis;
@@ -26,3 +29,5 @@ public class AppointmentSendIdempotencyService {
         return Boolean.TRUE.equals(inserted);
     }
 }
+
+

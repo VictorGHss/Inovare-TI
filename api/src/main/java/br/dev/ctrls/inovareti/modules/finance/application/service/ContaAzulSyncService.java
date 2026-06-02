@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.finance.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SyncDoctorsResult;
 
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Observed
 public class ContaAzulSyncService {
 
     private final ContaAzulClient contaAzulClient;
@@ -70,4 +73,6 @@ public class ContaAzulSyncService {
         return new SyncDoctorsResult(created, updated);
     }
 }
+
+
 

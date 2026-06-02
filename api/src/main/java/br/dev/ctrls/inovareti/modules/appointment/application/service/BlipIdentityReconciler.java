@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -10,11 +12,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Serviço responsável por reconciliar identidades do Blip e purificar números telefônicos.
+ * ServiÃ§o responsÃ¡vel por reconciliar identidades do Blip e purificar nÃºmeros telefÃ´nicos.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Observed
 public class BlipIdentityReconciler {
 
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
@@ -44,7 +47,7 @@ public class BlipIdentityReconciler {
         Optional<BlipUserIdentityReconciliation> existing = 
                 blipUserIdentityReconciliationRepository.findByBlipGuid(blipGuid);
         if (existing.isPresent()) {
-            log.info("[RECONCILIATION] Correspondência de identidade em cache local: GUID={} -> Telefone={}", 
+            log.info("[RECONCILIATION] CorrespondÃªncia de identidade em cache local: GUID={} -> Telefone={}", 
                 blipGuid, existing.get().getPhoneNumber());
             return existing.get().getPhoneNumber();
         }
@@ -104,18 +107,18 @@ public class BlipIdentityReconciler {
                 log.info("[RECONCILIATION] Novo mapeamento de identidade salvo: GUID={} -> Telefone={} (BSUID={})", 
                     blipGuid, resolvedPhone, bsuid);
             } catch (Exception ex) {
-                log.warn("[RECONCILIATION] Falha ao salvar reconciliação no banco local (pode ser inserção concorrente): {}", 
+                log.warn("[RECONCILIATION] Falha ao salvar reconciliaÃ§Ã£o no banco local (pode ser inserÃ§Ã£o concorrente): {}", 
                     ex.getMessage());
             }
             return resolvedPhone;
         }
         
-        log.warn("[RECONCILIATION] Não foi possível reconciliar o GUID do WhatsApp {} para nenhum número telefônico.", blipGuid);
+        log.warn("[RECONCILIATION] NÃ£o foi possÃ­vel reconciliar o GUID do WhatsApp {} para nenhum nÃºmero telefÃ´nico.", blipGuid);
         return "";
     }
 
     /**
-     * Purifica o número de telefone removendo formatações desnecessárias.
+     * Purifica o nÃºmero de telefone removendo formataÃ§Ãµes desnecessÃ¡rias.
      */
     public String purifyPhoneNumber(String originalPhone) {
         if (originalPhone == null || originalPhone.isBlank()) {
@@ -139,3 +142,5 @@ public class BlipIdentityReconciler {
         return "+55" + digitsOnly;
     }
 }
+
+

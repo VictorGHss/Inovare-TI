@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import io.micrometer.observation.annotation.Observed;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+@Observed
 public class BlipTicketService {
 
     private final BlipClientPort limeClient;
@@ -34,7 +37,7 @@ public class BlipTicketService {
         );
 
         try {
-            // executeCommand retorna Map<String, Object> diretamente (porta de domínio, sem ResponseEntity)
+            // executeCommand retorna Map<String, Object> diretamente (porta de domÃ­nio, sem ResponseEntity)
             Map<String, Object> response = limeClient.executeCommand(command, AuthorizationScope.ROUTER);
             String openTicketId = extractOpenTicketId(response);
 
@@ -107,3 +110,4 @@ public class BlipTicketService {
         return value == null ? null : String.valueOf(value);
     }
 }
+

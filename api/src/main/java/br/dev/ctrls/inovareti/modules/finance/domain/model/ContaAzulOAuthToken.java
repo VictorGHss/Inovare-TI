@@ -21,9 +21,9 @@ import lombok.Setter;
 /**
  * Entidade que representa o token OAuth obtido da Conta Azul e suas metadatas.
  *
- * Persistimos `accessToken`, `refreshToken`, timestamps de expiraÃ§Ã£o/refresh e
- * informaÃ§Ãµes de auditoria. Usada pelo serviÃ§o de tokens para validaÃ§Ã£o e
- * operaÃ§Ãµes de refresh automatizado.
+ * Persistimos `accessToken`, `refreshToken`, timestamps de expiração/refresh e
+ * informações de auditoria. Usada pelo serviço de tokens para validação e
+ * operações de refresh automatizado.
  */
 @Entity
 @Table(name = "contaazul_oauth_tokens")

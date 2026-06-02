@@ -11,9 +11,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Fachada da integraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o Conta Azul.
+ * Fachada da integração Conta Azul.
  *
- * Esta classe mantÃƒÆ’Ã‚Â©m a API pÃƒÆ’Ã‚Âºblica original para reduzir impacto no restante
+ * Esta classe mantém a API pública original para reduzir impacto no restante
  * do sistema, delegando responsabilidades para clients especializados.
  */
 @Component
@@ -92,7 +92,7 @@ public class ContaAzulClient {
         return financialClient.downloadPublicFile(url);
     }
 
-    /** ReferÃƒÆ’Ã‚Âªncia simplificada a uma venda (ID). */
+    /** Referência simplificada a uma venda (ID). */
     public record VendaRef(String id) {
     }
 
@@ -125,7 +125,7 @@ public class ContaAzulClient {
     }
 
     /**
-     * DTO de detalhe da parcela (conta a receber), com referÃƒÆ’Ã‚Âªncias ÃƒÆ’Ã‚Âºteis para
+     * DTO de detalhe da parcela (conta a receber), com referências úteis para
      * localizar venda e baixa associadas.
      */
     public record ParcelaDetailDTO(

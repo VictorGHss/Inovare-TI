@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
  *
  * Responsabilidades:
  * - parse de payloads de parcelas;
- * - extraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o segura de dados relevantes;
+ * - extração segura de dados relevantes;
  * - regra de status de pagamento considerado quitado.
  */
 @Component
@@ -33,7 +33,7 @@ public class ContaAzulPaymentsResponseMapper {
     private final JsonSafeReader jsonSafeReader;
 
     /**
-     * Converte payload de listagem de parcelas em objetos de domÃƒÆ’Ã‚Â­nio.
+     * Converte payload de listagem de parcelas em objetos de domínio.
      */
     public List<ContaAzulPaymentParcel> parseParcels(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
@@ -152,7 +152,7 @@ public class ContaAzulPaymentsResponseMapper {
     }
 
     /**
-     * Procura uma parcela especÃƒÆ’Ã‚Â­fica dentro de um payload de listagem de contas a receber.
+     * Procura uma parcela específica dentro de um payload de listagem de contas a receber.
      */
     public Optional<ContaAzulPaymentParcel> findParcelIdentityByParcelaId(String jsonPayload, String parcelaId) {
         if (!StringUtils.hasText(jsonPayload) || !StringUtils.hasText(parcelaId)) {
@@ -193,7 +193,7 @@ public class ContaAzulPaymentsResponseMapper {
     }
 
     /**
-     * Determina se o status da parcela representa pagamento/quitacÃƒÆ’Ã‚Â£o.
+     * Determina se o status da parcela representa pagamento/quitacão.
      */
     public boolean isPaidParcelStatus(String status) {
         return "QUITADO".equalsIgnoreCase(status) || ContaAzulStatus.RECEBIDO.equalsIgnoreCase(status);

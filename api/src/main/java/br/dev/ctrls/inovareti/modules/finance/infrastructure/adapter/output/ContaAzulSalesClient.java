@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente especializado para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes de vendas na Conta Azul.
+ * Cliente especializado para operações de vendas na Conta Azul.
  */
 @Slf4j
 @Component
@@ -43,14 +43,14 @@ public class ContaAzulSalesClient {
 
 
     /**
-     * Indica se existe configuraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes de venda.
+     * Indica se existe configuração para operações de venda.
      */
     public boolean hasSalesConfiguration() {
         return StringUtils.hasText(properties.getSalesPdfV1UrlTemplate());
     }
 
     /**
-     * Consulta vendas liquidadas no perÃƒÆ’Ã‚Â­odo do mÃƒÆ’Ã‚Âªs atual.
+     * Consulta vendas liquidadas no período do mês atual.
      */
     public List<ContaAzulClient.SaleItem> fetchAcquittedSales() {
         LocalDate hoje = LocalDate.now();
@@ -60,7 +60,7 @@ public class ContaAzulSalesClient {
     }
 
     /**
-     * Consulta vendas liquidadas no perÃƒÆ’Ã‚Â­odo informado.
+     * Consulta vendas liquidadas no período informado.
      */
     public List<ContaAzulClient.SaleItem> fetchAcquittedSales(String dataVencimentoDe, String dataVencimentoAte) {
         List<ContaAzulClient.SaleItem> sales = new ArrayList<>();
@@ -85,7 +85,7 @@ public class ContaAzulSalesClient {
     }
 
     /**
-     * Localiza uma venda liquidada especÃƒÆ’Ã‚Â­fica por ID.
+     * Localiza uma venda liquidada específica por ID.
      */
     public Optional<ContaAzulClient.SaleItem> findAcquittedSaleById(String saleId) {
         if (!StringUtils.hasText(saleId)) {
@@ -119,7 +119,7 @@ public class ContaAzulSalesClient {
     }
 
     /**
-     * Recupera vendas committed com heurÃƒÆ’Ã‚Â­stica para parcelas liquidadas.
+     * Recupera vendas committed com heurística para parcelas liquidadas.
      */
     public List<ContaAzulClient.SaleItem> fetchCommittedSalesWithAcquittedParcels() {
         List<ContaAzulClient.SaleItem> sales = new ArrayList<>();
@@ -171,7 +171,7 @@ public class ContaAzulSalesClient {
                     .build()
                     .toUriString();
 
-            log.warn("Endpoint de vendas nÃƒÆ’Ã‚Â£o encontrado em {}. Tentando fallback estÃƒÆ’Ã‚Â¡vel em {}.", primaryUri, stableUri);
+            log.warn("Endpoint de vendas não encontrado em {}. Tentando fallback estável em {}.", primaryUri, stableUri);
             return requestExecutor.executeJsonGetWithRefresh(stableUri);
         }
     }
@@ -192,14 +192,14 @@ public class ContaAzulSalesClient {
             return "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/contas-a-receber/buscar";
         }
 
-        // Normaliza host/caminho para evitar regressÃƒÆ’Ã‚Â£o com endpoints legados contendo /api.
+        // Normaliza host/caminho para evitar regressão com endpoints legados contendo /api.
         String normalized = properties.getPaymentsUrl().trim();
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
         normalized = normalized.replaceAll("/+$", "");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
 
-        // Garante endpoint V2 de busca com filtros, mesmo quando vier configuraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o antiga.
+        // Garante endpoint V2 de busca com filtros, mesmo quando vier configuração antiga.
         if (normalized.matches("(?i).*/v1/financeiro/contas-a-receber$")) {
             normalized = normalized.replaceAll(
                     "(?i)/v1/financeiro/contas-a-receber$",
@@ -217,7 +217,7 @@ public class ContaAzulSalesClient {
         }
 
         String normalized = rawUrl.trim();
-        // ForÃƒÆ’Ã‚Â§a domÃƒÆ’Ã‚Â­nio oficial v2 e remove prefixo /api legado quando presente.
+        // Força domínio oficial v2 e remove prefixo /api legado quando presente.
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");

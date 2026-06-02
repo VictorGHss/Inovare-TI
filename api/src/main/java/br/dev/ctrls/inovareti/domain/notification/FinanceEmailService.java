@@ -40,8 +40,8 @@ public class FinanceEmailService {
 
     public void sendReceiptEmail(ContaAzulPaymentParcel parcela) {
         String saleNumber = resolveSaleNumber(parcela.saleNumber(), null, null);
-        String bodyText = "OlÃ¡ " + parcela.medicoNome()
-                + ", este Ã© um disparo de teste de recibo financeiro. Referente Ã  Venda " + saleNumber + ".";
+        String bodyText = "Olá " + parcela.medicoNome()
+                + ", este é um disparo de teste de recibo financeiro. Referente à Venda " + saleNumber + ".";
         sendReceiptEmail(parcela.medicoNome(), parcela.recipientEmail(), bodyText, saleNumber);
     }
 
@@ -62,7 +62,7 @@ public class FinanceEmailService {
             String attachmentFileName,
             String saleNumberHint) {
         validateConfiguration();
-        // Prioriza nÃºmero explÃ­cito da venda para impedir uso de UUID no assunto/corpo.
+        // Prioriza número explícito da venda para impedir uso de UUID no assunto/corpo.
         String saleNumber = resolveSaleNumber(saleNumberHint, bodyText, attachmentFileName);
 
         EmailDispatch dispatch = resolveDispatch(medicoNome, destinationEmail, saleNumber);
@@ -70,7 +70,7 @@ public class FinanceEmailService {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            // O Skymail rejeita remetente divergente do usuÃ¡rio autenticado; forÃ§a From estrito.
+            // O Skymail rejeita remetente divergente do usuário autenticado; força From estrito.
             helper.setFrom(resolveStrictFromEmail());
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
@@ -100,7 +100,7 @@ public class FinanceEmailService {
 
     private EmailDispatch resolveDispatch(String medicoNome, String destinationEmail, String saleNumber) {
         String resolvedName = StringUtils.hasText(medicoNome) ? medicoNome.trim() : "Cliente";
-        String subject = "Recibo de QuitaÃ§Ã£o - Inovare TI - " + resolvedName + " - Venda " + saleNumber;
+        String subject = "Recibo de Quitação - Inovare TI - " + resolvedName + " - Venda " + saleNumber;
         boolean testMode = isTestModeEnabled();
         String originalEmail = StringUtils.hasText(destinationEmail) ? destinationEmail.trim() : "";
         String devEmail = StringUtils.hasText(properties.getDevEmail()) ? properties.getDevEmail().trim() : "";
@@ -111,7 +111,7 @@ public class FinanceEmailService {
         }
 
         if (!StringUtils.hasText(destinoFinal)) {
-            throw new IllegalStateException("DestinatÃ¡rio final de e-mail estÃ¡ vazio apÃ³s resoluÃ§Ã£o do modo de teste.");
+            throw new IllegalStateException("Destinatário final de e-mail está vazio após resolução do modo de teste.");
         }
 
         return new EmailDispatch(destinoFinal, subject);
@@ -122,7 +122,7 @@ public class FinanceEmailService {
             String normalizedSmtpUser = springMailProperties.getUsername().trim();
             if (!normalizedSmtpUser.equalsIgnoreCase(properties.getSmtp().getFromEmail().trim())) {
                 log.warn(
-                        "app.financeiro.smtp.from-email difere de spring.mail.username. Usando usuÃ¡rio SMTP como remetente para evitar rejeiÃ§Ã£o do provedor.");
+                        "app.financeiro.smtp.from-email difere de spring.mail.username. Usando usuário SMTP como remetente para evitar rejeição do provedor.");
             }
             return normalizedSmtpUser;
         }
@@ -138,8 +138,8 @@ public class FinanceEmailService {
 
         return "<html><body>"
                 + "<p>Prezado(a) " + safeName + ",</p>"
-                + "<p>Confirmamos o recebimento do valor referente Ã  Venda " + safeSaleNumber
-                + ". O seu recibo de quitaÃ§Ã£o jÃ¡ estÃ¡ disponÃ­vel e segue em anexo a este e-mail.</p>"
+                + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleNumber
+                + ". O seu recibo de quitação já está disponível e segue em anexo a este e-mail.</p>"
             + "<p>Atenciosamente,<br/>Administrativo Inovare</p>"
                 + "</body></html>";
     }
@@ -178,7 +178,7 @@ public class FinanceEmailService {
 
     private void validateConfiguration() {
         if (!StringUtils.hasText(properties.getSmtp().getFromEmail()) || !StringUtils.hasText(properties.getSmtp().getFromName())) {
-            throw new IllegalStateException("ConfiguraÃ§Ã£o SMTP financeira invÃ¡lida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name sÃ£o obrigatÃ³rios.");
+            throw new IllegalStateException("Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
 
         if (isTestModeEnabled() && !StringUtils.hasText(properties.getDevEmail())) {

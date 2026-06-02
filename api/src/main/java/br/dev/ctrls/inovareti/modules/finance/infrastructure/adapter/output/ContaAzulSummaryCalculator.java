@@ -15,8 +15,8 @@ import org.springframework.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente puro de domÃ­nio responsÃ¡vel pelas regras de negÃ³cio, cÃ¡lculos matemÃ¡ticos,
- * conversÃ£o para centavos e classificaÃ§Ãµes de ativos/passivos financeiros da Conta Azul.
+ * Componente puro de domínio responsável pelas regras de negócio, cálculos matemáticos,
+ * conversão para centavos e classificações de ativos/passivos financeiros da Conta Azul.
  */
 @Slf4j
 @Service
@@ -62,7 +62,7 @@ public class ContaAzulSummaryCalculator {
         boolean explicitCents = normalizedPath.contains("centavo") || normalizedPath.contains("centavos");
 
         if (explicitCents) {
-            // Quando o campo jÃ¡ indica centavos, evita multiplicaÃ§Ã£o por 100
+            // Quando o campo já indica centavos, evita multiplicação por 100
             return amount.setScale(0, RoundingMode.HALF_UP).longValue();
         }
 
@@ -70,26 +70,26 @@ public class ContaAzulSummaryCalculator {
             return toCents(amount);
         }
 
-        // Na API financeira V2 da Conta Azul, valores integrais sem escala geralmente jÃ¡ sÃ£o retornados em centavos.
+        // Na API financeira V2 da Conta Azul, valores integrais sem escala geralmente já são retornados em centavos.
         return amount.longValue();
     }
 
     /**
-     * Verifica se o tipo de conta financeira pertence Ã  whitelist de ativos.
+     * Verifica se o tipo de conta financeira pertence à whitelist de ativos.
      */
     public boolean isAssetAccountType(String accountType) {
         return accountType != null && ASSET_ACCOUNT_TYPES.contains(accountType.trim().toUpperCase());
     }
 
     /**
-     * Verifica se o tipo de conta financeira pertence Ã  whitelist de passivos (ex: cartÃµes de crÃ©dito).
+     * Verifica se o tipo de conta financeira pertence à whitelist de passivos (ex: cartões de crédito).
      */
     public boolean isLiabilityAccountType(String accountType) {
         return accountType != null && LIABILITY_ACCOUNT_TYPES.contains(accountType.trim().toUpperCase());
     }
 
     /**
-     * Regra de negÃ³cio que determina se uma conta financeira deve ser consolidada no saldo final.
+     * Regra de negócio que determina se uma conta financeira deve ser consolidada no saldo final.
      * Somente contas ativas do tipo ativo (asset) com saldo positivo entram no consolidado.
      */
     public boolean shouldIncludeAccountInBalance(String accountType, boolean active, long balanceCents) {
@@ -97,7 +97,7 @@ public class ContaAzulSummaryCalculator {
     }
 
     /**
-     * Resolve a data de Ãºltima atualizaÃ§Ã£o no padrÃ£o de fuso horÃ¡rio de BrasÃ­lia.
+     * Resolve a data de última atualização no padrão de fuso horário de Brasília.
      */
     public String resolveSummaryLastUpdatedAt(String rawLastUpdatedAt) {
         OffsetDateTime parsed = parseApiDateToBrasiliaOffsetDateTime(rawLastUpdatedAt);
@@ -109,7 +109,7 @@ public class ContaAzulSummaryCalculator {
     }
 
     /**
-     * UtilitÃ¡rio para parsear datas retornadas pela API para OffsetDateTime de BrasÃ­lia.
+     * Utilitário para parsear datas retornadas pela API para OffsetDateTime de Brasília.
      */
     public OffsetDateTime parseApiDateToBrasiliaOffsetDateTime(String rawDate) {
         if (!StringUtils.hasText(rawDate)) {

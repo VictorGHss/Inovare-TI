@@ -13,11 +13,11 @@ import br.dev.ctrls.inovareti.domain.ticket.Ticket;
 import lombok.RequiredArgsConstructor;
 
 /**
- * ServiÃƒÂ§o responsÃƒÂ¡vel por criar lanÃƒÂ§amentos financeiros internos a partir de eventos
- * do sistema (ex: saÃƒÂ­da de estoque por chamado). A lÃƒÂ³gica segue a regra:
- * - Se o solicitante possuir vÃƒÂ­nculo financeiro (contaAzulId mapeado em `financial_link`),
- *   registra o dÃƒÂ©bito para o mÃƒÂ©dico (`DOCTOR`).
- * - Caso contrÃƒÂ¡rio, registra o dÃƒÂ©bito para o setor do usuÃƒÂ¡rio (`SECTOR`).
+ * Serviço responsável por criar lançamentos financeiros internos a partir de eventos
+ * do sistema (ex: saída de estoque por chamado). A lógica segue a regra:
+ * - Se o solicitante possuir vínculo financeiro (contaAzulId mapeado em `financial_link`),
+ *   registra o débito para o médico (`DOCTOR`).
+ * - Caso contrário, registra o débito para o setor do usuário (`SECTOR`).
  */
 @Service
 @RequiredArgsConstructor
@@ -27,11 +27,11 @@ public class FinancialService {
     private final FinancialLinkRepository financialLinkRepository;
 
     /**
-     * Cria um lanÃƒÂ§amento financeiro associado a um chamado.
+     * Cria um lançamento financeiro associado a um chamado.
      *
-     * @param ticket Chamado que originou a deduÃƒÂ§ÃƒÂ£o
+     * @param ticket Chamado que originou a dedução
      * @param resourceType Tipo do recurso consumido ("INVENTORY" ou "ASSET")
-     * @param amount Valor total apurado na deduÃƒÂ§ÃƒÂ£o (precision 19,2)
+     * @param amount Valor total apurado na dedução (precision 19,2)
      */
     public void recordDebitForTicket(Ticket ticket, String resourceType, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -43,7 +43,7 @@ public class FinancialService {
         FinancialTransaction.TargetType targetType;
         UUID targetId;
 
-        // Verifica se o usuÃƒÂ¡rio possui vÃƒÂ­nculo financeiro (ContaAzul)
+        // Verifica se o usuário possui vínculo financeiro (ContaAzul)
         if (requester.getContaAzulId() != null
                 && financialLinkRepository.findByContaAzulCustomerId(requester.getContaAzulId()).isPresent()) {
             targetType = FinancialTransaction.TargetType.DOCTOR;

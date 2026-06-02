@@ -14,7 +14,7 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.
 import lombok.RequiredArgsConstructor;
 
 /**
- * Adaptador de SaÃ­da que implementa a Porta de RepositÃ³rio do Dominio 
+ * Adaptador de Saída que implementa a Porta de Repositório do Dominio 
  * para fazer a ponte com o Spring Data JPA para os mapeamentos de medicos de agendamento.
  */
 @Component

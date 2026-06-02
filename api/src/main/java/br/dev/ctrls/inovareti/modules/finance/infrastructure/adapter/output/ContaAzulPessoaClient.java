@@ -22,10 +22,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente para operaÃƒÂ§ÃƒÂµes relacionadas a pessoas (mÃƒÂ©dicos/pacientes) na Conta Azul.
+ * Cliente para operações relacionadas a pessoas (médicos/pacientes) na Conta Azul.
  *
  * Oferece buscas por UUID ou ID legado e mapeia o payload para `ContaAzulPessoaDTO`.
- * Utiliza `ContaAzulTokenService` para autenticaÃƒÂ§ÃƒÂ£o nas chamadas REST.
+ * Utiliza `ContaAzulTokenService` para autenticação nas chamadas REST.
  */
 @Component
 @RequiredArgsConstructor
@@ -42,7 +42,7 @@ public class ContaAzulPessoaClient {
      * Busca uma pessoa na Conta Azul por UUID.
      *
      * @param pessoaUuid UUID da pessoa na Conta Azul
-     * @return DTO com informaÃƒÂ§ÃƒÂµes da pessoa, se encontrada
+     * @return DTO com informações da pessoa, se encontrada
      */
     public Optional<ContaAzulPessoaDTO> findById(String pessoaUuid) {
         try {
@@ -50,7 +50,7 @@ public class ContaAzulPessoaClient {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, buildRequest(), String.class);
             return parsePessoa(response.getBody());
         } catch (RestClientException e) {
-            log.warn("Pessoa nÃƒÂ£o encontrada (uuid={}): {}", pessoaUuid, e.getMessage());
+            log.warn("Pessoa não encontrada (uuid={}): {}", pessoaUuid, e.getMessage());
             return Optional.empty();
         }
     }
@@ -59,7 +59,7 @@ public class ContaAzulPessoaClient {
      * Busca uma pessoa na Conta Azul por ID legado (rota de compatibilidade).
      *
      * @param idLegado identificador legado da pessoa
-     * @return DTO com informaÃƒÂ§ÃƒÂµes da pessoa, se encontrada
+     * @return DTO com informações da pessoa, se encontrada
      */
     public Optional<ContaAzulPessoaDTO> findByLegacyId(String idLegado) {
         try {
@@ -67,13 +67,13 @@ public class ContaAzulPessoaClient {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, buildRequest(), String.class);
             return parsePessoa(response.getBody());
         } catch (RestClientException e) {
-            log.warn("Pessoa nÃƒÂ£o encontrada (legacyId={}): {}", idLegado, e.getMessage());
+            log.warn("Pessoa não encontrada (legacyId={}): {}", idLegado, e.getMessage());
             return Optional.empty();
         }
     }
 
     /**
-     * ConstrÃƒÂ³i `HttpEntity` com cabeÃƒÂ§alhos de autorizaÃƒÂ§ÃƒÂ£o e `Accept` JSON
+     * Constrói `HttpEntity` com cabeçalhos de autorização e `Accept` JSON
      * a partir do token provido por `ContaAzulTokenService`.
      */
     private HttpEntity<Void> buildRequest() {
@@ -85,7 +85,7 @@ public class ContaAzulPessoaClient {
 
     /**
      * Faz o parse do corpo de resposta JSON e converte em `ContaAzulPessoaDTO`.
-     * Retorna `Optional.empty()` quando o corpo ÃƒÂ© vazio ou o parse falha.
+     * Retorna `Optional.empty()` quando o corpo é vazio ou o parse falha.
      */
     private Optional<ContaAzulPessoaDTO> parsePessoa(String responseBody) {
         if (responseBody == null || responseBody.isBlank()) {

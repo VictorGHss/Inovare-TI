@@ -19,9 +19,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * UtilitÃƒÂ¡rio responsÃƒÂ¡vel por gerenciar a resiliÃƒÂªncia no envio de notificaÃƒÂ§ÃƒÂµes para o Discord.
+ * Utilitário responsável por gerenciar a resiliência no envio de notificações para o Discord.
  *
- * Implementa retries com backoff exponencial e captura de rate limit dinÃƒÂ¢mico (HTTP 429)
+ * Implementa retries com backoff exponencial e captura de rate limit dinâmico (HTTP 429)
  * em conformidade com as Virtual Threads do Java 21.
  */
 @Slf4j
@@ -39,13 +39,13 @@ public class DiscordWebhookRetryUtility {
     private long webhookRetryBackoffMs;
 
     /**
-     * Envia o embed rico para a URL do webhook do Discord usando retries e resiliÃƒÂªncia.
+     * Envia o embed rico para a URL do webhook do Discord usando retries e resiliência.
      *
      * @param webhook URL do webhook do Discord.
-     * @param embed Estrutura de dados do embed que compÃƒÂµe a mensagem.
+     * @param embed Estrutura de dados do embed que compõe a mensagem.
      * @param contextType Tipo do contexto da mensagem (ex: chamado, alerta operacional).
      * @param contextId ID associado ao contexto para fins de log e alerta de erro.
-     * @return true se o envio foi bem-sucedido, false caso contrÃƒÂ¡rio.
+     * @return true se o envio foi bem-sucedido, false caso contrário.
      */
     public boolean sendEmbedWithRetry(
             String webhook,
@@ -72,26 +72,26 @@ public class DiscordWebhookRetryUtility {
                         maxAttempts);
                 return true;
             } catch (HttpClientErrorException.TooManyRequests tmr) {
-                // Tratamento dinÃƒÂ¢mico de HTTP 429 (Rate Limit) do Discord
+                // Tratamento dinâmico de HTTP 429 (Rate Limit) do Discord
                 HttpHeaders responseHeaders = tmr.getResponseHeaders();
                 long retryAfterMs = parseRetryAfter(responseHeaders);
 
                 if (attempt < maxAttempts) {
                     log.warn("Rate limit atingido (429) no Discord para {}={} (tentativa {}/{}). "
-                            + "Aguardando {} ms (Retry-After) antes da prÃƒÂ³xima tentativa.",
+                            + "Aguardando {} ms (Retry-After) antes da próxima tentativa.",
                             contextType,
                             contextId,
                             attempt,
                             maxAttempts,
                             retryAfterMs);
                     sleep(retryAfterMs);
-                    // Decrementamos a tentativa para que a chamada do rate limit nÃƒÂ£o consuma uma tentativa real
+                    // Decrementamos a tentativa para que a chamada do rate limit não consuma uma tentativa real
                     // permitindo que ela seja reenviada com sucesso.
                     attempt--;
                     continue;
                 }
 
-                log.error("Rate limit persistente no Discord para {}={} apÃƒÂ³s {} tentativa(s): {}",
+                log.error("Rate limit persistente no Discord para {}={} após {} tentativa(s): {}",
                         contextType,
                         contextId,
                         maxAttempts,
@@ -105,9 +105,9 @@ public class DiscordWebhookRetryUtility {
                 return false;
 
             } catch (HttpClientErrorException.NotFound nf) {
-                log.error("Webhook Discord invÃƒÂ¡lido (404) para {}={}: {}", contextType, contextId, nf.getMessage());
+                log.error("Webhook Discord inválido (404) para {}={}: {}", contextType, contextId, nf.getMessage());
                 registerOperationalSendFailure(
-                        "Webhook Discord invÃƒÂ¡lido (404)",
+                        "Webhook Discord inválido (404)",
                         nf.getMessage(),
                         webhook,
                         contextType,
@@ -127,7 +127,7 @@ public class DiscordWebhookRetryUtility {
                     continue;
                 }
 
-                log.error("Falha ao enviar embed no Discord para {}={} apÃƒÂ³s {} tentativa(s): {}",
+                log.error("Falha ao enviar embed no Discord para {}={} após {} tentativa(s): {}",
                         contextType,
                         contextId,
                         maxAttempts,
@@ -155,7 +155,7 @@ public class DiscordWebhookRetryUtility {
                     continue;
                 }
 
-                log.error("Erro inesperado ao enviar embed no Discord para {}={} apÃƒÂ³s {} tentativa(s): {}",
+                log.error("Erro inesperado ao enviar embed no Discord para {}={} após {} tentativa(s): {}",
                         contextType,
                         contextId,
                         maxAttempts,
@@ -188,10 +188,10 @@ public class DiscordWebhookRetryUtility {
             return (long) (seconds * 1000.0);
         } catch (NumberFormatException nfe) {
             try {
-                // Fallback para milissegundos inteiros se for um nÃƒÂºmero longo simples
+                // Fallback para milissegundos inteiros se for um número longo simples
                 return Long.parseLong(retryAfterHeader.trim());
             } catch (NumberFormatException e) {
-                log.warn("NÃƒÂ£o foi possÃƒÂ­vel decodificar o header Retry-After '{}': {}. Usando backoff padrÃƒÂ£o.",
+                log.warn("Não foi possível decodificar o header Retry-After '{}': {}. Usando backoff padrão.",
                         retryAfterHeader, e.getMessage());
                 return webhookRetryBackoffMs;
             }
@@ -208,7 +208,7 @@ public class DiscordWebhookRetryUtility {
             return;
         }
         try {
-            // Em Virtual Threads no Java 21, Thread.sleep cede a execuÃƒÂ§ÃƒÂ£o de forma nÃƒÂ£o-bloqueante ÃƒÂ  Thread de Carrier
+            // Em Virtual Threads no Java 21, Thread.sleep cede a execução de forma não-bloqueante à Thread de Carrier
             Thread.sleep(durationMs);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -236,7 +236,7 @@ public class DiscordWebhookRetryUtility {
                             "contextId", contextId))
                     .build());
         } catch (Exception ex) {
-            log.warn("Falha ao registrar SystemAlert apÃƒÂ³s erro no webhook do Discord: {}", ex.getMessage(), ex);
+            log.warn("Falha ao registrar SystemAlert após erro no webhook do Discord: {}", ex.getMessage(), ex);
         }
     }
 }

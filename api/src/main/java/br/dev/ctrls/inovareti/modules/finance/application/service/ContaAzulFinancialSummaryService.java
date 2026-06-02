@@ -32,10 +32,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÆ’Ã‚Â§o que atua como orquestrador da camada de aplicaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o (Application Service) para recuperar o resumo financeiro mensal.
+ * Serviço que atua como orquestrador da camada de aplicação (Application Service) para recuperar o resumo financeiro mensal.
  *
  * Ele coordena o fluxo chamando o adaptador de infraestrutura para buscar dados,
- * repassando para o calculador de domÃƒÆ’Ã‚Â­nio processar e consolidando o resultado final.
+ * repassando para o calculador de domínio processar e consolidando o resultado final.
  */
 @Slf4j
 @Service
@@ -58,12 +58,12 @@ public class ContaAzulFinancialSummaryService {
     }
 
     /**
-     * Recupera o resumo financeiro do mÃƒÆ’Ã‚Âªs atual.
+     * Recupera o resumo financeiro do mês atual.
      *
      * - `balanceCents`: saldo (representado aqui como total pago em centavos);
      * - `totalPendingCents`: total em aberto em centavos;
      * - `totalPaidCents`: total pago em centavos;
-     * - `syncedReceiptsCount`: quantidade de recibos jÃƒÆ’Ã‚Â¡ registrados localmente.
+     * - `syncedReceiptsCount`: quantidade de recibos já registrados localmente.
      */
     @Cacheable(value = "contaAzulSummary", key = "'dashboard'")
     public FinancialSummary fetchSummary() {
@@ -90,14 +90,14 @@ public class ContaAzulFinancialSummaryService {
             StatusResult pendingResult = pendingFuture.join();
             StatusResult balanceResult = balanceFuture.join();
 
-            log.info("Resumo financeiro: parcelas recebidas identificadas no perÃƒÆ’Ã‚Â­odo = {}", receivedParcelsResult.parcels().size());
+            log.info("Resumo financeiro: parcelas recebidas identificadas no período = {}", receivedParcelsResult.parcels().size());
             StatusResult paidResult = safeFetchTotalPaidByBaixas(accessToken, receivedParcelsResult.parcels(), executor);
 
             long totalPaidCents = paidResult.total();
             long totalPendingCents = pendingResult.total();
             long balanceCents = balanceResult.total();
 
-            // Regra de robustez: disponibilidade externa sÃƒÆ’Ã‚Â³ cai quando falha a listagem inicial de contas.
+            // Regra de robustez: disponibilidade externa só cai quando falha a listagem inicial de contas.
             boolean externalServiceAvailable = balanceResult.available();
 
             return new FinancialSummary(
@@ -109,7 +109,7 @@ public class ContaAzulFinancialSummaryService {
                     externalServiceAvailable,
                     summaryCalculator.resolveSummaryLastUpdatedAt(receivedParcelsResult.lastUpdatedAt()));
         } catch (Exception ex) {
-            log.warn("Falha ao montar resumo financeiro da Conta Azul. Retornando fallback com serviÃƒÆ’Ã‚Â§o externo indisponÃƒÆ’Ã‚Â­vel.", ex);
+            log.warn("Falha ao montar resumo financeiro da Conta Azul. Retornando fallback com serviço externo indisponível.", ex);
             return new FinancialSummary(
                     0L,
                     0L,
@@ -140,13 +140,13 @@ public class ContaAzulFinancialSummaryService {
         try {
             BigDecimal totalDecimal = restClientAdapter.fetchTotalAmountByStatus(accessToken, status);
             if (totalDecimal == null) {
-                // Caso 403 FORBIDDEN: retornar zero e marcar como indisponÃƒÆ’Ã‚Â­vel
+                // Caso 403 FORBIDDEN: retornar zero e marcar como indisponível
                 return new StatusResult(0L, false);
             }
             long totalCents = summaryCalculator.normalizeAmountToCents(totalDecimal, status.equals(ContaAzulStatus.RECEBIDO) ? "totais.pago.valor" : "totais.aberto.valor");
             return new StatusResult(totalCents, true);
         } catch (Exception ex) {
-            log.warn("Falha ao consultar status '{}' na Conta Azul. Considerando indisponÃƒÆ’Ã‚Â­vel para este status.", status, ex);
+            log.warn("Falha ao consultar status '{}' na Conta Azul. Considerando indisponível para este status.", status, ex);
             return new StatusResult(0L, false);
         }
     }
@@ -155,7 +155,7 @@ public class ContaAzulFinancialSummaryService {
         try {
             return fetchReceivedParcels(accessToken);
         } catch (Exception ex) {
-            log.warn("Falha ao consultar parcelas RECEBIDO para cÃƒÆ’Ã‚Â¡lculo real por baixas.", ex);
+            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
             return new ReceivedParcelsResult(List.of(), false, null);
         }
     }
@@ -181,8 +181,8 @@ public class ContaAzulFinancialSummaryService {
         try {
             financialAccounts = restClientAdapter.fetchFinancialAccounts(accessToken);
         } catch (Exception ex) {
-            // SÃƒÆ’Ã‚Â³ marca indisponÃƒÆ’Ã‚Â­vel quando a listagem inicial de contas falha por completo.
-            log.warn("Falha ao listar contas financeiras na Conta Azul. Dashboard seguirÃƒÆ’Ã‚Â¡ indisponÃƒÆ’Ã‚Â­vel atÃƒÆ’Ã‚Â© nova leitura.", ex);
+            // Só marca indisponível quando a listagem inicial de contas falha por completo.
+            log.warn("Falha ao listar contas financeiras na Conta Azul. Dashboard seguirá indisponível até nova leitura.", ex);
             return new StatusResult(0L, false);
         }
 
@@ -197,7 +197,7 @@ public class ContaAzulFinancialSummaryService {
                         BigDecimal balanceDecimal = restClientAdapter.fetchAccountCurrentBalance(accessToken, account.accountId());
                         long accountBalanceCents = summaryCalculator.toCents(balanceDecimal);
                         
-                        // Regra de negÃƒÆ’Ã‚Â³cio: saldo negativo nÃƒÆ’Ã‚Â£o compÃƒÆ’Ã‚Âµe balanceCents consolidado por padrÃƒÆ’Ã‚Â£o.
+                        // Regra de negócio: saldo negativo não compõe balanceCents consolidado por padrão.
                         boolean includeInBalance = summaryCalculator.shouldIncludeAccountInBalance(account.type(), account.active(), accountBalanceCents);
 
                         // Auditoria fixa para identificar rapidamente contas que distorcem o saldo.
@@ -209,7 +209,7 @@ public class ContaAzulFinancialSummaryService {
                                 account.active());
 
                         if (account.active() && summaryCalculator.isLiabilityAccountType(account.type())) {
-                            // Regra de negÃƒÆ’Ã‚Â³cio: cartÃƒÆ’Ã‚Â£o de crÃƒÆ’Ã‚Â©dito representa passivo e nÃƒÆ’Ã‚Â£o compÃƒÆ’Ã‚Âµe saldo consolidado de caixa.
+                            // Regra de negócio: cartão de crédito representa passivo e não compõe saldo consolidado de caixa.
                             log.info("Conta {} ignorada no consolidado por ser passivo (tipo {}).", account.name(), account.type());
                         }
 
@@ -227,7 +227,7 @@ public class ContaAzulFinancialSummaryService {
 
                         return new AccountBalanceAudit(account, accountBalanceCents, includeInBalance);
                     } catch (Exception ex) {
-                        // Falha individual nÃƒÆ’Ã‚Â£o pode derrubar o dashboard.
+                        // Falha individual não pode derrubar o dashboard.
                         log.warn("Falha ao consultar saldo atual da conta financeira {}.", account.accountId(), ex);
                         return new AccountBalanceAudit(account, 0L, false);
                     }
@@ -264,13 +264,13 @@ public class ContaAzulFinancialSummaryService {
                         for (BigDecimal baixaValorLiquido : baixas) {
                             String vendaId = org.springframework.util.StringUtils.hasText(parcel.displayIdentifier()) ? parcel.displayIdentifier() : parcel.parcelaId();
                             log.info("Venda {} - Somando baixa de valor: {}", vendaId, baixaValorLiquido);
-                            log.info("Somando Baixa: Valor LÃƒÆ’Ã‚Â­quido detectado = {}", baixaValorLiquido);
+                            log.info("Somando Baixa: Valor Líquido detectado = {}", baixaValorLiquido);
                             totalLiquido = totalLiquido.add(baixaValorLiquido);
                         }
 
                         return summaryCalculator.toCents(totalLiquido);
                     } catch (Exception ex) {
-                        // Falha individual de parcela nÃƒÆ’Ã‚Â£o deve zerar nem indisponibilizar o resumo inteiro.
+                        // Falha individual de parcela não deve zerar nem indisponibilizar o resumo inteiro.
                         String displayId = org.springframework.util.StringUtils.hasText(parcel.displayIdentifier())
                                 ? parcel.displayIdentifier()
                                 : parcel.parcelaId();
@@ -293,10 +293,10 @@ public class ContaAzulFinancialSummaryService {
         Map<String, ReceivableParcelRef> parcelMap = new java.util.LinkedHashMap<>();
         OffsetDateTime latestUpdate = null;
 
-        // ProduÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: mantÃƒÆ’Ã‚Â©m a busca do primeiro dia do mÃƒÆ’Ã‚Âªs atual atÃƒÆ’Ã‚Â© hoje.
+        // Produção: mantém a busca do primeiro dia do mês atual até hoje.
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-        log.info("Consultando parcelas RECEBIDO no perÃƒÆ’Ã‚Â­odo {} atÃƒÆ’Ã‚Â© {}.", inicioMesAtual, hoje);
+        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
 
         latestUpdate = collectReceivedParcelsByStatusAndRange(
             accessToken,
@@ -307,8 +307,8 @@ public class ContaAzulFinancialSummaryService {
             latestUpdate);
 
         if (parcelMap.isEmpty()) {
-            // DiagnÃƒÆ’Ã‚Â³stico: forÃƒÆ’Ã‚Â§a janela maior para validar se o cÃƒÆ’Ã‚Â¡lculo estÃƒÆ’Ã‚Â¡ correto fora do mÃƒÆ’Ã‚Âªs corrente.
-            log.warn("Nenhuma parcela RECEBIDO encontrada no mÃƒÆ’Ã‚Âªs atual. Reexecutando diagnÃƒÆ’Ã‚Â³stico com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
+            // Diagnóstico: força janela maior para validar se o cálculo está correto fora do mês corrente.
+            log.warn("Nenhuma parcela RECEBIDO encontrada no mês atual. Reexecutando diagnóstico com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
             latestUpdate = collectReceivedParcelsByStatusAndRange(
                 accessToken,
                 ContaAzulStatus.RECEBIDO,
@@ -319,8 +319,8 @@ public class ContaAzulFinancialSummaryService {
         }
 
         if (parcelMap.isEmpty()) {
-            // Compatibilidade: algumas versÃƒÆ’Ã‚Âµes da API V2 usam QUITADO no lugar de RECEBIDO.
-            log.warn("Nenhuma parcela com status RECEBIDO. Tentando fallback com status QUITADO no mÃƒÆ’Ã‚Âªs atual.");
+            // Compatibilidade: algumas versões da API V2 usam QUITADO no lugar de RECEBIDO.
+            log.warn("Nenhuma parcela com status RECEBIDO. Tentando fallback com status QUITADO no mês atual.");
             latestUpdate = collectReceivedParcelsByStatusAndRange(
                 accessToken,
                 ContaAzulStatus.QUITADO,
@@ -331,7 +331,7 @@ public class ContaAzulFinancialSummaryService {
         }
 
         if (parcelMap.isEmpty()) {
-            log.warn("Nenhuma parcela QUITADO no mÃƒÆ’Ã‚Âªs atual. Reexecutando QUITADO com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
+            log.warn("Nenhuma parcela QUITADO no mês atual. Reexecutando QUITADO com data_pagamento_de={}.", DIAGNOSTIC_PAYMENT_DATE_FROM);
             latestUpdate = collectReceivedParcelsByStatusAndRange(
                 accessToken,
                 ContaAzulStatus.QUITADO,
@@ -389,7 +389,7 @@ public class ContaAzulFinancialSummaryService {
     /**
      * Resumo financeiro retornado pela API.
      *
-     * Campos em centavos para evitar problemas de ponto flutuante em somas e comparaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes.
+     * Campos em centavos para evitar problemas de ponto flutuante em somas e comparações.
      */
     public record FinancialSummary(
         long balanceCents,

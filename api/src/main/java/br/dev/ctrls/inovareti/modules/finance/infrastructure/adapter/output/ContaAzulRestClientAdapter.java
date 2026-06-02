@@ -15,8 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Adaptador de saÃƒÆ’Ã‚Â­da (Outbound Adapter) responsÃƒÆ’Ã‚Â¡vel pela coordenaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o da comunicaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o com a API da Conta Azul.
- * Aplica o throttling de 300ms, delega a busca fÃƒÆ’Ã‚Â­sica ao ContaAzulHttpClient e o parsing de JSON ao ContaAzulResponseParser.
+ * Adaptador de saída (Outbound Adapter) responsável pela coordenação da comunicação com a API da Conta Azul.
+ * Aplica o throttling de 300ms, delega a busca física ao ContaAzulHttpClient e o parsing de JSON ao ContaAzulResponseParser.
  */
 @Slf4j
 @Component
@@ -45,7 +45,7 @@ public class ContaAzulRestClientAdapter {
     }
 
     /**
-     * Recupera a lista de valores lÃƒÆ’Ã‚Â­quidos (BigDecimal) das baixas de uma parcela.
+     * Recupera a lista de valores líquidos (BigDecimal) das baixas de uma parcela.
      */
     public List<BigDecimal> fetchParcelaBaixasValorLiquido(String accessToken, String parcelaId) {
         applyThrottlingDelay();
@@ -54,7 +54,7 @@ public class ContaAzulRestClientAdapter {
     }
 
     /**
-     * Busca uma pÃƒÆ’Ã‚Â¡gina de parcelas a receber filtrando por data de vencimento.
+     * Busca uma página de parcelas a receber filtrando por data de vencimento.
      */
     public ReceivablesPageData fetchReceivablesPageByDueDate(
             String accessToken,
@@ -68,7 +68,7 @@ public class ContaAzulRestClientAdapter {
     }
 
     /**
-     * Busca uma pÃƒÆ’Ã‚Â¡gina de parcelas a receber filtrando por data de pagamento (caixa).
+     * Busca uma página de parcelas a receber filtrando por data de pagamento (caixa).
      */
     public ReceivablesPageData fetchReceivablesPageByPaymentDate(
             String accessToken,
@@ -82,7 +82,7 @@ public class ContaAzulRestClientAdapter {
     }
 
     /**
-     * Recupera o total agregado de pagamentos direto pelo status informado para a pÃƒÆ’Ã‚Â¡gina 1 (totais gerais do mÃƒÆ’Ã‚Âªs).
+     * Recupera o total agregado de pagamentos direto pelo status informado para a página 1 (totais gerais do mês).
      */
     public BigDecimal fetchTotalAmountByStatus(String accessToken, String status) {
         applyThrottlingDelay();
@@ -91,22 +91,22 @@ public class ContaAzulRestClientAdapter {
             return responseParser.extractTotalDecimal(rawJson, status);
         } catch (HttpClientErrorException.Unauthorized ex) {
             String errorBody = ex.getResponseBodyAsString();
-            log.warn("Token expirado ou invÃƒÆ’Ã‚Â¡lido ao buscar pagamentos com status='{}'. Tentando refresh automÃƒÆ’Ã‚Â¡tico. Resposta: {}", status, errorBody);
+            log.warn("Token expirado ou inválido ao buscar pagamentos com status='{}'. Tentando refresh automático. Resposta: {}", status, errorBody);
 
             try {
                 String newToken = httpClient.forceTokenRefresh();
                 String rawJsonRetry = httpClient.executePaymentsRequestByStatusRaw(status, newToken, 1);
                 return responseParser.extractTotalDecimal(rawJsonRetry, status);
             } catch (Exception refreshEx) {
-                log.error("Refresh tambÃƒÆ’Ã‚Â©m falhou. Re-autorizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o manual necessÃƒÆ’Ã‚Â¡ria.", refreshEx);
-                throw new ContaAzulAuthException("Token invÃƒÆ’Ã‚Â¡lido e refresh falhou. RefaÃƒÆ’Ã‚Â§a o login na Conta Azul.", refreshEx);
+                log.error("Refresh também falhou. Re-autorização manual necessária.", refreshEx);
+                throw new ContaAzulAuthException("Token inválido e refresh falhou. Refaça o login na Conta Azul.", refreshEx);
             }
         } catch (HttpClientErrorException ex) {
             String errorBody = ex.getResponseBodyAsString();
 
             if (ex.getStatusCode().value() == 403) {
                 log.warn("ContaAzul API retornou 403 FORBIDDEN ao buscar pagamentos com status='{}'. Resposta: {}", status, errorBody);
-                return null; // Retorna nulo para indicar 403 / indisponÃƒÆ’Ã‚Â­vel de forma segura
+                return null; // Retorna nulo para indicar 403 / indisponível de forma segura
             }
 
             if (ex.getStatusCode().value() == 401) {
@@ -120,7 +120,7 @@ public class ContaAzulRestClientAdapter {
     }
 
     /**
-     * Aplica o delay de throttling anti-429 compatÃƒÆ’Ã‚Â­vel com as Virtual Threads.
+     * Aplica o delay de throttling anti-429 compatível com as Virtual Threads.
      */
     public void applyThrottlingDelay() {
         try {

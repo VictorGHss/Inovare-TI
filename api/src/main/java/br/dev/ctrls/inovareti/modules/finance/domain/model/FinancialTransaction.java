@@ -21,9 +21,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entidade que representa um lanÃ§amento financeiro interno.
- * Pode ser direcionado a um mÃ©dico (DOCTOR) ou a um setor (SECTOR).
- * O campo `amount` guarda o valor do dÃ©bito (precision 19,2).
+ * Entidade que representa um lançamento financeiro interno.
+ * Pode ser direcionado a um médico (DOCTOR) ou a um setor (SECTOR).
+ * O campo `amount` guarda o valor do débito (precision 19,2).
  */
 @Entity
 @Table(name = "financial_transactions")

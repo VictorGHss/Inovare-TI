@@ -197,7 +197,7 @@ public class FinancialResponseMapper {
     }
 
     /**
-     * Faz parse genÃƒÆ’Ã‚Â©rico do payload de detalhe da baixa e retorna o JsonNode raiz.
+     * Faz parse genérico do payload de detalhe da baixa e retorna o JsonNode raiz.
      */
     public Optional<JsonNode> parseSettlementNode(String jsonPayload) {
         if (!StringUtils.hasText(jsonPayload)) {
@@ -214,13 +214,13 @@ public class FinancialResponseMapper {
     /**
      * Extrai a URL do recibo digital a partir dos anexos da baixa.
      *
-     * Regra de negÃƒÆ’Ã‚Â³cio: considerar somente anexos com tipo RECIBO ou RECIBO_DIGITAL.
+     * Regra de negócio: considerar somente anexos com tipo RECIBO ou RECIBO_DIGITAL.
      */
     public Optional<String> extractReceiptUrl(JsonNode settlementNode) {
         JsonNode anexosNode = resolveAnexosNode(settlementNode);
         if (anexosNode == null || !anexosNode.isArray() || anexosNode.isEmpty()) {
             if (log.isDebugEnabled()) {
-                log.debug("Settlement sem anexos disponÃƒÆ’Ã‚Â­veis para recibo. JSON completo: {}",
+                log.debug("Settlement sem anexos disponíveis para recibo. JSON completo: {}",
                         settlementNode != null ? settlementNode.toString() : "null");
             }
             return Optional.empty();
@@ -240,7 +240,7 @@ public class FinancialResponseMapper {
     }
 
     /**
-     * Indica se o array de anexos estÃƒÆ’Ã‚Â¡ ausente ou vazio no detalhe da baixa.
+     * Indica se o array de anexos está ausente ou vazio no detalhe da baixa.
      */
     public boolean isSettlementAttachmentsEmpty(JsonNode settlementNode) {
         JsonNode anexosNode = resolveAnexosNode(settlementNode);

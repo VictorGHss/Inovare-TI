@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÂ§o especialista em auditoria, histÃƒÂ³rico e registros de processamento
+ * Serviço especialista em auditoria, histórico e registros de processamento
  * de recibos da Conta Azul.
  */
 @Slf4j
@@ -24,10 +24,10 @@ public class ReceiptAuditLogService {
     private final ReceiptConcurrencyHandler concurrencyHandler;
 
     /**
-     * Registra o inÃƒÂ­cio do processamento de uma parcela.
+     * Registra o início do processamento de uma parcela.
      */
     public void logStart(String descricao, String origem, String parcelaId) {
-        log.info("[INICIO PROCESSAMENTO] Parcela: {}", StringUtils.hasText(descricao) ? descricao.trim() : "(sem descriÃƒÂ§ÃƒÂ£o)");
+        log.info("[INICIO PROCESSAMENTO] Parcela: {}", StringUtils.hasText(descricao) ? descricao.trim() : "(sem descrição)");
         log.info("[ORIGEM] origem={} | parcelaId={}", StringUtils.hasText(origem) ? origem : "(nula)", StringUtils.hasText(parcelaId) ? parcelaId : "(sem id)");
     }
 
@@ -39,14 +39,14 @@ public class ReceiptAuditLogService {
 
         String resolvedName = StringUtils.hasText(customerName) ? customerName : "Profissional";
         if (usedInternalFallback) {
-            log.info("Recibo interno enviado com sucesso para baixa {} (mÃƒÂ©dico: {}).", baixaId, resolvedName);
+            log.info("Recibo interno enviado com sucesso para baixa {} (médico: {}).", baixaId, resolvedName);
         }
 
-        log.info("E-mail enviado com sucesso para recibo {} (mÃƒÂ©dico: {}).", baixaId, resolvedName);
+        log.info("E-mail enviado com sucesso para recibo {} (médico: {}).", baixaId, resolvedName);
 
         concurrencyHandler.markAsProcessed(baixaId,
                 "Recibo " + baixaId + " registrado como processado com sucesso.",
-                "Recibo " + baixaId + " jÃƒÂ¡ registrado por concorrÃƒÂªncia ao finalizar processamento.");
+                "Recibo " + baixaId + " já registrado por concorrência ao finalizar processamento.");
     }
 
     /**
@@ -54,7 +54,7 @@ public class ReceiptAuditLogService {
      */
     public void recordEmailFailure(String baixaId, String resolvedSaleId, String doctorName, Exception emailEx, List<String> errors) {
         String details = "Falha SMTP no envio do recibo da baixa " + baixaId
-                + ". O processamento da parcela foi preservado no banco para nÃƒÂ£o perder trabalho. Erro: "
+                + ". O processamento da parcela foi preservado no banco para não perder trabalho. Erro: "
                 + emailEx.getMessage();
         registerError(errors, details);
         retryPolicy.handleEmailFailure(baixaId, resolvedSaleId, doctorName, details);
@@ -73,7 +73,7 @@ public class ReceiptAuditLogService {
     }
 
     /**
-     * Registra uma falha no fallback de geraÃƒÂ§ÃƒÂ£o de recibo interno.
+     * Registra uma falha no fallback de geração de recibo interno.
      */
     public void recordFallbackFailure(String baixaId, Exception fallbackEx, List<String> errors) {
         log.error("Falha ao gerar recibo interno para baixa {}.", baixaId, fallbackEx);
@@ -84,28 +84,28 @@ public class ReceiptAuditLogService {
      * Registra falha de PDF vazio/nulo.
      */
     public void recordEmptyPdfFailure(String baixaId, String resolvedSaleId, String doctorName, List<String> errors) {
-        String details = "Recibo da baixa " + baixaId + " retornou PDF vazio. TentarÃƒÂ¡ novamente.";
+        String details = "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.";
         boolean failedPermanently = retryPolicy.registerAttemptAndCheckIfPermanentFailure(baixaId, resolvedSaleId, doctorName, details);
         if (failedPermanently) {
-            log.error("Recibo da baixa {} nÃƒÂ£o gerou bytes apÃƒÂ³s limite de tentativas. Marcado como processado e alerta registrado.", baixaId);
+            log.error("Recibo da baixa {} não gerou bytes após limite de tentativas. Marcado como processado e alerta registrado.", baixaId);
         }
-        registerError(errors, "Recibo da baixa " + baixaId + " retornou PDF vazio. TentarÃƒÂ¡ novamente.");
+        registerError(errors, "Recibo da baixa " + baixaId + " retornou PDF vazio. Tentará novamente.");
     }
 
     /**
-     * Registra um alerta/erro de baixaId invÃƒÂ¡lido.
+     * Registra um alerta/erro de baixaId inválido.
      */
     public void recordInvalidBaixaId(String parcelaId, List<String> errors) {
-        log.warn("baixaId invÃƒÂ¡lido (nulo/vazio) para parcela {}. Item ignorado para seguranÃƒÂ§a.", parcelaId);
-        registerError(errors, "baixaId invÃƒÂ¡lido para parcela " + parcelaId + ". Item ignorado para seguranÃƒÂ§a.");
+        log.warn("baixaId inválido (nulo/vazio) para parcela {}. Item ignorado para segurança.", parcelaId);
+        registerError(errors, "baixaId inválido para parcela " + parcelaId + ". Item ignorado para segurança.");
     }
 
     /**
-     * Registra quando nenhuma baixa ÃƒÂ© encontrada para a parcela.
+     * Registra quando nenhuma baixa é encontrada para a parcela.
      */
     public void recordNoBaixaFound(String parcelaId, String resolvedSaleId, List<String> errors) {
         log.error("Nenhuma baixa encontrada para a parcela {}. Marcando como processado para evitar loop.", parcelaId);
-        registerError(errors, "Nenhuma baixa encontrada para a parcela " + parcelaId + ". Item nÃƒÂ£o processado.");
+        registerError(errors, "Nenhuma baixa encontrada para a parcela " + parcelaId + ". Item não processado.");
 
         String markId = StringUtils.hasText(parcelaId)
                 ? parcelaId
@@ -114,14 +114,14 @@ public class ReceiptAuditLogService {
         if (markId != null) {
             concurrencyHandler.markAsProcessed(markId,
                     "Recibo " + markId + " registrado como processado (nenhuma baixa encontrada).",
-                    "Recibo " + markId + " jÃƒÂ¡ registrado por concorrÃƒÂªncia ao marcar como processado quando nenhuma baixa encontrada.");
+                    "Recibo " + markId + " já registrado por concorrência ao marcar como processado quando nenhuma baixa encontrada.");
         } else {
-            log.warn("Nenhum identificador disponÃƒÂ­vel para marcar como processado (parcela sem id e sem saleId).");
+            log.warn("Nenhum identificador disponível para marcar como processado (parcela sem id e sem saleId).");
         }
     }
 
     /**
-     * Auxiliar para adicionar erros respeitando o limite mÃƒÂ¡ximo.
+     * Auxiliar para adicionar erros respeitando o limite máximo.
      */
     public void registerError(List<String> errors, String message) {
         if (!StringUtils.hasText(message)) {

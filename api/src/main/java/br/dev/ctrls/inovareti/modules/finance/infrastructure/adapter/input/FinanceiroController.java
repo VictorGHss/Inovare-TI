@@ -36,16 +36,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Adaptador de entrada REST para operaÃƒÂ§ÃƒÂµes financeiras e faturamentos.
+ * Adaptador de entrada REST para operações financeiras e faturamentos.
  *
- * Atua puramente como um controlador REST magro (Thin Controller), delegando lÃƒÂ³gicas
- * de validaÃƒÂ§ÃƒÂ£o, consultas e paginaÃƒÂ§ÃƒÂ£o de dados para o FinanceiroQueryService.
+ * Atua puramente como um controlador REST magro (Thin Controller), delegando lógicas
+ * de validação, consultas e paginação de dados para o FinanceiroQueryService.
  */
 @Slf4j
 @RestController
 @RequestMapping("/financeiro")
 @RequiredArgsConstructor
-@Tag(name = "Financeiro & Faturamento", description = "OperaÃƒÂ§ÃƒÂµes administrativas do motor financeiro e integraÃƒÂ§ÃƒÂ£o com Conta Azul")
+@Tag(name = "Financeiro & Faturamento", description = "Operações administrativas do motor financeiro e integração com Conta Azul")
 public class FinanceiroController {
 
     private final FinanceiroOperationsService financeiroOperationsService;
@@ -56,11 +56,11 @@ public class FinanceiroController {
 
     /**
      * Lista os recibos processados pelo motor financeiro.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Lista os recibos processados pelo motor financeiro",
-        description = "Retorna os recibos consolidados e gerados a partir do faturamento de parcelas de vendas de mÃƒÂ©dicos."
+        description = "Retorna os recibos consolidados e gerados a partir do faturamento de parcelas de vendas de médicos."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/recibos")
@@ -74,11 +74,11 @@ public class FinanceiroController {
 
     /**
      * Lista os alertas do sistema financeiro.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Lista os alertas do sistema financeiro",
-        description = "Busca logs e registros de notificaÃƒÂ§ÃƒÂµes de alerta ou erros de processamento e e-mail."
+        description = "Busca logs e registros de notificações de alerta ou erros de processamento e e-mail."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/alertas")
@@ -88,11 +88,11 @@ public class FinanceiroController {
 
     /**
      * Reenvia um recibo pendente ou com falha.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Reenvia um recibo pendente ou com falha",
-        description = "Envia novamente um recibo por e-mail de forma assÃƒÂ­ncrona."
+        description = "Envia novamente um recibo por e-mail de forma assíncrona."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/alertas/{alertId}/reenviar")
@@ -102,12 +102,12 @@ public class FinanceiroController {
     }
 
     /**
-     * Executa a rotina de backfill dos ÃƒÂºltimos 30 dias.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Executa a rotina de backfill dos últimos 30 dias.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
-        summary = "Executa a rotina de backfill dos ÃƒÂºltimos 30 dias",
-        description = "Processa retroativamente as vendas e liquidaÃƒÂ§ÃƒÂµes financeiras da Conta Azul para o perÃƒÂ­odo recente."
+        summary = "Executa a rotina de backfill dos últimos 30 dias",
+        description = "Processa retroativamente as vendas e liquidações financeiras da Conta Azul para o período recente."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/backfill")
@@ -117,11 +117,11 @@ public class FinanceiroController {
 
     /**
      * Processa individualmente uma parcela informada por ID.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Processa individualmente uma parcela informada por ID",
-        description = "Efetua a baixa e gera a notificaÃƒÂ§ÃƒÂ£o de recibo para uma parcela individual de venda da Conta Azul."
+        description = "Efetua a baixa e gera a notificação de recibo para uma parcela individual de venda da Conta Azul."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/parcelas/{id}/processar")
@@ -137,11 +137,11 @@ public class FinanceiroController {
 
     /**
      * Retorna o resumo consolidado do fluxo financeiro.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Retorna o resumo consolidado do fluxo financeiro",
-        description = "Disponibiliza os totais faturados, saldos pendentes e status da integraÃƒÂ§ÃƒÂ£o ativa da Conta Azul."
+        description = "Disponibiliza os totais faturados, saldos pendentes e status da integração ativa da Conta Azul."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping("/resumo")
@@ -150,35 +150,35 @@ public class FinanceiroController {
     }
 
     /**
-     * Executa manualmente a automaÃƒÂ§ÃƒÂ£o de vendas da Conta Azul.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Executa manualmente a automação de vendas da Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
-        summary = "Executa manualmente a automaÃƒÂ§ÃƒÂ£o de vendas da Conta Azul",
-        description = "Dispara de forma sÃƒÂ­ncrona a busca e processamento de vendas quitadas em um perÃƒÂ­odo especÃƒÂ­fico na Conta Azul."
+        summary = "Executa manualmente a automação de vendas da Conta Azul",
+        description = "Dispara de forma síncrona a busca e processamento de vendas quitadas em um período específico na Conta Azul."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/autonacao/executar")
     public ResponseEntity<AutomationExecutionResponseDTO> executeAutomationNow(
             @RequestParam LocalDate dataInicio,
             @RequestParam LocalDate dataFim) {
-        log.info("Iniciando sincronizaÃƒÂ§ÃƒÂ£o solicitada pelo usuÃƒÂ¡rio: PerÃƒÂ­odo [{}] a [{}]", dataInicio, dataFim);
+        log.info("Iniciando sincronização solicitada pelo usuário: Período [{}] a [{}]", dataInicio, dataFim);
         financeiroQueryService.validarIntervaloDatas(dataInicio, dataFim);
         try {
             long start = System.currentTimeMillis();
             var result = contaAzulAutomationService.processAcquittedSales(dataInicio, dataFim);
             long durationMs = System.currentTimeMillis() - start;
-            log.info("AutomaÃƒÂ§ÃƒÂ£o financeira manual concluÃƒÂ­da em {} ms.", durationMs);
+            log.info("Automação financeira manual concluída em {} ms.", durationMs);
 
             boolean hasErrors = result.errors() != null && !result.errors().isEmpty();
             String status = hasErrors ? "warning" : "ok";
             String message = hasErrors
-                ? "AutomaÃƒÂ§ÃƒÂ£o executada manualmente com avisos. Verifique os logs para detalhes."
-                : "AutomaÃƒÂ§ÃƒÂ£o executada manualmente com sucesso apÃƒÂ³s conclusÃƒÂ£o do processamento.";
+                ? "Automação executada manualmente com avisos. Verifique os logs para detalhes."
+                : "Automação executada manualmente com sucesso após conclusão do processamento.";
 
             registrarAuditoria(
                 "FATURAMENTO_GERADO",
-                "AutomaÃƒÂ§ÃƒÂ£o financeira manual concluÃƒÂ­da. periodo=" + dataInicio + " a " + dataFim
+                "Automação financeira manual concluída. periodo=" + dataInicio + " a " + dataFim
                     + ", duracaoMs=" + durationMs);
 
             return ResponseEntity.ok(new AutomationExecutionResponseDTO(
@@ -189,11 +189,11 @@ public class FinanceiroController {
                 result.noAttachmentWarnings(),
                 result.mappingWarnings()));
         } catch (RuntimeException ex) {
-            log.error("Falha ao executar automaÃƒÂ§ÃƒÂ£o financeira manual.", ex);
+            log.error("Falha ao executar automação financeira manual.", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 new AutomationExecutionResponseDTO(
                     "erro",
-                    "Falha ao executar automaÃƒÂ§ÃƒÂ£o manual. Verifique os logs para detalhes.",
+                    "Falha ao executar automação manual. Verifique os logs para detalhes.",
                     0L,
                     List.of(ex.getMessage()),
                     0,
@@ -202,12 +202,12 @@ public class FinanceiroController {
     }
 
     /**
-     * Sincroniza a base de mÃƒÂ©dicos da Conta Azul com o banco local.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Sincroniza a base de médicos da Conta Azul com o banco local.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
-        summary = "Sincroniza a base de mÃƒÂ©dicos com a Conta Azul",
-        description = "Busca todos os mÃƒÂ©dicos mapeados como clientes na Conta Azul e atualiza os registros locais."
+        summary = "Sincroniza a base de médicos com a Conta Azul",
+        description = "Busca todos os médicos mapeados como clientes na Conta Azul e atualiza os registros locais."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping("/medicos/sincronizar-base")
@@ -221,14 +221,14 @@ public class FinanceiroController {
             if (ex instanceof ContaAzulHttpException httpEx
                     && httpEx.isStatus(403)
                     && isPlanIneligibleResponse(httpEx.getResponseBody())) {
-                log.warn("SincronizaÃƒÂ§ÃƒÂ£o de mÃƒÂ©dicos indisponÃƒÂ­vel: conta Conta Azul sem elegibilidade de API (END_TRIAL). Retornando resultado vazio.");
+                log.warn("Sincronização de médicos indisponível: conta Conta Azul sem elegibilidade de API (END_TRIAL). Retornando resultado vazio.");
             } else {
-                log.error("Falha de integraÃƒÂ§ÃƒÂ£o ao sincronizar base de mÃƒÂ©dicos com a Conta Azul. Retornando resultado vazio para manter serviÃƒÂ§o ativo.", ex);
+                log.error("Falha de integração ao sincronizar base de médicos com a Conta Azul. Retornando resultado vazio para manter serviço ativo.", ex);
             }
 
             registrarAuditoria(
                     "CIRCUIT_BREAKER_FALLBACK",
-                    "SincronizaÃƒÂ§ÃƒÂ£o de mÃƒÂ©dicos falhou. Retornando resultado vazio para manter o serviÃƒÂ§o ativo.");
+                    "Sincronização de médicos falhou. Retornando resultado vazio para manter o serviço ativo.");
 
             return ResponseEntity.ok(new SyncDoctorsResponseDTO(0, 0));
         }
@@ -245,7 +245,7 @@ public class FinanceiroController {
 
     /**
      * Dispara um envio de recibo de teste por e-mail.
-     * <p>Role necessÃƒÂ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @Operation(
         summary = "Dispara um envio de recibo de teste por e-mail",
@@ -274,13 +274,13 @@ public class FinanceiroController {
     private UUID getAuthenticatedUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getPrincipal() == null) {
-            throw new BadRequestException("UsuÃƒÂ¡rio autenticado nÃƒÂ£o encontrado.");
+            throw new BadRequestException("Usuário autenticado não encontrado.");
         }
 
         try {
             return UUID.fromString(auth.getPrincipal().toString());
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Identificador do usuÃƒÂ¡rio autenticado invÃƒÂ¡lido.");
+            throw new BadRequestException("Identificador do usuário autenticado inválido.");
         }
     }
 

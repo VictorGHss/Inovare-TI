@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente especializado para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes financeiras de baixa/recibo na Conta Azul.
+ * Cliente especializado para operações financeiras de baixa/recibo na Conta Azul.
  */
 @Slf4j
 @Component
@@ -40,7 +40,7 @@ public class ContaAzulFinancialClient {
      */
     public byte[] downloadReceiptPdf(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
-            throw new IllegalArgumentException("baixaId nÃƒÆ’Ã‚Â£o pode ser vazio para download do recibo");
+            throw new IllegalArgumentException("baixaId não pode ser vazio para download do recibo");
         }
 
         String normalizedBaixaId = baixaId.trim();
@@ -48,7 +48,7 @@ public class ContaAzulFinancialClient {
         try {
             JsonNode settlementNode = getSettlementDetails(normalizedBaixaId)
                     .orElseThrow(() -> new NoReceiptAvailableException(
-                            "Detalhe da baixa nÃƒÆ’Ã‚Â£o encontrado para " + normalizedBaixaId));
+                            "Detalhe da baixa não encontrado para " + normalizedBaixaId));
 
             String receiptUrl = financialResponseMapper.extractReceiptUrl(settlementNode)
                     .orElseThrow(() -> new NoReceiptAvailableException(
@@ -61,12 +61,12 @@ public class ContaAzulFinancialClient {
                 throw ex;
             }
 
-            log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh explÃƒÆ’Ã‚Â­cito.", normalizedBaixaId);
+            log.warn("Token expirado ao baixar recibo da baixa {}. Tentando refresh explícito.", normalizedBaixaId);
             ContaAzulOAuthToken refreshed = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
             JsonNode settlementNode = getSettlementDetails(normalizedBaixaId)
                     .orElseThrow(() -> new NoReceiptAvailableException(
 
-                            "Detalhe da baixa nÃƒÆ’Ã‚Â£o encontrado para " + normalizedBaixaId));
+                            "Detalhe da baixa não encontrado para " + normalizedBaixaId));
             String receiptUrl = financialResponseMapper.extractReceiptUrl(settlementNode)
                     .orElseThrow(() -> new NoReceiptAvailableException(
                             "Nenhum anexo de recibo encontrado para baixa " + normalizedBaixaId));
@@ -75,7 +75,7 @@ public class ContaAzulFinancialClient {
     }
 
     /**
-     * ObtÃƒÆ’Ã‚Â©m os detalhes da baixa (settlement) no endpoint de parcelas baixadas.
+     * Obtém os detalhes da baixa (settlement) no endpoint de parcelas baixadas.
      */
     public Optional<JsonNode> getSettlementDetails(String settlementId) {
         if (!StringUtils.hasText(settlementId)) {
@@ -92,7 +92,7 @@ public class ContaAzulFinancialClient {
             if (!ex.isStatus(404)) {
                 throw ex;
             }
-            log.warn("Detalhe da baixa {} nÃƒÆ’Ã‚Â£o encontrado no Conta Azul.", normalizedSettlementId);
+            log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedSettlementId);
             return Optional.empty();
         }
     }
@@ -129,7 +129,7 @@ public class ContaAzulFinancialClient {
     }
 
     /**
-     * Recupera detalhe da parcela com possÃƒÆ’Ã‚Â­veis referÃƒÆ’Ã‚Âªncias de venda e baixa.
+     * Recupera detalhe da parcela com possíveis referências de venda e baixa.
      */
     public Optional<ContaAzulClient.ParcelaDetailDTO> fetchParcelaDetail(String uuidParcela) {
         if (!StringUtils.hasText(uuidParcela)) {
@@ -137,7 +137,7 @@ public class ContaAzulFinancialClient {
         }
 
         String normalizedParcelaUuid = uuidParcela.trim();
-        // Endpoint oficial para parcela financeira, usado para obter referÃƒÆ’Ã‚Âªncia da venda.
+        // Endpoint oficial para parcela financeira, usado para obter referência da venda.
         String uri = buildParcelaByIdUri(normalizedParcelaUuid);
 
         try {
@@ -147,7 +147,7 @@ public class ContaAzulFinancialClient {
             if (!ex.isStatus(404)) {
                 throw ex;
             }
-            log.warn("Detalhe da parcela {} nÃƒÆ’Ã‚Â£o encontrado no Conta Azul.", normalizedParcelaUuid);
+            log.warn("Detalhe da parcela {} não encontrado no Conta Azul.", normalizedParcelaUuid);
             return Optional.empty();
         }
     }
@@ -170,7 +170,7 @@ public class ContaAzulFinancialClient {
             if (!ex.isStatus(404)) {
                 throw ex;
             }
-            log.warn("Detalhe da baixa {} nÃƒÆ’Ã‚Â£o encontrado no Conta Azul.", normalizedBaixaId);
+            log.warn("Detalhe da baixa {} não encontrado no Conta Azul.", normalizedBaixaId);
             return Optional.empty();
         }
     }
@@ -206,14 +206,14 @@ public class ContaAzulFinancialClient {
     }
 
     /**
-     * Faz download de arquivo com token Bearer explÃƒÆ’Ã‚Â­cito.
+     * Faz download de arquivo com token Bearer explícito.
      */
     public byte[] downloadFile(String url, String bearerToken) {
         return requestExecutor.downloadFile(url, bearerToken);
     }
 
     /**
-     * Faz download de arquivo pÃƒÆ’Ã‚Âºblico sem autenticaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.
+     * Faz download de arquivo público sem autenticação.
      */
     public byte[] downloadPublicFile(String url) {
         return requestExecutor.downloadPublicFile(url);
@@ -239,7 +239,7 @@ public class ContaAzulFinancialClient {
     }
 
     private String buildParcelaByIdUri(String parcelaId) {
-        // O template vindo do .env ÃƒÆ’Ã‚Â© sempre normalizado para nÃƒÆ’Ã‚Â£o carregar prefixo /api legado.
+        // O template vindo do .env é sempre normalizado para não carregar prefixo /api legado.
         String template = normalizeContaAzulUrl(
                 properties.getParcelaByIdUrlTemplate(),
                 "https://api-v2.contaazul.com/v1/financeiro/eventos-financeiros/parcelas/{id}");
@@ -249,7 +249,7 @@ public class ContaAzulFinancialClient {
                 .replace("{parcelaId}", parcelaId);
     }
 
-    // Garante padrÃƒÆ’Ã‚Â£o oficial da Conta Azul (BASE_URL + /v1/...) removendo qualquer /api indevido.
+    // Garante padrão oficial da Conta Azul (BASE_URL + /v1/...) removendo qualquer /api indevido.
     private String normalizeContaAzulUrl(String rawUrl, String fallback) {
         String normalized = StringUtils.hasText(rawUrl) ? rawUrl.trim() : fallback;
         normalized = normalized.replace("https://api.contaazul.com", "https://api-v2.contaazul.com");

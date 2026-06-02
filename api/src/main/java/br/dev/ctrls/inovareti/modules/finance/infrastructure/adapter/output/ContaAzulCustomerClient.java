@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente especializado para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes de clientes/pessoas na Conta Azul.
+ * Cliente especializado para operações de clientes/pessoas na Conta Azul.
  */
 @Slf4j
 @Component
@@ -83,7 +83,7 @@ public class ContaAzulCustomerClient {
     }
 
     /**
-     * Busca todas as pessoas com paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.
+     * Busca todas as pessoas com paginação.
      */
     public List<ContaAzulClient.PessoaItem> fetchAllPessoas() {
         List<ContaAzulClient.PessoaItem> pessoas = new ArrayList<>();

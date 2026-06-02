@@ -1,9 +1,9 @@
 package br.dev.ctrls.inovareti.modules.finance.domain.model;
 
 /**
- * ExceÃ§Ã£o de infraestrutura para erros HTTP retornados pela API da Conta Azul.
+ * Exceção de infraestrutura para erros HTTP retornados pela API da Conta Azul.
  *
- * Carrega o status HTTP e o corpo bruto da resposta para facilitar diagnÃ³stico.
+ * Carrega o status HTTP e o corpo bruto da resposta para facilitar diagnóstico.
  */
 public class ContaAzulHttpException extends RuntimeException {
 

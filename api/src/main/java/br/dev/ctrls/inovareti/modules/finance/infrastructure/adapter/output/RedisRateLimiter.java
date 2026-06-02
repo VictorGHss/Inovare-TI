@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 
 /**
  * Rate limiter simples baseado em Redis. Usa SETNX com TTL para aplicar cooldowns
- * distribuÃ­dos por chave.
+ * distribuídos por chave.
  */
 @Component
 @ConditionalOnBean(StringRedisTemplate.class)
@@ -21,18 +21,18 @@ public class RedisRateLimiter {
     }
 
     /**
-     * Tenta adquirir a chave por um perÃ­odo. Retorna true se conseguiu (lock adquirido),
-     * false se a chave jÃ¡ existia (throttled).
+     * Tenta adquirir a chave por um período. Retorna true se conseguiu (lock adquirido),
+     * false se a chave já existia (throttled).
      */
     public boolean tryAcquire(String key, Duration ttl) {
-        // compatibilidade: comportamento antigo (1 requisiÃ§Ã£o por janela)
+        // compatibilidade: comportamento antigo (1 requisição por janela)
         return tryAcquire(key, 1, ttl);
     }
 
     /**
-     * Tenta adquirir atÃ© `maxRequests` dentro da janela `window`.
-     * Implementado com INCR + PEXPIRE de forma atÃ´mica via conexÃ£o Redis.
-     * Retorna true se o nÃºmero de requisiÃ§Ãµes ainda estÃ¡ dentro do limite.
+     * Tenta adquirir até `maxRequests` dentro da janela `window`.
+     * Implementado com INCR + PEXPIRE de forma atômica via conexão Redis.
+     * Retorna true se o número de requisições ainda está dentro do limite.
      */
     public boolean tryAcquire(String key, int maxRequests, Duration window) {
         Long count = redis.opsForValue().increment(key);

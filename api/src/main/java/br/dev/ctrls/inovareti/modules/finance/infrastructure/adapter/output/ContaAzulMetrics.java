@@ -34,17 +34,17 @@ public class ContaAzulMetrics {
         this.repository = repository;
         this.registry = registry;
         this.forceRefreshThrottledCounter = Counter.builder("contaazul.force.refresh.throttled")
-                .description("Total de requisiÃƒÂ§ÃƒÂµes de force-refresh bloqueadas por rate limit")
+                .description("Total de requisições de force-refresh bloqueadas por rate limit")
                 .register(registry);
     }
 
     /**
-     * Inicializa o registro dos gauges apÃƒÂ³s a injeÃƒÂ§ÃƒÂ£o de dependÃƒÂªncias.
+     * Inicializa o registro dos gauges após a injeção de dependências.
      *
-     * ObservaÃƒÂ§ÃƒÂ£o: este mÃƒÂ©todo ÃƒÂ© invocado pelo container do Spring atravÃƒÂ©s de
-     * {@code @PostConstruct}. O mÃƒÂ©todo precisa ser pÃƒÂºblico para que analisadores
-     * e frameworks reconheÃƒÂ§am sua finalidade sem dependÃƒÂªncias de suposiÃƒÂ§ÃƒÂµes
-     * sobre modificadores de acesso. ComentÃƒÂ¡rios e explicaÃƒÂ§ÃƒÂµes estÃƒÂ£o em PortuguÃƒÂªs.
+     * Observação: este método é invocado pelo container do Spring através de
+     * {@code @PostConstruct}. O método precisa ser público para que analisadores
+     * e frameworks reconheçam sua finalidade sem dependências de suposições
+     * sobre modificadores de acesso. Comentários e explicações estão em Português.
      */
     @PostConstruct
     public void init() {
@@ -52,12 +52,12 @@ public class ContaAzulMetrics {
     }
 
     private void registerGauges() {
-        // Registramos os gauges e emitimos um log amigÃƒÂ¡vel indicando onde o Prometheus
-        // pode coletar as mÃƒÂ©tricas. Este log serve como "simulaÃƒÂ§ÃƒÂ£o" de verificaÃƒÂ§ÃƒÂ£o
-        // quando a aplicaÃƒÂ§ÃƒÂ£o sobe em ambientes onde nÃƒÂ£o ÃƒÂ© possÃƒÂ­vel executar uma
-        // requisiÃƒÂ§ÃƒÂ£o HTTP de verificaÃƒÂ§ÃƒÂ£o neste momento.
+        // Registramos os gauges e emitimos um log amigável indicando onde o Prometheus
+        // pode coletar as métricas. Este log serve como "simulação" de verificação
+        // quando a aplicação sobe em ambientes onde não é possível executar uma
+        // requisição HTTP de verificação neste momento.
         log.info("Registrando gauges da Conta Azul");
-        log.info("Endpoint de mÃƒÂ©tricas Prometheus: /api/actuator/prometheus (verifique com curl se a API estiver rodando)");
+        log.info("Endpoint de métricas Prometheus: /api/actuator/prometheus (verifique com curl se a API estiver rodando)");
         registry.gauge("contaazul_token_expires_at", expiresAt);
         registry.gauge("contaazul_last_refresh_timestamp", refreshedAt);
     }
@@ -80,11 +80,11 @@ public class ContaAzulMetrics {
             if (tokenOpt.isPresent()) {
                 this.lastToken = tokenOpt.get();
             } else {
-                log.debug("Nenhum token da Conta Azul encontrado para as mÃƒÂ©tricas.");
+                log.debug("Nenhum token da Conta Azul encontrado para as métricas.");
                 this.lastToken = null;
             }
         } catch (Exception e) {
-            log.error("Falha ao buscar token da Conta Azul para mÃƒÂ©tricas", e);
+            log.error("Falha ao buscar token da Conta Azul para métricas", e);
             this.lastToken = null;
         }
     }

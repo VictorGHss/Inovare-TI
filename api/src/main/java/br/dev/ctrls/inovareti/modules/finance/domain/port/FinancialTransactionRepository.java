@@ -13,8 +13,8 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
 	java.util.List<FinancialTransaction> findByTicketId(UUID ticketId);
 
 	    /**
-	     * Busca lanÃƒÂ§amentos financeiros filtrando por resource_type, target_type,
-	     * target_id e intervalo de data. Usado pelo relatÃƒÂ³rio de saÃƒÂ­das para
+	     * Busca lançamentos financeiros filtrando por resource_type, target_type,
+	     * target_id e intervalo de data. Usado pelo relatório de saídas para
 	     * garantir a "Verdade Financeira" (resource_type = INVENTORY e targets
 	     * DOCTOR/SECTOR dentro do dia UTC do fechamento do ticket).
 	     */

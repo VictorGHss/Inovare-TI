@@ -2,7 +2,7 @@ package br.dev.ctrls.inovareti.modules.finance.domain.model;
 
 
 /**
- * Record para auditoria de saldo de conta financeira especÃƒÆ’Ã‚Â­fica.
+ * Record para auditoria de saldo de conta financeira específica.
  */
 public record AccountBalanceAudit(
         FinancialAccountRef account,

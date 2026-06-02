@@ -27,12 +27,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÆ’Ã‚Â§o cliente para operaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes especÃƒÆ’Ã‚Â­ficas de pagamentos/parcelas na Conta Azul.
+ * Serviço cliente para operações específicas de pagamentos/parcelas na Conta Azul.
  *
  * Responsabilidades:
- * - construir e executar requisiÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes HTTP;
- * - aplicar paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e fallback de URL;
- * - orquestrar retries/fallbacks de consulta quando necessÃƒÆ’Ã‚Â¡rio.
+ * - construir e executar requisições HTTP;
+ * - aplicar paginação e fallback de URL;
+ * - orquestrar retries/fallbacks de consulta quando necessário.
  */
 @Slf4j
 @Service
@@ -90,7 +90,7 @@ public class ContaAzulPaymentsClient {
     }
 
     /**
-     * VersÃƒÆ’Ã‚Â£o compatÃƒÆ’Ã‚Â­vel com OffsetDateTime para busca de parcelas pagas em uma janela.
+     * Versão compatível com OffsetDateTime para busca de parcelas pagas em uma janela.
      */
     public List<ContaAzulPaymentParcel> fetchPaidParcelsByWindow(
             OffsetDateTime from,
@@ -110,7 +110,7 @@ public class ContaAzulPaymentsClient {
 
     /**
      * Faz o download do PDF de recibo para a parcela informada.
-     * Tenta URL primÃƒÆ’Ã‚Â¡ria e fallback quando aplicÃƒÆ’Ã‚Â¡vel.
+     * Tenta URL primária e fallback quando aplicável.
      */
     public byte[] downloadReceiptPdf(String parcelaId) {
         String accessToken = contaAzulTokenService.getValidAccessToken();
@@ -137,7 +137,7 @@ public class ContaAzulPaymentsClient {
                 return response.getBody() != null ? response.getBody() : new byte[0];
             } catch (HttpClientErrorException.NotFound ex) {
                 lastNotFound = ex;
-                log.warn("PDF de recibo nÃƒÆ’Ã‚Â£o encontrado para parcela {} na URL {}", parcelaId, url);
+                log.warn("PDF de recibo não encontrado para parcela {} na URL {}", parcelaId, url);
             }
         }
 
@@ -164,11 +164,11 @@ public class ContaAzulPaymentsClient {
 
         ContaAzulPaymentsResponseMapper.ParcelLookup parcelLookup = responseMapper.parseSingleParcel(response.getBody())
                 .orElseThrow(() -> new IllegalStateException(
-                        "Parcela nÃƒÆ’Ã‚Â£o encontrada ou payload invÃƒÆ’Ã‚Â¡lido na ContaAzul [parcelaId=" + parcelaId + "]"));
+                        "Parcela não encontrada ou payload inválido na ContaAzul [parcelaId=" + parcelaId + "]"));
 
         if (!responseMapper.isPaidParcelStatus(parcelLookup.status())) {
             throw new IllegalStateException(
-                    "Parcela retornada pela ContaAzul ainda nÃƒÆ’Ã‚Â£o estÃƒÆ’Ã‚Â¡ quitada/recebida [parcelaId=" + parcelaId
+                    "Parcela retornada pela ContaAzul ainda não está quitada/recebida [parcelaId=" + parcelaId
                             + ", status=" + parcelLookup.status() + ", eventoId=" + parcelLookup.eventId() + "]");
         }
 
@@ -203,7 +203,7 @@ public class ContaAzulPaymentsClient {
         }
 
         throw new IllegalStateException(
-                "NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
+                "Não foi possível resolver URL de parcela por ID. Defina app.contaazul.parcela-by-id-url-template.");
     }
 
     /**
@@ -264,7 +264,7 @@ public class ContaAzulPaymentsClient {
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
 
-        // Migra automaticamente configuraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o antiga sem /eventos-financeiros e/ou sem /buscar.
+        // Migra automaticamente configuração antiga sem /eventos-financeiros e/ou sem /buscar.
         if (normalized.matches("(?i).*/v1/financeiro/contas-a-receber$")) {
             normalized = normalized.replaceAll(
                     "(?i)/v1/financeiro/contas-a-receber$",

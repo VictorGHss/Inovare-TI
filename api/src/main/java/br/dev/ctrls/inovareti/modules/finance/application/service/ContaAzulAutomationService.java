@@ -31,10 +31,10 @@ public class ContaAzulAutomationService {
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
         try {
-            // Protege a sincronizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de mÃƒÆ’Ã‚Â©dicos para que falhas externas nÃƒÆ’Ã‚Â£o interrompam o serviÃƒÆ’Ã‚Â§o.
+            // Protege a sincronização de médicos para que falhas externas não interrompam o serviço.
             return contaAzulSyncService.syncAllDoctorsFromContaAzul();
         } catch (RuntimeException ex) {
-            log.error("Falha ao sincronizar mÃƒÆ’Ã‚Â©dicos na Conta Azul. Retornando resultado vazio para manter API viva.", ex);
+            log.error("Falha ao sincronizar médicos na Conta Azul. Retornando resultado vazio para manter API viva.", ex);
             return new SyncDoctorsResult(0, 0);
         }
     }
@@ -50,18 +50,18 @@ public class ContaAzulAutomationService {
                 ? lastClosing.format(CLOSING_DATE_FORMATTER)
                 : "sem registros";
 
-        log.info("Sistema iniciado com busca incremental. ÃƒÆ’Ã…Â¡ltimo fechamento: [{}]", lastClosingFormatted);
+        log.info("Sistema iniciado com busca incremental. Último fechamento: [{}]", lastClosingFormatted);
     }
 
     /**
      * Rotina de fechamento mensal da Conta Azul.
-     * Executa especificamente no dia 30 de cada mÃƒÆ’Ã‚Âªs (e no dia 28 em fevereiro) ÃƒÆ’Ã‚Â s 23:00.
+     * Executa especificamente no dia 30 de cada mês (e no dia 28 em fevereiro) às 23:00.
      */
     @Scheduled(cron = "${app.contaazul.cron:0 0 23 28,30 * *}")
     public void processAcquittedSales() {
         LocalDate today = LocalDate.now();
         if (!shouldRunClosing(today)) {
-            // Regra corporativa: em meses comuns, o fechamento sÃƒÆ’Ã‚Â³ deve ocorrer no dia 30.
+            // Regra corporativa: em meses comuns, o fechamento só deve ocorrer no dia 30.
             log.info("Aguardando dia 30 para fechamento");
             return;
         }
@@ -71,10 +71,10 @@ public class ContaAzulAutomationService {
 
         log.info("Ciclo incremental ContaAzul iniciado com cron {}. Janela: {} a {}.", properties.getAutomation().getCron(), startDate, endDate);
         try {
-            // Busca incremental: retoma do ÃƒÆ’Ã‚Âºltimo processed_at para evitar lacunas entre fechamentos.
+            // Busca incremental: retoma do último processed_at para evitar lacunas entre fechamentos.
             contaAzulReceiptProcessor.processAcquittedSales(startDate, endDate);
         } catch (RuntimeException ex) {
-            log.error("Falha na automaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o agendada da Conta Azul. A execuÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o foi preservada e seguirÃƒÆ’Ã‚Â¡ no prÃƒÆ’Ã‚Â³ximo ciclo.", ex);
+            log.error("Falha na automação agendada da Conta Azul. A execução foi preservada e seguirá no próximo ciclo.", ex);
         }
     }
 
@@ -95,10 +95,10 @@ public class ContaAzulAutomationService {
 
     public ContaAzulReceiptProcessor.ReceiptProcessingResult processAcquittedSales(LocalDate dataInicio, LocalDate dataFim) {
         try {
-            // Blindagem da execuÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o manual: integraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o indisponÃƒÆ’Ã‚Â­vel nÃƒÆ’Ã‚Â£o deve propagar IllegalStateException.
+            // Blindagem da execução manual: integração indisponível não deve propagar IllegalStateException.
             return contaAzulReceiptProcessor.processAcquittedSales(dataInicio, dataFim);
         } catch (RuntimeException ex) {
-            log.error("Falha ao processar automaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o financeira no perÃƒÆ’Ã‚Â­odo [{} - {}]. Retornando resultado vazio.", dataInicio, dataFim, ex);
+            log.error("Falha ao processar automação financeira no período [{} - {}]. Retornando resultado vazio.", dataInicio, dataFim, ex);
             return ContaAzulReceiptProcessor.ReceiptProcessingResult.empty();
         }
     }

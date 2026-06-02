@@ -24,8 +24,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cliente especialista responsÃƒÂ¡vel apenas pela comunicaÃƒÂ§ÃƒÂ£o fÃƒÂ­sica HTTP de baixo nÃƒÂ­vel com a API da Conta Azul,
- * gerenciando injeÃƒÂ§ÃƒÂ£o de Headers, renovaÃƒÂ§ÃƒÂ£o automÃƒÂ¡tica de tokens OAuth e normalizaÃƒÂ§ÃƒÂµes de rotas.
+ * Cliente especialista responsável apenas pela comunicação física HTTP de baixo nível com a API da Conta Azul,
+ * gerenciando injeção de Headers, renovação automática de tokens OAuth e normalizações de rotas.
  */
 @Slf4j
 @Component
@@ -69,13 +69,13 @@ public class ContaAzulHttpClient {
     }
 
     /**
-     * Busca uma pÃƒÂ¡gina de parcelas a receber por data de vencimento (retorno bruto em JSON).
+     * Busca uma página de parcelas a receber por data de vencimento (retorno bruto em JSON).
      */
     public String executePaymentsRequestRaw(String status, String accessToken, int page, LocalDate from, LocalDate to) {
         String dataVencimentoDe = formatDateForContaAzul(from);
         String dataVencimentoAte = formatDateForContaAzul(to);
 
-        log.debug("ParÃƒÂ¢metros ContaAzul (resumo mensal): vencimento_de={}, vencimento_ate={}, status={}", dataVencimentoDe, dataVencimentoAte, status);
+        log.debug("Parâmetros ContaAzul (resumo mensal): vencimento_de={}, vencimento_ate={}, status={}", dataVencimentoDe, dataVencimentoAte, status);
 
         String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
             .queryParam("pagina", page)
@@ -103,7 +103,7 @@ public class ContaAzulHttpClient {
     }
 
     /**
-     * Busca uma pÃƒÂ¡gina de parcelas a receber por data de pagamento (retorno bruto em JSON).
+     * Busca uma página de parcelas a receber por data de pagamento (retorno bruto em JSON).
      */
     public String executePaymentsRequestByPaymentDateRaw(
             String status,
@@ -118,7 +118,7 @@ public class ContaAzulHttpClient {
         String dataPagamentoDe = formatDateForContaAzul(dataPagamentoDeDate);
         String dataPagamentoAte = formatDateForContaAzul(dataPagamentoAteDate);
 
-        log.debug("ParÃƒÂ¢metros ContaAzul (resumo mensal): data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, status={}",
+        log.debug("Parâmetros ContaAzul (resumo mensal): data_vencimento_de={}, data_vencimento_ate={}, data_pagamento_de={}, data_pagamento_ate={}, status={}",
             dataVencimentoDe, dataVencimentoAte, dataPagamentoDe, dataPagamentoAte, status);
 
         String uri = UriComponentsBuilder.fromUriString(normalizePaymentsUrl())
@@ -156,7 +156,7 @@ public class ContaAzulHttpClient {
     }
 
     /**
-     * Busca parcelas a receber por status na pÃƒÂ¡gina 1 (retorno bruto em JSON).
+     * Busca parcelas a receber por status na página 1 (retorno bruto em JSON).
      */
     public String executePaymentsRequestByStatusRaw(String status, String accessToken, int page) {
         if (ContaAzulStatus.RECEBIDO.equals(status) || ContaAzulStatus.QUITADO.equals(status)) {
@@ -174,7 +174,7 @@ public class ContaAzulHttpClient {
         try {
             return executeGetRequest(uri, accessToken);
         } catch (Unauthorized ex) {
-            log.warn("Token expirado ao chamar URI {}. Solicitando renovaÃƒÂ§ÃƒÂ£o automÃƒÂ¡tica de OAuth.", uri);
+            log.warn("Token expirado ao chamar URI {}. Solicitando renovação automática de OAuth.", uri);
             String refreshedToken = contaAzulTokenService.forceRefresh();
             return executeGetRequest(uri, refreshedToken);
         }

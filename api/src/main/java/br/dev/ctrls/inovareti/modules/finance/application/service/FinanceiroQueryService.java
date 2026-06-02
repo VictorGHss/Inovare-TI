@@ -19,10 +19,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃƒÆ’Ã‚Â§o de aplicaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o focado em consultas e mapeamentos do subsistema financeiro.
+ * Serviço de aplicação focado em consultas e mapeamentos do subsistema financeiro.
  *
- * Restabelece a separaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o de responsabilidades da Arquitetura Hexagonal, removendo lÃƒÆ’Ã‚Â³gicas
- * de agregaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o, filtros, paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e validaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o do controlador de entrada REST.
+ * Restabelece a separação de responsabilidades da Arquitetura Hexagonal, removendo lógicas
+ * de agregação, filtros, paginação e validação do controlador de entrada REST.
  */
 @Slf4j
 @Service
@@ -34,26 +34,26 @@ public class FinanceiroQueryService {
     private final ContaAzulTokenService contaAzulTokenService;
 
     /**
-     * Valida se o intervalo de datas fornecido para a automaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© coerente.
+     * Valida se o intervalo de datas fornecido para a automação é coerente.
      *
-     * @param dataInicio Data de inÃƒÆ’Ã‚Â­cio da busca.
+     * @param dataInicio Data de início da busca.
      * @param dataFim Data final da busca.
-     * @throws BadRequestException se o perÃƒÆ’Ã‚Â­odo for invÃƒÆ’Ã‚Â¡lido.
+     * @throws BadRequestException se o período for inválido.
      */
     public void validarIntervaloDatas(LocalDate dataInicio, LocalDate dataFim) {
         if (dataInicio == null || dataFim == null) {
-            throw new BadRequestException("As datas de inÃƒÆ’Ã‚Â­cio e fim nÃƒÆ’Ã‚Â£o podem ser nulas.");
+            throw new BadRequestException("As datas de início e fim não podem ser nulas.");
         }
         if (dataInicio.isAfter(dataFim)) {
-            throw new BadRequestException("A data de inÃƒÆ’Ã‚Â­cio nÃƒÆ’Ã‚Â£o pode ser posterior ÃƒÆ’Ã‚Â  data de fim.");
+            throw new BadRequestException("A data de início não pode ser posterior à data de fim.");
         }
         if (dataInicio.plusDays(365).isBefore(dataFim)) {
-            throw new BadRequestException("O perÃƒÆ’Ã‚Â­odo mÃƒÆ’Ã‚Â¡ximo permitido para sincronizaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â© de 365 dias.");
+            throw new BadRequestException("O período máximo permitido para sincronização é de 365 dias.");
         }
     }
 
     /**
-     * Consolida e constrÃƒÆ’Ã‚Â³i o resumo financeiro atualizado, verificando tambÃƒÆ’Ã‚Â©m o status da integraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.
+     * Consolida e constrói o resumo financeiro atualizado, verificando também o status da integração.
      *
      * @return DTO com o resumo consolidado dos faturamentos e status do Conta Azul.
      */
@@ -85,11 +85,11 @@ public class FinanceiroQueryService {
     }
 
     /**
-     * Lista recibos com paginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o em memÃƒÆ’Ã‚Â³ria e filtros por status opcionais.
+     * Lista recibos com paginação em memória e filtros por status opcionais.
      *
      * @param status Status de processamento do recibo (opcional).
-     * @param page NÃƒÆ’Ã‚Âºmero da pÃƒÆ’Ã‚Â¡gina a ser retornada (0-indexed, opcional).
-     * @param size Quantidade de elementos por pÃƒÆ’Ã‚Â¡gina (opcional).
+     * @param page Número da página a ser retornada (0-indexed, opcional).
+     * @param size Quantidade de elementos por página (opcional).
      * @return Lista filtrada e paginada de recibos formatados em DTO.
      */
     public List<FinanceReceiptResponseDTO> listReceipts(ProcessedReceiptStatus status, Integer page, Integer size) {
@@ -108,7 +108,7 @@ public class FinanceiroQueryService {
                 .map(this::mapReceipt)
                 .toList();
 
-        // PaginaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o customizada em sublista com tratamento seguro de ÃƒÆ’Ã‚Â­ndices
+        // Paginação customizada em sublista com tratamento seguro de índices
         if (page != null && size != null && size > 0 && page >= 0) {
             int fromIndex = page * size;
             if (fromIndex >= mapped.size()) {

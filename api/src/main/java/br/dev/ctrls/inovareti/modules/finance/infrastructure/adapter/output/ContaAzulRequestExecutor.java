@@ -20,13 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 import io.github.resilience4j.retry.annotation.Retry;
 
 /**
- * Executor HTTP centralizado para chamadas ÃƒÂ  Conta Azul.
+ * Executor HTTP centralizado para chamadas à Conta Azul.
  *
  * Centraliza:
- * - montagem de requisiÃƒÂ§ÃƒÂµes JSON com Bearer token;
- * - refresh automÃƒÂ¡tico de token quando ocorrer 401;
- * - download de binÃƒÂ¡rios (com e sem autenticaÃƒÂ§ÃƒÂ£o);
- * - sanitizaÃƒÂ§ÃƒÂ£o de URL e logs sensÃƒÂ­veis de autorizaÃƒÂ§ÃƒÂ£o.
+ * - montagem de requisições JSON com Bearer token;
+ * - refresh automático de token quando ocorrer 401;
+ * - download de binários (com e sem autenticação);
+ * - sanitização de URL e logs sensíveis de autorização.
  */
 @Slf4j
 @Component
@@ -37,14 +37,14 @@ public class ContaAzulRequestExecutor {
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     /**
-     * Executa GET JSON com refresh automÃƒÂ¡tico e retorna apenas o corpo.
+     * Executa GET JSON com refresh automático e retorna apenas o corpo.
      */
     public String executeJsonGetWithRefresh(String uri) {
         return executeJsonGetResponseWithRefresh(uri).body();
     }
 
     /**
-     * Executa GET JSON com refresh automÃƒÂ¡tico e retorna a resposta completa.
+     * Executa GET JSON com refresh automático e retorna a resposta completa.
      */
     public HttpResponse<String> executeJsonGetResponseWithRefresh(String uri) {
         ContaAzulOAuthToken token = contaAzulTokenService.getValidTokenFromDatabase();
@@ -72,12 +72,12 @@ public class ContaAzulRequestExecutor {
 
         log.info("ContaAzul external request URI (JSON): {}", url);
         log.debug(
-                "Enviando requisiÃƒÂ§ÃƒÂ£o para {} com Token iniciado em {}...",
+                "Enviando requisição para {} com Token iniciado em {}...",
                 url,
                 sanitizeTokenPrefix(token.getAccessToken()));
         log.trace("Header Authorization sanitizado enviado: {}", sanitizedAuthorizationHeader);
 
-        // ValidaÃƒÂ§ÃƒÂ£o final em nÃƒÂ­vel de URI para impedir envio real com prefixo /api.
+        // Validação final em nível de URI para impedir envio real com prefixo /api.
         URI externalUri = buildContaAzulUri(url);
         log.info("ContaAzul external request path final: host={} path={}", externalUri.getHost(), externalUri.getPath());
 
@@ -118,10 +118,10 @@ public class ContaAzulRequestExecutor {
 
     /**
      * Fallback para falha ao consultar endpoint JSON da Conta Azul.
-     * Retorna fallback seguro (resposta simulada) e registra a intenÃƒÂ§ÃƒÂ£o de sincronizaÃƒÂ§ÃƒÂ£o offline.
+     * Retorna fallback seguro (resposta simulada) e registra a intenção de sincronização offline.
      */
     public HttpResponse<String> fallbackExecuteJsonGetResponse(String uri, ContaAzulOAuthToken token, Throwable t) {
-        log.warn("[OFFLINE-SYNC-INTENT] [CONTAAZUL] Falha crÃƒÂ­tica de comunicaÃƒÂ§ÃƒÂ£o com a Conta Azul apÃƒÂ³s retentativas. URI: {}. Erro: {}. Gravando intenÃƒÂ§ÃƒÂ£o de sincronizaÃƒÂ§ÃƒÂ£o offline posterior.", uri, t.getMessage());
+        log.warn("[OFFLINE-SYNC-INTENT] [CONTAAZUL] Falha crítica de comunicação com a Conta Azul após retentativas. URI: {}. Erro: {}. Gravando intenção de sincronização offline posterior.", uri, t.getMessage());
         
         return new HttpResponse<String>() {
             @Override
@@ -144,7 +144,7 @@ public class ContaAzulRequestExecutor {
     }
 
     /**
-     * Baixa um arquivo sem autenticaÃƒÂ§ÃƒÂ£o explÃƒÂ­cita.
+     * Baixa um arquivo sem autenticação explícita.
      */
     public byte[] downloadFile(String url) {
         if (!StringUtils.hasText(url)) {
@@ -209,7 +209,7 @@ public class ContaAzulRequestExecutor {
     }
 
     /**
-     * Baixa arquivo pÃƒÂºblico (sem autenticaÃƒÂ§ÃƒÂ£o).
+     * Baixa arquivo público (sem autenticação).
      */
     public byte[] downloadPublicFile(String url) {
         return downloadFile(url);
@@ -235,7 +235,7 @@ public class ContaAzulRequestExecutor {
     }
 
     /**
-     * Sanitiza header Authorization para evitar exposiÃƒÂ§ÃƒÂ£o de segredo em log.
+     * Sanitiza header Authorization para evitar exposição de segredo em log.
      */
     private String sanitizeAuthorizationHeader(String authorizationHeader) {
         if (!StringUtils.hasText(authorizationHeader)) {
@@ -244,7 +244,7 @@ public class ContaAzulRequestExecutor {
 
         String value = authorizationHeader.trim();
         if (!value.startsWith("Bearer ")) {
-            return "Authorization: [formato invÃƒÂ¡lido]";
+            return "Authorization: [formato inválido]";
         }
 
         String token = value.substring("Bearer ".length());
@@ -272,15 +272,15 @@ public class ContaAzulRequestExecutor {
 
         String sanitized = uri.trim();
 
-        // Garante host oficial atual da Conta Azul para as integraÃƒÂ§ÃƒÂµes da API v2.
+        // Garante host oficial atual da Conta Azul para as integrações da API v2.
         sanitized = sanitized.replace("https://api-v2.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
         sanitized = sanitized.replace("https://api.contaazul.com/api/v1/", "https://api-v2.contaazul.com/v1/");
         sanitized = sanitized.replace("api.contaazul.com", "api-v2.contaazul.com");
 
-        // Remove prefixo /api legado em qualquer variaÃƒÂ§ÃƒÂ£o de caixa, mantendo path final como /v1/...
+        // Remove prefixo /api legado em qualquer variação de caixa, mantendo path final como /v1/...
         sanitized = sanitized.replaceAll("(?i)/api/v1/", "/v1/");
 
-        // Corrige casos raros onde o endpoint venha como /api/... sem versÃƒÂ£o explÃƒÂ­cita.
+        // Corrige casos raros onde o endpoint venha como /api/... sem versão explícita.
         sanitized = sanitized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return sanitized;
     }
@@ -305,7 +305,7 @@ public class ContaAzulRequestExecutor {
                     normalizedPath,
                     candidate.getRawQuery(),
                     candidate.getRawFragment());
-            log.warn("URI da Conta Azul foi corrigida em nÃƒÂ­vel final para remover /api: original={} normalized={}", candidate, normalized);
+            log.warn("URI da Conta Azul foi corrigida em nível final para remover /api: original={} normalized={}", candidate, normalized);
             return normalized;
         } catch (URISyntaxException ex) {
             log.warn("Falha ao corrigir URI final da Conta Azul. Usando URI sanitizada por string: {}", sanitizedUrl, ex);

@@ -8,11 +8,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 /**
- * RepresentaÃ§Ã£o parcial de uma Pessoa na Conta Azul.
+ * Representação parcial de uma Pessoa na Conta Azul.
  *
- * Esta DTO mapeia apenas os campos necessÃ¡rios pela aplicaÃ§Ã£o (id, nome, e-mail
- * e contatos secundÃ¡rios). Inclui utilitÃ¡rio `resolveEmail()` que retorna o e-mail
- * principal quando disponÃ­vel ou procura em `outrosContatos` como fallback.
+ * Esta DTO mapeia apenas os campos necessários pela aplicação (id, nome, e-mail
+ * e contatos secundários). Inclui utilitário `resolveEmail()` que retorna o e-mail
+ * principal quando disponível ou procura em `outrosContatos` como fallback.
  */
 public record ContaAzulPessoaDTO(
         String id,

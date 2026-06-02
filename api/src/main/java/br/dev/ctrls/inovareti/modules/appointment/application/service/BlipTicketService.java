@@ -34,7 +34,7 @@ public class BlipTicketService {
         );
 
         try {
-            // executeCommand retorna Map<String, Object> diretamente (porta de domÃ­nio, sem ResponseEntity)
+            // executeCommand retorna Map<String, Object> diretamente (porta de domínio, sem ResponseEntity)
             Map<String, Object> response = limeClient.executeCommand(command, AuthorizationScope.ROUTER);
             String openTicketId = extractOpenTicketId(response);
 

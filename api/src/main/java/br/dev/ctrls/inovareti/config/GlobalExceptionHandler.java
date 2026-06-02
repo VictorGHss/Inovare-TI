@@ -52,7 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .stream()
                 .collect(Collectors.toMap(
                         FieldError::getField,
-                        fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "InvÃ¡lido",
+                        fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "Inválido",
                         (a, b) -> a
                 ));
 
@@ -84,7 +84,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(422));
-        problem.setTitle("Regra de NegÃ³cio Violada");
+        problem.setTitle("Regra de Negócio Violada");
         problem.setDetail(ex.getMessage());
         attachTraceId(problem);
         return problem;
@@ -256,7 +256,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         problem.setTitle("Conflito de integridade de dados");
-        problem.setDetail("NÃ£o foi possÃ­vel realizar a operaÃ§Ã£o devido a uma restriÃ§Ã£o de integridade de dados (ex: registro duplicado ou chave inexistente).");
+        problem.setDetail("Não foi possível realizar a operação devido a uma restrição de integridade de dados (ex: registro duplicado ou chave inexistente).");
         problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
         problem.setProperty("timestamp", LocalDateTime.now());
         attachTraceId(problem);
@@ -266,11 +266,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
     public ResponseEntity<ProblemDetail> handleDataAccess(org.springframework.dao.DataAccessException ex, HttpServletRequest request) {
-        log.error("Erro de persistÃªncia ou acesso ao banco de dados:", ex);
+        log.error("Erro de persistência ou acesso ao banco de dados:", ex);
         
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problem.setTitle("Erro de acesso a banco de dados");
-        problem.setDetail("Ocorreu uma falha na comunicaÃ§Ã£o com o banco de dados. A operaÃ§Ã£o foi abortada para garantir a consistÃªncia.");
+        problem.setDetail("Ocorreu uma falha na comunicação com o banco de dados. A operação foi abortada para garantir a consistência.");
         problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
         problem.setProperty("timestamp", LocalDateTime.now());
         attachTraceId(problem);

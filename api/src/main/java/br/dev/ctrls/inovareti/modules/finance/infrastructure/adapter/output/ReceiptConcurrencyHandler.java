@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output;
 
 
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -12,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡vel pelo controle de concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia e locks locais/banco
+ * Componente responsavel pelo controle de concorrencia e locks locais/banco
  * para evitar o processamento duplicado de recibos.
  */
 @Slf4j
@@ -24,7 +25,7 @@ public class ReceiptConcurrencyHandler {
     private final ConcurrentHashMap<String, Boolean> activeLocks = new ConcurrentHashMap<>();
 
     /**
-     * Verifica se o recibo jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ foi processado anteriormente (persiste no banco).
+     * Verifica se o recibo já foi processado anteriormente (persiste no banco).
      */
     public boolean isAlreadyProcessed(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {

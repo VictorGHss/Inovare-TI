@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
-import io.micrometer.observation.annotation.Observed;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;

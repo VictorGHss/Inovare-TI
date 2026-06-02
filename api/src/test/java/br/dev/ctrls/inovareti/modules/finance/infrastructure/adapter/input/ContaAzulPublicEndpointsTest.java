@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input;
 
-import io.micrometer.observation.annotation.Observed;
-
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;

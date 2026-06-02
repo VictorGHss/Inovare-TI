@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
-import io.micrometer.observation.annotation.Observed;
-
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 
 /**

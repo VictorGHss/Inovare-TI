@@ -180,6 +180,16 @@
     "description": "A description for 'app.contaazul.customer-by-id-v1-url-template'"
   },
   {
+    "name": "blip.blocks.exibir-agenda",
+    "type": "java.lang.String",
+    "description": "Blip block id for the agenda display step."
+  },
+  {
+    "name": "blip.blocks.desk-state-id",
+    "type": "java.lang.String",
+    "description": "Blip block id used for the Desk redirect state."
+  },
+  {
     "name": "flyway.enabled",
     "type": "java.lang.String",
     "description": "A description for 'flyway.enabled'"

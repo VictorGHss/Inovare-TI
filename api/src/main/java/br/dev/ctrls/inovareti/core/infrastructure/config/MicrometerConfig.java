@@ -22,7 +22,7 @@ public class MicrometerConfig {
     private static final String MODULE_PREFIX = ".modules.";
 
     @Bean
-    ObservationRegistryCustomizer<ObservationRegistry> moduleTagCustomizer() {
+    public ObservationRegistryCustomizer<ObservationRegistry> moduleTagCustomizer() {
         return registry -> registry.observationConfig().observationFilter(context -> {
             if (hasTag(context, MODULE_KEY)) {
                 return context;
@@ -42,7 +42,7 @@ public class MicrometerConfig {
     }
 
     @Bean
-    ObservedAspect observedAspect(ObservationRegistry observationRegistry) {
+    public ObservedAspect observedAspect(ObservationRegistry observationRegistry) {
         return new ObservedAspect(observationRegistry);
     }
 

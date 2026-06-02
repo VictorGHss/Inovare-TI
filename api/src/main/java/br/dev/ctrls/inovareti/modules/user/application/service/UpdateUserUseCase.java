@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user.usecase;
+package br.dev.ctrls.inovareti.modules.user.application.service;
 
 import java.util.UUID;
 
@@ -10,12 +10,12 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.user.Sector;
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.UpdateUserRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UpdateUserRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -26,14 +26,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UpdateUserUseCase {
 
-    private final UserRepository userRepository;
-    private final SectorRepository sectorRepository;
+    private final UserRepositoryPort userRepository;
+    private final SectorRepositoryPort sectorRepository;
     private final AuditLogService auditLogService;
 
     @Transactional
     public UserResponseDTO execute(UUID userId, UpdateUserRequestDTO request, UUID adminUserId, String ipAddress) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
 
         String contaAzulId = request.contaAzulId() != null && !request.contaAzulId().isBlank()
                 ? request.contaAzulId().trim()
@@ -42,18 +42,18 @@ public class UpdateUserUseCase {
         // Verifica conflito de e-mail apenas em relação a outros usuários
         if (!user.getEmail().equalsIgnoreCase(request.email())
                 && userRepository.existsByEmail(request.email())) {
-            throw new ConflictException("Email already in use: " + request.email());
+            throw new ConflictException("E-mail já está em uso: " + request.email());
         }
 
         if (contaAzulId != null) {
             boolean contaAzulIdChanged = !contaAzulId.equals(user.getContaAzulId());
             if (contaAzulIdChanged && userRepository.existsByContaAzulId(contaAzulId)) {
-                throw new ConflictException("Conta Azul ID already in use: " + contaAzulId);
+                throw new ConflictException("ID Conta Azul já está em uso: " + contaAzulId);
             }
         }
 
         Sector sector = sectorRepository.findById(request.sectorId())
-                .orElseThrow(() -> new NotFoundException("Sector not found: " + request.sectorId()));
+                .orElseThrow(() -> new NotFoundException("Setor não encontrado: " + request.sectorId()));
 
         String oldRole = user.getRole() != null ? user.getRole().name() : null;
         UUID oldSectorId = user.getSector() != null ? user.getSector().getId() : null;

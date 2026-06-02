@@ -47,7 +47,7 @@ import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ListAllTicketsU
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateSolutionTextUseCase;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,7 +75,7 @@ public class TicketController {
     private final LocalFileStorageService fileStorageService;
     private final TicketAttachmentRepositoryPort attachmentRepository;
     private final TicketRepositoryPort ticketRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final UpdateSolutionTextUseCase updateSolutionTextUseCase;
     private final ChangeCategoryUseCase changeCategoryUseCase;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
@@ -96,8 +96,8 @@ public class TicketController {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Acesso negado: Usuário não encontrado."));
 
-        if (user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.ADMIN 
-                || user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.TECHNICIAN) {
+        if (user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.ADMIN 
+                || user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.TECHNICIAN) {
             return;
         }
 

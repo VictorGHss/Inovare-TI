@@ -22,8 +22,8 @@ import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,7 +32,7 @@ public class AssetService {
 
     private final AssetRepositoryPort assetRepository;
     private final AssetCategoryRepositoryPort assetCategoryRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
 
     @Transactional

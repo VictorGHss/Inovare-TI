@@ -22,7 +22,7 @@ import br.dev.ctrls.inovareti.modules.auth.application.service.ResetInitialPassw
 import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorAuthService;
 import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorResetService;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

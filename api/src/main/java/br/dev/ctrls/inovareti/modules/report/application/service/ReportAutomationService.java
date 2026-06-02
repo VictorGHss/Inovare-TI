@@ -15,7 +15,7 @@ import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.modules.report.domain.model.ReportSchedule;
 import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportScheduleRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,7 +30,7 @@ public class ReportAutomationService {
 
     private final ReportScheduleRepositoryPort scheduleRepository;
     private final ReportService reportService;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final ReportDeliveryService reportDeliveryService;
     private final DiscordWebhookService discordWebhookService;
     private final DiscordDirectMessageService discordDirectMessageService;

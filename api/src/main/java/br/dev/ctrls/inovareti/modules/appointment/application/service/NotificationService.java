@@ -22,8 +22,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,7 +40,7 @@ public class NotificationService {
     private final PatientExternalPort patientExternalPort;
     private final AppointmentVariableLogRepositoryPort appointmentVariableLogRepository;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     private final NotificationProperties notificationProperties;
 

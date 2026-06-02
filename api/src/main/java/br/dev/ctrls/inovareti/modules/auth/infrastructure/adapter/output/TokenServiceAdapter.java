@@ -14,7 +14,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 
 /**
  * Adaptador para gerência de tokens JWT e persistência física de blacklist no Redis.

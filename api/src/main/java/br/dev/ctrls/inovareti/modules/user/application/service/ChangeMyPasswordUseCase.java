@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user.usecase;
+package br.dev.ctrls.inovareti.modules.user.application.service;
 
 import java.util.UUID;
 
@@ -11,15 +11,15 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.ChangePasswordRequestDTO;
 import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
 public class ChangeMyPasswordUseCase {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
 
@@ -28,7 +28,7 @@ public class ChangeMyPasswordUseCase {
         UUID userId = UUID.fromString(authenticatedUserId);
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado com o ID: " + userId));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw new BadRequestException("Senha atual inválida.");
@@ -42,10 +42,10 @@ public class ChangeMyPasswordUseCase {
         userRepository.save(user);
 
         auditLogService.publish(AuditEvent.of(AuditAction.PROFILE_PASSWORD_CHANGE)
-            .userId(userId)
-            .resourceType("UserProfile")
-            .resourceId(userId)
-            .details("{\"mode\": \"SELF_SERVICE\"}")
-            .build());
+                .userId(userId)
+                .resourceType("UserProfile")
+                .resourceId(userId)
+                .details("{\"mode\": \"SELF_SERVICE\"}")
+                .build());
     }
 }

@@ -170,7 +170,7 @@ public class ReportService {
                                         .currentStock(1)
                                         .build();
 
-                        br.dev.ctrls.inovareti.domain.user.User recipient = null;
+                        br.dev.ctrls.inovareti.modules.user.domain.model.User recipient = null;
                         if (originalTicket != null) {
                             recipient = originalTicket.getRequester();
                         } else if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {

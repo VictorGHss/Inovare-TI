@@ -57,9 +57,9 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepository
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -86,7 +86,7 @@ public class ResolveTicketUseCase {
         private final StockMovementRepositoryPort stockMovementRepository;
         private final br.dev.ctrls.inovareti.modules.finance.application.service.FinancialService financialService;
         private final DiscordDirectMessageService discordDirectMessageService;
-        private final UserRepository userRepository;
+        private final UserRepositoryPort userRepository;
         private final AuditLogService auditLogService;
 
     /**
@@ -324,7 +324,7 @@ public class ResolveTicketUseCase {
                     + "**Título:** " + resolvedTicket.getTitle() + "\n"
                     + "**Resolução:** " + resolutionText;
 
-            for (br.dev.ctrls.inovareti.domain.user.User affectedUser : resolvedTicket.getAdditionalUsers()) {
+            for (br.dev.ctrls.inovareti.modules.user.domain.model.User affectedUser : resolvedTicket.getAdditionalUsers()) {
                 if (affectedUser.getDiscordUserId() != null && !affectedUser.getDiscordUserId().isBlank()) {
                     discordDirectMessageService.sendTicketUpdateDMToUser(
                             affectedUser.getDiscordUserId(),

@@ -1,0 +1,23 @@
+package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.output.jpa.repository;
+
+import java.util.Optional;
+import java.util.UUID;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+
+/**
+ * Interface física do Spring Data JPA para a entidade Sector.
+ */
+@Repository
+public interface SpringDataSectorRepository extends JpaRepository<Sector, UUID> {
+
+    Optional<Sector> findByName(String name);
+
+    boolean existsByName(String name);
+
+    List<Sector> findByActiveTrue();
+}

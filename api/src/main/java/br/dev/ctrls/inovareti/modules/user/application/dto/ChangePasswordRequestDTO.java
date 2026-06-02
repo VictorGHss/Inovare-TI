@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user.dto;
+package br.dev.ctrls.inovareti.modules.user.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

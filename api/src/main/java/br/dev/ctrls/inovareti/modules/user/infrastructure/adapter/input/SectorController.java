@@ -1,6 +1,7 @@
-package br.dev.ctrls.inovareti.domain.user;
+package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.input;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.usecase.CreateSectorUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.ListAllSectorsUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.UpdateSectorUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.ToggleSectorActiveUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.dto.SectorRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.SectorResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.application.service.CreateSectorUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.ListAllSectorsUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.UpdateSectorUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.ToggleSectorActiveUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -65,7 +66,7 @@ public class SectorController {
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PutMapping("/{id}")
     public ResponseEntity<SectorResponseDTO> update(
-            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id,
+            @org.springframework.web.bind.annotation.PathVariable UUID id,
             @Valid @RequestBody SectorRequestDTO request) {
         SectorResponseDTO response = updateSectorUseCase.execute(id, request);
         return ResponseEntity.ok(response);
@@ -78,7 +79,7 @@ public class SectorController {
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PatchMapping("/{id}/toggle-active")
     public ResponseEntity<SectorResponseDTO> toggleActive(
-            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+            @org.springframework.web.bind.annotation.PathVariable UUID id) {
         SectorResponseDTO response = toggleSectorActiveUseCase.execute(id);
         return ResponseEntity.ok(response);
     }

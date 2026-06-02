@@ -11,7 +11,7 @@ import br.dev.ctrls.inovareti.modules.report.application.dto.TicketReportDTO;
 import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportExcelExporterPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

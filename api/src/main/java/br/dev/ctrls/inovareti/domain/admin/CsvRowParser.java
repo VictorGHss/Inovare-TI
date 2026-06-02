@@ -6,7 +6,7 @@ import java.util.function.Function;
 
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.extern.slf4j.Slf4j;
 
 /**

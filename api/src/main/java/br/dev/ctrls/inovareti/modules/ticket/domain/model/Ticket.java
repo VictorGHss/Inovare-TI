@@ -9,7 +9,7 @@ import jakarta.persistence.JoinTable;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 import br.dev.ctrls.inovareti.domain.security.CryptoConverter;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -141,7 +141,7 @@ public class Ticket {
         joinColumns = @JoinColumn(name = "ticket_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    private Set<br.dev.ctrls.inovareti.domain.user.User> additionalUsers = new HashSet<>();
+    private Set<br.dev.ctrls.inovareti.modules.user.domain.model.User> additionalUsers = new HashSet<>();
 
     /** Ativo (CMDB) associado a este chamado, se aplicável. */
     @ManyToOne(fetch = FetchType.LAZY)

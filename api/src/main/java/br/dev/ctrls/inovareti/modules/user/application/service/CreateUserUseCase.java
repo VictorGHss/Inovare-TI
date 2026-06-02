@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user.usecase;
+package br.dev.ctrls.inovareti.modules.user.application.service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -9,12 +9,12 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.user.Sector;
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -29,10 +29,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CreateUserUseCase {
 
-    private final UserRepository userRepository;
-    private final SectorRepository sectorRepository;
+    private final UserRepositoryPort userRepository;
+    private final SectorRepositoryPort sectorRepository;
     private final PasswordEncoder passwordEncoder;
-        private final AuditLogService auditLogService;
+    private final AuditLogService auditLogService;
 
     /**
      * Executa a criação do usuário.

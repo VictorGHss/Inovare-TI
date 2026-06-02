@@ -2,7 +2,7 @@ package br.dev.ctrls.inovareti.modules.auth.application.dto;
 
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 
 /**
  * Payload de resposta retornado após autenticação bem-sucedida.

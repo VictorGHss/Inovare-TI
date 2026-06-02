@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import lombok.RequiredArgsConstructor;
 
 @Service

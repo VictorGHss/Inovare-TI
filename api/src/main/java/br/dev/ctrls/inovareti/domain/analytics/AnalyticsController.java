@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.DashboardAnalyticsDTO;
 import br.dev.ctrls.inovareti.domain.analytics.usecase.GetDashboardAnalyticsUseCase;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AnalyticsController {
 
     private final GetDashboardAnalyticsUseCase getDashboardAnalyticsUseCase;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * GET /api/analytics/dashboard

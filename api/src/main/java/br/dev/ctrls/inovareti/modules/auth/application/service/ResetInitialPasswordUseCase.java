@@ -8,8 +8,8 @@ import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.ResetInitialPasswordRequestDTO;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.HashPort;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class ResetInitialPasswordUseCase {
 
     private final TokenPort tokenPort;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final HashPort hashPort;
 
     public AuthResponseDTO execute(ResetInitialPasswordRequestDTO request) {

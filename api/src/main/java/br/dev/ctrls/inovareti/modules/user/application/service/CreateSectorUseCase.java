@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user.usecase;
+package br.dev.ctrls.inovareti.modules.user.application.service;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -7,10 +7,10 @@ import br.dev.ctrls.inovareti.core.exception.ConflictException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.user.Sector;
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.SectorRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.SectorRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.SectorResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CreateSectorUseCase {
 
-    private final SectorRepository sectorRepository;
+    private final SectorRepositoryPort sectorRepository;
     private final AuditLogService auditLogService;
 
     /**
@@ -46,10 +46,10 @@ public class CreateSectorUseCase {
 
         Sector savedSector = sectorRepository.save(sector);
         auditLogService.publish(AuditEvent.of(AuditAction.SECTOR_CREATE)
-            .resourceType("Sector")
-            .resourceId(savedSector.getId())
-            .details("{\"name\": \"" + savedSector.getName() + "\"}")
-            .build());
+                .resourceType("Sector")
+                .resourceId(savedSector.getId())
+                .details("{\"name\": \"" + savedSector.getName() + "\"}")
+                .build());
 
         return SectorResponseDTO.from(savedSector);
     }

@@ -3,8 +3,8 @@ package br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.outpu
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DiscordUserLinkingService {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     private static final String USER_NOT_FOUND_MESSAGE = "❌ Usuário não encontrado para o e-mail informado.";
 

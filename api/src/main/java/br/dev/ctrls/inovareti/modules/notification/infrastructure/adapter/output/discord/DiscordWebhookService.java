@@ -24,9 +24,9 @@ import br.dev.ctrls.inovareti.domain.settings.SystemSetting;
 import br.dev.ctrls.inovareti.domain.settings.SystemSettingRepository;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -49,7 +49,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 @RequiredArgsConstructor
 public class DiscordWebhookService {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final DiscordDirectMessageService discordDirectMessageService;
     private final RestTemplate restTemplate;
     private final SystemAlertRepository systemAlertRepository;

@@ -42,8 +42,8 @@ import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetResponseDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.TransferAssetDTO;
 import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
 import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -53,7 +53,7 @@ import lombok.RequiredArgsConstructor;
 public class AssetController {
 
     private final AssetRepositoryPort assetRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final AssetService assetService;
     private final AssetQueryService assetQueryService;
     private final FileStorageService fileStorageService;

@@ -21,8 +21,8 @@ import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DoctorMappingController {
 
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * Lista os mapeamentos de e-mails de médicos para recibos.

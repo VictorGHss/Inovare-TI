@@ -10,8 +10,8 @@ import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.AuthenticatorPort;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

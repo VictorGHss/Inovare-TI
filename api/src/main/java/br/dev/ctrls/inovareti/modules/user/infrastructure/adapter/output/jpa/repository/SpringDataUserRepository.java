@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user;
+package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.output.jpa.repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,11 +9,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+
 /**
- * Repositório de acesso a dados para a entidade {@link User}.
+ * Interface física do Spring Data JPA para a entidade User.
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface SpringDataUserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
@@ -28,15 +32,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @EntityGraph(attributePaths = "sector")
     List<User> findAllByRoleInAndReceivesItNotificationsTrue(List<UserRole> roles);
 
-    /**
-     * Busca todos os usuários com o setor carregado via JOIN FETCH,
-     * evitando o problema N+1 ao serializar o UserResponseDTO.
-     */
     @Query("SELECT u FROM User u JOIN FETCH u.sector")
     List<User> findAllWithSector();
 
-    /**
-     * Busca um usuário pelo seu Discord ID.
-     */
     Optional<User> findByDiscordUserId(String discordUserId);
 }

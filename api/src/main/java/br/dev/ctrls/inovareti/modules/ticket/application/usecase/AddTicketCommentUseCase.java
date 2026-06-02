@@ -15,8 +15,8 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCommentRep
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,7 +27,7 @@ public class AddTicketCommentUseCase {
 
     private final TicketCommentRepositoryPort commentRepository;
     private final TicketRepositoryPort ticketRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final CreateNotificationService notificationService;
 
     @Transactional

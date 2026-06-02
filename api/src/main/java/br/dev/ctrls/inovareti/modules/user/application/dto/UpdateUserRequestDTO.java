@@ -1,10 +1,10 @@
-package br.dev.ctrls.inovareti.domain.user.dto;
+package br.dev.ctrls.inovareti.modules.user.application.dto;
 
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,7 +15,6 @@ import jakarta.validation.constraints.Size;
  * A senha é tratada separadamente pelo endpoint reset-password.
  */
 public record UpdateUserRequestDTO(
-
         @NotBlank(message = "Name is required.")
         @Size(max = 150, message = "Name must have at most 150 characters.")
         String name,

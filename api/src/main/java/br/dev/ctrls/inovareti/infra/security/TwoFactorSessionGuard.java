@@ -7,14 +7,14 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
 public class TwoFactorSessionGuard {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     public void assertVerified(Authentication authentication) {
         if (authentication == null) {

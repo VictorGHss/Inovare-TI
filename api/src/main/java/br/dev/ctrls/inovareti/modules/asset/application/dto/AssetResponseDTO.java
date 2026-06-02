@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 
 /**
  * DTO de resposta de Ativo com suporte multiusuário.

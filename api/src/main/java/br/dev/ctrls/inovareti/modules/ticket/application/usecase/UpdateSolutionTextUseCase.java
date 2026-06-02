@@ -14,8 +14,8 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateSolutionTextUseCase {
 
     private final TicketRepositoryPort ticketRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
 
     @Transactional

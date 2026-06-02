@@ -6,7 +6,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.AuthenticatorPort;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 
 /**
  * Adaptador de infraestrutura responsável pelo acionamento do pipeline do Spring Security

@@ -28,9 +28,9 @@ import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultCreateItemRequestDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultSecretResponseDTO;
@@ -72,7 +72,7 @@ public class VaultService {
 
     private final VaultItemRepositoryPort vaultItemRepository;
     private final VaultItemShareRepositoryPort vaultItemShareRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final EncryptionService encryptionService;
     private final LocalFileStorageService fileStorageService;
     private final AuditLogService auditLogService;
@@ -80,7 +80,7 @@ public class VaultService {
     public VaultService(
             VaultItemRepositoryPort vaultItemRepository,
             VaultItemShareRepositoryPort vaultItemShareRepository,
-            UserRepository userRepository,
+            UserRepositoryPort userRepository,
             EncryptionService encryptionService,
             LocalFileStorageService fileStorageService,
             AuditLogService auditLogService) {

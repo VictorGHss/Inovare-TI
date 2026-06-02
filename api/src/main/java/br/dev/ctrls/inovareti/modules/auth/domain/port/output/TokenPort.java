@@ -1,7 +1,7 @@
 package br.dev.ctrls.inovareti.modules.auth.domain.port.output;
 
 import java.util.UUID;
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 
 public interface TokenPort {
     String generateToken(User user);

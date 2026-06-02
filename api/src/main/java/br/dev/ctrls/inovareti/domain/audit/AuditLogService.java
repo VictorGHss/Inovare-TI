@@ -16,7 +16,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 
 import br.dev.ctrls.inovareti.domain.audit.dto.AuditLogResponseDTO;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,7 +31,7 @@ public class AuditLogService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     // Cache simples de nome de usuário para evitar N+1 nas consultas de log
     private final Map<UUID, String> userNameCache = new ConcurrentHashMap<>();

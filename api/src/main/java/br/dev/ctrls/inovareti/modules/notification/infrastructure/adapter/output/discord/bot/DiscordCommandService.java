@@ -12,9 +12,9 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddAdditionalUserUseCase;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.modules.notification.domain.model.FaqTi;
 import br.dev.ctrls.inovareti.modules.notification.domain.port.output.FaqTiRepositoryPort;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DiscordCommandService {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final TicketRepositoryPort ticketRepository;
     private final FaqTiRepositoryPort faqTiRepository;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;

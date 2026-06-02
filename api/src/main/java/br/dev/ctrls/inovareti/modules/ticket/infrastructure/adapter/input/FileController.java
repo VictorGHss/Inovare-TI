@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +34,7 @@ public class FileController {
 
     private final LocalFileStorageService fileStorageService;
     private final TicketAttachmentRepositoryPort attachmentRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * Serve um arquivo pelo nome armazenado.

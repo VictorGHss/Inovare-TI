@@ -2,7 +2,7 @@ package br.dev.ctrls.inovareti.modules.vault.domain.model;
 
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.domain.user.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

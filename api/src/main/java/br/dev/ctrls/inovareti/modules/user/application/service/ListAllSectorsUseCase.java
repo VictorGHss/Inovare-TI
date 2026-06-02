@@ -1,7 +1,8 @@
-package br.dev.ctrls.inovareti.domain.user.usecase;
+package br.dev.ctrls.inovareti.modules.user.application.service;
 
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.SectorResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.SectorResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ListAllSectorsUseCase {
 
-    private final SectorRepository sectorRepository;
+    private final SectorRepositoryPort sectorRepository;
 
     /**
      * Retorna todos os setores ordenados pelo nome.
@@ -24,7 +25,7 @@ public class ListAllSectorsUseCase {
      */
     @Transactional(readOnly = true)
     public List<SectorResponseDTO> execute(Boolean activeOnly) {
-        java.util.List<br.dev.ctrls.inovareti.domain.user.Sector> list;
+        List<Sector> list;
         if (activeOnly != null && activeOnly) {
             list = sectorRepository.findByActiveTrue();
         } else {

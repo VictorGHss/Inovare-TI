@@ -10,8 +10,8 @@ import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.DoctorEmailMapping;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.DoctorEmailMappingRepository;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -20,7 +20,7 @@ public class ContaAzulSyncService {
 
     private final ContaAzulClient contaAzulClient;
     private final DoctorEmailMappingRepository doctorEmailMappingRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     public SyncDoctorsResult syncAllDoctorsFromContaAzul() {
         List<ContaAzulClient.PessoaItem> pessoas = contaAzulClient.fetchAllPessoas();

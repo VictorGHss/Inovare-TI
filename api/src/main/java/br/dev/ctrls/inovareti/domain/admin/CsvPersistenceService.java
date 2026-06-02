@@ -15,11 +15,11 @@ import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepo
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.Sector;
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CsvPersistenceService {
 
-    private final UserRepository userRepository;
-    private final SectorRepository sectorRepository;
+    private final UserRepositoryPort userRepository;
+    private final SectorRepositoryPort sectorRepository;
     private final AssetRepositoryPort assetRepository;
     private final AssetCategoryRepositoryPort assetCategoryRepository;
     private final AssetMaintenanceRepositoryPort assetMaintenanceRepository;

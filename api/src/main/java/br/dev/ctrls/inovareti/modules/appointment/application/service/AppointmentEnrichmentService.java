@@ -15,8 +15,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientResponseException;
 
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowProfessional;
@@ -37,7 +37,7 @@ public class AppointmentEnrichmentService {
 
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final ProfessionalExternalPort professionalExternalPort;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     private record SyncItemResult(boolean success, SyncMappingRequest details, String reason) {}
 

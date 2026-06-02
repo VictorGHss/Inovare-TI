@@ -16,9 +16,9 @@ import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.HashPort;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +38,7 @@ public class TwoFactorResetService {
     private static final int CODE_EXPIRY_MINUTES = 15;
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem ambíguos
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final TokenPort tokenPort;
     private final HashPort hashPort;
     private final DiscordDirectMessageService discordDirectMessageService;

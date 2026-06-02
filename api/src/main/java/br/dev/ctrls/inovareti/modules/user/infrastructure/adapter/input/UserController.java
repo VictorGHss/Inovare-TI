@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user;
+package br.dev.ctrls.inovareti.modules.user.infrastructure.adapter.input;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,17 +17,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.domain.user.dto.ChangePasswordRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.UpdateUserRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.UserRequestDTO;
-import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.ChangePasswordRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UpdateUserRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserRequestDTO;
+import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorResetService;
-import br.dev.ctrls.inovareti.domain.user.usecase.ChangeMyPasswordUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.CreateUserUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.ListAllUsersUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.ResetUserPasswordUseCase;
-import br.dev.ctrls.inovareti.domain.user.usecase.UpdateUserUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.ChangeMyPasswordUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.CreateUserUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.ListAllUsersUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.ResetUserPasswordUseCase;
+import br.dev.ctrls.inovareti.modules.user.application.service.UpdateUserUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

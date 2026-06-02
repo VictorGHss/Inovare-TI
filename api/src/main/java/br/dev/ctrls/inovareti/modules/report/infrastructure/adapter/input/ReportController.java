@@ -28,7 +28,7 @@ import br.dev.ctrls.inovareti.modules.report.application.service.ReportService;
 import br.dev.ctrls.inovareti.modules.report.application.service.TicketReportUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -43,14 +43,14 @@ public class ReportController {
     private final TicketRepositoryPort ticketRepository;
     private final StockBatchRepositoryPort stockBatchRepository;
     private final TicketReportUseCase ticketReportUseCase;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     public ReportController(
             ReportService reportService,
             TicketRepositoryPort ticketRepository,
             StockBatchRepositoryPort stockBatchRepository,
             TicketReportUseCase ticketReportUseCase,
-            UserRepository userRepository) {
+            UserRepositoryPort userRepository) {
         this.reportService = reportService;
         this.ticketRepository = ticketRepository;
         this.stockBatchRepository = stockBatchRepository;

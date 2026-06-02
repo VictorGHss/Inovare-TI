@@ -1,8 +1,8 @@
-package br.dev.ctrls.inovareti.domain.user.dto;
+package br.dev.ctrls.inovareti.modules.user.application.dto;
 
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.domain.user.Sector;
+import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
 
 /**
  * DTO de saída com os dados de um setor.

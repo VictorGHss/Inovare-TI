@@ -26,8 +26,8 @@ import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleRequestDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleResponseDTO;
 import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleSearchResultDTO;
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ArticleController {
 
     private final ArticleRepository articleRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
 
     /**
@@ -54,7 +54,7 @@ public class ArticleController {
     @GetMapping
     public ResponseEntity<List<ArticleResponseDTO>> listAll() {
         User user = getAuthenticatedUser();
-        List<Article> articles = user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.USER
+        List<Article> articles = user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.USER
                 ? articleRepository.findAllByStatusOrderByCreatedAtDesc(ArticleStatus.PUBLISHED)
                 : articleRepository.findAllByOrderByCreatedAtDesc();
 
@@ -84,7 +84,7 @@ public class ArticleController {
 
             boolean canReadDraft = article.getStatus() != ArticleStatus.DRAFT
                     || article.getAuthorId().equals(user.getId())
-                    || user.getRole() == br.dev.ctrls.inovareti.domain.user.UserRole.ADMIN;
+                    || user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.ADMIN;
 
             if (!canReadDraft) {
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);

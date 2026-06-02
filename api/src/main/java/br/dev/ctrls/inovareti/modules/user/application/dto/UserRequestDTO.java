@@ -1,10 +1,10 @@
-package br.dev.ctrls.inovareti.domain.user.dto;
+package br.dev.ctrls.inovareti.modules.user.application.dto;
 
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +16,6 @@ import jakarta.validation.constraints.Size;
  * o hash é gerado no Use Case antes de persistir.
  */
 public record UserRequestDTO(
-
         @NotBlank(message = "O nome é obrigatório.")
         @Size(max = 150, message = "O nome deve ter no máximo 150 caracteres.")
         String name,
@@ -47,5 +46,4 @@ public record UserRequestDTO(
 
         @JsonProperty("receives_it_notifications")
         Boolean receivesItNotifications
-
 ) {}

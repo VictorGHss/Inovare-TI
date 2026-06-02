@@ -1,11 +1,11 @@
-package br.dev.ctrls.inovareti.domain.user.dto;
+package br.dev.ctrls.inovareti.modules.user.application.dto;
 
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.user.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 
 /**
  * DTO de saída com os dados públicos de um usuário.

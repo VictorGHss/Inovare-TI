@@ -32,8 +32,8 @@ import org.springframework.web.bind.annotation.RestController;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
-import br.dev.ctrls.inovareti.domain.user.SectorRepository;
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.SectorRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -50,8 +50,8 @@ public class FinancialTransactionsController {
     private final FinancialTransactionRepository transactionRepository;
     private final StockMovementRepositoryPort stockMovementRepository;
     private final ItemRepositoryPort itemRepository;
-    private final UserRepository userRepository;
-    private final SectorRepository sectorRepository;
+    private final UserRepositoryPort userRepository;
+    private final SectorRepositoryPort sectorRepository;
 
     // Usando o Specification Pattern para construir a consulta dinamicamente.
     @GetMapping("/transactions")

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.user;
+package br.dev.ctrls.inovareti.modules.user.domain.model;
 
 /**
  * Papéis disponíveis no sistema para os usuários.

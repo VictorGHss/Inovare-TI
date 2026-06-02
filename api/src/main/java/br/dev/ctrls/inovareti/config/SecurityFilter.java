@@ -10,7 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import br.dev.ctrls.inovareti.domain.user.UserRepository;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -36,10 +36,10 @@ public class SecurityFilter extends OncePerRequestFilter {
     private static final String APPOINTMENT_DEBUG_QUEUES_PATH = "/v1/appointments/admin/debug-queues";
 
     private final TokenPort tokenService;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     // ADICIONADO: Construtor manual com a anotação @Lazy no repositório
-    public SecurityFilter(TokenPort tokenService, @Lazy UserRepository userRepository) {
+    public SecurityFilter(TokenPort tokenService, @Lazy UserRepositoryPort userRepository) {
         this.tokenService = tokenService;
         this.userRepository = userRepository;
     }

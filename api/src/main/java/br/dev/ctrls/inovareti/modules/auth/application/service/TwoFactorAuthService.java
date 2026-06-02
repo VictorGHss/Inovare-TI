@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.auth.usecase;
+package br.dev.ctrls.inovareti.modules.auth.application.service;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -21,14 +21,14 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 
-import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.TwoFactorGenerateResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
@@ -39,7 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class TwoFactorAuthService {
 
     private final UserRepository userRepository;
-    private final TokenService tokenService;
+    private final TokenPort tokenPort;
     private final AuditLogService auditLogService;
     private final GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
 
@@ -92,7 +92,7 @@ public class TwoFactorAuthService {
                 .ipAddress(ipAddress)
                 .build());
 
-        String token = tokenService.generateToken(user, true);
+        String token = tokenPort.generateToken(user, true);
         return AuthResponseDTO.authenticated(token, UserResponseDTO.from(user));
     }
 

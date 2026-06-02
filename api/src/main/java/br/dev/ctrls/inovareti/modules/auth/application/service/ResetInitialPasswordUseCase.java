@@ -1,13 +1,13 @@
-package br.dev.ctrls.inovareti.domain.auth.usecase;
+package br.dev.ctrls.inovareti.modules.auth.application.service;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
-import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.ResetInitialPasswordRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.HashPort;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import br.dev.ctrls.inovareti.domain.user.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -16,12 +16,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ResetInitialPasswordUseCase {
 
-    private final TokenService tokenService;
+    private final TokenPort tokenPort;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final HashPort hashPort;
 
     public AuthResponseDTO execute(ResetInitialPasswordRequestDTO request) {
-        var tokenUserId = tokenService.validateInitialPasswordResetToken(request.tempToken());
+        var tokenUserId = tokenPort.validateInitialPasswordResetToken(request.tempToken());
         if (tokenUserId == null) {
             throw new BadRequestException("Token temporário inválido ou expirado.");
         }
@@ -36,11 +36,11 @@ public class ResetInitialPasswordUseCase {
             throw new BadRequestException("Este usuário não exige redefinição inicial de senha.");
         }
 
-        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setPasswordHash(hashPort.encode(request.newPassword()));
         user.setMustChangePassword(false);
         var savedUser = userRepository.save(user);
 
-        String finalToken = tokenService.generateToken(savedUser);
+        String finalToken = tokenPort.generateToken(savedUser);
         return AuthResponseDTO.authenticated(finalToken, UserResponseDTO.from(savedUser));
     }
 }

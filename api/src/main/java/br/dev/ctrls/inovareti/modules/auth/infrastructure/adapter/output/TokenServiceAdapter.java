@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.config;
+package br.dev.ctrls.inovareti.modules.auth.infrastructure.adapter.output;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -13,15 +13,15 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.domain.user.User;
 
 /**
- * Serviço responsável por gerar e validar tokens JWT.
- * O segredo de assinatura é injetado via propriedades da aplicação.
- * Os tokens são emitidos por "inovare-ti" e expiram em 8 horas.
+ * Adaptador para gerência de tokens JWT e persistência física de blacklist no Redis.
+ * Implementa a porta TokenPort.
  */
 @Service
-public class TokenService {
+public class TokenServiceAdapter implements TokenPort {
 
     private static final String ISSUER = "inovare-ti";
     private static final int EXPIRATION_HOURS = 24;
@@ -30,23 +30,19 @@ public class TokenService {
     private final String secret;
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
 
-    public TokenService(
+    public TokenServiceAdapter(
             @Value("${api.security.token.secret}") String secret,
             ObjectProvider<StringRedisTemplate> redisTemplateProvider) {
         this.secret = secret;
         this.redisTemplateProvider = redisTemplateProvider;
     }
 
-    /**
-     * Gera um token JWT assinado para o usuário informado.
-     *
-     * @param user o usuário autenticado
-     * @return token JWT assinado
-     */
+    @Override
     public String generateToken(User user) {
         return generateToken(user, false);
     }
 
+    @Override
     public String generateToken(User user, boolean twoFactorVerified) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
         return JWT.create()
@@ -60,10 +56,7 @@ public class TokenService {
                 .sign(algorithm);
     }
 
-    /**
-     * Extrai o claim `userId` de um token JWT validado.
-     * Retorna string vazia se inválido ou ausente.
-     */
+    @Override
     public String getUserIdFromToken(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -88,6 +81,7 @@ public class TokenService {
         }
     }
 
+    @Override
     public String generateInitialPasswordResetToken(User user) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
         return JWT.create()
@@ -98,13 +92,7 @@ public class TokenService {
                 .sign(algorithm);
     }
 
-    /**
-     * Valida o token JWT informado e retorna o subject (e-mail).
-     * Retorna uma string vazia se o token for inválido ou expirado.
-     *
-     * @param token a string JWT bruta (sem o prefixo "Bearer ")
-     * @return o claim subject (e-mail), ou string vazia em caso de falha
-     */
+    @Override
     public String validateToken(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -118,6 +106,7 @@ public class TokenService {
         }
     }
 
+    @Override
     public UUID validateInitialPasswordResetToken(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -132,6 +121,7 @@ public class TokenService {
         }
     }
 
+    @Override
     public boolean isTwoFactorVerified(String token) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
@@ -146,6 +136,7 @@ public class TokenService {
         }
     }
 
+    @Override
     public void blacklistToken(String token) {
         if (token == null || token.isBlank()) {
             return;
@@ -172,6 +163,7 @@ public class TokenService {
         }
     }
 
+    @Override
     public boolean isTokenBlacklisted(String token) {
         if (token == null || token.isBlank()) {
             return false;

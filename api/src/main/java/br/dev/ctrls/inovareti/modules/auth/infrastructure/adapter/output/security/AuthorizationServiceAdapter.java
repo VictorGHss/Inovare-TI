@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.auth.usecase;
+package br.dev.ctrls.inovareti.modules.auth.infrastructure.adapter.output.security;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -9,22 +9,15 @@ import br.dev.ctrls.inovareti.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Serviço responsável por carregar um usuário pelo seu e-mail.
- * Integra-se ao pipeline de autenticação do Spring Security.
+ * Serviço de segurança responsável por carregar os dados detalhados do usuário a partir
+ * do UserRepository para o Spring Security pipeline.
  */
 @Service
 @RequiredArgsConstructor
-public class AuthorizationService implements UserDetailsService {
+public class AuthorizationServiceAdapter implements UserDetailsService {
 
     private final UserRepository userRepository;
 
-    /**
-     * Localiza um usuário pelo e-mail informado (usado como username no Spring Security).
-     *
-     * @param email o endereço de e-mail a ser buscado
-     * @return o {@link UserDetails} correspondente
-     * @throws UsernameNotFoundException se não existir usuário com o e-mail informado
-     */
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         return userRepository.findByEmail(email)

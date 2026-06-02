@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.auth;
+package br.dev.ctrls.inovareti.modules.auth.infrastructure.adapter.input;
 
 import java.util.UUID;
 
@@ -11,18 +11,18 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
-import br.dev.ctrls.inovareti.domain.auth.dto.AuthRequestDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.ResetInitialPasswordRequestDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorGenerateResponseDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorResetConfirmRequestDTO;
-import br.dev.ctrls.inovareti.domain.auth.dto.TwoFactorVerifyRequestDTO;
-import br.dev.ctrls.inovareti.config.TokenService;
-import br.dev.ctrls.inovareti.domain.auth.usecase.LoginUseCase;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.ResetInitialPasswordRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.TwoFactorGenerateResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.TwoFactorResetConfirmRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.TwoFactorVerifyRequestDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.service.LoginUseCase;
+import br.dev.ctrls.inovareti.modules.auth.application.service.ResetInitialPasswordUseCase;
+import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorAuthService;
+import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorResetService;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.domain.user.User;
-import br.dev.ctrls.inovareti.domain.auth.usecase.ResetInitialPasswordUseCase;
-import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorAuthService;
-import br.dev.ctrls.inovareti.domain.auth.usecase.TwoFactorResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class AuthController {
     private final ResetInitialPasswordUseCase resetInitialPasswordUseCase;
     private final TwoFactorAuthService twoFactorAuthService;
     private final TwoFactorResetService twoFactorResetService;
-    private final TokenService tokenService;
+    private final TokenPort tokenPort;
 
     /**
      * Autentica o usuário e retorna um token JWT assinado.
@@ -70,7 +70,7 @@ public class AuthController {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
-            tokenService.blacklistToken(token);
+            tokenPort.blacklistToken(token);
         }
         return ResponseEntity.noContent().build();
     }

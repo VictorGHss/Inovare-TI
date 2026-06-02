@@ -1,20 +1,20 @@
-package br.dev.ctrls.inovareti.domain.auth.usecase;
+package br.dev.ctrls.inovareti.modules.auth.application.service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.config.TokenService;
 import br.dev.ctrls.inovareti.core.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.exception.NotFoundException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.auth.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.HashPort;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.domain.user.User;
 import br.dev.ctrls.inovareti.domain.user.UserRepository;
@@ -39,8 +39,8 @@ public class TwoFactorResetService {
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem ambíguos
 
     private final UserRepository userRepository;
-    private final TokenService tokenService;
-    private final PasswordEncoder passwordEncoder;
+    private final TokenPort tokenPort;
+    private final HashPort hashPort;
     private final DiscordDirectMessageService discordDirectMessageService;
     private final AuditLogService auditLogService;
 
@@ -65,7 +65,7 @@ public class TwoFactorResetService {
         log.info("Initiating 2FA reset for user {} with Discord ID {}", userId, user.getDiscordUserId());
 
         String code = generateSecureCode();
-        user.setRecoveryCodeHash(passwordEncoder.encode(code));
+        user.setRecoveryCodeHash(hashPort.encode(code));
         user.setRecoveryCodeExpiresAt(LocalDateTime.now().plusMinutes(CODE_EXPIRY_MINUTES));
         userRepository.save(user);
 
@@ -92,7 +92,7 @@ public class TwoFactorResetService {
         }
 
         // Valida senha atual
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+        if (!hashPort.matches(password, user.getPasswordHash())) {
             throw new BadRequestException("Senha incorreta.");
         }
 
@@ -103,11 +103,11 @@ public class TwoFactorResetService {
         }
 
         if (user.getRecoveryCodeExpiresAt() == null
-                || user.getRecoveryCodeExpiresAt().isBefore(LocalDateTime.now())) {
+                 || user.getRecoveryCodeExpiresAt().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("O código de recuperação expirou. Solicite um novo código.");
         }
 
-        if (!passwordEncoder.matches(code.trim().toUpperCase(), user.getRecoveryCodeHash())) {
+        if (!hashPort.matches(code.trim().toUpperCase(), user.getRecoveryCodeHash())) {
             throw new BadRequestException("Código de recuperação inválido.");
         }
 
@@ -125,7 +125,7 @@ public class TwoFactorResetService {
         log.info("2FA successfully reset for user {} via recovery flow", userId);
 
         // Emite novo JWT sem flag de 2FA
-        String token = tokenService.generateToken(user, false);
+        String token = tokenPort.generateToken(user, false);
         return AuthResponseDTO.authenticated(token, UserResponseDTO.from(user));
     }
 

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.auth.dto;
+package br.dev.ctrls.inovareti.modules.auth.application.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

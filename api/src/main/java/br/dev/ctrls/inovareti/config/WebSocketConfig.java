@@ -13,6 +13,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 import lombok.RequiredArgsConstructor;
+import br.dev.ctrls.inovareti.modules.auth.domain.port.output.TokenPort;
 
 /**
  * Configuração simples de WebSocket/STOMP para eventos em tempo real.
@@ -23,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final AppCorsProperties corsProperties;
-    private final TokenService tokenService;
+    private final TokenPort tokenService;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {

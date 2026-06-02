@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.auth.dto;
+package br.dev.ctrls.inovareti.modules.auth.application.dto;
 
 public record TwoFactorGenerateResponseDTO(
         String qrCodeBase64,

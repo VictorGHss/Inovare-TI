@@ -28,7 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;

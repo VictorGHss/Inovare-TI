@@ -13,7 +13,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.FileSizeLimitExceededException;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 

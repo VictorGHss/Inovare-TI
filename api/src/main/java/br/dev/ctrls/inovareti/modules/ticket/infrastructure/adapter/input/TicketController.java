@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
@@ -102,7 +102,7 @@ public class TicketController {
         }
 
         var ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado não encontrado."));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado não encontrado."));
 
         if (!ticket.getRequester().getId().equals(userId)) {
             throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Você não é o proprietário deste chamado.");
@@ -321,10 +321,10 @@ public class TicketController {
         checkTicketOwnershipOrStaff(relatedId);
 
         Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado principal não encontrado: " + id));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado principal não encontrado: " + id));
 
         Ticket relatedTicket = ticketRepository.findById(relatedId)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.exception.NotFoundException("Chamado relacionado não encontrado: " + relatedId));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado relacionado não encontrado: " + relatedId));
 
         ticket.getRelatedTickets().add(relatedTicket);
         relatedTicket.getRelatedTickets().add(ticket);

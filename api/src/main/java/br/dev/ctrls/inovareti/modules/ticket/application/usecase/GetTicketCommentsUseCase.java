@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCommentRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentResponseDTO;

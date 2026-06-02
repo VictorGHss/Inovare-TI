@@ -1,6 +1,6 @@
 package br.dev.ctrls.inovareti.modules.ticket.application.usecase;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketCategory;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCategoryRequestDTO;

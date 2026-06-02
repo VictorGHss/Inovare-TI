@@ -21,6 +21,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.filter.ManualTriggerKeyFilter;
+import br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.filter.RawBodyLoggingFilter;
+import br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.filter.SecurityFilter;
 import lombok.RequiredArgsConstructor;
 
 /**

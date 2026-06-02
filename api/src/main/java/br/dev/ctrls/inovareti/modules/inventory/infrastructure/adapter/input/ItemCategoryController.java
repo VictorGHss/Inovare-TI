@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemCategoryRequestDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemCategoryResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.CreateItemCategoryUseCase;

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
 import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutomationService;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.config;
+package br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.handler;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -21,9 +21,9 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
-import br.dev.ctrls.inovareti.core.exception.FileSizeLimitExceededException;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.FileSizeLimitExceededException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

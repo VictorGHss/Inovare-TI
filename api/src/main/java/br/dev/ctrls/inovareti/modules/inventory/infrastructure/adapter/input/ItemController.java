@@ -26,8 +26,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.BatchResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemRequestDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO;

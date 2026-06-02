@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetCategoryRequestDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetCategoryResponseDTO;
 import jakarta.validation.Valid;

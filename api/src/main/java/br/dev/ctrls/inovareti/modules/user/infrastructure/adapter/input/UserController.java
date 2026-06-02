@@ -21,7 +21,7 @@ import br.dev.ctrls.inovareti.modules.user.application.dto.ChangePasswordRequest
 import br.dev.ctrls.inovareti.modules.user.application.dto.UpdateUserRequestDTO;
 import br.dev.ctrls.inovareti.modules.user.application.dto.UserRequestDTO;
 import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.auth.application.service.TwoFactorResetService;
 import br.dev.ctrls.inovareti.modules.user.application.service.ChangeMyPasswordUseCase;
 import br.dev.ctrls.inovareti.modules.user.application.service.CreateUserUseCase;

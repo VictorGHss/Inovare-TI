@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.ResetInitialPasswordRequestDTO;

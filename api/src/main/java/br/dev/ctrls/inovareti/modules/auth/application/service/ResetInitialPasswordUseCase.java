@@ -2,8 +2,8 @@ package br.dev.ctrls.inovareti.modules.auth.application.service;
 
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.ResetInitialPasswordRequestDTO;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.HashPort;

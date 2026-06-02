@@ -11,7 +11,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceAlertResponseDTO;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceReceiptResponseDTO;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.input.FinanceiroController.FinanceSummaryResponseDTO;

@@ -9,7 +9,7 @@ import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetResponseDTO;
 import lombok.RequiredArgsConstructor;
 

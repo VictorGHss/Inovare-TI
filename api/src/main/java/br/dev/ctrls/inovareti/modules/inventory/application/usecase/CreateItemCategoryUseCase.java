@@ -1,6 +1,6 @@
 package br.dev.ctrls.inovareti.modules.inventory.application.usecase;
 
-import br.dev.ctrls.inovareti.core.exception.ConflictException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemCategoryRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemCategoryRequestDTO;

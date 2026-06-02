@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.util.StringUtils;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;

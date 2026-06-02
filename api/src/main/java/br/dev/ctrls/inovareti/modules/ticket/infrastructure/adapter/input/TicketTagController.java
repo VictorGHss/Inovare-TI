@@ -12,8 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 
 @RestController
 @RequestMapping("/ticket-tags")

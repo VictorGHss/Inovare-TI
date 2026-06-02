@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.core.exception;
+package br.dev.ctrls.inovareti.core.shared.domain.model.exception;
 
 public class FileSizeLimitExceededException extends RuntimeException {
 

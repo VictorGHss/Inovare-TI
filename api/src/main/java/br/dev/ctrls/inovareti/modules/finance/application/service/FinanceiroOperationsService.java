@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulPaymentParcel;
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulPaymentsClient;
 import lombok.RequiredArgsConstructor;

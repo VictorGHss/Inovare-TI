@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.domain.audit.dto.QrScanAuditRequestDTO;
 import br.dev.ctrls.inovareti.domain.audit.dto.AuditLogResponseDTO;
 import jakarta.servlet.http.HttpServletRequest;

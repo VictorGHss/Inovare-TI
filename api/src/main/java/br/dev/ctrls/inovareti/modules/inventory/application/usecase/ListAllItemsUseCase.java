@@ -8,7 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.core.exception.BadRequestException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO;

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.config;
+package br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.filter;
 
 import java.io.IOException;
 import java.nio.charset.Charset;

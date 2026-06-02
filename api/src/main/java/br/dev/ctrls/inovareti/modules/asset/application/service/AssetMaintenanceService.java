@@ -15,7 +15,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import br.dev.ctrls.inovareti.core.exception.NotFoundException;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceResponseDTO;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;

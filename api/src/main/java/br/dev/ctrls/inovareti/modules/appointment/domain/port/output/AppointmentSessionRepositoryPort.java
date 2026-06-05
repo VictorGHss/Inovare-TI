@@ -1,14 +1,13 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
+
+
+
 
 public interface AppointmentSessionRepositoryPort {
 

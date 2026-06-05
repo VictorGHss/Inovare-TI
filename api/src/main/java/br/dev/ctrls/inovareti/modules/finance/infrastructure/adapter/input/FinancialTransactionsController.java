@@ -56,9 +56,7 @@ public class FinancialTransactionsController {
         LocalDate start = startDate;
         LocalDate end = endDate;
 
-        // Construindo a Specification a partir dos parâmetros do request
-        FinancialTransactionSpecification spec = FinancialTransactionSpecification.builder()
-            .startDate(start).endDate(end).build();
+        FinancialTransactionSpecification spec = new FinancialTransactionSpecification(start, end);
         
         // Executando a consulta usando a Specification
         List<FinancialTransaction> transactions = transactionRepository.findAll(spec);

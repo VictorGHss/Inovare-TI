@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
-
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation;
+
+
+
 
 /**
  * Porta de Saída do Domínio: BlipUserIdentityReconciliationRepositoryPort.

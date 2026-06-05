@@ -5,7 +5,7 @@ import io.micrometer.observation.annotation.Observed;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 
 import jakarta.persistence.criteria.Predicate;
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
@@ -17,7 +17,7 @@ import java.util.List;
  * Permite construir consultas dinâmicas e reutilizáveis sem acoplamento ao Controller.
  * <p>Removidos imports redundantes (LocalDateTime, LocalTime) e garantida a integridade da classe.</p>
  */
-@Builder
+@AllArgsConstructor
 @Observed
 public class FinancialTransactionSpecification implements Specification<FinancialTransaction> {
 

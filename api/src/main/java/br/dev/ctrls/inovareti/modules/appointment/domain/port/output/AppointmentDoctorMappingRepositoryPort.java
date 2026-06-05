@@ -1,12 +1,11 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
+
+
+
 
 public interface AppointmentDoctorMappingRepositoryPort {
 

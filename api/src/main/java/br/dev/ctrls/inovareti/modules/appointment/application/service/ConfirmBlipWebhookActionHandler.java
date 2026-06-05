@@ -61,7 +61,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         sessoesUnicas.put(s.getId(), s);
                     }
                 }
-                if (session != null && session.getId() != null) {
+                if (session.getId() != null) {
                     sessoesUnicas.put(session.getId(), session);
                 }
                 
@@ -148,7 +148,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         sessoesUnicas.put(s.getId(), s);
                     }
                 }
-                if (session != null && session.getId() != null) {
+                if (session.getId() != null) {
                     sessoesUnicas.put(session.getId(), session);
                 }
 

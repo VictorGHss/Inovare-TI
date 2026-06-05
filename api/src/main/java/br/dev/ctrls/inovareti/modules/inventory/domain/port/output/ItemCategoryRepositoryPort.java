@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.inventory.domain.port.output;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemCategoryRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory;
+
+
 
 public interface ItemCategoryRepositoryPort {
     ItemCategory save(ItemCategory entity);

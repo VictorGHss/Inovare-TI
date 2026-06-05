@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.ticket.domain.port.output;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag;
+
+
 
 public interface TicketTagRepositoryPort {
     TicketTag save(TicketTag entity);

@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.vault.domain.port.output;
-import br.dev.ctrls.inovareti.modules.vault.domain.port.output.VaultItemRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.modules.vault.domain.model.VaultItem;
+
+
 
 public interface VaultItemRepositoryPort {
     VaultItem save(VaultItem entity);

@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.asset.domain.port.output;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
+
+
 
 public interface AssetRepositoryPort {
     Asset save(Asset entity);

@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.ticket.domain.port.output;
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCommentRepositoryPort;
-
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketComment;
+
+
 
 public interface TicketCommentRepositoryPort {
     TicketComment save(TicketComment entity);

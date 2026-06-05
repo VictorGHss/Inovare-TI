@@ -41,7 +41,7 @@ public class BlipGroupActionHandler {
     public HandleBlipWebhookUseCase.WebhookResult handleGroupAction(String action, String fromPhone, String bsuid, Object metadata) {
         String lowerAction = action.toLowerCase();
         
-        UUID groupId = null;
+        UUID groupId;
         String actionType = null;
         
         if (lowerAction.startsWith("ver_agenda_")) {
@@ -77,16 +77,13 @@ public class BlipGroupActionHandler {
             return null;
         }
         
-        if ("ver_agenda".equals(actionType)) {
-            handleVerAgenda(groupId, fromPhone, bsuid);
-        } else if ("confirm_group".equals(actionType)) {
-            handleConfirmGroup(groupId, fromPhone);
-        } else if ("alter_group".equals(actionType)) {
-            handleAlterGroup(groupId, fromPhone);
-        } else if ("group_view".equals(actionType)) {
-            handleGroupView(groupId, fromPhone);
-        } else if ("group_view_fallback".equals(actionType)) {
-            handleGroupViewFallback(groupId, fromPhone);
+        switch (actionType) {
+            case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid);
+            case "confirm_group" -> handleConfirmGroup(groupId, fromPhone);
+            case "alter_group" -> handleAlterGroup(groupId, fromPhone);
+            case "group_view" -> handleGroupView(groupId, fromPhone);
+            case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone);
+            default -> {}
         }
         
         return new HandleBlipWebhookUseCase.WebhookResult("", "", "", "", "group_action_processed", "");

@@ -1,11 +1,10 @@
 package br.dev.ctrls.inovareti.modules.appointment.domain.port.output;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentTemplateMappingRepositoryPort;
-
-
 import java.util.Collection;
 import java.util.List;
-
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentTemplateMapping;
+
+
+
 
 public interface AppointmentTemplateMappingRepositoryPort {
 

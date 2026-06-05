@@ -111,16 +111,23 @@ public class IngestAppointmentsUseCase {
             filteredReceived += eligibleAppointments.size();
             FeegowPatient patientDetails = patientDetailsCache.get(patientId);
 
-            if (eligibleAppointments.size() == 1) {
-                if (processSingleFlow(eligibleAppointments.get(0), doctorMappingCache, patientDetails)) {
-                    created++;
-                    messagesSent++;
-                }
-            } else {
-                int sent = processGroupFlow(eligibleAppointments, patientDetails);
-                created += sent;
-                if (sent > 0) {
-                    messagesSent++;
+            // Agrupa as consultas elegíveis por data de agendamento (LocalDate)
+            Map<LocalDate, List<FeegowAppointment>> appointmentsByDate = eligibleAppointments.stream()
+                    .collect(Collectors.groupingBy(a -> a.startAt().toLocalDate()));
+
+            for (Map.Entry<LocalDate, List<FeegowAppointment>> dateEntry : appointmentsByDate.entrySet()) {
+                List<FeegowAppointment> dateAppointments = dateEntry.getValue();
+                if (dateAppointments.size() == 1) {
+                    if (processSingleFlow(dateAppointments.get(0), doctorMappingCache, patientDetails)) {
+                        created++;
+                        messagesSent++;
+                    }
+                } else {
+                    int sent = processGroupFlow(dateAppointments, patientDetails);
+                    created += sent;
+                    if (sent > 0) {
+                        messagesSent++;
+                    }
                 }
             }
         }

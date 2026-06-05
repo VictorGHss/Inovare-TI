@@ -62,7 +62,7 @@ public class BlipWebhookController {
         summary = "Recebe e processa webhooks enviados pelo Blip",
         description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validaÃ§Ã£o de assinatura criptogrÃ¡fica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotÃªncia de eventos."
     )
-    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip", "/api/webhooks/blip"},
+    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
         consumes = {
             MediaType.APPLICATION_JSON_VALUE,
             "application/vnd.lime.select+json",

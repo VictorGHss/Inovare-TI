@@ -27,6 +27,11 @@ public class FaqTiRepositoryAdapter implements FaqTiRepositoryPort {
     }
 
     @Override
+    public Optional<FaqTi> findByPalavraChave(String palavraChave) {
+        return repository.findByPalavraChaveIgnoreCase(palavraChave);
+    }
+
+    @Override
     public List<FaqTi> searchFaq(String busca) {
         return repository.searchFaq(busca);
     }

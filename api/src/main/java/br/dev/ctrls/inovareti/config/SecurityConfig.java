@@ -71,6 +71,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/webhook/blip", "/api/v1/webhook/blip/").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/appointments/blip/webhook", "/v1/appointments/blip/webhook/").permitAll()
                 .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/admin/faqs", "/v1/admin/faqs/**", "/api/v1/admin/faqs", "/api/v1/admin/faqs/**").permitAll()
 
                 // Demais rotas administrativas/autenticação
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")

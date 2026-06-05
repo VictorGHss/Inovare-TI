@@ -13,4 +13,6 @@ public interface FaqTiJpaRepository extends JpaRepository<FaqTi, Integer> {
 
     @Query("SELECT f FROM FaqTi f WHERE LOWER(f.palavraChave) LIKE LOWER(CONCAT('%', :busca, '%')) OR LOWER(f.pergunta) LIKE LOWER(CONCAT('%', :busca, '%')) OR LOWER(f.resposta) LIKE LOWER(CONCAT('%', :busca, '%'))")
     List<FaqTi> searchFaq(@Param("busca") String busca);
+
+    java.util.Optional<FaqTi> findByPalavraChaveIgnoreCase(String palavraChave);
 }

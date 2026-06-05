@@ -19,6 +19,9 @@ import br.dev.ctrls.inovareti.modules.notification.domain.model.FaqTi;
 import br.dev.ctrls.inovareti.modules.notification.domain.port.output.FaqTiRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import br.dev.ctrls.inovareti.domain.knowledge.Article;
+import br.dev.ctrls.inovareti.domain.knowledge.ArticleRepository;
 
 /**
  * Serviço de comando do Discord responsável pela lógica de negócios e transações
@@ -33,6 +36,14 @@ public class DiscordCommandService {
     private final TicketRepositoryPort ticketRepository;
     private final FaqTiRepositoryPort faqTiRepository;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
+    private final ArticleRepository articleRepository;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
+    public String getFrontendUrl() {
+        return this.frontendUrl;
+    }
 
     /**
      * Valida que o usuário Discord é um técnico ou admin vinculado.
@@ -120,6 +131,17 @@ public class DiscordCommandService {
     public List<FaqTi> buscarFaq(String busca) {
         if (busca == null) return List.of();
         return faqTiRepository.searchFaq(busca.trim());
+    }
+
+    /**
+     * Realiza busca textual na Base de Conhecimento (artigos publicados).
+     */
+    @Transactional(readOnly = true)
+    public List<Article> buscarArtigos(String busca) {
+        if (busca == null || busca.trim().isEmpty()) {
+            return List.of();
+        }
+        return articleRepository.findPublishedByTitleOrContentContainingIgnoreCase(busca.trim());
     }
 
     /**

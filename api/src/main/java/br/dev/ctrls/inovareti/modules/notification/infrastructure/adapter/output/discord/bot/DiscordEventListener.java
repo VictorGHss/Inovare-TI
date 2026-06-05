@@ -321,12 +321,23 @@ public class DiscordEventListener extends ListenerAdapter {
                 embedBuilder.setDescription("Resultados da busca para: *" + busca + "*\n\n");
 
                 if (resultados.isEmpty()) {
-                    String descricaoSemResultados = """
-                            ❌ Nenhuma dúvida correspondente encontrada no FAQ local.
-                            Por favor, tente outras palavras-chave ou abra um chamado técnico usando o comando `/chamado`.
-                            """.strip();
-                    if (descricaoSemResultados != null) {
-                        embedBuilder.appendDescription(descricaoSemResultados);
+                    List<br.dev.ctrls.inovareti.domain.knowledge.Article> artigos = discordCommandService.buscarArtigos(busca);
+                    if (artigos.isEmpty()) {
+                        String descricaoSemResultados = """
+                                ❌ Nenhuma dúvida correspondente encontrada no FAQ local.
+                                Por favor, tente outras palavras-chave ou abra um chamado técnico usando o comando `/chamado`.
+                                """.strip();
+                        if (descricaoSemResultados != null) {
+                            embedBuilder.appendDescription(descricaoSemResultados);
+                        }
+                    } else {
+                        embedBuilder.appendDescription("💡 Não encontrei uma resposta direta no FAQ rápido, mas achei estes artigos na Base de Conhecimento que podem te ajudar:\n\n");
+                        String baseLink = discordCommandService.getFrontendUrl();
+                        for (br.dev.ctrls.inovareti.domain.knowledge.Article artigo : artigos) {
+                            String link = baseLink + "/articles/" + artigo.getId();
+                            embedBuilder.appendDescription(String.format("• **[%s](%s)** (ID: `%s`)\n", artigo.getTitle(), link, artigo.getId()));
+                        }
+                        embedBuilder.setFooter("Inovare TI • Base de Conhecimento", event.getJDA().getSelfUser().getAvatarUrl());
                     }
                 } else {
                     for (FaqTi faq : resultados) {

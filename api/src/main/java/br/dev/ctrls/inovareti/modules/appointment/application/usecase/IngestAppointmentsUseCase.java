@@ -360,7 +360,7 @@ public class IngestAppointmentsUseCase {
                 AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
                 if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
                     currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
-                    return null;
+                    return latestSessionOpt.get();
                 }
             }
             AppointmentSession s = latestSessionOpt.orElseGet(AppointmentSession::new);

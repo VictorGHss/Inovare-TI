@@ -273,8 +273,14 @@ public class BlipNotificationService {
             log.warn("Erro ao serializar payload de grupo para log: {}", ex.getMessage());
         }
 
-        limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso para o telefone={}", destination);
+        log.info("[MENSAGERIA-GRUPO] Tentando transmitir template de grupo para o telefone={} com o groupId={}", destination, groupId);
+        try {
+            limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso para o telefone={}", destination);
+        } catch (Exception e) {
+            log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo para o telefone={} com o groupId={}", destination, groupId, e);
+            throw e;
+        }
     }
 
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {

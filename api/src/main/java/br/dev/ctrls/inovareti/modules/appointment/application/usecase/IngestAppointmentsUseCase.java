@@ -314,10 +314,6 @@ public class IngestAppointmentsUseCase {
         }
 
         String phoneNumber = normalizedPhone;
-        if (appointmentMotorProperties.isTestMode()) {
-            phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, eligibleAppointments.get(0).doctorId());
-            if (phoneNumber == null) return 0;
-        }
 
         List<AppointmentSession> savedSessions = saveGroupSessions(eligibleAppointments, phoneNumber);
         if (savedSessions.size() < 2) {

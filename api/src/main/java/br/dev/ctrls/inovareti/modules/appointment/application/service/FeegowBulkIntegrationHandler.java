@@ -86,7 +86,19 @@ public class FeegowBulkIntegrationHandler {
         List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
         log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
 
-        // 4. Atualizar status local de todas as sessões para CONFIRMADO de forma transacional e com bloqueio pessimista
+        // Resolver o statusConfirmado antes do loop
+        int statusConfirmado = 7;
+        String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
+        if (configuredStatusId != null && !configuredStatusId.isBlank()) {
+            String trimmed = configuredStatusId.trim();
+            if (!"2".equals(trimmed)) {
+                try {
+                    statusConfirmado = Integer.parseInt(trimmed);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // 4. Atualizar status local de todas as sessões para CONFIRMADO e sincronizar com o Feegow
         for (AppointmentSession groupSession : sessionList) {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(groupSession.getId()).orElse(null);
@@ -98,26 +110,19 @@ public class FeegowBulkIntegrationHandler {
                     log.warn("[BULK-INTEGRATION] Não foi possível bloquear a sessão {} para atualização de status.", groupSession.getId());
                 }
             });
-        }
 
-        // 5. Disparar API do Feegow individualmente em lote para cada agendamento
-        String confirmedStatusId = "7"; // Status Confirmado padrão no Feegow
-        String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
-        if (configuredStatusId != null && !configuredStatusId.isBlank()) {
-            String trimmed = configuredStatusId.trim();
-            if (!"2".equals(trimmed)) {
-                confirmedStatusId = trimmed;
-            }
-        }
-
-        log.info("[BULK-INTEGRATION] Disparando atualizações de status para o Feegow (status={}). Total: {}", confirmedStatusId, sessionList.size());
-        for (AppointmentSession groupSession : sessionList) {
+            // Chamada de integração idêntica à que usamos no 'ConfirmBlipWebhookActionHandler'
             try {
-                appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
-                log.info("[BULK-INTEGRATION] Status enviado à API do Feegow para ID: {}", groupSession.getFeegowAppointmentId());
-            } catch (RestClientException | IllegalStateException ex) {
-                log.error("[BULK-INTEGRATION] Falha crítica ao enviar atualização de status para a Feegow. ID: {}, erro: {}",
-                    groupSession.getFeegowAppointmentId(), ex.getMessage(), ex);
+                log.info("[BULK-INTEGRATION] Enviando confirmação para Feegow para ID: {}", groupSession.getFeegowAppointmentId());
+                appointmentExternalPort.updateStatus(groupSession.getFeegowAppointmentId(), statusConfirmado);
+                log.info("[BULK-INTEGRATION] Resposta do Feegow: SUCCESS");
+            } catch (Exception ex) {
+                log.error("[BULK-INTEGRATION] Resposta do Feegow: ERROR");
+                log.error(
+                    "[BULK-INTEGRATION] Falha ao atualizar status na Feegow. appointmentId={}, erro={}",
+                    groupSession.getFeegowAppointmentId(),
+                    ex.getMessage(),
+                    ex);
             }
         }
 

@@ -177,28 +177,6 @@ export default function FaqManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">FAQ da TI</h2>
-          <p className="text-xs text-slate-500">Configure as palavras-chave (gatilhos do Discord), perguntas e respostas automáticas que o bot usa no comando /ajuda.</p>
-        </div>
-        <div>
-          <button
-            onClick={() => {
-              if (showForm) {
-                handleCancel();
-              } else {
-                setShowForm(true);
-              }
-            }}
-            className="flex items-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-all hover:bg-[#f6a455] hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <PlusCircle size={17} />
-            {showForm ? (isEditing ? 'Cancelar Edição' : 'Fechar Formulário') : 'Novo FAQ'}
-          </button>
-        </div>
-      </div>
-
       {/* Formulário de cadastro / edição */}
       {showForm && (
         <form
@@ -298,7 +276,7 @@ export default function FaqManagement() {
         </form>
       )}
 
-      {/* Barra de Filtros */}
+      {/* Barra de Filtros e Ações */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -312,6 +290,19 @@ export default function FaqManagement() {
             className={`${inputClassName} pl-10`}
           />
         </div>
+        <button
+          onClick={() => {
+            if (showForm) {
+              handleCancel();
+            } else {
+              setShowForm(true);
+            }
+          }}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-[#feb56c] px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-all hover:bg-[#f6a455] hover:scale-[1.02] active:scale-[0.98] shrink-0"
+        >
+          <PlusCircle size={17} />
+          {showForm ? (isEditing ? 'Cancelar Edição' : 'Fechar Formulário') : 'Novo FAQ'}
+        </button>
       </div>
 
       {/* Grid/Tabela de listagem */}

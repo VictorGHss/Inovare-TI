@@ -17,8 +17,8 @@ import BackupsSection from './BackupsSection';
 import TagsSection from './TagsSection';
 import FaqManagement from '../FaqManagement';
 
-type TabType = 'system' | 'profile' | 'faq';
-type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups';
+type TabType = 'system' | 'profile';
+type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups' | 'faq';
 
 const inputClassName =
   'w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all';
@@ -64,9 +64,8 @@ function PresenceBadge({ present }: { present?: boolean }) {
 
 export default function Settings() {
   const { user, isTwoFactorVerified } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>(
-    user?.role === 'ADMIN' ? 'system' : user?.role === 'TECHNICIAN' ? 'faq' : 'profile'
-  );
+  const isSystemVisible = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
+  const [activeTab, setActiveTab] = useState<TabType>(isSystemVisible ? 'system' : 'profile');
   const [activeSubSection, setActiveSubSection] = useState<SubSectionType>('menu');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -178,7 +177,7 @@ export default function Settings() {
     }
   }
 
-  if (!isAdmin && activeTab === 'system') {
+  if (!isSystemVisible && activeTab === 'system') {
     return (
       <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
@@ -193,69 +192,79 @@ export default function Settings() {
   }
 
   const tabs = [
-    ...(isAdmin ? [{ id: 'system' as TabType, label: 'Sistema', icon: Globe }] : []),
-    ...((user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') ? [{ id: 'faq' as TabType, label: 'FAQ da TI', icon: HelpCircle }] : []),
+    ...(isSystemVisible ? [{ id: 'system' as TabType, label: 'Sistema', icon: Globe }] : []),
     { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
   ];
 
   const subSections = [
-    {
-      id: 'integrations',
-      title: 'Integrações',
-      desc: 'Conecte Discord, Conta Azul, Feegow e Blip.',
-      icon: Share2,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'system-params',
-      title: 'Parâmetros Globais',
-      desc: 'Ajuste limites de anexos e chaves do sistema.',
-      icon: Settings2,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'sla',
-      title: 'Prazos de SLA',
-      desc: 'Defina limites de atendimento por prioridade.',
-      icon: Clock3,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'reports',
-      title: 'Agendamento de Relatórios',
-      desc: 'Programe envios automáticos de relatórios.',
-      icon: FileText,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'feegow',
-      title: 'Mapeamento Feegow / Blip',
-      desc: 'Vincule profissionais às filas de atendimento do Blip.',
-      icon: MessageCircle,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'categories',
-      title: 'Categorias do Sistema',
-      desc: 'Cadastre categorias de itens e ativos do inventário.',
-      icon: Tag,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'tags',
-      title: 'Tags e Macros do Sistema',
-      desc: 'Gerencie tags corporativas e configure macros de resoluções.',
-      icon: Tag,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-    {
-      id: 'backups',
-      title: 'Backups do Sistema',
-      desc: 'Gere snapshots, baixe ZIPs ou delete backups.',
-      icon: Database,
-      color: 'bg-[#feb56c]/10 text-[#feb56c]',
-    },
-  ] as const;
+    ...(isAdmin ? [
+      {
+        id: 'integrations' as SubSectionType,
+        title: 'Integrações',
+        desc: 'Conecte Discord, Conta Azul, Feegow e Blip.',
+        icon: Share2,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'system-params' as SubSectionType,
+        title: 'Parâmetros Globais',
+        desc: 'Ajuste limites de anexos e chaves do sistema.',
+        icon: Settings2,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'sla' as SubSectionType,
+        title: 'Prazos de SLA',
+        desc: 'Defina limites de atendimento por prioridade.',
+        icon: Clock3,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'reports' as SubSectionType,
+        title: 'Agendamento de Relatórios',
+        desc: 'Programe envios automáticos de relatórios.',
+        icon: FileText,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'feegow' as SubSectionType,
+        title: 'Mapeamento Feegow / Blip',
+        desc: 'Vincule profissionais às filas de atendimento do Blip.',
+        icon: MessageCircle,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'categories' as SubSectionType,
+        title: 'Categorias do Sistema',
+        desc: 'Cadastre categorias de itens e ativos do inventário.',
+        icon: Tag,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'tags' as SubSectionType,
+        title: 'Tags e Macros do Sistema',
+        desc: 'Gerencie tags corporativas e configure macros de resoluções.',
+        icon: Tag,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+      {
+        id: 'backups' as SubSectionType,
+        title: 'Backups do Sistema',
+        desc: 'Gere snapshots, baixe ZIPs ou delete backups.',
+        icon: Database,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+    ] : []),
+    ...(isSystemVisible ? [
+      {
+        id: 'faq' as SubSectionType,
+        title: 'FAQ da TI',
+        desc: 'Configure as palavras-chave (gatilhos do Discord), perguntas e respostas automáticas.',
+        icon: HelpCircle,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
+    ] : []),
+  ];
 
   const subSectionTitles: Record<SubSectionType, string> = {
     menu: 'Painel do Sistema',
@@ -267,6 +276,7 @@ export default function Settings() {
     categories: 'Categorias do Sistema',
     tags: 'Tags e Macros Contextuais',
     backups: 'Backups do Sistema',
+    faq: 'FAQ da TI',
   };
 
   const subSectionDescriptions: Record<SubSectionType, string> = {
@@ -279,6 +289,7 @@ export default function Settings() {
     categories: 'Configure e gerencie categorias de itens e de ativos.',
     tags: 'Configure tags visuais com cores e macros para resoluções de um clique.',
     backups: 'Gere backups de banco de dados, baixe snapshots de segurança ou delete antigos.',
+    faq: 'Configure as palavras-chave (gatilhos do Discord), perguntas e respostas automáticas que o bot usa no comando /ajuda.',
   };
 
   const renderBackHeader = () => (
@@ -327,7 +338,7 @@ export default function Settings() {
       </div>
 
       {/* ── TAB: SISTEMA ── */}
-      {activeTab === 'system' && isAdmin && (
+      {activeTab === 'system' && isSystemVisible && (
         <div className="space-y-6">
           {loading ? (
             <div className="space-y-3">
@@ -715,14 +726,22 @@ export default function Settings() {
                   </motion.div>
                 )
               )}
+
+              {activeSubSection === 'faq' && (
+                <motion.div
+                  key="faq"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <FaqManagement />
+                </motion.div>
+              )}
             </AnimatePresence>
           )}
         </div>
-      )}
-
-      {/* ── TAB: FAQ da TI ── */}
-      {activeTab === 'faq' && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
-        <FaqManagement />
       )}
 
       {/* ── TAB: PERFIL ── */}

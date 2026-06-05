@@ -443,21 +443,11 @@ public class IngestAppointmentsUseCase {
         if (originalPhone == null || originalPhone.isBlank()) {
             return "";
         }
-        String trimmed = originalPhone.trim();
-        if (trimmed.contains(",") || trimmed.contains("/")) {
-            String[] parts = trimmed.split("[,/]+");
-            if (parts.length > 0 && parts[0] != null) {
-                trimmed = parts[0].trim();
-            }
-        }
-        String digitsOnly = trimmed.replaceAll("\\D", "");
-        if (digitsOnly.isBlank()) {
+        String purified = purificarTelefoneParaGrupo(originalPhone);
+        if (purified.isEmpty()) {
             return "";
         }
-        if (digitsOnly.startsWith("55")) {
-            return "+" + digitsOnly;
-        }
-        return "+55" + digitsOnly;
+        return "+55" + purified;
     }
 
     private String purificarTelefoneParaGrupo(String originalPhone) {
@@ -465,8 +455,15 @@ public class IngestAppointmentsUseCase {
             return "";
         }
         String digitsOnly = originalPhone.replaceAll("\\D", "");
-        if (digitsOnly.startsWith("55")) {
-            digitsOnly = digitsOnly.substring(2);
+        while (digitsOnly.startsWith("55") || digitsOnly.startsWith("0")) {
+            if (digitsOnly.startsWith("55")) {
+                digitsOnly = digitsOnly.substring(2);
+            } else {
+                digitsOnly = digitsOnly.substring(1);
+            }
+        }
+        if (digitsOnly.length() > 11) {
+            digitsOnly = digitsOnly.substring(digitsOnly.length() - 11);
         }
         return digitsOnly;
     }

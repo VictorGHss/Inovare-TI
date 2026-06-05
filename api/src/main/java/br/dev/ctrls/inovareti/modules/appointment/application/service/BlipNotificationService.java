@@ -229,6 +229,10 @@ public class BlipNotificationService {
                 ? "Paciente" 
                 : patientName.trim();
 
+        if (safePatientName.contains(" ")) {
+            safePatientName = safePatientName.split("\\s+")[0];
+        }
+
         List<Map<String, String>> parameters = List.of(
             Map.of("type", "text", "text", safePatientName)
         );
@@ -260,6 +264,14 @@ public class BlipNotificationService {
             "content", content,
             "metadata", Map.of("groupId", groupId.toString())
         );
+
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonPayload = mapper.writeValueAsString(payload);
+            log.info("[GRUPO PAYLOAD JSON] payload={}", jsonPayload);
+        } catch (Exception ex) {
+            log.warn("Erro ao serializar payload de grupo para log: {}", ex.getMessage());
+        }
 
         var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
         Object status = response.getOrDefault("status", "unknown");

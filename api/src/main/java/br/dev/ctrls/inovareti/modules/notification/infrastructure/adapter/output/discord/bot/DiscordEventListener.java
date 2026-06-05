@@ -335,7 +335,7 @@ public class DiscordEventListener extends ListenerAdapter {
                         String baseLink = discordCommandService.getFrontendUrl();
                         for (br.dev.ctrls.inovareti.domain.knowledge.Article artigo : artigos) {
                             String link = baseLink + "/articles/" + artigo.getId();
-                            embedBuilder.appendDescription(String.format("• **[%s](%s)** (ID: `%s`)\n", artigo.getTitle(), link, artigo.getId()));
+                            embedBuilder.appendDescription(java.util.Objects.requireNonNull(String.format("• **[%s](%s)** (ID: `%s`)\n", artigo.getTitle(), link, artigo.getId())));
                         }
                         embedBuilder.setFooter("Inovare TI • Base de Conhecimento", event.getJDA().getSelfUser().getAvatarUrl());
                     }

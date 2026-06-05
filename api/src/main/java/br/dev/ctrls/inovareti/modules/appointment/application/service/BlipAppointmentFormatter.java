@@ -44,7 +44,7 @@ public class BlipAppointmentFormatter {
         List<String> details = new ArrayList<>();
 
         for (AppointmentSession s : groupedSessions) {
-            if (s.getAppointmentAt() == null) {
+            if (s == null || s.getAppointmentAt() == null) {
                 continue;
             }
             String dateStr = s.getAppointmentAt().toLocalDate().format(DateTimeFormatter.ofPattern("dd/MM"));
@@ -52,37 +52,58 @@ public class BlipAppointmentFormatter {
 
             String patientName = "Paciente";
             try {
-                FeegowPatient patient = patientExternalPort.patientInfo(s.getPatientId());
-                if (patient != null && patient.name() != null && !patient.name().isBlank()) {
-                    patientName = patient.name().trim();
+                if (patientExternalPort != null && s.getPatientId() != null) {
+                    FeegowPatient patient = patientExternalPort.patientInfo(s.getPatientId());
+                    if (patient != null && patient.name() != null && !patient.name().isBlank()) {
+                        patientName = patient.name().trim();
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Falha ao recuperar dados do paciente: {}", e.getMessage());
             }
 
             String doctorName = null;
-            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-            if (mappingOpt.isPresent()) {
-                var mapping = mappingOpt.get();
-                String docName = mapping.getProfissionalNome();
-                if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                    doctorName = docName.trim();
+            try {
+                if (appointmentDoctorMappingRepository != null && s.getDoctorProfissionalId() != null) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
+                    if (mappingOpt != null && mappingOpt.isPresent()) {
+                        var mapping = mappingOpt.get();
+                        if (mapping != null) {
+                            String docName = mapping.getProfissionalNome();
+                            if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
+                                doctorName = docName.trim();
+                            }
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                log.warn("Falha ao recuperar mapeamento do médico: {}", e.getMessage());
             }
+
             if (doctorName == null || doctorName.isBlank()) {
                 try {
-                    doctorName = professionalExternalPort.getProfessionalName(s.getDoctorProfissionalId());
+                    if (professionalExternalPort != null && s.getDoctorProfissionalId() != null) {
+                        doctorName = professionalExternalPort.getProfessionalName(s.getDoctorProfissionalId());
+                    }
                 } catch (Exception e) {
                     log.warn("Falha ao recuperar nome do profissional via Feegow: {}", e.getMessage());
                 }
             }
 
-            String cleanDoctorName = blipTextSanitizer.sanitizeDoctorName(doctorName);
-            if (cleanDoctorName == null || cleanDoctorName.isBlank() || "null".equalsIgnoreCase(cleanDoctorName.trim())) {
-                cleanDoctorName = "Clínica Inovare";
+            String cleanDoctorName = null;
+            try {
+                if (blipTextSanitizer != null) {
+                    cleanDoctorName = blipTextSanitizer.sanitizeDoctorName(doctorName);
+                }
+            } catch (Exception e) {
+                log.warn("Falha ao sanitizar nome do médico: {}", e.getMessage());
             }
 
-            if (!"Clínica Inovare".equals(cleanDoctorName)) {
+            if (cleanDoctorName == null || cleanDoctorName.isBlank() || "null".equalsIgnoreCase(cleanDoctorName.trim())) {
+                cleanDoctorName = "Profissional não identificado";
+            }
+
+            if (!"Profissional não identificado".equals(cleanDoctorName) && !"Clínica Inovare".equals(cleanDoctorName)) {
                 cleanDoctorName = "Dr(a). " + cleanDoctorName;
             }
 

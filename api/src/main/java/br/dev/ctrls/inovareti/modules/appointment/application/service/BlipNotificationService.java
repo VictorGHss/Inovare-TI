@@ -225,7 +225,13 @@ public class BlipNotificationService {
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
         String normalizedDestination = limeClient.normalizeUserIdentity(destination);
 
-        List<Map<String, String>> parameters = List.of();
+        String safePatientName = (patientName == null || patientName.isBlank() || "null".equalsIgnoreCase(patientName.trim())) 
+                ? "Paciente" 
+                : patientName.trim();
+
+        List<Map<String, String>> parameters = List.of(
+            Map.of("type", "text", "text", safePatientName)
+        );
 
         Map<String, Object> viewButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,

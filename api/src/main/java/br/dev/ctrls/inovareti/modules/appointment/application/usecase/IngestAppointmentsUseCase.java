@@ -97,7 +97,7 @@ public class IngestAppointmentsUseCase {
                 .collect(Collectors.groupingBy(appointment -> {
                     FeegowPatient patient = patientDetailsCache.get(appointment.patientId());
                     String phone = patient != null ? patient.phone() : null;
-                    String normalized = normalizePhoneNumberForBlip(phone);
+                    String normalized = purificarTelefoneParaGrupo(phone);
                     LocalDate date = appointment.startAt().toLocalDate();
                     return normalized + "#" + date;
                 }));
@@ -141,7 +141,8 @@ public class IngestAppointmentsUseCase {
             } else {
                 FeegowAppointment firstAppt = eligibleAppointments.get(0);
                 FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
-                int sent = processGroupFlow(eligibleAppointments, patientDetails, normalizedPhone);
+                String blipPhone = "+55" + normalizedPhone;
+                int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone);
                 created += sent;
                 if (sent > 0) {
                     messagesSent++;
@@ -439,12 +440,11 @@ public class IngestAppointmentsUseCase {
             return "";
         }
         String trimmed = originalPhone.trim();
-        if (trimmed.contains(",") || trimmed.contains("/") || trimmed.contains(" ")) {
-            String[] parts = trimmed.split("[,/\\s]+");
-            if (parts.length == 0 || parts[0] == null || parts[0].isBlank()) {
-                return "";
+        if (trimmed.contains(",") || trimmed.contains("/")) {
+            String[] parts = trimmed.split("[,/]+");
+            if (parts.length > 0 && parts[0] != null) {
+                trimmed = parts[0].trim();
             }
-            trimmed = parts[0].trim();
         }
         String digitsOnly = trimmed.replaceAll("\\D", "");
         if (digitsOnly.isBlank()) {
@@ -454,6 +454,27 @@ public class IngestAppointmentsUseCase {
             return "+" + digitsOnly;
         }
         return "+55" + digitsOnly;
+    }
+
+    private String purificarTelefoneParaGrupo(String originalPhone) {
+        if (originalPhone == null || originalPhone.isBlank()) {
+            return "";
+        }
+        String trimmed = originalPhone.trim();
+        if (trimmed.contains(",") || trimmed.contains("/")) {
+            String[] parts = trimmed.split("[,/]+");
+            if (parts.length > 0 && parts[0] != null) {
+                trimmed = parts[0].trim();
+            }
+        }
+        String digitsOnly = trimmed.replaceAll("\\D", "");
+        if (digitsOnly.startsWith("55")) {
+            digitsOnly = digitsOnly.substring(2);
+        }
+        if (digitsOnly.length() > 11) {
+            digitsOnly = digitsOnly.substring(digitsOnly.length() - 11);
+        }
+        return digitsOnly;
     }
 
     public record IngestionSummary(int totalReceived, int filteredReceived, int sessionsCreated, int messagesSent, String mode) {

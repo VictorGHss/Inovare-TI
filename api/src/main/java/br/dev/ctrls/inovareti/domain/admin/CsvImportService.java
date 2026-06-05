@@ -55,7 +55,7 @@ public class CsvImportService {
         ImportResultDTO result = new ImportResultDTO();
         List<String> errors = new ArrayList<>();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(file.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
             List<CsvImportRow> parsedRows = new ArrayList<>();

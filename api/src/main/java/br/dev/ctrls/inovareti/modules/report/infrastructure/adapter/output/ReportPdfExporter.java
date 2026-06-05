@@ -191,21 +191,22 @@ public class ReportPdfExporter implements ReportPdfExporterPort {
     private void addLogo(Document document) {
         try {
             Image logo = null;
-            java.io.InputStream logoStream = ReportPdfExporter.class.getResourceAsStream("/images/logo.png");
-            if (logoStream != null) {
-                byte[] bytes = logoStream.readAllBytes();
-                logo = Image.getInstance(bytes);
-            } else {
-                try {
-                    java.net.URL url = java.net.URI
-                            .create("https://inovare.med.br/wp-content/uploads/2023/01/Logo.png")
-                            .toURL();
-                    try (java.io.InputStream is = url.openStream()) {
-                        byte[] bytes = is.readAllBytes();
-                        logo = Image.getInstance(bytes);
+            try (java.io.InputStream logoStream = ReportPdfExporter.class.getResourceAsStream("/images/logo.png")) {
+                if (logoStream != null) {
+                    byte[] bytes = logoStream.readAllBytes();
+                    logo = Image.getInstance(bytes);
+                } else {
+                    try {
+                        java.net.URL url = java.net.URI
+                                .create("https://inovare.med.br/wp-content/uploads/2023/01/Logo.png")
+                                .toURL();
+                        try (java.io.InputStream is = url.openStream()) {
+                            byte[] bytes = is.readAllBytes();
+                            logo = Image.getInstance(bytes);
+                        }
+                    } catch (IOException | com.lowagie.text.BadElementException ex) {
+                        log.warn("Logo não encontrada em resources e falha ao buscar URL pública: {}", ex.getMessage());
                     }
-                } catch (IOException | com.lowagie.text.BadElementException ex) {
-                    log.warn("Logo não encontrada em resources e falha ao buscar URL pública: {}", ex.getMessage());
                 }
             }
 

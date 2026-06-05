@@ -72,7 +72,8 @@ public class LocalFileStorageService {
         Path destinationFile = uploadPath.resolve(storedFilename).normalize();
 
         // Verificação de segurança: garante que o arquivo seja armazenado dentro do diretório de upload
-        if (!destinationFile.getParent().equals(uploadPath)) {
+        Path parentDest = destinationFile.getParent();
+        if (parentDest == null || !parentDest.equals(uploadPath)) {
             throw new SecurityException("Storing files outside the upload directory is not allowed");
         }
 
@@ -93,7 +94,8 @@ public class LocalFileStorageService {
         Path file = uploadPath.resolve(storedFilename).normalize();
         
         // Verificação de segurança
-        if (!file.getParent().equals(uploadPath)) {
+        Path parentLoad = file.getParent();
+        if (parentLoad == null || !parentLoad.equals(uploadPath)) {
             throw new SecurityException("Accessing files outside the upload directory is not allowed");
         }
 
@@ -114,7 +116,8 @@ public class LocalFileStorageService {
         Path file = uploadPath.resolve(storedFilename).normalize();
         
         // Verificação de segurança
-        if (!file.getParent().equals(uploadPath)) {
+        Path parentDel = file.getParent();
+        if (parentDel == null || !parentDel.equals(uploadPath)) {
             throw new SecurityException("Não é permitido excluir arquivo fora do diretório de upload");
         }
 

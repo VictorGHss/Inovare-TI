@@ -136,10 +136,10 @@ public class BlipIdentityReconciler {
         }
         
         if (digitsOnly.startsWith("55")) {
-            return "+" + digitsOnly;
+            return digitsOnly;
         }
         
-        return "+55" + digitsOnly;
+        return "55" + digitsOnly;
     }
 }
 

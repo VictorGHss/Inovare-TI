@@ -116,6 +116,18 @@ public class IngestAppointmentsUseCase {
         for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
             String key = entry.getKey();
             List<FeegowAppointment> groupAppointments = entry.getValue();
+
+            // Log espiao para auditar os numeros digitados
+            for (FeegowAppointment appt : groupAppointments) {
+                FeegowPatient patient = patientDetailsCache.get(appt.patientId());
+                String patientName = patient != null ? patient.name() : "Paciente";
+                String rawPhone = patient != null ? patient.phone() : "null";
+                String purifiedPhone = purificarTelefoneParaGrupo(rawPhone);
+                String appointmentTime = appt.startAt() != null ? appt.startAt().toString() : "null";
+                log.info("[AUDITORIA-TELEFONE] paciente={}, horario={}, telefoneBruto={}, telefonePurificado={}",
+                    patientName, appointmentTime, rawPhone, purifiedPhone);
+            }
+
             List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache);
 
             if (eligibleAppointments.isEmpty()) {
@@ -141,7 +153,7 @@ public class IngestAppointmentsUseCase {
             } else {
                 FeegowAppointment firstAppt = eligibleAppointments.get(0);
                 FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
-                String blipPhone = "+55" + normalizedPhone;
+                String blipPhone = "55" + normalizedPhone;
                 int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone);
                 created += sent;
                 if (sent > 0) {
@@ -447,7 +459,7 @@ public class IngestAppointmentsUseCase {
         if (purified.isEmpty()) {
             return "";
         }
-        return "+55" + purified;
+        return "55" + purified;
     }
 
     private String purificarTelefoneParaGrupo(String originalPhone) {
@@ -455,15 +467,11 @@ public class IngestAppointmentsUseCase {
             return "";
         }
         String digitsOnly = originalPhone.replaceAll("\\D", "");
-        while (digitsOnly.startsWith("55") || digitsOnly.startsWith("0")) {
-            if (digitsOnly.startsWith("55")) {
-                digitsOnly = digitsOnly.substring(2);
-            } else {
-                digitsOnly = digitsOnly.substring(1);
-            }
+        if (digitsOnly.startsWith("55")) {
+            digitsOnly = digitsOnly.substring(2);
         }
-        if (digitsOnly.length() > 11) {
-            digitsOnly = digitsOnly.substring(digitsOnly.length() - 11);
+        if (digitsOnly.startsWith("0")) {
+            digitsOnly = digitsOnly.substring(1);
         }
         return digitsOnly;
     }

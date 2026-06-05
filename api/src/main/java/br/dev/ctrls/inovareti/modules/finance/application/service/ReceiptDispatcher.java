@@ -102,12 +102,12 @@ public class ReceiptDispatcher {
             ProcessedReceipt receipt,
             byte[] pdfBytes,
             boolean includePdfAttachment) {
-        // Garante linguagem consistente no e-mail mesmo quando a API nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o retorna nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero comercial.
+        // Garante linguagem consistente no e-mail mesmo quando a API níÆ’í†â€™íâ€ší‚Â£o retorna níÆ’í†â€™íâ€ší‚Âºmero comercial.
         String saleNumber = StringUtils.hasText(parcela.saleNumber()) ? parcela.saleNumber().trim() : "N/D";
 
         if (financialLink.getCanal() == FinancialLink.Canal.DISCORD) {
             throw new IllegalStateException(
-                    "Canal DISCORD nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o possui destinatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio vinculado no financial_link para customerId="
+                    "Canal DISCORD níÆ’í†â€™íâ€ší‚Â£o possui destinatíÆ’í†â€™íâ€ší‚Â¡rio vinculado no financial_link para customerId="
                             + parcela.customerId());
         }
 
@@ -115,7 +115,7 @@ public class ReceiptDispatcher {
             financeEmailService.sendReceiptEmailWithPdf(
                 parcela.medicoNome(),
                 receipt.getOriginalRecipientEmail(),
-                "OlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ " + parcela.medicoNome() + ", seu recibo financeiro referente ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  Venda " + saleNumber + " estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ em anexo.",
+                "OlíÆ’í†â€™íâ€ší‚Â¡ " + parcela.medicoNome() + ", seu recibo financeiro referente íÆ’í†â€™íâ€ší‚Â  Venda " + saleNumber + " estíÆ’í†â€™íâ€ší‚Â¡ em anexo.",
                 pdfBytes,
                 "recibo-venda-" + saleNumber + ".pdf",
                 saleNumber);
@@ -125,7 +125,7 @@ public class ReceiptDispatcher {
         financeEmailService.sendReceiptEmail(
             parcela.medicoNome(),
             receipt.getOriginalRecipientEmail(),
-            "OlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ " + parcela.medicoNome() + ", registramos o recebimento financeiro referente ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  Venda "
+            "OlíÆ’í†â€™íâ€ší‚Â¡ " + parcela.medicoNome() + ", registramos o recebimento financeiro referente íÆ’í†â€™íâ€ší‚Â  Venda "
                 + saleNumber + ".",
             saleNumber);
     }
@@ -143,7 +143,7 @@ public class ReceiptDispatcher {
         payload.put("updatedAt", LocalDateTime.now().toString());
 
         if (StringUtils.hasText(saleNumber)) {
-            // MantÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©m o nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero comercial disponÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel para UI/DTO sem perder a chave UUID interna.
+            // MantíÆ’í†â€™íâ€ší‚Â©m o níÆ’í†â€™íâ€ší‚Âºmero comercial disponíÆ’í†â€™íâ€ší‚Â­vel para UI/DTO sem perder a chave UUID interna.
             String normalizedSaleNumber = saleNumber.trim();
             payload.put("numero", normalizedSaleNumber);
             payload.put("numero_venda", normalizedSaleNumber);
@@ -170,7 +170,7 @@ public class ReceiptDispatcher {
         return financialLinkRepository
                 .findByContaAzulCustomerNameIgnoreCase(parcela.medicoNome())
                 .orElseThrow(() -> new IllegalStateException(
-                        "FinancialLink nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o encontrado e customerId ausente para: "
+                        "FinancialLink níÆ’í†â€™íâ€ší‚Â£o encontrado e customerId ausente para: "
                                 + parcela.medicoNome()));
     }
 
@@ -183,7 +183,7 @@ public class ReceiptDispatcher {
                     .orElseThrow();
         }
 
-        log.info("FinancialLink nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o encontrado ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â criando automaticamente. customerId={}, nome={}",
+        log.info("FinancialLink níÆ’í†â€™íâ€ší‚Â£o encontrado íÆ’í‚Â¢íÂ¢ââ‚¬Å¡í‚Â¬íÂ¢ââ€šÂ¬í‚Â criando automaticamente. customerId={}, nome={}",
                 parcela.customerId(), parcela.medicoNome());
 
         FinancialLink link = FinancialLink.builder()

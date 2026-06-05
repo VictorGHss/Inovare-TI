@@ -19,8 +19,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Coordenador do pipeline de processamento das aÃ§Ãµes do webhook do Blip,
- * encapsulando as etapas comuns (duplicidade, persistÃªncia microscÃ³pica, notificaÃ§Ãµes Blip).
+ * Coordenador do pipeline de processamento das ações do webhook do Blip,
+ * encapsulando as etapas comuns (duplicidade, persistência microscópica, notificações Blip).
  */
 @Slf4j
 @Component
@@ -36,15 +36,15 @@ public class BlipWebhookActionExecutor {
     private final TransactionTemplate transactionTemplate;
 
     /**
-     * Executa a pipeline completa da aÃ§Ã£o correspondente (confirm ou alter).
+     * Executa a pipeline completa da ação correspondente (confirm ou alter).
      * 
-     * @param actionType tipo da aÃ§Ã£o ("confirm" ou "alter")
-     * @param action a aÃ§Ã£o original recebida no webhook
+     * @param actionType tipo da ação ("confirm" ou "alter")
+     * @param action a ação original recebida no webhook
      * @param appointmentId ID do agendamento Feegow
-     * @param session entidade de sessÃ£o do agendamento
-     * @param doctorName nome limpo do mÃ©dico
-     * @param queue fila resolvida para transferÃªncia
-     * @param dispatchIdentity nÃºmero/identificador do destinatÃ¡rio Blip
+     * @param session entidade de sessão do agendamento
+     * @param doctorName nome limpo do médico
+     * @param queue fila resolvida para transferência
+     * @param dispatchIdentity número/identificador do destinatário Blip
      * @return resultado estruturado WebhookResult
      */
     public HandleBlipWebhookUseCase.WebhookResult execute(
@@ -59,11 +59,11 @@ public class BlipWebhookActionExecutor {
         BlipWebhookActionHandler handler = handlers.stream()
                 .filter(h -> h.supports(actionType))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("AÃ§Ã£o nÃ£o suportada pelo executor: " + actionType));
+                .orElseThrow(() -> new IllegalArgumentException("Ação não suportada pelo executor: " + actionType));
 
         // 1. Bloqueio de Duplicidade no Banco
         if ("CONFIRMED".equalsIgnoreCase(session.getStatus().name())) {
-            log.info("[WEBHOOK] Agendamento {} jÃ¡ estÃ¡ confirmado no banco. Ignorando processamento duplicado para evitar mÃºltiplas mensagens.", appointmentId);
+            log.info("[WEBHOOK] Agendamento {} já está confirmado no banco. Ignorando processamento duplicado para evitar múltiplas mensagens.", appointmentId);
 
             FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
             String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
@@ -72,13 +72,13 @@ public class BlipWebhookActionExecutor {
                     queue, patientName, patient.cpf(), formattedBirthdate, actionType, doctorName
             );
 
-            log.info("[WEBHOOK] Agendamento {} jÃ¡ confirmado. Retornando WebhookResult populado: action={}, queue={}, patientName={}, doctorName={}",
+            log.info("[WEBHOOK] Agendamento {} já confirmado. Retornando WebhookResult populado: action={}, queue={}, patientName={}, doctorName={}",
                     appointmentId, result.action(), result.queue(), result.patientName(), result.doctorName());
 
             blipIdempotencyService.saveCachedResult(appointmentId, result);
 
             if (dispatchIdentity != null) {
-                // Atualiza telefone no banco caso tenha vindo diferente (TransaÃ§Ã£o microscÃ³pica de gravaÃ§Ã£o)
+                // Atualiza telefone no banco caso tenha vindo diferente (Transação microscópica de gravação)
                 try {
                     transactionTemplate.executeWithoutResult(status -> {
                         AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId).orElse(null);
@@ -88,7 +88,7 @@ public class BlipWebhookActionExecutor {
                         }
                     });
                 } catch (DataAccessException | IllegalStateException ex) {
-                    log.error("Falha ao atualizar telefone na sessÃ£o jÃ¡ confirmada. appointmentId={}", appointmentId, ex);
+                    log.error("Falha ao atualizar telefone na sessão já confirmada. appointmentId={}", appointmentId, ex);
                 }
 
                 AppointmentPayload appointmentPayload = AppointmentPayload.builder()
@@ -104,14 +104,14 @@ public class BlipWebhookActionExecutor {
             return result;
         }
 
-        // FASE 2: Chamada externa prÃ©-persistÃªncia especÃ­fica da aÃ§Ã£o
+        // FASE 2: Chamada externa pré-persistência específica da ação
         handler.prePersistence(session, action);
 
-        // FASE 3: PersistÃªncia no Banco de Dados em TransaÃ§Ã£o MicroscÃ³pica
+        // FASE 3: Persistência no Banco de Dados em Transação Microscópica
         try {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession currentSession = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
-                        .orElseThrow(() -> new NotFoundException("SessÃ£o nÃ£o encontrada para appointmentId=" + appointmentId));
+                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
 
                 if (dispatchIdentity != null) {
                     currentSession.setPhoneNumber(dispatchIdentity);
@@ -122,13 +122,13 @@ public class BlipWebhookActionExecutor {
                 appointmentSessionRepository.save(currentSession);
             });
         } catch (DataAccessException | IllegalStateException ex) {
-            log.error("Falha grave na gravaÃ§Ã£o dos dados do webhook no banco de dados para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
+            log.error("Falha grave na gravação dos dados do webhook no banco de dados para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
             throw ex;
         }
 
-        log.info("[WEBHOOK] Processamento concluÃ­do para {}. Fila: {}", actionType, queue);
+        log.info("[WEBHOOK] Processamento concluído para {}. Fila: {}", actionType, queue);
 
-        // FASE 4: Chamada HTTP Externa para retornar dados do paciente (PÃ³s-persistÃªncia)
+        // FASE 4: Chamada HTTP Externa para retornar dados do paciente (Pós-persistência)
         FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
         String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
         String formattedBirthdate = formatBirthdate(patient.birthdate());
@@ -148,7 +148,7 @@ public class BlipWebhookActionExecutor {
                     .patientCPF(finalResult.patientCPF() != null ? finalResult.patientCPF() : "")
                     .patientBirthdate(finalResult.patientBirthdate() != null ? finalResult.patientBirthdate() : "")
                     .build();
-            // Chamada externa Blip (fora de transaÃ§Ã£o) que executa de forma assÃ­ncrona o CompletableFuture de transbordo
+            // Chamada externa Blip (fora de transação) que executa de forma assíncrona o CompletableFuture de transbordo
             blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
         }
 

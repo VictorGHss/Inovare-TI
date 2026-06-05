@@ -17,8 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsÃ¡vel por consultar os sistemas externos (Feegow) e montar
- * a DTO estruturada de parÃ¢metros (AppointmentTemplateData) exigida pela API do Blip.
+ * Componente responsável por consultar os sistemas externos (Feegow) e montar
+ * a DTO estruturada de parâmetros (AppointmentTemplateData) exigida pela API do Blip.
  */
 @Slf4j
 @Component
@@ -29,8 +29,8 @@ public class AppointmentTemplateDataBuilder {
     private static final DateTimeFormatter BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter SHORT_BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM");
     private static final DateTimeFormatter BRAZILIAN_TIME = DateTimeFormatter.ofPattern("HH:mm");
-    private static final String DEFAULT_TEMPLATE_VALUE = "RecepÃ§Ã£o";
-    private static final String DEFAULT_PROVIDER_VALUE = "ClÃ­nica Inovare";
+    private static final String DEFAULT_TEMPLATE_VALUE = "Recepção";
+    private static final String DEFAULT_PROVIDER_VALUE = "Clínica Inovare";
 
     private final PatientExternalPort patientExternalPort;
     private final AppointmentExternalPort appointmentExternalPort;
@@ -38,7 +38,7 @@ public class AppointmentTemplateDataBuilder {
     private final TransactionTemplate transactionTemplate;
 
     /**
-     * Carrega as informaÃ§Ãµes e constrÃ³i o objeto AppointmentTemplateData para envio.
+     * Carrega as informações e constrói o objeto AppointmentTemplateData para envio.
      */
     public AppointmentTemplateData build(AppointmentSession session) {
         FeegowAppointment appointment = fetchAppointment(session);
@@ -125,15 +125,15 @@ public class AppointmentTemplateDataBuilder {
     }
 
     private String fallbackValue(String value) {
-        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim()) || "InformaÃ§Ã£o nÃ£o disponÃ­vel".equalsIgnoreCase(value.trim())) {
-            return "RecepÃ§Ã£o";
+        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim()) || "Informação não disponível".equalsIgnoreCase(value.trim())) {
+            return "Recepção";
         }
         return value.trim();
     }
 
     private String fallbackProviderValue(String value) {
-        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim()) || "InformaÃ§Ã£o nÃ£o disponÃ­vel".equalsIgnoreCase(value.trim())) {
-            return "ClÃ­nica Inovare";
+        if (value == null || value.isBlank() || "null".equalsIgnoreCase(value.trim()) || "Informação não disponível".equalsIgnoreCase(value.trim())) {
+            return "Clínica Inovare";
         }
         return value.trim();
     }

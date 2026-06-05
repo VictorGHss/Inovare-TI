@@ -13,7 +13,7 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.Notificati
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case para marcar uma notificaÃ§Ã£o como lida.
+ * Use case para marcar uma notificação como lida.
  */
 @Service
 @RequiredArgsConstructor
@@ -23,17 +23,17 @@ public class MarkNotificationAsReadUseCase {
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Executa a marcaÃ§Ã£o de notificaÃ§Ã£o como lida.
-     * @param notificationId o UUID da notificaÃ§Ã£o
-     * @param authenticatedUserId o UUID do usuÃ¡rio autenticado
-     * @return a notificaÃ§Ã£o atualizada
+     * Executa a marcação de notificação como lida.
+     * @param notificationId o UUID da notificação
+     * @param authenticatedUserId o UUID do usuário autenticado
+     * @return a notificação atualizada
      */
     public NotificationResponseDTO execute(UUID notificationId, UUID authenticatedUserId) {
         Notification notification = notificationRepository.findById(notificationId)
-            .orElseThrow(() -> new IllegalArgumentException("NotificaÃ§Ã£o nÃ£o encontrada: " + notificationId));
+            .orElseThrow(() -> new IllegalArgumentException("Notificação não encontrada: " + notificationId));
 
         if (!notification.getUserId().equals(authenticatedUserId)) {
-            throw new AccessDeniedException("VocÃª nÃ£o tem permissÃ£o para acessar esta notificaÃ§Ã£o.");
+            throw new AccessDeniedException("Você não tem permissão para acessar esta notificação.");
         }
 
         notification.setIsRead(true);

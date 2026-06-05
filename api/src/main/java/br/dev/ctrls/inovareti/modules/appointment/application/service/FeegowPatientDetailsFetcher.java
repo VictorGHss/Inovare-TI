@@ -15,8 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente encarregado de carregar as informaÃ§Ãµes detalhadas dos pacientes em paralelo,
- * acelerando de forma otimizada os tempos de processamento da ingestÃ£o de agendamentos.
+ * Componente encarregado de carregar as informações detalhadas dos pacientes em paralelo,
+ * acelerando de forma otimizada os tempos de processamento da ingestão de agendamentos.
  */
 @Slf4j
 @Component
@@ -35,7 +35,7 @@ public class FeegowPatientDetailsFetcher {
             return patientDetailsCache;
         }
 
-        log.info("[VIRTUAL-THREADS] Iniciando busca assÃ­ncrona de detalhes para {} pacientes em paralelo.", patientIds.size());
+        log.info("[VIRTUAL-THREADS] Iniciando busca assíncrona de detalhes para {} pacientes em paralelo.", patientIds.size());
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> patientFutures = new ArrayList<>();
             for (String patientId : patientIds) {
@@ -46,13 +46,13 @@ public class FeegowPatientDetailsFetcher {
                             patientDetailsCache.put(patientId, details);
                         }
                     } catch (Exception e) {
-                        log.error("[VIRTUAL-THREADS] Falha ao obter informaÃ§Ãµes do paciente ID: {}", patientId, e);
+                        log.error("[VIRTUAL-THREADS] Falha ao obter informações do paciente ID: {}", patientId, e);
                     }
                 }, executor));
             }
             CompletableFuture.allOf(patientFutures.toArray(CompletableFuture[]::new)).join();
         }
-        log.info("[VIRTUAL-THREADS] Busca em lote de pacientes concluÃ­da com sucesso. {} registros em cache.", patientDetailsCache.size());
+        log.info("[VIRTUAL-THREADS] Busca em lote de pacientes concluída com sucesso. {} registros em cache.", patientDetailsCache.size());
         return patientDetailsCache;
     }
 }

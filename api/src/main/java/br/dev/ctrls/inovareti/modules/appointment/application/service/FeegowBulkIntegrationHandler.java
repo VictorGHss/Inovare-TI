@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsÃ¡vel pelo processamento de baixa e cancelamento em lote
+ * Componente responsável pelo processamento de baixa e cancelamento em lote
  * de agendamentos no banco de dados local e na API externa do Feegow ERP.
  */
 @Slf4j
@@ -40,68 +40,68 @@ public class FeegowBulkIntegrationHandler {
     private final BlipProperties blipProperties;
 
     /**
-     * Executa a confirmaÃ§Ã£o em lote de todos os agendamentos pertencentes ao grupo
+     * Executa a confirmação em lote de todos os agendamentos pertencentes ao grupo
      * e os sincroniza com a API do Feegow ERP.
      *
-     * @param groupId ID do grupo de notificaÃ§Ãµes
+     * @param groupId ID do grupo de notificações
      * @param purifiedPhone telefone purificado do paciente
-     * @return lista de sessÃµes de agendamento afetadas
+     * @return lista de sessões de agendamento afetadas
      */
     public List<AppointmentSession> executeConfirmBatch(UUID groupId, String purifiedPhone) {
-        log.info("[BULK-INTEGRATION] Iniciando busca robusta de grupo para confirmaÃ§Ã£o em lote. groupId: {}", groupId);
+        log.info("[BULK-INTEGRATION] Iniciando busca robusta de grupo para confirmação em lote. groupId: {}", groupId);
 
         java.util.Map<UUID, AppointmentSession> uniqueSessions = new java.util.LinkedHashMap<>();
 
-        // 1. EstratÃ©gia A: Buscar da tabela 'notification_groups'
+        // 1. Estratégia A: Buscar da tabela 'notification_groups'
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
         log.info("[BULK-INTEGRATION] Busca por groupId na tabela 'notification_groups' retornou {} registros.", groups.size());
         for (NotificationGroup group : groups) {
             appointmentSessionRepository.findById(group.getSessionId())
                 .ifPresent(s -> {
                     uniqueSessions.put(s.getId(), s);
-                    log.info("[BULK-INTEGRATION] SessÃ£o vinculada via grupo carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                    log.info("[BULK-INTEGRATION] Sessão vinculada via grupo carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
                 });
         }
 
-        // 2. EstratÃ©gia B: Buscar diretamente na tabela de agendamentos pelo 'currentGroupId'
+        // 2. Estratégia B: Buscar diretamente na tabela de agendamentos pelo 'currentGroupId'
         List<AppointmentSession> sessionsByGroupField = appointmentSessionRepository.findByCurrentGroupId(groupId);
         log.info("[BULK-INTEGRATION] Busca direta por 'currentGroupId' na tabela de agendamentos retornou {} registros.", sessionsByGroupField.size());
         for (AppointmentSession s : sessionsByGroupField) {
             if (!uniqueSessions.containsKey(s.getId())) {
                 uniqueSessions.put(s.getId(), s);
-                log.info("[BULK-INTEGRATION] SessÃ£o vinculada via campo currentGroupId carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] Sessão vinculada via campo currentGroupId carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
             }
         }
         
-        // 3. EstratÃ©gia C (Fallback): Se a lista ainda estiver vazia e tivermos o telefone, buscar sessÃµes ativas do telefone
+        // 3. Estratégia C (Fallback): Se a lista ainda estiver vazia e tivermos o telefone, buscar sessões ativas do telefone
         if (uniqueSessions.isEmpty() && purifiedPhone != null && !purifiedPhone.isBlank()) {
-            log.warn("[BULK-INTEGRATION] Nenhuma sessÃ£o encontrada para groupId={}. Aplicando fallback para sessÃµes ativas do telefone: {}", groupId, purifiedPhone);
+            log.warn("[BULK-INTEGRATION] Nenhuma sessão encontrada para groupId={}. Aplicando fallback para sessões ativas do telefone: {}", groupId, purifiedPhone);
             List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
             for (AppointmentSession s : activeContactSessions) {
                 uniqueSessions.put(s.getId(), s);
-                log.info("[BULK-INTEGRATION] SessÃ£o de fallback ativa carregada do telefone: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] Sessão de fallback ativa carregada do telefone: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
             }
         }
 
         List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
-        log.info("[BULK-INTEGRATION] Total de sessÃµes elegÃ­veis unificadas para confirmaÃ§Ã£o em lote: {}", sessionList.size());
+        log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
 
-        // 4. Atualizar status local de todas as sessÃµes para CONFIRMADO de forma transacional e com bloqueio pessimista
+        // 4. Atualizar status local de todas as sessões para CONFIRMADO de forma transacional e com bloqueio pessimista
         for (AppointmentSession groupSession : sessionList) {
             transactionTemplate.executeWithoutResult(status -> {
                 AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(groupSession.getId()).orElse(null);
                 if (lockedSession != null) {
                     confirmationStateMachineService.markConfirmed(lockedSession);
                     appointmentSessionRepository.save(lockedSession);
-                    log.info("[BULK-INTEGRATION] Status local da sessÃ£o {} atualizado para CONFIRMED com sucesso.", lockedSession.getId());
+                    log.info("[BULK-INTEGRATION] Status local da sessão {} atualizado para CONFIRMED com sucesso.", lockedSession.getId());
                 } else {
-                    log.warn("[BULK-INTEGRATION] NÃ£o foi possÃ­vel bloquear a sessÃ£o {} para atualizaÃ§Ã£o de status.", groupSession.getId());
+                    log.warn("[BULK-INTEGRATION] Não foi possível bloquear a sessão {} para atualização de status.", groupSession.getId());
                 }
             });
         }
 
         // 5. Disparar API do Feegow individualmente em lote para cada agendamento
-        String confirmedStatusId = "7"; // Status Confirmado padrÃ£o no Feegow
+        String confirmedStatusId = "7"; // Status Confirmado padrão no Feegow
         String configuredStatusId = appointmentMotorProperties.getFeegowConfirmedStatusId();
         if (configuredStatusId != null && !configuredStatusId.isBlank()) {
             String trimmed = configuredStatusId.trim();
@@ -110,13 +110,13 @@ public class FeegowBulkIntegrationHandler {
             }
         }
 
-        log.info("[BULK-INTEGRATION] Disparando atualizaÃ§Ãµes de status para o Feegow (status={}). Total: {}", confirmedStatusId, sessionList.size());
+        log.info("[BULK-INTEGRATION] Disparando atualizações de status para o Feegow (status={}). Total: {}", confirmedStatusId, sessionList.size());
         for (AppointmentSession groupSession : sessionList) {
             try {
                 appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
-                log.info("[BULK-INTEGRATION] Status enviado Ã  API do Feegow para ID: {}", groupSession.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] Status enviado à API do Feegow para ID: {}", groupSession.getFeegowAppointmentId());
             } catch (RestClientException | IllegalStateException ex) {
-                log.error("[BULK-INTEGRATION] Falha crÃ­tica ao enviar atualizaÃ§Ã£o de status para a Feegow. ID: {}, erro: {}",
+                log.error("[BULK-INTEGRATION] Falha crítica ao enviar atualização de status para a Feegow. ID: {}, erro: {}",
                     groupSession.getFeegowAppointmentId(), ex.getMessage(), ex);
             }
         }
@@ -125,9 +125,9 @@ public class FeegowBulkIntegrationHandler {
     }
 
     /**
-     * Resolve a fila Blip de redirecionamento com base nos mÃ©dicos das sessÃµes afetadas.
+     * Resolve a fila Blip de redirecionamento com base nos médicos das sessões afetadas.
      *
-     * @param sessionList lista de sessÃµes de agendamento afetadas
+     * @param sessionList lista de sessões de agendamento afetadas
      * @return nome da fila Blip resolvida
      */
     public String resolveTargetQueue(List<AppointmentSession> sessionList) {
@@ -144,19 +144,19 @@ public class FeegowBulkIntegrationHandler {
         }
 
         if (targetQueue == null || targetQueue.isBlank()) {
-            targetQueue = "RecepÃ§Ã£o Central / Suporte";
+            targetQueue = "Recepção Central / Suporte";
         }
         return targetQueue;
     }
 
     /**
-     * Resolve a fila Blip de redirecionamento para o grupo correspondente Ã  solicitaÃ§Ã£o de alteraÃ§Ã£o.
+     * Resolve a fila Blip de redirecionamento para o grupo correspondente à solicitação de alteração.
      *
-     * @param groupId ID do grupo de notificaÃ§Ãµes
+     * @param groupId ID do grupo de notificações
      * @return nome da fila Blip resolvida
      */
     public String resolveAlterGroupQueue(UUID groupId) {
-        String targetQueue = "RecepÃ§Ã£o Central / Suporte";
+        String targetQueue = "Recepção Central / Suporte";
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
         if (groups != null && !groups.isEmpty()) {
             UUID firstSessionId = groups.get(0).getSessionId();
@@ -177,16 +177,16 @@ public class FeegowBulkIntegrationHandler {
     }
 
     /**
-     * Processa de forma assÃ­ncrona a confirmaÃ§Ã£o em lote de todos os agendamentos pertencentes ao grupo
+     * Processa de forma assíncrona a confirmação em lote de todos os agendamentos pertencentes ao grupo
      * e os sincroniza com a API do Feegow ERP, redirecionando o fluxo do paciente no Blip.
      */
     @org.springframework.scheduling.annotation.Async
     public void confirmGroupAsync(UUID groupId, String fromPhone) {
-        log.info("[ASYNC-BATCH] Iniciando processamento assÃ­ncrono de confirm_group para groupId: {}", groupId);
+        log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de confirm_group para groupId: {}", groupId);
         try {
             String dbPhone = fromPhone != null ? purifyPhoneNumber(fromPhone) : null;
             
-            // 1. Executa a confirmaÃ§Ã£o em lote local e na API Feegow
+            // 1. Executa a confirmação em lote local e na API Feegow
             List<AppointmentSession> sessionList = executeConfirmBatch(groupId, dbPhone);
             
             // 2. Resolve a fila de desempate
@@ -201,16 +201,16 @@ public class FeegowBulkIntegrationHandler {
                     fromPhone, targetQueue, deskBlockId);
             }
         } catch (Exception e) {
-            log.error("[ASYNC-BATCH] Erro crÃ­tico no processamento assÃ­ncrono de confirmaÃ§Ã£o do grupo: " + groupId, e);
+            log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de confirmação do grupo: " + groupId, e);
         }
     }
 
     /**
-     * Processa de forma assÃ­ncrona o redirecionamento de alteraÃ§Ã£o em lote do grupo de agendamentos no Blip.
+     * Processa de forma assíncrona o redirecionamento de alteração em lote do grupo de agendamentos no Blip.
      */
     @org.springframework.scheduling.annotation.Async
     public void alterGroupAsync(UUID groupId, String fromPhone) {
-        log.info("[ASYNC-BATCH] Iniciando processamento assÃ­ncrono de alter_group para groupId: {}", groupId);
+        log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de alter_group para groupId: {}", groupId);
         try {
             String targetQueue = resolveAlterGroupQueue(groupId);
 
@@ -218,11 +218,11 @@ public class FeegowBulkIntegrationHandler {
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
-                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteraÃ§Ã£o na fila '{}', bloco desk: '{}'", 
+                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteração na fila '{}', bloco desk: '{}'", 
                     fromPhone, targetQueue, deskBlockId);
             }
         } catch (Exception e) {
-            log.error("[ASYNC-BATCH] Erro crÃ­tico no processamento assÃ­ncrono de alteraÃ§Ã£o do grupo: " + groupId, e);
+            log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de alteração do grupo: " + groupId, e);
         }
     }
 

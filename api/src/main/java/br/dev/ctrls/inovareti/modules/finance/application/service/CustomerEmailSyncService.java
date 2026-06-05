@@ -31,20 +31,20 @@ public class CustomerEmailSyncService {
             return link.getEmail();
         }
 
-        log.info("Cache expirado ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â buscando e-mail na API Conta Azul. customerId={}",
+        log.info("Cache expirado íÂ¢ââ€šÂ¬ââ‚¬Â buscando e-mail na API Conta Azul. customerId={}",
                 link.getContaAzulCustomerId());
 
         ContaAzulPessoaDTO pessoa = link.getContaAzulPessoaUuid() != null
                 ? pessoaClient.findById(link.getContaAzulPessoaUuid())
                         .orElseThrow(() -> new IllegalStateException(
-                                "UUID invÃƒÆ’Ã‚Â¡lido: " + link.getContaAzulPessoaUuid()))
+                                "UUID invíÆ’í‚Â¡lido: " + link.getContaAzulPessoaUuid()))
                 : pessoaClient.findByLegacyId(link.getContaAzulCustomerId())
                         .orElseThrow(() -> new IllegalStateException(
-                                "Cliente nÃƒÆ’Ã‚Â£o encontrado no Conta Azul: " + link.getContaAzulCustomerId()));
+                                "Cliente níÆ’í‚Â£o encontrado no Conta Azul: " + link.getContaAzulCustomerId()));
 
         String email = pessoa.resolveEmail()
                 .orElseThrow(() -> new IllegalStateException(
-                        "MÃƒÆ’Ã‚Â©dico sem e-mail no Conta Azul. customerId=" + link.getContaAzulCustomerId()));
+                        "MíÆ’í‚Â©dico sem e-mail no Conta Azul. customerId=" + link.getContaAzulCustomerId()));
 
         link.setEmail(email);
         link.setNomeCliente(pessoa.nome());

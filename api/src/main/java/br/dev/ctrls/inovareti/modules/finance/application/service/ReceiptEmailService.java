@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o responsÃ¡vel por toda a comunicaÃ§Ã£o SMTP de recibos da Conta Azul.
+ * Serviço responsável por toda a comunicação SMTP de recibos da Conta Azul.
  *
  * Responsabilidades:
  * - montar assunto/corpo de e-mail (template);
@@ -78,7 +78,7 @@ public class ReceiptEmailService {
     }
 
     /**
-     * Faz download do binÃ¡rio de recibo garantindo Authorization Bearer no GET.
+     * Faz download do binário de recibo garantindo Authorization Bearer no GET.
      */
     public byte[] downloadReceiptBinary(String receiptUrl, String accessToken) {
         if (!StringUtils.hasText(receiptUrl)) {
@@ -86,7 +86,7 @@ public class ReceiptEmailService {
         }
 
         if (!StringUtils.hasText(accessToken)) {
-            throw new IllegalStateException("Token de acesso da Conta Azul Ã© obrigatÃ³rio para baixar o recibo.");
+            throw new IllegalStateException("Token de acesso da Conta Azul é obrigatório para baixar o recibo.");
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -109,7 +109,7 @@ public class ReceiptEmailService {
             byte[] pdfBytes,
             String attachmentFileName) {
         validateConfiguration();
-        // Normaliza o identificador para exibir somente o nÃºmero de venda no conteÃºdo enviado.
+        // Normaliza o identificador para exibir somente o número de venda no conteúdo enviado.
         String saleNumber = resolveSaleNumber(saleIdentifier);
 
         EmailDispatch dispatch = resolveDispatch(doctorName, destinationEmail, saleNumber);
@@ -117,7 +117,7 @@ public class ReceiptEmailService {
 
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            // PolÃ­tica de seguranÃ§a: remetente financeiro fixo para evitar variaÃ§Ãµes indevidas no SMTP.
+            // Política de segurança: remetente financeiro fixo para evitar variações indevidas no SMTP.
             helper.setFrom(FINANCEIRO_FIXED_FROM);
             helper.setTo(dispatch.to());
             helper.setSubject(dispatch.subject());
@@ -134,11 +134,11 @@ public class ReceiptEmailService {
         }
 
         try {
-            // Blindagem do fluxo financeiro: falha SMTP nÃ£o deve interromper sincronizaÃ§Ã£o de parcelas.
+            // Blindagem do fluxo financeiro: falha SMTP não deve interromper sincronização de parcelas.
             mailSender.send(message);
             log.info("Recibo enviado por e-mail para {} (destino original: {})", dispatch.to(), destinationEmail);
         } catch (MailException e) {
-            log.error("Falha ao enviar e-mail de recibo para {}. Processamento seguirÃ¡ sem crash.", dispatch.to(), e);
+            log.error("Falha ao enviar e-mail de recibo para {}. Processamento seguirá sem crash.", dispatch.to(), e);
         }
     }
 
@@ -154,7 +154,7 @@ public class ReceiptEmailService {
         }
 
         if (!StringUtils.hasText(destinoFinal)) {
-            throw new IllegalStateException("DestinatÃ¡rio final de e-mail estÃ¡ vazio apÃ³s resoluÃ§Ã£o do modo de teste.");
+            throw new IllegalStateException("Destinatário final de e-mail está vazio após resolução do modo de teste.");
         }
 
         return new EmailDispatch(destinoFinal, subject);
@@ -162,7 +162,7 @@ public class ReceiptEmailService {
 
     private String buildEmailSubject(String doctorName, String saleNumber) {
         String resolvedDoctorName = StringUtils.hasText(doctorName) ? doctorName.trim() : "Cliente";
-        return "Recibo de QuitaÃ§Ã£o - Inovare TI - " + resolvedDoctorName + " - Venda " + saleNumber;
+        return "Recibo de Quitação - Inovare TI - " + resolvedDoctorName + " - Venda " + saleNumber;
     }
 
     private String buildEmailBodyHtml(String doctorName, String saleIdentifier) {
@@ -174,8 +174,8 @@ public class ReceiptEmailService {
 
         return "<html><body>"
                 + "<p>Prezado(a) " + safeDoctorName + ",</p>"
-                + "<p>Confirmamos o recebimento do valor referente Ã  Venda " + safeSaleIdentifier
-                + ". O seu recibo de quitaÃ§Ã£o jÃ¡ estÃ¡ disponÃ­vel e segue em anexo a este e-mail.</p>"
+                + "<p>Confirmamos o recebimento do valor referente à Venda " + safeSaleIdentifier
+                + ". O seu recibo de quitação já está disponível e segue em anexo a este e-mail.</p>"
             + "<p>Atenciosamente,<br/>Administrativo Inovare</p>"
                 + "</body></html>";
     }
@@ -183,14 +183,14 @@ public class ReceiptEmailService {
     private void validateConfiguration() {
         if (!StringUtils.hasText(properties.getSmtp().getFromEmail()) || !StringUtils.hasText(properties.getSmtp().getFromName())) {
             throw new IllegalStateException(
-                    "ConfiguraÃ§Ã£o SMTP financeira invÃ¡lida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name sÃ£o obrigatÃ³rios.");
+                    "Configuração SMTP financeira inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
 
-        // Blindagem obrigatÃ³ria: envio financeiro deve ocorrer apenas com SSL puro na porta 465.
+        // Blindagem obrigatória: envio financeiro deve ocorrer apenas com SSL puro na porta 465.
         boolean smtpSslEnable = Boolean.parseBoolean(springMailProperties.getProperties().getOrDefault("mail.smtp.ssl.enable", "false"));
         if (!smtpSslEnable || springMailProperties.getPort() != 465) {
             throw new IllegalStateException(
-                    "ConfiguraÃ§Ã£o SMTP insegura para recibos: exige SSL habilitado e porta 465.");
+                    "Configuração SMTP insegura para recibos: exige SSL habilitado e porta 465.");
         }
 
         if (isTestModeEnabled() && !StringUtils.hasText(properties.getDevEmail())) {
@@ -231,7 +231,7 @@ public class ReceiptEmailService {
             return matcher.group(1);
         }
 
-        // Evita exibir UUID no e-mail quando nÃºmero de venda nÃ£o estiver disponÃ­vel.
+        // Evita exibir UUID no e-mail quando número de venda não estiver disponível.
         return "N/D";
     }
 

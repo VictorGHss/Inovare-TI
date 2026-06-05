@@ -49,8 +49,8 @@ public class AppointmentConfigController {
     private final ListAppointmentTemplateMappingsUseCase listAppointmentTemplateMappingsUseCase;
 
     /**
-     * Retorna o dicionÃ¡rio de variÃ¡veis disponÃ­veis para templates
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * Retorna o dicionário de variáveis disponíveis para templates
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/dictionary")
     public ResponseEntity<List<ListAppointmentDictionaryUseCase.DictionaryItem>> dictionary() {
@@ -58,8 +58,8 @@ public class AppointmentConfigController {
     }
 
     /**
-     * Lista os campos disponÃ­veis do AppointmentTemplateData para o frontend montar os mapeamentos.
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * Lista os campos disponíveis do AppointmentTemplateData para o frontend montar os mapeamentos.
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/feegow-fields")
     public ResponseEntity<List<String>> feegowFields() {
@@ -67,9 +67,9 @@ public class AppointmentConfigController {
     }
 
     /**
-     * Busca templates aprovados disponÃ­veis na API do Blip
+     * Busca templates aprovados disponíveis na API do Blip
      * @return Lista de templates com id e nome
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/blip-templates")
     public ResponseEntity<List<BlipTemplateDto>> blipTemplates() {
@@ -80,8 +80,8 @@ public class AppointmentConfigController {
     /**
      * Atualiza o template associado a uma categoria de agendamento
      * @param category Categoria (CONFIRMATION, NUDGE_1, NUDGE_FINAL)
-     * @param request ContÃ©m o template name/id a ser associado
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * @param request Contém o template name/id a ser associado
+     * <p>Role necessária: ADMIN</p>
      */
     @PutMapping("/{category}")
     public ResponseEntity<Map<String, Object>> updateConfig(
@@ -93,7 +93,7 @@ public class AppointmentConfigController {
             if (!StringUtils.hasText(templateName)) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "status", "error",
-                        "message", "templateName Ã© obrigatÃ³rio"));
+                        "message", "templateName é obrigatório"));
             }
 
             AppointmentConfig updated = updateAppointmentConfigUseCase.execute(appointmentCategory, templateName);
@@ -106,13 +106,13 @@ public class AppointmentConfigController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "error",
-                    "message", "Categoria invÃ¡lida: " + category));
+                    "message", "Categoria inválida: " + category));
         }
     }
 
     /**
-     * Salva o mapeamento dinÃ¢mico de placeholders para campos do Feegow por template.
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * Salva o mapeamento dinâmico de placeholders para campos do Feegow por template.
+     * <p>Role necessária: ADMIN</p>
      */
     @PostMapping("/template-mappings")
     public ResponseEntity<Map<String, Object>> saveTemplateMappings(
@@ -131,8 +131,8 @@ public class AppointmentConfigController {
     }
 
     /**
-     * Retorna os mapeamentos salvos para um template especÃ­fico.
-     * <p>Role necessÃ¡ria: ADMIN</p>
+     * Retorna os mapeamentos salvos para um template específico.
+     * <p>Role necessária: ADMIN</p>
      */
     @GetMapping("/template-mappings")
     public ResponseEntity<List<AppointmentTemplateMappingResponse>> templateMappings(

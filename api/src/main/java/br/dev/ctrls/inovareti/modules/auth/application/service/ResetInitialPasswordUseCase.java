@@ -26,17 +26,17 @@ public class ResetInitialPasswordUseCase {
     public AuthResponseDTO execute(ResetInitialPasswordRequestDTO request) {
         var tokenUserId = tokenPort.validateInitialPasswordResetToken(request.tempToken());
         if (tokenUserId == null) {
-            throw new BadRequestException("Token temporÃ¡rio invÃ¡lido ou expirado.");
+            throw new BadRequestException("Token temporário inválido ou expirado.");
         }
         if (!tokenUserId.equals(request.userId())) {
-            throw new BadRequestException("Token temporÃ¡rio nÃ£o pertence ao usuÃ¡rio informado.");
+            throw new BadRequestException("Token temporário não pertence ao usuário informado.");
         }
 
         var user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new NotFoundException("User not found with id: " + request.userId()));
 
         if (!user.isMustChangePassword()) {
-            throw new BadRequestException("Este usuÃ¡rio nÃ£o exige redefiniÃ§Ã£o inicial de senha.");
+            throw new BadRequestException("Este usuário não exige redefinição inicial de senha.");
         }
 
         user.setPasswordHash(hashPort.encode(request.newPassword()));

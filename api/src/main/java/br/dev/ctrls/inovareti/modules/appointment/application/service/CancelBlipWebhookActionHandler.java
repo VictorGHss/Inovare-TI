@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * EstratÃ©gia de processamento especÃ­fica para a aÃ§Ã£o de cancelamento de consulta ("cancel").
+ * Estratégia de processamento específica para a ação de cancelamento de consulta ("cancel").
  */
 @Slf4j
 @Component
@@ -29,7 +29,7 @@ public class CancelBlipWebhookActionHandler implements BlipWebhookActionHandler 
 
     @Override
     public void prePersistence(AppointmentSession session, String action) {
-        log.info("[CANCEL] Paciente solicita cancelamento. Atualizando status na Feegow com cÃ³digo 100.");
+        log.info("[CANCEL] Paciente solicita cancelamento. Atualizando status na Feegow com código 100.");
         try {
             appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), "100");
         } catch (RestClientException | IllegalStateException ex) {

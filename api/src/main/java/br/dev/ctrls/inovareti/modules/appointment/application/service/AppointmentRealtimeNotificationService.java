@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o responsÃ¡vel por publicar eventos de agendamento para o frontend.
+ * Serviço responsável por publicar eventos de agendamento para o frontend.
  */
 @Slf4j
 @Service
@@ -23,7 +23,7 @@ public class AppointmentRealtimeNotificationService {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * MÃ©todo de envio usado pelo fluxo de webhook de confirmaÃ§Ã£o.
+     * Método de envio usado pelo fluxo de webhook de confirmação.
      */
     public void sendNotification(String patientName, String doctorName, String status) {
         AppointmentEventMessage payload = new AppointmentEventMessage(patientName, doctorName, status);

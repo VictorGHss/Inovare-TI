@@ -31,10 +31,10 @@ public class ChangeMyPasswordUseCase {
         UUID userId = UUID.fromString(authenticatedUserId);
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com o ID: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado com o ID: " + userId));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            throw new BadRequestException("Senha atual invÃ¡lida.");
+            throw new BadRequestException("Senha atual inválida.");
         }
 
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {

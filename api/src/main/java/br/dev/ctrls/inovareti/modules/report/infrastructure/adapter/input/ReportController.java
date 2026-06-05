@@ -34,7 +34,7 @@ import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controlador REST para endpoints relacionados a relatÃ³rios.
+ * Controlador REST para endpoints relacionados a relatórios.
  */
 @Slf4j
 @RestController
@@ -92,24 +92,24 @@ public class ReportController {
 
     /**
      * GET /api/reports/tickets/export
-     * Gera relatÃ³rio de chamados em Excel com isolamento por perfil de usuÃ¡rio.
+     * Gera relatório de chamados em Excel com isolamento por perfil de usuário.
      * USER exporta apenas seus chamados; ADMIN e TECHNICIAN exportam todos.
      */
     @GetMapping("/tickets/export")
     public ResponseEntity<InputStreamResource> exportTicketsReport() throws IOException {
-        log.info("GET /api/reports/tickets/export - Exportando relatÃ³rio de chamados");
+        log.info("GET /api/reports/tickets/export - Exportando relatório de chamados");
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("NÃ£o foi possÃ­vel identificar o usuÃ¡rio autenticado");
+            log.warn("Não foi possível identificar o usuário autenticado");
             return ResponseEntity.badRequest().build();
         }
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("UsuÃ¡rio nÃ£o encontrado"));
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
         byte[] bytes = ticketReportUseCase.generateTicketReport(userId, user.getRole());
         ByteArrayInputStream stream = new ByteArrayInputStream(bytes);
@@ -187,7 +187,7 @@ public class ReportController {
     }
 
     /**
-     * Gera relatÃ³rio de saÃ­das de inventÃ¡rio.
+     * Gera relatório de saídas de inventário.
      * Suporta formato PDF e Excel.
      */
     @GetMapping("/inventory/exits")
@@ -211,7 +211,7 @@ public class ReportController {
                 if (fp != null && !fp.isBlank()) format = fp.toLowerCase();
             }
         } catch (Exception e) {
-            // MantÃ©m default
+            // Mantém default
         }
 
         if ("pdf".equalsIgnoreCase(format)) {

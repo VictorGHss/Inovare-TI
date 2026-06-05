@@ -21,8 +21,8 @@ import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Caso de uso: atualiza nome, e-mail, perfil e setor de um usuÃ¡rio existente.
- * O e-mail Ãºnico Ã© validado excluindo o prÃ³prio usuÃ¡rio sendo editado.
+ * Caso de uso: atualiza nome, e-mail, perfil e setor de um usuário existente.
+ * O e-mail único é validado excluindo o próprio usuário sendo editado.
  */
 @Component
 @RequiredArgsConstructor
@@ -36,27 +36,27 @@ public class UpdateUserUseCase {
     @Transactional
     public UserResponseDTO execute(UUID userId, UpdateUserRequestDTO request, UUID adminUserId, String ipAddress) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
 
         String contaAzulId = request.contaAzulId() != null && !request.contaAzulId().isBlank()
                 ? request.contaAzulId().trim()
                 : null;
 
-        // Verifica conflito de e-mail apenas em relaÃ§Ã£o a outros usuÃ¡rios
+        // Verifica conflito de e-mail apenas em relação a outros usuários
         if (!user.getEmail().equalsIgnoreCase(request.email())
                 && userRepository.existsByEmail(request.email())) {
-            throw new ConflictException("E-mail jÃ¡ estÃ¡ em uso: " + request.email());
+            throw new ConflictException("E-mail já está em uso: " + request.email());
         }
 
         if (contaAzulId != null) {
             boolean contaAzulIdChanged = !contaAzulId.equals(user.getContaAzulId());
             if (contaAzulIdChanged && userRepository.existsByContaAzulId(contaAzulId)) {
-                throw new ConflictException("ID Conta Azul jÃ¡ estÃ¡ em uso: " + contaAzulId);
+                throw new ConflictException("ID Conta Azul já está em uso: " + contaAzulId);
             }
         }
 
         Sector sector = sectorRepository.findById(request.sectorId())
-                .orElseThrow(() -> new NotFoundException("Setor nÃ£o encontrado: " + request.sectorId()));
+                .orElseThrow(() -> new NotFoundException("Setor não encontrado: " + request.sectorId()));
 
         String oldRole = user.getRole() != null ? user.getRole().name() : null;
         UUID oldSectorId = user.getSector() != null ? user.getSector().getId() : null;

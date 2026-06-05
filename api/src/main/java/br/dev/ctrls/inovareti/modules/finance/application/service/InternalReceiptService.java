@@ -60,10 +60,10 @@ public class InternalReceiptService {
             String htmlLogoBase64 = resolveLogoDataUri();
             String doctorDocument = resolveDoctorDocument(doctorCpfCnpj);
 
-            if ("Documento nÃ£o cadastrado".equals(doctorDocument)) {
-                log.info("Recibo interno gerado para mÃ©dico sem CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+            if ("Documento não cadastrado".equals(doctorDocument)) {
+                log.info("Recibo interno gerado para médico sem CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
             } else {
-                log.info("Recibo interno gerado para mÃ©dico com CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
+                log.info("Recibo interno gerado para médico com CPF/CNPJ cadastrado: {}", resolveDoctorName(doctorName));
             }
 
             Context context = new Context(Locale.forLanguageTag("pt-BR"));
@@ -89,7 +89,7 @@ public class InternalReceiptService {
                 return output.toByteArray();
             }
         } catch (RuntimeException ex) {
-            log.error("Falha em tempo de execuÃ§Ã£o ao gerar recibo interno em PDF.", ex);
+            log.error("Falha em tempo de execução ao gerar recibo interno em PDF.", ex);
             throw new IllegalStateException("Falha ao gerar recibo interno em PDF.", ex);
         } catch (java.io.IOException ex) {
             log.error("Falha ao gerar recibo interno em PDF.", ex);
@@ -261,7 +261,7 @@ public class InternalReceiptService {
             return doctorCpfCnpj.trim();
         }
 
-        return "Documento nÃ£o cadastrado";
+        return "Documento não cadastrado";
     }
 
     private BigDecimal parseCurrencyValue(String rawValue) {

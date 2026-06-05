@@ -15,8 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o responsÃ¡vel por gerenciar a idempotÃªncia dos webhooks do Blip,
- * incluindo registro de mensagem processada, locks atÃ´micos e spin-wait nÃ£o bloqueante.
+ * Serviço responsável por gerenciar a idempotência dos webhooks do Blip,
+ * incluindo registro de mensagem processada, locks atômicos e spin-wait não bloqueante.
  */
 @Slf4j
 @Service
@@ -29,9 +29,9 @@ public class BlipIdempotencyService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Verifica se o messageId do Blip jÃ¡ foi processado anteriormente.
+     * Verifica se o messageId do Blip já foi processado anteriormente.
      * 
-     * @param messageId identificador Ãºnico da mensagem recebida do webhook
+     * @param messageId identificador único da mensagem recebida do webhook
      * @return {@code true} se for o primeiro processamento (fresh), {@code false} se for duplicado
      */
     public boolean registerIfFirstTime(String messageId) {
@@ -43,10 +43,10 @@ public class BlipIdempotencyService {
     }
 
     /**
-     * Tenta adquirir uma trava atÃ´mica no Redis para processamento concorrente do agendamento.
+     * Tenta adquirir uma trava atômica no Redis para processamento concorrente do agendamento.
      * 
      * @param appointmentId ID do agendamento Feegow
-     * @return {@code true} se o bloqueio foi adquirido, {@code false} caso contrÃ¡rio
+     * @return {@code true} se o bloqueio foi adquirido, {@code false} caso contrário
      */
     public boolean tryAcquireLock(String appointmentId) {
         return webhookIdempotencyService
@@ -76,14 +76,14 @@ public class BlipIdempotencyService {
      * Efetua spin-wait concorrente aguardando que o resultado de outra thread ativa seja persistido em cache.
      * 
      * @param appointmentId ID do agendamento Feegow
-     * @param actionType tipo da aÃ§Ã£o executada (confirm ou alter)
+     * @param actionType tipo da ação executada (confirm ou alter)
      * @return resultado em cache resolvido, ou {@code null} se estourar o timeout
      */
     public HandleBlipWebhookUseCase.WebhookResult getCachedResultOrSpinWait(String appointmentId, String actionType) {
         log.info("[IDEMPOTENCY] Aguardando processamento da thread principal para o agendamento {}", appointmentId);
         int maxAttempts = 10;
         for (int i = 0; i < maxAttempts; i++) {
-            awaitIdempotencyDelayNonBlocking(500L); // Delay nÃ£o bloqueante seguro para Virtual Threads
+            awaitIdempotencyDelayNonBlocking(500L); // Delay não bloqueante seguro para Virtual Threads
 
             String cachedJson = getCachedResult(appointmentId);
             if (cachedJson != null) {

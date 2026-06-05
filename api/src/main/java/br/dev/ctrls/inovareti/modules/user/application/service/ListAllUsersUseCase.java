@@ -11,8 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Caso de uso: lista todos os usuÃ¡rios cadastrados.
- * O setor de cada usuÃ¡rio Ã© carregado via JOIN para evitar problema N+1.
+ * Caso de uso: lista todos os usuários cadastrados.
+ * O setor de cada usuário é carregado via JOIN para evitar problema N+1.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,9 +22,9 @@ public class ListAllUsersUseCase {
     private final UserRepositoryPort userRepository;
 
     /**
-     * Retorna todos os usuÃ¡rios do sistema.
+     * Retorna todos os usuários do sistema.
      *
-     * @return lista de DTOs com os dados pÃºblicos dos usuÃ¡rios
+     * @return lista de DTOs com os dados públicos dos usuários
      */
     @Transactional(readOnly = true)
     public List<UserResponseDTO> execute() {

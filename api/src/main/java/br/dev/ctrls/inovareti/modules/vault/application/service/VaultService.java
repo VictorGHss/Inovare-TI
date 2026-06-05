@@ -44,12 +44,12 @@ import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 public class VaultService {
 
     /**
-     * ServiÃ§o que gerencia itens sensÃ­veis no cofre do sistema (Vault).
+     * Serviço que gerencia itens sensíveis no cofre do sistema (Vault).
      *
      * Responsabilidades principais:
      * - Criar/editar/excluir itens do tipo secreto (credenciais, documentos);
      * - Armazenar anexos usando o provedor de armazenamento local;
-     * - Controlar acesso e compartilhamento entre usuÃ¡rios;
+     * - Controlar acesso e compartilhamento entre usuários;
      * - Registrar eventos relevantes na trilha de auditoria.
      */
 
@@ -97,12 +97,12 @@ public class VaultService {
     @Transactional
     public VaultItemResponseDTO createItem(UUID authenticatedUserId, VaultCreateItemRequestDTO request, MultipartFile file, String ipAddress) {
         /**
-         * Cria um novo item no cofre para o usuÃ¡rio autenticado.
-         * Se for do tipo CREDENTIAL, o conteÃºdo secreto Ã© criptografado antes
+         * Cria um novo item no cofre para o usuário autenticado.
+         * Se for do tipo CREDENTIAL, o conteúdo secreto é criptografado antes
          * de ser persistido.
          *
-         * @param authenticatedUserId id do usuÃ¡rio autenticado
-         * @param request payload de criaÃ§Ã£o
+         * @param authenticatedUserId id do usuário autenticado
+         * @param request payload de criação
          * @param file anexo opcional
          * @param ipAddress IP do requisitante para auditoria
          * @return dados do item criado
@@ -135,7 +135,7 @@ public class VaultService {
         VaultItem savedItem = vaultItemRepository.save(item);
         createCustomShares(savedItem, request.sharedWithUserIds());
 
-        // Registra criaÃ§Ã£o de item no cofre na trilha de auditoria
+        // Registra criação de item no cofre na trilha de auditoria
         auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_CREATE)
                 .userId(authenticatedUserId)
                 .resourceType("VaultItem")
@@ -164,7 +164,7 @@ public class VaultService {
         VaultItem item = findAccessibleItem(authenticatedUserId, itemId);
 
         if (item.getSecretContent() == null || item.getSecretContent().isBlank()) {
-            throw new BadRequestException("Este item nÃ£o possui conteÃºdo secreto.");
+            throw new BadRequestException("Este item não possui conteúdo secreto.");
         }
 
         String content = item.getSecretContent();
@@ -172,7 +172,7 @@ public class VaultService {
             content = encryptionService.decrypt(content);
         }
 
-        // Evento crÃ­tico: leitura de segredo do Vault
+        // Evento crítico: leitura de segredo do Vault
         auditLogService.publish(AuditEvent.of(AuditAction.VAULT_ITEM_VIEW)
                 .userId(authenticatedUserId)
                 .resourceType("VaultItem")
@@ -192,7 +192,7 @@ public class VaultService {
             MultipartFile file,
             String ipAddress) {
         User authenticatedUser = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio autenticado nÃ£o encontrado."));
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Vault item not found."));
@@ -245,7 +245,7 @@ public class VaultService {
     @Transactional
     public void deleteItem(UUID authenticatedUserId, UUID itemId, String ipAddress) {
         User authenticatedUser = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio autenticado nÃ£o encontrado."));
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Vault item not found."));
@@ -277,13 +277,13 @@ public class VaultService {
     @Transactional(readOnly = true)
     public VaultItem findAccessibleItem(UUID authenticatedUserId, UUID itemId) {
         User user = userRepository.findById(authenticatedUserId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio autenticado nÃ£o encontrado."));
+                .orElseThrow(() -> new NotFoundException("Usuário autenticado não encontrado."));
 
         VaultItem item = vaultItemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Vault item not found."));
 
         if (!canUserAccessItem(user, item)) {
-            throw new AccessDeniedException("VocÃª nÃ£o possui permissÃ£o para acessar este item do cofre.");
+            throw new AccessDeniedException("Você não possui permissão para acessar este item do cofre.");
         }
 
         return item;
@@ -292,12 +292,12 @@ public class VaultService {
     private void validateCreateRequest(VaultCreateItemRequestDTO request) {
         if (request.itemType() == VaultItemType.CREDENTIAL
                 && (request.secretContent() == null || request.secretContent().isBlank())) {
-            throw new BadRequestException("O conteÃºdo secreto Ã© obrigatÃ³rio para itens do tipo CREDENTIAL.");
+            throw new BadRequestException("O conteúdo secreto é obrigatório para itens do tipo CREDENTIAL.");
         }
 
         if (request.sharingType() == VaultSharingType.CUSTOM
                 && (request.sharedWithUserIds() == null || request.sharedWithUserIds().isEmpty())) {
-            throw new BadRequestException("Ã‰ necessÃ¡rio informar ao menos um usuÃ¡rio para compartilhamento CUSTOM.");
+            throw new BadRequestException("É necessário informar ao menos um usuário para compartilhamento CUSTOM.");
         }
     }
 
@@ -306,13 +306,13 @@ public class VaultService {
             boolean hasExistingSecret = currentItem.getSecretContent() != null && !currentItem.getSecretContent().isBlank();
             boolean hasNewSecret = request.secretContent() != null && !request.secretContent().isBlank();
             if (!hasExistingSecret && !hasNewSecret) {
-                throw new BadRequestException("O conteÃºdo secreto Ã© obrigatÃ³rio para itens do tipo CREDENTIAL.");
+                throw new BadRequestException("O conteúdo secreto é obrigatório para itens do tipo CREDENTIAL.");
             }
         }
 
         if (request.sharingType() == VaultSharingType.CUSTOM
                 && (request.sharedWithUserIds() == null || request.sharedWithUserIds().isEmpty())) {
-            throw new BadRequestException("Ã‰ necessÃ¡rio informar ao menos um usuÃ¡rio para compartilhamento CUSTOM.");
+            throw new BadRequestException("É necessário informar ao menos um usuário para compartilhamento CUSTOM.");
         }
     }
 
@@ -323,7 +323,7 @@ public class VaultService {
 
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_FILE_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new BadRequestException("Tipo de arquivo nÃ£o permitido para o cofre.");
+            throw new BadRequestException("Tipo de arquivo não permitido para o cofre.");
         }
 
         try {
@@ -340,7 +340,7 @@ public class VaultService {
 
         List<User> users = userRepository.findAllById(sharedWithUserIds);
         if (users.size() != sharedWithUserIds.size()) {
-            throw new NotFoundException("Um ou mais usuÃ¡rios informados para compartilhamento nÃ£o foram encontrados.");
+            throw new NotFoundException("Um ou mais usuários informados para compartilhamento não foram encontrados.");
         }
 
         List<VaultItemShare> shares = users.stream()

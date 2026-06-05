@@ -35,8 +35,8 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Adquire um lock em memÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ria para evitar concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia local imediata.
-     * Retorna true se o lock foi adquirido com sucesso, false caso contrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio.
+     * Adquire um lock em memíÆ’í†â€™íâ€ší‚Â³ria para evitar concorríÆ’í†â€™íâ€ší‚Âªncia local imediata.
+     * Retorna true se o lock foi adquirido com sucesso, false caso contríÆ’í†â€™íâ€ší‚Â¡rio.
      */
     public boolean acquireLock(String baixaId) {
         if (!StringUtils.hasText(baixaId)) {
@@ -46,7 +46,7 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Libera o lock em memÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ria.
+     * Libera o lock em memíÆ’í†â€™íâ€ší‚Â³ria.
      */
     public void releaseLock(String baixaId) {
         if (StringUtils.hasText(baixaId)) {
@@ -55,7 +55,7 @@ public class ReceiptConcurrencyHandler {
     }
 
     /**
-     * Registra o recibo como processado no banco de dados, tratando possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­veis colisÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes de concorrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia.
+     * Registra o recibo como processado no banco de dados, tratando possíÆ’í†â€™íâ€ší‚Â­veis colisíÆ’í†â€™íâ€ší‚Âµes de concorríÆ’í†â€™íâ€ší‚Âªncia.
      */
     public void markAsProcessed(String saleId, String successMessage, String duplicateMessage) {
         if (!StringUtils.hasText(saleId)) {

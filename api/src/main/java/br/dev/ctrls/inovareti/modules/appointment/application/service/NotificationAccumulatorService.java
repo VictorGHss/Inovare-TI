@@ -45,16 +45,16 @@ public class NotificationAccumulatorService {
             return;
         }
 
-        log.info("[ACÃšMULO] Iniciando rotina de acÃºmulo de notificaÃ§Ãµes");
+        log.info("[ACÚMULO] Iniciando rotina de acúmulo de notificações");
 
-        // 1. Buscar agendamentos pendentes de notificaÃ§Ã£o no banco de dados
+        // 1. Buscar agendamentos pendentes de notificação no banco de dados
         List<AppointmentSession> pendingSessions = appointmentSessionRepository.findPendingNotifications();
         if (pendingSessions.isEmpty()) {
-            log.info("[ACÃšMULO] Nenhum agendamento pendente de notificaÃ§Ã£o encontrado");
+            log.info("[ACÚMULO] Nenhum agendamento pendente de notificação encontrado");
             return;
         }
 
-        log.info("[ACÃšMULO] Encontrados {} agendamentos pendentes", pendingSessions.size());
+        log.info("[ACÚMULO] Encontrados {} agendamentos pendentes", pendingSessions.size());
 
         // 2. Agrupar essas entidades pelo telefone (contact_identity / patient_phone)
         Map<String, List<AppointmentSession>> groupedByPhone = pendingSessions.stream()
@@ -65,7 +65,7 @@ public class NotificationAccumulatorService {
             String phoneNumber = entry.getKey();
             List<AppointmentSession> sessions = entry.getValue();
 
-            // 3. Verificar se a lista tem tamanho > 1 (Ã© um grupo) ou == 1 (individual)
+            // 3. Verificar se a lista tem tamanho > 1 (é um grupo) ou == 1 (individual)
             if (sessions.size() > 1) {
                 processGroupNotification(phoneNumber, sessions);
             } else {
@@ -75,7 +75,7 @@ public class NotificationAccumulatorService {
     }
 
     private void processIndividualNotification(AppointmentSession session) {
-        log.info("[ACÃšMULO] Processando notificaÃ§Ã£o individual para o agendamento Feegow ID: {}", session.getFeegowAppointmentId());
+        log.info("[ACÚMULO] Processando notificação individual para o agendamento Feegow ID: {}", session.getFeegowAppointmentId());
         
         try {
             boolean sent = sendAppointmentTemplateUseCase.execute(session, AppointmentCategory.CONFIRMATION);
@@ -87,18 +87,18 @@ public class NotificationAccumulatorService {
                         appointmentSessionRepository.save(lockedSession);
                     }
                 });
-                log.info("[ACÃšMULO] NotificaÃ§Ã£o individual enviada com sucesso para: {}", session.getPhoneNumber());
+                log.info("[ACÚMULO] Notificação individual enviada com sucesso para: {}", session.getPhoneNumber());
             } else {
-                log.warn("[ACÃšMULO] Falha ao enviar notificaÃ§Ã£o individual para: {}", session.getPhoneNumber());
+                log.warn("[ACÚMULO] Falha ao enviar notificação individual para: {}", session.getPhoneNumber());
             }
         } catch (Exception e) {
-            log.error("[ACÃšMULO] Erro ao processar notificaÃ§Ã£o individual para sessionId: {}", session.getId(), e);
+            log.error("[ACÚMULO] Erro ao processar notificação individual para sessionId: {}", session.getId(), e);
         }
     }
 
     private void processGroupNotification(String phoneNumber, List<AppointmentSession> sessions) {
         UUID groupId = UUID.randomUUID();
-        log.info("[ACÃšMULO] Processando notificaÃ§Ã£o agrupada. group_id={}, telefone={}, total_consultas={}", 
+        log.info("[ACÚMULO] Processando notificação agrupada. group_id={}, telefone={}, total_consultas={}", 
             groupId, phoneNumber, sessions.size());
 
         // 4. Salvar na tabela 'notification_groups'
@@ -116,7 +116,7 @@ public class NotificationAccumulatorService {
             transactionTemplate.executeWithoutResult(status -> {
                 notificationGroupRepository.saveAll(groupEntities);
                 
-                // Atualizar o lastNotificationSentAt para todas as sessÃµes do grupo
+                // Atualizar o lastNotificationSentAt para todas as sessões do grupo
                 for (AppointmentSession session : sessions) {
                     AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
                     if (lockedSession != null) {
@@ -126,7 +126,7 @@ public class NotificationAccumulatorService {
                 }
             });
         } catch (Exception e) {
-            log.error("[ACÃšMULO] Erro ao persistir grupo de notificaÃ§Ã£o ou atualizar sessÃµes no banco de dados", e);
+            log.error("[ACÚMULO] Erro ao persistir grupo de notificação ou atualizar sessões no banco de dados", e);
             return;
         }
 
@@ -138,37 +138,37 @@ public class NotificationAccumulatorService {
                 patientName = patientInfo.name().trim();
             }
         } catch (Exception e) {
-            log.warn("[ACÃšMULO] NÃ£o foi possÃ­vel recuperar o nome do paciente via API externa. Usando fallback.", e);
+            log.warn("[ACÚMULO] Não foi possível recuperar o nome do paciente via API externa. Usando fallback.", e);
         }
 
         // 5. Disparar o template de aviso passando o group_id no payload
         try {
             String templateName = motorProperties.getBlipGroupTemplateName();
             blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateName, groupId, patientName);
-            log.info("[ACÃšMULO] NotificaÃ§Ã£o agrupada enviada com sucesso para: {}", phoneNumber);
+            log.info("[ACÚMULO] Notificação agrupada enviada com sucesso para: {}", phoneNumber);
         } catch (Exception e) {
-            log.error("[ACÃšMULO] Erro ao disparar template de notificaÃ§Ã£o agrupada para: {}", phoneNumber, e);
+            log.error("[ACÚMULO] Erro ao disparar template de notificação agrupada para: {}", phoneNumber, e);
         }
     }
 
     @Scheduled(cron = "${app.appointment.motor.cleanup-cron:0 0 3 * * ?}")
     public void cleanupOldNotificationGroups() {
-        log.info("[CLEANUP] Iniciando rotina de limpeza diÃ¡ria de grupos de notificaÃ§Ã£o e sessÃµes antigas");
+        log.info("[CLEANUP] Iniciando rotina de limpeza diária de grupos de notificação e sessões antigas");
         LocalDateTime threshold = LocalDateTime.now().minusDays(45);
         try {
             long count = transactionTemplate.execute(status -> 
                 notificationGroupRepository.deleteByCreatedAtBefore(threshold)
             );
-            log.info("[CLEANUP] Removidos grupos de notificaÃ§Ã£o com mais de 45 dias. Total: {}", count);
+            log.info("[CLEANUP] Removidos grupos de notificação com mais de 45 dias. Total: {}", count);
         } catch (Exception e) {
-            log.error("[CLEANUP] Erro ao executar limpeza de grupos de notificaÃ§Ã£o antigos", e);
+            log.error("[CLEANUP] Erro ao executar limpeza de grupos de notificação antigos", e);
         }
 
         cleanupOldClosedSessions(threshold);
     }
 
     private void cleanupOldClosedSessions(LocalDateTime threshold) {
-        log.info("[CLEANUP] Iniciando expurgo de sessÃµes de agendamento concluÃ­das/canceladas antigas");
+        log.info("[CLEANUP] Iniciando expurgo de sessões de agendamento concluídas/canceladas antigas");
         try {
             List<br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus> finalStatuses = List.of(
                 br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CONFIRMED,
@@ -178,9 +178,9 @@ public class NotificationAccumulatorService {
             long countSessions = transactionTemplate.execute(status ->
                 appointmentSessionRepository.deleteByStatusInAndCreatedAtBefore(finalStatuses, threshold)
             );
-            log.info("[CLEANUP] Removidas sessÃµes concluÃ­das/canceladas com mais de 45 dias. Total: {}", countSessions);
+            log.info("[CLEANUP] Removidas sessões concluídas/canceladas com mais de 45 dias. Total: {}", countSessions);
         } catch (Exception e) {
-            log.error("[CLEANUP] Erro ao executar expurgo de sessÃµes de agendamento antigas", e);
+            log.error("[CLEANUP] Erro ao executar expurgo de sessões de agendamento antigas", e);
         }
     }
 }

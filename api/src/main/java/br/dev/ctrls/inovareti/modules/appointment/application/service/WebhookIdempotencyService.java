@@ -27,7 +27,7 @@ public class WebhookIdempotencyService {
 
     public boolean registerIfFirstTime(String messageId) {
         if (messageId == null || messageId.isBlank()) {
-            log.error("messageId ausente ao registrar idempotÃªncia de webhook. Permitindo processamento (fail-open).");
+            log.error("messageId ausente ao registrar idempotência de webhook. Permitindo processamento (fail-open).");
             return true;
         }
 
@@ -42,14 +42,14 @@ public class WebhookIdempotencyService {
             return Boolean.TRUE.equals(inserted);
         } catch (RedisConnectionFailureException ex) {
             log.error(
-                    "Redis indisponÃ­vel ao registrar idempotÃªncia de webhook. key={}, ttlHours={}. Permitindo processamento (fail-open).",
+                    "Redis indisponível ao registrar idempotência de webhook. key={}, ttlHours={}. Permitindo processamento (fail-open).",
                     idempotencyKey,
                     webhookIdempotencyHours,
                     ex);
             return true;
         } catch (RuntimeException ex) {
             log.error(
-                    "Falha ao registrar idempotÃªncia de webhook no Redis. key={}, ttlHours={}. Permitindo processamento (fail-open).",
+                    "Falha ao registrar idempotência de webhook no Redis. key={}, ttlHours={}. Permitindo processamento (fail-open).",
                     idempotencyKey,
                     webhookIdempotencyHours,
                     ex);
@@ -73,7 +73,7 @@ public class WebhookIdempotencyService {
 
             return Boolean.TRUE.equals(inserted);
         } catch (Exception ex) {
-            log.error("Falha ao registrar idempotÃªncia de aÃ§Ã£o no Redis. key={}", actionKey, ex);
+            log.error("Falha ao registrar idempotência de ação no Redis. key={}", actionKey, ex);
             return true;
         }
     }
@@ -84,7 +84,7 @@ public class WebhookIdempotencyService {
             Boolean locked = redis.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(30));
             return Boolean.TRUE.equals(locked);
         } catch (Exception e) {
-            log.error("Falha ao registrar trava atÃ´mica no Redis. key={}", lockKey, e);
+            log.error("Falha ao registrar trava atômica no Redis. key={}", lockKey, e);
             return true; // fail-open
         }
     }

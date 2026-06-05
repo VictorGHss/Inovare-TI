@@ -28,17 +28,17 @@ public class CreateSectorUseCase {
     private final AuditLogService auditLogService;
 
     /**
-     * Executa a criaÃ§Ã£o do setor.
+     * Executa a criação do setor.
      *
      * @param request DTO com o nome do setor
      * @return DTO com os dados do setor criado
-     * @throws ConflictException se jÃ¡ existir um setor com o mesmo nome
+     * @throws ConflictException se já existir um setor com o mesmo nome
      */
     @Transactional
     public SectorResponseDTO execute(SectorRequestDTO request) {
         if (sectorRepository.existsByName(request.name())) {
             throw new ConflictException(
-                    "JÃ¡ existe um setor com o nome: " + request.name()
+                    "Já existe um setor com o nome: " + request.name()
             );
         }
 

@@ -26,7 +26,7 @@ public class ToggleSectorActiveUseCase {
     @Transactional
     public SectorResponseDTO execute(UUID id) {
         Sector sector = sectorRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Setor nÃ£o encontrado com o ID: " + id));
+                .orElseThrow(() -> new NotFoundException("Setor não encontrado com o ID: " + id));
 
         boolean oldStatus = sector.isActive();
         sector.setActive(!oldStatus);

@@ -18,8 +18,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Caso de uso: gera os dados para o relatÃ³rio de chamados e delega a montagem fÃ­sica ao exportador.
- * Aplica isolamento por perfil (USER vÃª apenas seus chamados, ADMIN vÃª todos).
+ * Caso de uso: gera os dados para o relatório de chamados e delega a montagem física ao exportador.
+ * Aplica isolamento por perfil (USER vê apenas seus chamados, ADMIN vê todos).
  */
 @Slf4j
 @Component
@@ -31,15 +31,15 @@ public class TicketReportUseCase {
     private final ReportExcelExporterPort reportExcelExporter;
 
     /**
-     * Gera os dados do relatÃ³rio e retorna o byte[] gerado fÃ­sica e transparentemente.
+     * Gera os dados do relatório e retorna o byte[] gerado física e transparentemente.
      *
-     * @param userId o ID do usuÃ¡rio autenticado
-     * @param userRole o perfil do usuÃ¡rio autenticado
+     * @param userId o ID do usuário autenticado
+     * @param userRole o perfil do usuário autenticado
      * @return byte[] contendo o arquivo Excel
      */
     @Transactional(readOnly = true)
     public byte[] generateTicketReport(UUID userId, UserRole userRole) {
-        log.info("Gerando dados de relatÃ³rio de chamados para usuÃ¡rio: {} (perfil: {})", userId, userRole);
+        log.info("Gerando dados de relatório de chamados para usuário: {} (perfil: {})", userId, userRole);
 
         List<Ticket> tickets;
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {

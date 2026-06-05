@@ -24,7 +24,7 @@ import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controlador para servir arquivos de anexos estÃ¡ticos.
+ * Controlador para servir arquivos de anexos estáticos.
  * Caminho base: /api/attachments
  */
 @RestController
@@ -40,7 +40,7 @@ public class FileController {
 
     /**
      * Serve um arquivo pelo nome armazenado.
-     * Retorna o arquivo com o content type adequado para exibiÃ§Ã£o inline ou download.
+     * Retorna o arquivo com o content type adequado para exibição inline ou download.
      */
     @GetMapping("/{filename}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
@@ -77,7 +77,7 @@ public class FileController {
         try {
             Resource resource = fileStorageService.load(filename);
             
-            // Determina o content type com base na extensÃ£o do arquivo
+            // Determina o content type com base na extensão do arquivo
             String contentType = "application/octet-stream";
             if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
                 contentType = "image/jpeg";

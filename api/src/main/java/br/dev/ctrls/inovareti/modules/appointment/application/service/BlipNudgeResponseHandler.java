@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Componente responsÃ¡vel por gerenciar a resposta do usuÃ¡rio a mensagens de Nudge do Blip.
+ * Componente responsável por gerenciar a resposta do usuário a mensagens de Nudge do Blip.
  */
 @Slf4j
 @Component
@@ -56,13 +56,13 @@ public class BlipNudgeResponseHandler {
             );
             
             if (activeSessions != null && !activeSessions.isEmpty()) {
-                log.info("[WEBHOOK-NUDGE] Encontradas {} sessÃµes ativas para processar.", activeSessions.size());
+                log.info("[WEBHOOK-NUDGE] Encontradas {} sessões ativas para processar.", activeSessions.size());
                 for (AppointmentSession session : activeSessions) {
                     processSessionUpdate(session, isManterAgendamento);
                 }
                 transferToDesk(fromPhone);
             } else {
-                log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida de {}, mas nenhuma sessÃ£o ativa encontrada.",
+                log.warn("[WEBHOOK-NUDGE] Resposta de Nudge '{}' recebida de {}, mas nenhuma sessão ativa encontrada.",
                     action, fromPhone);
             }
         } else {
@@ -74,13 +74,13 @@ public class BlipNudgeResponseHandler {
     private void transferToDesk(String fromPhone) {
         String deskBlockId = blipProperties.getBlocks().getDeskStateId();
         blipContextService.setMasterState(fromPhone, "desk@msging.net", deskBlockId);
-        log.info("[WEBHOOK-NUDGE] Transbordo concluÃ­do para {} direcionando ao Bloco: 'desk:{}'", fromPhone, deskBlockId);
+        log.info("[WEBHOOK-NUDGE] Transbordo concluído para {} direcionando ao Bloco: 'desk:{}'", fromPhone, deskBlockId);
     }
 
     private void processSessionUpdate(AppointmentSession session, boolean isManterAgendamento) {
         try {
             if (isManterAgendamento) {
-                log.info("[WEBHOOK-NUDGE] Confirmando sessÃ£o local e Feegow para sessionId={}, feegowAppointmentId={}",
+                log.info("[WEBHOOK-NUDGE] Confirmando sessão local e Feegow para sessionId={}, feegowAppointmentId={}",
                     session.getId(), session.getFeegowAppointmentId());
                 transactionTemplate.executeWithoutResult(status -> {
                     AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
@@ -91,7 +91,7 @@ public class BlipNudgeResponseHandler {
                 });
                 appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), "7");
             } else {
-                log.info("[WEBHOOK-NUDGE] Cancelando sessÃ£o local e Feegow para sessionId={}, feegowAppointmentId={}",
+                log.info("[WEBHOOK-NUDGE] Cancelando sessão local e Feegow para sessionId={}, feegowAppointmentId={}",
                     session.getId(), session.getFeegowAppointmentId());
                 transactionTemplate.executeWithoutResult(status -> {
                     AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
@@ -103,7 +103,7 @@ public class BlipNudgeResponseHandler {
                 appointmentExternalPort.updateStatus(session.getFeegowAppointmentId(), 11);
             }
         } catch (TransactionException | RestClientException | DataAccessException ex) {
-            log.error("[WEBHOOK-NUDGE] Falha ao atualizar sessÃ£o no lote. sessionId={}, erro={}",
+            log.error("[WEBHOOK-NUDGE] Falha ao atualizar sessão no lote. sessionId={}, erro={}",
                 session.getId(), ex.getMessage(), ex);
         }
     }

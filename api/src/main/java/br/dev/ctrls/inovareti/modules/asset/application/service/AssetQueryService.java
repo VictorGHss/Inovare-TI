@@ -16,13 +16,13 @@ import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
- * ServiÃ§o de consulta para ativos: encapsula o parsing de parÃ¢metros de filtro/ordenaÃ§Ã£o
+ * Serviço de consulta para ativos: encapsula o parsing de parâmetros de filtro/ordenação
  * e a montagem do DTO de resposta a partir da entidade.
  *
- * <p>Responsabilidade Ãºnica: transformaÃ§Ã£o e validaÃ§Ã£o de parÃ¢metros de leitura.
- * A resoluÃ§Ã£o de usuÃ¡rios vinculados ao ativo Ã© delegada diretamente para
- * {@link AssetResponseDTO#from(Asset)}, que deriva os dados da coleÃ§Ã£o {@code users}
- * jÃ¡ carregada pela entidade â€” eliminando a necessidade de consultas adicionais ao banco.
+ * <p>Responsabilidade única: transformação e validação de parâmetros de leitura.
+ * A resolução de usuários vinculados ao ativo é delegada diretamente para
+ * {@link AssetResponseDTO#from(Asset)}, que deriva os dados da coleção {@code users}
+ * já carregada pela entidade â€” eliminando a necessidade de consultas adicionais ao banco.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,33 +31,33 @@ public class AssetQueryService {
 
     /**
      * Monta o {@link AssetResponseDTO} a partir da entidade.
-     * Os dados multiusuÃ¡rio sÃ£o extraÃ­dos diretamente da coleÃ§Ã£o {@code asset.users}.
+     * Os dados multiusuário são extraídos diretamente da coleção {@code asset.users}.
      */
     public AssetResponseDTO toResponseDTO(Asset asset) {
         return AssetResponseDTO.from(asset);
     }
 
     /**
-     * Converte a string de status de filtro para o enum tipado, lanÃ§ando {@link BadRequestException}
-     * se o valor for invÃ¡lido.
+     * Converte a string de status de filtro para o enum tipado, lançando {@link BadRequestException}
+     * se o valor for inválido.
      */
     public AssetFilterStatus parseFilterStatus(String status) {
         try {
             return AssetFilterStatus.valueOf(status.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Status invÃ¡lido. Valores permitidos: ALL, IN_USE, IN_STOCK.");
+            throw new BadRequestException("Status inválido. Valores permitidos: ALL, IN_USE, IN_STOCK.");
         }
     }
 
     /**
-     * Converte a string de ordenaÃ§Ã£o para o enum tipado, lanÃ§ando {@link BadRequestException}
-     * se o valor for invÃ¡lido.
+     * Converte a string de ordenação para o enum tipado, lançando {@link BadRequestException}
+     * se o valor for inválido.
      */
     public AssetSortBy parseSortBy(String sortBy) {
         return switch (sortBy) {
             case "createdAt"        -> AssetSortBy.CREATED_AT;
             case "maintenanceCount" -> AssetSortBy.MAINTENANCE_COUNT;
-            default -> throw new BadRequestException("sortBy invÃ¡lido. Valores permitidos: createdAt, maintenanceCount.");
+            default -> throw new BadRequestException("sortBy inválido. Valores permitidos: createdAt, maintenanceCount.");
         };
     }
 }

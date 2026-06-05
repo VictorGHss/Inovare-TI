@@ -37,7 +37,7 @@ public class TicketTagController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<TicketTag> create(@Valid @RequestBody TicketTag tag) {
         if (ticketTagRepository.findByNameIgnoreCase(tag.getName()).isPresent()) {
-            throw new BadRequestException("JÃ¡ existe uma tag com este nome: " + tag.getName());
+            throw new BadRequestException("Já existe uma tag com este nome: " + tag.getName());
         }
         TicketTag saved = ticketTagRepository.save(tag);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -47,11 +47,11 @@ public class TicketTagController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<TicketTag> update(@PathVariable UUID id, @Valid @RequestBody TicketTag request) {
         TicketTag tag = ticketTagRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Tag nÃ£o encontrada com o id: " + id));
+                .orElseThrow(() -> new NotFoundException("Tag não encontrada com o id: " + id));
 
         var existing = ticketTagRepository.findByNameIgnoreCase(request.getName());
         if (existing.isPresent() && !existing.get().getId().equals(id)) {
-            throw new BadRequestException("JÃ¡ existe uma tag com este nome: " + request.getName());
+            throw new BadRequestException("Já existe uma tag com este nome: " + request.getName());
         }
 
         tag.setName(request.getName().trim());
@@ -67,7 +67,7 @@ public class TicketTagController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<TicketTag> toggleActive(@PathVariable UUID id) {
         TicketTag tag = ticketTagRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Tag nÃ£o encontrada com o id: " + id));
+                .orElseThrow(() -> new NotFoundException("Tag não encontrada com o id: " + id));
 
         tag.setActive(!tag.isActive());
         TicketTag saved = ticketTagRepository.save(tag);
@@ -78,7 +78,7 @@ public class TicketTagController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         TicketTag tag = ticketTagRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Tag nÃ£o encontrada com o id: " + id));
+                .orElseThrow(() -> new NotFoundException("Tag não encontrada com o id: " + id));
 
         ticketTagRepository.delete(tag);
         return ResponseEntity.noContent().build();

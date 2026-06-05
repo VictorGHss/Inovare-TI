@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o responsÃ¡vel por reconciliar identidades do Blip e purificar nÃºmeros telefÃ´nicos.
+ * Serviço responsável por reconciliar identidades do Blip e purificar números telefônicos.
  */
 @Slf4j
 @Component
@@ -47,7 +47,7 @@ public class BlipIdentityReconciler {
         Optional<BlipUserIdentityReconciliation> existing = 
                 blipUserIdentityReconciliationRepository.findByBlipGuid(blipGuid);
         if (existing.isPresent()) {
-            log.info("[RECONCILIATION] CorrespondÃªncia de identidade em cache local: GUID={} -> Telefone={}", 
+            log.info("[RECONCILIATION] Correspondência de identidade em cache local: GUID={} -> Telefone={}", 
                 blipGuid, existing.get().getPhoneNumber());
             return existing.get().getPhoneNumber();
         }
@@ -107,18 +107,18 @@ public class BlipIdentityReconciler {
                 log.info("[RECONCILIATION] Novo mapeamento de identidade salvo: GUID={} -> Telefone={} (BSUID={})", 
                     blipGuid, resolvedPhone, bsuid);
             } catch (Exception ex) {
-                log.warn("[RECONCILIATION] Falha ao salvar reconciliaÃ§Ã£o no banco local (pode ser inserÃ§Ã£o concorrente): {}", 
+                log.warn("[RECONCILIATION] Falha ao salvar reconciliação no banco local (pode ser inserção concorrente): {}", 
                     ex.getMessage());
             }
             return resolvedPhone;
         }
         
-        log.warn("[RECONCILIATION] NÃ£o foi possÃ­vel reconciliar o GUID do WhatsApp {} para nenhum nÃºmero telefÃ´nico.", blipGuid);
+        log.warn("[RECONCILIATION] Não foi possível reconciliar o GUID do WhatsApp {} para nenhum número telefônico.", blipGuid);
         return "";
     }
 
     /**
-     * Purifica o nÃºmero de telefone removendo formataÃ§Ãµes desnecessÃ¡rias.
+     * Purifica o número de telefone removendo formatações desnecessárias.
      */
     public String purifyPhoneNumber(String originalPhone) {
         if (originalPhone == null || originalPhone.isBlank()) {

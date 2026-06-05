@@ -12,8 +12,8 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.Notificati
 import lombok.RequiredArgsConstructor;
 
 /**
- * Service para criar notificaÃ§Ãµes.
- * Usado internamente por outros use cases para disparar notificaÃ§Ãµes.
+ * Service para criar notificações.
+ * Usado internamente por outros use cases para disparar notificações.
  */
 @Service
 @RequiredArgsConstructor
@@ -23,12 +23,12 @@ public class CreateNotificationService {
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Cria uma nova notificaÃ§Ã£o.
-     * @param userId o UUID do usuÃ¡rio destinatÃ¡rio
-     * @param title o tÃ­tulo da notificaÃ§Ã£o
-     * @param message a mensagem da notificaÃ§Ã£o
+     * Cria uma nova notificação.
+     * @param userId o UUID do usuário destinatário
+     * @param title o título da notificação
+     * @param message a mensagem da notificação
      * @param link o link para redirecionamento (opcional)
-     * @return a notificaÃ§Ã£o criada
+     * @return a notificação criada
      */
     public Notification create(UUID userId, String title, String message, String link) {
         Notification notification = Notification.builder()

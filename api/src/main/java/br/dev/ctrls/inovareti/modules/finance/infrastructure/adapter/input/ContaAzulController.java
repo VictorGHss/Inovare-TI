@@ -45,13 +45,13 @@ import lombok.RequiredArgsConstructor;
 @Observed
 public class ContaAzulController {
     /**
-     * Controller administrativo para integraÃ§Ã£o com Conta Azul.
-     * ExpÃµe endpoints para iniciar autorizaÃ§Ã£o OAuth, verificar status,
+     * Controller administrativo para integração com Conta Azul.
+     * Expõe endpoints para iniciar autorização OAuth, verificar status,
      * realizar callback, consultar clientes por e-mail, obter e-mails de cliente,
-     * disparar testes de envio real e forÃ§ar refresh de token.
+     * disparar testes de envio real e forçar refresh de token.
      *
-     * ObservaÃ§Ã£o: endpoints anotados com `@PreAuthorize("hasRole('ADMIN')")`
-     * devem ser acessados apenas por usuÃ¡rios administrativos.
+     * Observação: endpoints anotados com `@PreAuthorize("hasRole('ADMIN')")`
+     * devem ser acessados apenas por usuários administrativos.
      */
 
     private final ContaAzulTokenService contaAzulTokenService;
@@ -61,13 +61,13 @@ public class ContaAzulController {
     private final FrontendProperties frontendProperties;
 
     private static final Logger logger = LoggerFactory.getLogger(ContaAzulController.class);
-        // Limite simples em memÃ³ria (por principal+IP) como fallback quando Redis nÃ£o estiver disponÃ­vel.
+        // Limite simples em memória (por principal+IP) como fallback quando Redis não estiver disponível.
         private static final java.util.concurrent.ConcurrentMap<String, java.util.concurrent.atomic.AtomicInteger> FORCE_REFRESH_COUNT =
             new java.util.concurrent.ConcurrentHashMap<>();
         private static final java.util.concurrent.ConcurrentMap<String, Long> FORCE_REFRESH_WINDOW_START =
             new java.util.concurrent.ConcurrentHashMap<>();
         private static final long FORCE_REFRESH_WINDOW_MS = 60_000L; // 1 minuto
-        private static final int FORCE_REFRESH_MAX = 3; // mÃ¡ximo 3 requisiÃ§Ãµes por janela por usuÃ¡rio+IP
+        private static final int FORCE_REFRESH_MAX = 3; // máximo 3 requisições por janela por usuário+IP
 
         @Autowired(required = false)
         private ContaAzulMetrics contaAzulMetrics;
@@ -82,8 +82,8 @@ public class ContaAzulController {
     }
 
     /**
-     * Retorna o status atual da autorizaÃ§Ã£o da integraÃ§Ã£o com a Conta Azul.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Retorna o status atual da autorização da integração com a Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @GetMapping("/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
@@ -116,8 +116,8 @@ public class ContaAzulController {
     }
 
     /**
-     * Verifica a existÃªncia de um cliente na Conta Azul pelo e-mail informado.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Verifica a existência de um cliente na Conta Azul pelo e-mail informado.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @GetMapping("/check-customer/{email}")
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
@@ -128,7 +128,7 @@ public class ContaAzulController {
 
     /**
      * Busca o e-mail de um cliente na Conta Azul pelo ID do cliente.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @GetMapping("/customer-email/{customerId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
@@ -139,7 +139,7 @@ public class ContaAzulController {
 
     /**
      * Dispara um teste real de envio de venda para a Conta Azul.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PostMapping("/teste-envio-real/{saleId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
@@ -149,8 +149,8 @@ public class ContaAzulController {
     }
 
     /**
-     * ForÃ§a o refresh e recarga das credenciais da Conta Azul a partir do banco.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Força o refresh e recarga das credenciais da Conta Azul a partir do banco.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PostMapping("/force-refresh")
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
@@ -163,7 +163,7 @@ public class ContaAzulController {
         String key = who + ":" + ip;
         long now = System.currentTimeMillis();
         if (redisRateLimiter != null) {
-            // chave distribuÃ­da no Redis; janela de 1 minuto e mÃ¡ximo de 3 requisiÃ§Ãµes
+            // chave distribuída no Redis; janela de 1 minuto e máximo de 3 requisições
             var redisKey = "contaazul:force_refresh:" + key;
             boolean acquired = redisRateLimiter.tryAcquire(redisKey, FORCE_REFRESH_MAX, java.time.Duration.ofMillis(FORCE_REFRESH_WINDOW_MS));
             if (!acquired) {
@@ -175,7 +175,7 @@ public class ContaAzulController {
                         .body(Map.of("erro", "Aguarde antes de requisitar novo refresh"));
             }
         } else {
-            // fallback em memÃ³ria: contador + janela deslizante simples
+            // fallback em memória: contador + janela deslizante simples
             Long windowStart = FORCE_REFRESH_WINDOW_START.getOrDefault(key, 0L);
             java.util.concurrent.atomic.AtomicInteger counter = FORCE_REFRESH_COUNT.computeIfAbsent(key, k -> new java.util.concurrent.atomic.AtomicInteger(0));
             if ((now - windowStart) >= FORCE_REFRESH_WINDOW_MS) {
@@ -197,7 +197,7 @@ public class ContaAzulController {
 
         try {
             var reloaded = contaAzulTokenService.forceRefreshAndReloadFromDatabase();
-            // no fallback em memÃ³ria jÃ¡ mantemos contadores; nada a fazer quando Redis presente
+            // no fallback em memória já mantemos contadores; nada a fazer quando Redis presente
             return ResponseEntity.ok(Map.of(
                     "autorizado", true,
                     "expiraEm", reloaded.getExpiresAt(),

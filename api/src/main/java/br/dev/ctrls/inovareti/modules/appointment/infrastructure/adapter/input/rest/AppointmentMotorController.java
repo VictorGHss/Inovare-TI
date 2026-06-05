@@ -32,8 +32,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Controlador de entrada REST responsÃ¡vel por expor as rotas HTTP do Motor de Agendamentos.
- * Todas as lÃ³gicas de enriquecimento e cruzamento de dados foram delegadas ao {@link AppointmentEnrichmentService}.
+ * Controlador de entrada REST responsável por expor as rotas HTTP do Motor de Agendamentos.
+ * Todas as lógicas de enriquecimento e cruzamento de dados foram delegadas ao {@link AppointmentEnrichmentService}.
  */
 @Slf4j
 @RestController

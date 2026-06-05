@@ -40,12 +40,12 @@ public class AssetService {
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
-        // Valida e busca os usuÃ¡rios associados, se informados no payload
+        // Valida e busca os usuários associados, se informados no payload
         Set<User> usuarios = new HashSet<>();
         if (request.userIds() != null && !request.userIds().isEmpty()) {
             for (java.util.UUID uid : request.userIds()) {
                 User u = userRepository.findById(uid)
-                        .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com id: " + uid));
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
                 usuarios.add(u);
             }
         }
@@ -61,10 +61,10 @@ public class AssetService {
             String patrimonyCode = quantity > 1 ? basePatrimonyCode + "-" + index : basePatrimonyCode;
 
             if (assetRepository.existsByPatrimonyCode(patrimonyCode)) {
-                throw new BadRequestException("CÃ³digo de patrimÃ´nio jÃ¡ existe: " + patrimonyCode);
+                throw new BadRequestException("Código de patrimônio já existe: " + patrimonyCode);
             }
 
-            // Popula a coleÃ§Ã£o de usuÃ¡rios com os usuÃ¡rios associados
+            // Popula a coleção de usuários com os usuários associados
             Set<User> usuariosParaAtivo = new HashSet<>(usuarios);
 
             Asset asset = Asset.builder()
@@ -94,10 +94,10 @@ public class AssetService {
         AssetCategory category = resolveCategory(request.categoryId());
 
         Asset asset = assetRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Ativo nÃ£o encontrado com id: " + id));
+                .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + id));
 
-        // Atualiza a coleÃ§Ã£o de usuÃ¡rios: se userIds foi fornecido, substitui pelos novos usuÃ¡rios;
-        // caso contrÃ¡rio, mantÃ©m a coleÃ§Ã£o inalterada.
+        // Atualiza a coleção de usuários: se userIds foi fornecido, substitui pelos novos usuários;
+        // caso contrário, mantém a coleção inalterada.
         if (request.userIds() != null) {
             if (asset.getUsers() == null) {
                 asset.setUsers(new java.util.HashSet<>());
@@ -105,7 +105,7 @@ public class AssetService {
             asset.getUsers().clear();
             for (java.util.UUID uid : request.userIds()) {
                 User novoUsuario = userRepository.findById(uid)
-                        .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com id: " + uid));
+                        .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + uid));
                 asset.getUsers().add(novoUsuario);
             }
         }
@@ -124,7 +124,7 @@ public class AssetService {
         }
 
         return assetCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new NotFoundException("Categoria de ativo nÃ£o encontrada com id: " + categoryId));
+                .orElseThrow(() -> new NotFoundException("Categoria de ativo não encontrada com id: " + categoryId));
     }
 }
 

@@ -17,8 +17,8 @@ import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort
 import lombok.RequiredArgsConstructor;
 
 /**
- * Caso de uso: redefine a senha de um usuÃ¡rio para o valor padrÃ£o "Mudar@123"
- * e obriga o usuÃ¡rio a trocar a senha no prÃ³ximo login.
+ * Caso de uso: redefine a senha de um usuário para o valor padrão "Mudar@123"
+ * e obriga o usuário a trocar a senha no próximo login.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,7 +34,7 @@ public class ResetUserPasswordUseCase {
     @Transactional
     public void execute(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
 
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
         user.setMustChangePassword(true);

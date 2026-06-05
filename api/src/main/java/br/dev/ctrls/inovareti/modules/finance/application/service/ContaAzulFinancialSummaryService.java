@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o que atua como orquestrador da camada de aplicaÃ§Ã£o para recuperar o resumo financeiro mensal.
+ * Serviço que atua como orquestrador da camada de aplicação para recuperar o resumo financeiro mensal.
  */
 @Slf4j
 @Service
@@ -126,7 +126,7 @@ public class ContaAzulFinancialSummaryService {
         try {
             return contaAzulReceivablesFetcher.fetchReceivedParcels(accessToken);
         } catch (Exception ex) {
-            log.warn("Falha ao consultar parcelas RECEBIDO para cÃ¡lculo real por baixas.", ex);
+            log.warn("Falha ao consultar parcelas RECEBIDO para cálculo real por baixas.", ex);
             return new ReceivedParcelsResult(List.of(), false, null);
         }
     }

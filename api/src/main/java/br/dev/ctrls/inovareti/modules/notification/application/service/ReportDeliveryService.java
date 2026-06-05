@@ -59,7 +59,7 @@ public class ReportDeliveryService {
                 helper.addAttachment(attachmentFileName, new ByteArrayResource(attachmentBytes), contentType);
             }
         } catch (MessagingException ex) {
-            throw new IllegalStateException("Falha ao montar mensagem SMTP de relatÃ³rio.", ex);
+            throw new IllegalStateException("Falha ao montar mensagem SMTP de relatório.", ex);
         }
 
         mailSender.send(message);
@@ -82,7 +82,7 @@ public class ReportDeliveryService {
         }
 
         if (!StringUtils.hasText(destinoFinal)) {
-            throw new IllegalStateException("DestinatÃ¡rio final de e-mail estÃ¡ vazio apÃ³s resoluÃ§Ã£o do modo de teste.");
+            throw new IllegalStateException("Destinatário final de e-mail está vazio após resolução do modo de teste.");
         }
 
         return destinoFinal;
@@ -94,7 +94,7 @@ public class ReportDeliveryService {
 
     private void validateConfiguration() {
         if (!StringUtils.hasText(fromEmail) || !StringUtils.hasText(fromName)) {
-            throw new IllegalStateException("ConfiguraÃ§Ã£o SMTP invÃ¡lida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name sÃ£o obrigatÃ³rios.");
+            throw new IllegalStateException("Configuração SMTP inválida: app.financeiro.smtp.from-email e app.financeiro.smtp.from-name são obrigatórios.");
         }
     }
 

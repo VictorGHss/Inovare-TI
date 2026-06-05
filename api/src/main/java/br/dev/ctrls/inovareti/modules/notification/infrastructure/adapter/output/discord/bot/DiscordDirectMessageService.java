@@ -23,12 +23,12 @@ import net.dv8tion.jda.api.utils.FileUpload;
 public class DiscordDirectMessageService {
 
     /**
-     * ServiÃƒÂ§o assÃƒÂ­ncrono para envio de mensagens diretas (DM) via Discord.
+     * ServiíÂ§o assíÂ­ncrono para envio de mensagens diretas (DM) via Discord.
      *
-     * Ele encapsula a lÃƒÂ³gica de construÃƒÂ§ÃƒÂ£o de embeds, verificaÃƒÂ§ÃƒÂ£o de disponibilidade
-     * do cliente JDA e trata casos comuns (usuÃƒÂ¡rio sem Discord vinculado,
-     * JDA indisponÃƒÂ­vel, etc.). As mensagens exibidas aos usuÃƒÂ¡rios sÃƒÂ£o em
-     * PortuguÃƒÂªs e voltadas para operaÃƒÂ§ÃƒÂµes do domÃƒÂ­nio (chamados, 2FA, recibos).
+     * Ele encapsula a líÂ³gica de construíÂ§íÂ£o de embeds, verificaíÂ§íÂ£o de disponibilidade
+     * do cliente JDA e trata casos comuns (usuíÂ¡rio sem Discord vinculado,
+     * JDA indisponíÂ­vel, etc.). As mensagens exibidas aos usuíÂ¡rios síÂ£o em
+     * PortuguíÂªs e voltadas para operaíÂ§íÂµes do domíÂ­nio (chamados, 2FA, recibos).
      */
 
     private static final int CLINIC_BRAND_COLOR = 0xF97316;
@@ -42,13 +42,13 @@ public class DiscordDirectMessageService {
     @Async
     public void sendTicketUpdateDM(Ticket ticket, String title, String description) {
         /**
-         * Envia uma DM para o solicitante do chamado com um resumo da atualizaÃƒÂ§ÃƒÂ£o.
-         * MÃƒÂ©todo assÃƒÂ­ncrono que retorna imediatamente; falhas sÃƒÂ£o registradas em
-         * log, mas nÃƒÂ£o propagadas.
+         * Envia uma DM para o solicitante do chamado com um resumo da atualizaíÂ§íÂ£o.
+         * MíÂ©todo assíÂ­ncrono que retorna imediatamente; falhas síÂ£o registradas em
+         * log, mas níÂ£o propagadas.
          *
          * @param ticket entidade do chamado
-         * @param title tÃƒÂ­tulo do embed
-         * @param description descriÃƒÂ§ÃƒÂ£o/conteÃƒÂºdo da mensagem
+         * @param title tíÂ­tulo do embed
+         * @param description descriíÂ§íÂ£o/conteíÂºdo da mensagem
          */
         if (ticket == null || ticket.getRequester() == null) {
             log.warn("Ignoring Discord DM: ticket or requester is null");
@@ -79,13 +79,13 @@ public class DiscordDirectMessageService {
                         .alertType("DISCORD_DM_FAILURE")
                         .severity("ERROR")
                         .source("DiscordDirectMessageService")
-                        .title("JDA nÃƒÂ£o disponÃƒÂ­vel para envio de DM")
+                        .title("JDA níÂ£o disponíÂ­vel para envio de DM")
                         .details("JDA provider retornou null ao tentar enviar DM")
                         .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
                         .build();
                 systemAlertRepository.save(alert);
             } catch (Exception ex) {
-                log.warn("Falha ao salvar SystemAlert apÃƒÂ³s JDA indisponÃƒÂ­vel: {}", ex.getMessage(), ex);
+                log.warn("Falha ao salvar SystemAlert apíÂ³s JDA indisponíÂ­vel: {}", ex.getMessage(), ex);
             }
             return;
         }
@@ -144,7 +144,7 @@ public class DiscordDirectMessageService {
                             .alertType("DISCORD_DM_FAILURE")
                             .severity("ERROR")
                             .source("DiscordDirectMessageService")
-                            .title("Falha ao recuperar usuÃƒÂ¡rio no Discord")
+                            .title("Falha ao recuperar usuíÂ¡rio no Discord")
                             .details(error != null ? error.getMessage() : "Unknown error")
                             .context(Map.of("ticketId", ticketId.toString(), "discordUserId", discordUserId))
                             .build();
@@ -157,39 +157,39 @@ public class DiscordDirectMessageService {
     }
 
     /**
-     * Envia um arquivo PDF via DM para o usuÃƒÂ¡rio especificado no Discord de forma assÃƒÂ­ncrona.
-     * Caso o envio da DM falhe em qualquer etapa da fila assÃƒÂ­ncrona da JDA (erro ao carregar
-     * usuÃƒÂ¡rio, erro ao abrir canal privado, ou erro de rede ao enviar o arquivo), executa o
+     * Envia um arquivo PDF via DM para o usuíÂ¡rio especificado no Discord de forma assíÂ­ncrona.
+     * Caso o envio da DM falhe em qualquer etapa da fila assíÂ­ncrona da JDA (erro ao carregar
+     * usuíÂ¡rio, erro ao abrir canal privado, ou erro de rede ao enviar o arquivo), executa o
      * callback de fallback fornecido para rotear a mensagem ao canal operacional (webhook).
      *
-     * @param discordUserId ID do usuÃƒÂ¡rio alvo no Discord
-     * @param pdfBytes      conteÃƒÂºdo binÃƒÂ¡rio do PDF a ser anexado
+     * @param discordUserId ID do usuíÂ¡rio alvo no Discord
+     * @param pdfBytes      conteíÂºdo biníÂ¡rio do PDF a ser anexado
      * @param filename      nome do arquivo PDF anexado
      * @param message       mensagem de corpo do texto
-     * @param fallback      aÃƒÂ§ÃƒÂ£o de contingÃƒÂªncia a ser executada em caso de falha assÃƒÂ­ncrona
+     * @param fallback      aíÂ§íÂ£o de contingíÂªncia a ser executada em caso de falha assíÂ­ncrona
      */
     @Async
     public void sendReportPdfDMToUser(String discordUserId, byte[] pdfBytes, String filename, String message, Runnable fallback) {
         if (discordUserId == null || discordUserId.isBlank()) {
-            log.info("Ignorando DM de PDF do relatÃƒÂ³rio: usuÃƒÂ¡rio alvo nÃƒÂ£o possui ID do Discord vinculado.");
+            log.info("Ignorando DM de PDF do relatíÂ³rio: usuíÂ¡rio alvo níÂ£o possui ID do Discord vinculado.");
             if (fallback != null) fallback.run();
             return;
         }
 
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
-            log.warn("Ignorando DM de PDF do relatÃƒÂ³rio: JDA nÃƒÂ£o estÃƒÂ¡ disponÃƒÂ­vel no contexto do Spring.");
+            log.warn("Ignorando DM de PDF do relatíÂ³rio: JDA níÂ£o estíÂ¡ disponíÂ­vel no contexto do Spring.");
             if (fallback != null) fallback.run();
             return;
         }
 
         if (pdfBytes == null || pdfBytes.length == 0 || filename == null || filename.isBlank()) {
-            log.warn("Ignorando DM de PDF do relatÃƒÂ³rio: bytes do PDF invÃƒÂ¡lidos ou nome do arquivo vazio.");
+            log.warn("Ignorando DM de PDF do relatíÂ³rio: bytes do PDF invíÂ¡lidos ou nome do arquivo vazio.");
             if (fallback != null) fallback.run();
             return;
         }
 
-        // Recupera o usuÃƒÂ¡rio do Discord assincronamente e inicia a abertura do canal de DM privado
+        // Recupera o usuíÂ¡rio do Discord assincronamente e inicia a abertura do canal de DM privado
         jda.retrieveUserById(discordUserId).queue(
             user -> user.openPrivateChannel().queue(
                 channel -> {
@@ -198,24 +198,24 @@ public class DiscordDirectMessageService {
                             channel.sendMessage(message).queue();
                         }
                         channel.sendFiles(FileUpload.fromData(pdfBytes, filename)).queue(
-                            success -> log.info("DM do PDF do relatÃƒÂ³rio enviada com sucesso para o usuÃƒÂ¡rio {}", discordUserId),
+                            success -> log.info("DM do PDF do relatíÂ³rio enviada com sucesso para o usuíÂ¡rio {}", discordUserId),
                             error -> {
-                                log.warn("Falha assÃƒÂ­ncrona ao enviar DM do PDF do relatÃƒÂ³rio para o usuÃƒÂ¡rio {}", discordUserId, error);
+                                log.warn("Falha assíÂ­ncrona ao enviar DM do PDF do relatíÂ³rio para o usuíÂ¡rio {}", discordUserId, error);
                                 if (fallback != null) fallback.run();
                             }
                         );
                     } catch (Exception ex) {
-                        log.warn("Erro inesperado ao despachar DM de PDF do relatÃƒÂ³rio para o usuÃƒÂ¡rio {}", discordUserId, ex);
+                        log.warn("Erro inesperado ao despachar DM de PDF do relatíÂ³rio para o usuíÂ¡rio {}", discordUserId, ex);
                         if (fallback != null) fallback.run();
                     }
                 },
                 error -> {
-                    log.warn("Falha assÃƒÂ­ncrona ao abrir canal de DM privado para o usuÃƒÂ¡rio {}", discordUserId, error);
+                    log.warn("Falha assíÂ­ncrona ao abrir canal de DM privado para o usuíÂ¡rio {}", discordUserId, error);
                     if (fallback != null) fallback.run();
                 }
             ),
             error -> {
-                log.warn("Falha assÃƒÂ­ncrona ao recuperar usuÃƒÂ¡rio no Discord via ID {}", discordUserId, error);
+                log.warn("Falha assíÂ­ncrona ao recuperar usuíÂ¡rio no Discord via ID {}", discordUserId, error);
                 if (fallback != null) fallback.run();
             }
         );
@@ -231,12 +231,12 @@ public class DiscordDirectMessageService {
     }
 
     /**
-     * Envia o cÃƒÂ³digo de recuperaÃƒÂ§ÃƒÂ£o do 2FA ao usuÃƒÂ¡rio via DM no Discord.
-     * ExecuÃƒÂ§ÃƒÂ£o sÃƒÂ­ncrona para garantir o retorno do cÃƒÂ³digo antes da resposta da API.
+     * Envia o cíÂ³digo de recuperaíÂ§íÂ£o do 2FA ao usuíÂ¡rio via DM no Discord.
+     * ExecuíÂ§íÂ£o síÂ­ncrona para garantir o retorno do cíÂ³digo antes da resposta da API.
      *
-     * @param discordUserId ID do usuÃƒÂ¡rio no Discord
-     * @param code          CÃƒÂ³digo de 8 caracteres gerado para a recuperaÃƒÂ§ÃƒÂ£o
-     * @param userName      Nome exibido no embed para contextualizar ao usuÃƒÂ¡rio
+     * @param discordUserId ID do usuíÂ¡rio no Discord
+     * @param code          CíÂ³digo de 8 caracteres gerado para a recuperaíÂ§íÂ£o
+     * @param userName      Nome exibido no embed para contextualizar ao usuíÂ¡rio
      */
     public void sendTwoFactorResetCode(String discordUserId, String code, String userName) {
         JDA jda = jdaProvider.getIfAvailable();
@@ -252,13 +252,13 @@ public class DiscordDirectMessageService {
 
         var embed = new EmbedBuilder()
             .setColor(CLINIC_BRAND_COLOR)
-            .setTitle("Ã°Å¸â€Â RecuperaÃƒÂ§ÃƒÂ£o de AutenticaÃƒÂ§ÃƒÂ£o 2FA Ã¢â‚¬â€ Inovare TI")
+            .setTitle("í°Å¸â€Â RecuperaíÂ§íÂ£o de AutenticaíÂ§íÂ£o 2FA ââ‚¬â€ Inovare TI")
             .setDescription(
-                "OlÃƒÂ¡, **" + userName + "**!\n\n"
-                + "Seu cÃƒÂ³digo de recuperaÃƒÂ§ÃƒÂ£o para redefinir o 2FA ÃƒÂ©:\n\n"
+                "OlíÂ¡, **" + userName + "**!\n\n"
+                + "Seu cíÂ³digo de recuperaíÂ§íÂ£o para redefinir o 2FA íÂ©:\n\n"
                 + "```\n" + code + "\n```\n"
-                + "Ã¢Å¡Â Ã¯Â¸Â O cÃƒÂ³digo expira em **15 minutos** e ÃƒÂ© de uso ÃƒÂºnico.\n"
-                + "Se vocÃƒÂª nÃƒÂ£o solicitou esta recuperaÃƒÂ§ÃƒÂ£o, ignore esta mensagem.")
+                + "âÅ¡Â í¯Â¸Â O cíÂ³digo expira em **15 minutos** e íÂ© de uso íÂºnico.\n"
+                + "Se vocíÂª níÂ£o solicitou esta recuperaíÂ§íÂ£o, ignore esta mensagem.")
             .build();
 
         try {
@@ -276,7 +276,7 @@ public class DiscordDirectMessageService {
     }
 
     /**
-     * Notifica o usuÃƒÂ¡rio quando um administrador reseta o seu 2FA.
+     * Notifica o usuíÂ¡rio quando um administrador reseta o seu 2FA.
      */
     public void sendTwoFactorResetByAdminNotification(String discordUserId, String targetUserName, String adminName) {
         JDA jda = jdaProvider.getIfAvailable();
@@ -292,12 +292,12 @@ public class DiscordDirectMessageService {
 
         var embed = new EmbedBuilder()
             .setColor(CLINIC_BRAND_COLOR)
-            .setTitle("Ã°Å¸â€Â Seu 2FA foi resetado")
+            .setTitle("í°Å¸â€Â Seu 2FA foi resetado")
             .setDescription(
-                "OlÃƒÂ¡, **" + targetUserName + "**!\n\n"
-                    + "Seu Segundo Fator de AutenticaÃƒÂ§ÃƒÂ£o (2FA) foi resetado por um administrador.\n"
-                    + "Por favor, reconfigure-o no seu prÃƒÂ³ximo acesso.\n\n"
-                    + "Administrador responsÃƒÂ¡vel: **" + adminName + "**")
+                "OlíÂ¡, **" + targetUserName + "**!\n\n"
+                    + "Seu Segundo Fator de AutenticaíÂ§íÂ£o (2FA) foi resetado por um administrador.\n"
+                    + "Por favor, reconfigure-o no seu príÂ³ximo acesso.\n\n"
+                    + "Administrador responsíÂ¡vel: **" + adminName + "**")
             .build();
 
         try {
@@ -315,7 +315,7 @@ public class DiscordDirectMessageService {
     }
 
     /**
-     * Envia notificaÃƒÂ§ÃƒÂ£o de recibo financeiro via DM ao mÃƒÂ©dico vinculado.
+     * Envia notificaíÂ§íÂ£o de recibo financeiro via DM ao míÂ©dico vinculado.
      */
     public void sendFinancialReceiptNotification(String discordUserId, String medicoNome, String parcelaId) {
         JDA jda = jdaProvider.getIfAvailable();
@@ -329,10 +329,10 @@ public class DiscordDirectMessageService {
 
         var embed = new EmbedBuilder()
             .setColor(CLINIC_BRAND_COLOR)
-            .setTitle("Ã°Å¸â€œâ€ž Recibo Financeiro DisponÃƒÂ­vel")
+            .setTitle("í°Å¸â€œâ€ž Recibo Financeiro DisponíÂ­vel")
             .setDescription(
-                "OlÃƒÂ¡, **" + medicoNome + "**!\n\n"
-                    + "Seu recibo da parcela **" + parcelaId + "** foi processado com sucesso no mÃƒÂ³dulo financeiro.")
+                "OlíÂ¡, **" + medicoNome + "**!\n\n"
+                    + "Seu recibo da parcela **" + parcelaId + "** foi processado com sucesso no míÂ³dulo financeiro.")
             .build();
 
         try {

@@ -13,11 +13,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o responsÃ¡vel por registrar alertas crÃ­ticos do fluxo de recibos.
+ * Serviço responsável por registrar alertas críticos do fluxo de recibos.
  *
- * ObservaÃ§Ã£o:
- * o registro do SystemAlert tambÃ©m publica evento assÃ­ncrono,
- * que Ã© encaminhado ao Discord pelo listener financeiro.
+ * Observação:
+ * o registro do SystemAlert também publica evento assíncrono,
+ * que é encaminhado ao Discord pelo listener financeiro.
  */
 @Slf4j
 @Service
@@ -53,7 +53,7 @@ public class ReceiptAlertService {
                 "FINANCEIRO_RECEIPT_CRITICAL",
                 "HIGH");
 
-        log.error("Alerta crÃ­tico registrado para baixa {} apÃ³s {} tentativas.", baixaId, attempts);
+        log.error("Alerta crítico registrado para baixa {} após {} tentativas.", baixaId, attempts);
     }
 }
 

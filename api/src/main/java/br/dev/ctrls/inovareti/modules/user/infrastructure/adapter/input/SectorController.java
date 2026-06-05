@@ -41,7 +41,7 @@ public class SectorController {
     /**
      * Cria um novo setor.
      * Retorna 201 Created com o setor criado no corpo da resposta.
-     * Requer permissÃ£o ADMIN.
+     * Requer permissão ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -53,7 +53,7 @@ public class SectorController {
     /**
      * Lista os setores cadastrados, opcionalmente filtrando apenas os ativos.
      * Retorna 200 OK com a lista.
-     * Requer autenticaÃ§Ã£o.
+     * Requer autenticação.
      */
     @PreAuthorize("isAuthenticated()")
     @GetMapping
@@ -64,7 +64,7 @@ public class SectorController {
 
     /**
      * Atualiza o nome de um setor existente.
-     * Requer permissÃ£o ADMIN.
+     * Requer permissão ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PutMapping("/{id}")
@@ -76,8 +76,8 @@ public class SectorController {
     }
 
     /**
-     * Alterna o estado de ativaÃ§Ã£o (ativo/inativo) de um setor.
-     * Requer permissÃ£o ADMIN.
+     * Alterna o estado de ativação (ativo/inativo) de um setor.
+     * Requer permissão ADMIN.
      */
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PatchMapping("/{id}/toggle-active")

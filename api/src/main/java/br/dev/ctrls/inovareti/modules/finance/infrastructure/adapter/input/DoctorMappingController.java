@@ -42,8 +42,8 @@ public class DoctorMappingController {
     private final UserRepositoryPort userRepository;
 
     /**
-     * Lista os mapeamentos de e-mails de mÃ©dicos para recibos.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Lista os mapeamentos de e-mails de médicos para recibos.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @GetMapping
@@ -57,8 +57,8 @@ public class DoctorMappingController {
     }
 
     /**
-     * Cria um novo mapeamento de e-mail de mÃ©dico para a Conta Azul.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Cria um novo mapeamento de e-mail de médico para a Conta Azul.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PostMapping
@@ -69,12 +69,12 @@ public class DoctorMappingController {
         String doctorCpfCnpj = normalizeNullable(request.doctorCpfCnpj());
 
         if (doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuid).isPresent()) {
-            throw new BadRequestException("JÃ¡ existe mapeamento para o UUID informado.");
+            throw new BadRequestException("Já existe mapeamento para o UUID informado.");
         }
 
         User linkedUser = resolveLinkedUser(request.userId());
         if (linkedUser == null && !StringUtils.hasText(doctorEmail)) {
-            throw new BadRequestException("Informe um usuÃ¡rio vinculado ou um e-mail de fallback.");
+            throw new BadRequestException("Informe um usuário vinculado ou um e-mail de fallback.");
         }
 
         DoctorEmailMapping saved = doctorEmailMappingRepository.save(DoctorEmailMapping.builder()
@@ -85,7 +85,7 @@ public class DoctorMappingController {
                 .doctorCpfCnpj(doctorCpfCnpj)
                 .build());
 
-        log.info("Mapeamento de mÃ©dico criado com sucesso. customerUuid={}, userId={}, emailFallback={}",
+        log.info("Mapeamento de médico criado com sucesso. customerUuid={}, userId={}, emailFallback={}",
                 customerUuid,
                 linkedUser != null ? linkedUser.getId() : null,
                 doctorEmail);
@@ -93,8 +93,8 @@ public class DoctorMappingController {
     }
 
     /**
-     * Atualiza um mapeamento existente de e-mail de mÃ©dico.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Atualiza um mapeamento existente de e-mail de médico.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @PutMapping("/{id}")
@@ -102,7 +102,7 @@ public class DoctorMappingController {
             @PathVariable UUID id,
             @RequestBody @Valid UpsertDoctorMappingRequest request) {
         DoctorEmailMapping mapping = doctorEmailMappingRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Mapeamento de mÃ©dico nÃ£o encontrado."));
+                .orElseThrow(() -> new NotFoundException("Mapeamento de médico não encontrado."));
 
         String customerUuid = request.contaAzulCustomerUuid().trim();
         String doctorName = normalizeNullable(request.doctorName());
@@ -111,12 +111,12 @@ public class DoctorMappingController {
         doctorEmailMappingRepository.findByContaAzulCustomerUuid(customerUuid)
                 .filter(existing -> !existing.getId().equals(id))
                 .ifPresent(existing -> {
-                    throw new BadRequestException("JÃ¡ existe mapeamento para o UUID informado.");
+                    throw new BadRequestException("Já existe mapeamento para o UUID informado.");
                 });
 
         User linkedUser = resolveLinkedUser(request.userId());
         if (linkedUser == null && !StringUtils.hasText(doctorEmail)) {
-            throw new BadRequestException("Informe um usuÃ¡rio vinculado ou um e-mail de fallback.");
+            throw new BadRequestException("Informe um usuário vinculado ou um e-mail de fallback.");
         }
 
         mapping.setUser(linkedUser);
@@ -129,7 +129,7 @@ public class DoctorMappingController {
         }
 
         DoctorEmailMapping saved = doctorEmailMappingRepository.save(mapping);
-        log.info("Mapeamento de mÃ©dico atualizado com sucesso. id={}, customerUuid={}, userId={}, emailFallback={}",
+        log.info("Mapeamento de médico atualizado com sucesso. id={}, customerUuid={}, userId={}, emailFallback={}",
                 id,
                 customerUuid,
                 linkedUser != null ? linkedUser.getId() : null,
@@ -139,17 +139,17 @@ public class DoctorMappingController {
     }
 
     /**
-     * Remove um mapeamento existente de e-mail de mÃ©dico.
-     * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+     * Remove um mapeamento existente de e-mail de médico.
+     * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMapping(@PathVariable UUID id) {
         DoctorEmailMapping mapping = doctorEmailMappingRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Mapeamento de mÃ©dico nÃ£o encontrado."));
+                .orElseThrow(() -> new NotFoundException("Mapeamento de médico não encontrado."));
 
         doctorEmailMappingRepository.delete(mapping);
-        log.info("Mapeamento de mÃ©dico removido com sucesso. id={}, customerUuid={}", id, mapping.getContaAzulCustomerUuid());
+        log.info("Mapeamento de médico removido com sucesso. id={}, customerUuid={}", id, mapping.getContaAzulCustomerUuid());
 
         return ResponseEntity.noContent().build();
     }
@@ -181,7 +181,7 @@ public class DoctorMappingController {
         }
 
         return userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado para o userId informado."));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado para o userId informado."));
     }
 
     private String normalizeNullable(String value) {
@@ -195,9 +195,9 @@ public class DoctorMappingController {
     public record UpsertDoctorMappingRequest(
             UUID userId,
             String doctorName,
-            @NotBlank(message = "O UUID do cliente da Conta Azul Ã© obrigatÃ³rio.")
+            @NotBlank(message = "O UUID do cliente da Conta Azul é obrigatório.")
             String contaAzulCustomerUuid,
-            @Email(message = "Informe um e-mail vÃ¡lido para o mÃ©dico.")
+            @Email(message = "Informe um e-mail válido para o médico.")
             String doctorEmail,
             String doctorCpfCnpj) {
     }

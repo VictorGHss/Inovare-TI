@@ -72,7 +72,7 @@ public class EmailRetryScheduler {
                 }
             }
         } catch (RuntimeException ex) {
-            log.error("Falha geral no scheduler de retry financeiro. O serviÃ§o continuarÃ¡ ativo para prÃ³xima execuÃ§Ã£o.", ex);
+            log.error("Falha geral no scheduler de retry financeiro. O serviço continuará ativo para próxima execução.", ex);
         }
     }
 

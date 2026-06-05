@@ -20,10 +20,10 @@ import br.dev.ctrls.inovareti.modules.user.application.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Caso de uso: cria um novo usuÃ¡rio no sistema.
+ * Caso de uso: cria um novo usuário no sistema.
  * Responsabilidades:
  *   1. Verificar unicidade do e-mail.
- *   2. Validar existÃªncia do setor.
+ *   2. Validar existência do setor.
  *   3. Gerar hash BCrypt da senha.
  *   4. Persistir e retornar o DTO de resposta.
  */
@@ -38,12 +38,12 @@ public class CreateUserUseCase {
     private final AuditLogService auditLogService;
 
     /**
-     * Executa a criaÃ§Ã£o do usuÃ¡rio.
+     * Executa a criação do usuário.
      *
-     * @param request DTO com os dados do novo usuÃ¡rio (senha em texto puro)
-     * @return DTO com os dados pÃºblicos do usuÃ¡rio criado
-     * @throws ConflictException  se o e-mail jÃ¡ estiver cadastrado
-     * @throws NotFoundException  se o sectorId nÃ£o corresponder a um setor existente
+     * @param request DTO com os dados do novo usuário (senha em texto puro)
+     * @return DTO com os dados públicos do usuário criado
+     * @throws ConflictException  se o e-mail já estiver cadastrado
+     * @throws NotFoundException  se o sectorId não corresponder a um setor existente
      */
     @Transactional
     public UserResponseDTO execute(UserRequestDTO request) {
@@ -53,19 +53,19 @@ public class CreateUserUseCase {
 
         if (userRepository.existsByEmail(request.email())) {
             throw new ConflictException(
-                    "JÃ¡ existe um usuÃ¡rio com o e-mail: " + request.email()
+                    "Já existe um usuário com o e-mail: " + request.email()
             );
         }
 
         if (contaAzulId != null && userRepository.existsByContaAzulId(contaAzulId)) {
             throw new ConflictException(
-                    "JÃ¡ existe um usuÃ¡rio com o ID Conta Azul: " + contaAzulId
+                    "Já existe um usuário com o ID Conta Azul: " + contaAzulId
             );
         }
 
         Sector sector = sectorRepository.findById(request.sectorId())
                 .orElseThrow(() -> new NotFoundException(
-                        "Setor nÃ£o encontrado com o id: " + request.sectorId()
+                        "Setor não encontrado com o id: " + request.sectorId()
                 ));
 
         User user = User.builder()
@@ -76,7 +76,7 @@ public class CreateUserUseCase {
                 .sector(sector)
                 .location(request.location() != null && !request.location().isBlank() 
                         ? request.location() 
-                        : "NÃ£o especificado")
+                        : "Não especificado")
                 .discordUserId(request.discordUserId())
                 .contaAzulId(contaAzulId)
                 .receivesItNotifications(

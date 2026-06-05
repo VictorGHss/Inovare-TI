@@ -28,7 +28,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controller REST para gerenciamento de categorias de item de inventÃ¡rio.
+ * Controller REST para gerenciamento de categorias de item de inventário.
  * Base path: /api/item-categories
  */
 @RestController
@@ -43,7 +43,7 @@ public class ItemCategoryController {
     private final ItemRepositoryPort itemRepository;
 
     /**
-     * Cria uma nova categoria de item de inventÃ¡rio.
+     * Cria uma nova categoria de item de inventário.
      * Retorna 201 Created com a categoria criada no corpo da resposta.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -62,7 +62,7 @@ public class ItemCategoryController {
     /**
      * Lista todas as categorias de item cadastradas.
      * Retorna 200 OK com a lista.
-     * Todos os usuÃ¡rios autenticados podem ler (necessÃ¡rio para formulÃ¡rios de chamados).
+     * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
      */
     @GetMapping
     public ResponseEntity<List<ItemCategoryResponseDTO>> listAll() {
@@ -75,7 +75,7 @@ public class ItemCategoryController {
         return itemCategoryRepository.findById(id).map(existing -> {
             long linked = itemRepository.countByItemCategory_Id(id);
             if (linked > 0) {
-                throw new ConflictException("NÃ£o Ã© possÃ­vel excluir esta categoria: existem itens vinculados a ela.");
+                throw new ConflictException("Não é possível excluir esta categoria: existem itens vinculados a ela.");
             }
             itemCategoryRepository.deleteById(id);
             return ResponseEntity.noContent().<Void>build();

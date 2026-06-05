@@ -29,9 +29,9 @@ import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controller que expÃµe transaÃ§Ãµes financeiras internas e suas linhas derivadas
+ * Controller que expõe transações financeiras internas e suas linhas derivadas
  * a partir de movimentos de estoque (stock_movements).
- * <p>Role necessÃ¡ria: ADMIN ou FINANCE_MANAGER</p>
+ * <p>Role necessária: ADMIN ou FINANCE_MANAGER</p>
  */
 @RestController
 @RequestMapping("/financial")
@@ -52,11 +52,11 @@ public class FinancialTransactionsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         
-        // DeclaraÃ§Ã£o local para garantir resoluÃ§Ã£o sintÃ¡tica correta
+        // Declaração local para garantir resolução sintática correta
         LocalDate start = startDate;
         LocalDate end = endDate;
 
-        // Construindo a Specification a partir dos parÃ¢metros do request
+        // Construindo a Specification a partir dos parâmetros do request
         FinancialTransactionSpecification spec = FinancialTransactionSpecification.builder()
             .startDate(start).endDate(end).build();
         

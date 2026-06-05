@@ -13,7 +13,7 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.Notificati
 import lombok.RequiredArgsConstructor;
 
 /**
- * Use case para buscar notificaÃ§Ãµes nÃ£o lidas de um usuÃ¡rio.
+ * Use case para buscar notificações não lidas de um usuário.
  */
 @Service
 @RequiredArgsConstructor
@@ -23,9 +23,9 @@ public class GetUnreadNotificationsUseCase {
     private final NotificationRepositoryPort notificationRepository;
 
     /**
-     * Executa a busca de notificaÃ§Ãµes nÃ£o lidas.
-     * @param userId o UUID do usuÃ¡rio autenticado
-     * @return lista de notificaÃ§Ãµes nÃ£o lidas
+     * Executa a busca de notificações não lidas.
+     * @param userId o UUID do usuário autenticado
+     * @return lista de notificações não lidas
      */
     public List<NotificationResponseDTO> execute(UUID userId) {
         return notificationRepository

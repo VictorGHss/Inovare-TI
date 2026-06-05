@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Componente responsÃ¡vel pela listagem paginada de parcelas recebidas/quitadas do Conta Azul.
+ * Componente responsável pela listagem paginada de parcelas recebidas/quitadas do Conta Azul.
  */
 @Slf4j
 @Component
@@ -31,7 +31,7 @@ public class ContaAzulReceivablesFetcher {
     private final ContaAzulRestClientAdapter restClientAdapter;
 
     /**
-     * Consulta parcelas marcadas como RECEBIDO ou QUITADO a partir do Conta Azul no perÃ­odo configurado.
+     * Consulta parcelas marcadas como RECEBIDO ou QUITADO a partir do Conta Azul no período configurado.
      */
     public ReceivedParcelsResult fetchReceivedParcels(String accessToken) {
         Map<String, ReceivableParcelRef> parcelMap = new java.util.LinkedHashMap<>();
@@ -39,13 +39,13 @@ public class ContaAzulReceivablesFetcher {
 
         LocalDate hoje = LocalDate.now();
         LocalDate inicioMesAtual = hoje.withDayOfMonth(1);
-        log.info("Consultando parcelas RECEBIDO no perÃ­odo {} atÃ© {}.", inicioMesAtual, hoje);
+        log.info("Consultando parcelas RECEBIDO no período {} até {}.", inicioMesAtual, hoje);
 
         latestUpdate = collectReceivedParcelsByStatusAndRange(
             accessToken, ContaAzulStatus.RECEBIDO, inicioMesAtual, hoje, parcelMap, latestUpdate);
 
         if (parcelMap.isEmpty()) {
-            log.warn("Nenhuma parcela RECEBIDO no mÃªs atual. Reexecutando diagnÃ³stico.");
+            log.warn("Nenhuma parcela RECEBIDO no mês atual. Reexecutando diagnóstico.");
             latestUpdate = collectReceivedParcelsByStatusAndRange(
                 accessToken, ContaAzulStatus.RECEBIDO, DIAGNOSTIC_PAYMENT_DATE_FROM, hoje, parcelMap, latestUpdate);
         }
@@ -57,7 +57,7 @@ public class ContaAzulReceivablesFetcher {
         }
 
         if (parcelMap.isEmpty()) {
-            log.warn("Nenhuma parcela QUITADO no mÃªs atual. Reexecutando QUITADO.");
+            log.warn("Nenhuma parcela QUITADO no mês atual. Reexecutando QUITADO.");
             latestUpdate = collectReceivedParcelsByStatusAndRange(
                 accessToken, ContaAzulStatus.QUITADO, DIAGNOSTIC_PAYMENT_DATE_FROM, hoje, parcelMap, latestUpdate);
         }

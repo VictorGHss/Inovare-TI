@@ -22,8 +22,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o de automaÃ§Ã£o e agendamento de relatÃ³rios.
- * Executa tarefas assÃ­ncronas utilizando Virtual Threads do Java 21.
+ * Serviço de automação e agendamento de relatórios.
+ * Executa tarefas assíncronas utilizando Virtual Threads do Java 21.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,12 +39,12 @@ public class ReportAutomationService {
     private final DiscordDirectMessageService discordDirectMessageService;
 
     /**
-     * Executa no dia configurado (ex.: dia 12) Ã s 08:00 todo mÃªs.
-     * Utiliza Virtual Threads para processamento concorrente e nÃ£o-bloqueante das rotinas.
+     * Executa no dia configurado (ex.: dia 12) í s 08:00 todo mês.
+     * Utiliza Virtual Threads para processamento concorrente e não-bloqueante das rotinas.
      */
     @Scheduled(cron = "0 0 8 12 * *")
     public void runScheduledReports() {
-        log.info("Iniciando rotina agendada de relatÃ³rios utilizando Virtual Threads");
+        log.info("Iniciando rotina agendada de relatórios utilizando Virtual Threads");
 
         List<ReportSchedule> schedules = scheduleRepository.findByIsActiveTrue();
         LocalDate today = LocalDate.now();
@@ -61,7 +61,7 @@ public class ReportAutomationService {
             }
         }
 
-        log.info("Todas as tarefas de relatÃ³rios agendados foram submetidas");
+        log.info("Todas as tarefas de relatórios agendados foram submetidas");
     }
 
     /**
@@ -83,7 +83,7 @@ public class ReportAutomationService {
             LocalDateTime start = startDate.atStartOfDay();
             LocalDateTime end = endDate.atTime(LocalTime.MAX);
 
-            log.info("Processando agendamento {} para reportType={} perÃ­odo={} -> {}",
+            log.info("Processando agendamento {} para reportType={} período={} -> {}",
                     schedule.getId(), schedule.getReportType(), startDate, endDate);
 
             if ("exits".equalsIgnoreCase(schedule.getReportType())) {
@@ -92,22 +92,22 @@ public class ReportAutomationService {
 
                 if (schedule.isSendEmail() && schedule.getTargetUserId() != null) {
                     userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
-                        String subject = "RelatÃ³rio Mensal de SaÃ­das de Estoque";
-                        String body = String.format("OlÃ¡ %s,\n\nEm anexo o relatÃ³rio automÃ¡tico de saÃ­das de estoque referente ao perÃ­odo %s atÃ© %s.\n\nAtt,\nInovare TI",
+                        String subject = "Relatório Mensal de Saídas de Estoque";
+                        String body = String.format("Olá %s,\n\nEm anexo o relatório automático de saídas de estoque referente ao período %s até %s.\n\nAtt,\nInovare TI",
                                 user.getName(), startDate.toString(), endDate.toString());
 
                         try {
                             reportDeliveryService.sendReportEmail(user.getName(), user.getEmail(), subject, body, bytes, filename,
                                     "application/pdf");
                         } catch (Exception ex) {
-                            log.error("Falha ao enviar e-mail de relatÃ³rio agendado para {} no agendamento {}", user.getEmail(), schedule.getId(), ex);
+                            log.error("Falha ao enviar e-mail de relatório agendado para {} no agendamento {}", user.getEmail(), schedule.getId(), ex);
                         }
-                    }, () -> log.warn("UsuÃ¡rio destino {} nÃ£o encontrado para agendamento {}", schedule.getTargetUserId(), schedule.getId()));
+                    }, () -> log.warn("Usuário destino {} não encontrado para agendamento {}", schedule.getTargetUserId(), schedule.getId()));
                 }
 
                 if (schedule.isSendDiscord()) {
-                    String title = "RelatÃ³rio Mensal de SaÃ­das Gerado";
-                    String message = String.format("RelatÃ³rio automÃ¡tico de saÃ­das gerado para perÃ­odo %s â†’ %s.",
+                    String title = "Relatório Mensal de Saídas Gerado";
+                    String message = String.format("Relatório automático de saídas gerado para período %s â†’ %s.",
                             startDate.toString(), endDate.toString());
 
                     if (schedule.getTargetUserId() != null) {
@@ -117,7 +117,7 @@ public class ReportAutomationService {
                                         user.getDiscordUserId(),
                                         bytes,
                                         filename,
-                                        String.format("OlÃ¡ %s, segue o relatÃ³rio automÃ¡tico de saÃ­das referente ao perÃ­odo %s â†’ %s.",
+                                        String.format("Olá %s, segue o relatório automático de saídas referente ao período %s â†’ %s.",
                                                 user.getName(), startDate.toString(), endDate.toString()),
                                         () -> discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename)
                                 );
@@ -135,7 +135,7 @@ public class ReportAutomationService {
                 }
 
             } else {
-                log.warn("Tipo de relatÃ³rio desconhecido '{}' no agendamento {}", schedule.getReportType(), schedule.getId());
+                log.warn("Tipo de relatório desconhecido '{}' no agendamento {}", schedule.getReportType(), schedule.getId());
             }
 
         } catch (Exception ex) {
@@ -144,24 +144,24 @@ public class ReportAutomationService {
     }
 
     /**
-     * Gera e envia imediatamente um relatÃ³rio (ignora o dia do mÃªs configurado).
+     * Gera e envia imediatamente um relatório (ignora o dia do mês configurado).
      * Usado para disparos manuais de teste.
      */
     public void triggerTestReport(UUID scheduleId) {
         scheduleRepository.findById(scheduleId).ifPresentOrElse(schedule -> {
             try {
                 if (!"exits".equalsIgnoreCase(schedule.getReportType())) {
-                    log.warn("Disparo manual nÃ£o suportado para reportType '{}' no agendamento {}", schedule.getReportType(), schedule.getId());
+                    log.warn("Disparo manual não suportado para reportType '{}' no agendamento {}", schedule.getReportType(), schedule.getId());
                     return;
                 }
 
                 if (schedule.getTargetUserId() == null) {
-                    log.warn("Disparo manual solicitado mas agendamento {} nÃ£o possui usuÃ¡rio destino", schedule.getId());
+                    log.warn("Disparo manual solicitado mas agendamento {} não possui usuário destino", schedule.getId());
                     return;
                 }
 
                 userRepository.findById(schedule.getTargetUserId()).ifPresentOrElse(user -> {
-                    log.info("Iniciando disparo manual de relatÃ³rio para o usuÃ¡rio {}", user.getEmail());
+                    log.info("Iniciando disparo manual de relatório para o usuário {}", user.getEmail());
 
                     LocalDate today = LocalDate.now();
                     LocalDate startDate = today.minusMonths(1);
@@ -174,8 +174,8 @@ public class ReportAutomationService {
                         String filename = String.format("saidas_estoque_%s_to_%s.pdf", startDate.toString(), endDate.toString());
 
                         if (schedule.isSendEmail()) {
-                            String subject = "RelatÃ³rio de Teste - SaÃ­das de Estoque";
-                            String body = String.format("OlÃ¡ %s,\n\nSegue o relatÃ³rio de teste de saÃ­das de estoque referente ao perÃ­odo %s atÃ© %s.\n\nAtt,\nInovare TI",
+                            String subject = "Relatório de Teste - Saídas de Estoque";
+                            String body = String.format("Olá %s,\n\nSegue o relatório de teste de saídas de estoque referente ao período %s até %s.\n\nAtt,\nInovare TI",
                                     user.getName(), startDate.toString(), endDate.toString());
 
                             try {
@@ -187,15 +187,15 @@ public class ReportAutomationService {
                         }
 
                         if (schedule.isSendDiscord()) {
-                            String title = "RelatÃ³rio de Teste de SaÃ­das Gerado";
-                            String message = String.format("RelatÃ³rio manual de saÃ­das gerado para perÃ­odo %s â†’ %s.", startDate.toString(), endDate.toString());
+                            String title = "Relatório de Teste de Saídas Gerado";
+                            String message = String.format("Relatório manual de saídas gerado para período %s â†’ %s.", startDate.toString(), endDate.toString());
 
                             if (user.getDiscordUserId() != null && !user.getDiscordUserId().isBlank()) {
                                 discordDirectMessageService.sendReportPdfDMToUser(
                                         user.getDiscordUserId(),
                                         bytes,
                                         filename,
-                                        String.format("OlÃ¡ %s, segue o relatÃ³rio de teste de saÃ­das referente ao perÃ­odo %s â†’ %s.",
+                                        String.format("Olá %s, segue o relatório de teste de saídas referente ao período %s â†’ %s.",
                                                 user.getName(), startDate.toString(), endDate.toString()),
                                         () -> discordWebhookService.sendOperationalAlert(title, message + " Arquivo: " + filename)
                                 );
@@ -205,14 +205,14 @@ public class ReportAutomationService {
                         }
 
                     } catch (Exception ex) {
-                        log.error("Erro ao gerar relatÃ³rio manual de teste para agendamento {}", schedule.getId(), ex);
+                        log.error("Erro ao gerar relatório manual de teste para agendamento {}", schedule.getId(), ex);
                     }
-                }, () -> log.warn("UsuÃ¡rio destino {} nÃ£o encontrado para agendamento {}", schedule.getTargetUserId(), schedule.getId()));
+                }, () -> log.warn("Usuário destino {} não encontrado para agendamento {}", schedule.getTargetUserId(), schedule.getId()));
 
             } catch (Exception ex) {
                 log.error("Erro no processamento do disparo manual do agendamento {}", schedule.getId(), ex);
             }
-        }, () -> log.warn("Agendamento nÃ£o encontrado {}", scheduleId));
+        }, () -> log.warn("Agendamento não encontrado {}", scheduleId));
     }
 }
 

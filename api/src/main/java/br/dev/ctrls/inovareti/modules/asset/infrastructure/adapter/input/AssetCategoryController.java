@@ -43,7 +43,7 @@ public class AssetCategoryController {
         String normalizedName = request.name().trim();
 
         if (assetCategoryRepository.existsByName(normalizedName)) {
-            throw new ConflictException("JÃ¡ existe uma categoria de equipamento com o nome: " + normalizedName);
+            throw new ConflictException("Já existe uma categoria de equipamento com o nome: " + normalizedName);
         }
 
         AssetCategory created = assetCategoryRepository.save(
@@ -70,7 +70,7 @@ public class AssetCategoryController {
         return assetCategoryRepository.findById(id).map(existing -> {
             long linked = assetRepository.countByCategory_Id(id);
             if (linked > 0) {
-                throw new ConflictException("NÃ£o Ã© possÃ­vel excluir esta categoria: existem ativos vinculados a ela.");
+                throw new ConflictException("Não é possível excluir esta categoria: existem ativos vinculados a ela.");
             }
             assetCategoryRepository.deleteById(id);
             return ResponseEntity.noContent().<Void>build();

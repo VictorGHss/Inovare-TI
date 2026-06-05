@@ -27,7 +27,7 @@ public class AppointmentMotorScheduler {
             return;
         }
 
-        log.info("Scheduler de ingestÃ£o de agendamentos iniciado");
+        log.info("Scheduler de ingestão de agendamentos iniciado");
         ingestAppointmentsUseCase.execute();
     }
 

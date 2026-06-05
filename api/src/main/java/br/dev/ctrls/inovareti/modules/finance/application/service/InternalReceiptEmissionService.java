@@ -15,9 +15,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o de aplicaÃ§Ã£o encarregado pela lÃ³gica de fallback de emissÃ£o de recibos.
- * Quando a API do Conta Azul falha em entregar o anexo, aciona a geraÃ§Ã£o interna
- * local do PDF usando metadados e persistÃªncia de documentos.
+ * Serviço de aplicação encarregado pela lógica de fallback de emissão de recibos.
+ * Quando a API do Conta Azul falha em entregar o anexo, aciona a geração interna
+ * local do PDF usando metadados e persistência de documentos.
  */
 @Slf4j
 @Service
@@ -35,10 +35,10 @@ public class InternalReceiptEmissionService {
      * Gera o PDF de recibo interno Inovare (fallback) para a baixa informada.
      *
      * @param baixaId Identificador da baixa de pagamento.
-     * @param doctorName Nome do mÃ©dico/profissional.
-     * @param mapping O mapeamento de e-mail do mÃ©dico.
+     * @param doctorName Nome do médico/profissional.
+     * @param mapping O mapeamento de e-mail do médico.
      * @param customerUuidFromSale UUID do cliente na venda.
-     * @param saleDescription DescriÃ§Ã£o formatada da venda/parcela.
+     * @param saleDescription Descrição formatada da venda/parcela.
      * @return O vetor de bytes do PDF gerado.
      */
     public byte[] generateInternalReceiptPdf(
@@ -70,7 +70,7 @@ public class InternalReceiptEmissionService {
     }
 
     /**
-     * Resolve o CPF/CNPJ do mÃ©dico. Tenta buscar no mapping local ou faz a consulta na API da Conta Azul.
+     * Resolve o CPF/CNPJ do médico. Tenta buscar no mapping local ou faz a consulta na API da Conta Azul.
      */
     private String resolveDoctorDocumentForReceipt(
             DoctorEmailMapping mapping,
@@ -85,7 +85,7 @@ public class InternalReceiptEmissionService {
             return mappedDocument;
         }
 
-        String doctorName = mapping != null ? mapping.getDoctorName() : "(mÃ©dico nÃ£o identificado)";
+        String doctorName = mapping != null ? mapping.getDoctorName() : "(médico não identificado)";
         log.warn("CPF/CNPJ nao encontrado no doctor_email_mapping para o medico {} (baixa {}).", doctorName, baixaId);
 
         if (StringUtils.hasText(customerUuidFromSale)) {
@@ -122,7 +122,7 @@ public class InternalReceiptEmissionService {
     }
 
     /**
-     * Persiste o CPF/CNPJ resolvido no mapeamento de mÃ©dico existente no banco.
+     * Persiste o CPF/CNPJ resolvido no mapeamento de médico existente no banco.
      */
     private void persistDoctorDocumentOnMapping(
             DoctorEmailMapping mapping,

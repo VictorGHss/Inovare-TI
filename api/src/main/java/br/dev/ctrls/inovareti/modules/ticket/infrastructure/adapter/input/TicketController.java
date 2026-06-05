@@ -85,18 +85,18 @@ public class TicketController {
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getPrincipal() == null) {
-            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: UsuÃ¡rio nÃ£o autenticado.");
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Usuário não autenticado.");
         }
         
         UUID userId;
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Identificador de usuÃ¡rio invÃ¡lido.");
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Identificador de usuário inválido.");
         }
 
         var user = userRepository.findById(userId)
-                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Acesso negado: UsuÃ¡rio nÃ£o encontrado."));
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Acesso negado: Usuário não encontrado."));
 
         if (user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.ADMIN 
                 || user.getRole() == br.dev.ctrls.inovareti.modules.user.domain.model.UserRole.TECHNICIAN) {
@@ -104,17 +104,17 @@ public class TicketController {
         }
 
         var ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado nÃ£o encontrado."));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado não encontrado."));
 
         if (!ticket.getRequester().getId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: VocÃª nÃ£o Ã© o proprietÃ¡rio deste chamado.");
+            throw new org.springframework.security.access.AccessDeniedException("Acesso negado: Você não é o proprietário deste chamado.");
         }
     }
 
     /**
      * Lista todos os chamados com isolamento por role.
      * ADMIN/TECHNICIAN: ver todos os chamados
-     * USER: ver apenas seus prÃ³prios chamados
+     * USER: ver apenas seus próprios chamados
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
@@ -126,7 +126,7 @@ public class TicketController {
         try {
             userId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("NÃ£o foi possÃ­vel obter ID do usuÃ¡rio a partir da autenticaÃ§Ã£o");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.badRequest().build();
         }
         
@@ -139,8 +139,8 @@ public class TicketController {
     }
 
     /**
-     * Retorna os dados de um Ãºnico chamado pelo UUID.
-     * Retorna 200 OK ou 404 se nÃ£o encontrado.
+     * Retorna os dados de um único chamado pelo UUID.
+     * Retorna 200 OK ou 404 se não encontrado.
      */
     @GetMapping("/{id}")
     public ResponseEntity<TicketResponseDTO> findById(@PathVariable UUID id) {
@@ -156,7 +156,7 @@ public class TicketController {
     public ResponseEntity<List<TicketResponseDTO>> findSimilar(@PathVariable UUID id) {
         checkTicketOwnershipOrStaff(id);
         Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Chamado nÃ£o encontrado com id: " + id));
+                .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + id));
 
         if (ticket.getTags() == null || ticket.getTags().isEmpty()) {
             return ResponseEntity.ok(List.of());
@@ -173,7 +173,7 @@ public class TicketController {
     /**
      * Abre um novo chamado com status OPEN e slaDeadline calculado automaticamente.
      * Retorna 201 Created com os dados do chamado.
-     * âœ… AcessÃ­vel a todos os usuÃ¡rios autenticados (USER, TECHNICIAN e ADMIN).
+     * âœ… Acessível a todos os usuários autenticados (USER, TECHNICIAN e ADMIN).
      */
     @PostMapping
     public ResponseEntity<TicketResponseDTO> create(@Valid @RequestBody TicketRequestDTO request) {
@@ -195,7 +195,7 @@ public class TicketController {
         try {
             authenticatedUserId = UUID.fromString(auth.getPrincipal().toString());
         } catch (Exception e) {
-            log.warn("NÃ£o foi possÃ­vel obter ID do usuÃ¡rio a partir da autenticaÃ§Ã£o");
+            log.warn("Não foi possível obter ID do usuário a partir da autenticação");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -203,7 +203,7 @@ public class TicketController {
     }
 
     /**
-     * Assume um chamado para o usuÃ¡rio autenticado e altera o status para EM_PROGRESSO.
+     * Assume um chamado para o usuário autenticado e altera o status para EM_PROGRESSO.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}/claim")
@@ -212,8 +212,8 @@ public class TicketController {
     }
 
     /**
-     * Transfere um chamado para outro usuÃ¡rio.
-     * Se o chamado estiver ABERTO, o status Ã© alterado para EM_PROGRESSO.
+     * Transfere um chamado para outro usuário.
+     * Se o chamado estiver ABERTO, o status é alterado para EM_PROGRESSO.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PatchMapping("/{id}/transfer/{userId}")
@@ -232,7 +232,7 @@ public class TicketController {
         
         checkTicketOwnershipOrStaff(id);
         Ticket ticket = ticketRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Chamado nÃ£o encontrado"));
+            .orElseThrow(() -> new RuntimeException("Chamado não encontrado"));
 
         try {
             String storedFilename = fileStorageService.store(file);
@@ -265,7 +265,7 @@ public class TicketController {
     }
 
     /**
-     * Lista todos os anexos de um chamado especÃ­fico.
+     * Lista todos os anexos de um chamado específico.
      * Retorna 200 OK com a lista de anexos.
      */
     @GetMapping("/{id}/attachments")
@@ -288,8 +288,8 @@ public class TicketController {
     }
 
     /**
-     * Adiciona um novo comentÃ¡rio a um chamado existente.
-     * Retorna 201 Created com os dados do comentÃ¡rio.
+     * Adiciona um novo comentário a um chamado existente.
+     * Retorna 201 Created com os dados do comentário.
      */
     @PostMapping("/{id}/comments")
     public ResponseEntity<TicketCommentResponseDTO> addComment(
@@ -301,8 +301,8 @@ public class TicketController {
     }
 
     /**
-     * Lista todos os comentÃ¡rios de um chamado especÃ­fico.
-     * Retorna 200 OK com a lista de comentÃ¡rios ordenados por data.
+     * Lista todos os comentários de um chamado específico.
+     * Retorna 200 OK com a lista de comentários ordenados por data.
      */
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<TicketCommentResponseDTO>> listComments(@PathVariable UUID id) {
@@ -323,10 +323,10 @@ public class TicketController {
         checkTicketOwnershipOrStaff(relatedId);
 
         Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado principal nÃ£o encontrado: " + id));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado principal não encontrado: " + id));
 
         Ticket relatedTicket = ticketRepository.findById(relatedId)
-                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado relacionado nÃ£o encontrado: " + relatedId));
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Chamado relacionado não encontrado: " + relatedId));
 
         ticket.getRelatedTickets().add(relatedTicket);
         relatedTicket.getRelatedTickets().add(ticket);
@@ -340,7 +340,7 @@ public class TicketController {
     }
 
     /**
-     * Atualiza a descriÃ§Ã£o de soluÃ§Ã£o de um chamado resolvido ou fechado.
+     * Atualiza a descrição de solução de um chamado resolvido ou fechado.
      */
     @PatchMapping("/{id}/solution")
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -353,8 +353,8 @@ public class TicketController {
 
     /**
      * Altera a categoria de um chamado e recalcula o prazo de SLA.
-     * O novo {@code slaDeadline} Ã© calculado somando {@code baseSlaHours} da nova categoria
-     * Ã  {@code createdAt} original do chamado.
+     * O novo {@code slaDeadline} é calculado somando {@code baseSlaHours} da nova categoria
+     * í  {@code createdAt} original do chamado.
      * Restrito a ADMIN e TECHNICIAN.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -366,8 +366,8 @@ public class TicketController {
     }
 
     /**
-     * Vincula um usuÃ¡rio adicional afetado ao chamado.
-     * O usuÃ¡rio Ã© inserido na tabela {@code ticket_additional_users}.
+     * Vincula um usuário adicional afetado ao chamado.
+     * O usuário é inserido na tabela {@code ticket_additional_users}.
      * Restrito a ADMIN e TECHNICIAN.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")

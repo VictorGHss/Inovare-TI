@@ -23,12 +23,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o especializado em precificaÃ§Ã£o de saÃ­das de inventÃ¡rio para relatÃ³rios.
+ * Serviço especializado em precificação de saídas de inventário para relatórios.
  *
  * Responsabilidades:
- * - centralizar cÃ¡lculo de valor total por ticket de saÃ­da;
- * - manter o mesmo comportamento matemÃ¡tico legado (sem alterar fÃ³rmulas);
- * - encapsular o motor de fallback de preÃ§o utilizado hoje pela aplicaÃ§Ã£o.
+ * - centralizar cálculo de valor total por ticket de saída;
+ * - manter o mesmo comportamento matemático legado (sem alterar fórmulas);
+ * - encapsular o motor de fallback de preço utilizado hoje pela aplicação.
  */
 @Service
 @Slf4j
@@ -41,10 +41,10 @@ public class InventoryPricingService {
     private final FinancialTransactionRepository transactionRepository;
 
     /**
-     * Calcula o valor total de saÃ­da para uma lista de tickets.
+     * Calcula o valor total de saída para uma lista de tickets.
      *
-     * O mapa Ã© indexado pelo ID do ticket para ser reutilizado por exportadores
-     * (Excel/PDF) sem duplicar regra de cÃ¡lculo.
+     * O mapa é indexado pelo ID do ticket para ser reutilizado por exportadores
+     * (Excel/PDF) sem duplicar regra de cálculo.
      */
     public Map<UUID, BigDecimal> calculateExitTotalsByTicket(List<Ticket> tickets) {
         Map<UUID, BigDecimal> totals = new LinkedHashMap<>();
@@ -62,15 +62,15 @@ public class InventoryPricingService {
     }
 
     /**
-     * Calcula o preÃ§o total de uma saÃ­da de item priorizando o valor registrado
+     * Calcula o preço total de uma saída de item priorizando o valor registrado
      * em financial_transactions.amount (se existir) ou, alternativamente,
      * somando unit_price_at_time dos movimentos de estoque relacionados ao chamado.
      *
-     * Como fallback final, utiliza o preÃ§o do lote mais recente multiplicado pela
-     * quantidade. Esta matemÃ¡tica foi preservada integralmente do comportamento legado.
+     * Como fallback final, utiliza o preço do lote mais recente multiplicado pela
+     * quantidade. Esta matemática foi preservada integralmente do comportamento legado.
      */
     public BigDecimal calculateExitTotalPrice(Ticket ticket, int quantity) {
-        // 1) Tenta obter lanÃ§amentos financeiros vinculados ao ticket
+        // 1) Tenta obter lançamentos financeiros vinculados ao ticket
         try {
             var txs = transactionRepository.findByTicketId(ticket.getId());
             if (txs != null && !txs.isEmpty()) {
@@ -86,7 +86,7 @@ public class InventoryPricingService {
                 }
             }
         } catch (Exception e) {
-            log.warn("Erro ao buscar lanÃ§amentos financeiros para ticket {}: {}", ticket.getId(), e.getMessage());
+            log.warn("Erro ao buscar lançamentos financeiros para ticket {}: {}", ticket.getId(), e.getMessage());
         }
 
         // 2) Fallback: somar unit_price_at_time dos movimentos de estoque referenciando o ticket
@@ -106,7 +106,7 @@ public class InventoryPricingService {
             log.warn("Erro ao buscar movimentos para ticket {}: {}", ticket.getId(), e.getMessage());
         }
 
-        // 3) Fallback final: preÃ§o unitÃ¡rio do lote mais recente * quantidade
+        // 3) Fallback final: preço unitário do lote mais recente * quantidade
         var item = ticket.getRequestedItem();
         if (item == null) {
             return BigDecimal.ZERO;
@@ -114,7 +114,7 @@ public class InventoryPricingService {
 
         List<StockBatch> batches = stockBatchRepository.findByItemOrderByEntryDateDesc(item);
         if (batches.isEmpty()) {
-            log.warn("Nenhum lote encontrado para o item {}, retornando preÃ§o zero", item.getId());
+            log.warn("Nenhum lote encontrado para o item {}, retornando preço zero", item.getId());
             return BigDecimal.ZERO;
         }
 

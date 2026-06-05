@@ -29,7 +29,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Controlador REST para gerenciar agendamentos de relatÃ³rios automatizados.
+ * Controlador REST para gerenciar agendamentos de relatórios automatizados.
  */
 @RestController
 @RequestMapping("/report-schedules")
@@ -117,10 +117,10 @@ public class ReportScheduleController {
 
     @Data
     public static class ReportScheduleRequest {
-        @NotBlank(message = "O tipo de relatÃ³rio Ã© obrigatÃ³rio.")
+        @NotBlank(message = "O tipo de relatório é obrigatório.")
         private String reportType;
         
-        @NotNull(message = "O usuÃ¡rio de destino Ã© obrigatÃ³rio.")
+        @NotNull(message = "O usuário de destino é obrigatório.")
         private UUID targetUserId;
         
         private Boolean sendEmail;

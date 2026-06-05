@@ -135,14 +135,14 @@ public class AssetController {
 
     /**
      * Upload de nota fiscal (PDF ou imagem) para um ativo.
-     * O arquivo Ã© salvo em disco e os metadados sÃ£o armazenados na entidade Asset.
+     * O arquivo é salvo em disco e os metadados são armazenados na entidade Asset.
      *
      * POST /api/assets/{id}/invoice
      * Content-Type: multipart/form-data
      * Form parameter: file (MultipartFile)
      *
      * @param id   UUID do Asset
-     * @param file Arquivo PDF ou Imagem (mÃ¡x 5MB)
+     * @param file Arquivo PDF ou Imagem (máx 5MB)
      * @return     Ativo atualizado com metadados da NF
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -154,7 +154,7 @@ public class AssetController {
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
 
-        // Se jÃ¡ existe um arquivo anterior, remove-o do disco
+        // Se já existe um arquivo anterior, remove-o do disco
         if (asset.getInvoiceFilePath() != null) {
             fileStorageService.deleteInvoiceFile(asset.getInvoiceFilePath());
         }
@@ -182,7 +182,7 @@ public class AssetController {
      * GET /api/assets/{id}/invoice
      *
      * @param id UUID do Asset
-     * @return   Arquivo binÃ¡rio com headers apropriados (Content-Disposition, Content-Type)
+     * @return   Arquivo binário com headers apropriados (Content-Disposition, Content-Type)
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER')")
     @GetMapping("/{id}/invoice")
@@ -210,16 +210,16 @@ public class AssetController {
     }
 
     /**
-     * Registra uma nova manutenÃ§Ã£o para um ativo.
+     * Registra uma nova manutenção para um ativo.
      *
      * POST /api/assets/{id}/maintenances
      * Body: AssetMaintenanceRequestDTO
      *
-     * O usuÃ¡rio logado Ã© automaticamente definido como tÃ©cnico responsÃ¡vel.
+     * O usuário logado é automaticamente definido como técnico responsável.
      *
      * @param id      UUID do Asset
-     * @param request Dados da manutenÃ§Ã£o (data, tipo, custo, descriÃ§Ã£o)
-     * @return        ManutenÃ§Ã£o criada
+     * @param request Dados da manutenção (data, tipo, custo, descrição)
+     * @return        Manutenção criada
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @PostMapping("/{id}/maintenances")
@@ -227,7 +227,7 @@ public class AssetController {
             @PathVariable UUID id,
             @Valid @RequestBody AssetMaintenanceRequestDTO request) {
 
-        // ObtÃ©m o usuÃ¡rio logado do SecurityContextHolder
+        // Obtém o usuário logado do SecurityContextHolder
         String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         User technician = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
@@ -237,12 +237,12 @@ public class AssetController {
     }
 
     /**
-     * Lista todas as manutenÃ§Ãµes de um ativo, ordenadas por data DESC.
+     * Lista todas as manutenções de um ativo, ordenadas por data DESC.
      *
      * GET /api/assets/{id}/maintenances
      *
      * @param id UUID do Asset
-     * @return   Lista de manutenÃ§Ãµes formatadas
+     * @return   Lista de manutenções formatadas
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/{id}/maintenances")
@@ -252,16 +252,16 @@ public class AssetController {
     }
 
     /**
-     * Transfere um ativo para um novo usuÃ¡rio ou o devolve ao estoque da TI.
+     * Transfere um ativo para um novo usuário ou o devolve ao estoque da TI.
      *
      * PATCH /api/assets/{id}/transfer
      * Body: TransferAssetDTO { newUserId (nullable), reason }
      *
-     * Se newUserId for null, o ativo Ã© desvinculado e retornado ao estoque.
-     * Cria automaticamente um log de transferÃªncia no histÃ³rico de manutenÃ§Ãµes.
+     * Se newUserId for null, o ativo é desvinculado e retornado ao estoque.
+     * Cria automaticamente um log de transferência no histórico de manutenções.
      *
      * @param id   UUID do Asset
-     * @param request Dados da transferÃªncia (novo usuÃ¡rio e motivo)
+     * @param request Dados da transferência (novo usuário e motivo)
      * @return    Ativo atualizado
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
@@ -273,24 +273,24 @@ public class AssetController {
         Asset asset = assetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
 
-        // Valida o novo usuÃ¡rio se foi fornecido
+        // Valida o novo usuário se foi fornecido
         User newUser = null;
         if (request.newUserId() != null) {
             newUser = userRepository.findById(request.newUserId())
-                    .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com id: " + request.newUserId()));
+                    .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + request.newUserId()));
         }
 
-        // Captura o primeiro usuÃ¡rio atual para trilha de auditoria (modelo N:N: primeiro da coleÃ§Ã£o)
+        // Captura o primeiro usuário atual para trilha de auditoria (modelo N:N: primeiro da coleção)
         User oldUser = (asset.getUsers() != null && !asset.getUsers().isEmpty())
                 ? asset.getUsers().iterator().next()
                 : null;
 
-        // ObtÃ©m o usuÃ¡rio logado (tÃ©cnico que realiza a transferÃªncia)
+        // Obtém o usuário logado (técnico que realiza a transferência)
         String userId = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         User technician = userRepository.findById(UUID.fromString(userId))
-                .orElseThrow(() -> new NotFoundException("UsuÃ¡rio nÃ£o encontrado com id: " + userId));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado com id: " + userId));
 
-        // Substitui a coleÃ§Ã£o de usuÃ¡rios: se newUserId for null, devolve ao estoque (coleÃ§Ã£o vazia)
+        // Substitui a coleção de usuários: se newUserId for null, devolve ao estoque (coleção vazia)
         if (asset.getUsers() == null) {
             asset.setUsers(new java.util.HashSet<>());
         }
@@ -300,7 +300,7 @@ public class AssetController {
         }
         Asset updatedAsset = assetRepository.save(asset);
 
-        // Cria o log de transferÃªncia
+        // Cria o log de transferência
         maintenanceService.createTransferLog(updatedAsset, oldUser, newUser, request.reason(), technician);
 
         return ResponseEntity.ok(assetQueryService.toResponseDTO(updatedAsset));

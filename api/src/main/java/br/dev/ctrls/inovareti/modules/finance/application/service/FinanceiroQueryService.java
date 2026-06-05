@@ -21,10 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * ServiÃ§o de aplicaÃ§Ã£o focado em consultas e mapeamentos do subsistema financeiro.
+ * Serviço de aplicação focado em consultas e mapeamentos do subsistema financeiro.
  *
- * Restabelece a separaÃ§Ã£o de responsabilidades da Arquitetura Hexagonal, removendo lÃ³gicas
- * de agregaÃ§Ã£o, filtros, paginaÃ§Ã£o e validaÃ§Ã£o do controlador de entrada REST.
+ * Restabelece a separação de responsabilidades da Arquitetura Hexagonal, removendo lógicas
+ * de agregação, filtros, paginação e validação do controlador de entrada REST.
  */
 @Slf4j
 @Service
@@ -37,26 +37,26 @@ public class FinanceiroQueryService {
     private final ContaAzulTokenService contaAzulTokenService;
 
     /**
-     * Valida se o intervalo de datas fornecido para a automaÃ§Ã£o Ã© coerente.
+     * Valida se o intervalo de datas fornecido para a automação é coerente.
      *
-     * @param dataInicio Data de inÃ­cio da busca.
+     * @param dataInicio Data de início da busca.
      * @param dataFim Data final da busca.
-     * @throws BadRequestException se o perÃ­odo for invÃ¡lido.
+     * @throws BadRequestException se o período for inválido.
      */
     public void validarIntervaloDatas(LocalDate dataInicio, LocalDate dataFim) {
         if (dataInicio == null || dataFim == null) {
-            throw new BadRequestException("As datas de inÃ­cio e fim nÃ£o podem ser nulas.");
+            throw new BadRequestException("As datas de início e fim não podem ser nulas.");
         }
         if (dataInicio.isAfter(dataFim)) {
-            throw new BadRequestException("A data de inÃ­cio nÃ£o pode ser posterior Ã  data de fim.");
+            throw new BadRequestException("A data de início não pode ser posterior à data de fim.");
         }
         if (dataInicio.plusDays(365).isBefore(dataFim)) {
-            throw new BadRequestException("O perÃ­odo mÃ¡ximo permitido para sincronizaÃ§Ã£o Ã© de 365 dias.");
+            throw new BadRequestException("O período máximo permitido para sincronização é de 365 dias.");
         }
     }
 
     /**
-     * Consolida e constrÃ³i o resumo financeiro atualizado, verificando tambÃ©m o status da integraÃ§Ã£o.
+     * Consolida e constrói o resumo financeiro atualizado, verificando também o status da integração.
      *
      * @return DTO com o resumo consolidado dos faturamentos e status do Conta Azul.
      */
@@ -88,11 +88,11 @@ public class FinanceiroQueryService {
     }
 
     /**
-     * Lista recibos com paginaÃ§Ã£o em memÃ³ria e filtros por status opcionais.
+     * Lista recibos com paginação em memória e filtros por status opcionais.
      *
      * @param status Status de processamento do recibo (opcional).
-     * @param page NÃºmero da pÃ¡gina a ser retornada (0-indexed, opcional).
-     * @param size Quantidade de elementos por pÃ¡gina (opcional).
+     * @param page Número da página a ser retornada (0-indexed, opcional).
+     * @param size Quantidade de elementos por página (opcional).
      * @return Lista filtrada e paginada de recibos formatados em DTO.
      */
     public List<FinanceReceiptResponseDTO> listReceipts(ProcessedReceiptStatus status, Integer page, Integer size) {
@@ -111,7 +111,7 @@ public class FinanceiroQueryService {
                 .map(this::mapReceipt)
                 .toList();
 
-        // PaginaÃ§Ã£o customizada em sublista com tratamento seguro de Ã­ndices
+        // Paginação customizada em sublista com tratamento seguro de índices
         if (page != null && size != null && size > 0 && page >= 0) {
             int fromIndex = page * size;
             if (fromIndex >= mapped.size()) {

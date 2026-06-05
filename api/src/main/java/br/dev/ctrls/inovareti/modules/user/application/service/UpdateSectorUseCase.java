@@ -28,13 +28,13 @@ public class UpdateSectorUseCase {
     @Transactional
     public SectorResponseDTO execute(UUID id, SectorRequestDTO request) {
         Sector sector = sectorRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Setor nÃ£o encontrado com o ID: " + id));
+                .orElseThrow(() -> new NotFoundException("Setor não encontrado com o ID: " + id));
 
         String newName = request.name().trim();
         if (!sector.getName().equalsIgnoreCase(newName)) {
             sectorRepository.findByName(newName).ifPresent(other -> {
                 if (!other.getId().equals(id)) {
-                    throw new ConflictException("JÃ¡ existe um setor com o nome: " + newName);
+                    throw new ConflictException("Já existe um setor com o nome: " + newName);
                 }
             });
         }

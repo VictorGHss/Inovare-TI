@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ImplementaÃ§Ã£o do Specification Pattern para filtrar FinancialTransactions.
- * Permite construir consultas dinÃ¢micas e reutilizÃ¡veis sem acoplamento ao Controller.
+ * Implementação do Specification Pattern para filtrar FinancialTransactions.
+ * Permite construir consultas dinâmicas e reutilizáveis sem acoplamento ao Controller.
  * <p>Removidos imports redundantes (LocalDateTime, LocalTime) e garantida a integridade da classe.</p>
  */
 @Builder
@@ -39,7 +39,7 @@ public class FinancialTransactionSpecification implements Specification<Financia
             predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
         }
 
-        // OrdenaÃ§Ã£o padrÃ£o decrescente por data de criaÃ§Ã£o
+        // Ordenação padrão decrescente por data de criação
         query.orderBy(criteriaBuilder.desc(root.get("createdAt")));
 
         return criteriaBuilder.and(predicates.toArray(Predicate[]::new));

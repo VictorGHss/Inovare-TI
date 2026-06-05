@@ -193,7 +193,9 @@ public class AppointmentMotorController {
                 parsed.from(),
                 inovareToken,
                 parsed.content(),
-                metadata));
+                metadata,
+                parsed.bsuid(),
+                parsed.type()));
 
         return ResponseEntity.ok(Map.of("status", "processed"));
     }

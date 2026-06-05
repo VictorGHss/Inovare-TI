@@ -34,16 +34,25 @@ public class BlipWebhookInboundService {
             String messageId,
             String appointmentId,
             Object content,
-            String bsuid) {
+            String bsuid,
+            String type) {
+        public ParsedInbound(String from, String action, String messageId, String appointmentId, Object content, String bsuid) {
+            this(from, action, messageId, appointmentId, content, bsuid, null);
+        }
     }
 
     public ParsedInbound parse(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
-            return new ParsedInbound(null, null, null, null, null, null);
+            return new ParsedInbound(null, null, null, null, null, null, null);
         }
 
+        String messageType = firstNonBlank(
+                asText(getNested(payload, "type")),
+                asText(getNested(payload, "resource", "type")),
+                asText(getNested(payload, "message", "type")));
+
         String from = extractFrom(payload);
-        String action = extractActionText(payload);
+        String action = extractActionText(payload, messageType);
         String messageId = extractMessageId(payload);
         String appointmentId = extractAppointmentId(payload);
         String bsuid = extractBsuid(payload);
@@ -73,7 +82,7 @@ public class BlipWebhookInboundService {
                 getNested(payload, "resource", "content"),
                 getNested(payload, "message", "content"));
 
-        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid);
+        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType);
     }
 
     private String extractBsuid(Map<String, Object> payload) {
@@ -127,13 +136,8 @@ public class BlipWebhookInboundService {
         return from;
     }
 
-    private String extractActionText(Map<String, Object> payload) {
-        String messageType = firstNonBlank(
-                asText(getNested(payload, "type")),
-                asText(getNested(payload, "resource", "type")),
-                asText(getNested(payload, "message", "type")));
-
-        // WhatsApp / LIME: clique em botão rápido (application/vnd.lime.reply+json) â€” valor em content.replied.value
+    private String extractActionText(Map<String, Object> payload, String messageType) {
+        // WhatsApp / LIME: clique em botão rápido (application/vnd.lime.reply+json) — valor em content.replied.value
         String replyButtonAction = firstNonBlank(
                 asText(getNested(payload, "content", "replied", "value")),
                 asText(getNested(payload, "resource", "content", "replied", "value")),
@@ -165,15 +169,14 @@ public class BlipWebhookInboundService {
             }
             String objectText = firstNonBlank(asText(contentMap.get("text")));
             if (objectText != null) {
-                log.info("[WEBHOOK] action extraído (select+json text): '{}'", objectText);
+                log.info("[WEBHOOK] action extraído (text): '{}'", objectText);
                 return objectText;
             }
             String selectValue = firstNonBlank(
                     asText(contentMap.get("value")),
-                    asText(contentMap.get("payload")),
-                    asText(contentMap.get("id")));
+                    asText(contentMap.get("payload")));
             if (selectValue != null) {
-                log.info("[WEBHOOK] action extraído (select+json): '{}'", selectValue);
+                log.info("[WEBHOOK] action extraído: '{}'", selectValue);
                 return selectValue;
             }
         }
@@ -181,7 +184,6 @@ public class BlipWebhookInboundService {
         String action = firstNonBlank(
                 asText(getNested(payload, "action")),
                 asText(getNested(payload, "content", "payload")),
-                asText(getNested(payload, "content", "id")),
                 asText(getNested(payload, "content")),
                 asText(getNested(payload, "content", "text")),
                 asText(getNested(payload, "content", "title")),

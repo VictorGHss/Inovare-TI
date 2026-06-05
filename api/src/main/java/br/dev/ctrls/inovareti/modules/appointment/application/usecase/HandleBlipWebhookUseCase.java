@@ -110,13 +110,20 @@ public class HandleBlipWebhookUseCase {
 
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
         if (uuidPattern.matcher(action).matches()) {
-            WebhookResult result = handleUuidAction(action);
-            if (result != null) {
-                return result;
-            }
-            WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());
-            if (groupResult != null) {
-                return groupResult;
+            String msgType = payload.type();
+            boolean isLegitimateType = "text/plain".equalsIgnoreCase(msgType)
+                    || "application/vnd.lime.reply+json".equalsIgnoreCase(msgType);
+            if (isLegitimateType) {
+                WebhookResult result = handleUuidAction(action);
+                if (result != null) {
+                    return result;
+                }
+                WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());
+                if (groupResult != null) {
+                    return groupResult;
+                }
+            } else {
+                log.debug("[WEBHOOK] Ignorando UUID de ação '{}' pois o tipo de mensagem '{}' não é legítimo para cliques.", action, msgType);
             }
         }
 
@@ -394,10 +401,14 @@ public class HandleBlipWebhookUseCase {
         String token, 
         Object content, 
         Map<String, Object> metadata,
-        String bsuid
+        String bsuid,
+        String type
     ) {
         public BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content, Map<String, Object> metadata) {
-            this(messageId, appointmentId, action, from, token, content, metadata, null);
+            this(messageId, appointmentId, action, from, token, content, metadata, null, null);
+        }
+        public BlipWebhookPayload(String messageId, String appointmentId, String action, String from, String token, Object content, Map<String, Object> metadata, String bsuid) {
+            this(messageId, appointmentId, action, from, token, content, metadata, bsuid, null);
         }
     }
 

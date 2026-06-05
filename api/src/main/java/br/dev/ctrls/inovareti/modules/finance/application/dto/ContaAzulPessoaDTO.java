@@ -6,7 +6,6 @@ import java.util.Optional;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 /*
  * Representação parcial de uma Pessoa na Conta Azul.
  *
@@ -14,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * e contatos secundários). Inclui utilitário `resolveEmail()` que retorna o e-mail
  * principal quando disponível ou procura em `outrosContatos` como fallback.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ContaAzulPessoaDTO(
         String id,
         String nome,

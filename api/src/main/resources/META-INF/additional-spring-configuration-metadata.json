@@ -553,5 +553,18 @@
     "name": "app.cors.allowed-origins",
     "type": "java.lang.String",
     "description": "A description for 'app.cors.allowed-origins'"
+  },
+  {
+    "name": "app.appointment.motor.blip-authorization-key",
+    "type": "java.lang.String",
+    "description": "Chave de autorização da integração com Blip",
+    "sourceType": "br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties"
+  },
+  {
+    "name": "app.appointment.motor.nudge-1-wait-hours",
+    "type": "java.lang.Integer",
+    "description": "Tempo de espera do primeiro lembrete em horas",
+    "sourceType": "br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties",
+    "defaultValue": 2
   }
 ]}

@@ -74,6 +74,7 @@ public class BlipWebhookController {
             jakarta.servlet.http.HttpServletRequest request,
             @RequestBody(required = false) String rawJson) {
 
+        log.info("Recebido POST em /api/v1/webhook/blip. Payload bruto: {}", rawJson);
         log.debug("[ALERTA REDE] RequisiÃ§Ã£o bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
         if (rawJson == null || rawJson.isBlank()) {

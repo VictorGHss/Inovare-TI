@@ -95,6 +95,7 @@ public class BlipPayloadParser {
         try {
             return objectMapper.convertValue(value, new TypeReference<Map<String, Object>>() { });
         } catch (IllegalArgumentException ex) {
+            log.error("Falha ao converter valor para Map no BlipPayloadParser", ex);
             return null;
         }
     }

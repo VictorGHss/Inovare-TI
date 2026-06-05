@@ -91,7 +91,7 @@ public class NotificationAccumulatorService {
             } else {
                 log.warn("[ACÚMULO] Falha ao enviar notificação individual para: {}", session.getPhoneNumber());
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("[ACÚMULO] Erro ao processar notificação individual para sessionId: {}", session.getId(), e);
         }
     }
@@ -125,7 +125,7 @@ public class NotificationAccumulatorService {
                     }
                 }
             });
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("[ACÚMULO] Erro ao persistir grupo de notificação ou atualizar sessões no banco de dados", e);
             return;
         }
@@ -160,7 +160,7 @@ public class NotificationAccumulatorService {
                 notificationGroupRepository.deleteByCreatedAtBefore(threshold)
             );
             log.info("[CLEANUP] Removidos grupos de notificação com mais de 45 dias. Total: {}", count);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("[CLEANUP] Erro ao executar limpeza de grupos de notificação antigos", e);
         }
 
@@ -179,7 +179,7 @@ public class NotificationAccumulatorService {
                 appointmentSessionRepository.deleteByStatusInAndCreatedAtBefore(finalStatuses, threshold)
             );
             log.info("[CLEANUP] Removidas sessões concluídas/canceladas com mais de 45 dias. Total: {}", countSessions);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("[CLEANUP] Erro ao executar expurgo de sessões de agendamento antigas", e);
         }
     }

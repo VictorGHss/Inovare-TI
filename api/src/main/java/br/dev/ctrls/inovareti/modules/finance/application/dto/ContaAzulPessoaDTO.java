@@ -23,7 +23,7 @@ public record ContaAzulPessoaDTO(
         @JsonProperty("outros_contatos") List<OutroContatoDTO> outrosContatos) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    /**
+    /*
      * Contato alternativo listado na resposta da Conta Azul (nome + e-mail).
      */
     public record OutroContatoDTO(String nome, String email) {

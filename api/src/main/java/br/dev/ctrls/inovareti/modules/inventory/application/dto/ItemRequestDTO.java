@@ -20,7 +20,7 @@ public record ItemRequestDTO(
         @Size(max = 150, message = "O nome deve ter no máximo 150 caracteres.")
         String name,
 
-        /**
+        /*
          * Especificações técnicas opcionais em formato chave-valor.
          * Exemplo: {"marca": "Brother", "modelo": "HL-L2360DW"}
          */

@@ -77,6 +77,10 @@ public class BlipGroupActionHandler {
             return null;
         }
         
+        if (actionType == null) {
+            return null;
+        }
+
         switch (actionType) {
             case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid);
             case "confirm_group" -> handleConfirmGroup(groupId, fromPhone);

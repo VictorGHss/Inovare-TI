@@ -27,19 +27,19 @@ public record TicketRequestDTO(
         @NotNull(message = "Priority is required.")
         TicketPriority priority,
 
-        /** ID do técnico responsável. Opcional na criação. */
+        /* ID do técnico responsável. Opcional na criação. */
         UUID assignedToId,
 
         @NotNull(message = "Category ID is required.")
         UUID categoryId,
 
-        /** ID do item solicitado. Preencher junto com requestedQuantity. */
+        /* ID do item solicitado. Preencher junto com requestedQuantity. */
         UUID requestedItemId,
 
         @Positive(message = "Requested quantity must be greater than zero.")
         Integer requestedQuantity,
 
-        /** ID do ativo associado. Opcional. */
+        /* ID do ativo associado. Opcional. */
         UUID assetId
 
 ) {}

@@ -18,6 +18,7 @@ public interface SpringDataAppointmentDoctorMappingRepository
 
     Optional<AppointmentDoctorMappingEntity> findByProfissionalId(String profissionalId);
 
+    @Override
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM AppointmentDoctorMappingEntity m WHERE m.profissionalId = :profissionalId")
     Optional<AppointmentDoctorMappingEntity> findByProfissionalIdLocked(@Param("profissionalId") String profissionalId);

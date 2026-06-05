@@ -245,7 +245,10 @@ public class BlipLIMEClient implements BlipClientPort {
                 new HttpEntity<>(payload, buildHeaders(scope)),
                 new ParameterizedTypeReference<Map<String, Object>>() {}
         );
-        return response.getBody() != null ? response.getBody() : Map.of();
+        if (response != null) {
+            log.info("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), response.getBody());
+        }
+        return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
     }
 
     /**

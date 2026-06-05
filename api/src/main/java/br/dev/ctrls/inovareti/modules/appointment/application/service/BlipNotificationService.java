@@ -87,7 +87,7 @@ public class BlipNotificationService {
     }
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
-        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+        String normalizedDestination = ensureWabaIdentity(destination);
 
         boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
         if (!isHomologDoctor) {
@@ -223,7 +223,7 @@ public class BlipNotificationService {
     }
 
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
-        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+        String normalizedDestination = ensureWabaIdentity(destination);
 
         String safePatientName = (patientName == null || patientName.isBlank() || "null".equalsIgnoreCase(patientName.trim())) 
                 ? "Paciente" 
@@ -278,7 +278,7 @@ public class BlipNotificationService {
     }
 
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
-        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+        String normalizedDestination = ensureWabaIdentity(destination);
 
         boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
         if (!isHomologDoctor) {
@@ -333,7 +333,7 @@ public class BlipNotificationService {
             log.warn("[PLAIN-TEXT] Destino ou texto inválido. Envio cancelado. destination={}", destination);
             return;
         }
-        String normalizedDestination = limeClient.normalizeUserIdentity(destination);
+        String normalizedDestination = ensureWabaIdentity(destination);
         Map<String, Object> payload = new java.util.LinkedHashMap<>();
         payload.put("id", UUID.randomUUID().toString());
         payload.put("to", normalizedDestination);
@@ -352,6 +352,24 @@ public class BlipNotificationService {
     private String resolveWabaNamespace() {
         String ns = motorProperties.getBlipWabaNamespace();
         return (ns != null && !ns.isBlank()) ? ns : "";
+    }
+
+    private String ensureWabaIdentity(String destination) {
+        if (destination == null || destination.isBlank()) {
+            return "unknown@wa.gw.msging.net";
+        }
+        String cleaned = destination.trim();
+        if (cleaned.contains("@")) {
+            int idx = cleaned.indexOf('@');
+            String local = cleaned.substring(0, idx).trim();
+            String domain = cleaned.substring(idx + 1).trim();
+            if (local.matches("^\\+?\\d+$")) {
+                local = local.replaceAll("\\D", "");
+            }
+            return local + "@" + domain;
+        }
+        String digits = cleaned.replaceAll("\\D", "");
+        return digits + "@wa.gw.msging.net";
     }
 }
 

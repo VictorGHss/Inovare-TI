@@ -407,7 +407,11 @@ public class IngestAppointmentsUseCase {
                 .orElse("aviso_agendamento_grupo")
         );
         log.info("[GRUPO] Template de grupo resolvido: '{}'. groupId={}", groupTemplateName, groupId);
-        blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, patientName);
+        try {
+            blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, patientName);
+        } catch (Exception e) {
+            log.error("[ERRO-CRITICO-GRUPO] Falha ao transmitir grupo para a Blip", e);
+        }
     }
 
     private String redirectTestPhoneIfNeeded(String phoneNumber, String doctorId) {
@@ -460,19 +464,9 @@ public class IngestAppointmentsUseCase {
         if (originalPhone == null || originalPhone.isBlank()) {
             return "";
         }
-        String trimmed = originalPhone.trim();
-        if (trimmed.contains(",") || trimmed.contains("/")) {
-            String[] parts = trimmed.split("[,/]+");
-            if (parts.length > 0 && parts[0] != null) {
-                trimmed = parts[0].trim();
-            }
-        }
-        String digitsOnly = trimmed.replaceAll("\\D", "");
+        String digitsOnly = originalPhone.replaceAll("\\D", "");
         if (digitsOnly.startsWith("55")) {
             digitsOnly = digitsOnly.substring(2);
-        }
-        if (digitsOnly.length() > 11) {
-            digitsOnly = digitsOnly.substring(digitsOnly.length() - 11);
         }
         return digitsOnly;
     }

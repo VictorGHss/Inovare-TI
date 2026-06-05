@@ -83,11 +83,24 @@ public class IngestAppointmentsUseCase {
         Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = appointmentDoctorMappingRepository.findAll().stream()
                 .collect(Collectors.toMap(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping::getProfissionalId, m -> m, (m1, m2) -> m1));
 
-        Map<String, List<FeegowAppointment>> grouped = appointments.stream()
+        List<FeegowAppointment> activeAppointments = appointments.stream()
                 .filter(appointment -> !"12".equals(appointment.statusId()))
-                .collect(Collectors.groupingBy(FeegowAppointment::patientId));
+                .collect(Collectors.toList());
 
-        Map<String, FeegowPatient> patientDetailsCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(grouped.keySet());
+        java.util.Set<String> patientIds = activeAppointments.stream()
+                .map(FeegowAppointment::patientId)
+                .collect(Collectors.toSet());
+
+        Map<String, FeegowPatient> patientDetailsCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(patientIds);
+
+        Map<String, List<FeegowAppointment>> grouped = activeAppointments.stream()
+                .collect(Collectors.groupingBy(appointment -> {
+                    FeegowPatient patient = patientDetailsCache.get(appointment.patientId());
+                    String phone = patient != null ? patient.phone() : null;
+                    String normalized = normalizePhoneNumberForBlip(phone);
+                    LocalDate date = appointment.startAt().toLocalDate();
+                    return normalized + "#" + date;
+                }));
 
         return processIngestionGroups(grouped, sessionCache, doctorMappingCache, patientDetailsCache, totalReceived);
     }
@@ -101,33 +114,37 @@ public class IngestAppointmentsUseCase {
         int filteredReceived = 0;
 
         for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
-            String patientId = entry.getKey();
-            List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(entry.getValue(), sessionCache, doctorMappingCache);
+            String key = entry.getKey();
+            List<FeegowAppointment> groupAppointments = entry.getValue();
+            List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache);
 
             if (eligibleAppointments.isEmpty()) {
                 continue;
             }
 
             filteredReceived += eligibleAppointments.size();
-            FeegowPatient patientDetails = patientDetailsCache.get(patientId);
 
-            // Agrupa as consultas elegíveis por data de agendamento (LocalDate)
-            Map<LocalDate, List<FeegowAppointment>> appointmentsByDate = eligibleAppointments.stream()
-                    .collect(Collectors.groupingBy(a -> a.startAt().toLocalDate()));
+            String[] keyParts = key.split("#", 2);
+            String normalizedPhone = keyParts[0];
 
-            for (Map.Entry<LocalDate, List<FeegowAppointment>> dateEntry : appointmentsByDate.entrySet()) {
-                List<FeegowAppointment> dateAppointments = dateEntry.getValue();
-                if (dateAppointments.size() == 1) {
-                    if (processSingleFlow(dateAppointments.get(0), doctorMappingCache, patientDetails)) {
-                        created++;
-                        messagesSent++;
-                    }
-                } else {
-                    int sent = processGroupFlow(dateAppointments, patientDetails);
-                    created += sent;
-                    if (sent > 0) {
-                        messagesSent++;
-                    }
+            if (normalizedPhone.isBlank()) {
+                continue;
+            }
+
+            if (eligibleAppointments.size() == 1) {
+                FeegowAppointment appt = eligibleAppointments.get(0);
+                FeegowPatient patientDetails = patientDetailsCache.get(appt.patientId());
+                if (processSingleFlow(appt, doctorMappingCache, patientDetails)) {
+                    created++;
+                    messagesSent++;
+                }
+            } else {
+                FeegowAppointment firstAppt = eligibleAppointments.get(0);
+                FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
+                int sent = processGroupFlow(eligibleAppointments, patientDetails, normalizedPhone);
+                created += sent;
+                if (sent > 0) {
+                    messagesSent++;
                 }
             }
         }
@@ -278,13 +295,12 @@ public class IngestAppointmentsUseCase {
         return (resolved != null && !resolved.isBlank() && !"null".equalsIgnoreCase(resolved.trim())) ? resolved.trim() : "Clínica Inovare";
     }
 
-    private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails) {
-        String patientPhone = patientDetails != null ? patientDetails.phone() : null;
-        String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
-        if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
+    private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails, String normalizedPhone) {
+        if (normalizedPhone == null || normalizedPhone.isBlank()) {
             return 0;
         }
 
+        String phoneNumber = normalizedPhone;
         if (appointmentMotorProperties.isTestMode()) {
             phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, eligibleAppointments.get(0).doctorId());
             if (phoneNumber == null) return 0;
@@ -296,7 +312,7 @@ public class IngestAppointmentsUseCase {
         }
 
         UUID groupId = UUID.randomUUID();
-        if (!saveNotificationGroup(groupId, savedSessions)) {
+        if (!saveNotificationGroup(groupId, savedSessions, phoneNumber)) {
             return 0;
         }
 
@@ -350,12 +366,13 @@ public class IngestAppointmentsUseCase {
         });
     }
 
-    private boolean saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions) {
+    private boolean saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions, String phoneNumber) {
         List<NotificationGroup> groupEntities = new ArrayList<>();
         for (AppointmentSession session : savedSessions) {
             groupEntities.add(NotificationGroup.builder()
                 .groupId(groupId)
                 .sessionId(session.getId())
+                .phoneNumber(phoneNumber)
                 .createdAt(LocalDateTime.now())
                 .build());
         }

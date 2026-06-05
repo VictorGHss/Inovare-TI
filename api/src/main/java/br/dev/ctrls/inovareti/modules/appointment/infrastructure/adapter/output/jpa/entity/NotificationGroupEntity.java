@@ -42,6 +42,9 @@ public class NotificationGroupEntity {
     @Column(name = "session_id", nullable = false)
     private UUID sessionId;
 
+    @Column(name = "phone_number", length = 30)
+    private String phoneNumber;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -51,6 +54,7 @@ public class NotificationGroupEntity {
                 .id(this.id)
                 .groupId(this.groupId)
                 .sessionId(this.sessionId)
+                .phoneNumber(this.phoneNumber)
                 .createdAt(this.createdAt)
                 .build();
     }
@@ -61,6 +65,7 @@ public class NotificationGroupEntity {
                 .id(domain.getId())
                 .groupId(domain.getGroupId())
                 .sessionId(domain.getSessionId())
+                .phoneNumber(domain.getPhoneNumber())
                 .createdAt(domain.getCreatedAt())
                 .build();
     }

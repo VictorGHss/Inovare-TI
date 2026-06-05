@@ -7,7 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -19,8 +20,7 @@ import lombok.RequiredArgsConstructor;
 @Observed
 public class BlipAppointmentFormatter {
 
-    private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
-    private final BlipTextSanitizer blipTextSanitizer;
+    private final PatientExternalPort patientExternalPort;
 
     /**
      * Constrói a string formatada da lista de agendamentos (lista_detalhada) de acordo
@@ -40,23 +40,21 @@ public class BlipAppointmentFormatter {
             if (s.getAppointmentAt() == null) {
                 continue;
             }
-            String dateStr = s.getAppointmentAt().toLocalDate().format(DateTimeFormatter.ofPattern("dd/MM"));
             String timeStr = s.getAppointmentAt().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
 
-            String doctorName = "Clínica Inovare";
-            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId());
-            if (mappingOpt.isPresent()) {
-                var mapping = mappingOpt.get();
-                String docName = mapping.getProfissionalNome();
-                if (docName != null && !docName.isBlank() && !"null".equalsIgnoreCase(docName.trim())) {
-                    doctorName = docName.trim();
+            String patientName = "Paciente";
+            try {
+                FeegowPatient patient = patientExternalPort.patientInfo(s.getPatientId());
+                if (patient != null && patient.name() != null && !patient.name().isBlank()) {
+                    patientName = patient.name().trim();
                 }
+            } catch (Exception e) {
+                // fallback se falhar
             }
-            doctorName = blipTextSanitizer.sanitizeDoctorName(doctorName);
 
             // Comentário em Português:
-            // Formatação minimalista estrita contendo o emoji, o nome do profissional higienizado, a data (dd/MM) e o horário (HH:mm).
-            String formatted = String.format("\uD83E\uDE7A %s - %s às %s", doctorName, dateStr, timeStr);
+            // Formatação minimalista estrita contendo o emoji, o nome do paciente e o horário (HH:mm).
+            String formatted = String.format("\uD83E\uDE7A %s - %s", patientName, timeStr);
             details.add(formatted);
         }
 
@@ -64,3 +62,4 @@ public class BlipAppointmentFormatter {
         return java.text.Normalizer.normalize(resultStr, java.text.Normalizer.Form.NFC);
     }
 }
+

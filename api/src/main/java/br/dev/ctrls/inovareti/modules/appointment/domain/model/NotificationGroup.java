@@ -18,5 +18,6 @@ public class NotificationGroup {
     private UUID id;
     private UUID groupId;
     private UUID sessionId;
+    private String phoneNumber;
     private LocalDateTime createdAt;
 }

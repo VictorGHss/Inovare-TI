@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +19,7 @@ import br.dev.ctrls.inovareti.modules.notification.application.dto.FaqTiResponse
 import br.dev.ctrls.inovareti.modules.notification.application.usecase.CreateFaqTiUseCase;
 import br.dev.ctrls.inovareti.modules.notification.application.usecase.DeleteFaqTiUseCase;
 import br.dev.ctrls.inovareti.modules.notification.application.usecase.ListFaqTiUseCase;
+import br.dev.ctrls.inovareti.modules.notification.application.usecase.UpdateFaqTiUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class FaqTiController {
     private final CreateFaqTiUseCase createFaqTiUseCase;
     private final ListFaqTiUseCase listFaqTiUseCase;
     private final DeleteFaqTiUseCase deleteFaqTiUseCase;
+    private final UpdateFaqTiUseCase updateFaqTiUseCase;
 
     /**
      * Cria um novo FAQ da TI (apenas ADMIN e TECHNICIAN/TI).
@@ -67,5 +70,16 @@ public class FaqTiController {
         log.info("Recebida requisição para deletar FAQ pelo identificador: {}", id);
         deleteFaqTiUseCase.execute(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Atualiza um FAQ da TI existente (apenas ADMIN e TECHNICIAN/TI).
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    public ResponseEntity<FaqTiResponseDTO> update(@PathVariable Integer id, @Valid @RequestBody FaqTiRequestDTO request) {
+        log.info("Recebida requisição para atualizar FAQ com ID: {}", id);
+        FaqTiResponseDTO response = updateFaqTiUseCase.execute(id, request);
+        return ResponseEntity.ok(response);
     }
 }

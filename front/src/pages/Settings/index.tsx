@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle, ArrowLeft, Settings2, Database, Tag, FileText, Share2 } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle, ArrowLeft, Settings2, Database, Tag, FileText, Share2, HelpCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,8 +15,9 @@ import ProfessionalMappingPanel from './ProfessionalMappingPanel';
 import CategoriesSection from './CategoriesSection';
 import BackupsSection from './BackupsSection';
 import TagsSection from './TagsSection';
+import FaqManagement from '../FaqManagement';
 
-type TabType = 'system' | 'profile';
+type TabType = 'system' | 'profile' | 'faq';
 type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups';
 
 const inputClassName =
@@ -63,7 +64,9 @@ function PresenceBadge({ present }: { present?: boolean }) {
 
 export default function Settings() {
   const { user, isTwoFactorVerified } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>(user?.role === 'ADMIN' ? 'system' : 'profile');
+  const [activeTab, setActiveTab] = useState<TabType>(
+    user?.role === 'ADMIN' ? 'system' : user?.role === 'TECHNICIAN' ? 'faq' : 'profile'
+  );
   const [activeSubSection, setActiveSubSection] = useState<SubSectionType>('menu');
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -191,6 +194,7 @@ export default function Settings() {
 
   const tabs = [
     ...(isAdmin ? [{ id: 'system' as TabType, label: 'Sistema', icon: Globe }] : []),
+    ...((user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') ? [{ id: 'faq' as TabType, label: 'FAQ da TI', icon: HelpCircle }] : []),
     { id: 'profile' as TabType, label: 'Perfil', icon: UserIcon },
   ];
 
@@ -714,6 +718,11 @@ export default function Settings() {
             </AnimatePresence>
           )}
         </div>
+      )}
+
+      {/* ── TAB: FAQ da TI ── */}
+      {activeTab === 'faq' && (user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+        <FaqManagement />
       )}
 
       {/* ── TAB: PERFIL ── */}

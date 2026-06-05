@@ -84,7 +84,6 @@ const ArticleDetails = lazyWithRetry(() => import('./pages/KnowledgeBase/Article
 const Vault = lazyWithRetry(() => import('./pages/Vault'));
 const SystemLogs = lazyWithRetry(() => import('./pages/SystemLogs'));
 const Financeiro = lazyWithRetry(() => import('./pages/Financeiro'));
-const FaqManagement = lazyWithRetry(() => import('./pages/FaqManagement'));
 
 function PageLoader() {
   return (
@@ -201,14 +200,6 @@ function AppRoutes() {
               <FinancialGuardRoute>
                 <Financeiro />
               </FinancialGuardRoute>
-            )}
-          />
-          <Route
-            path="/faq-management"
-            element={(
-              <RoleRoute allowedRoles={['ADMIN', 'TECHNICIAN']}>
-                <FaqManagement />
-              </RoleRoute>
             )}
           />
         </Route>

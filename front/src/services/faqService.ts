@@ -23,3 +23,11 @@ export async function createFaq(faq: FaqTi): Promise<FaqTi> {
 export async function deleteFaq(id: string): Promise<void> {
   await api.delete(`/v1/admin/faqs/${id}`);
 }
+
+/**
+ * Atualiza um FAQ da TI pelo ID.
+ */
+export async function updateFaq(id: string, faq: FaqTi): Promise<FaqTi> {
+  const { data } = await api.put<FaqTi>(`/v1/admin/faqs/${id}`, faq);
+  return data;
+}

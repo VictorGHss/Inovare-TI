@@ -15,7 +15,6 @@ import {
   Ticket,
   Users,
   X,
-  HelpCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,12 +57,6 @@ export default function DefaultLayout() {
     { path: '/financeiro', label: 'Financeiro', icon: DollarSign, visible: user?.role === 'ADMIN' },
     { path: '/users', label: 'Equipe', icon: Users, visible: user?.role === 'ADMIN' },
     { path: '/sectors', label: 'Setores', icon: Building2, visible: user?.role === 'ADMIN' },
-    {
-      path: '/faq-management',
-      label: 'FAQ da TI',
-      icon: HelpCircle,
-      visible: user?.role === 'ADMIN' || user?.role === 'TECHNICIAN',
-    },
   ]), [user?.role]);
 
   const desktopNavButtonClass = (isActive: boolean) =>

@@ -229,9 +229,8 @@ public class IngestAppointmentsUseCase {
             return false;
         }
 
-        if (appointmentMotorProperties.isTestMode()) {
-            phoneNumber = redirectTestPhoneIfNeeded(phoneNumber, appointment.doctorId());
-            if (phoneNumber == null) return false;
+        if (appointmentMotorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointment.doctorId())) {
+            return false;
         }
 
         AppointmentSession saved = saveSingleSession(feegowAppointmentId, appointment, phoneNumber);
@@ -310,6 +309,10 @@ public class IngestAppointmentsUseCase {
 
     private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails, String normalizedPhone) {
         if (normalizedPhone == null || normalizedPhone.isBlank()) {
+            return 0;
+        }
+
+        if (appointmentMotorProperties.isTestMode() && !isDoctorAllowedInTestMode(eligibleAppointments.get(0).doctorId())) {
             return 0;
         }
 
@@ -422,7 +425,10 @@ public class IngestAppointmentsUseCase {
         }
     }
 
-    private String redirectTestPhoneIfNeeded(String phoneNumber, String doctorId) {
+    private boolean isDoctorAllowedInTestMode(String doctorId) {
+        if (!appointmentMotorProperties.isTestMode()) {
+            return true;
+        }
         String testDoctorId = appointmentMotorProperties.getTestDoctorId();
         java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
                 .map(String::trim)
@@ -430,10 +436,7 @@ public class IngestAppointmentsUseCase {
                 .toList();
         
         String docId = doctorId != null ? doctorId.trim() : "";
-        if (!allowedIds.contains(docId)) {
-            return null;
-        }
-        return phoneNumber;
+        return allowedIds.contains(docId);
     }
 
     private String normalizeFeegowAppointmentId(String feegowAppointmentId) {

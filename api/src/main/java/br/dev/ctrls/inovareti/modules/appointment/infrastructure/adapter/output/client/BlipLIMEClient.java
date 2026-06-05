@@ -236,10 +236,6 @@ public class BlipLIMEClient implements BlipClientPort {
     )
     public Map<String, Object> executeMessage(Map<String, Object> payload, AuthorizationScope scope) {
         rateLimit();
-        if (properties.isTestMode()) {
-            log.info("[API-BLIP-RESPONSE] MOCK MODO TEST ATIVO");
-            return Map.of("status", "success", "id", payload.getOrDefault("id", UUID.randomUUID().toString()));
-        }
         URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
                 .path(properties.getBlipSendMessagePath())
                 .build().toUri();

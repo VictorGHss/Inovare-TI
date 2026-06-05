@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-/**
+/*
  * Representação parcial de uma Pessoa na Conta Azul.
  *
  * Esta DTO mapeia apenas os campos necessários pela aplicação (id, nome, e-mail

@@ -33,6 +33,23 @@ public class BlipContextService {
         setUserContext(normalizedIdentity, key, value);
     }
 
+    public void setUserContextFieldsInParallel(String userIdentity, Map<String, String> fields) {
+        if (userIdentity == null || userIdentity.isBlank() || fields == null || fields.isEmpty()) {
+            return;
+        }
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = fields.entrySet().stream()
+            .map(entry -> java.util.concurrent.CompletableFuture.runAsync(() -> {
+                setUserContext(normalizedIdentity, entry.getKey(), entry.getValue());
+            }))
+            .toList();
+        try {
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture<?>[0])).join();
+        } catch (Exception e) {
+            log.error("Erro ao configurar contexto em paralelo para {}", normalizedIdentity, e);
+        }
+    }
+
     public String getUserContext(String userIdentity, String key) {
         if (userIdentity == null || userIdentity.isBlank() || key == null || key.isBlank()) return null;
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);

@@ -148,7 +148,7 @@ public class BlipGroupActionHandler {
 
         switch (actionType) {
             case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid, rawFrom);
-            case "confirm_group" -> handleConfirmGroup(groupId);
+            case "confirm_group" -> handleConfirmGroup(groupId, fromPhone);
             case "alter_group" -> handleAlterGroup(groupId, fromPhone);
             case "group_view" -> handleGroupView(groupId, fromPhone, rawFrom);
             case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone, rawFrom);
@@ -185,34 +185,12 @@ public class BlipGroupActionHandler {
         }
     }
 
-    private void handleConfirmGroup(UUID groupId) {
-        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento síncrono e baixa real no Feegow.", groupId);
-        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-        if (groups != null) {
-            for (NotificationGroup g : groups) {
-                if (g != null && g.getSessionId() != null) {
-                    appointmentSessionRepository.findById(g.getSessionId()).ifPresent(appt -> {
-                        if (appt != null && appt.getFeegowAppointmentId() != null) {
-                            log.info("[FEEGOW-BAIXA-GRUPO] Atualizando consulta ID={} para confirmado no Feegow devido ao groupId={}", appt.getId(), groupId);
-                            try {
-                                appointmentExternalPort.updateStatus(appt.getFeegowAppointmentId(), 7);
-                                
-                                transactionTemplate.executeWithoutResult(status -> {
-                                    AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(appt.getId()).orElse(null);
-                                    if (lockedSession != null) {
-                                        lockedSession.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CONFIRMED);
-                                        lockedSession.setClosedAt(java.time.LocalDateTime.now());
-                                        lockedSession.setLastInteractionAt(java.time.LocalDateTime.now());
-                                        appointmentSessionRepository.save(lockedSession);
-                                    }
-                                });
-                            } catch (RuntimeException e) {
-                                log.error("[FEEGOW-BAIXA-GRUPO] Erro ao atualizar status no Feegow para ID: {}. Erro: {}", appt.getFeegowAppointmentId(), e.getMessage(), e);
-                            }
-                        }
-                    });
-                }
-            }
+    private void handleConfirmGroup(UUID groupId, String fromPhone) {
+        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento assíncrono e baixa real no Feegow.", groupId);
+        try {
+            feegowBulkIntegrationHandler.confirmGroupAsync(groupId, fromPhone);
+        } catch (Exception e) {
+            log.error("[WEBHOOK-BATCH] Erro ao agendar confirmação assíncrona para grupo " + groupId, e);
         }
     }
 
@@ -297,17 +275,31 @@ public class BlipGroupActionHandler {
             log.warn("[WEBHOOK] preCompiledScheduleText vazio para o groupId={}", groupId);
         }
 
-        blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
-        blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
-        blipContextService.setUserContextForUser(fromPhone.trim(), "isConfirmingAgenda", "true");
-        log.info("[WEBHOOK] Injetada lista_detalhada pré-compilada, isConfirmingAgenda=true e groupId={} para {}.", groupId, fromPhone);
+        Map<String, String> fields = Map.of(
+            "lista_detalhada", listaDetalhada,
+            "groupId", groupId.toString(),
+            "isConfirmingAgenda", "true"
+        );
+
+        long start = System.currentTimeMillis();
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = new java.util.ArrayList<>();
+        
+        futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+            blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
+        ));
 
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
             String cleanRawFrom = rawFrom.trim();
-            blipContextService.setUserContextForUser(cleanRawFrom, "lista_detalhada", listaDetalhada);
-            blipContextService.setUserContextForUser(cleanRawFrom, "groupId", groupId.toString());
-            blipContextService.setUserContextForUser(cleanRawFrom, "isConfirmingAgenda", "true");
-            log.info("[WEBHOOK] DUPLICADO CONTEXTO: Injetada lista_detalhada pré-compilada, isConfirmingAgenda=true e groupId={} para o contato do túnel original {}.", groupId, cleanRawFrom);
+            futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+                blipContextService.setUserContextFieldsInParallel(cleanRawFrom, fields)
+            ));
+        }
+
+        try {
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture<?>[0])).join();
+            log.info("[WEBHOOK] Injetado contexto em paralelo com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
+        } catch (Exception e) {
+            log.error("[WEBHOOK] Erro ao injetar contexto em paralelo para groupId={}", groupId, e);
         }
     }
 

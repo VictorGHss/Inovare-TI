@@ -143,7 +143,7 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "resource", "content", "replied", "value")),
                 asText(getNested(payload, "message", "content", "replied", "value")));
         if (replyButtonAction != null) {
-            log.info("[WEBHOOK] action extraído (reply+json content.replied.value): '{}'", replyButtonAction);
+            log.debug("[WEBHOOK] action extraído (reply+json content.replied.value): '{}'", replyButtonAction);
             return replyButtonAction;
         }
 
@@ -156,27 +156,27 @@ public class BlipWebhookInboundService {
             if ("application/vnd.lime.reply+json".equalsIgnoreCase(messageType)) {
                 String fromReplied = firstNonBlank(asText(getNested(contentMap, "replied", "value")));
                 if (fromReplied != null) {
-                    log.info("[WEBHOOK] action extraído (reply+json via content map): '{}'", fromReplied);
+                    log.debug("[WEBHOOK] action extraído (reply+json via content map): '{}'", fromReplied);
                     return fromReplied;
                 }
             }
             if ("application/vnd.lime.select+json".equalsIgnoreCase(messageType)) {
                 String selectText = firstNonBlank(asText(contentMap.get("text")));
                 if (selectText != null) {
-                    log.info("[WEBHOOK] action extraído (select+json text): '{}'", selectText);
+                    log.debug("[WEBHOOK] action extraído (select+json text): '{}'", selectText);
                     return selectText;
                 }
             }
             String objectText = firstNonBlank(asText(contentMap.get("text")));
             if (objectText != null) {
-                log.info("[WEBHOOK] action extraído (text): '{}'", objectText);
+                log.debug("[WEBHOOK] action extraído (text): '{}'", objectText);
                 return objectText;
             }
             String selectValue = firstNonBlank(
                     asText(contentMap.get("value")),
                     asText(contentMap.get("payload")));
             if (selectValue != null) {
-                log.info("[WEBHOOK] action extraído: '{}'", selectValue);
+                log.debug("[WEBHOOK] action extraído: '{}'", selectValue);
                 return selectValue;
             }
         }
@@ -192,7 +192,7 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "resource", "content")),
                 asText(getNested(payload, "resource", "content", "text")),
                 asText(getNested(payload, "resource", "content", "title")));
-        log.info("[WEBHOOK] action extraído: '{}'", action);
+        log.debug("[WEBHOOK] action extraído: '{}'", action);
         return action;
     }
 

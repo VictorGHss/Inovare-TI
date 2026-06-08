@@ -60,6 +60,12 @@ public class BlipWebhookController {
     // Cache local em memória concorrente com expiração para garantir resiliência caso o Redis esteja indisponível
     private final Map<String, Long> processedEventsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    // Cache de idempotência estrita de 5 segundos para blindagem anti-loop
+    private final Map<String, Long> strictIdempotencyCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Cache de rate limit de 30 segundos para orientação de estado
+    private final Map<String, Long> lastOrientationSentCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Operation(
         summary = "Recebe e processa webhooks enviados pelo Blip",
         description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validação de assinatura criptográfica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotência de eventos."
@@ -164,6 +170,29 @@ public class BlipWebhookController {
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
+        // 1. Blindagem Anti-Loop (Ignora mensagens originadas do próprio robô)
+        if (from != null && (from.contains("roteadorprincipal57@msging.net") || from.toLowerCase().startsWith("roteadorprincipal"))) {
+            log.debug("[ANTI-LOOP] Ignorando mensagem do próprio robô/roteador: {}", from);
+            return ResponseEntity.ok().build();
+        }
+
+        // 2. Idempotência estrita local de 5 segundos
+        if (messageId != null && !messageId.isBlank()) {
+            long now = System.currentTimeMillis();
+            Long lastProcessed = strictIdempotencyCache.get(messageId);
+            if (lastProcessed != null && (now - lastProcessed) < 5000L) {
+                log.info("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 5s). Ignorando messageId='{}'", messageId);
+                return ResponseEntity.ok(Map.of(
+                    "status", "processed",
+                    "reason", "strict-duplicate-ignored"
+                ));
+            }
+            if (strictIdempotencyCache.size() > 5000) {
+                strictIdempotencyCache.entrySet().removeIf(entry -> entry.getValue() < now - 5000L);
+            }
+            strictIdempotencyCache.put(messageId, now);
+        }
+
         // --- SAFETY-GUARD DE SEGURANí‡A ESTRUTURAL (REJEITA PAYLOADS MALFORMADOS COM 400 BAD REQUEST) ---
         if (!StringUtils.hasText(from) || !StringUtils.hasText(messageId)) {
             log.warn("[SAFETY-GUARD] Payload Blip/LIME estruturalmente inválido. from={}, messageId={}", from, messageId);
@@ -194,12 +223,24 @@ public class BlipWebhookController {
             );
 
             if (!isButtonClick) {
-                log.info("[STATE-LOCK] Paciente {} enviou texto livre '{}' durante fluxo de confirmacao de agenda. Enviando orientacao e ignorando.", from, action);
-                try {
-                    blipNotificationService.sendPlainTextMessage(from, "Por favor, utilize os botões acima para confirmar ou alterar seu agendamento.");
-                } catch (Exception e) {
-                    log.error("Erro ao enviar plain text message de orientacao para {}: {}", from, e.getMessage());
+                long now = System.currentTimeMillis();
+                Long lastSent = lastOrientationSentCache.get(from);
+                boolean shouldSend = lastSent == null || (now - lastSent) >= 30000L;
+
+                log.info("[STATE-LOCK] Paciente {} enviou texto livre '{}' durante fluxo de confirmacao de agenda. Ignorando entrada.", from, action);
+                
+                if (shouldSend) {
+                    lastOrientationSentCache.put(from, now);
+                    try {
+                        blipNotificationService.sendPlainTextMessage(from, "Por favor, utilize os botões acima para confirmar ou alterar seu agendamento.");
+                        log.info("[STATE-LOCK] Enviada mensagem de orientação para o paciente {}.", from);
+                    } catch (Exception e) {
+                        log.error("Erro ao enviar plain text message de orientacao para {}: {}", from, e.getMessage());
+                    }
+                } else {
+                    log.info("[STATE-LOCK] Orientação suprimida por rate limit de 30s para o paciente {}.", from);
                 }
+
                 return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "state-locked-text-ignored"

@@ -171,9 +171,9 @@ public class BlipWebhookController {
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
-        // 1. Blindagem Anti-Loop (Ignora mensagens originadas do próprio robô)
-        if (from != null && (from.contains("roteadorprincipal57@msging.net") || from.toLowerCase().startsWith("roteadorprincipal"))) {
-            log.debug("[ANTI-LOOP] Ignorando mensagem do próprio robô/roteador: {}", from);
+        // 1. Blindagem Anti-Loop (Ignora mensagens originadas do próprio robô/outbound)
+        if (parsed.isOutbound() || (from != null && (from.contains("roteadorprincipal57@msging.net") || from.toLowerCase().startsWith("roteadorprincipal")))) {
+            log.debug("[ANTI-LOOP] Ignorando mensagem outbound/robô: {}", from);
             return ResponseEntity.ok().build();
         }
 

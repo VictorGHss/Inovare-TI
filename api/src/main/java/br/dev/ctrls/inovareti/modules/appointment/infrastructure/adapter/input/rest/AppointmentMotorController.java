@@ -184,6 +184,10 @@ public class AppointmentMotorController {
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
+        if (parsed.isOutbound()) {
+            return ResponseEntity.ok(Map.of("status", "ignored", "reason", "outbound-message"));
+        }
+
         Map<String, Object> metadata = extractMetadata(payload);
 
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(

@@ -35,15 +35,16 @@ public class BlipWebhookInboundService {
             String appointmentId,
             Object content,
             String bsuid,
-            String type) {
+            String type,
+            boolean isOutbound) {
         public ParsedInbound(String from, String action, String messageId, String appointmentId, Object content, String bsuid) {
-            this(from, action, messageId, appointmentId, content, bsuid, null);
+            this(from, action, messageId, appointmentId, content, bsuid, null, false);
         }
     }
 
     public ParsedInbound parse(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
-            return new ParsedInbound(null, null, null, null, null, null, null);
+            return new ParsedInbound(null, null, null, null, null, null, null, false);
         }
 
         String messageType = firstNonBlank(
@@ -82,7 +83,7 @@ public class BlipWebhookInboundService {
                 getNested(payload, "resource", "content"),
                 getNested(payload, "message", "content"));
 
-        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType);
+        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType, checkIsOutbound(payload));
     }
 
     private String extractBsuid(Map<String, Object> payload) {
@@ -322,6 +323,26 @@ public class BlipWebhookInboundService {
             return value.toString();
         }
         return null;
+    }
+
+    private boolean checkIsOutbound(Map<String, Object> payload) {
+        String direction = firstNonBlank(
+                asText(getNested(payload, "direction")),
+                asText(getNested(payload, "resource", "direction")),
+                asText(getNested(payload, "message", "direction")));
+        if ("out".equalsIgnoreCase(direction)) {
+            return true;
+        }
+
+        String rawFrom = firstNonBlank(
+                asText(getNested(payload, "from")),
+                asText(getNested(payload, "resource", "from")),
+                asText(getNested(payload, "message", "from")));
+        if (rawFrom != null && (rawFrom.contains("roteadorprincipal57@msging.net") || rawFrom.toLowerCase().startsWith("roteadorprincipal"))) {
+            return true;
+        }
+
+        return false;
     }
 }
 

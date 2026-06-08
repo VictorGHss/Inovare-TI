@@ -4,6 +4,7 @@ import io.micrometer.observation.annotation.Observed;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -64,25 +65,40 @@ public class BlipGroupActionHandler {
             }
         }
         
-        if (groupId == null) {
-            return null;
+        List<NotificationGroup> groups = null;
+        if (groupId != null) {
+            groups = notificationGroupRepository.findByGroupId(groupId);
         }
 
-        // Buscar o grupo na tabela para validar existência
-        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
         if (groups == null || groups.isEmpty()) {
             log.warn("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação por busca de sessão...", groupId);
             if (fromPhone != null && !fromPhone.isBlank()) {
                 String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
-                List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
-                if (activeSessions != null && !activeSessions.isEmpty()) {
-                    for (AppointmentSession session : activeSessions) {
-                        List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
-                        if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
-                            groups = recoveredGroups;
-                            groupId = recoveredGroups.get(0).getGroupId();
-                            log.info("[WEBHOOK] Recuperado grupo com sucesso via sessao ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
-                            break;
+                
+                // 1. Tentar buscar pelo agendamento mais recente vinculado ao phone_number que esteja com status PENDING
+                Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
+                if (latestGroupOpt.isPresent()) {
+                    NotificationGroup latestGroup = latestGroupOpt.get();
+                    Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findById(latestGroup.getSessionId());
+                    if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.PENDING) {
+                        groupId = latestGroup.getGroupId();
+                        groups = notificationGroupRepository.findByGroupId(groupId);
+                        log.info("[WEBHOOK] Recuperado grupo com sucesso via agendamento PENDING recente para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                    }
+                }
+
+                // 2. Fallback secundário: buscar por qualquer sessão ativa se o mais recente não estiver PENDING
+                if (groups == null || groups.isEmpty()) {
+                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        for (AppointmentSession session : activeSessions) {
+                            List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
+                            if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
+                                groups = recoveredGroups;
+                                groupId = recoveredGroups.get(0).getGroupId();
+                                log.info("[WEBHOOK] Recuperado grupo com sucesso via sessao ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                                break;
+                            }
                         }
                     }
                 }
@@ -251,7 +267,8 @@ public class BlipGroupActionHandler {
 
         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
         blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
-        log.info("[WEBHOOK] Injetada lista_detalhada pré-compilada e groupId={} para {}.", groupId, fromPhone);
+        blipContextService.setUserContextForUser(fromPhone.trim(), "isConfirmingAgenda", "true");
+        log.info("[WEBHOOK] Injetada lista_detalhada pré-compilada, isConfirmingAgenda=true e groupId={} para {}.", groupId, fromPhone);
     }
 
     private UUID parseUuid(String str) {

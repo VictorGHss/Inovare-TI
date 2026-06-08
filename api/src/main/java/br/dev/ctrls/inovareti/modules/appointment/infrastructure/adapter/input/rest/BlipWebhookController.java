@@ -48,6 +48,8 @@ public class BlipWebhookController {
     private final WebhookSignatureValidator webhookSignatureValidator;
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
     private final Environment env;
+    private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService blipContextService;
+    private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService blipNotificationService;
 
     @Value("${blip.webhook.secret}")
     private String blipWebhookSecret;
@@ -173,6 +175,38 @@ public class BlipWebhookController {
         }
         // -----------------------------------------------------------------------------------------------
 
+        // Lock de estado: se o paciente estiver no fluxo de confirmacao e digitar texto livre, ignoramos e orientamos
+        boolean isConfirming = false;
+        try {
+            String isConfirmingStr = blipContextService.getUserContext(from, "isConfirmingAgenda");
+            isConfirming = "true".equalsIgnoreCase(isConfirmingStr);
+        } catch (Exception e) {
+            log.warn("Erro ao buscar isConfirmingAgenda no contexto para {}: {}", from, e.getMessage());
+        }
+
+        if (isConfirming) {
+            boolean isButtonClick = action != null && (
+                action.startsWith("confirm_") ||
+                action.startsWith("alter_") ||
+                action.startsWith("ver_agenda_") ||
+                action.startsWith("group_view_") ||
+                "group_view_fallback".equalsIgnoreCase(action)
+            );
+
+            if (!isButtonClick) {
+                log.info("[STATE-LOCK] Paciente {} enviou texto livre '{}' durante fluxo de confirmacao de agenda. Enviando orientacao e ignorando.", from, action);
+                try {
+                    blipNotificationService.sendPlainTextMessage(from, "Por favor, utilize os botões acima para confirmar ou alterar seu agendamento.");
+                } catch (Exception e) {
+                    log.error("Erro ao enviar plain text message de orientacao para {}: {}", from, e.getMessage());
+                }
+                return ResponseEntity.ok(Map.of(
+                    "status", "ignored",
+                    "reason", "state-locked-text-ignored"
+                ));
+            }
+        }
+
         // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
         boolean isNotification = payload.containsKey("event");
         if (!isNotification && !isFirstTimeProcessing(messageId)) {
@@ -189,6 +223,14 @@ public class BlipWebhookController {
             log.debug("[WEBHOOK] 📥 Recebido | Ação: {} | De: {} | ID: {}", action, from, messageId);
         } else {
             log.info("[WEBHOOK] 📥 Recebido | Ação: {} | De: {} | ID: {}", action, from, messageId);
+        }
+
+        if (action != null && (action.startsWith("confirm_") || action.startsWith("alter_"))) {
+            try {
+                blipContextService.setUserContextForUser(from, "isConfirmingAgenda", "false");
+            } catch (Exception e) {
+                log.warn("Erro ao limpar isConfirmingAgenda no contexto para {}: {}", from, e.getMessage());
+            }
         }
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(

@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.MDC;
@@ -211,21 +212,71 @@ public class HandleBlipWebhookUseCase {
                 return new WebhookResult("", "", "", "", "processed", "");
             } else {
                 log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);
-                // Busca ativa de agendamentos e injeção formatada de consultas no contexto Blip
-                List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
-                );
-                if (activeSessions != null) {
-                    activeSessions.sort((s1, s2) -> {
-                        if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
-                        if (s1.getAppointmentAt() == null) return 1;
-                        if (s2.getAppointmentAt() == null) return -1;
-                        return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
-                    });
+                
+                String listaDetalhada = null;
+                try {
+                    List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
+                    );
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        activeSessions.sort((s1, s2) -> {
+                            if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                            if (s1.getAppointmentAt() == null) return 1;
+                            if (s2.getAppointmentAt() == null) return -1;
+                            return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                        });
+
+                        // 1. Tentar recuperar o preCompiledScheduleText a partir do currentGroupId de alguma sessão ativa
+                        for (AppointmentSession s : activeSessions) {
+                            if (s.getCurrentGroupId() != null) {
+                                List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(s.getCurrentGroupId());
+                                if (groups != null && !groups.isEmpty()) {
+                                    for (NotificationGroup g : groups) {
+                                        if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
+                                            listaDetalhada = g.getPreCompiledScheduleText();
+                                            log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para groupId={}", s.getCurrentGroupId());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (listaDetalhada != null) break;
+                        }
+
+                        // 2. Se não encontrou, tenta buscar o último grupo do paciente cadastrado com esse telefone
+                        if (listaDetalhada == null) {
+                            Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
+                            if (latestGroupOpt.isPresent()) {
+                                NotificationGroup latestGroup = latestGroupOpt.get();
+                                List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(latestGroup.getGroupId());
+                                if (groups != null && !groups.isEmpty()) {
+                                    for (NotificationGroup g : groups) {
+                                        if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
+                                            listaDetalhada = g.getPreCompiledScheduleText();
+                                            log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para o último groupId={}", latestGroup.getGroupId());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Fallback: compila em tempo de execução
+                        if (listaDetalhada == null) {
+                            log.info("[WEBHOOK-BLOCK] Nenhuma lista pré-compilada encontrada. Gerando lista detalhada via Feegow...");
+                            listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.error("[WEBHOOK-BLOCK] Erro ao buscar/gerar lista formatada do banco.", ex);
                 }
-                String listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
-                blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
-                log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada para {}.", normalizedPhone);
+
+                if (listaDetalhada != null && !listaDetalhada.isBlank()) {
+                    blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
+                    log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada para {}.", normalizedPhone);
+                } else {
+                    log.warn("[WEBHOOK-BLOCK] lista_detalhada vazia ou nula para {}.", normalizedPhone);
+                }
                 return new WebhookResult("", "", "", "", "processed", "");
             }
         }

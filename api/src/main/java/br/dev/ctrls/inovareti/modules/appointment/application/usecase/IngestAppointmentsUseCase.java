@@ -32,6 +32,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatie
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,6 +61,8 @@ public class IngestAppointmentsUseCase {
     private final AppointmentConfigRepositoryPort appointmentConfigRepository;
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
+    private final BlipContextService blipContextService;
+    private final BlipProperties blipProperties;
 
     public IngestionSummary execute() {
         LocalDate targetDate = LocalDate.now().plusDays(1);
@@ -326,13 +330,18 @@ public class IngestAppointmentsUseCase {
         }
 
         UUID groupId = UUID.randomUUID();
-        if (!saveNotificationGroup(groupId, savedSessions, phoneNumber)) {
+        String preCompiledText = saveNotificationGroup(groupId, savedSessions, phoneNumber);
+        if (preCompiledText == null) {
             return 0;
         }
 
         updateSessionsNotificationTimestamp(savedSessions);
 
         String finalPatientName = (patientDetails != null && patientDetails.name() != null) ? patientDetails.name().trim() : "Paciente";
+        
+        // Configura o contexto do Blip e o master-state antes de enviar a notificação para que ao clicar já esteja no estado correto
+        setGroupContextAndStateDuringIngestion(phoneNumber, groupId, preCompiledText);
+
         sendGroupNotification(phoneNumber, groupId, finalPatientName);
 
         return savedSessions.size();
@@ -380,12 +389,13 @@ public class IngestAppointmentsUseCase {
         });
     }
 
-    private boolean saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions, String phoneNumber) {
+    private String saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions, String phoneNumber) {
         String preCompiledText = "";
         try {
             preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions);
         } catch (Exception ex) {
             log.error("Erro ao pré-compilar texto de agendamentos para o grupo={}", groupId, ex);
+            return null;
         }
 
         List<NotificationGroup> groupEntities = new ArrayList<>();
@@ -401,10 +411,34 @@ public class IngestAppointmentsUseCase {
         try {
             notificationGroupRepository.saveAll(groupEntities);
             log.info("[GRUPO] NotificationGroup salvo no banco com groupId={} contendo {} sessões.", groupId, savedSessions.size());
-            return true;
+            return preCompiledText;
         } catch (RuntimeException ex) {
             log.error("Falha grave ao salvar NotificationGroup para groupId={}.", groupId, ex);
-            return false;
+            return null;
+        }
+    }
+
+    private void setGroupContextAndStateDuringIngestion(String phoneNumber, UUID groupId, String preCompiledText) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return;
+        }
+        try {
+            String cleanPhone = phoneNumber.trim();
+            Map<String, String> fields = Map.of(
+                "lista_detalhada", preCompiledText,
+                "groupId", groupId.toString(),
+                "isConfirmingAgenda", "true"
+            );
+            
+            log.info("[INGESTAO-GRUPO-ESTADO] Configurando contexto e master-state para {} durante a ingestão.", cleanPhone);
+            blipContextService.setUserContextFieldsInParallel(cleanPhone, fields);
+            
+            String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+            if (prepararBlockId != null && !prepararBlockId.isBlank()) {
+                blipContextService.setBuilderMasterState(cleanPhone, prepararBlockId);
+            }
+        } catch (Exception e) {
+            log.error("[INGESTAO-GRUPO-ESTADO] Falha ao configurar contexto e master-state na ingestão para {}", phoneNumber, e);
         }
     }
 

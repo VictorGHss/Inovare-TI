@@ -288,23 +288,11 @@ public class BlipGroupActionHandler {
             blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
         ));
 
-        String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
-        if (prepararBlockId != null && !prepararBlockId.isBlank()) {
-            futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setBuilderMasterState(fromPhone.trim(), prepararBlockId)
-            ));
-        }
-
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
             String cleanRawFrom = rawFrom.trim();
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
                 blipContextService.setUserContextFieldsInParallel(cleanRawFrom, fields)
             ));
-            if (prepararBlockId != null && !prepararBlockId.isBlank()) {
-                futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setBuilderMasterState(cleanRawFrom, prepararBlockId)
-                ));
-            }
         }
 
         try {

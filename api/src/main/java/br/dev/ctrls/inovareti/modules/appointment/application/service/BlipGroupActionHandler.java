@@ -71,7 +71,26 @@ public class BlipGroupActionHandler {
         // Buscar o grupo na tabela para validar existência
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
         if (groups == null || groups.isEmpty()) {
-            log.warn("[GROUP-HANDLER] Grupo {} não encontrado no banco de dados para a ação {}.", groupId, action);
+            log.warn("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação por busca de sessão...", groupId);
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
+                List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                if (activeSessions != null && !activeSessions.isEmpty()) {
+                    for (AppointmentSession session : activeSessions) {
+                        List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
+                        if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
+                            groups = recoveredGroups;
+                            groupId = recoveredGroups.get(0).getGroupId();
+                            log.info("[WEBHOOK] Recuperado grupo com sucesso via sessao ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (groups == null || groups.isEmpty()) {
+            log.warn("[WEBHOOK] Falha definitiva: Grupo não encontrado e nenhuma sessão ativa pôde recuperar o groupId={}.", groupId);
             return null;
         }
         
@@ -236,9 +255,21 @@ public class BlipGroupActionHandler {
     }
 
     private UUID parseUuid(String str) {
+        if (str == null || str.isBlank()) {
+            return null;
+        }
         try {
-            return UUID.fromString(str);
+            return UUID.fromString(str.trim());
         } catch (IllegalArgumentException e) {
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+            java.util.regex.Matcher matcher = pattern.matcher(str);
+            if (matcher.find()) {
+                try {
+                    return UUID.fromString(matcher.group());
+                } catch (IllegalArgumentException ex) {
+                    return null;
+                }
+            }
             return null;
         }
     }

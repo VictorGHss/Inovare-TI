@@ -32,6 +32,12 @@ public class BlipIdentityReconciler {
         }
         
         String identity = originalIdentity.trim();
+        if (identity.contains("%40") || identity.contains("%20")) {
+            try {
+                identity = java.net.URLDecoder.decode(identity, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception ignored) {}
+        }
+
         String localPart = identity;
         if (identity.contains("@")) {
             localPart = identity.substring(0, identity.indexOf('@'));
@@ -55,7 +61,12 @@ public class BlipIdentityReconciler {
         String resolvedPhone = null;
         String bsuid = metadataBsuid != null ? metadataBsuid.trim() : null;
         
-        if (bsuid != null && !bsuid.isBlank() && !bsuid.matches(".*[a-zA-Z\\-].*")) {
+        String bsuidLocal = bsuid;
+        if (bsuid != null && bsuid.contains("@")) {
+            bsuidLocal = bsuid.substring(0, bsuid.indexOf('@'));
+        }
+
+        if (bsuid != null && !bsuid.isBlank() && bsuidLocal != null && !bsuidLocal.matches(".*[a-zA-Z\\-].*")) {
             resolvedPhone = purifyPhoneNumber(bsuid);
             log.info("[RECONCILIATION] Identidade reconciliada via metadado BSUID: GUID={} -> Telefone={}", 
                 blipGuid, resolvedPhone);
@@ -85,6 +96,18 @@ public class BlipIdentityReconciler {
                             }
                             if (bsuidObj != null) {
                                 bsuid = bsuidObj.toString().trim();
+                            }
+                        }
+
+                        if ((resolvedPhone == null || resolvedPhone.isBlank()) && bsuid != null && !bsuid.isBlank()) {
+                            String bsuidLocal2 = bsuid;
+                            if (bsuid.contains("@")) {
+                                bsuidLocal2 = bsuid.substring(0, bsuid.indexOf('@'));
+                            }
+                            if (!bsuidLocal2.matches(".*[a-zA-Z\\-].*")) {
+                                resolvedPhone = purifyPhoneNumber(bsuid);
+                                log.info("[RECONCILIATION] Perfil consultado na API do Blip (fallback extras.bsuid): GUID={} -> Telefone={}", 
+                                    blipGuid, resolvedPhone);
                             }
                         }
                     }

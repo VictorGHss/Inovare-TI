@@ -93,13 +93,43 @@ public class BlipWebhookInboundService {
     }
 
     private String extractBsuid(Map<String, Object> payload) {
-        return firstNonBlank(
-                asText(getNested(payload, "metadata", "#wa.bsuid")),
-                asText(getNested(payload, "envelope", "metadata", "#wa.bsuid")),
-                asText(getNested(payload, "message", "metadata", "#wa.bsuid")),
-                asText(getNested(payload, "resource", "metadata", "#wa.bsuid")),
-                asText(getNested(payload, "resource", "envelope", "metadata", "#wa.bsuid")),
-                asText(getNested(payload, "resource", "message", "metadata", "#wa.bsuid")));
+        String[] keys = {
+            "#wa.bsuid", "wa.bsuid", "bsuid", 
+            "#tunnel.originalFrom", "tunnel.originalFrom", 
+            "#tunnel.originator", "tunnel.originator"
+        };
+        
+        String[] paths = {
+            "metadata", 
+            "envelope/metadata", 
+            "message/metadata", 
+            "resource/metadata", 
+            "resource/envelope/metadata", 
+            "resource/message/metadata"
+        };
+        
+        for (String path : paths) {
+            String[] splitPath = path.split("/");
+            for (String key : keys) {
+                String[] fullPath = new String[splitPath.length + 1];
+                System.arraycopy(splitPath, 0, fullPath, 0, splitPath.length);
+                fullPath[splitPath.length] = key;
+                
+                String val = asText(getNested(payload, fullPath));
+                if (val != null && !val.isBlank()) {
+                    return val;
+                }
+            }
+        }
+        
+        for (String key : keys) {
+            String val = asText(getNested(payload, "metadata", key));
+            if (val != null && !val.isBlank()) {
+                return val;
+            }
+        }
+        
+        return null;
     }
 
     private String extractFrom(Map<String, Object> payload) {

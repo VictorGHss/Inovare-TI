@@ -275,6 +275,16 @@ public class BlipLIMEClient implements BlipClientPort {
     public String normalizeUserIdentity(String userIdentity) {
         if (userIdentity == null || userIdentity.isBlank()) return "unknown@wa.gw.msging.net";
         String sanitized = userIdentity.trim();
+
+        if (sanitized.contains("@desk.msging.net")) {
+            int separatorIndex = sanitized.indexOf('@');
+            String localPart = separatorIndex >= 0 ? sanitized.substring(0, separatorIndex) : sanitized;
+            try {
+                return java.net.URLDecoder.decode(localPart, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                // fallback
+            }
+        }
         
         String localPart = sanitized;
         String domainPart = "wa.gw.msging.net";

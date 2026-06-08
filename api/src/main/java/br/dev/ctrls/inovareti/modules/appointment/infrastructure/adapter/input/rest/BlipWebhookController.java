@@ -173,9 +173,10 @@ public class BlipWebhookController {
         }
         // -----------------------------------------------------------------------------------------------
 
-        // 3. IDEMPOTíŠNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
-        if (!isFirstTimeProcessing(messageId)) {
-            log.info("[IDEMPOTíŠNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
+        // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
+        boolean isNotification = payload.containsKey("event");
+        if (!isNotification && !isFirstTimeProcessing(messageId)) {
+            log.info("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
             return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "duplicate-ignored"

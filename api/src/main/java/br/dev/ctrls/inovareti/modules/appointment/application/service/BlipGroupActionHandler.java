@@ -121,11 +121,33 @@ public class BlipGroupActionHandler {
     }
 
     private void handleConfirmGroup(UUID groupId, String fromPhone) {
-        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento assíncrono em lote.", groupId);
-        try {
-            feegowBulkIntegrationHandler.confirmGroupAsync(groupId, fromPhone);
-        } catch (Exception e) {
-            log.error("[WEBHOOK-BATCH] Erro ao agendar confirmação assíncrona para grupo " + groupId, e);
+        log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento síncrono e baixa real no Feegow.", groupId);
+        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+        if (groups != null) {
+            for (NotificationGroup g : groups) {
+                if (g != null && g.getSessionId() != null) {
+                    appointmentSessionRepository.findById(g.getSessionId()).ifPresent(appt -> {
+                        if (appt != null && appt.getFeegowAppointmentId() != null) {
+                            log.info("[FEEGOW-BAIXA-GRUPO] Atualizando consulta ID={} para confirmado no Feegow devido ao groupId={}", appt.getId(), groupId);
+                            try {
+                                appointmentExternalPort.updateStatus(appt.getFeegowAppointmentId(), 7);
+                                
+                                transactionTemplate.executeWithoutResult(status -> {
+                                    AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(appt.getId()).orElse(null);
+                                    if (lockedSession != null) {
+                                        lockedSession.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CONFIRMED);
+                                        lockedSession.setClosedAt(java.time.LocalDateTime.now());
+                                        lockedSession.setLastInteractionAt(java.time.LocalDateTime.now());
+                                        appointmentSessionRepository.save(lockedSession);
+                                    }
+                                });
+                            } catch (Exception e) {
+                                log.error("[FEEGOW-BAIXA-GRUPO] Erro ao atualizar status no Feegow para ID: {}. Erro: {}", appt.getFeegowAppointmentId(), e.getMessage(), e);
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 

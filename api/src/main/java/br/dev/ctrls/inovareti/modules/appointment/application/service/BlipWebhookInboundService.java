@@ -370,11 +370,27 @@ public class BlipWebhookInboundService {
             return true;
         }
 
+        String to = firstNonBlank(
+                asText(getNested(payload, "to")),
+                asText(getNested(payload, "resource", "to")),
+                asText(getNested(payload, "message", "to")));
+        if (to != null && (to.contains("@wa.gw.msging.net") || to.contains("@desk.msging.net") || to.contains("tunnel.msging.net"))) {
+            return true;
+        }
+
         String rawFrom = firstNonBlank(
                 asText(getNested(payload, "from")),
                 asText(getNested(payload, "resource", "from")),
                 asText(getNested(payload, "message", "from")));
         if (rawFrom != null && (rawFrom.contains("roteadorprincipal57@msging.net") || rawFrom.toLowerCase().startsWith("roteadorprincipal"))) {
+            return true;
+        }
+
+        String id = firstNonBlank(
+                asText(getNested(payload, "id")),
+                asText(getNested(payload, "resource", "id")),
+                asText(getNested(payload, "message", "id")));
+        if (id != null && id.startsWith("fwd:")) {
             return true;
         }
 

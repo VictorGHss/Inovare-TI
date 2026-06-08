@@ -36,15 +36,16 @@ public class BlipWebhookInboundService {
             Object content,
             String bsuid,
             String type,
-            boolean isOutbound) {
+            boolean isOutbound,
+            String rawFrom) {
         public ParsedInbound(String from, String action, String messageId, String appointmentId, Object content, String bsuid) {
-            this(from, action, messageId, appointmentId, content, bsuid, null, false);
+            this(from, action, messageId, appointmentId, content, bsuid, null, false, null);
         }
     }
 
     public ParsedInbound parse(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
-            return new ParsedInbound(null, null, null, null, null, null, null, false);
+            return new ParsedInbound(null, null, null, null, null, null, null, false, null);
         }
 
         String messageType = firstNonBlank(
@@ -83,7 +84,12 @@ public class BlipWebhookInboundService {
                 getNested(payload, "resource", "content"),
                 getNested(payload, "message", "content"));
 
-        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType, checkIsOutbound(payload));
+        String rawFrom = firstNonBlank(
+                asText(getNested(payload, "from")),
+                asText(getNested(payload, "resource", "from")),
+                asText(getNested(payload, "message", "from")));
+
+        return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType, checkIsOutbound(payload), rawFrom);
     }
 
     private String extractBsuid(Map<String, Object> payload) {

@@ -273,7 +273,10 @@ public class BlipWebhookController {
             ));
         }
 
-        Map<String, Object> metadata = extractMetadata(payload);
+        Map<String, Object> metadata = new java.util.HashMap<>(extractMetadata(payload));
+        if (parsed.rawFrom() != null) {
+            metadata.put("rawFrom", parsed.rawFrom());
+        }
 
         if (action == null || action.isBlank() || "received".equalsIgnoreCase(action) || "consumed".equalsIgnoreCase(action)) {
             log.debug("[WEBHOOK] 📥 Recebido | Ação: {} | De: {} | ID: {}", action, from, messageId);

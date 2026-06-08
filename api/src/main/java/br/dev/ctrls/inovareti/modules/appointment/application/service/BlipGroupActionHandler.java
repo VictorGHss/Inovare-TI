@@ -138,25 +138,33 @@ public class BlipGroupActionHandler {
             return null;
         }
 
+        String rawFrom = null;
+        if (metadata instanceof Map<?, ?> metadataMap) {
+            Object rawFromObj = metadataMap.get("rawFrom");
+            if (rawFromObj != null) {
+                rawFrom = rawFromObj.toString();
+            }
+        }
+
         switch (actionType) {
-            case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid);
+            case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid, rawFrom);
             case "confirm_group" -> handleConfirmGroup(groupId);
             case "alter_group" -> handleAlterGroup(groupId, fromPhone);
-            case "group_view" -> handleGroupView(groupId, fromPhone);
-            case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone);
+            case "group_view" -> handleGroupView(groupId, fromPhone, rawFrom);
+            case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone, rawFrom);
             default -> {}
         }
         
         return new HandleBlipWebhookUseCase.WebhookResult("", "", "", "", "group_action_processed", "");
     }
 
-    private void handleVerAgenda(UUID groupId, String fromPhone, String bsuid) {
+    private void handleVerAgenda(UUID groupId, String fromPhone, String bsuid, String rawFrom) {
         log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido para groupId={}", groupId);
         if (fromPhone != null && !fromPhone.isBlank()) {
             String normalizedPhone = fromPhone.trim();
             String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
 
-            injectGroupSessionsContext(fromPhone, groupId);
+            injectGroupSessionsContext(fromPhone, rawFrom, groupId);
 
             transactionTemplate.executeWithoutResult(status -> {
                 List<AppointmentSession> activeSessions =
@@ -257,17 +265,17 @@ public class BlipGroupActionHandler {
         return null;
     }
 
-    private void handleGroupViewFallback(UUID groupId, String fromPhone) {
+    private void handleGroupViewFallback(UUID groupId, String fromPhone, String rawFrom) {
         log.info("[WEBHOOK] Visualização de grupo com fallback executada para groupId={}", groupId);
-        injectGroupSessionsContext(fromPhone, groupId);
+        injectGroupSessionsContext(fromPhone, rawFrom, groupId);
     }
 
-    private void handleGroupView(UUID groupId, String fromPhone) {
+    private void handleGroupView(UUID groupId, String fromPhone, String rawFrom) {
         log.info("[WEBHOOK] Clique em visualização de grupo recebido para groupId={}", groupId);
-        injectGroupSessionsContext(fromPhone, groupId);
+        injectGroupSessionsContext(fromPhone, rawFrom, groupId);
     }
 
-    private void injectGroupSessionsContext(String fromPhone, UUID groupId) {
+    private void injectGroupSessionsContext(String fromPhone, String rawFrom, UUID groupId) {
         if (fromPhone == null || fromPhone.isBlank()) {
             return;
         }
@@ -293,6 +301,14 @@ public class BlipGroupActionHandler {
         blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
         blipContextService.setUserContextForUser(fromPhone.trim(), "isConfirmingAgenda", "true");
         log.info("[WEBHOOK] Injetada lista_detalhada pré-compilada, isConfirmingAgenda=true e groupId={} para {}.", groupId, fromPhone);
+
+        if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
+            String cleanRawFrom = rawFrom.trim();
+            blipContextService.setUserContextForUser(cleanRawFrom, "lista_detalhada", listaDetalhada);
+            blipContextService.setUserContextForUser(cleanRawFrom, "groupId", groupId.toString());
+            blipContextService.setUserContextForUser(cleanRawFrom, "isConfirmingAgenda", "true");
+            log.info("[WEBHOOK] DUPLICADO CONTEXTO: Injetada lista_detalhada pré-compilada, isConfirmingAgenda=true e groupId={} para o contato do túnel original {}.", groupId, cleanRawFrom);
+        }
     }
 
     private UUID parseUuid(String str) {

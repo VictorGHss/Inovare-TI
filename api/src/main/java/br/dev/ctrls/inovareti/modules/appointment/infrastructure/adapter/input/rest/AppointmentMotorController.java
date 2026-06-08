@@ -188,7 +188,10 @@ public class AppointmentMotorController {
             return ResponseEntity.ok(Map.of("status", "ignored", "reason", "outbound-message"));
         }
 
-        Map<String, Object> metadata = extractMetadata(payload);
+        Map<String, Object> metadata = new java.util.HashMap<>(extractMetadata(payload));
+        if (parsed.rawFrom() != null) {
+            metadata.put("rawFrom", parsed.rawFrom());
+        }
 
         handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 parsed.messageId(),

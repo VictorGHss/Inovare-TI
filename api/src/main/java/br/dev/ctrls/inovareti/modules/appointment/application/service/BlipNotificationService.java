@@ -89,8 +89,7 @@ public class BlipNotificationService {
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
-        if (!isHomologDoctor) {
+        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointmentData != null ? appointmentData.doctorId() : null)) {
             log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
                 appointmentData != null ? appointmentData.doctorId() : "null",
                 destination,
@@ -225,17 +224,7 @@ public class BlipNotificationService {
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        String safePatientName = (patientName == null || patientName.isBlank() || "null".equalsIgnoreCase(patientName.trim())) 
-                ? "Paciente" 
-                : patientName.trim();
-
-        if (safePatientName.contains(" ")) {
-            safePatientName = safePatientName.split("\\s+")[0];
-        }
-
-        List<Map<String, String>> parameters = List.of(
-            Map.of("type", "text", "text", safePatientName)
-        );
+        List<Map<String, String>> parameters = List.of();
 
         Map<String, Object> viewButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,
@@ -286,8 +275,7 @@ public class BlipNotificationService {
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        boolean isHomologDoctor = appointmentData != null && "70".equals(appointmentData.doctorId());
-        if (!isHomologDoctor) {
+        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointmentData != null ? appointmentData.doctorId() : null)) {
             log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
                 appointmentData != null ? appointmentData.doctorId() : "null",
                 destination,
@@ -376,6 +364,23 @@ public class BlipNotificationService {
         }
         String digits = cleaned.replaceAll("\\D", "");
         return digits + "@wa.gw.msging.net";
+    }
+
+    private boolean isDoctorAllowedInTestMode(String doctorId) {
+        if (!motorProperties.isTestMode()) {
+            return true;
+        }
+        String testDoctorId = motorProperties.getTestDoctorId();
+        if (testDoctorId == null || testDoctorId.isBlank()) {
+            return false;
+        }
+        java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .toList();
+        
+        String docId = doctorId != null ? doctorId.trim() : "";
+        return allowedIds.contains(docId);
     }
 }
 

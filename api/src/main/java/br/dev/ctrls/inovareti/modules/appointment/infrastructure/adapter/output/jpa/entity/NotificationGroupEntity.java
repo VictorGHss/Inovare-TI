@@ -49,8 +49,7 @@ public class NotificationGroupEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @jakarta.persistence.Lob
-    @Column(name = "pre_compiled_schedule_text")
+    @Column(name = "pre_compiled_schedule_text", columnDefinition = "TEXT")
     private String preCompiledScheduleText;
 
     public NotificationGroup toDomain() {

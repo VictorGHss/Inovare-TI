@@ -228,9 +228,7 @@ public class BlipNotificationService {
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        String safeName = patientName != null && !patientName.isBlank() ? patientName.trim() : "Paciente";
-        safeName = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(safeName);
-        List<Map<String, String>> parameters = List.of(Map.of("type", "text", "text", safeName));
+        List<Map<String, String>> parameters = List.of();
 
         Map<String, Object> viewButton = Map.of(
             "type", "button", "sub_type", "quick_reply", "index", 0,

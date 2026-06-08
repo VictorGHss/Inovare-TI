@@ -38,8 +38,32 @@ public class BlipGroupActionHandler {
      * Intercepta e processa as ações voltadas a agendamento de grupo.
      */
     public HandleBlipWebhookUseCase.WebhookResult handleGroupAction(String action, String fromPhone, String bsuid, Object metadata) {
-        String lowerAction = action.toLowerCase();
+        if (action == null || action.isBlank()) {
+            return null;
+        }
         
+        String lowerAction = action.toLowerCase();
+
+        // Filtro de relevância: ignora de imediato mensagens de fluxo técnico ou agradecimentos
+        if (lowerAction.contains("agradecimento") || 
+            lowerAction.contains("atendimento humano") || 
+            lowerAction.contains("pesquisa") || 
+            lowerAction.contains("obrigada") ||
+            lowerAction.contains("obrigado")) {
+            return null;
+        }
+
+        // Verifica se a ação corresponde a um evento legítimo do motor de grupo
+        boolean isGroupAction = lowerAction.startsWith("confirm_group_") ||
+                                lowerAction.startsWith("alter_group_") ||
+                                lowerAction.startsWith("ver_agenda_") ||
+                                lowerAction.startsWith("group_view_") ||
+                                "group_view_fallback".equalsIgnoreCase(action);
+
+        if (!isGroupAction && parseUuid(action.trim()) == null) {
+            return null;
+        }
+
         UUID groupId;
         String actionType = null;
         

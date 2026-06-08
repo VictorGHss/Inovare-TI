@@ -89,9 +89,13 @@ public class BlipNotificationService {
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointmentData != null ? appointmentData.doctorId() : null)) {
+        String doctorId = null;
+        if (appointmentData != null) {
+            doctorId = appointmentData.doctorId();
+        }
+        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(doctorId)) {
             log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
-                appointmentData != null ? appointmentData.doctorId() : "null",
+                doctorId != null ? doctorId : "null",
                 destination,
                 templateName);
             return;
@@ -275,9 +279,13 @@ public class BlipNotificationService {
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String normalizedDestination = ensureWabaIdentity(destination);
 
-        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointmentData != null ? appointmentData.doctorId() : null)) {
+        String doctorId = null;
+        if (appointmentData != null) {
+            doctorId = appointmentData.doctorId();
+        }
+        if (motorProperties.isTestMode() && !isDoctorAllowedInTestMode(doctorId)) {
             log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
-                appointmentData != null ? appointmentData.doctorId() : "null",
+                doctorId != null ? doctorId : "null",
                 destination,
                 templateName);
             return;

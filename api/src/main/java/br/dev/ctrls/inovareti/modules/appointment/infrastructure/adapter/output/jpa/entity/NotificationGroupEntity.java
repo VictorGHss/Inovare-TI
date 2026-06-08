@@ -49,6 +49,10 @@ public class NotificationGroupEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @jakarta.persistence.Lob
+    @Column(name = "pre_compiled_schedule_text")
+    private String preCompiledScheduleText;
+
     public NotificationGroup toDomain() {
         return NotificationGroup.builder()
                 .id(this.id)
@@ -56,6 +60,7 @@ public class NotificationGroupEntity {
                 .sessionId(this.sessionId)
                 .phoneNumber(this.phoneNumber)
                 .createdAt(this.createdAt)
+                .preCompiledScheduleText(this.preCompiledScheduleText)
                 .build();
     }
 
@@ -67,6 +72,7 @@ public class NotificationGroupEntity {
                 .sessionId(domain.getSessionId())
                 .phoneNumber(domain.getPhoneNumber())
                 .createdAt(domain.getCreatedAt())
+                .preCompiledScheduleText(domain.getPreCompiledScheduleText())
                 .build();
     }
 }

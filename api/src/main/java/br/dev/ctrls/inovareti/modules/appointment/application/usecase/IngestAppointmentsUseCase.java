@@ -14,6 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentSendIdempotencyService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipAppointmentFormatter;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.NoopAppointmentSendIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.FeegowAppointmentSearcher;
@@ -54,6 +55,7 @@ public class IngestAppointmentsUseCase {
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final BlipNotificationService blipNotificationService;
+    private final BlipAppointmentFormatter blipAppointmentFormatter;
     private final AppointmentConfigRepositoryPort appointmentConfigRepository;
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
@@ -379,6 +381,13 @@ public class IngestAppointmentsUseCase {
     }
 
     private boolean saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions, String phoneNumber) {
+        String preCompiledText = "";
+        try {
+            preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions);
+        } catch (Exception ex) {
+            log.error("Erro ao pré-compilar texto de agendamentos para o grupo={}", groupId, ex);
+        }
+
         List<NotificationGroup> groupEntities = new ArrayList<>();
         for (AppointmentSession session : savedSessions) {
             groupEntities.add(NotificationGroup.builder()
@@ -386,6 +395,7 @@ public class IngestAppointmentsUseCase {
                 .sessionId(session.getId())
                 .phoneNumber(phoneNumber)
                 .createdAt(LocalDateTime.now())
+                .preCompiledScheduleText(preCompiledText)
                 .build());
         }
         try {

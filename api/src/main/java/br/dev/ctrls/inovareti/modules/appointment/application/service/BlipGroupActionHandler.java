@@ -28,7 +28,6 @@ public class BlipGroupActionHandler {
 
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
-    private final BlipAppointmentFormatter blipAppointmentFormatter;
     private final BlipContextService blipContextService;
     private final TransactionTemplate transactionTemplate;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
@@ -215,44 +214,26 @@ public class BlipGroupActionHandler {
             return;
         }
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-        List<AppointmentSession> groupedSessions = new ArrayList<>();
-        for (NotificationGroup g : groups) {
-            appointmentSessionRepository.findById(g.getSessionId()).ifPresent(session -> {
-                // buscar os dados reais no Feegow (via 'FeegowAppointmentAdapter')
-                try {
-                    var realAppOpt = appointmentExternalPort.searchAppointments(
-                        session.getAppointmentAt().toLocalDate(),
-                        1, // pending status
-                        session.getDoctorProfissionalId()
-                    ).stream()
-                     .filter(a -> a.id().equals(session.getFeegowAppointmentId()))
-                     .findFirst();
-                     
-                    if (realAppOpt.isPresent()) {
-                        var realApp = realAppOpt.get();
-                        if (realApp.startAt() != null) {
-                            session.setAppointmentAt(realApp.startAt());
-                            appointmentSessionRepository.save(session);
-                        }
-                    }
-                } catch (Exception ex) {
-                    log.warn("Erro ao buscar dados reais do agendamento {} no Feegow para o grupo: {}", session.getFeegowAppointmentId(), ex.getMessage());
-                }
-                groupedSessions.add(session);
-            });
+        if (groups == null || groups.isEmpty()) {
+            log.warn("[WEBHOOK] Nenhum NotificationGroup encontrado para o groupId={}", groupId);
+            return;
         }
 
-        groupedSessions.sort((s1, s2) -> {
-            if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
-            if (s1.getAppointmentAt() == null) return 1;
-            if (s2.getAppointmentAt() == null) return -1;
-            return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
-        });
+        String listaDetalhada = "";
+        for (NotificationGroup g : groups) {
+            if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
+                listaDetalhada = g.getPreCompiledScheduleText();
+                break;
+            }
+        }
 
-        String listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(groupedSessions);
+        if (listaDetalhada.isBlank()) {
+            log.warn("[WEBHOOK] preCompiledScheduleText vazio para o groupId={}", groupId);
+        }
+
         blipContextService.setUserContextForUser(fromPhone.trim(), "lista_detalhada", listaDetalhada);
         blipContextService.setUserContextForUser(fromPhone.trim(), "groupId", groupId.toString());
-        log.info("[WEBHOOK] Injetada lista_detalhada e groupId={} para {}.", groupId, fromPhone);
+        log.info("[WEBHOOK] Injetada lista_detalhada pré-compilada e groupId={} para {}.", groupId, fromPhone);
     }
 
     private UUID parseUuid(String str) {

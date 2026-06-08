@@ -20,4 +20,5 @@ public class NotificationGroup {
     private UUID sessionId;
     private String phoneNumber;
     private LocalDateTime createdAt;
+    private String preCompiledScheduleText;
 }

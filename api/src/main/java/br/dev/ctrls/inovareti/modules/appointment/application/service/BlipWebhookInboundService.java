@@ -198,6 +198,13 @@ public class BlipWebhookInboundService {
                 }
             }
             if ("application/vnd.lime.select+json".equalsIgnoreCase(messageType)) {
+                String selectValue = firstNonBlank(
+                        asText(contentMap.get("value")),
+                        asText(contentMap.get("payload")));
+                if (selectValue != null && !selectValue.isBlank()) {
+                    log.debug("[WEBHOOK] action extraído (select+json value): '{}'", selectValue);
+                    return selectValue;
+                }
                 String selectText = firstNonBlank(asText(contentMap.get("text")));
                 if (selectText != null) {
                     log.debug("[WEBHOOK] action extraído (select+json text): '{}'", selectText);

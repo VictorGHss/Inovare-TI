@@ -2,7 +2,6 @@ package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
 import io.micrometer.observation.annotation.Observed;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

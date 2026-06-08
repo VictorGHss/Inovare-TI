@@ -285,11 +285,16 @@ public class BlipWebhookController {
         }
 
         if (action != null && (action.startsWith("confirm_") || action.startsWith("alter_"))) {
-            try {
-                blipContextService.setUserContextForUser(from, "isConfirmingAgenda", "false");
-            } catch (Exception e) {
-                log.warn("Erro ao limpar isConfirmingAgenda no contexto para {}: {}", from, e.getMessage());
-            }
+            // Limpa o flag isConfirmingAgenda de forma assíncrona para não bloquear o processamento principal.
+            // Essa chamada HTTP ao Blip não precisa completar antes de invocar o handleBlipWebhookUseCase.
+            final String phoneForClear = from;
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    blipContextService.setUserContextForUser(phoneForClear, "isConfirmingAgenda", "false");
+                } catch (Exception e) {
+                    log.warn("Erro ao limpar isConfirmingAgenda no contexto para {}: {}", phoneForClear, e.getMessage());
+                }
+            });
         }
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(

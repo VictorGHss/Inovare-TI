@@ -37,10 +37,17 @@ public class FeegowBulkIntegrationHandler {
     private final TransactionTemplate transactionTemplate;
     private final BlipContextService blipContextService;
     private final BlipProperties blipProperties;
+    // Responsável por resolver identidades de túnel, aliases e UUIDs do Blip para o telefone real do banco
+    private final BlipIdentityReconciler blipIdentityReconciler;
 
     /**
      * Executa a confirmação em lote de todos os agendamentos pertencentes ao grupo
      * e os sincroniza com a API do Feegow ERP.
+     *
+     * Estratégias de busca de sessões (em ordem de prioridade):
+     *   A) Por groupId na tabela notification_groups
+     *   B) Por currentGroupId diretamente na tabela de sessões (populado na ingestão)
+     *   C) Fallback por telefone purificado (caso A e B falhem)
      *
      * @param groupId ID do grupo de notificações
      * @param purifiedPhone telefone purificado do paciente
@@ -51,39 +58,49 @@ public class FeegowBulkIntegrationHandler {
 
         java.util.Map<UUID, AppointmentSession> uniqueSessions = new java.util.LinkedHashMap<>();
 
-        // 1. Estratégia A: Buscar da tabela 'notification_groups'
+        // --- Estratégia A: Buscar da tabela 'notification_groups' via groupId ---
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-        log.info("[BULK-INTEGRATION] Busca por groupId na tabela 'notification_groups' retornou {} registros.", groups.size());
+        log.info("[BULK-INTEGRATION] [A] Busca por groupId na tabela notification_groups: {} registros.", groups.size());
         for (NotificationGroup group : groups) {
             appointmentSessionRepository.findById(group.getSessionId())
                 .ifPresent(s -> {
                     uniqueSessions.put(s.getId(), s);
-                    log.info("[BULK-INTEGRATION] Sessão vinculada via grupo carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                    log.info("[BULK-INTEGRATION] [A] Sessão carregada via grupo: id={}, feegowId={}", s.getId(), s.getFeegowAppointmentId());
                 });
         }
 
-        // 2. Estratégia B: Buscar diretamente na tabela de agendamentos pelo 'currentGroupId'
+        // --- Estratégia B: Buscar diretamente pelo campo 'currentGroupId' nas sessões ---
+        // Este campo é populado durante a ingestão (populateCurrentGroupIdOnSessions),
+        // garantindo que funcione mesmo sem o clique em "Ver Agendamentos".
         List<AppointmentSession> sessionsByGroupField = appointmentSessionRepository.findByCurrentGroupId(groupId);
-        log.info("[BULK-INTEGRATION] Busca direta por 'currentGroupId' na tabela de agendamentos retornou {} registros.", sessionsByGroupField.size());
+        log.info("[BULK-INTEGRATION] [B] Busca por currentGroupId na tabela de sessões: {} registros.", sessionsByGroupField.size());
         for (AppointmentSession s : sessionsByGroupField) {
             if (!uniqueSessions.containsKey(s.getId())) {
                 uniqueSessions.put(s.getId(), s);
-                log.info("[BULK-INTEGRATION] Sessão vinculada via campo currentGroupId carregada: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] [B] Sessão carregada via campo currentGroupId: id={}, feegowId={}", s.getId(), s.getFeegowAppointmentId());
             }
         }
-        
-        // 3. Estratégia C (Fallback): Se a lista ainda estiver vazia e tivermos o telefone, buscar sessões ativas do telefone
+
+        // --- Estratégia C (Fallback): Se ainda vazio, buscar sessões ativas pelo telefone ---
         if (uniqueSessions.isEmpty() && purifiedPhone != null && !purifiedPhone.isBlank()) {
-            log.warn("[BULK-INTEGRATION] Nenhuma sessão encontrada para groupId={}. Aplicando fallback para sessões ativas do telefone: {}", groupId, purifiedPhone);
+            log.warn("[BULK-INTEGRATION] [C] Estratégias A e B não encontraram sessões para groupId={}. Aplicando fallback por telefone: {}", groupId, purifiedPhone);
             List<AppointmentSession> activeContactSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
             for (AppointmentSession s : activeContactSessions) {
                 uniqueSessions.put(s.getId(), s);
-                log.info("[BULK-INTEGRATION] Sessão de fallback ativa carregada do telefone: id={}, feegowAppointmentId={}", s.getId(), s.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] [C] Sessão de fallback carregada do telefone: id={}, feegowId={}", s.getId(), s.getFeegowAppointmentId());
             }
         }
 
         List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
         log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
+
+        // Guarda de segurança: sem sessões, não há o que confirmar
+        if (sessionList.isEmpty()) {
+            log.error("[BULK-INTEGRATION] ERRO CRÍTICO: Nenhuma sessão encontrada para groupId={}. " +
+                "O Feegow NÃO será chamado. Verifique se currentGroupId foi populado na ingestão " +
+                "e se o groupId recebido no webhook é o mesmo gerado na ingestão.", groupId);
+            return sessionList;
+        }
 
         // Resolver o statusConfirmado antes do loop
         int statusConfirmado = 7;
@@ -97,31 +114,33 @@ public class FeegowBulkIntegrationHandler {
             }
         }
 
-        // 4. Atualizar status local de todas as sessões para CONFIRMADO e sincronizar com o Feegow
+        // Atualizar status local para CONFIRMED e sincronizar com o Feegow para cada sessão
         for (AppointmentSession groupSession : sessionList) {
+            // Usa findById (sem lock) em vez de findByIdLocked (SELECT FOR UPDATE).
+            // O lock pessimista (PESSIMISTIC_WRITE) causava deadlock em VirtualThreads quando
+            // outro processo (nudge, ingestão) tentava acessar a mesma sessão simultaneamente,
+            // abortando o loop inteiro e impedindo qualquer chamada ao Feegow.
             transactionTemplate.executeWithoutResult(status -> {
-                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(groupSession.getId()).orElse(null);
-                if (lockedSession != null) {
-                    confirmationStateMachineService.markConfirmed(lockedSession);
-                    appointmentSessionRepository.save(lockedSession);
-                    log.info("[BULK-INTEGRATION] Status local da sessão {} atualizado para CONFIRMED com sucesso.", lockedSession.getId());
+                AppointmentSession fresh = appointmentSessionRepository.findById(groupSession.getId()).orElse(null);
+                if (fresh != null) {
+                    confirmationStateMachineService.markConfirmed(fresh);
+                    appointmentSessionRepository.save(fresh);
+                    log.info("[BULK-INTEGRATION] Status local da sessão {} atualizado para CONFIRMED.", fresh.getId());
                 } else {
-                    log.warn("[BULK-INTEGRATION] Não foi possível bloquear a sessão {} para atualização de status.", groupSession.getId());
+                    log.warn("[BULK-INTEGRATION] Sessão {} não encontrada no banco ao tentar confirmar.", groupSession.getId());
                 }
             });
 
-            // Chamada de integração idêntica à que usamos no 'ConfirmBlipWebhookActionHandler'
+            // A chamada ao Feegow é feita FORA da transação de banco intencionalmente.
+            // Chamadas de rede externas nunca devem estar dentro de transações JPA
+            // para evitar bloqueio de conexões do pool durante a espera da resposta HTTP.
             try {
-                log.info("[BULK-INTEGRATION] Enviando confirmação para Feegow para ID: {}", groupSession.getFeegowAppointmentId());
+                log.info("[BULK-INTEGRATION] Enviando confirmação ao Feegow para agendamento ID: {}", groupSession.getFeegowAppointmentId());
                 appointmentExternalPort.updateStatus(groupSession.getFeegowAppointmentId(), statusConfirmado);
-                log.info("[BULK-INTEGRATION] Resposta do Feegow: SUCCESS");
+                log.info("[BULK-INTEGRATION] Resposta do Feegow: SUCCESS para agendamento ID: {}", groupSession.getFeegowAppointmentId());
             } catch (Exception ex) {
-                log.error("[BULK-INTEGRATION] Resposta do Feegow: ERROR");
-                log.error(
-                    "[BULK-INTEGRATION] Falha ao atualizar status na Feegow. appointmentId={}, erro={}",
-                    groupSession.getFeegowAppointmentId(),
-                    ex.getMessage(),
-                    ex);
+                log.error("[BULK-INTEGRATION] Resposta do Feegow: ERROR para agendamento ID: {}. Erro: {}",
+                    groupSession.getFeegowAppointmentId(), ex.getMessage(), ex);
             }
         }
 
@@ -188,20 +207,26 @@ public class FeegowBulkIntegrationHandler {
     public void confirmGroupAsync(UUID groupId, String fromPhone) {
         log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de confirm_group para groupId: {}", groupId);
         try {
-            String dbPhone = fromPhone != null ? purifyPhoneNumber(fromPhone) : null;
-            
+            // Resolve o telefone real do paciente usando o reconciliador de identidade do Blip.
+            // Isso garante que túneis, aliases e UUIDs do Blip sejam convertidos para o número
+            // telefônico real armazenado no banco, necessário para as estratégias de fallback.
+            String dbPhone = fromPhone != null
+                ? blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, null)
+                : null;
+            log.info("[ASYNC-BATCH] Telefone resolvido para confirmação em lote: fromPhone={} -> dbPhone={}", fromPhone, dbPhone);
+
             // 1. Executa a confirmação em lote local e na API Feegow
             List<AppointmentSession> sessionList = executeConfirmBatch(groupId, dbPhone);
-            
-            // 2. Resolve a fila de desempate
+
+            // 2. Resolve a fila de desempate para redirecionamento no Blip
             String targetQueue = resolveTargetQueue(sessionList);
 
-            // 3. Executa o redirecionamento no Blip em background
+            // 3. Configura o redirecionamento no Blip em background
             if (fromPhone != null && !fromPhone.isBlank()) {
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
-                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para a fila '{}', bloco desk: '{}'", 
+                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para a fila '{}', bloco desk: '{}'",
                     fromPhone, targetQueue, deskBlockId);
             }
         } catch (Exception e) {
@@ -222,7 +247,7 @@ public class FeegowBulkIntegrationHandler {
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
-                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteração na fila '{}', bloco desk: '{}'", 
+                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteração na fila '{}', bloco desk: '{}'",
                     fromPhone, targetQueue, deskBlockId);
             }
         } catch (Exception e) {

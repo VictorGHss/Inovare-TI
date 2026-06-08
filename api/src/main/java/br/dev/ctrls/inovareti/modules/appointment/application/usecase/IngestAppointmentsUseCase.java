@@ -335,12 +335,20 @@ public class IngestAppointmentsUseCase {
             return 0;
         }
 
+        // Popula o campo currentGroupId em todas as sessões do grupo durante a ingestão.
+        // Isso garante que a estratégia de busca por currentGroupId em executeConfirmBatch funcione
+        // mesmo que o usuário clique em "CONFIRMAR TUDO" sem ter clicado em "Ver Agendamentos" antes.
+        populateCurrentGroupIdOnSessions(savedSessions, groupId);
+
         updateSessionsNotificationTimestamp(savedSessions);
 
         String finalPatientName = (patientDetails != null && patientDetails.name() != null) ? patientDetails.name().trim() : "Paciente";
-        
-        // Configura o contexto do Blip e o master-state antes de enviar a notificação para que ao clicar já esteja no estado correto
-        setGroupContextAndStateDuringIngestion(phoneNumber, groupId, preCompiledText);
+
+        // Pré-configura as variáveis de contexto do Blip (lista_detalhada, groupId, isConfirmingAgenda)
+        // para que estejam disponíveis quando o paciente clicar no botão "Ver Agendamentos" do template.
+        // O master-state NÃO é configurado aqui — o roteamento é feito nativamente pelo Blip Builder
+        // via condições ($conditionOutputs) no bloco Preparar_Atendimento, sem precisar de master-state.
+        setGroupContextDuringIngestion(phoneNumber, groupId, preCompiledText);
 
         sendGroupNotification(phoneNumber, groupId, finalPatientName);
 
@@ -418,7 +426,18 @@ public class IngestAppointmentsUseCase {
         }
     }
 
-    private void setGroupContextAndStateDuringIngestion(String phoneNumber, UUID groupId, String preCompiledText) {
+    /**
+     * Configura as variáveis de contexto no Blip para o fluxo de grupo durante a ingestão.
+     * Define: lista_detalhada (texto pré-compilado dos agendamentos), groupId e isConfirmingAgenda.
+     *
+     * IMPORTANTE: O master-state NÃO é configurado aqui intencionalmente.
+     * O roteamento de ações (ver_agenda_, confirm_group_, alter_group_) é feito de forma nativa
+     * pelo Blip Builder via $conditionOutputs no bloco Preparar_Atendimento, sem precisar de
+     * master-state pré-definido. Setar o master-state durante a ingestão causava:
+     * 1. Latência adicional antes do envio do template (chamada HTTP extra ao Blip).
+     * 2. Possível conflito com fluxos já ativos do paciente em outros canais.
+     */
+    private void setGroupContextDuringIngestion(String phoneNumber, UUID groupId, String preCompiledText) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
             return;
         }
@@ -429,16 +448,33 @@ public class IngestAppointmentsUseCase {
                 "groupId", groupId.toString(),
                 "isConfirmingAgenda", "true"
             );
-            
-            log.info("[INGESTAO-GRUPO-ESTADO] Configurando contexto e master-state para {} durante a ingestão.", cleanPhone);
+
+            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando variáveis de contexto no Blip para {}. groupId={}", cleanPhone, groupId);
             blipContextService.setUserContextFieldsInParallel(cleanPhone, fields);
-            
-            String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
-            if (prepararBlockId != null && !prepararBlockId.isBlank()) {
-                blipContextService.setBuilderMasterState(cleanPhone, prepararBlockId);
-            }
         } catch (Exception e) {
-            log.error("[INGESTAO-GRUPO-ESTADO] Falha ao configurar contexto e master-state na ingestão para {}", phoneNumber, e);
+            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto na ingestão para {}. groupId={}", phoneNumber, groupId, e);
+        }
+    }
+
+    /**
+     * Salva o groupId no campo currentGroupId de cada sessão do grupo.
+     * Isso é feito durante a ingestão para que executeConfirmBatch consiga encontrar
+     * as sessões pela Estratégia B (findByCurrentGroupId) mesmo que o usuário clique
+     * em "CONFIRMAR TUDO" sem ter clicado em "Ver Agendamentos" antes.
+     */
+    private void populateCurrentGroupIdOnSessions(List<AppointmentSession> savedSessions, UUID groupId) {
+        for (AppointmentSession session : savedSessions) {
+            try {
+                transactionTemplate.executeWithoutResult(status -> {
+                    // Busca a sessão mais atualizada do banco antes de salvar para evitar sobrescrever dados
+                    AppointmentSession fresh = appointmentSessionRepository.findById(session.getId()).orElse(session);
+                    fresh.setCurrentGroupId(groupId);
+                    appointmentSessionRepository.save(fresh);
+                });
+                log.info("[GRUPO] currentGroupId={} populado na sessão sessionId={}", groupId, session.getId());
+            } catch (RuntimeException ex) {
+                log.error("[GRUPO] Falha ao popular currentGroupId na sessão sessionId={}", session.getId(), ex);
+            }
         }
     }
 

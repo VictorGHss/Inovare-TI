@@ -390,11 +390,7 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "id")),
                 asText(getNested(payload, "resource", "id")),
                 asText(getNested(payload, "message", "id")));
-        if (id != null && id.startsWith("fwd:")) {
-            return true;
-        }
-
-        return false;
+        return id != null && id.startsWith("fwd:");
     }
 }
 

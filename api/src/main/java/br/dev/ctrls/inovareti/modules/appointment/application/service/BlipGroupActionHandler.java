@@ -11,7 +11,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +31,6 @@ public class BlipGroupActionHandler {
     private final TransactionTemplate transactionTemplate;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
     private final BlipIdentityReconciler blipIdentityReconciler;
-    private final AppointmentExternalPort appointmentExternalPort;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -296,7 +294,7 @@ public class BlipGroupActionHandler {
         }
 
         try {
-            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture<?>[0])).join();
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
             log.info("[WEBHOOK] Injetado contexto em paralelo com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.error("[WEBHOOK] Erro ao injetar contexto em paralelo para groupId={}", groupId, e);

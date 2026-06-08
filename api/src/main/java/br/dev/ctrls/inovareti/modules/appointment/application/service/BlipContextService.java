@@ -44,7 +44,7 @@ public class BlipContextService {
             }))
             .toList();
         try {
-            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture<?>[0])).join();
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
         } catch (Exception e) {
             log.error("Erro ao configurar contexto em paralelo para {}", normalizedIdentity, e);
         }

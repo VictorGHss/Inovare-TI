@@ -74,7 +74,7 @@ public class BlipWebhookController {
             jakarta.servlet.http.HttpServletRequest request,
             @RequestBody(required = false) String rawJson) {
 
-        log.info("Recebido POST em /api/v1/webhook/blip. Payload bruto: {}", rawJson);
+        log.debug("Recebido POST em /api/v1/webhook/blip. Payload bruto: {}", rawJson);
         log.debug("[ALERTA REDE] Requisição bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
         if (rawJson == null || rawJson.isBlank()) {
@@ -185,7 +185,11 @@ public class BlipWebhookController {
 
         Map<String, Object> metadata = extractMetadata(payload);
 
-        log.info("[WEBHOOK BLIP] Resposta recebida do paciente. Telefone: {}, Ação: {}", from, action);
+        if (action == null || action.isBlank() || "received".equalsIgnoreCase(action) || "consumed".equalsIgnoreCase(action)) {
+            log.debug("[WEBHOOK] 📥 Recebido | Ação: {} | De: {} | ID: {}", action, from, messageId);
+        } else {
+            log.info("[WEBHOOK] 📥 Recebido | Ação: {} | De: {} | ID: {}", action, from, messageId);
+        }
 
         HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
                 messageId,

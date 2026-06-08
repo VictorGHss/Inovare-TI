@@ -183,10 +183,11 @@ public class BlipLIMEClient implements BlipClientPort {
                 .path(properties.getBlipSetContextPath())
                 .build().toUri();
 
+        log.info("Enviando comando LIME (Scope: {}) para a URL: {}", actualScope, url);
         try {
-            log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, new ObjectMapper().writeValueAsString(finalPayload));
+            log.debug("Payload completo: {}", new ObjectMapper().writeValueAsString(finalPayload));
         } catch (JsonProcessingException ignored) {
-            log.info("Enviando comando LIME (Scope: {}) para a URL: {} Payload completo: {}", actualScope, url, finalPayload);
+            log.debug("Payload completo: {}", finalPayload);
         }
 
         ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
@@ -246,7 +247,12 @@ public class BlipLIMEClient implements BlipClientPort {
                 new ParameterizedTypeReference<Map<String, Object>>() {}
         );
         if (response != null) {
-            log.info("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), response.getBody());
+            var body = response.getBody();
+            if (body == null || body.isEmpty()) {
+                log.info("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
+            } else {
+                log.info("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
+            }
         }
         return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
     }

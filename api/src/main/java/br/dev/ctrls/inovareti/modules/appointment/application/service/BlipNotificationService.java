@@ -143,7 +143,7 @@ public class BlipNotificationService {
 
         var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
         // Verifica o status customizado no Map de fallback ou a presença da resposta
-        Object status = response.getOrDefault("status", "unknown");
+        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
         log.info("Template enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
 
@@ -258,7 +258,7 @@ public class BlipNotificationService {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonPayload = mapper.writeValueAsString(payload);
             log.info("[GRUPO PAYLOAD JSON] payload={}", jsonPayload);
-        } catch (Exception ex) {
+        } catch (JsonProcessingException ex) {
             log.warn("Erro ao serializar payload de grupo para log: {}", ex.getMessage());
         }
 
@@ -311,7 +311,7 @@ public class BlipNotificationService {
         );
 
         var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        Object status = response.getOrDefault("status", "unknown");
+        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
         log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
 
@@ -336,7 +336,7 @@ public class BlipNotificationService {
         payload.put("content", text);
         try {
             var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-            Object status = response.getOrDefault("status", "unknown");
+            Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
             log.info("[PLAIN-TEXT] Mensagem de texto enviada ativamente. destination={}, status={}", normalizedDestination, status);
         } catch (RuntimeException ex) {
             log.error("[PLAIN-TEXT] Falha ao enviar mensagem de texto para {}. Erro: {}", normalizedDestination, ex.getMessage(), ex);

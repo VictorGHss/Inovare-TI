@@ -83,7 +83,7 @@ public class BlipGroupActionHandler {
 
         switch (actionType) {
             case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid);
-            case "confirm_group" -> handleConfirmGroup(groupId, fromPhone);
+            case "confirm_group" -> handleConfirmGroup(groupId);
             case "alter_group" -> handleAlterGroup(groupId, fromPhone);
             case "group_view" -> handleGroupView(groupId, fromPhone);
             case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone);
@@ -120,7 +120,7 @@ public class BlipGroupActionHandler {
         }
     }
 
-    private void handleConfirmGroup(UUID groupId, String fromPhone) {
+    private void handleConfirmGroup(UUID groupId) {
         log.info("[WEBHOOK] Interceptando confirm_group_{} para processamento síncrono e baixa real no Feegow.", groupId);
         List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
         if (groups != null) {
@@ -141,7 +141,7 @@ public class BlipGroupActionHandler {
                                         appointmentSessionRepository.save(lockedSession);
                                     }
                                 });
-                            } catch (Exception e) {
+                            } catch (RuntimeException e) {
                                 log.error("[FEEGOW-BAIXA-GRUPO] Erro ao atualizar status no Feegow para ID: {}. Erro: {}", appt.getFeegowAppointmentId(), e.getMessage(), e);
                             }
                         }

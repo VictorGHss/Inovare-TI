@@ -50,6 +50,7 @@ public class BlipWebhookController {
     private final Environment env;
     private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService blipContextService;
     private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService blipNotificationService;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
 
     @Value("${blip.webhook.secret}")
     private String blipWebhookSecret;
@@ -214,12 +215,26 @@ public class BlipWebhookController {
         }
 
         if (isConfirming) {
+            String actionValue = action != null ? action.trim() : "";
+            String rawText = actionValue + " " + (content != null ? content.toString() : "");
+            String rawActionTextLower = rawText.toLowerCase();
+
+            String prepararUuid = blipProperties.getBlocks().getPrepararAtendimento();
+            String exibirUuid = blipProperties.getBlocks().getExibirAgenda();
+
+            boolean isPrepararAtendimento = "preparar_atendimento".equalsIgnoreCase(actionValue)
+                || (prepararUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(prepararUuid.toLowerCase()) + "\\b").matcher(rawActionTextLower).find());
+            boolean isExibirAgenda = "exibir_agenda".equalsIgnoreCase(actionValue)
+                || (exibirUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(exibirUuid.toLowerCase()) + "\\b").matcher(rawActionTextLower).find());
+
             boolean isButtonClick = action != null && (
                 action.startsWith("confirm_") ||
                 action.startsWith("alter_") ||
                 action.startsWith("ver_agenda_") ||
                 action.startsWith("group_view_") ||
-                "group_view_fallback".equalsIgnoreCase(action)
+                "group_view_fallback".equalsIgnoreCase(action) ||
+                isPrepararAtendimento ||
+                isExibirAgenda
             );
 
             if (!isButtonClick) {

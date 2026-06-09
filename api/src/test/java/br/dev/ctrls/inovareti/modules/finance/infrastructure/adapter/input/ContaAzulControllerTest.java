@@ -29,7 +29,7 @@ class ContaAzulControllerTest {
 
     @Test
     void forceRefreshReturnsOk() throws Exception {
-        // Inicializa mocks localmente para evitar mÃ©todo de setup global
+        // Inicializa mocks localmente para evitar método de setup global
         this.tokenService = Mockito.mock(ContaAzulTokenService.class);
         var client = Mockito.mock(ContaAzulClient.class);
         var automation = Mockito.mock(ContaAzulAutomationService.class);
@@ -63,7 +63,7 @@ class ContaAzulControllerTest {
             .andExpect(status().isTooManyRequests());
     }
 
-    // MÃ©todo de setup removido; os testes inicializam mocks localmente.
+    // Método de setup removido; os testes inicializam mocks localmente.
 }
 
 

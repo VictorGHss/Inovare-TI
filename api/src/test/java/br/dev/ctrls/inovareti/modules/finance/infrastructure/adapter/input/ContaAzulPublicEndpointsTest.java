@@ -17,9 +17,9 @@ import br.dev.ctrls.inovareti.modules.finance.application.service.ContaAzulAutom
 import br.dev.ctrls.inovareti.modules.finance.infrastructure.adapter.output.ContaAzulClient;
 
 /**
- * Testes dos endpoints pÃºblicos do controller ContaAzul.
+ * Testes dos endpoints públicos do controller ContaAzul.
  * Cada teste inicializa localmente os mocks e o controller para evitar
- * mÃ©todos de setup globais nÃ£o utilizados sinalizados pela IDE.
+ * métodos de setup globais não utilizados sinalizados pela IDE.
  */
 class ContaAzulPublicEndpointsTest {
 

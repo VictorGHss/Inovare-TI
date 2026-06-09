@@ -163,6 +163,12 @@ public class BlipWebhookController {
             ));
         }
 
+        // Ignora notificações de status de entrega/leitura do Blip (received, consumed, failed)
+        if (payload.containsKey("event")) {
+            log.debug("[NOTIFICATION] Ignorando notificação de status de mensagem Blip (event='{}')", payload.get("event"));
+            return ResponseEntity.ok().build();
+        }
+
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
 
         String from = parsed.from();

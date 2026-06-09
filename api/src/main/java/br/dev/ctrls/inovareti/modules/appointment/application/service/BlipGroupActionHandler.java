@@ -292,21 +292,10 @@ public class BlipGroupActionHandler {
         );
 
         long start = System.currentTimeMillis();
-        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = new java.util.ArrayList<>();
-        
-        futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-            blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
-        ));
-
         String subbotId = blipProperties.getSubbotId();
         String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
-        if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
-            futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setMasterState(fromPhone.trim(), subbotId, exibirAgendaBlockId)
-            ));
-        }
 
-        // Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
+        // 1. Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
         String tunnelIdentity = null;
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
             tunnelIdentity = rawFrom.trim();
@@ -324,23 +313,56 @@ public class BlipGroupActionHandler {
             log.info("[WEBHOOK] Clique fora do túnel. Identidade de túnel gerada deterministicamente: {}", tunnelIdentity);
         }
 
+        // 2. Grava as variáveis de contexto no Blip PRIMEIRO em paralelo para máxima eficiência
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> contextFutures = new java.util.ArrayList<>();
+        
+        contextFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+            blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
+        ));
+
         if (tunnelIdentity != null) {
             final String cleanTunnelIdentity = tunnelIdentity;
-            futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+            contextFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
                 blipContextService.setUserContextFieldsInParallel(cleanTunnelIdentity, fields)
             ));
-            if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
-                futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId)
-                ));
+        }
+
+        try {
+            java.util.concurrent.CompletableFuture.allOf(contextFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
+            log.info("[WEBHOOK] Contextos de grupo injetados com sucesso para {} em {} ms.", fromPhone, System.currentTimeMillis() - start);
+        } catch (Exception e) {
+            log.error("[WEBHOOK] Erro ao injetar contextos do Blip para {}", fromPhone, e);
+        }
+
+        // 3. Somente após as variáveis de contexto estarem salvas no Blip, atualiza os Master-States
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> stateFutures = new java.util.ArrayList<>();
+
+        if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
+            stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    blipContextService.setMasterState(fromPhone.trim(), subbotId, exibirAgendaBlockId);
+                } catch (Exception e) {
+                    log.error("[WEBHOOK] Erro ao atualizar Master-State no Roteador para {}", fromPhone, e);
+                }
+            }));
+
+            if (tunnelIdentity != null) {
+                final String cleanTunnelIdentity = tunnelIdentity;
+                stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try {
+                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId);
+                    } catch (Exception e) {
+                        log.error("[WEBHOOK] Erro ao atualizar Builder Master-State no Subbot para {}", cleanTunnelIdentity, e);
+                    }
+                }));
             }
         }
 
         try {
-            java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-            log.info("[WEBHOOK] Injetado contexto e master-state em paralelo com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
+            java.util.concurrent.CompletableFuture.allOf(stateFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
+            log.info("[WEBHOOK] Injetado contexto e master-state com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
         } catch (Exception e) {
-            log.error("[WEBHOOK] Erro ao injetar contexto e master-state em paralelo para groupId={}", groupId, e);
+            log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
         }
     }
 

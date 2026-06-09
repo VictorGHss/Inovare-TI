@@ -73,7 +73,6 @@ public class IngestAppointmentsUseCase {
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
-    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
 
     /**
      * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
@@ -536,41 +535,10 @@ public class IngestAppointmentsUseCase {
                 "groupId", groupId.toString(),
                 "isConfirmingAgenda", "true"
             );
-            
-            String normalizedPhone = phoneNumber.trim();
-            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip e Master State para {}. groupId={}", normalizedPhone, groupId);
-            
-            // 1. Configura contexto no Roteador (fromPhone)
-            blipContextService.setUserContextFieldsInParallel(normalizedPhone, fields);
-            
-            String subbotId = blipProperties.getSubbotId();
-            String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
-            
-            // 2. Configura Master State no Roteador apontando para o subbot e bloco de exibição
-            if (subbotId != null && !subbotId.isBlank() && exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
-                blipContextService.setMasterState(normalizedPhone, subbotId, exibirAgendaBlockId);
-            }
-            
-            // 3. Configura contexto e Builder Master State na identidade de túnel do subbot
-            if (subbotId != null && !subbotId.isBlank()) {
-                String userLocalPart = normalizedPhone;
-                if (userLocalPart.contains("@")) {
-                    userLocalPart = userLocalPart.substring(0, userLocalPart.indexOf("@"));
-                }
-                String subbotLocalPart = subbotId.trim();
-                if (subbotLocalPart.contains("@")) {
-                    subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf("@"));
-                }
-                String tunnelIdentity = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
-                
-                blipContextService.setUserContextFieldsInParallel(tunnelIdentity, fields);
-                if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
-                    blipContextService.setBuilderMasterState(tunnelIdentity, exibirAgendaBlockId);
-                }
-                log.info("[INGESTAO-GRUPO-CONTEXTO] Identidade de túnel configurada preventivamente: {}", tunnelIdentity);
-            }
+            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}", phoneNumber.trim(), groupId);
+            blipContextService.setUserContextFieldsInParallel(phoneNumber.trim(), fields);
         } catch (Exception e) {
-            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto e master state preventivo. telefone={}, groupId={}", phoneNumber, groupId, e);
+            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto. telefone={}, groupId={}", phoneNumber, groupId, e);
         }
     }
 

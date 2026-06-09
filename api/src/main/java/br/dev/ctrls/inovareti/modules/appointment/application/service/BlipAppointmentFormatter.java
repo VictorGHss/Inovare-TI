@@ -37,6 +37,14 @@ public class BlipAppointmentFormatter {
      * @return string formatada contendo data, horário e profissional
      */
     public String buildListaDetalhada(List<AppointmentSession> groupedSessions) {
+        return buildListaDetalhada(groupedSessions, null);
+    }
+
+    /**
+     * Constrói a string formatada da lista de agendamentos (lista_detalhada) usando cache de pacientes
+     * para otimização de performance.
+     */
+    public String buildListaDetalhada(List<AppointmentSession> groupedSessions, java.util.Map<String, FeegowPatient> patientCache) {
         if (groupedSessions == null || groupedSessions.isEmpty()) {
             return "";
         }
@@ -52,8 +60,14 @@ public class BlipAppointmentFormatter {
 
             String patientName = "Paciente";
             try {
-                if (patientExternalPort != null && s.getPatientId() != null) {
-                    FeegowPatient patient = patientExternalPort.patientInfo(s.getPatientId());
+                if (s.getPatientId() != null) {
+                    FeegowPatient patient = null;
+                    if (patientCache != null) {
+                        patient = patientCache.get(s.getPatientId());
+                    }
+                    if (patient == null && patientExternalPort != null) {
+                        patient = patientExternalPort.patientInfo(s.getPatientId());
+                    }
                     if (patient != null && patient.name() != null && !patient.name().isBlank()) {
                         patientName = patient.name().trim();
                     }

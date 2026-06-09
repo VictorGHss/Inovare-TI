@@ -204,7 +204,7 @@ public class IngestAppointmentsUseCase {
                     final String blipPhone = "55" + normalizedPhone;
                     final String templateName = cachedGroupTemplateName;
                     futures.add(CompletableFuture.runAsync(() -> {
-                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName);
+                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName, patientDetailsCache);
                         created.addAndGet(sent);
                         if (sent > 0) messagesSent.incrementAndGet();
                     }, executor));
@@ -373,10 +373,11 @@ public class IngestAppointmentsUseCase {
      * @param patientDetails dados do paciente (nome)
      * @param normalizedPhone telefone no formato 55XXXXXXXXXXX
      * @param groupTemplateName nome do template Blip (pre-cacheado antes do loop)
+     * @param patientDetailsCache cache de detalhes dos pacientes
      * @return quantidade de sessões salvas (0 se o grupo foi descartado)
      */
     private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails,
-            String normalizedPhone, String groupTemplateName) {
+            String normalizedPhone, String groupTemplateName, Map<String, FeegowPatient> patientDetailsCache) {
         if (normalizedPhone == null || normalizedPhone.isBlank()) {
             return 0;
         }
@@ -444,7 +445,7 @@ public class IngestAppointmentsUseCase {
             // Pré-compila o texto da lista de agendamentos para o contexto do Blip
             String preCompiledText;
             try {
-                preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions);
+                preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions, patientDetailsCache);
             } catch (Exception ex) {
                 log.error("[GRUPO] Erro ao compilar lista detalhada para groupId={}.", groupId, ex);
                 status.setRollbackOnly();

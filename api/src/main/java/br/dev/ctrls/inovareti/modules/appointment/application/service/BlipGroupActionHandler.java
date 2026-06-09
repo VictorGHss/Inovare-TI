@@ -288,10 +288,11 @@ public class BlipGroupActionHandler {
             blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
         ));
 
+        String subbotId = blipProperties.getSubbotId();
         String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
         if (prepararBlockId != null && !prepararBlockId.isBlank()) {
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setBuilderMasterState(fromPhone.trim(), prepararBlockId)
+                blipContextService.setMasterState(fromPhone.trim(), subbotId, prepararBlockId)
             ));
         }
 
@@ -302,7 +303,7 @@ public class BlipGroupActionHandler {
             ));
             if (prepararBlockId != null && !prepararBlockId.isBlank()) {
                 futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setBuilderMasterState(cleanRawFrom, prepararBlockId)
+                    blipContextService.setMasterState(cleanRawFrom, subbotId, prepararBlockId)
                 ));
             }
         }

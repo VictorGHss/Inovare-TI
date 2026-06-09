@@ -293,7 +293,7 @@ public class BlipGroupActionHandler {
 
         long start = System.currentTimeMillis();
         String subbotId = blipProperties.getSubbotId();
-        String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
+        String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
 
         // 1. Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
         String tunnelIdentity = null;
@@ -337,10 +337,10 @@ public class BlipGroupActionHandler {
         // 3. Somente após as variáveis de contexto estarem salvas no Blip, atualiza os Master-States
         java.util.List<java.util.concurrent.CompletableFuture<Void>> stateFutures = new java.util.ArrayList<>();
 
-        if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
+        if (prepararAtendimentoBlockId != null && !prepararAtendimentoBlockId.isBlank()) {
             stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
-                    blipContextService.setMasterState(fromPhone.trim(), subbotId, exibirAgendaBlockId);
+                    blipContextService.setMasterState(fromPhone.trim(), subbotId, prepararAtendimentoBlockId);
                 } catch (Exception e) {
                     log.error("[WEBHOOK] Erro ao atualizar Master-State no Roteador para {}", fromPhone, e);
                 }
@@ -350,7 +350,7 @@ public class BlipGroupActionHandler {
                 final String cleanTunnelIdentity = tunnelIdentity;
                 stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
-                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId);
+                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, prepararAtendimentoBlockId);
                     } catch (Exception e) {
                         log.error("[WEBHOOK] Erro ao atualizar Builder Master-State no Subbot para {}", cleanTunnelIdentity, e);
                     }

@@ -52,7 +52,7 @@ services:
       - SERVER_PORT=${SERVER_PORT}
       - SPRING_DATASOURCE_URL=${DB_URL}
       - TZ=America/Sao_Paulo
-      - JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8
+      - JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -Xms1g -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication -Djdk.tracePinnedThreads=full
     expose:
       - "8085"
     ports:
@@ -60,6 +60,10 @@ services:
     volumes:
       - /mnt/data/uploads:/app/uploads
       - /mnt/data/backups:/app/backups
+    deploy:
+      resources:
+        limits:
+          memory: 3G
     depends_on:
       db:
         condition: service_healthy

@@ -147,8 +147,9 @@ public class SendAppointmentTemplateUseCase {
         if (category == AppointmentCategory.NUDGE_1 || category == AppointmentCategory.NUDGE_FINAL) {
             if (templateId == null || templateId.isBlank() 
                     || "confirmacao_consulta_v6_itsm".equalsIgnoreCase(templateId.trim())
-                    || "aviso_agendamento_grupo".equalsIgnoreCase(templateId.trim())) {
-                templateId = "aviso_confirmacao_pendente";
+                    || "aviso_agendamento_grupo".equalsIgnoreCase(templateId.trim())
+                    || "aviso_confirmacao_pendente".equalsIgnoreCase(templateId.trim())) {
+                templateId = "aviso_confirmacao_pendente_v2";
             }
         }
         return templateId;

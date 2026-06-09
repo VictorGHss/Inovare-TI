@@ -38,7 +38,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Notificatio
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,7 +73,6 @@ public class IngestAppointmentsUseCase {
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
-    private final BlipProperties blipProperties;
 
     /**
      * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
@@ -84,17 +82,11 @@ public class IngestAppointmentsUseCase {
     @Value("${APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY:20}")
     private int blipIngestConcurrency;
 
-    private volatile Semaphore blipSemaphore;
+    private Semaphore blipSemaphore;
 
-    private Semaphore getBlipSemaphore() {
-        if (blipSemaphore == null) {
-            synchronized (this) {
-                if (blipSemaphore == null) {
-                    blipSemaphore = new Semaphore(blipIngestConcurrency, true);
-                }
-            }
-        }
-        return blipSemaphore;
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        this.blipSemaphore = new Semaphore(blipIngestConcurrency, true);
     }
 
     /** Encapsula o resultado da persistência de um grupo dentro da transação única. */
@@ -495,11 +487,11 @@ public class IngestAppointmentsUseCase {
         final String preText = result.preCompiledText();
         CompletableFuture.runAsync(() -> {
             try {
-                getBlipSemaphore().acquire();
+                blipSemaphore.acquire();
                 try {
                     setGroupContextDuringIngestion(phoneNumber, groupId, preText);
                 } finally {
-                    getBlipSemaphore().release();
+                    blipSemaphore.release();
                 }
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
@@ -509,12 +501,12 @@ public class IngestAppointmentsUseCase {
 
         // Envia o template imediatamente, sem esperar o contexto subir
         try {
-            getBlipSemaphore().acquire();
+            blipSemaphore.acquire();
             try {
                 log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
                 blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
             } finally {
-                getBlipSemaphore().release();
+                blipSemaphore.release();
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -526,64 +518,6 @@ public class IngestAppointmentsUseCase {
         return result.savedSessions().size();
     }
 
-    /**
-     * Persiste o grupo de sessões + NotificationGroup numa única transação.
-     * @deprecated Substituído pela lógica inline em processGroupFlow para eliminar transações redundantes.
-     * Mantido apenas para o fluxo de agendamento individual (processSingleFlow).
-     */
-    private AppointmentSession saveSingleSessionLegacy(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber) {
-        return transactionTemplate.execute(status -> {
-            Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
-            if (latestSessionOpt.isPresent()) {
-                AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
-                if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
-                    currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
-                    return null; // Já existe em estado válido — não re-envia
-                }
-            }
-            AppointmentSession s = latestSessionOpt.orElseGet(AppointmentSession::new);
-            s.setFeegowAppointmentId(feegowAppointmentId);
-            s.setPatientId(appointment.patientId());
-            s.setPhoneNumber(phoneNumber);
-            s.setDoctorProfissionalId(appointment.doctorId());
-            s.setAppointmentAt(appointment.startAt());
-            s.setStatus(AppointmentSessionStatus.PENDING);
-            s.setLastInteractionAt(LocalDateTime.now());
-            s.setClosedAt(null);
-            s.setStatusDetails(null);
-            // Sem entityManager.flush() — desnecessário pois o commit do transactionTemplate já faz flush
-            return appointmentSessionRepository.save(s);
-        });
-    }
-
-    private String saveNotificationGroup(UUID groupId, List<AppointmentSession> savedSessions, String phoneNumber) {
-        String preCompiledText = "";
-        try {
-            preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions);
-        } catch (Exception ex) {
-            log.error("Erro ao pré-compilar texto de agendamentos para o grupo={}", groupId, ex);
-            return null;
-        }
-
-        List<NotificationGroup> groupEntities = new ArrayList<>();
-        for (AppointmentSession session : savedSessions) {
-            groupEntities.add(NotificationGroup.builder()
-                .groupId(groupId)
-                .sessionId(session.getId())
-                .phoneNumber(phoneNumber)
-                .createdAt(LocalDateTime.now())
-                .preCompiledScheduleText(preCompiledText)
-                .build());
-        }
-        try {
-            notificationGroupRepository.saveAll(groupEntities);
-            log.info("[GRUPO] NotificationGroup salvo no banco com groupId={} contendo {} sessões.", groupId, savedSessions.size());
-            return preCompiledText;
-        } catch (RuntimeException ex) {
-            log.error("Falha grave ao salvar NotificationGroup para groupId={}.", groupId, ex);
-            return null;
-        }
-    }
 
     /**
      * Configura as variáveis de contexto no Blip para o fluxo de grupo.

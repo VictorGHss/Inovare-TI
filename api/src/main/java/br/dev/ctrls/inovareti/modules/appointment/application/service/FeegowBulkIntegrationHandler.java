@@ -254,28 +254,8 @@ public class FeegowBulkIntegrationHandler {
             log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de alteração do grupo: " + groupId, e);
         }
     }
-
-    private String purifyPhoneNumber(String originalPhone) {
-        if (originalPhone == null || originalPhone.isBlank()) {
-            return "";
-        }
-        
-        String trimmed = originalPhone.trim();
-        if (trimmed.contains("@")) {
-            trimmed = trimmed.substring(0, trimmed.indexOf('@')).trim();
-        }
-        
-        String digitsOnly = trimmed.replaceAll("\\D", "");
-        if (digitsOnly.isBlank()) {
-            return "";
-        }
-        
-        if (digitsOnly.startsWith("55")) {
-            return digitsOnly;
-        }
-        
-        return "55" + digitsOnly;
-    }
 }
+
+
 
 

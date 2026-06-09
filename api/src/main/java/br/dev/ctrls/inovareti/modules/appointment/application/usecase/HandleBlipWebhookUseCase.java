@@ -267,7 +267,7 @@ public class HandleBlipWebhookUseCase {
                             listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
                         }
                     }
-                } catch (Exception ex) {
+                } catch (RuntimeException ex) {
                     log.error("[WEBHOOK-BLOCK] Erro ao buscar/gerar lista formatada do banco.", ex);
                 }
 

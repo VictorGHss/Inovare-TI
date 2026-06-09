@@ -33,6 +33,8 @@ public class BlipGroupActionHandler {
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
     private final BlipIdentityReconciler blipIdentityReconciler;
     private final BlipProperties blipProperties;
+    private final BlipNotificationService blipNotificationService;
+    private final BlipAppointmentFormatter blipAppointmentFormatter;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -190,6 +192,38 @@ public class BlipGroupActionHandler {
                 }
             });
             log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupId);
+
+            // Carrega o preCompiledScheduleText a partir do banco de dados (salvo na ingestão)
+            String preCompiledText = "";
+            try {
+                List<NotificationGroup> groupEntities = notificationGroupRepository.findByGroupId(groupId);
+                if (groupEntities != null && !groupEntities.isEmpty()) {
+                    preCompiledText = groupEntities.get(0).getPreCompiledScheduleText();
+                }
+            } catch (Exception e) {
+                log.error("[WEBHOOK] Falha ao consultar notificationGroupRepository para groupId={}. Continuando com fallbacks...", groupId, e);
+            }
+
+            // Fallback: se o texto pré-compilado estiver vazio, tenta compilar em tempo de execução a partir das sessões ativas do banco local
+            if (preCompiledText == null || preCompiledText.isBlank()) {
+                log.info("[WEBHOOK] preCompiledScheduleText vazio para o groupId={}. Tentando compilar em tempo de execução a partir das sessões ativas no banco...", groupId);
+                List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                if (activeSessions != null && !activeSessions.isEmpty()) {
+                    try {
+                        preCompiledText = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                        log.info("[WEBHOOK] Lista detalhada compilada dinamicamente com sucesso em tempo de execução (fallback).");
+                    } catch (Exception ex) {
+                        log.error("[WEBHOOK] Erro ao compilar lista detalhada em tempo de execução (fallback) para o telefone={}", normalizedPhone, ex);
+                    }
+                }
+            }
+
+            if (preCompiledText != null && !preCompiledText.isBlank()) {
+                log.info("[WEBHOOK] Enviando lista detalhada interativa de agendamentos para {} via API", normalizedPhone);
+                blipNotificationService.sendGroupScheduleMessage(normalizedPhone, preCompiledText, groupId);
+            } else {
+                log.warn("[WEBHOOK] preCompiledScheduleText vazio ou nulo para o groupId={}. Não foi possível enviar a listagem de agendamentos.", groupId);
+            }
         } else {
             log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupId);
         }
@@ -267,22 +301,41 @@ public class BlipGroupActionHandler {
         if (fromPhone == null || fromPhone.isBlank()) {
             return;
         }
-        List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
-        if (groups == null || groups.isEmpty()) {
-            log.warn("[WEBHOOK] Nenhum NotificationGroup encontrado para o groupId={}", groupId);
-            return;
+
+        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, null);
+        String listaDetalhada = "";
+
+        try {
+            List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+            if (groups != null && !groups.isEmpty()) {
+                for (NotificationGroup g : groups) {
+                    if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
+                        listaDetalhada = g.getPreCompiledScheduleText();
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[WEBHOOK] Erro ao buscar NotificationGroup no contexto para groupId={}. Usando fallback...", groupId, e);
         }
 
-        String listaDetalhada = "";
-        for (NotificationGroup g : groups) {
-            if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
-                listaDetalhada = g.getPreCompiledScheduleText();
-                break;
+        // Fallback: se o texto pré-compilado estiver vazio, tenta compilar em tempo de execução a partir das sessões ativas do banco local
+        if (listaDetalhada == null || listaDetalhada.isBlank()) {
+            log.info("[WEBHOOK-CONTEXTO] preCompiledScheduleText vazio no NotificationGroup para groupId={}. Tentando compilar em tempo de execução...", groupId);
+            List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+            if (activeSessions != null && !activeSessions.isEmpty()) {
+                try {
+                    listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                    log.info("[WEBHOOK-CONTEXTO] Lista detalhada compilada dinamicamente com sucesso em tempo de execução.");
+                } catch (Exception ex) {
+                    log.error("[WEBHOOK-CONTEXTO] Erro ao compilar lista detalhada em tempo de execução para {}", fromPhone, ex);
+                }
             }
         }
 
-        if (listaDetalhada.isBlank()) {
+        if (listaDetalhada == null || listaDetalhada.isBlank()) {
             log.warn("[WEBHOOK] preCompiledScheduleText vazio para o groupId={}", groupId);
+            listaDetalhada = ""; // Garante que não passará null para o Map.of
         }
 
         Map<String, String> fields = Map.of(

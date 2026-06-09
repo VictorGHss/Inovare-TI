@@ -351,6 +351,55 @@ public class BlipNotificationService {
         }
     }
 
+    /**
+     * Envia uma mensagem interativa do tipo select (Quick Reply) contendo a lista de agendamentos
+     * e os botões rápidos de confirmação e alteração de grupo.
+     */
+    public void sendGroupScheduleMessage(String destination, String text, java.util.UUID groupId) {
+        if (destination == null || destination.isBlank() || text == null || text.isBlank() || groupId == null) {
+            log.warn("[SELECT-MESSAGE] Parâmetros inválidos. destination={}, text={}, groupId={}", destination, text, groupId);
+            return;
+        }
+        String normalizedDestination = ensureWabaIdentity(destination);
+
+        Map<String, Object> optionConfirm = Map.of(
+            "text", "CONFIRMAR TUDO",
+            "value", Map.of(
+                "type", "text/plain",
+                "value", "confirm_group_" + groupId.toString()
+            )
+        );
+
+        Map<String, Object> optionAlter = Map.of(
+            "text", "PRECISO ALTERAR",
+            "value", Map.of(
+                "type", "text/plain",
+                "value", "alter_group_" + groupId.toString()
+            )
+        );
+
+        Map<String, Object> content = Map.of(
+            "text", text,
+            "options", List.of(optionConfirm, optionAlter)
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", java.util.UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
+            "type", "application/vnd.lime.select+json",
+            "content", content
+        );
+
+        try {
+            var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
+            log.info("[SELECT-MESSAGE] Mensagem de grupo interativa (select) enviada. destination={}, status={}", normalizedDestination, status);
+        } catch (RuntimeException ex) {
+            log.error("[SELECT-MESSAGE] Falha ao enviar select de grupo para {}. Erro: {}", normalizedDestination, ex.getMessage(), ex);
+        }
+    }
+
     private String resolveWabaNamespace() {
         String ns = motorProperties.getBlipWabaNamespace();
         return (ns != null && !ns.isBlank()) ? ns : "";

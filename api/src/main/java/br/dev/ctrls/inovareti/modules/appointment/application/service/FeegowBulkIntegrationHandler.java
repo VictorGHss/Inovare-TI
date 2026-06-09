@@ -39,6 +39,7 @@ public class FeegowBulkIntegrationHandler {
     private final BlipProperties blipProperties;
     // Responsável por resolver identidades de túnel, aliases e UUIDs do Blip para o telefone real do banco
     private final BlipIdentityReconciler blipIdentityReconciler;
+    private final BlipNotificationService blipNotificationService;
 
     /**
      * Executa a confirmação em lote de todos os agendamentos pertencentes ao grupo
@@ -223,6 +224,13 @@ public class FeegowBulkIntegrationHandler {
 
             // 3. Configura o redirecionamento no Blip em background
             if (fromPhone != null && !fromPhone.isBlank()) {
+                // Envia a mensagem de sucesso de confirmação configurada nas propriedades
+                String confirmSuccessText = blipProperties.getTexts().getConfirmSuccess();
+                if (confirmSuccessText != null && !confirmSuccessText.isBlank()) {
+                    log.info("[ASYNC-BATCH] Enviando mensagem de sucesso de confirmação para {} via Roteador", fromPhone);
+                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), confirmSuccessText);
+                }
+
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
@@ -244,6 +252,34 @@ public class FeegowBulkIntegrationHandler {
             String targetQueue = resolveAlterGroupQueue(groupId);
 
             if (fromPhone != null && !fromPhone.isBlank()) {
+                // Envia a mensagem de solicitação de alteração configurada nas propriedades
+                String alterRequestText = blipProperties.getTexts().getAlterRequest();
+                if (alterRequestText != null && !alterRequestText.isBlank()) {
+                    String finalAlterText = alterRequestText;
+                    try {
+                        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, null);
+                        List<AppointmentSession> sessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                        if (sessions != null && !sessions.isEmpty()) {
+                            String patientName = "Paciente";
+                            String doctorName = "Médico";
+                            
+                            AppointmentSession s = sessions.get(0);
+                            var mapping = appointmentDoctorMappingRepository.findByProfissionalId(s.getDoctorProfissionalId()).orElse(null);
+                            if (mapping != null && mapping.getProfissionalNome() != null && !mapping.getProfissionalNome().isBlank()) {
+                                doctorName = mapping.getProfissionalNome();
+                            }
+                            
+                            finalAlterText = finalAlterText.replace("{patientName}", patientName)
+                                                           .replace("{doctorName}", doctorName);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Erro ao fazer replace de variáveis no texto de alteração: {}", ex.getMessage());
+                    }
+
+                    log.info("[ASYNC-BATCH] Enviando mensagem de solicitação de alteração para {} via Roteador", fromPhone);
+                    blipNotificationService.sendPlainTextMessage(fromPhone.trim(), finalAlterText);
+                }
+
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);

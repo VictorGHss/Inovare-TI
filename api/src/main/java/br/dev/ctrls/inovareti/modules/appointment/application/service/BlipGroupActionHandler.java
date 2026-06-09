@@ -33,7 +33,6 @@ public class BlipGroupActionHandler {
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
     private final BlipIdentityReconciler blipIdentityReconciler;
     private final BlipProperties blipProperties;
-    private final BlipNotificationService blipNotificationService;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
 
     /**

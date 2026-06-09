@@ -296,14 +296,32 @@ public class BlipGroupActionHandler {
             ));
         }
 
+        // Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
+        String tunnelIdentity = null;
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
-            String cleanRawFrom = rawFrom.trim();
+            tunnelIdentity = rawFrom.trim();
+        } else if (subbotId != null && !subbotId.isBlank()) {
+            // Se o clique ocorreu fora do túnel (rawFrom nulo ou igual a fromPhone), calculamos a identidade de túnel de forma determinística
+            String userLocalPart = fromPhone.trim();
+            if (userLocalPart.contains("@")) {
+                userLocalPart = userLocalPart.substring(0, userLocalPart.indexOf('@'));
+            }
+            String subbotLocalPart = subbotId.trim();
+            if (subbotLocalPart.contains("@")) {
+                subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+            }
+            tunnelIdentity = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
+            log.info("[WEBHOOK] Clique fora do túnel. Identidade de túnel gerada deterministicamente: {}", tunnelIdentity);
+        }
+
+        if (tunnelIdentity != null) {
+            final String cleanTunnelIdentity = tunnelIdentity;
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setUserContextFieldsInParallel(cleanRawFrom, fields)
+                blipContextService.setUserContextFieldsInParallel(cleanTunnelIdentity, fields)
             ));
             if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
                 futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setBuilderMasterState(cleanRawFrom, exibirAgendaBlockId)
+                    blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId)
                 ));
             }
         }

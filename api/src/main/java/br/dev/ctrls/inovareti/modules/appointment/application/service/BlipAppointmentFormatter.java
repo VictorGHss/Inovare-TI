@@ -122,8 +122,8 @@ public class BlipAppointmentFormatter {
             }
 
             // Comentário em Português:
-            // Formatação minimalista estrita contendo o emoji, o nome do paciente, nome do médico com prefixo, a data (dd/MM) e o horário (HH:mm).
-            String formatted = String.format("\uD83E\uDE7A %s - %s - %s às %s", patientName, cleanDoctorName, dateStr, timeStr);
+            // Formatação minimalista estrita contendo o emoji de paciente (silhueta de pessoa), o nome do paciente, nome do médico com prefixo, a data (dd/MM) e o horário (HH:mm).
+            String formatted = String.format("\uD83D\uDC64 %s - %s - %s às %s", patientName, cleanDoctorName, dateStr, timeStr);
             details.add(formatted);
         }
 

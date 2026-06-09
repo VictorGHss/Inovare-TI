@@ -346,7 +346,7 @@ public class BlipGroupActionHandler {
 
         long start = System.currentTimeMillis();
         String subbotId = blipProperties.getSubbotId();
-        String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+        String waitingResponseBlockId = blipProperties.getBlocks().getWaitingResponse();
 
         // 1. Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
         String tunnelIdentity = null;
@@ -387,13 +387,13 @@ public class BlipGroupActionHandler {
             log.error("[WEBHOOK] Erro ao injetar contextos do Blip para {}", fromPhone, e);
         }
 
-        // 3. Somente após as variáveis de contexto estarem salvas no Blip, atualiza os Master-States
+        // 3. Somente após as variáveis de contexto estarem salvas no Blip, atualiza os Master-States para Estacionamento Neutro (waitingResponse)
         java.util.List<java.util.concurrent.CompletableFuture<Void>> stateFutures = new java.util.ArrayList<>();
 
-        if (prepararAtendimentoBlockId != null && !prepararAtendimentoBlockId.isBlank()) {
+        if (waitingResponseBlockId != null && !waitingResponseBlockId.isBlank()) {
             stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
-                    blipContextService.setMasterState(fromPhone.trim(), subbotId, prepararAtendimentoBlockId);
+                    blipContextService.setMasterState(fromPhone.trim(), subbotId, waitingResponseBlockId);
                 } catch (Exception e) {
                     log.error("[WEBHOOK] Erro ao atualizar Master-State no Roteador para {}", fromPhone, e);
                 }
@@ -403,7 +403,7 @@ public class BlipGroupActionHandler {
                 final String cleanTunnelIdentity = tunnelIdentity;
                 stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
-                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, prepararAtendimentoBlockId);
+                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, waitingResponseBlockId);
                     } catch (Exception e) {
                         log.error("[WEBHOOK] Erro ao atualizar Builder Master-State no Subbot para {}", cleanTunnelIdentity, e);
                     }
@@ -413,7 +413,7 @@ public class BlipGroupActionHandler {
 
         try {
             java.util.concurrent.CompletableFuture.allOf(stateFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-            log.info("[WEBHOOK] Injetado contexto e master-state com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
+            log.info("[WEBHOOK] Injetado contexto e master-state (Estacionamento Neutro) com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
         }

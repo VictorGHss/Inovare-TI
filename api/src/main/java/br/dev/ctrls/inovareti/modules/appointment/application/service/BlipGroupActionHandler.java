@@ -289,10 +289,10 @@ public class BlipGroupActionHandler {
         ));
 
         String subbotId = blipProperties.getSubbotId();
-        String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
-        if (prepararBlockId != null && !prepararBlockId.isBlank()) {
+        String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
+        if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setMasterState(fromPhone.trim(), subbotId, prepararBlockId)
+                blipContextService.setMasterState(fromPhone.trim(), subbotId, exibirAgendaBlockId)
             ));
         }
 
@@ -301,9 +301,9 @@ public class BlipGroupActionHandler {
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
                 blipContextService.setUserContextFieldsInParallel(cleanRawFrom, fields)
             ));
-            if (prepararBlockId != null && !prepararBlockId.isBlank()) {
+            if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
                 futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setBuilderMasterState(cleanRawFrom, prepararBlockId)
+                    blipContextService.setBuilderMasterState(cleanRawFrom, exibirAgendaBlockId)
                 ));
             }
         }

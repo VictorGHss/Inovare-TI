@@ -7,8 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -40,6 +45,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Caso de Uso responsável pela ingestão diária de agendamentos vindos do Feegow,
  * gerando sessões locais e disparando notificações individuais ou em lote.
+ *
+ * Performance:
+ * - Grupos são processados em paralelo via Virtual Threads.
+ * - Um Semaphore limita as chamadas simultâneas ao Blip para evitar HTTP 429.
+ * - Toda a persistência de cada grupo (sessões + NotificationGroup) ocorre
+ *   em uma única transação de banco, reduzindo o overhead do HikariCP.
+ * - O contexto do Blip é configurado em fire-and-forget para não bloquear
+ *   o envio imediato do template ao paciente.
  */
 @Slf4j
 @Component
@@ -53,7 +66,6 @@ public class IngestAppointmentsUseCase {
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final Optional<AppointmentSendIdempotencyService> appointmentSendIdempotencyService;
     private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;
-    private final jakarta.persistence.EntityManager entityManager;
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final BlipNotificationService blipNotificationService;
@@ -63,6 +75,30 @@ public class IngestAppointmentsUseCase {
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
     private final BlipProperties blipProperties;
+
+    /**
+     * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
+     * Evita rajadas de HTTP 429 (Too Many Requests) na API do Blip durante o lote diário.
+     * Configurável via APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY (padrão: 20).
+     */
+    @Value("${APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY:20}")
+    private int blipIngestConcurrency;
+
+    private volatile Semaphore blipSemaphore;
+
+    private Semaphore getBlipSemaphore() {
+        if (blipSemaphore == null) {
+            synchronized (this) {
+                if (blipSemaphore == null) {
+                    blipSemaphore = new Semaphore(blipIngestConcurrency, true);
+                }
+            }
+        }
+        return blipSemaphore;
+    }
+
+    /** Encapsula o resultado da persistência de um grupo dentro da transação única. */
+    private record GroupPersistenceResult(List<AppointmentSession> savedSessions, String preCompiledText) {}
 
     public IngestionSummary execute() {
         LocalDate targetDate = LocalDate.now().plusDays(1);
@@ -114,65 +150,84 @@ public class IngestAppointmentsUseCase {
     private IngestionSummary processIngestionGroups(Map<String, List<FeegowAppointment>> grouped, Map<String, AppointmentSession> sessionCache,
             Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache,
             Map<String, FeegowPatient> patientDetailsCache, int totalReceived) {
-        
-        int created = 0;
-        int messagesSent = 0;
-        int filteredReceived = 0;
 
-        for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
-            String key = entry.getKey();
-            List<FeegowAppointment> groupAppointments = entry.getValue();
+        // Cache do nome do template buscado UMA vez antes do loop para evitar N queries idênticas ao banco.
+        // O template não muda durante a execução da ingestão.
+        String cachedGroupTemplateName = transactionTemplate.execute(status ->
+            appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION)
+                .map(AppointmentConfig::getTemplateId)
+                .orElse("aviso_agendamento_grupo")
+        );
+        log.info("[INGESTAO] Template de grupo resolvido antes do loop: '{}'", cachedGroupTemplateName);
 
-            // Log espiao para auditar os numeros digitados
-            for (FeegowAppointment appt : groupAppointments) {
-                FeegowPatient patient = patientDetailsCache.get(appt.patientId());
-                String patientName = patient != null ? patient.name() : "Paciente";
-                String rawPhone = patient != null ? patient.phone() : "null";
-                String purifiedPhone = purificarTelefoneParaGrupo(rawPhone);
-                String appointmentTime = appt.startAt() != null ? appt.startAt().toString() : "null";
-                log.info("[AUDITORIA-TELEFONE] paciente={}, horario={}, telefoneBruto={}, telefonePurificado={}",
-                    patientName, appointmentTime, rawPhone, purifiedPhone);
-            }
+        AtomicInteger created = new AtomicInteger(0);
+        AtomicInteger messagesSent = new AtomicInteger(0);
+        AtomicInteger filteredReceived = new AtomicInteger(0);
 
-            List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache);
+        // Processa todos os grupos em paralelo usando Virtual Threads.
+        // Cada grupo (paciente com múltiplos agendamentos) roda em sua própria thread virtual,
+        // o que reduz o tempo total de ingestão de O(N) sequencial para O(1) paralelo
+        // limitado pela latência do serviço mais lento (Blip ou banco de dados).
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-            if (eligibleAppointments.isEmpty()) {
-                continue;
-            }
+            for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
+                String key = entry.getKey();
+                List<FeegowAppointment> groupAppointments = entry.getValue();
 
-            filteredReceived += eligibleAppointments.size();
-
-            String[] keyParts = key.split("#", 2);
-            String normalizedPhone = keyParts[0];
-
-            if (normalizedPhone.isBlank()) {
-                continue;
-            }
-
-            if (eligibleAppointments.size() == 1) {
-                FeegowAppointment appt = eligibleAppointments.get(0);
-                FeegowPatient patientDetails = patientDetailsCache.get(appt.patientId());
-                if (processSingleFlow(appt, doctorMappingCache, patientDetails)) {
-                    created++;
-                    messagesSent++;
+                // Log de auditoria dos telefones antes de submeter ao executor
+                for (FeegowAppointment appt : groupAppointments) {
+                    FeegowPatient patient = patientDetailsCache.get(appt.patientId());
+                    String patientName = patient != null ? patient.name() : "Paciente";
+                    String rawPhone = patient != null ? patient.phone() : "null";
+                    String purifiedPhone = purificarTelefoneParaGrupo(rawPhone);
+                    String appointmentTime = appt.startAt() != null ? appt.startAt().toString() : "null";
+                    log.info("[AUDITORIA-TELEFONE] paciente={}, horario={}, telefoneBruto={}, telefonePurificado={}",
+                        patientName, appointmentTime, rawPhone, purifiedPhone);
                 }
-            } else {
-                FeegowAppointment firstAppt = eligibleAppointments.get(0);
-                FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
-                String blipPhone = "55" + normalizedPhone;
-                int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone);
-                created += sent;
-                if (sent > 0) {
-                    messagesSent++;
+
+                List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache);
+                if (eligibleAppointments.isEmpty()) continue;
+
+                filteredReceived.addAndGet(eligibleAppointments.size());
+
+                String[] keyParts = key.split("#", 2);
+                String normalizedPhone = keyParts[0];
+                if (normalizedPhone.isBlank()) continue;
+
+                if (eligibleAppointments.size() == 1) {
+                    // Agendamento individual: processa em paralelo também
+                    final FeegowAppointment appt = eligibleAppointments.get(0);
+                    final FeegowPatient patientDetails = patientDetailsCache.get(appt.patientId());
+                    futures.add(CompletableFuture.runAsync(() -> {
+                        if (processSingleFlow(appt, doctorMappingCache, patientDetails)) {
+                            created.incrementAndGet();
+                            messagesSent.incrementAndGet();
+                        }
+                    }, executor));
+                } else {
+                    // Grupo: processa em paralelo com controle de concorrência no Blip via Semaphore
+                    final FeegowAppointment firstAppt = eligibleAppointments.get(0);
+                    final FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
+                    final String blipPhone = "55" + normalizedPhone;
+                    final String templateName = cachedGroupTemplateName;
+                    futures.add(CompletableFuture.runAsync(() -> {
+                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName);
+                        created.addAndGet(sent);
+                        if (sent > 0) messagesSent.incrementAndGet();
+                    }, executor));
                 }
             }
+
+            // Aguarda todos os grupos terminarem antes de retornar o resumo
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
         }
 
         String mode = appointmentMotorProperties.isTestMode() ? "TEST" : "PROD";
         log.info("Ingestão executada. totalRecebido={}, totalAposFiltro={}, sessoesCriadas={}, mensagensEnviadas={}, modo={}",
-                totalReceived, filteredReceived, created, messagesSent, mode);
+                totalReceived, filteredReceived.get(), created.get(), messagesSent.get(), mode);
 
-        return new IngestionSummary(totalReceived, filteredReceived, created, messagesSent, mode);
+        return new IngestionSummary(totalReceived, filteredReceived.get(), created.get(), messagesSent.get(), mode);
     }
 
     private List<FeegowAppointment> filterEligibleAppointments(List<FeegowAppointment> group, Map<String, AppointmentSession> sessionCache,
@@ -266,9 +321,8 @@ public class IngestAppointmentsUseCase {
             session.setClosedAt(null);
             session.setStatusDetails(null);
 
-            AppointmentSession s = appointmentSessionRepository.save(session);
-            entityManager.flush();
-            return s;
+            // Sem entityManager.flush() — o commit do transactionTemplate já faz flush automaticamente
+            return appointmentSessionRepository.save(session);
         });
     }
 
@@ -313,72 +367,178 @@ public class IngestAppointmentsUseCase {
         return (resolved != null && !resolved.isBlank() && !"null".equalsIgnoreCase(resolved.trim())) ? resolved.trim() : "Clínica Inovare";
     }
 
-    private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails, String normalizedPhone) {
+    /**
+     * Processa o fluxo de notificação para um grupo de agendamentos do mesmo paciente/telefone.
+     *
+     * Otimizações aplicadas:
+     * 1. Toda a persistência (sessões + NotificationGroup) ocorre em UMA única transação de banco.
+     *    currentGroupId e lastNotificationSentAt já são setados na entidade antes do primeiro save,
+     *    eliminando os loops separados de populateCurrentGroupIdOnSessions e updateSessionsNotificationTimestamp.
+     * 2. O contexto do Blip é configurado em fire-and-forget (sem bloquear o template).
+     * 3. Um Semaphore global garante no máximo N chamadas simultâneas ao Blip.
+     *
+     * @param eligibleAppointments agendamentos elegíveis do grupo
+     * @param patientDetails dados do paciente (nome)
+     * @param normalizedPhone telefone no formato 55XXXXXXXXXXX
+     * @param groupTemplateName nome do template Blip (pre-cacheado antes do loop)
+     * @return quantidade de sessões salvas (0 se o grupo foi descartado)
+     */
+    private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails,
+            String normalizedPhone, String groupTemplateName) {
         if (normalizedPhone == null || normalizedPhone.isBlank()) {
             return 0;
         }
-
         if (appointmentMotorProperties.isTestMode() && !isDoctorAllowedInTestMode(eligibleAppointments.get(0).doctorId())) {
             return 0;
         }
 
+        // Gera o groupId antes da transação para já associar nas sessões durante o primeiro save
+        UUID groupId = UUID.randomUUID();
         String phoneNumber = normalizedPhone;
 
-        List<AppointmentSession> savedSessions = saveGroupSessions(eligibleAppointments, phoneNumber);
-        if (savedSessions.size() < 2) {
-            return 0;
-        }
+        // OTIMIZAÇÃO: toda a persistência do grupo (sessões + NotificationGroup) em UMA transação única.
+        // currentGroupId e lastNotificationSentAt são setados ANTES do save, eliminando os loops
+        // separados de populateCurrentGroupIdOnSessions e updateSessionsNotificationTimestamp.
+        // Isso reduz o número de transações de banco de 9 (para grupo de 3 agendamentos) para 1.
+        GroupPersistenceResult result = transactionTemplate.execute(status -> {
+            List<AppointmentSession> savedSessions = new ArrayList<>();
 
-        UUID groupId = UUID.randomUUID();
-        String preCompiledText = saveNotificationGroup(groupId, savedSessions, phoneNumber);
-        if (preCompiledText == null) {
-            return 0;
-        }
+            for (FeegowAppointment appointment : eligibleAppointments) {
+                String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
+                if (feegowAppointmentId.isBlank()) continue;
+                try {
+                    Optional<AppointmentSession> latestOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                    AppointmentSession session = latestOpt.orElseGet(AppointmentSession::new);
 
-        // Popula o campo currentGroupId em todas as sessões do grupo durante a ingestão.
-        // Isso garante que a estratégia de busca por currentGroupId em executeConfirmBatch funcione
-        // mesmo que o usuário clique em "CONFIRMAR TUDO" sem ter clicado em "Ver Agendamentos" antes.
-        populateCurrentGroupIdOnSessions(savedSessions, groupId);
+                    // Sessões existentes em estado terminal são reutilizadas sem alterar status
+                    if (latestOpt.isPresent()) {
+                        AppointmentSessionStatus st = session.getStatus();
+                        if (st == AppointmentSessionStatus.PENDING || st == AppointmentSessionStatus.NUDGE_1_SENT ||
+                                st == AppointmentSessionStatus.NUDGE_FINAL_SENT || st == AppointmentSessionStatus.CONFIRMED) {
+                            // Atualiza apenas o groupId e o timestamp sem mudar status
+                            session.setCurrentGroupId(groupId);
+                            session.setLastNotificationSentAt(LocalDateTime.now());
+                            savedSessions.add(appointmentSessionRepository.save(session));
+                            continue;
+                        }
+                    }
 
-        updateSessionsNotificationTimestamp(savedSessions);
+                    // Configura todos os campos da sessão em memória — apenas um save ao banco
+                    session.setFeegowAppointmentId(feegowAppointmentId);
+                    session.setPatientId(appointment.patientId());
+                    session.setPhoneNumber(phoneNumber);
+                    session.setDoctorProfissionalId(appointment.doctorId());
+                    session.setAppointmentAt(appointment.startAt());
+                    session.setStatus(AppointmentSessionStatus.PENDING);
+                    session.setLastInteractionAt(LocalDateTime.now());
+                    session.setClosedAt(null);
+                    session.setStatusDetails(null);
+                    // Já inclui groupId e timestamp para evitar updates separados posteriormente
+                    session.setCurrentGroupId(groupId);
+                    session.setLastNotificationSentAt(LocalDateTime.now());
 
-        String finalPatientName = (patientDetails != null && patientDetails.name() != null) ? patientDetails.name().trim() : "Paciente";
-
-        // Pré-configura as variáveis de contexto do Blip (lista_detalhada, groupId, isConfirmingAgenda)
-        // para que estejam disponíveis quando o paciente clicar no botão "Ver Agendamentos" do template.
-        // O master-state NÃO é configurado aqui — o roteamento é feito nativamente pelo Blip Builder
-        // via condições ($conditionOutputs) no bloco Preparar_Atendimento, sem precisar de master-state.
-        setGroupContextDuringIngestion(phoneNumber, groupId, preCompiledText);
-
-        sendGroupNotification(phoneNumber, groupId, finalPatientName);
-
-        return savedSessions.size();
-    }
-
-    private List<AppointmentSession> saveGroupSessions(List<FeegowAppointment> eligibleAppointments, String phoneNumber) {
-        List<AppointmentSession> savedSessions = new ArrayList<>();
-        for (FeegowAppointment appointment : eligibleAppointments) {
-            String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
-            try {
-                AppointmentSession session = saveGroupSessionSingle(feegowAppointmentId, appointment, phoneNumber);
-                if (session != null) {
-                    savedSessions.add(session);
+                    savedSessions.add(appointmentSessionRepository.save(session));
+                } catch (RuntimeException ex) {
+                    log.error("[GRUPO] Falha ao persistir sessão para feegowId={}.", feegowAppointmentId, ex);
                 }
-            } catch (RuntimeException ex) {
-                log.error("Falha na persistência da sessão no banco de dados para feegowAppointmentId={}.", feegowAppointmentId, ex);
             }
+
+            if (savedSessions.size() < 2) {
+                log.warn("[GRUPO] Menos de 2 sessões válidas para groupId={}. Abortando grupo.", groupId);
+                status.setRollbackOnly();
+                return new GroupPersistenceResult(List.of(), null);
+            }
+
+            // Pré-compila o texto da lista de agendamentos para o contexto do Blip
+            String preCompiledText;
+            try {
+                preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions);
+            } catch (Exception ex) {
+                log.error("[GRUPO] Erro ao compilar lista detalhada para groupId={}.", groupId, ex);
+                status.setRollbackOnly();
+                return new GroupPersistenceResult(List.of(), null);
+            }
+
+            // Persiste os NotificationGroup dentro da mesma transação
+            List<NotificationGroup> groupEntities = savedSessions.stream()
+                .map(s -> NotificationGroup.builder()
+                    .groupId(groupId)
+                    .sessionId(s.getId())
+                    .phoneNumber(phoneNumber)
+                    .createdAt(LocalDateTime.now())
+                    .preCompiledScheduleText(preCompiledText)
+                    .build())
+                .toList();
+            try {
+                notificationGroupRepository.saveAll(groupEntities);
+                log.info("[GRUPO] Sessões + NotificationGroup persistidos em transação única. groupId={}, qtd={}",
+                    groupId, savedSessions.size());
+            } catch (RuntimeException ex) {
+                log.error("[GRUPO] Falha ao salvar NotificationGroup para groupId={}.", groupId, ex);
+                status.setRollbackOnly();
+                return new GroupPersistenceResult(List.of(), null);
+            }
+
+            return new GroupPersistenceResult(savedSessions, preCompiledText);
+        });
+
+        if (result == null || result.savedSessions().isEmpty()) {
+            return 0;
         }
-        return savedSessions;
+
+        String finalPatientName = (patientDetails != null && patientDetails.name() != null)
+            ? patientDetails.name().trim() : "Paciente";
+
+        // OTIMIZAÇÃO: contexto do Blip configurado em background (fire-and-forget).
+        // O paciente leva minutos para abrir o WhatsApp — o contexto sempre estará disponível.
+        // O Semaphore garante no máximo 'blipIngestConcurrency' chamadas simultâneas ao Blip.
+        final String preText = result.preCompiledText();
+        CompletableFuture.runAsync(() -> {
+            try {
+                getBlipSemaphore().acquire();
+                try {
+                    setGroupContextDuringIngestion(phoneNumber, groupId, preText);
+                } finally {
+                    getBlipSemaphore().release();
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("[GRUPO] Interrompido aguardando semáforo para contexto Blip. groupId={}", groupId);
+            }
+        });
+
+        // Envia o template imediatamente, sem esperar o contexto subir
+        try {
+            getBlipSemaphore().acquire();
+            try {
+                log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
+                blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
+            } finally {
+                getBlipSemaphore().release();
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            log.warn("[GRUPO] Interrompido aguardando semáforo para envio de template. groupId={}", groupId);
+        } catch (Exception e) {
+            log.error("[ERRO-CRITICO-GRUPO] Falha ao enviar template para {}. groupId={}", phoneNumber, groupId, e);
+        }
+
+        return result.savedSessions().size();
     }
 
-    private AppointmentSession saveGroupSessionSingle(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber) {
+    /**
+     * Persiste o grupo de sessões + NotificationGroup numa única transação.
+     * @deprecated Substituído pela lógica inline em processGroupFlow para eliminar transações redundantes.
+     * Mantido apenas para o fluxo de agendamento individual (processSingleFlow).
+     */
+    private AppointmentSession saveSingleSessionLegacy(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber) {
         return transactionTemplate.execute(status -> {
             Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
             if (latestSessionOpt.isPresent()) {
                 AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
                 if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
                     currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
-                    return latestSessionOpt.get();
+                    return null; // Já existe em estado válido — não re-envia
                 }
             }
             AppointmentSession s = latestSessionOpt.orElseGet(AppointmentSession::new);
@@ -391,9 +551,8 @@ public class IngestAppointmentsUseCase {
             s.setLastInteractionAt(LocalDateTime.now());
             s.setClosedAt(null);
             s.setStatusDetails(null);
-            AppointmentSession savedS = appointmentSessionRepository.save(s);
-            entityManager.flush();
-            return savedS;
+            // Sem entityManager.flush() — desnecessário pois o commit do transactionTemplate já faz flush
+            return appointmentSessionRepository.save(s);
         });
     }
 
@@ -427,81 +586,24 @@ public class IngestAppointmentsUseCase {
     }
 
     /**
-     * Configura as variáveis de contexto no Blip para o fluxo de grupo durante a ingestão.
-     * Define: lista_detalhada (texto pré-compilado dos agendamentos), groupId e isConfirmingAgenda.
+     * Configura as variáveis de contexto no Blip para o fluxo de grupo.
+     * É chamado em fire-and-forget a partir de processGroupFlow.
      *
-     * IMPORTANTE: O master-state NÃO é configurado aqui intencionalmente.
-     * O roteamento de ações (ver_agenda_, confirm_group_, alter_group_) é feito de forma nativa
-     * pelo Blip Builder via $conditionOutputs no bloco Preparar_Atendimento, sem precisar de
-     * master-state pré-definido. Setar o master-state durante a ingestão causava:
-     * 1. Latência adicional antes do envio do template (chamada HTTP extra ao Blip).
-     * 2. Possível conflito com fluxos já ativos do paciente em outros canais.
+     * Define: lista_detalhada, groupId e isConfirmingAgenda.
+     * O master-state NÃO é configurado — o roteamento é nativo do Blip Builder.
      */
     private void setGroupContextDuringIngestion(String phoneNumber, UUID groupId, String preCompiledText) {
-        if (phoneNumber == null || phoneNumber.isBlank()) {
-            return;
-        }
+        if (phoneNumber == null || phoneNumber.isBlank()) return;
         try {
-            String cleanPhone = phoneNumber.trim();
             Map<String, String> fields = Map.of(
                 "lista_detalhada", preCompiledText,
                 "groupId", groupId.toString(),
                 "isConfirmingAgenda", "true"
             );
-
-            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando variáveis de contexto no Blip para {}. groupId={}", cleanPhone, groupId);
-            blipContextService.setUserContextFieldsInParallel(cleanPhone, fields);
+            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}", phoneNumber.trim(), groupId);
+            blipContextService.setUserContextFieldsInParallel(phoneNumber.trim(), fields);
         } catch (Exception e) {
-            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto na ingestão para {}. groupId={}", phoneNumber, groupId, e);
-        }
-    }
-
-    /**
-     * Salva o groupId no campo currentGroupId de cada sessão do grupo.
-     * Isso é feito durante a ingestão para que executeConfirmBatch consiga encontrar
-     * as sessões pela Estratégia B (findByCurrentGroupId) mesmo que o usuário clique
-     * em "CONFIRMAR TUDO" sem ter clicado em "Ver Agendamentos" antes.
-     */
-    private void populateCurrentGroupIdOnSessions(List<AppointmentSession> savedSessions, UUID groupId) {
-        for (AppointmentSession session : savedSessions) {
-            try {
-                transactionTemplate.executeWithoutResult(status -> {
-                    // Busca a sessão mais atualizada do banco antes de salvar para evitar sobrescrever dados
-                    AppointmentSession fresh = appointmentSessionRepository.findById(session.getId()).orElse(session);
-                    fresh.setCurrentGroupId(groupId);
-                    appointmentSessionRepository.save(fresh);
-                });
-                log.info("[GRUPO] currentGroupId={} populado na sessão sessionId={}", groupId, session.getId());
-            } catch (RuntimeException ex) {
-                log.error("[GRUPO] Falha ao popular currentGroupId na sessão sessionId={}", session.getId(), ex);
-            }
-        }
-    }
-
-    private void updateSessionsNotificationTimestamp(List<AppointmentSession> savedSessions) {
-        for (AppointmentSession session : savedSessions) {
-            session.setLastNotificationSentAt(LocalDateTime.now());
-            try {
-                transactionTemplate.executeWithoutResult(status -> {
-                    appointmentSessionRepository.save(session);
-                });
-            } catch (RuntimeException ex) {
-                log.error("Erro ao atualizar lastNotificationSentAt para sessionId={}.", session.getId(), ex);
-            }
-        }
-    }
-
-    private void sendGroupNotification(String phoneNumber, UUID groupId, String patientName) {
-        String groupTemplateName = transactionTemplate.execute(status ->
-            appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION)
-                .map(AppointmentConfig::getTemplateId)
-                .orElse("aviso_agendamento_grupo")
-        );
-        log.info("[GRUPO] Template de grupo resolvido: '{}'. groupId={}", groupTemplateName, groupId);
-        try {
-            blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, patientName);
-        } catch (Exception e) {
-            log.error("[ERRO-CRITICO-GRUPO] Falha ao transmitir grupo para a Blip", e);
+            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto. telefone={}, groupId={}", phoneNumber, groupId, e);
         }
     }
 

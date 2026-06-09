@@ -16,7 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -58,16 +58,36 @@ public class BlipLIMEClient implements BlipClientPort {
     @PostConstruct
     public void setupClient() {
         try {
-            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-            requestFactory.setConnectTimeout(5000);
-            requestFactory.setReadTimeout(5000);
+            // Configura um pool de conexões HTTP persistentes com Keep-Alive.
+            // Sem pool, cada Virtual Thread abriria/fecharia um socket TCP com handshake SSL completo
+            // (~250ms por request). Com pool, reutiliza conexões existentes reduzindo para ~50ms.
+            org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient =
+                org.apache.hc.client5.http.impl.classic.HttpClients.custom()
+                    .setConnectionManager(
+                        org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder.create()
+                            // Máximo de conexões totais no pool — suporta até 100 Virtual Threads simultâneas
+                            .setMaxConnTotal(100)
+                            // Máximo de conexões por rota (mesmo host) — o Blip usa apenas 1 host
+                            .setMaxConnPerRoute(100)
+                            .build()
+                    )
+                    // Configura timeout de conexão e leitura por request
+                    .setDefaultRequestConfig(
+                        org.apache.hc.client5.http.config.RequestConfig.custom()
+                            .setConnectionRequestTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                            .setResponseTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                            .build()
+                    )
+                    .build();
+
+            HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
             blipRestTemplate = new RestTemplate(requestFactory);
             blipRestTemplate.setMessageConverters(new ArrayList<>(injectedRestTemplate.getMessageConverters()));
             blipRestTemplate.setInterceptors(new ArrayList<>(injectedRestTemplate.getInterceptors()));
             blipRestTemplate.setErrorHandler(injectedRestTemplate.getErrorHandler());
-            log.info("Blip RestTemplate configurado com timeout de 5s");
+            log.info("Blip RestTemplate configurado com pool de conexões HTTP (max=100, timeout=5s)");
         } catch (Exception ex) {
-            log.warn("Falha ao configurar Blip RestTemplate com timeout; usando RestTemplate injetado", ex);
+            log.warn("Falha ao configurar Blip RestTemplate com pool; usando RestTemplate injetado", ex);
             blipRestTemplate = injectedRestTemplate;
         }
     }

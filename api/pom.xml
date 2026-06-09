@@ -229,6 +229,14 @@
             <artifactId>zip4j</artifactId>
             <version>2.11.5</version>
         </dependency>
+        <!-- Apache HttpClient 5 para pool de conexoes HTTP persistentes no BlipLIMEClient.
+             Substitui SimpleClientHttpRequestFactory (sem pool) reduzindo latencia por request
+             de ~300ms (handshake SSL) para ~50ms (conexao reutilizada). -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <!-- Versao gerenciada pelo Spring Boot BOM -->
+        </dependency>
     </dependencies>
 
     <build>

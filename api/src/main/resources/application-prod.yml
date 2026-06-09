@@ -22,6 +22,17 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    # Pool de conexões HikariCP configurado para suportar o paralelismo de Virtual Threads.
+    # Sem configuração, o padrão é 10 conexões — insuficiente para 100 grupos em paralelo,
+    # causando erros "Connection is not available, request timed out after Xms".
+    # Fórmula recomendada HikariCP: (Ncores * 2) + spindles_de_disco. Para produção com SSD: ~30.
+    hikari:
+      maximum-pool-size: ${DB_HIKARI_MAX_POOL_SIZE:30}
+      minimum-idle: ${DB_HIKARI_MIN_IDLE:10}
+      connection-timeout: 20000   # 20s para obter conexão do pool antes de lançar erro
+      idle-timeout: 600000        # 10min de idle antes de liberar conexão do pool
+      max-lifetime: 1800000       # 30min máx de vida de cada conexão (evita conexões velhas)
+
   jpa:
     hibernate:
       ddl-auto: none # Em produção, nunca permita ddl-auto destructivo

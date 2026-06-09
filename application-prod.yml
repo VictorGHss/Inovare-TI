@@ -114,7 +114,12 @@ app:
   appointment:
     motor:
       enabled: ${APP_APPOINTMENT_MOTOR_ENABLED:true}
-      ingestion-cron: ${APP_APPOINTMENT_MOTOR_INGESTION_CRON:0 0/15 * * * *}
+      # Cron de ingestão de agendamentos: executa todo dia às 07:00 (horário de Brasília).
+      # Para sobrescrever sem redeploy, defina a variável APP_APPOINTMENT_MOTOR_INGESTION_CRON.
+      # Formato: segundos minutos horas dia-mês mês dia-semana
+      # Exemplo para 06:30: "0 30 6 * * *"
+      ingestion-cron: ${APP_APPOINTMENT_MOTOR_INGESTION_CRON:0 0 7 * * *}
+
       monitor-cron: ${APP_APPOINTMENT_MOTOR_MONITOR_CRON:0 0/30 * * * *}
       test-mode: ${APP_APPOINTMENT_MOTOR_TEST_MODE:true}
       test-doctor-id: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}

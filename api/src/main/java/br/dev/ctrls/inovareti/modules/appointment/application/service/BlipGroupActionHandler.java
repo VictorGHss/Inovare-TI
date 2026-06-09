@@ -60,7 +60,9 @@ public class BlipGroupActionHandler {
                                 lowerAction.startsWith("group_view_") ||
                                 "group_view_fallback".equalsIgnoreCase(action) ||
                                 "confirmar tudo".equalsIgnoreCase(lowerAction.trim()) ||
-                                "confirmar_tudo".equalsIgnoreCase(lowerAction.trim());
+                                "confirmar_tudo".equalsIgnoreCase(lowerAction.trim()) ||
+                                "preciso alterar".equalsIgnoreCase(lowerAction.trim()) ||
+                                "preciso_alterar".equalsIgnoreCase(lowerAction.trim());
 
         if (!isGroupAction && parseUuid(action.trim()) == null) {
             return null;
@@ -81,6 +83,9 @@ public class BlipGroupActionHandler {
         } else if (lowerAction.startsWith("alter_group_")) {
             actionType = "alter_group";
             groupId = parseUuid(action.substring("alter_group_".length()).trim());
+        } else if ("preciso alterar".equalsIgnoreCase(lowerAction.trim()) || "preciso_alterar".equalsIgnoreCase(lowerAction.trim())) {
+            actionType = "alter_group";
+            groupId = resolveFallbackGroupId(fromPhone, bsuid, metadata);
         } else if (lowerAction.startsWith("group_view_")) {
             actionType = "group_view";
             groupId = parseUuid(action.substring("group_view_".length()).trim());

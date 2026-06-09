@@ -174,6 +174,29 @@ public class BlipWebhookInboundService {
     }
 
     private String extractActionText(Map<String, Object> payload, String messageType) {
+        // Tenta extrair a ação do metadado interativo do WhatsApp (#whatsapp.interactiveReply)
+        String interactiveReply = firstNonBlank(
+                asText(getNested(payload, "metadata", "#whatsapp.interactiveReply")),
+                asText(getNested(payload, "envelope", "metadata", "#whatsapp.interactiveReply")),
+                asText(getNested(payload, "message", "metadata", "#whatsapp.interactiveReply")),
+                asText(getNested(payload, "resource", "metadata", "#whatsapp.interactiveReply")),
+                asText(getNested(payload, "resource", "envelope", "metadata", "#whatsapp.interactiveReply")),
+                asText(getNested(payload, "resource", "message", "metadata", "#whatsapp.interactiveReply")));
+
+        if (interactiveReply != null && !interactiveReply.isBlank()) {
+            try {
+                Map<?, ?> replyMap = objectMapper.readValue(interactiveReply, Map.class);
+                Object idObj = replyMap.get("id");
+                if (idObj != null) {
+                    String extracted = idObj.toString().trim();
+                    log.info("[WEBHOOK] action extraído do #whatsapp.interactiveReply: '{}'", extracted);
+                    return extracted;
+                }
+            } catch (Exception e) {
+                log.warn("[WEBHOOK] Falha ao parsear #whatsapp.interactiveReply JSON: {}", interactiveReply, e);
+            }
+        }
+
         // WhatsApp / LIME: clique em botão rápido (application/vnd.lime.reply+json) — valor em content.replied.value
         String replyButtonAction = firstNonBlank(
                 asText(getNested(payload, "content", "replied", "value")),

@@ -164,8 +164,13 @@ public class BlipWebhookController {
         }
 
         // Ignora notificações de status de entrega/leitura do Blip (received, consumed, failed)
-        if (payload.containsKey("event")) {
-            log.debug("[NOTIFICATION] Ignorando notificação de status de mensagem Blip (event='{}')", payload.get("event"));
+        String messageType = payload.get("type") != null ? payload.get("type").toString() : "";
+        boolean isLimeNotification = messageType.toLowerCase().contains("notification") 
+            || payload.containsKey("event") 
+            || (payload.get("content") instanceof Map<?, ?> contentMap && contentMap.containsKey("event"));
+
+        if (isLimeNotification) {
+            log.debug("[NOTIFICATION] Ignorando notificação de status/sistema do Blip. type='{}'", messageType);
             return ResponseEntity.ok().build();
         }
 

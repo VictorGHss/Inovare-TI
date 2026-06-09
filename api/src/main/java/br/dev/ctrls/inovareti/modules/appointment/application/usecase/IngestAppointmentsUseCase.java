@@ -73,6 +73,7 @@ public class IngestAppointmentsUseCase {
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
 
     /**
      * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
@@ -537,8 +538,44 @@ public class IngestAppointmentsUseCase {
             );
             log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}", phoneNumber.trim(), groupId);
             blipContextService.setUserContextFieldsInParallel(phoneNumber.trim(), fields);
+
+            // 1. Determina a identidade de túnel do subbot para a qual o Builder Master State deve ser aplicado
+            String subbotId = blipProperties.getSubbotId();
+            String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+
+            if (prepararAtendimentoBlockId != null && !prepararAtendimentoBlockId.isBlank()) {
+                String cleanPhone = phoneNumber.trim();
+                
+                // Roteador Master-State
+                try {
+                    blipContextService.setMasterState(cleanPhone, subbotId, prepararAtendimentoBlockId);
+                    log.info("[INGESTAO-GRUPO-CONTEXTO] Master-State do Roteador atualizado na ingestão para {} apontando para o subbot e bloco {}", cleanPhone, prepararAtendimentoBlockId);
+                } catch (Exception e) {
+                    log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Master-State no Roteador na ingestão para {}", cleanPhone, e);
+                }
+
+                // Subbot Builder Master-State (calcula o túnel)
+                if (subbotId != null && !subbotId.isBlank()) {
+                    String userLocalPart = cleanPhone;
+                    if (userLocalPart.contains("@")) {
+                        userLocalPart = userLocalPart.substring(0, userLocalPart.indexOf('@'));
+                    }
+                    String subbotLocalPart = subbotId.trim();
+                    if (subbotLocalPart.contains("@")) {
+                        subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                    }
+                    String tunnelIdentity = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
+
+                    try {
+                        blipContextService.setBuilderMasterState(tunnelIdentity, prepararAtendimentoBlockId);
+                        log.info("[INGESTAO-GRUPO-CONTEXTO] Builder Master-State atualizado na ingestão para o túnel {} e bloco {}", tunnelIdentity, prepararAtendimentoBlockId);
+                    } catch (Exception e) {
+                        log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Builder Master-State no Subbot na ingestão para {}", tunnelIdentity, e);
+                    }
+                }
+            }
         } catch (Exception e) {
-            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto. telefone={}, groupId={}", phoneNumber, groupId, e);
+            log.error("[INGESTAO-GRUPO-CONTEXTO] Falha ao configurar contexto/master-states na ingestão. telefone={}, groupId={}", phoneNumber, groupId, e);
         }
     }
 

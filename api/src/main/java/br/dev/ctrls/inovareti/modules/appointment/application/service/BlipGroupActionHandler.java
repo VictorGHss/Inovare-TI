@@ -303,7 +303,7 @@ public class BlipGroupActionHandler {
             ));
             if (prepararBlockId != null && !prepararBlockId.isBlank()) {
                 futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                    blipContextService.setMasterState(cleanRawFrom, subbotId, prepararBlockId)
+                    blipContextService.setBuilderMasterState(cleanRawFrom, prepararBlockId)
                 ));
             }
         }

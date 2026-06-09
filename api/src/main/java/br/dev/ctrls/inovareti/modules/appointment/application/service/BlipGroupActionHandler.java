@@ -288,18 +288,30 @@ public class BlipGroupActionHandler {
             blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields)
         ));
 
+        String prepararBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+        if (prepararBlockId != null && !prepararBlockId.isBlank()) {
+            futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+                blipContextService.setBuilderMasterState(fromPhone.trim(), prepararBlockId)
+            ));
+        }
+
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
             String cleanRawFrom = rawFrom.trim();
             futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
                 blipContextService.setUserContextFieldsInParallel(cleanRawFrom, fields)
             ));
+            if (prepararBlockId != null && !prepararBlockId.isBlank()) {
+                futures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
+                    blipContextService.setBuilderMasterState(cleanRawFrom, prepararBlockId)
+                ));
+            }
         }
 
         try {
             java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-            log.info("[WEBHOOK] Injetado contexto em paralelo com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
+            log.info("[WEBHOOK] Injetado contexto e master-state em paralelo com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
         } catch (Exception e) {
-            log.error("[WEBHOOK] Erro ao injetar contexto em paralelo para groupId={}", groupId, e);
+            log.error("[WEBHOOK] Erro ao injetar contexto e master-state em paralelo para groupId={}", groupId, e);
         }
     }
 

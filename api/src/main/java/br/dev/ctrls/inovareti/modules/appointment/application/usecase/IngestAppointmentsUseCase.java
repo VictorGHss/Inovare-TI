@@ -118,6 +118,19 @@ public class IngestAppointmentsUseCase {
         Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = appointmentDoctorMappingRepository.findAll().stream()
                 .collect(Collectors.toMap(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping::getProfissionalId, m -> m, (m1, m2) -> m1));
 
+        // FILTRO ESTRUTURAL DE AUDITORIA: Remove agendamentos de médicos não-assinantes ou inativos antes de buscar detalhes dos pacientes
+        int totalBeforeDoctorFilter = appointments.size();
+        appointments = appointments.stream()
+                .filter(appointment -> {
+                    var mapping = doctorMappingCache.get(appointment.doctorId());
+                    return mapping != null && !"inactive".equalsIgnoreCase(mapping.getBlipQueueId()) && !mapping.isIgnoreAutoSchedule();
+                })
+                .collect(Collectors.toList());
+        int removedByDoctorFilter = totalBeforeDoctorFilter - appointments.size();
+        if (removedByDoctorFilter > 0) {
+            log.info("[INGESTAO-AUDITORIA] Ignorados {} agendamentos pertencentes a médicos inativos ou não-assinantes.", removedByDoctorFilter);
+        }
+
         List<FeegowAppointment> activeAppointments = appointments.stream()
                 .filter(appointment -> !"12".equals(appointment.statusId()))
                 .collect(Collectors.toList());

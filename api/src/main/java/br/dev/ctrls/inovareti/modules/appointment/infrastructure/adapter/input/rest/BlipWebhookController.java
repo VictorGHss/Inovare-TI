@@ -117,7 +117,7 @@ public class BlipWebhookController {
         }
 
         if (!isSignatureValid && isBypassEnabled) {
-            log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
+            log.debug("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
         }
 
         if (rawJson == null || rawJson.isBlank()) {

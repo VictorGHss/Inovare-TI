@@ -113,7 +113,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
                     publishMigrationEvent(dbData, decrypted);
                     return decrypted;
                 } catch (Exception ex) {
-                    log.warn("Falha ao descriptografar dado sem prefixo v1. Retornando dado original em texto puro: {}", ex.getMessage());
+                    log.debug("Falha ao descriptografar dado sem prefixo v1. Retornando dado original em texto puro: {}", ex.getMessage());
                     publishMigrationEvent(dbData, dbData);
                     return dbData;
                 }
@@ -167,7 +167,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            log.warn("Falha ao descriptografar dado utilizando fallback do modo legado AES-ECB: {}", e.getMessage());
+            log.debug("Falha ao descriptografar dado utilizando fallback do modo legado AES-ECB: {}", e.getMessage());
             throw new RuntimeException("Falha ao descriptografar no modo legado", e);
         }
     }

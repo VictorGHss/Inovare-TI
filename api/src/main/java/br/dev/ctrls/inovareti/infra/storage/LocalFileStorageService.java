@@ -89,7 +89,7 @@ public class LocalFileStorageService {
                 java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = 
                     java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--");
                 Files.setPosixFilePermissions(destinationFile, perms);
-            } catch (Exception ex) {
+            } catch (IOException | IllegalArgumentException | UnsupportedOperationException ex) {
                 log.warn("Falha ao definir permissões POSIX para o arquivo salvo: {}", ex.getMessage());
             }
         }
@@ -179,21 +179,26 @@ public class LocalFileStorageService {
             }
         }
 
-        if (normalizedExtension.equals(".pdf")) {
-            // PDF: 25 50 44 46 (%PDF)
-            if (headerBytes[0] != 0x25 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x46) {
-                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PDF.");
+        switch (normalizedExtension) {
+            case ".pdf" -> {
+                // PDF: 25 50 44 46 (%PDF)
+                if (headerBytes[0] != 0x25 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x46) {
+                    throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PDF.");
+                }
             }
-        } else if (normalizedExtension.equals(".png")) {
-            // PNG: 89 50 4E 47 0D 0A 1A 0A
-            if (headerBytes[0] != (byte) 0x89 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x47) {
-                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PNG.");
+            case ".png" -> {
+                // PNG: 89 50 4E 47 0D 0A 1A 0A
+                if (headerBytes[0] != (byte) 0x89 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x47) {
+                    throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PNG.");
+                }
             }
-        } else if (normalizedExtension.equals(".jpg") || normalizedExtension.equals(".jpeg")) {
-            // JPEG: FF D8 FF
-            if (headerBytes[0] != (byte) 0xFF || headerBytes[1] != (byte) 0xD8 || headerBytes[2] != (byte) 0xFF) {
-                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para JPEG.");
+            case ".jpg", ".jpeg" -> {
+                // JPEG: FF D8 FF
+                if (headerBytes[0] != (byte) 0xFF || headerBytes[1] != (byte) 0xD8 || headerBytes[2] != (byte) 0xFF) {
+                    throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para JPEG.");
+                }
             }
+            default -> {}
         }
     }
 }

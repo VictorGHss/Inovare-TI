@@ -45,6 +45,9 @@ public class DiscordInteractionListener extends ListenerAdapter {
     private final DiscordSolicitarService solicitarService;
     private final DiscordCommandService discordCommandService;
     
+    @org.springframework.beans.factory.annotation.Value("${discord.bot.admin-ids:}")
+    private String adminIdsRaw;
+    
     @Qualifier("discordExecutor")
     private final Executor discordExecutor;
 
@@ -74,6 +77,10 @@ public class DiscordInteractionListener extends ListenerAdapter {
         // Processamento assíncrono na thread virtual
         discordExecutor.execute(() -> {
             try {
+                if (!isAdministrator(discordId)) {
+                    event.getHook().sendMessage("🔒 Acesso negado. Este comando é restrito a administradores de TI validados por ID fixo.").queue();
+                    return;
+                }
                 User usuario = discordCommandService.resolverTecnico(discordId);
                 if (usuario == null) {
                     event.getHook().sendMessage("🔒 Acesso negado. Este comando é restrito a técnicos e administradores de TI.").queue();
@@ -108,7 +115,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
 
         int quantidade = (opcaoQtd != null) ? Math.max(1, opcaoQtd.getAsInt()) : 1;
         String discordUserId  = event.getUser().getId();
-        String itemSelecionado = opcaoItem.getAsString();
+        String itemSelecionado = sanitizeInput(opcaoItem.getAsString());
 
         // Adia a resposta imediatamente
         event.deferReply().queue();
@@ -187,6 +194,10 @@ public class DiscordInteractionListener extends ListenerAdapter {
 
     private void handleBotaoAssumir(ButtonInteractionEvent event, String ticketIdStr) {
         String discordUserId = event.getUser().getId();
+        if (!isAdministrator(discordUserId)) {
+            event.getHook().sendMessage("🔒 Acesso negado. Apenas administradores validados por ID podem interagir com chamados.").setEphemeral(true).queue();
+            return;
+        }
         String resultMessage = discordCommandService.assumirChamado(discordUserId, ticketIdStr);
 
         if (resultMessage.startsWith("🔒") || resultMessage.startsWith("❌") || resultMessage.startsWith("⚠️")) {
@@ -199,6 +210,10 @@ public class DiscordInteractionListener extends ListenerAdapter {
 
     private void handleBotaoRecusar(ButtonInteractionEvent event, String ticketIdStr) {
         String discordUserId = event.getUser().getId();
+        if (!isAdministrator(discordUserId)) {
+            event.getHook().sendMessage("🔒 Acesso negado. Apenas administradores validados por ID podem interagir com chamados.").setEphemeral(true).queue();
+            return;
+        }
         String resultMessage = discordCommandService.recusarChamado(discordUserId, ticketIdStr);
 
         if (resultMessage.startsWith("🔒") || resultMessage.startsWith("❌")) {
@@ -229,5 +244,33 @@ public class DiscordInteractionListener extends ListenerAdapter {
         Button botaoAssumir = Button.primary(BOTAO_ASSUMIR_PREFIX + idStr, "✅ Assumir");
         Button botaoRecusar = Button.danger(BOTAO_RECUSAR_PREFIX + idStr, "❌ Recusar");
         return ActionRow.of(botaoAssumir, botaoRecusar);
+    }
+
+    /**
+     * Sanitiza o input recebido no comando para evitar injeções de log, tags de marcação e caracteres inválidos.
+     */
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        // Remove tags HTML para prevenir injeções visuais indesejadas
+        String clean = input.replaceAll("<[^>]*>", "");
+        // Remove quebras de linha e caracteres de controle
+        clean = clean.replaceAll("[\\r\\n\\t]", " ");
+        // Limita o tamanho do texto para 100 caracteres de segurança
+        if (clean.length() > 100) {
+            clean = clean.substring(0, 100);
+        }
+        return clean.trim();
+    }
+
+    /**
+     * Valida se o ID do Discord pertence a um administrador fixado nas configurações.
+     */
+    private boolean isAdministrator(String discordUserId) {
+        if (adminIdsRaw == null || adminIdsRaw.isBlank() || discordUserId == null) {
+            return false;
+        }
+        return java.util.Arrays.stream(adminIdsRaw.split(","))
+                .map(String::trim)
+                .anyMatch(id -> id.equals(discordUserId));
     }
 }

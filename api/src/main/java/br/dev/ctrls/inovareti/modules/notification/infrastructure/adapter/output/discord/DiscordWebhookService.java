@@ -110,10 +110,11 @@ public class DiscordWebhookService {
         try {
             validateTicket(ticket);
             String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-            String title = ticket.getAssignedTo() == null ? "Novo chamado aberto" : "AtualizaíÂ§íÂ£o de chamado";
-            String description = ticket.getAssignedTo() == null
+            String title = ticket.getAssignedTo() == null ? "Novo chamado aberto" : "Atualização de chamado";
+            String rawDescription = ticket.getAssignedTo() == null
                     ? String.format("Chamado #%s aberto: %s", shortId, ticket.getTitle())
                     : String.format("Chamado #%s em acompanhamento: %s", shortId, ticket.getTitle());
+            String description = DiscordLgpdSanitizer.sanitize(rawDescription);
 
             List<User> recipients = resolveRecipients(ticket);
             if (recipients.isEmpty()) {
@@ -371,13 +372,13 @@ public class DiscordWebhookService {
     private void enviarNotificacaoJdaComBotoes(Ticket ticket) {
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
-            log.debug("[JDA] Bot Discord indisponíÂ­vel ââ‚¬â€ notificaíÂ§íÂ£o com botíÂµes ignorada para chamado {}",
+            log.debug("[JDA] Bot Discord indisponível — notificação com botões ignorada para chamado {}",
                     ticket.getId());
             return;
         }
 
         if (operationalChannelId == null || operationalChannelId.isBlank()) {
-            log.debug("[JDA] 'discord.bot.operational-channel-id' níÂ£o configurado ââ‚¬â€ pulando notificaíÂ§íÂ£o JDA para chamado {}",
+            log.debug("[JDA] 'discord.bot.operational-channel-id' não configurado — pulando notificação JDA para chamado {}",
                     ticket.getId());
             return;
         }
@@ -391,21 +392,25 @@ public class DiscordWebhookService {
             }
 
             String shortId     = ticket.getId().toString().substring(0, 8).toUpperCase();
-            String solicitante = ticket.getRequester() != null
+            String rawSolicitante = ticket.getRequester() != null
                     ? Objects.requireNonNullElse(ticket.getRequester().getName(), "-") : "-";
+            String solicitante = DiscordLgpdSanitizer.sanitize(rawSolicitante);
             String setor       = ticket.getRequester() != null && ticket.getRequester().getSector() != null
                     ? Objects.requireNonNullElse(ticket.getRequester().getSector().getName(), "-") : "-";
             String prioridade  = ticket.getPriority() != null
                     ? ticket.getPriority().name() : "-";
 
+            String rawDescription = ticket.getTitle();
+            String description = DiscordLgpdSanitizer.sanitize(rawDescription);
+
             var embed = new EmbedBuilder()
                     .setColor(DiscordEmbedBuilder.OPERATIONS_COLOR)
-                    .setTitle("í°Å¸Å¡Â¨ Novo Chamado Aberto ââ‚¬â€ #" + shortId)
-                    .setDescription(ticket.getTitle())
+                    .setTitle("🚨 Novo Chamado Aberto — #" + shortId)
+                    .setDescription(description)
                     .addField("Solicitante", solicitante, true)
                     .addField("Setor", setor, true)
                     .addField("Prioridade", prioridade, true)
-                    .setFooter("Inovare TI ââ‚¬Â¢ Clique em Assumir para atribuir o chamado a vocíÂª")
+                    .setFooter("Inovare TI • Clique em Assumir para atribuir o chamado a você")
                     .build();
 
             canal.sendMessageEmbeds(embed)

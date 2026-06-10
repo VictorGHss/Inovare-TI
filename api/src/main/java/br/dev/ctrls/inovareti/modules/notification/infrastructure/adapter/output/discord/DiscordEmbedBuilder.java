@@ -31,8 +31,10 @@ public class DiscordEmbedBuilder {
 
     public Map<String, Object> buildOperationalAlertEmbed(String title, String message, String thumbnailUrl) {
         Map<String, Object> embed = new HashMap<>();
-        embed.put("title", StringUtils.hasText(title) ? title : "Alerta Operacional");
-        embed.put("description", StringUtils.hasText(message) ? message : "");
+        String sanitizedTitle = DiscordLgpdSanitizer.sanitize(title);
+        String sanitizedMessage = DiscordLgpdSanitizer.sanitize(message);
+        embed.put("title", StringUtils.hasText(sanitizedTitle) ? sanitizedTitle : "Alerta Operacional");
+        embed.put("description", StringUtils.hasText(sanitizedMessage) ? sanitizedMessage : "");
         embed.put("color", OPERATIONS_COLOR);
         embed.put("timestamp", OffsetDateTime.now().toString());
         embed.put("footer", Map.of("text", "Gerado em: " + BR_DATE_TIME.format(OffsetDateTime.now())));
@@ -50,7 +52,8 @@ public class DiscordEmbedBuilder {
         embed.put("color", OPERATIONS_COLOR);
         embed.put("timestamp", OffsetDateTime.now().toString());
 
-        String description = ticket != null && StringUtils.hasText(ticket.getTitle()) ? ticket.getTitle() : "-";
+        String rawDescription = ticket != null && StringUtils.hasText(ticket.getTitle()) ? ticket.getTitle() : "-";
+        String description = DiscordLgpdSanitizer.sanitize(rawDescription);
         embed.put("description", description);
 
         UUID ticketId = ticket != null ? ticket.getId() : null;
@@ -59,7 +62,8 @@ public class DiscordEmbedBuilder {
         }
 
         String shortId = ticketId != null ? ticketId.toString().substring(0, 8).toUpperCase() : "-";
-        String requester = ticket != null && ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
+        String rawRequester = ticket != null && ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
+        String requester = DiscordLgpdSanitizer.sanitize(rawRequester);
         String sector = ticket != null && ticket.getRequester() != null && ticket.getRequester().getSector() != null
                 ? ticket.getRequester().getSector().getName()
                 : "-";
@@ -95,15 +99,19 @@ public class DiscordEmbedBuilder {
             int attempts,
             String thumbnailUrl) {
         Map<String, Object> embed = new HashMap<>();
-        embed.put("title", "🚨 " + (StringUtils.hasText(title) ? title : "Falha Crítica Financeira"));
-        embed.put("description", StringUtils.hasText(details) ? details : "");
+        String sanitizedTitle = DiscordLgpdSanitizer.sanitize(title);
+        String sanitizedDetails = DiscordLgpdSanitizer.sanitize(details);
+        String sanitizedDoctorName = DiscordLgpdSanitizer.sanitize(doctorName);
+
+        embed.put("title", "🚨 " + (StringUtils.hasText(sanitizedTitle) ? sanitizedTitle : "Falha Crítica Financeira"));
+        embed.put("description", StringUtils.hasText(sanitizedDetails) ? sanitizedDetails : "");
         embed.put("color", CRITICAL_COLOR);
         embed.put("timestamp", OffsetDateTime.now().toString());
 
         List<Map<String, Object>> fields = new ArrayList<>();
         fields.add(Map.of("name", "Parcela ID (Baixa)", "value", StringUtils.hasText(baixaId) ? baixaId : "N/D", "inline", true));
-        if (StringUtils.hasText(doctorName)) {
-            fields.add(Map.of("name", "Médico", "value", doctorName, "inline", true));
+        if (StringUtils.hasText(sanitizedDoctorName)) {
+            fields.add(Map.of("name", "Médico", "value", sanitizedDoctorName, "inline", true));
         }
         fields.add(Map.of("name", "Tentativas", "value", String.valueOf(attempts), "inline", true));
         embed.put("fields", fields);
@@ -126,8 +134,11 @@ public class DiscordEmbedBuilder {
             String source,
             String thumbnailUrl) {
         Map<String, Object> embed = new HashMap<>();
-        embed.put("title", "🛠️ Notificação de TI: " + (StringUtils.hasText(title) ? title : "Diagnóstico do Sistema"));
-        embed.put("description", StringUtils.hasText(message) ? message : "");
+        String sanitizedTitle = DiscordLgpdSanitizer.sanitize(title);
+        String sanitizedMessage = DiscordLgpdSanitizer.sanitize(message);
+
+        embed.put("title", "🛠️ Notificação de TI: " + (StringUtils.hasText(sanitizedTitle) ? sanitizedTitle : "Diagnóstico do Sistema"));
+        embed.put("description", StringUtils.hasText(sanitizedMessage) ? sanitizedMessage : "");
 
         int color = INFO_COLOR;
         if ("ERROR".equalsIgnoreCase(severity) || "CRITICAL".equalsIgnoreCase(severity)) {

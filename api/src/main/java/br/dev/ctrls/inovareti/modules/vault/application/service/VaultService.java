@@ -113,7 +113,7 @@ public class VaultService {
         validateCreateRequest(request);
 
         String secretContent = request.secretContent();
-        if (request.itemType() == VaultItemType.CREDENTIAL && secretContent != null && !secretContent.isBlank()) {
+        if (secretContent != null && !secretContent.isBlank()) {
             secretContent = encryptionService.encrypt(secretContent);
         }
 
@@ -168,7 +168,7 @@ public class VaultService {
         }
 
         String content = item.getSecretContent();
-        if (item.getItemType() == VaultItemType.CREDENTIAL) {
+        if (content != null && !content.isBlank()) {
             content = encryptionService.decrypt(content);
         }
 
@@ -208,10 +208,10 @@ public class VaultService {
         item.setItemType(request.itemType());
         item.setSharingType(request.sharingType());
 
-        if (request.itemType() == VaultItemType.CREDENTIAL && request.secretContent() != null && !request.secretContent().isBlank()) {
+        if (request.secretContent() != null && !request.secretContent().isBlank()) {
             item.setSecretContent(encryptionService.encrypt(request.secretContent()));
-        } else if (request.itemType() != VaultItemType.CREDENTIAL) {
-            item.setSecretContent(request.secretContent());
+        } else {
+            item.setSecretContent(null);
         }
 
         if (file != null && !file.isEmpty()) {

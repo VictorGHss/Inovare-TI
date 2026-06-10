@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/admin/backups")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class BackupController {
 

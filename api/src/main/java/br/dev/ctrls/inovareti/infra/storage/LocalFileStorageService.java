@@ -64,8 +64,11 @@ public class LocalFileStorageService {
         String extension = "";
         int dotIndex = originalFilename.lastIndexOf('.');
         if (dotIndex > 0) {
-            extension = originalFilename.substring(dotIndex);
+            extension = originalFilename.substring(dotIndex).toLowerCase();
         }
+
+        // Validação rígida de tipo e magic bytes (PDF, PNG e JPG)
+        validateFileTypeAndMagicBytes(file, extension);
 
         // Gera um nome de arquivo único usando UUID
         String storedFilename = UUID.randomUUID().toString() + extension;
@@ -79,6 +82,18 @@ public class LocalFileStorageService {
 
         // Copia o arquivo para o destino
         Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+
+        // Define permissões seguras para o arquivo (leitura/escrita apenas, sem execução)
+        if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            try {
+                java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = 
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--");
+                Files.setPosixFilePermissions(destinationFile, perms);
+            } catch (Exception ex) {
+                log.warn("Falha ao definir permissões POSIX para o arquivo salvo: {}", ex.getMessage());
+            }
+        }
+
         log.info("File stored: {} -> {}", originalFilename, storedFilename);
 
         return storedFilename;
@@ -123,5 +138,62 @@ public class LocalFileStorageService {
 
         Files.deleteIfExists(file);
         log.info("File deleted: {}", storedFilename);
+    }
+
+    /**
+     * Valida de forma rígida a extensão, o Content-Type e os Magic Bytes do arquivo.
+     */
+    private void validateFileTypeAndMagicBytes(MultipartFile file, String extension) throws IOException {
+        String contentType = file.getContentType();
+        if (contentType == null) {
+            throw new IllegalArgumentException("O tipo de conteúdo do arquivo (Content-Type) não foi informado.");
+        }
+
+        String normalizedExtension = extension.toLowerCase();
+
+        // Valida se a extensão é estritamente uma das seguras permitidas (PDF, PNG, JPG/JPEG)
+        if (!normalizedExtension.equals(".pdf") && 
+            !normalizedExtension.equals(".png") && 
+            !normalizedExtension.equals(".jpg") && 
+            !normalizedExtension.equals(".jpeg")) {
+            throw new IllegalArgumentException("Tipo de arquivo não permitido. Apenas PDF, PNG e JPG são aceitos.");
+        }
+
+        // Valida o Content-Type associado
+        if (normalizedExtension.equals(".pdf") && !contentType.equalsIgnoreCase("application/pdf")) {
+            throw new IllegalArgumentException("Content-Type inválido para arquivo PDF.");
+        }
+        if ((normalizedExtension.equals(".jpg") || normalizedExtension.equals(".jpeg")) && !contentType.equalsIgnoreCase("image/jpeg")) {
+            throw new IllegalArgumentException("Content-Type inválido para imagem JPEG.");
+        }
+        if (normalizedExtension.equals(".png") && !contentType.equalsIgnoreCase("image/png")) {
+            throw new IllegalArgumentException("Content-Type inválido para imagem PNG.");
+        }
+
+        // Valida os Magic Bytes da assinatura do arquivo
+        byte[] headerBytes = new byte[8];
+        try (var is = file.getInputStream()) {
+            int read = is.read(headerBytes);
+            if (read < 4) {
+                throw new IllegalArgumentException("Arquivo muito curto para conter cabeçalho válido.");
+            }
+        }
+
+        if (normalizedExtension.equals(".pdf")) {
+            // PDF: 25 50 44 46 (%PDF)
+            if (headerBytes[0] != 0x25 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x46) {
+                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PDF.");
+            }
+        } else if (normalizedExtension.equals(".png")) {
+            // PNG: 89 50 4E 47 0D 0A 1A 0A
+            if (headerBytes[0] != (byte) 0x89 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x47) {
+                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PNG.");
+            }
+        } else if (normalizedExtension.equals(".jpg") || normalizedExtension.equals(".jpeg")) {
+            // JPEG: FF D8 FF
+            if (headerBytes[0] != (byte) 0xFF || headerBytes[1] != (byte) 0xD8 || headerBytes[2] != (byte) 0xFF) {
+                throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para JPEG.");
+            }
+        }
     }
 }

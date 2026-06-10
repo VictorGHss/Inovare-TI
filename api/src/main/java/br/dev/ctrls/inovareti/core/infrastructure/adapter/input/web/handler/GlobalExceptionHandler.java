@@ -81,6 +81,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+        // Trata argumentos inválidos ou falhas de validação física, como a verificação de Magic Bytes
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Argumento inválido");
+        problem.setDetail(ex.getMessage());
+        attachTraceId(problem);
+        return problem;
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleBusinessRule(IllegalStateException ex) {
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.valueOf(422));

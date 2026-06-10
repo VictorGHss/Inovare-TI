@@ -11,8 +11,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Sao_Paulo
     ports:
-      # Hardening: Vincula a porta do banco apenas ao loopback (127.0.0.1) para evitar exposição pública
-      - "127.0.0.1:${DB_PORT_EXTERNAL}:5432"
+      # Permite conexões vindas da rede de desenvolvimento externa na porta customizada
+      - "${DB_PORT_EXTERNAL}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -96,7 +96,6 @@ services:
         - VITE_API_URL=${VITE_API_URL}
     container_name: inovareti_front
     restart: always
-    user: "1000:1000" # Hardening: Executa o container com usuário não-root
     ports:
       - "5173:80"
     environment:

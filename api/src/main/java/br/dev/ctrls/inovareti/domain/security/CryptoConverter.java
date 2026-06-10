@@ -100,8 +100,14 @@ public class CryptoConverter implements AttributeConverter<String, String> {
         try {
             boolean isV1 = dbData.startsWith("v1:");
             if (!isV1) {
-                // Se não tem o prefixo v1:, é garantido ser legado (ECB)
-                return decryptLegacy(dbData);
+                // Se não tem o prefixo v1:, tenta descriptografar como legado (ECB)
+                // Se falhar (por ser texto puro), retorna o próprio dado original de forma resiliente.
+                try {
+                    return decryptLegacy(dbData);
+                } catch (Exception ex) {
+                    log.warn("Falha ao descriptografar dado sem prefixo v1. Retornando dado original em texto puro: {}", ex.getMessage());
+                    return dbData;
+                }
             }
 
             String workingData = dbData.substring(3);
@@ -109,13 +115,13 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             try {
                 decoded = Base64.getDecoder().decode(workingData);
             } catch (IllegalArgumentException ex) {
-                log.warn("Falha ao decodificar Base64 para dados com prefixo v1. Tentando fallback legado. {}", ex.getMessage());
-                return decryptLegacy(dbData);
+                log.warn("Falha ao decodificar Base64 para dados com prefixo v1. Retornando dado original: {}", ex.getMessage());
+                return dbData;
             }
             
             if (decoded.length <= IV_LENGTH_BYTES) {
-                log.warn("Dados GCM muito curtos para conter IV. Tentando fallback legado.");
-                return decryptLegacy(dbData);
+                log.warn("Dados GCM muito curtos para conter IV. Retornando dado original.");
+                return dbData;
             }
 
             try {
@@ -131,12 +137,12 @@ public class CryptoConverter implements AttributeConverter<String, String> {
                 byte[] decryptedBytes = cipher.doFinal(encryptedPayload);
                 return new String(decryptedBytes, StandardCharsets.UTF_8);
             } catch (Exception ex) {
-                log.warn("Falha ao descriptografar em modo AES-GCM para dados v1. Ativando fallback para decodificação em modo legado AES-ECB: {}", ex.getMessage());
-                return decryptLegacy(dbData);
+                log.warn("Falha ao descriptografar em modo AES-GCM para dados v1. Retornando dado original: {}", ex.getMessage());
+                return dbData;
             }
         } catch (Exception e) {
-            log.error("Falha definitiva ao descriptografar atributo sensível do banco de dados", e);
-            throw new RuntimeException("Falha definitiva ao descriptografar atributo", e);
+            log.warn("Falha definitiva ao descriptografar atributo sensível do banco de dados. Retornando dado original.", e);
+            return dbData;
         }
     }
 
@@ -152,7 +158,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            log.error("Falha ao descriptografar dado utilizando fallback do modo legado AES-ECB", e);
+            log.warn("Falha ao descriptografar dado utilizando fallback do modo legado AES-ECB: {}", e.getMessage());
             throw new RuntimeException("Falha ao descriptografar no modo legado", e);
         }
     }

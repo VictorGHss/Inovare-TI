@@ -1,7 +1,10 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -14,6 +17,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.application.service.ConfirmationStateMachineService;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -32,104 +36,286 @@ public class MonitorAppointmentNudgesUseCase {
     private final ConfirmationStateMachineService confirmationStateMachineService;
     private final AppointmentExternalPort appointmentExternalPort;
     private final BlipContextService blipContextService;
+    private final BlipNotificationService blipNotificationService;
     private final TransactionTemplate transactionTemplate;
 
     @org.springframework.transaction.annotation.Transactional
     public void execute() {
-        int xHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_1)
+        // --- 1. RESOLVER CONFIGURAÇÕES E TIMINGS ---
+        // Individual Timings
+        int nudge1Hours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_1)
                 .map(config -> config.getTimingHours())
                 .orElse(appointmentMotorProperties.getNudge1WaitHours());
 
-        int yHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_FINAL)
+        int nudgeFinalHours = appointmentConfigRepository.findByCategory(AppointmentCategory.NUDGE_FINAL)
                 .map(config -> config.getTimingHours())
                 .orElse(appointmentMotorProperties.getNudgeFinalWaitHours());
 
-        LocalDateTime pendingThreshold = resolvePendingThreshold(xHours);
-        LocalDateTime nudge1Threshold = resolveNudge1Threshold(yHours);
+        // Group Timings
+        int groupNudge1Hours = appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NUDGE_1)
+                .map(config -> config.getTimingHours())
+                .orElse(4);
+
+        int groupNudgeFinalHours = appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NUDGE_FINAL)
+                .map(config -> config.getTimingHours())
+                .orElse(24);
+
+        // Thresholds individuais
+        LocalDateTime pendingThreshold = resolvePendingThreshold(nudge1Hours);
+        LocalDateTime nudge1Threshold = resolveNudge1Threshold(nudgeFinalHours);
         LocalDateTime finalThreshold = resolveFinalThreshold();
 
+        // Thresholds de grupo
+        LocalDateTime groupPendingThreshold = resolvePendingThreshold(groupNudge1Hours);
+        LocalDateTime groupNudge1Threshold = resolveNudge1Threshold(groupNudgeFinalHours);
+
+        // Threshold de busca no BD (o mais recente/curto dos dois para carregar todos os candidatos)
+        LocalDateTime queryPendingThreshold = pendingThreshold.isAfter(groupPendingThreshold) ? pendingThreshold : groupPendingThreshold;
+        LocalDateTime queryNudge1Threshold = nudge1Threshold.isAfter(groupNudge1Threshold) ? nudge1Threshold : groupNudge1Threshold;
+
+        // --- 2. BUSCAR SESSÕES CANDIDATAS DO BANCO ---
         List<AppointmentSession> pendingSessions = appointmentSessionRepository
-                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.PENDING, pendingThreshold);
+                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.PENDING, queryPendingThreshold);
         List<AppointmentSession> nudge1Sessions = appointmentSessionRepository
-                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, nudge1Threshold);
+                .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_1_SENT, queryNudge1Threshold);
         List<AppointmentSession> finalSessions = appointmentSessionRepository
                 .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_FINAL_SENT, finalThreshold);
 
+        // --- 3. FLUXO 1: PENDING -> NUDGE_1_SENT ---
+        Set<UUID> processedGroup1 = new HashSet<>();
         for (AppointmentSession session : pendingSessions) {
-            transactionTemplate.executeWithoutResult(status -> {
-                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
-                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.PENDING) {
-                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
-                        log.info("[ATTENDANCE-GUARD] Abortando/pausando NUDGE_1 automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
-                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
-                        lockedSession.setLastInteractionAt(LocalDateTime.now());
-                        appointmentSessionRepository.save(lockedSession);
-                        return;
-                    }
-                    boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_1);
-                    if (!sent) {
-                        log.warn("NUDGE_1 não enviado. Mantendo sessão pendente. sessionId={}", lockedSession.getId());
-                        return;
-                    }
-                    confirmationStateMachineService.markNudge1Sent(lockedSession);
-                    appointmentSessionRepository.save(lockedSession);
+            if (session.getCurrentGroupId() != null) {
+                // FLUXO DE GRUPO
+                UUID groupId = session.getCurrentGroupId();
+                if (processedGroup1.contains(groupId)) {
+                    continue;
                 }
-            });
+                
+                // Verifica data limite de grupo
+                if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(groupPendingThreshold)) {
+                    continue;
+                }
+
+                processedGroup1.add(groupId);
+                processGroupNudge(groupId, AppointmentCategory.GROUP_NUDGE_1, AppointmentSessionStatus.PENDING);
+            } else {
+                // FLUXO INDIVIDUAL
+                if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(pendingThreshold)) {
+                    continue;
+                }
+                processIndividualNudge(session, AppointmentCategory.NUDGE_1, AppointmentSessionStatus.PENDING);
+            }
         }
 
+        // --- 4. FLUXO 2: NUDGE_1_SENT -> NUDGE_FINAL_SENT ---
+        Set<UUID> processedGroupFinal = new HashSet<>();
         for (AppointmentSession session : nudge1Sessions) {
-            transactionTemplate.executeWithoutResult(status -> {
-                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
-                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_1_SENT) {
-                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
-                        log.info("[ATTENDANCE-GUARD] Abortando/pausando NUDGE_FINAL automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
-                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
-                        lockedSession.setLastInteractionAt(LocalDateTime.now());
-                        appointmentSessionRepository.save(lockedSession);
-                        return;
-                    }
-                    boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, AppointmentCategory.NUDGE_FINAL);
-                    if (!sent) {
-                        log.warn("NUDGE_FINAL não enviado. Mantendo sessão no estado atual. sessionId={}", lockedSession.getId());
-                        return;
-                    }
-                    confirmationStateMachineService.markNudgeFinalSent(lockedSession);
-                    appointmentSessionRepository.save(lockedSession);
+            if (session.getCurrentGroupId() != null) {
+                // FLUXO DE GRUPO
+                UUID groupId = session.getCurrentGroupId();
+                if (processedGroupFinal.contains(groupId)) {
+                    continue;
                 }
-            });
+
+                // Verifica data limite de grupo
+                if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(groupNudge1Threshold)) {
+                    continue;
+                }
+
+                processedGroupFinal.add(groupId);
+                processGroupNudge(groupId, AppointmentCategory.GROUP_NUDGE_FINAL, AppointmentSessionStatus.NUDGE_1_SENT);
+            } else {
+                // FLUXO INDIVIDUAL
+                if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(nudge1Threshold)) {
+                    continue;
+                }
+                processIndividualNudge(session, AppointmentCategory.NUDGE_FINAL, AppointmentSessionStatus.NUDGE_1_SENT);
+            }
         }
 
+        // --- 5. FLUXO 3: NUDGE_FINAL_SENT -> CANCELED_NO_RESPONSE ---
+        Set<UUID> processedGroupCancel = new HashSet<>();
         for (AppointmentSession session : finalSessions) {
-            transactionTemplate.executeWithoutResult(status -> {
-                AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
-                if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
-                    if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
-                        log.info("[ATTENDANCE-GUARD] Abortando/pausando CANCELAMENTO automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
-                        lockedSession.setLastNotificationSentAt(LocalDateTime.now());
-                        lockedSession.setLastInteractionAt(LocalDateTime.now());
-                        appointmentSessionRepository.save(lockedSession);
-                        return;
-                    }
-                    try {
-                        appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
-                    } catch (Exception e) {
-                        log.error("Erro ao atualizar status do agendamento na Feegow para desmarcado. sessionId={}", lockedSession.getId(), e);
-                    }
-
-                    boolean sent = sendAppointmentTemplateUseCase.executeSimpleTemplate(lockedSession, "aviso_final_cancelamento");
-                    if (!sent) {
-                        log.warn("Template de cancelamento automático não enviado. sessionId={}", lockedSession.getId());
-                    }
-
-                    confirmationStateMachineService.markCanceledByNoResponse(lockedSession);
-                    appointmentSessionRepository.save(lockedSession);
-                    blipContextService.setMasterState(lockedSession.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");
+            if (session.getCurrentGroupId() != null) {
+                // FLUXO DE GRUPO
+                UUID groupId = session.getCurrentGroupId();
+                if (processedGroupCancel.contains(groupId)) {
+                    continue;
                 }
-            });
+
+                processedGroupCancel.add(groupId);
+                processGroupCancel(groupId);
+            } else {
+                // FLUXO INDIVIDUAL
+                processIndividualCancel(session);
+            }
         }
 
         log.info("Monitor de nudges executado. pendingParaNudge1={}, nudge1ParaFinal={}, finalParaCancelado={}",
                 pendingSessions.size(), nudge1Sessions.size(), finalSessions.size());
+    }
+
+    private void processIndividualNudge(AppointmentSession session, AppointmentCategory category, AppointmentSessionStatus expectedStatus) {
+        transactionTemplate.executeWithoutResult(status -> {
+            AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+            if (lockedSession != null && lockedSession.getStatus() == expectedStatus) {
+                if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
+                    log.info("[ATTENDANCE-GUARD] Abortando/pausando nudge para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
+                    lockedSession.setLastNotificationSentAt(LocalDateTime.now());
+                    lockedSession.setLastInteractionAt(LocalDateTime.now());
+                    appointmentSessionRepository.save(lockedSession);
+                    return;
+                }
+                boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, category);
+                if (!sent) {
+                    log.warn("Nudge não enviado. Mantendo sessão no estado atual. sessionId={}, category={}", lockedSession.getId(), category);
+                    return;
+                }
+                if (category == AppointmentCategory.NUDGE_1) {
+                    confirmationStateMachineService.markNudge1Sent(lockedSession);
+                } else {
+                    confirmationStateMachineService.markNudgeFinalSent(lockedSession);
+                }
+                appointmentSessionRepository.save(lockedSession);
+            }
+        });
+    }
+
+    private void processGroupNudge(UUID groupId, AppointmentCategory category, AppointmentSessionStatus expectedStatus) {
+        transactionTemplate.executeWithoutResult(status -> {
+            List<AppointmentSession> groupSessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
+            if (groupSessions == null || groupSessions.isEmpty()) {
+                return;
+            }
+
+            // Verifica se todas as sessões do grupo ainda estão no status esperado
+            boolean allInExpectedState = groupSessions.stream().allMatch(s -> s.getStatus() == expectedStatus);
+            if (!allInExpectedState) {
+                log.info("[GRUPO-NUDGE] Grupo {} possui sessões em status divergente. Abortando nudge.", groupId);
+                return;
+            }
+
+            String phoneNumber = groupSessions.get(0).getPhoneNumber();
+            if (blipContextService.hasActiveTicket(phoneNumber)) {
+                log.info("[ATTENDANCE-GUARD] Abortando/pausando nudge de grupo para {} devido a ticket de live chat ativo no Blip.", phoneNumber);
+                for (AppointmentSession s : groupSessions) {
+                    AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                    locked.setLastNotificationSentAt(LocalDateTime.now());
+                    locked.setLastInteractionAt(LocalDateTime.now());
+                    appointmentSessionRepository.save(locked);
+                }
+                return;
+            }
+
+            String templateId = appointmentConfigRepository.findByCategory(category)
+                    .map(config -> config.getTemplateId())
+                    .orElse("aviso_confirmacao_pendente_grupo");
+
+            try {
+                log.info("[GRUPO-NUDGE] Enviando template de nudge '{}' para {}. groupId={}, category={}", templateId, phoneNumber, groupId, category);
+                // Sem passar nome do paciente, mantendo o corpo da mensagem mais limpo e genérico
+                blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateId, groupId, null);
+                
+                for (AppointmentSession s : groupSessions) {
+                    AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                    if (category == AppointmentCategory.GROUP_NUDGE_1) {
+                        confirmationStateMachineService.markNudge1Sent(locked);
+                    } else {
+                        confirmationStateMachineService.markNudgeFinalSent(locked);
+                    }
+                    appointmentSessionRepository.save(locked);
+                }
+            } catch (Exception e) {
+                log.error("[GRUPO-NUDGE] Erro ao enviar template de nudge para {}. groupId={}", phoneNumber, groupId, e);
+            }
+        });
+    }
+
+    private void processIndividualCancel(AppointmentSession session) {
+        transactionTemplate.executeWithoutResult(status -> {
+            AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+            if (lockedSession != null && lockedSession.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
+                if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
+                    log.info("[ATTENDANCE-GUARD] Abortando/pausando CANCELAMENTO automático para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
+                    lockedSession.setLastNotificationSentAt(LocalDateTime.now());
+                    lockedSession.setLastInteractionAt(LocalDateTime.now());
+                    appointmentSessionRepository.save(lockedSession);
+                    return;
+                }
+                try {
+                    appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                } catch (Exception e) {
+                    log.error("Erro ao atualizar status do agendamento na Feegow para desmarcado. sessionId={}", lockedSession.getId(), e);
+                }
+
+                boolean sent = sendAppointmentTemplateUseCase.executeSimpleTemplate(lockedSession, "aviso_final_cancelamento");
+                if (!sent) {
+                    log.warn("Template de cancelamento automático não enviado. sessionId={}", lockedSession.getId());
+                }
+
+                confirmationStateMachineService.markCanceledByNoResponse(lockedSession);
+                appointmentSessionRepository.save(lockedSession);
+                blipContextService.setMasterState(lockedSession.getPhoneNumber(), appointmentMotorProperties.getBlipBuilderBotId(), "builder");
+            }
+        });
+    }
+
+    private void processGroupCancel(UUID groupId) {
+        transactionTemplate.executeWithoutResult(status -> {
+            List<AppointmentSession> groupSessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
+            if (groupSessions == null || groupSessions.isEmpty()) {
+                return;
+            }
+
+            boolean allInNudgeFinal = groupSessions.stream().allMatch(s -> s.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT);
+            if (!allInNudgeFinal) {
+                log.info("[GRUPO-CANCEL] Grupo {} possui sessões em status divergente do esperado. Abortando cancelamento.", groupId);
+                return;
+            }
+
+            String phoneNumber = groupSessions.get(0).getPhoneNumber();
+            if (blipContextService.hasActiveTicket(phoneNumber)) {
+                log.info("[ATTENDANCE-GUARD] Abortando/pausando CANCELAMENTO automático de grupo para {} devido a ticket de live chat ativo no Blip.", phoneNumber);
+                for (AppointmentSession s : groupSessions) {
+                    AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                    locked.setLastNotificationSentAt(LocalDateTime.now());
+                    locked.setLastInteractionAt(LocalDateTime.now());
+                    appointmentSessionRepository.save(locked);
+                }
+                return;
+            }
+
+            // Desmarca todos os agendamentos do grupo na Feegow
+            for (AppointmentSession s : groupSessions) {
+                try {
+                    log.info("[GRUPO-CANCEL] Desmarcando consulta na Feegow: appointmentId={}", s.getFeegowAppointmentId());
+                    appointmentExternalPort.updateStatus(s.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                } catch (Exception e) {
+                    log.error("[GRUPO-CANCEL] Erro ao atualizar status da consulta {} no Feegow.", s.getFeegowAppointmentId(), e);
+                }
+            }
+
+            // Envia um único template de aviso final de cancelamento simples
+            AppointmentSession representativeSession = groupSessions.get(0);
+            boolean sent = sendAppointmentTemplateUseCase.executeSimpleTemplate(representativeSession, "aviso_final_cancelamento");
+            if (!sent) {
+                log.warn("[GRUPO-CANCEL] Template de cancelamento automático não enviado para o grupo={}", groupId);
+            }
+
+            // Promove localmente todas as sessões para canceladas e restaura o estado do Master State
+            for (AppointmentSession s : groupSessions) {
+                AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                confirmationStateMachineService.markCanceledByNoResponse(locked);
+                appointmentSessionRepository.save(locked);
+            }
+
+            try {
+                blipContextService.setMasterState(phoneNumber, appointmentMotorProperties.getBlipBuilderBotId(), "builder");
+                log.info("[GRUPO-CANCEL] Master-State do paciente {} restaurado para o Builder principal.", phoneNumber);
+            } catch (Exception e) {
+                log.error("[GRUPO-CANCEL] Erro ao restaurar Master-State para {}", phoneNumber, e);
+            }
+        });
     }
 
     private LocalDateTime resolvePendingThreshold(int xHours) {

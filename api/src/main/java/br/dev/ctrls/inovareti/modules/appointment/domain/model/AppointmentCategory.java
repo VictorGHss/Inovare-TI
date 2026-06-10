@@ -4,5 +4,7 @@ public enum AppointmentCategory {
     CONFIRMATION,
     NUDGE_1,
     NUDGE_FINAL,
-    GROUP_NOTIFICATION
+    GROUP_NOTIFICATION,
+    GROUP_NUDGE_1,
+    GROUP_NUDGE_FINAL
 }

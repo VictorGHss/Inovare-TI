@@ -243,9 +243,9 @@ public class MonitorAppointmentNudgesUseCase {
                     return;
                 }
                 try {
-                    appointmentExternalPort.updateStatus(lockedSession.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    appointmentExternalPort.cancelAppointment(lockedSession.getFeegowAppointmentId(), "Cancelado automaticamente por falta de resposta às mensagens de confirmação.");
                 } catch (Exception e) {
-                    log.error("Erro ao atualizar status do agendamento na Feegow para desmarcado. sessionId={}", lockedSession.getId(), e);
+                    log.error("Erro ao cancelar agendamento na Feegow por falta de resposta. sessionId={}", lockedSession.getId(), e);
                 }
 
                 boolean sent = sendAppointmentTemplateUseCase.executeSimpleTemplate(lockedSession, "aviso_final_cancelamento");
@@ -289,9 +289,9 @@ public class MonitorAppointmentNudgesUseCase {
             for (AppointmentSession s : groupSessions) {
                 try {
                     log.info("[GRUPO-CANCEL] Desmarcando consulta na Feegow: appointmentId={}", s.getFeegowAppointmentId());
-                    appointmentExternalPort.updateStatus(s.getFeegowAppointmentId(), FEEGOW_STATUS_DESMARCADO);
+                    appointmentExternalPort.cancelAppointment(s.getFeegowAppointmentId(), "Cancelado automaticamente por falta de resposta às mensagens de confirmação.");
                 } catch (Exception e) {
-                    log.error("[GRUPO-CANCEL] Erro ao atualizar status da consulta {} no Feegow.", s.getFeegowAppointmentId(), e);
+                    log.error("[GRUPO-CANCEL] Erro ao cancelar consulta {} no Feegow.", s.getFeegowAppointmentId(), e);
                 }
             }
 

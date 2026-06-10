@@ -100,7 +100,7 @@ public class BlipNudgeResponseHandler {
                         appointmentSessionRepository.save(lockedSession);
                     }
                 });
-                appointmentExternalPort.updateStatus(session.getFeegowAppointmentId(), 11);
+                appointmentExternalPort.cancelAppointment(session.getFeegowAppointmentId(), "Paciente solicitou cancelamento respondendo ao Nudge do WhatsApp.");
             }
         } catch (TransactionException | RestClientException | DataAccessException ex) {
             log.error("[WEBHOOK-NUDGE] Falha ao atualizar sessão no lote. sessionId={}, erro={}",

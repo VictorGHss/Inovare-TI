@@ -15,5 +15,6 @@ public class FeegowProperties {
     private String apiKey;
     private String unidadeId;
     private String statusUpdateUrl = "https://api.feegow.com/v1/api/appoints/statusUpdate";
+    private String cancelUrl = "https://api.feegow.com/v1/api/appoints/cancel-appoint";
     private Integer startupProbeStatusId;
 }

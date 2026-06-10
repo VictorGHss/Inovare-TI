@@ -18,6 +18,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowAppointmentClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowStatusUpdatePayload;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowCancelPayload;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -332,6 +333,67 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
     @Recover
     public void recoverUpdateAppointmentStatus(RestClientException ex, String appointmentId, String statusId) {
         log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de atualização de status do agendamento {} na Feegow ERP. Erro: {}", 
+            appointmentId, ex.getMessage(), ex);
+    }
+
+    @Override
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackCancelAppointment")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public void cancelAppointment(String appointmentId, String obs) {
+        String normalizedAppointmentId = appointmentId == null ? "" : appointmentId.trim();
+        if (normalizedAppointmentId.isBlank()) {
+            throw new IllegalArgumentException("appointmentId não pode ser vazio");
+        }
+
+        String cancelUrl = feegowProperties.getCancelUrl();
+        URI uri = URI.create(cancelUrl);
+
+        // O motivo_id padrão para cancelamento pelo paciente / sistema é 1
+        int motivoId = 1;
+
+        FeegowCancelPayload payload = new FeegowCancelPayload(
+                normalizeAppointmentIdForPayload(normalizedAppointmentId),
+                motivoId,
+                obs != null ? obs.trim() : ""
+        );
+
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            log.info("[FEEGOW] [APPOINTMENT-ADAPTER] Enviando cancelamento de consulta. URL: {}, Payload: {}", uri, jsonPayload);
+
+            ResponseEntity<String> response = appointmentClient.cancelAppointment(uri, getAccessToken(), payload);
+            int statusCode = response.getStatusCode().value();
+            String responseBody = response.getBody();
+
+            log.info("[FEEGOW] Resposta bruta do cancelAppointment: {} - {}", statusCode, responseBody);
+
+            if (statusCode >= 200 && statusCode < 300) {
+                log.info("Agendamento {} cancelado com sucesso na Feegow. Obs: {}", appointmentId, obs);
+            } else {
+                log.error("Não foi possível cancelar agendamento na Feegow. appointmentId={}, statusCode={}, responseBody={}",
+                        normalizedAppointmentId, statusCode, abbreviateResponseBody(responseBody));
+            }
+        } catch (RestClientResponseException ex) {
+            log.error("Falha HTTP ao cancelar agendamento na Feegow. appointmentId={}, statusCode={}, responseBody={}",
+                    normalizedAppointmentId, ex.getStatusCode().value(), abbreviateResponseBody(ex.getResponseBodyAsString()));
+        } catch (JsonProcessingException | RuntimeException ex) {
+            log.error("Erro inesperado ao cancelar agendamento na Feegow. appointmentId={}",
+                    normalizedAppointmentId, ex);
+        }
+    }
+
+    public void fallbackCancelAppointment(String appointmentId, String obs, Throwable t) {
+        log.warn("[OFFLINE-SYNC-INTENT] [FEEGOW] Falha ao cancelar agendamento na Feegow. Circuito aberto ou erro de rede: {}. Gravando intenção de sincronização offline para appointmentId={}, obs={}", 
+            t.getMessage(), appointmentId, obs);
+    }
+
+    @Recover
+    public void recoverCancelAppointment(RestClientException ex, String appointmentId, String obs) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de cancelamento do agendamento {} na Feegow ERP. Erro: {}", 
             appointmentId, ex.getMessage(), ex);
     }
 

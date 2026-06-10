@@ -43,4 +43,12 @@ public interface AppointmentExternalPort {
      * @param statusId ID numérico do status
      */
     void updateStatus(String appointmentId, int statusId);
+
+    /**
+     * Cancela uma consulta na Feegow enviando o ID e um motivo/observação.
+     *
+     * @param appointmentId ID do agendamento
+     * @param obs observação/motivo do cancelamento
+     */
+    void cancelAppointment(String appointmentId, String obs);
 }

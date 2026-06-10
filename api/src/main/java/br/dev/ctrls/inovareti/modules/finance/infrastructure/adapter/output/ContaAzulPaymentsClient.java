@@ -113,6 +113,7 @@ public class ContaAzulPaymentsClient {
      * Tenta URL primária e fallback quando aplicável.
      */
     public byte[] downloadReceiptPdf(String parcelaId) {
+        validateSafeId(parcelaId);
         String accessToken = contaAzulTokenService.getValidAccessToken();
 
         HttpHeaders headers = new HttpHeaders();
@@ -152,6 +153,7 @@ public class ContaAzulPaymentsClient {
      * Busca os dados da parcela por ID usando o endpoint adequado.
      */
     public ContaAzulPaymentParcel fetchParcelById(String parcelaId) {
+        validateSafeId(parcelaId);
         String accessToken = contaAzulTokenService.getValidAccessToken();
         String uri = resolveParcelByIdUrl(parcelaId);
 
@@ -289,6 +291,22 @@ public class ContaAzulPaymentsClient {
         boolean missingDoctorName = !StringUtils.hasText(parcel.medicoNome())
                 || "Profissional".equalsIgnoreCase(parcel.medicoNome());
         return missingCustomerId && missingDoctorName;
+    }
+
+    /**
+     * Valida se um ID ou UUID é estruturalmente seguro contra Path Traversal e SSRF.
+     * Permite apenas caracteres alfanuméricos e hífens.
+     *
+     * @param id O identificador a ser validado.
+     * @throws IllegalArgumentException caso o ID seja nulo, vazio ou possua caracteres inválidos.
+     */
+    private void validateSafeId(String id) {
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("O ID fornecido não pode ser nulo ou vazio.");
+        }
+        if (!id.trim().matches("^[a-zA-Z0-9\\-]+$")) {
+            throw new IllegalArgumentException("O ID fornecido contém caracteres inválidos de quebra de caminho.");
+        }
     }
 }
 

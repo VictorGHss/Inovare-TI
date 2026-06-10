@@ -42,6 +42,7 @@ public class ContaAzulFinancialClient {
         if (!StringUtils.hasText(baixaId)) {
             throw new IllegalArgumentException("baixaId não pode ser vazio para download do recibo");
         }
+        validateSafeId(baixaId);
 
         String normalizedBaixaId = baixaId.trim();
 
@@ -81,6 +82,7 @@ public class ContaAzulFinancialClient {
         if (!StringUtils.hasText(settlementId)) {
             return Optional.empty();
         }
+        validateSafeId(settlementId);
 
         String normalizedSettlementId = settlementId.trim();
         String uri = buildBaixaDetailsUri(normalizedSettlementId);
@@ -104,6 +106,7 @@ public class ContaAzulFinancialClient {
         if (!StringUtils.hasText(parcelaId)) {
             return Optional.empty();
         }
+        validateSafeId(parcelaId);
 
         // Primeiro tenta pelo endpoint oficial da parcela para manter o mapeamento alinhado com a API atual.
         Optional<ContaAzulClient.ParcelaDetailDTO> parcelaDetailOpt = fetchParcelaDetail(parcelaId);
@@ -135,6 +138,7 @@ public class ContaAzulFinancialClient {
         if (!StringUtils.hasText(uuidParcela)) {
             return Optional.empty();
         }
+        validateSafeId(uuidParcela);
 
         String normalizedParcelaUuid = uuidParcela.trim();
         // Endpoint oficial para parcela financeira, usado para obter referência da venda.
@@ -182,6 +186,7 @@ public class ContaAzulFinancialClient {
         if (!StringUtils.hasText(personId)) {
             return Optional.empty();
         }
+        validateSafeId(personId);
 
         String normalizedId = personId.trim();
         String uri = normalizeContaAzulUrl(properties.getCustomerByIdV1UrlTemplate(),
@@ -256,6 +261,22 @@ public class ContaAzulFinancialClient {
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
+    }
+
+    /**
+     * Valida se um ID ou UUID é estruturalmente seguro contra Path Traversal e SSRF.
+     * Permite apenas caracteres alfanuméricos e hífens.
+     *
+     * @param id O identificador a ser validado.
+     * @throws IllegalArgumentException caso o ID seja nulo, vazio ou possua caracteres inválidos.
+     */
+    private void validateSafeId(String id) {
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("O ID fornecido não pode ser nulo ou vazio.");
+        }
+        if (!id.trim().matches("^[a-zA-Z0-9\\-]+$")) {
+            throw new IllegalArgumentException("O ID fornecido contém caracteres inválidos de quebra de caminho.");
+        }
     }
 }
 

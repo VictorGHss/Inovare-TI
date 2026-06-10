@@ -66,6 +66,7 @@ public class ContaAzulCustomerClient {
         if (!StringUtils.hasText(customerId)) {
             return Optional.empty();
         }
+        validateSafeId(customerId);
 
         String normalizedId = customerId.trim();
         // Garante endpoint oficial /v1/pessoas/{id} para consulta individual.
@@ -142,6 +143,22 @@ public class ContaAzulCustomerClient {
         normalized = normalized.replaceAll("(?i)/api/v1/", "/v1/");
         normalized = normalized.replaceAll("(?i)https://api-v2\\.contaazul\\.com/api/", "https://api-v2.contaazul.com/");
         return normalized;
+    }
+
+    /**
+     * Valida se um ID ou UUID é estruturalmente seguro contra Path Traversal e SSRF.
+     * Permite apenas caracteres alfanuméricos e hífens.
+     *
+     * @param id O identificador a ser validado.
+     * @throws IllegalArgumentException caso o ID seja nulo, vazio ou possua caracteres inválidos.
+     */
+    private void validateSafeId(String id) {
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("O ID fornecido não pode ser nulo ou vazio.");
+        }
+        if (!id.trim().matches("^[a-zA-Z0-9\\-]+$")) {
+            throw new IllegalArgumentException("O ID fornecido contém caracteres inválidos de quebra de caminho.");
+        }
     }
 }
 

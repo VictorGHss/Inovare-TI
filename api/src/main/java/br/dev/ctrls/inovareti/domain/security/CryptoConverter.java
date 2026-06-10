@@ -45,6 +45,12 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     private static String encryptionSecret;
     private final SecureRandom secureRandom = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    // Cache de dedup em memória de tamanho limitado para evitar tarefas de migração redundantes
+    private final java.util.Set<String> migrationDeduplicationCache = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     @Value("${app.security.encryption.secret}")
     public void setEncryptionSecret(String secret) {
         encryptionSecret = secret;
@@ -103,9 +109,12 @@ public class CryptoConverter implements AttributeConverter<String, String> {
                 // Se não tem o prefixo v1:, tenta descriptografar como legado (ECB)
                 // Se falhar (por ser texto puro), retorna o próprio dado original de forma resiliente.
                 try {
-                    return decryptLegacy(dbData);
+                    String decrypted = decryptLegacy(dbData);
+                    publishMigrationEvent(dbData, decrypted);
+                    return decrypted;
                 } catch (Exception ex) {
                     log.warn("Falha ao descriptografar dado sem prefixo v1. Retornando dado original em texto puro: {}", ex.getMessage());
+                    publishMigrationEvent(dbData, dbData);
                     return dbData;
                 }
             }
@@ -179,6 +188,22 @@ public class CryptoConverter implements AttributeConverter<String, String> {
         } catch (NoSuchAlgorithmException e) {
             log.error("Erro fatal ao gerar chave de criptografia de banco de dados", e);
             throw new RuntimeException("Falha ao gerar chave de criptografia", e);
+        }
+    }
+
+    /**
+     * Publica o evento de migração de criptografia legada de forma dedupicada.
+     */
+    private void publishMigrationEvent(String dbData, String decryptedValue) {
+        if (migrationDeduplicationCache.size() > 5000) {
+            migrationDeduplicationCache.clear();
+        }
+        if (eventPublisher != null && migrationDeduplicationCache.add(dbData)) {
+            try {
+                eventPublisher.publishEvent(new LegacyCryptoDetectedEvent(this, dbData, decryptedValue));
+            } catch (Exception e) {
+                log.warn("Falha ao publicar evento de migração de criptografia legada", e);
+            }
         }
     }
 }

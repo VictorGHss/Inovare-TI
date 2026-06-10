@@ -47,6 +47,13 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
     }
 
     @Override
+    public List<NotificationGroup> findByGroupIdAndPhoneNumber(UUID groupId, String phone) {
+        return springDataRepository.findByGroupIdAndPhoneNumber(groupId, phone).stream()
+                .map(NotificationGroupEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<NotificationGroup> findBySessionId(UUID sessionId) {
         return springDataRepository.findBySessionId(sessionId).stream()
                 .map(NotificationGroupEntity::toDomain)

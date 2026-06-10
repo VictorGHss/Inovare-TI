@@ -86,20 +86,13 @@ public class BlipWebhookController {
         log.debug("Recebido POST em /api/v1/webhook/blip. Payload bruto: {}", rawJson);
         log.debug("[ALERTA REDE] Requisição bruta da Take Blip ACABOU de tocar o Tomcat na porta 8085!");
 
-        if (rawJson == null || rawJson.isBlank()) {
-            log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");
-            return ResponseEntity.ok(Map.of(
-                    "status", "ignored",
-                    "reason", "body-empty"));
-        }
-
-        // 1. VALIDAí‡íO DE ASSINATURA CRIPTOGRí FICA (HMAC-SHA256)
+        // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256) E TOKENS DE SEGURANÇA IMEDIATA (Antes de qualquer processamento)
         byte[] bodyBytes = null;
         if (request instanceof org.springframework.web.util.ContentCachingRequestWrapper wrappedRequest) {
             bodyBytes = wrappedRequest.getContentAsByteArray();
         }
         if (bodyBytes == null || bodyBytes.length == 0) {
-            bodyBytes = rawJson.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            bodyBytes = (rawJson != null) ? rawJson.getBytes(java.nio.charset.StandardCharsets.UTF_8) : new byte[0];
         }
 
         boolean isSignatureValid = webhookSignatureValidator.isValid(bodyBytes, blipSignature, blipWebhookSecret);
@@ -110,7 +103,7 @@ public class BlipWebhookController {
 
         boolean hasTokenMatch = StringUtils.hasText(inovareToken)
             && StringUtils.hasText(expectedToken)
-            && expectedToken.equals(inovareToken);
+            && secureCompare(expectedToken, inovareToken);
 
         // O bypass de assinatura por token é aceito quando o token confiável confere,
         // mesmo em produção. Em local/default, aceita qualquer token não vazio.
@@ -125,6 +118,13 @@ public class BlipWebhookController {
 
         if (!isSignatureValid && isBypassEnabled) {
             log.info("[BYPASS] Assinatura ausente ou inválida, mas acesso liberado por token confiável configurado.");
+        }
+
+        if (rawJson == null || rawJson.isBlank()) {
+            log.warn("Blip webhook recebido sem corpo no payload em /v1/webhook/blip.");
+            return ResponseEntity.ok(Map.of(
+                    "status", "ignored",
+                    "reason", "body-empty"));
         }
 
         // 2. FAST-FAIL GUARD (Early Return): Validação estrutural genérica por padrões
@@ -188,21 +188,32 @@ public class BlipWebhookController {
             return ResponseEntity.ok().build();
         }
 
-        // 2. Idempotência estrita local de 5 segundos
+        // 2. Idempotência estrita local de 5 segundos (Operação atômica thread-safe)
         if (messageId != null && !messageId.isBlank()) {
             long now = System.currentTimeMillis();
-            Long lastProcessed = strictIdempotencyCache.get(messageId);
-            if (lastProcessed != null && (now - lastProcessed) < 5000L) {
+            java.util.concurrent.atomic.AtomicBoolean isDuplicate = new java.util.concurrent.atomic.AtomicBoolean(false);
+            strictIdempotencyCache.compute(messageId, (key, lastProcessed) -> {
+                if (lastProcessed != null && (now - lastProcessed) < 5000L) {
+                    isDuplicate.set(true);
+                    return lastProcessed;
+                }
+                return now;
+            });
+
+            if (isDuplicate.get()) {
                 log.info("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 5s). Ignorando messageId='{}'", messageId);
                 return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "strict-duplicate-ignored"
                 ));
             }
+
             if (strictIdempotencyCache.size() > 5000) {
-                strictIdempotencyCache.entrySet().removeIf(entry -> entry.getValue() < now - 5000L);
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    long currentTime = System.currentTimeMillis();
+                    strictIdempotencyCache.entrySet().removeIf(entry -> entry.getValue() < currentTime - 5000L);
+                });
             }
-            strictIdempotencyCache.put(messageId, now);
         }
 
         // --- SAFETY-GUARD DE SEGURANí‡A ESTRUTURAL (REJEITA PAYLOADS MALFORMADOS COM 400 BAD REQUEST) ---
@@ -250,13 +261,18 @@ public class BlipWebhookController {
 
             if (!isButtonClick) {
                 long now = System.currentTimeMillis();
-                Long lastSent = lastOrientationSentCache.get(from);
-                boolean shouldSend = lastSent == null || (now - lastSent) >= 30000L;
+                java.util.concurrent.atomic.AtomicBoolean shouldSend = new java.util.concurrent.atomic.AtomicBoolean(false);
+                lastOrientationSentCache.compute(from, (key, lastSent) -> {
+                    if (lastSent == null || (now - lastSent) >= 30000L) {
+                        shouldSend.set(true);
+                        return now;
+                    }
+                    return lastSent;
+                });
 
                 log.info("[STATE-LOCK] Paciente {} enviou texto livre '{}' durante fluxo de confirmacao de agenda. Ignorando entrada.", from, action);
                 
-                if (shouldSend) {
-                    lastOrientationSentCache.put(from, now);
+                if (shouldSend.get()) {
                     try {
                         blipNotificationService.sendPlainTextMessage(from, "Por favor, utilize os botões acima para confirmar ou alterar seu agendamento.");
                         log.info("[STATE-LOCK] Enviada mensagem de orientação para o paciente {}.", from);
@@ -410,21 +426,27 @@ public class BlipWebhookController {
 
         // Fallback em memória
         long now = System.currentTimeMillis();
+        long expirationTime = now + 3600_000L;
 
         // Evita vazamento de memória do cache local se o mapa crescer além do limite de 10.000 entradas
         if (processedEventsCache.size() > 10000) {
-            processedEventsCache.entrySet().removeIf(entry -> entry.getValue() < now);
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                long currentTime = System.currentTimeMillis();
+                processedEventsCache.entrySet().removeIf(entry -> entry.getValue() < currentTime);
+            });
         }
 
-        // Verifica se a chave existe no cache local e se ela ainda é válida
-        Long expiration = processedEventsCache.get(messageId);
-        if (expiration != null && expiration > now) {
-            return false;
-        }
+        // Operação atômica thread-safe utilizando compute
+        java.util.concurrent.atomic.AtomicBoolean isFirst = new java.util.concurrent.atomic.AtomicBoolean(false);
+        processedEventsCache.compute(messageId, (key, currentVal) -> {
+            if (currentVal == null || currentVal <= now) {
+                isFirst.set(true);
+                return expirationTime;
+            }
+            return currentVal;
+        });
 
-        // Registra o ID no cache em memória por 1 hora
-        processedEventsCache.put(messageId, now + 3600_000L);
-        return true;
+        return isFirst.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -470,6 +492,16 @@ public class BlipWebhookController {
             @JsonProperty("patientBirthdate") String patientBirthdate,
             @JsonProperty("action") String action,
             @JsonProperty("doctorName") String doctorName) {
+    }
+
+    private boolean secureCompare(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+            a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            b.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
     }
 }
 

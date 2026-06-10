@@ -61,7 +61,15 @@ public class ManualTriggerKeyFilter extends OncePerRequestFilter {
         }
 
         String headerValue = request.getHeader(HEADER_NAME);
-        if (headerValue == null || !expectedKey.equals(headerValue)) {
+        boolean keyMatch = false;
+        if (headerValue != null && expectedKey != null && !expectedKey.isBlank()) {
+            keyMatch = java.security.MessageDigest.isEqual(
+                expectedKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                headerValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            );
+        }
+
+        if (!keyMatch) {
             String reason = headerValue == null ? "cabeçalho_ausente" : "token_invalido";
             log.error("[TOKEN WEBHOOK] Acesso Negado: {}. método={}, caminho={}, cabeçalho={}, status=401",
                 reason,

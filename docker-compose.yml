@@ -11,11 +11,17 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Sao_Paulo
     ports:
-      - "${DB_PORT_EXTERNAL}:5432"
+      # Hardening: Vincula a porta do banco apenas ao loopback (127.0.0.1) para evitar exposição pública
+      - "127.0.0.1:${DB_PORT_EXTERNAL}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - inovare_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -30,11 +36,17 @@ services:
       - TZ=America/Sao_Paulo
     command: redis-server --save 60 1 --loglevel warning
     ports:
-      - "6380:6379"
+      # Hardening: Vincula a porta do Redis apenas ao loopback (127.0.0.1)
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     networks:
       - inovare_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -48,6 +60,7 @@ services:
     container_name: inovareti_api
     restart: always
     env_file: .env
+    user: "1000:1000" # Hardening: Executa o container com usuário não-root
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SPRING_DATASOURCE_URL=${DB_URL}
@@ -56,6 +69,8 @@ services:
     expose:
       - "8085"
     ports:
+      # Hardening: Vincula a porta da API apenas ao loopback se houver proxy reverso à frente,
+      # ou mantém aberta caso seja a porta de entrada pública. Aqui, vinculamos à interface padrão.
       - "8085:8085"
     volumes:
       - /mnt/data/uploads:/app/uploads
@@ -63,6 +78,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '2.0'
           memory: 3G
     depends_on:
       db:
@@ -80,11 +96,16 @@ services:
         - VITE_API_URL=${VITE_API_URL}
     container_name: inovareti_front
     restart: always
+    user: "1000:1000" # Hardening: Executa o container com usuário não-root
     ports:
       - "5173:80"
-      # - "8085:80"
     environment:
       - TZ=America/Sao_Paulo
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     depends_on:
       - api
     networks:
@@ -95,15 +116,20 @@ services:
     container_name: inovareti_prometheus
     restart: always
     ports:
-      - "9095:9090"
+      # Hardening: Vincula a porta do Prometheus apenas ao loopback (127.0.0.1)
+      - "127.0.0.1:9095:9090"
     environment:
       - TZ=America/Sao_Paulo
     volumes:
       - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./docs/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
-      # Regras do Circuit Breaker Feegow (criadas na sprint de alertas)
       - ./api/prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro
       - prometheus_data:/prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     depends_on:
       - api
       - redis
@@ -119,11 +145,17 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - TZ=America/Sao_Paulo
     ports:
-      - "3001:3000"
+      # Hardening: Vincula a porta do Grafana apenas ao loopback (127.0.0.1)
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docs/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docs/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     depends_on:
       - prometheus
     networks:

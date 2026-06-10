@@ -19,6 +19,18 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
 
     Optional<AppointmentSessionEntity> findByFeegowAppointmentId(String feegowAppointmentId);
 
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.feegowAppointmentId = :feegowAppointmentId AND a.phoneNumber = :phone")
+    Optional<AppointmentSessionEntity> findByFeegowAppointmentIdAndPhoneNumber(
+        @Param("feegowAppointmentId") String feegowAppointmentId,
+        @Param("phone") String phone
+    );
+
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.id = :id AND a.phoneNumber = :phone")
+    Optional<AppointmentSessionEntity> findByIdAndPhoneNumber(
+        @Param("id") UUID id,
+        @Param("phone") String phone
+    );
+
     List<AppointmentSessionEntity> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
 
     // Método para buscar sessões associadas ao currentGroupId diretamente na tabela de agendamentos

@@ -17,6 +17,10 @@ public interface AppointmentSessionRepositoryPort {
 
     Optional<AppointmentSession> findByFeegowAppointmentId(String feegowAppointmentId);
 
+    Optional<AppointmentSession> findByFeegowAppointmentIdAndPhoneNumber(String feegowAppointmentId, String phoneNumber);
+
+    Optional<AppointmentSession> findByIdAndPhoneNumber(UUID id, String phoneNumber);
+
     List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds);
 
     // Método para buscar sessões associadas ao currentGroupId diretamente

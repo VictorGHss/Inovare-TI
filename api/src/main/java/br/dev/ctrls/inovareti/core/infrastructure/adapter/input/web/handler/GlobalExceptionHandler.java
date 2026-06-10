@@ -120,6 +120,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ProblemDetail handleSecurityException(SecurityException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Unauthorized");
+        problem.setDetail(ex.getMessage() != null && !ex.getMessage().isBlank()
+            ? ex.getMessage()
+            : "Invalid credentials or token.");
+        attachTraceId(problem);
+        return problem;
+    }
+
     @ExceptionHandler(ContaAzulHttpException.class)
     public ProblemDetail handleContaAzulHttpException(ContaAzulHttpException ex, HttpServletRequest request) {
         HttpStatus status = HttpStatus.resolve(ex.getStatusCode());

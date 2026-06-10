@@ -100,6 +100,7 @@ public class HandleBlipWebhookUseCase {
         }
 
         String fromPhone = payload.from();
+        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, payload.bsuid());
         String action = payload.action() != null ? payload.action().trim() : "";
 
         if (action.isBlank()) {
@@ -115,7 +116,7 @@ public class HandleBlipWebhookUseCase {
             boolean isLegitimateType = "text/plain".equalsIgnoreCase(msgType)
                     || "application/vnd.lime.reply+json".equalsIgnoreCase(msgType);
             if (isLegitimateType) {
-                WebhookResult result = handleUuidAction(action);
+                WebhookResult result = handleUuidAction(action, dbPhone);
                 if (result != null) {
                     return result;
                 }
@@ -164,7 +165,7 @@ public class HandleBlipWebhookUseCase {
 
         log.info("[WEBHOOK] Processando ação '{}' para agendamento ID={}", actionType, appointmentId);
 
-        SessionDbData dbData = fetchSessionDbData(appointmentId);
+        SessionDbData dbData = fetchSessionDbData(appointmentId, dbPhone);
         if (dbData == null) {
             return null;
         }
@@ -285,11 +286,11 @@ public class HandleBlipWebhookUseCase {
 
     private void validateWebhookToken(BlipWebhookPayload payload) {
         String expectedToken = appointmentMotorProperties.getSecurity().getWebhookToken();
-        if (expectedToken != null && !expectedToken.isBlank() && !expectedToken.equals(payload.token())) {
-            log.warn("Token de webhook inválido.");
-            throw new SecurityException("Invalid token");
-        }
         if (expectedToken != null && !expectedToken.isBlank()) {
+            if (payload.token() == null || !secureCompare(expectedToken, payload.token())) {
+                log.warn("Token de webhook inválido.");
+                throw new SecurityException("Invalid token");
+            }
             auditPort.record(
                     "APPOINTMENT_MOTOR",
                     "ASSINATURA_VALIDADA",
@@ -298,19 +299,19 @@ public class HandleBlipWebhookUseCase {
         }
     }
 
-    private WebhookResult handleUuidAction(String action) {
+    private WebhookResult handleUuidAction(String action, String dbPhone) {
         log.info("[WEBHOOK] UUID puro detectado na ação. Carregando sessão de agendamento: {}", action);
         UUID sessionId = UUID.fromString(action);
         AppointmentSession session = transactionTemplate.execute(status ->
-            appointmentSessionRepository.findById(sessionId).orElse(null)
+            appointmentSessionRepository.findByIdAndPhoneNumber(sessionId, dbPhone).orElse(null)
         );
 
         if (session != null) {
-            log.info("[WEBHOOK] Sessão encontrada para UUID puro. Enviando template individual para o agendamento Feegow={}", session.getFeegowAppointmentId());
+            log.info("[WEBHOOK] Sessão encontrada para UUID puro e autorizada. Enviando template individual para o agendamento Feegow={}", session.getFeegowAppointmentId());
             sendAppointmentTemplateUseCase.execute(session, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory.CONFIRMATION);
             return new WebhookResult("", "", "", "", "individual_appointment_selected", "");
         } else {
-            log.info("[WEBHOOK] Nenhuma sessão encontrada para a ação de UUID: {}", action);
+            log.info("[WEBHOOK] Nenhuma sessão encontrada ou autorizada para a ação de UUID: {}", action);
             return null;
         }
     }
@@ -371,11 +372,11 @@ public class HandleBlipWebhookUseCase {
         return resolvedId;
     }
 
-    private SessionDbData fetchSessionDbData(String appointmentId) {
+    private SessionDbData fetchSessionDbData(String appointmentId, String dbPhone) {
         try {
             return transactionTemplate.execute(status -> {
-                AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(appointmentId)
-                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada para appointmentId=" + appointmentId));
+                AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentIdAndPhoneNumber(appointmentId, dbPhone)
+                        .orElseThrow(() -> new NotFoundException("Sessão não encontrada ou não autorizada para o paciente."));
                 AppointmentDoctorMapping doctorMapping = appointmentDoctorMappingRepository
                         .findByProfissionalId(session.getDoctorProfissionalId())
                         .orElse(null);
@@ -464,5 +465,15 @@ public class HandleBlipWebhookUseCase {
     }
 
     public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {
+    }
+
+    private boolean secureCompare(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+            a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            b.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
     }
 }

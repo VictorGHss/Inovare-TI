@@ -12,6 +12,7 @@ public interface NotificationGroupRepositoryPort {
     NotificationGroup save(NotificationGroup notificationGroup);
     List<NotificationGroup> saveAll(List<NotificationGroup> groups);
     List<NotificationGroup> findByGroupId(UUID groupId);
+    List<NotificationGroup> findByGroupIdAndPhoneNumber(UUID groupId, String phone);
     List<NotificationGroup> findBySessionId(UUID sessionId);
     Optional<NotificationGroup> findLatestByPhone(String phone);
     long deleteByCreatedAtBefore(LocalDateTime threshold);

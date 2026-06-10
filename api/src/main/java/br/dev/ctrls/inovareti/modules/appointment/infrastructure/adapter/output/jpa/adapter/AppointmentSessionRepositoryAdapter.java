@@ -41,6 +41,16 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    public Optional<AppointmentSession> findByFeegowAppointmentIdAndPhoneNumber(String feegowAppointmentId, String phoneNumber) {
+        return springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, phoneNumber).map(AppointmentSessionEntity::toDomain);
+    }
+
+    @Override
+    public Optional<AppointmentSession> findByIdAndPhoneNumber(UUID id, String phoneNumber) {
+        return springDataRepository.findByIdAndPhoneNumber(id, phoneNumber).map(AppointmentSessionEntity::toDomain);
+    }
+
+    @Override
     public List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds) {
         return springDataRepository.findByFeegowAppointmentIdIn(feegowAppointmentIds).stream()
                 .map(AppointmentSessionEntity::toDomain)

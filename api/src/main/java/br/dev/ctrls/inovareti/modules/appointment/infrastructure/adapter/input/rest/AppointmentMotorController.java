@@ -30,6 +30,13 @@ import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import br.dev.ctrls.inovareti.config.security.WebhookSignatureValidator;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Controlador de entrada REST responsável por expor as rotas HTTP do Motor de Agendamentos.
@@ -48,6 +55,15 @@ public class AppointmentMotorController {
     private final HandleBlipWebhookUseCase handleBlipWebhookUseCase;
     private final BlipLIMEClient blipLIMEClient;
     private final AppointmentEnrichmentService appointmentEnrichmentService;
+    private final WebhookSignatureValidator webhookSignatureValidator;
+    private final Environment env;
+    private final ObjectMapper objectMapper;
+
+    @Value("${blip.webhook.secret}")
+    private String blipWebhookSecret;
+
+    @Value("${blip.webhook.token:}")
+    private String blipWebhookToken;
 
     @GetMapping("/motor-config")
     @PreAuthorize("hasRole('ADMIN')")
@@ -171,15 +187,57 @@ public class AppointmentMotorController {
     })
     public ResponseEntity<Map<String, Object>> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
-            @RequestBody(required = false) Map<String, Object> body) {
-        Map<String, Object> payload = body != null ? body : Map.of();
-        log.debug("RECEIVED IN WEBHOOK: {}", payload);
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,
+            jakarta.servlet.http.HttpServletRequest request,
+            @RequestBody(required = false) String rawJson) {
+        log.debug("RECEIVED IN WEBHOOK rawJson: {}", rawJson);
 
-        if (payload.isEmpty()) {
+        // 1. VALIDAÇÃO DE ASSINATURA CRIPTOGRÁFICA (HMAC-SHA256) E TOKENS DE SEGURANÇA IMEDIATA
+        byte[] bodyBytes = null;
+        if (request instanceof org.springframework.web.util.ContentCachingRequestWrapper wrappedRequest) {
+            bodyBytes = wrappedRequest.getContentAsByteArray();
+        }
+        if (bodyBytes == null || bodyBytes.length == 0) {
+            bodyBytes = (rawJson != null) ? rawJson.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        }
+
+        boolean isSignatureValid = webhookSignatureValidator.isValid(bodyBytes, blipSignature, blipWebhookSecret);
+
+        String expectedToken = StringUtils.hasText(blipWebhookToken)
+            ? blipWebhookToken
+            : System.getenv("APP_BLIP_SECURITY_WEBHOOK_TOKEN");
+
+        boolean hasTokenMatch = StringUtils.hasText(inovareToken)
+            && StringUtils.hasText(expectedToken)
+            && secureCompare(expectedToken, inovareToken);
+
+        boolean isBypassProfile = env.acceptsProfiles(Profiles.of("local", "default"));
+        boolean isBypassEnabled = hasTokenMatch
+            || (isBypassProfile && StringUtils.hasText(inovareToken));
+
+        if (!isSignatureValid && !isBypassEnabled) {
+            log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente em /v1/appointments/blip/webhook. Bypass inativo.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (rawJson == null || rawJson.isBlank()) {
             log.warn("Webhook Blip recebido sem body em /v1/appointments/blip/webhook.");
             return ResponseEntity.ok(Map.of(
                     "status", "ignored",
                     "reason", "body-empty"));
+        }
+
+        Map<String, Object> payload;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = objectMapper.readValue(rawJson, Map.class);
+            payload = map != null ? map : Map.of();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException e) {
+            log.error("Erro ao realizar o parse do JSON do webhook da Blip em /v1/appointments/blip/webhook", e);
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "ignored",
+                "reason", "invalid-json"
+            ));
         }
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
@@ -202,7 +260,7 @@ public class AppointmentMotorController {
                 parsed.content(),
                 metadata,
                 parsed.bsuid(),
-                parsed.type()));
+                parsed.type()), true); // skipTokenValidation is true because we already verified it above
 
         return ResponseEntity.ok(Map.of("status", "processed"));
     }
@@ -258,6 +316,16 @@ public class AppointmentMotorController {
         @JsonProperty("externalWaLink") String externalWaLink,
         @JsonProperty("isExternal") Boolean isExternal,
         @JsonProperty("ignoreAutoSchedule") Boolean ignoreAutoSchedule) {
+    }
+
+    private boolean secureCompare(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+            a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            b.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
     }
 }
 

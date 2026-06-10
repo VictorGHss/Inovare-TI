@@ -100,15 +100,15 @@ public class BlipGroupActionHandler {
             }
         }
         
+        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
         List<NotificationGroup> groups = null;
         if (groupId != null) {
-            groups = notificationGroupRepository.findByGroupId(groupId);
+            groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
         }
 
         if (groups == null || groups.isEmpty()) {
             log.warn("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação por busca de sessão...", groupId);
             if (fromPhone != null && !fromPhone.isBlank()) {
-                String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
                 
                 // 1. Tentar buscar pelo agendamento mais recente vinculado ao phone_number que esteja com status PENDING
                 Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
@@ -117,7 +117,7 @@ public class BlipGroupActionHandler {
                     Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findById(latestGroup.getSessionId());
                     if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.PENDING) {
                         groupId = latestGroup.getGroupId();
-                        groups = notificationGroupRepository.findByGroupId(groupId);
+                        groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
                         log.info("[WEBHOOK] Recuperado grupo com sucesso via agendamento PENDING recente para o telefone={}. Novo groupId={}", dbPhone, groupId);
                     }
                 }
@@ -273,7 +273,7 @@ public class BlipGroupActionHandler {
         String listaDetalhada = "";
 
         try {
-            List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+            List<NotificationGroup> groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
             if (groups != null && !groups.isEmpty()) {
                 for (NotificationGroup g : groups) {
                     if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
@@ -386,22 +386,20 @@ public class BlipGroupActionHandler {
         }
     }
 
+    private static final java.util.regex.Pattern STRICT_UUID_PATTERN = 
+        java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+
     private UUID parseUuid(String str) {
         if (str == null || str.isBlank()) {
             return null;
         }
+        String trimmed = str.trim();
+        if (!STRICT_UUID_PATTERN.matcher(trimmed).matches()) {
+            return null;
+        }
         try {
-            return UUID.fromString(str.trim());
+            return UUID.fromString(trimmed);
         } catch (IllegalArgumentException e) {
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-            java.util.regex.Matcher matcher = pattern.matcher(str);
-            if (matcher.find()) {
-                try {
-                    return UUID.fromString(matcher.group());
-                } catch (IllegalArgumentException ex) {
-                    return null;
-                }
-            }
             return null;
         }
     }

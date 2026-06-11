@@ -38,6 +38,7 @@ public class ListAllItemsUseCase {
      * @return lista de DTOs com os dados públicos dos itens filtrados
      */
     @Transactional(readOnly = true)
+    @SuppressWarnings("spring-data-string-property-reference")
     public List<ItemResponseDTO> execute(
             String sortField,
             Sort.Direction sortDirection,

@@ -37,7 +37,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/financeiro/contaazul")
@@ -71,6 +70,7 @@ public class ContaAzulController {
         private final ContaAzulMetrics contaAzulMetrics;
         private final RedisRateLimiter redisRateLimiter;
 
+    @Autowired
     public ContaAzulController(
             ContaAzulTokenService contaAzulTokenService,
             ContaAzulClient contaAzulClient,
@@ -86,6 +86,15 @@ public class ContaAzulController {
         this.frontendProperties = frontendProperties;
         this.contaAzulMetrics = contaAzulMetrics.orElse(null);
         this.redisRateLimiter = redisRateLimiter.orElse(null);
+    }
+
+    public ContaAzulController(
+            ContaAzulTokenService contaAzulTokenService,
+            ContaAzulClient contaAzulClient,
+            ContaAzulAutomationService contaAzulAutomationService,
+            ContaAzulProperties properties,
+            FrontendProperties frontendProperties) {
+        this(contaAzulTokenService, contaAzulClient, contaAzulAutomationService, properties, frontendProperties, java.util.Optional.empty(), java.util.Optional.empty());
     }
 
     @GetMapping("/authorize")

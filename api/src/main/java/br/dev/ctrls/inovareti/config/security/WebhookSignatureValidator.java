@@ -34,8 +34,11 @@ public class WebhookSignatureValidator {
         return isValid(payload.getBytes(StandardCharsets.UTF_8), signature, secret);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.core.env.Environment env;
+    private final org.springframework.core.env.Environment env;
+
+    public WebhookSignatureValidator(org.springframework.core.env.Environment env) {
+        this.env = env;
+    }
 
     /**
      * Valida se a assinatura enviada corresponde ao hash HMAC-SHA256 do payload bruto em bytes.

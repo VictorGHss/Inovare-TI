@@ -4,11 +4,9 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import br.dev.ctrls.inovareti.modules.notification.domain.model.Notification;
 
-@Repository
 public interface NotificationJpaRepository extends JpaRepository<Notification, UUID> {
     /**
      * Busca todas as notificações de um usuário ordenadas por data decrescente.

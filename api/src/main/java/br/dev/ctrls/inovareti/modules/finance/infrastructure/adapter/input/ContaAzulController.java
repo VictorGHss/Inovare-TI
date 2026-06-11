@@ -41,7 +41,6 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/financeiro/contaazul")
-@RequiredArgsConstructor
 @Observed
 public class ContaAzulController {
     /**
@@ -69,11 +68,25 @@ public class ContaAzulController {
         private static final long FORCE_REFRESH_WINDOW_MS = 60_000L; // 1 minuto
         private static final int FORCE_REFRESH_MAX = 3; // máximo 3 requisições por janela por usuário+IP
 
-        @Autowired(required = false)
-        private ContaAzulMetrics contaAzulMetrics;
+        private final ContaAzulMetrics contaAzulMetrics;
+        private final RedisRateLimiter redisRateLimiter;
 
-        @Autowired(required = false)
-        private RedisRateLimiter redisRateLimiter;
+    public ContaAzulController(
+            ContaAzulTokenService contaAzulTokenService,
+            ContaAzulClient contaAzulClient,
+            ContaAzulAutomationService contaAzulAutomationService,
+            ContaAzulProperties properties,
+            FrontendProperties frontendProperties,
+            java.util.Optional<ContaAzulMetrics> contaAzulMetrics,
+            java.util.Optional<RedisRateLimiter> redisRateLimiter) {
+        this.contaAzulTokenService = contaAzulTokenService;
+        this.contaAzulClient = contaAzulClient;
+        this.contaAzulAutomationService = contaAzulAutomationService;
+        this.properties = properties;
+        this.frontendProperties = frontendProperties;
+        this.contaAzulMetrics = contaAzulMetrics.orElse(null);
+        this.redisRateLimiter = redisRateLimiter.orElse(null);
+    }
 
     @GetMapping("/authorize")
     public void startAuthorization(HttpServletResponse response) throws java.io.IOException {

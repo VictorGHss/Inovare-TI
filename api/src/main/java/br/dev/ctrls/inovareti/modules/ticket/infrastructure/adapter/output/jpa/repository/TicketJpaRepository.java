@@ -14,7 +14,6 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView;
 import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView;
@@ -22,7 +21,6 @@ import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView;
 /**
  * Repositório de acesso a dados para a entidade {@link Ticket}.
  */
-@Repository
 public interface TicketJpaRepository extends JpaRepository<Ticket, UUID> {
 
     /**

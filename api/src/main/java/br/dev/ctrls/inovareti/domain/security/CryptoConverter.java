@@ -45,8 +45,11 @@ public class CryptoConverter implements AttributeConverter<String, String> {
     private static String encryptionSecret;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    public CryptoConverter(org.springframework.context.ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
 
     // Cache de dedup em memória de tamanho limitado para evitar tarefas de migração redundantes
     private final java.util.Set<String> migrationDeduplicationCache = java.util.concurrent.ConcurrentHashMap.newKeySet();

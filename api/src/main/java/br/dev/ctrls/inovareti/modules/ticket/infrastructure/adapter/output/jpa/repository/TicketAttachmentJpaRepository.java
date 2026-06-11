@@ -7,12 +7,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 /**
  * Repositório para gerenciamento de anexos de chamados.
  */
-@Repository
 public interface TicketAttachmentJpaRepository extends JpaRepository<TicketAttachment, UUID> {
     
     /**

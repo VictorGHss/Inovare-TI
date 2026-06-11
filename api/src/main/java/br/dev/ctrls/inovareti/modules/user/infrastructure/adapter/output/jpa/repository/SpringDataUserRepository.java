@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
@@ -16,7 +15,6 @@ import br.dev.ctrls.inovareti.modules.user.domain.model.Sector;
 /**
  * Interface física do Spring Data JPA para a entidade User.
  */
-@Repository
 public interface SpringDataUserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);

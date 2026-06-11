@@ -1,4 +1,12 @@
-# Logs
+# Dependências e Builds
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+.eslintcache
+
+# Logs do ecossistema Node
 logs
 *.log
 npm-debug.log*
@@ -7,18 +15,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Arquivos locais/configurações de ambiente do Front
 *.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.env.local
+.env.*.local

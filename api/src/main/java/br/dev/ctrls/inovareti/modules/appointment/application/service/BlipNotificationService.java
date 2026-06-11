@@ -28,17 +28,14 @@ public class BlipNotificationService {
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepositoryPort templateMappingRepository;
     private final AppointmentMotorProperties motorProperties;
-    private final BlipPayloadBuilder blipPayloadBuilder;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
             AppointmentTemplateMappingRepositoryPort templateMappingRepository,
-            AppointmentMotorProperties motorProperties,
-            BlipPayloadBuilder blipPayloadBuilder) {
+            AppointmentMotorProperties motorProperties) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
         this.motorProperties = motorProperties;
-        this.blipPayloadBuilder = blipPayloadBuilder;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {

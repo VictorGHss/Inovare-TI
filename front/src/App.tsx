@@ -31,12 +31,12 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
       if ('serviceWorker' in navigator) {
         try {
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (let reg of registrations) {
+            for (const reg of registrations) {
               reg.unregister();
             }
           });
-        } catch (e) {
-          // ignore
+        } catch (_e) {
+          // Falha ao desregistrar service worker — ignorado intencionalmente
         }
       }
 
@@ -46,8 +46,8 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
           caches.keys().then(function(keys) {
             keys.forEach(key => caches.delete(key));
           });
-        } catch (e) {
-          // ignore
+        } catch (_e) {
+          // Falha ao limpar cacheStorage — ignorado intencionalmente
         }
       }
 

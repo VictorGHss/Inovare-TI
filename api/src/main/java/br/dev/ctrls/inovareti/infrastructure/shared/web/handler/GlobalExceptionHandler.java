@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.handler;
+package br.dev.ctrls.inovareti.infrastructure.shared.web.handler;
 
 import java.time.LocalDateTime;
 import java.util.Map;

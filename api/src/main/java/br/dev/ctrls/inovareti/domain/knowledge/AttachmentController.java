@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import br.dev.ctrls.inovareti.domain.knowledge.dto.AttachmentResponseDTO;
-import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

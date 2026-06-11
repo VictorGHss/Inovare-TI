@@ -36,8 +36,8 @@ import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultCreateItemReque
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultUpdateItemRequestDTO;
-import br.dev.ctrls.inovareti.infra.security.EncryptionService;
-import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.security.EncryptionService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 
 @Service
 @Observed

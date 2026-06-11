@@ -35,8 +35,8 @@ import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultCreateItemReque
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultItemResponseDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultSecretResponseDTO;
 import br.dev.ctrls.inovareti.modules.vault.application.dto.VaultUpdateItemRequestDTO;
-import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
-import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.security.TwoFactorSessionGuard;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Validator;
 import jakarta.validation.ConstraintViolationException;

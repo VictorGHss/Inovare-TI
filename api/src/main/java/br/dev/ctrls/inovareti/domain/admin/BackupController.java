@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.dev.ctrls.inovareti.config.DatabaseBackupScheduler;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.infra.security.TwoFactorSessionGuard;
+import br.dev.ctrls.inovareti.infrastructure.shared.security.TwoFactorSessionGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

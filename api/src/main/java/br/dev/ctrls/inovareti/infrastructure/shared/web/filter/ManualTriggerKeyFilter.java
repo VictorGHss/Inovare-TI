@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.core.infrastructure.adapter.input.web.filter;
+package br.dev.ctrls.inovareti.infrastructure.shared.web.filter;
 
 import java.io.IOException;
 import java.util.List;

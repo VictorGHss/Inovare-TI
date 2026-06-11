@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.core.infrastructure.config;
+package br.dev.ctrls.inovareti.infrastructure.shared.config;
 
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.Observation;

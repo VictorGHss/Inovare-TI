@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.infra.security;
+package br.dev.ctrls.inovareti.infrastructure.shared.security;
 
 import java.util.Map;
 import java.util.UUID;

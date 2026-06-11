@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
-import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 
 /**

@@ -49,7 +49,7 @@ import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ResolveTicketUs
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateSolutionTextUseCase;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
-import br.dev.ctrls.inovareti.infra.storage.LocalFileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

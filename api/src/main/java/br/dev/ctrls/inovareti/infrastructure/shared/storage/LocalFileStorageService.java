@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.infra.storage;
+package br.dev.ctrls.inovareti.infrastructure.shared.storage;
 
 import java.io.IOException;
 import java.nio.file.Files;

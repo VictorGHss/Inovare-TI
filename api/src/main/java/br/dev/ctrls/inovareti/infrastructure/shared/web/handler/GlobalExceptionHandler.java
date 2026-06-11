@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
@@ -63,20 +64,48 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
-    @ExceptionHandler(ConflictException.class)
-    public ProblemDetail handleConflict(ConflictException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-        problem.setTitle("Data conflict");
+    /**
+     * Trata requisições inválidas por regra de negócio (ex: código de patrimônio duplicado).
+     * Log em nível WARN com uma linha limpa — sem stacktrace — para não poluir o Prometheus/Grafana
+     * com falsos alertas de queda do sistema. Erros 400 são falhas do cliente, não do servidor.
+     */
+    @ExceptionHandler(BadRequestException.class)
+    public ProblemDetail handleBadRequest(BadRequestException ex, HttpServletRequest request) {
+        log.warn("[VALIDAÇÃO] Requisição inválida (400): {} | URI: {}", ex.getMessage(), resolveRequestUrl(request));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Requisição inválida");
         problem.setDetail(ex.getMessage());
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
         attachTraceId(problem);
         return problem;
     }
 
-    @ExceptionHandler(NotFoundException.class)
-    public ProblemDetail handleNotFound(NotFoundException ex) {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
-        problem.setTitle("Resource not found");
+    /**
+     * Trata conflitos de dados de negócio (ex: registro já existente via regra de serviço).
+     * Log em nível WARN: conflito é uma situação esperada do fluxo normal, não um erro de sistema.
+     */
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex, HttpServletRequest request) {
+        log.warn("[CONFLITO] Conflito de negócio (409): {} | URI: {}", ex.getMessage(), resolveRequestUrl(request));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Conflito de dados");
         problem.setDetail(ex.getMessage());
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
+        attachTraceId(problem);
+        return problem;
+    }
+
+    /**
+     * Trata recursos não encontrados (ex: ID inexistente no banco).
+     * Log em nível WARN: recurso ausente é uma condição esperada e controlada, não uma falha sistêmica.
+     */
+    @ExceptionHandler(NotFoundException.class)
+    public ProblemDetail handleNotFound(NotFoundException ex, HttpServletRequest request) {
+        log.warn("[NÃO ENCONTRADO] Recurso não encontrado (404): {} | URI: {}", ex.getMessage(), resolveRequestUrl(request));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        problem.setTitle("Recurso não encontrado");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
         attachTraceId(problem);
         return problem;
     }

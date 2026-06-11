@@ -55,15 +55,39 @@ public class AssetService {
         int quantity = requestQuantity != null && requestQuantity > 0 ? requestQuantity : 1;
 
         String basePatrimonyCode = request.patrimonyCode().trim();
-        List<Asset> createdAssets = new ArrayList<>();
+
+        // ─── FASE 1: Geração e validação de todos os códigos ANTES de qualquer insert ───
+        // Separar a validação da persistência evita dois problemas:
+        //   1. Bug de consistência: lançar exceção após já ter inserido os primeiros registros
+        //      da lista, deixando a transação em estado parcialmente comprometido.
+        //   2. Bug de UX: o usuário só descobria o conflito do código '-1' e precisava
+        //      reenviar a requisição para descobrir que '-2' e '-3' também conflitam.
+        // Com a pré-validação em lote, todos os conflitos são reportados de uma vez.
+        List<String> codigosConflitantes = new ArrayList<>();
+        List<String> codigosParaCriar = new ArrayList<>();
 
         for (int index = 1; index <= quantity; index++) {
             String patrimonyCode = quantity > 1 ? basePatrimonyCode + "-" + index : basePatrimonyCode;
-
             if (assetRepository.existsByPatrimonyCode(patrimonyCode)) {
-                throw new BadRequestException("Código de patrimônio já existe: " + patrimonyCode);
+                codigosConflitantes.add(patrimonyCode);
+            } else {
+                codigosParaCriar.add(patrimonyCode);
             }
+        }
 
+        // Se qualquer código do lote já existir, rejeita TODA a operação antes de inserir qualquer registro
+        if (!codigosConflitantes.isEmpty()) {
+            String listaConflitos = String.join(", ", codigosConflitantes);
+            throw new BadRequestException(
+                "Código(s) de patrimônio já existente(s) no sistema: " + listaConflitos +
+                ". Nenhum ativo do lote foi criado. Corrija os códigos e tente novamente."
+            );
+        }
+
+        // ─── FASE 2: Persistência — somente executada se não houver nenhum conflito ───
+        List<Asset> createdAssets = new ArrayList<>();
+
+        for (String patrimonyCode : codigosParaCriar) {
             // Popula a coleção de usuários com os usuários associados
             Set<User> usuariosParaAtivo = new HashSet<>(usuarios);
 

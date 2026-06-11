@@ -1,7 +1,5 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
-import io.micrometer.observation.annotation.Observed;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -19,6 +17,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentTempla
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentTemplateMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import io.micrometer.observation.annotation.Observed;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,14 +28,17 @@ public class BlipNotificationService {
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepositoryPort templateMappingRepository;
     private final AppointmentMotorProperties motorProperties;
+    private final BlipPayloadBuilder blipPayloadBuilder;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
             AppointmentTemplateMappingRepositoryPort templateMappingRepository,
-            AppointmentMotorProperties motorProperties) {
+            AppointmentMotorProperties motorProperties,
+            BlipPayloadBuilder blipPayloadBuilder) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
         this.motorProperties = motorProperties;
+        this.blipPayloadBuilder = blipPayloadBuilder;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {

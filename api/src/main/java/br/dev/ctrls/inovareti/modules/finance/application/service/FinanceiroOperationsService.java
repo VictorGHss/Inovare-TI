@@ -97,7 +97,8 @@ public class FinanceiroOperationsService {
         ProcessedReceipt receipt = processedReceiptRepository.findByParcelaId(parcelaId)
                 .orElseThrow(() -> new BadRequestException("Recibo financeiro não encontrado para a parcela informada no alerta."));
 
-        receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
+        // Reinicia o fluxo de retentativa do recibo definindo como FAILED_RETRYABLE no ecrã de controlo
+        receipt.setStatus(ProcessedReceiptStatus.FAILED_RETRYABLE);
         receipt.setRetryCount(0);
         receipt.setProcessedAt(LocalDateTime.now());
 

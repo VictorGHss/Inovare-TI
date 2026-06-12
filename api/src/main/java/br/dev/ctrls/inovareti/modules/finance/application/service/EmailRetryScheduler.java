@@ -33,11 +33,15 @@ public class EmailRetryScheduler {
     private final AlertService alertService;
     private final ContaAzulPaymentsClient paymentsClient;
 
-    @Scheduled(fixedDelay = 900_000L, initialDelay = 240_000L)
+    /**
+     * Interceta e reprocessa os registos falhados a cada hora (fixedDelay = 3600000ms),
+     * aplicando o limite de tentativas e movendo-os para falha permanente caso excedido.
+     */
+    @Scheduled(fixedDelay = 3_600_000L, initialDelay = 240_000L)
     public void retryPendingReceipts() {
         try {
             // Garante robustez do scheduler: falha externa da Conta Azul vira erro controlado em log.
-            for (ProcessedReceipt receipt : processedReceiptRepository.findByStatus(ProcessedReceiptStatus.PENDING_RETRY)) {
+            for (ProcessedReceipt receipt : processedReceiptRepository.findByStatus(ProcessedReceiptStatus.FAILED_RETRYABLE)) {
                 int retries = receipt.getRetryCount();
                 if (retries >= MAX_RETRIES) {
                     handlePermanentFailure(receipt, "Limite de tentativas de reenvio excedido.");

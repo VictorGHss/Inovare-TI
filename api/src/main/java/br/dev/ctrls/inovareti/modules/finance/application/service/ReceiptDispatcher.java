@@ -62,8 +62,9 @@ public class ReceiptDispatcher {
             receipt.setPayload(buildPayload(receipt, null, financialLink.getCanal().name(), false, parcela.saleNumber()));
             processedReceiptRepository.save(receipt);
         } catch (RuntimeException ex) {
+            // Em caso de falha de rede ou timeout com a API da Conta Azul, define como retentável no ecrã de controlo local
             int nextRetryCount = receipt.getRetryCount() + 1;
-            receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
+            receipt.setStatus(ProcessedReceiptStatus.FAILED_RETRYABLE);
             receipt.setRetryCount(nextRetryCount);
             receipt.setProcessedAt(LocalDateTime.now());
             receipt.setPayload(buildPayload(receipt, ex.getMessage(), financialLink.getCanal().name(), true, parcela.saleNumber()));
@@ -72,17 +73,23 @@ public class ReceiptDispatcher {
         }
     }
 
+    /**
+     * Regista uma nova tentativa falhada, mantendo o registo no estado de retentativa assíncrona.
+     */
     public ProcessedReceipt markRetryFailure(ProcessedReceipt receipt, String errorMessage) {
         int nextRetryCount = receipt.getRetryCount() + 1;
-        receipt.setStatus(ProcessedReceiptStatus.PENDING_RETRY);
+        receipt.setStatus(ProcessedReceiptStatus.FAILED_RETRYABLE);
         receipt.setRetryCount(nextRetryCount);
         receipt.setProcessedAt(LocalDateTime.now());
         receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), true, null));
         return processedReceiptRepository.save(receipt);
     }
 
+    /**
+     * Regista uma falha definitiva (Dead-Letter Queue lógica) para auditoria pelo administrador.
+     */
     public ProcessedReceipt markPermanentFailure(ProcessedReceipt receipt, String errorMessage) {
-        receipt.setStatus(ProcessedReceiptStatus.FAILED);
+        receipt.setStatus(ProcessedReceiptStatus.FAILED_PERMANENT);
         receipt.setProcessedAt(LocalDateTime.now());
         receipt.setPayload(buildPayload(receipt, errorMessage, receipt.getFinancialLink().getCanal().name(), false, null));
         return processedReceiptRepository.save(receipt);

@@ -45,8 +45,12 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
 
+      // Verifica se existem erros de validação granulares associados a campos específicos do formulário
+      const temErrosGranulares = Array.isArray(data?.invalidParams) && data.invalidParams.length > 0;
+
       // Exibe a mensagem de validação contida no campo 'detail' se o erro for 400 ou 409
-      if ((status === 400 || status === 409) && data?.detail) {
+      // Apenas exibe o toast global como salvaguarda se não existirem erros granulares direcionados aos inputs no ecrã
+      if ((status === 400 || status === 409) && data?.detail && !temErrosGranulares) {
         toast.error(data.detail);
       }
 
@@ -54,7 +58,7 @@ api.interceptors.response.use(
       if (data?.traceId) {
         console.warn(`[Auditoria Inovare-TI] Erro na requisição. Trace ID: ${data.traceId}`);
         
-        // Em caso de falha inesperada (como erros de servidor 5xx), notifica visualmente com o traceId
+        // Em caso de falha inesperada (como erros de servidor 5xx), notifica o utilizador visualmente com o traceId
         if (status >= 500) {
           toast.error(`Falha inesperada no servidor. Por favor, informe o ID de suporte para auditoria: ${data.traceId}`, {
             autoClose: 10000,
@@ -62,6 +66,7 @@ api.interceptors.response.use(
         }
       }
     }
+    // Garante o retorno da rejeição original da Promise para não quebrar o tratamento local nos blocos try/catch dos componentes
     return Promise.reject(error);
   },
 );

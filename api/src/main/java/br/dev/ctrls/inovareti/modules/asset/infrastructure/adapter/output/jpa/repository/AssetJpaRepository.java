@@ -39,7 +39,7 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
 
     boolean existsByPatrimonyCode(String patrimonyCode);
 
-    @Query("""
+    @Query(value = """
             select a
             from Asset a
             where (:categoryId is null or a.category.id = :categoryId)
@@ -49,13 +49,24 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                     or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
             order by a.createdAt desc
+            """,
+            countQuery = """
+            select count(a)
+            from Asset a
+            where (:categoryId is null or a.category.id = :categoryId)
+                and (
+                    :status = 'ALL'
+                    or (:status = 'IN_USE' and size(a.users) > 0)
+                    or (:status = 'IN_STOCK' and size(a.users) = 0)
+                )
             """)
-    List<Asset> findWithFiltersOrderByCreatedAtDesc(
+    org.springframework.data.domain.Page<Asset> findWithFiltersOrderByCreatedAtDesc(
             @Param("categoryId") UUID categoryId,
-            @Param("status") String status
+            @Param("status") String status,
+            org.springframework.data.domain.Pageable pageable
     );
 
-    @Query("""
+    @Query(value = """
             select a
             from Asset a
             where (:categoryId is null or a.category.id = :categoryId)
@@ -69,10 +80,21 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                 from AssetMaintenance m
                 where m.asset = a
             ) desc, a.createdAt desc
+            """,
+            countQuery = """
+            select count(a)
+            from Asset a
+            where (:categoryId is null or a.category.id = :categoryId)
+                and (
+                    :status = 'ALL'
+                    or (:status = 'IN_USE' and size(a.users) > 0)
+                    or (:status = 'IN_STOCK' and size(a.users) = 0)
+                )
             """)
-    List<Asset> findWithFiltersOrderByMaintenanceCountDesc(
+    org.springframework.data.domain.Page<Asset> findWithFiltersOrderByMaintenanceCountDesc(
             @Param("categoryId") UUID categoryId,
-            @Param("status") String status
+            @Param("status") String status,
+            org.springframework.data.domain.Pageable pageable
     );
 
     // Conta assets vinculados a uma categoria (útil para validar deleção de categoria)

@@ -26,6 +26,6 @@ public interface AssetRepositoryPort {
     long countByUsersId(java.util.UUID userId);
     long count();
     long countInUse();
-    java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String searchTerm);
-    java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String searchTerm);
+    org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable);
+    org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable);
 }

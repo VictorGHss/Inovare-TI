@@ -23,6 +23,8 @@ public record AssetRequestDTO(
         String specifications,
 
         @Positive(message = "Quantity must be greater than zero.")
-        Integer quantity
+        Integer quantity,
+
+        java.util.List<AssetInstallmentRequestDTO> installments
 
 ) {}

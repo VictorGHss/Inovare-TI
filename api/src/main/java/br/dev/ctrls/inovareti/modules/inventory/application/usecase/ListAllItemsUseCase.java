@@ -42,37 +42,36 @@ public class ListAllItemsUseCase {
      * @return lista de DTOs com os dados públicos dos itens filtrados
      */
     @Transactional(readOnly = true)
-    public List<ItemResponseDTO> execute(
+    public org.springframework.data.domain.Page<ItemResponseDTO> execute(
             String sortField,
             Sort.Direction sortDirection,
             boolean lowStockOnly,
-            int page,
-            int size) {
+            org.springframework.data.domain.Pageable pageable) {
 
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         Sort.Direction safeDirection = sortDirection == null ? Sort.Direction.ASC : sortDirection;
         String safeSortField = normalizeSortField(sortField);
+
+        org.springframework.data.domain.Pageable effectivePageable;
+        if ("oldestBatchEntryDate".equals(safeSortField)) {
+            effectivePageable = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        } else {
+            Sort sort = Sort.by(safeDirection, safeSortField).and(Sort.by(Sort.Direction.ASC, FIELD_NAME));
+            effectivePageable = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        }
 
         Page<Item> itemsPage;
 
         if ("oldestBatchEntryDate".equals(safeSortField)) {
-            PageRequest pageable = PageRequest.of(safePage, safeSize);
             itemsPage = safeDirection.isAscending()
-                    ? itemRepository.findAllOrderByOldestBatchEntryDateAsc(lowStockOnly, LOW_STOCK_THRESHOLD, pageable)
-                    : itemRepository.findAllOrderByOldestBatchEntryDateDesc(lowStockOnly, LOW_STOCK_THRESHOLD, pageable);
+                    ? itemRepository.findAllOrderByOldestBatchEntryDateAsc(lowStockOnly, LOW_STOCK_THRESHOLD, effectivePageable)
+                    : itemRepository.findAllOrderByOldestBatchEntryDateDesc(lowStockOnly, LOW_STOCK_THRESHOLD, effectivePageable);
         } else {
-            Sort sort = Sort.by(safeDirection, safeSortField).and(Sort.by(Sort.Direction.ASC, FIELD_NAME));
-            PageRequest pageable = PageRequest.of(safePage, safeSize, sort);
             itemsPage = lowStockOnly
-                    ? itemRepository.findByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD, pageable)
-                    : itemRepository.findAll(pageable);
+                    ? itemRepository.findByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD, effectivePageable)
+                    : itemRepository.findAll(effectivePageable);
         }
 
-        return itemsPage
-                .stream()
-                .map(ItemResponseDTO::from)
-                .toList();
+        return itemsPage.map(ItemResponseDTO::from);
     }
 
     private String normalizeSortField(String sortField) {

@@ -18,6 +18,8 @@ public interface TicketRepositoryPort {
     java.util.List<Ticket> findByRequesterIdAndStatusInOrderByCreatedAtDesc(java.util.UUID requesterId, java.util.List<br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus> statuses);
     java.util.List<Ticket> findAllWithRelations();
     java.util.List<Ticket> findByRequesterIdOrderByCreatedAtDesc(java.util.UUID requesterId);
+    org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> findAllWithRelations(boolean hasTags, java.util.List<java.util.UUID> tagIds, org.springframework.data.domain.Pageable pageable);
+    org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> findByRequesterIdWithRelations(java.util.UUID requesterId, boolean hasTags, java.util.List<java.util.UUID> tagIds, org.springframework.data.domain.Pageable pageable);
     java.util.List<Ticket> findAllByStatus(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus status);
     java.util.List<Ticket> findSimilarResolvedTickets(java.util.UUID id, java.util.Set<br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag> tags);
 

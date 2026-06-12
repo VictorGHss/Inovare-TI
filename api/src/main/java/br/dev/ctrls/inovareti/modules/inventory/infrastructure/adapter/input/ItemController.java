@@ -70,13 +70,13 @@ public class ItemController {
      * Todos os usuários autenticados podem ler (necessário para formulários de chamados).
      */
     @GetMapping
-    public ResponseEntity<List<ItemResponseDTO>> listAll(
+    public ResponseEntity<org.springframework.data.domain.Page<ItemResponseDTO>> listAll(
             @RequestParam(defaultValue = "name") String sortField,
             @RequestParam(defaultValue = "ASC") Sort.Direction sortDirection,
             @RequestParam(defaultValue = "false") boolean lowStockOnly,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "200") int size) {
-        return ResponseEntity.ok(listAllItemsUseCase.execute(sortField, sortDirection, lowStockOnly, page, size));
+            @RequestParam(defaultValue = "0") int page) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
+        return ResponseEntity.ok(listAllItemsUseCase.execute(sortField, sortDirection, lowStockOnly, pageable));
     }
 
     /**
@@ -140,8 +140,7 @@ public class ItemController {
                 request.unitPrice(),
                 request.brand(),
                 request.supplier(),
-                request.purchaseReason(),
-                request.installments()
+                request.purchaseReason()
         );
 
         return ResponseEntity

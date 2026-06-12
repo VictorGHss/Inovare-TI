@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 
 import { createAsset, updateAsset, uploadAssetInvoice } from '../../../services/inventoryService';
 import type { Asset, AssetCategory, CreateAssetDto, User } from '../../../types/models';
+import SearchableDropdown from '../../../components/SearchableDropdown';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
@@ -40,6 +41,44 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [numInstallments, setNumInstallments] = useState(2);
+  const [installments, setInstallments] = useState<{ dueDate: string; amount: string }[]>([]);
+  const [totalValue, setTotalValue] = useState('');
+
+  // Calcula parcelas automaticamente ao alterar dados do financiamento
+  useEffect(() => {
+    if (!isInstallment) {
+      setInstallments([]);
+      return;
+    }
+    const total = parseFloat(totalValue) || 0;
+    const baseAmount = total / numInstallments;
+    const list = Array.from({ length: numInstallments }).map((_, idx) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + idx);
+      const dateStr = d.toISOString().split('T')[0];
+
+      let amt = baseAmount.toFixed(2);
+      if (idx === numInstallments - 1) {
+        const sumOfPrev = parseFloat(baseAmount.toFixed(2)) * (numInstallments - 1);
+        amt = (total - sumOfPrev).toFixed(2);
+      }
+
+      return {
+        dueDate: dateStr,
+        amount: amt,
+      };
+    });
+    setInstallments(list);
+  }, [isInstallment, numInstallments, totalValue]);
+
+  const handleInstallmentChange = (index: number, field: 'dueDate' | 'amount', value: string) => {
+    setInstallments((prev) =>
+      prev.map((inst, idx) => (idx === index ? { ...inst, [field]: value } : inst))
+    );
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (assetToEdit) {
@@ -65,6 +104,10 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
       setSelectedInvoiceFile(null);
       setUserSearch('');
       setShowDropdown(false);
+      setIsInstallment(false);
+      setNumInstallments(2);
+      setInstallments([]);
+      setTotalValue('');
     }
   }, [isOpen, assetToEdit]);
 
@@ -74,6 +117,10 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
     setSelectedInvoiceFile(null);
     setUserSearch('');
     setShowDropdown(false);
+    setIsInstallment(false);
+    setNumInstallments(2);
+    setInstallments([]);
+    setTotalValue('');
   }
 
   function handleClose() {
@@ -89,6 +136,19 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
       return;
     }
 
+    const total = parseFloat(totalValue) || 0;
+    if (isInstallment) {
+      if (total <= 0) {
+        toast.error('O valor total do equipamento deve ser maior que zero para parcelamento.');
+        return;
+      }
+      const sumOfInstallments = installments.reduce((acc, inst) => acc + (parseFloat(inst.amount) || 0), 0);
+      if (Math.abs(sumOfInstallments - total) > 0.02) {
+        toast.error(`A soma das parcelas (R$ ${sumOfInstallments.toFixed(2)}) deve ser igual ao valor total do equipamento (R$ ${total.toFixed(2)}).`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       // Garanta o envio da lista completa de userIds atualizada no payload do service.
@@ -99,6 +159,12 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
         categoryId: formData.categoryId || undefined,
         specifications: formData.specifications?.trim() || undefined,
         quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,
+        installments: isInstallment
+          ? installments.map((inst) => ({
+              dueDate: inst.dueDate,
+              amount: parseFloat(inst.amount) || 0,
+            }))
+          : undefined,
       };
 
       if (assetToEdit) {
@@ -123,16 +189,18 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
     }
   }
 
-  const filteredUsers = users.filter((u) => {
-    const query = userSearch.toLowerCase().trim();
-    if (selectedUserIds.includes(u.id)) return false;
-    if (!query) return true;
-    return (
-      u.name.toLowerCase().includes(query) ||
-      u.email.toLowerCase().includes(query) ||
-      (u.sectorName && u.sectorName.toLowerCase().includes(query))
-    );
-  });
+  const filteredUsers = users
+    .filter((u) => {
+      const query = userSearch.toLowerCase().trim();
+      if (selectedUserIds.includes(u.id)) return false;
+      if (!query) return true;
+      return (
+        u.name.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query) ||
+        (u.sectorName && u.sectorName.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   if (!isOpen) return null;
 
@@ -188,18 +256,12 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-700">Categoria</label>
-            <select
+            <SearchableDropdown
+              options={[{ id: '', name: 'Sem categoria' }, ...categories]}
               value={formData.categoryId ?? ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-              className={inputClassName}
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData((prev) => ({ ...prev, categoryId: val }))}
+              placeholder="Sem categoria"
+            />
           </div>
 
           {/* Oculta quantidade (lote) na edição */}
@@ -340,6 +402,88 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
               </div>
               <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
             </div>
+          )}
+
+          {!assetToEdit && (
+            <>
+              {/* Valor de Aquisição */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">Valor Total de Aquisição (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.00"
+                  value={totalValue}
+                  onChange={(e) => setTotalValue(e.target.value)}
+                  className={inputClassName}
+                  placeholder="0.00"
+                  disabled={submitting}
+                />
+              </div>
+
+              {/* Compra Parcelada? */}
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  id="isInstallment"
+                  checked={isInstallment}
+                  onChange={(e) => setIsInstallment(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded border-slate-350 text-[#feb56c] focus:ring-[#feb56c]"
+                  disabled={submitting}
+                />
+                <label htmlFor="isInstallment" className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Compra Parcelada?
+                </label>
+              </div>
+
+              {isInstallment && (
+                <div className="flex flex-col gap-3 rounded-2xl border border-[#feb56c]/35 bg-slate-50/50 p-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-600">Número de Parcelas</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={24}
+                      value={numInstallments}
+                      onChange={(e) => setNumInstallments(Math.max(2, parseInt(e.target.value) || 2))}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
+                      disabled={submitting}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto mt-2 pr-1">
+                    {installments.map((inst, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <span className="text-xs text-slate-500 font-bold w-12 shrink-0">Parc. {index + 1}</span>
+                        <input
+                          type="date"
+                          value={inst.dueDate}
+                          onChange={(e) => handleInstallmentChange(index, 'dueDate', e.target.value)}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] flex-1"
+                          disabled={submitting}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={inst.amount}
+                          onChange={(e) => handleInstallmentChange(index, 'amount', e.target.value)}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] w-24 text-right font-semibold"
+                          disabled={submitting}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs text-slate-500 font-semibold border-t border-slate-200/60 pt-2 mt-1">
+                    <span>Valor Total:</span>
+                    <span className="text-slate-800 font-bold">
+                      R$ {(parseFloat(totalValue) || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">

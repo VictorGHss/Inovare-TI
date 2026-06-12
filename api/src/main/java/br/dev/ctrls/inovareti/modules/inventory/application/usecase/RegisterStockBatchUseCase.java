@@ -12,7 +12,6 @@ import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatchInstallment;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockBatchRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
@@ -62,20 +61,6 @@ public class RegisterStockBatchUseCase {
                 .purchaseReason(request.purchaseReason())
                 .entryDate(LocalDateTime.now())
                 .build();
-
-        java.util.List<StockBatchInstallment> installmentsList = new java.util.ArrayList<>();
-        if (request.installments() != null && !request.installments().isEmpty()) {
-            int number = 1;
-            for (var instDto : request.installments()) {
-                installmentsList.add(StockBatchInstallment.builder()
-                        .stockBatch(batch)
-                        .dueDate(instDto.dueDate())
-                        .amount(instDto.amount())
-                        .installmentNumber(number++)
-                        .build());
-            }
-        }
-        batch.setInstallments(installmentsList);
 
         stockBatchRepository.save(batch);
 

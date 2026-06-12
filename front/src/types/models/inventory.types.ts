@@ -57,6 +57,10 @@ export interface CreateAssetDto {
   categoryId?: string;
   specifications?: string;
   quantity?: number;
+  installments?: {
+    dueDate: string;
+    amount: number;
+  }[];
 }
 
 export interface StockMovement {
@@ -85,10 +89,6 @@ export interface CreateBatchDto {
   brand?: string;
   supplier?: string;
   purchaseReason?: string;
-  installments?: {
-    dueDate: string;
-    amount: number;
-  }[];
 }
 
 export interface Batch {

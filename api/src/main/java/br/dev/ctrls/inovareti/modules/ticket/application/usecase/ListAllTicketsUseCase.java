@@ -31,25 +31,18 @@ public class ListAllTicketsUseCase {
      * @return lista de chamados visíveis ao usuário
      */
     @Transactional(readOnly = true)
-    public List<TicketResponseDTO> execute(UUID userId, UserRole userRole, List<UUID> tagIds) {
-        List<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> tickets;
+    public org.springframework.data.domain.Page<TicketResponseDTO> execute(UUID userId, UserRole userRole, List<UUID> tagIds, org.springframework.data.domain.Pageable pageable) {
+        boolean hasTags = tagIds != null && !tagIds.isEmpty();
+        org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> ticketsPage;
         
         if (userRole == UserRole.ADMIN || userRole == UserRole.TECHNICIAN) {
             // ADMIN e TECHNICIAN podem ver todos os chamados
-            tickets = ticketRepository.findAllWithRelations();
+            ticketsPage = ticketRepository.findAllWithRelations(hasTags, tagIds, pageable);
         } else {
             // USER só pode ver chamados que criou
-            tickets = ticketRepository.findByRequesterIdOrderByCreatedAtDesc(userId);
-        }
-
-        if (tagIds != null && !tagIds.isEmpty()) {
-            tickets = tickets.stream()
-                    .filter(t -> t.getTags().stream().anyMatch(tag -> tagIds.contains(tag.getId())))
-                    .toList();
+            ticketsPage = ticketRepository.findByRequesterIdWithRelations(userId, hasTags, tagIds, pageable);
         }
         
-        return tickets.stream()
-                .map(TicketResponseDTO::from)
-                .toList();
+        return ticketsPage.map(TicketResponseDTO::from);
     }
 }

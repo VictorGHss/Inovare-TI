@@ -8,6 +8,7 @@ import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 
 
 import java.util.Locale;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -59,6 +60,34 @@ public class AssetQueryService {
             case "maintenanceCount" -> AssetSortBy.MAINTENANCE_COUNT;
             default -> throw new BadRequestException("sortBy inválido. Valores permitidos: createdAt, maintenanceCount.");
         };
+    }
+
+    /**
+     * Retorna uma página de ativos do ecrã de listagem com base nos filtros de categoria, status e ordenação.
+     * 
+     * @param categoryId ID da categoria de ativos
+     * @param status Status do ativo imobilizado (ALL, IN_USE, IN_STOCK)
+     * @param sortBy Campo de ordenação (createdAt, maintenanceCount)
+     * @param pageable Parâmetros de paginação fornecidos pelo utilizador
+     * @param assetRepository Repositório de acesso aos ativos
+     * @return Página de AssetResponseDTO contendo metadados de paginação
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<AssetResponseDTO> listAssets(
+            UUID categoryId,
+            String status,
+            String sortBy,
+            org.springframework.data.domain.Pageable pageable,
+            br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository) {
+        
+        AssetFilterStatus parsedStatus = parseFilterStatus(status);
+        AssetSortBy parsedSortBy = parseSortBy(sortBy);
+
+        org.springframework.data.domain.Page<Asset> assets = parsedSortBy == AssetSortBy.MAINTENANCE_COUNT
+                ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name(), pageable)
+                : assetRepository.findWithFiltersOrderByCreatedAtDesc(categoryId, parsedStatus.name(), pageable);
+
+        return assets.map(this::toResponseDTO);
     }
 }
 

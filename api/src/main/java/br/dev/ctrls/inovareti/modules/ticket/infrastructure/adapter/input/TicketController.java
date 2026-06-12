@@ -118,8 +118,9 @@ public class TicketController {
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
-    public ResponseEntity<List<TicketResponseDTO>> listAll(
-            @RequestParam(required = false) List<UUID> tagIds) {
+    public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> listAll(
+            @RequestParam(required = false) List<UUID> tagIds,
+            @RequestParam(defaultValue = "0") int page) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         
@@ -135,7 +136,13 @@ public class TicketController {
             return ResponseEntity.notFound().build();
         }
         
-        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds));
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page,
+                15,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+        
+        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds, pageable));
     }
 
     /**

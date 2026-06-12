@@ -31,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Observed
+@lombok.extern.slf4j.Slf4j
 public class AssetService {
 
     private final AssetRepositoryPort assetRepository;
@@ -108,6 +109,18 @@ public class AssetService {
                         .build());
 
             createdAssets.add(savedAsset);
+        }
+
+        // Se houver parcelas de financiamento fornecidas no registo do ativo,
+        // prepara o envio para os contratos de sincronização da Conta Azul.
+        if (request.installments() != null && !request.installments().isEmpty()) {
+            log.info("[ContaAzul] Preparando o envio de {} parcelas de financiamento para o equipamento '{}'.",
+                    request.installments().size(), request.name());
+            for (int i = 0; i < request.installments().size(); i++) {
+                var inst = request.installments().get(i);
+                log.info("[ContaAzul] Parcela {}/{} - Vencimento: {}, Valor: {}", 
+                        (i + 1), request.installments().size(), inst.dueDate(), inst.amount());
+            }
         }
 
         return createdAssets;

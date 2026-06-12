@@ -89,13 +89,13 @@ public class AssetRepositoryAdapter implements AssetRepositoryPort {
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String searchTerm) {
-        return repository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, searchTerm);
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable) {
+        return repository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, searchTerm, pageable);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String searchTerm) {
-        return repository.findWithFiltersOrderByCreatedAtDesc(categoryId, searchTerm);
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable) {
+        return repository.findWithFiltersOrderByCreatedAtDesc(categoryId, searchTerm, pageable);
     }
 
 }

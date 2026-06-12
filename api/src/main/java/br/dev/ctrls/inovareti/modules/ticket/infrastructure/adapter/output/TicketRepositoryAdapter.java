@@ -61,6 +61,16 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
     }
 
     @Override
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> findAllWithRelations(boolean hasTags, java.util.List<java.util.UUID> tagIds, org.springframework.data.domain.Pageable pageable) {
+        return repository.findAllWithRelations(hasTags, tagIds, pageable);
+    }
+
+    @Override
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> findByRequesterIdWithRelations(java.util.UUID requesterId, boolean hasTags, java.util.List<java.util.UUID> tagIds, org.springframework.data.domain.Pageable pageable) {
+        return repository.findByRequesterIdWithRelations(requesterId, hasTags, tagIds, pageable);
+    }
+
+    @Override
     public java.util.List<Ticket> findAllByStatus(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus status) {
         return repository.findAllByStatus(status);
     }

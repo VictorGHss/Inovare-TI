@@ -1,9 +1,10 @@
-// Seletores de Prioridade e Categoria do chamado
+// Seletores de Prioridade e Categoria do chamado no ecrã
 import type { CreateTicketDto, TicketCategory } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 interface Props {
   priority: CreateTicketDto['priority'];
-  // categoryId é UUID (string) alinhado com o backend
+  // categoryId é o UUID (string) alinhado com o backend
   categoryId: string;
   categories: TicketCategory[];
   inputCls: string;
@@ -20,11 +21,16 @@ const priorities = [
 
 const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
 
+/**
+ * Componente que exibe os campos de prioridade e categoria no ecrã de novo chamado.
+ * Utiliza o dropdown premium pesquisável para a seleção de categorias.
+ */
 export default function PriorityCategoryFields({
   priority, categoryId, categories, inputCls, onPriorityChange, onCategoryChange,
 }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Dropdown de Prioridade (Simples e estático) */}
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Prioridade</label>
         <select className={inputCls} value={priority}
@@ -32,17 +38,19 @@ export default function PriorityCategoryFields({
           {priorities.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </div>
+
+      {/* Dropdown de Categoria (Filtrável, ordenado alfabeticamente e pesquisável) */}
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>
           Categoria <span className="text-red-500 normal-case tracking-normal">*</span>
         </label>
-        {/* Passa o UUID como string diretamente — sem conversão para número */}
-        <select className={inputCls} value={categoryId}
-          onChange={(e) => onCategoryChange(e.target.value)} required>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <SearchableDropdown
+          options={categories}
+          value={categoryId}
+          onChange={onCategoryChange}
+          placeholder="Selecione uma categoria..."
+        />
       </div>
     </div>
   );
 }
-

@@ -66,22 +66,20 @@ public class AssetController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
     @GetMapping
-    public ResponseEntity<List<AssetResponseDTO>> listAll(
+    public ResponseEntity<org.springframework.data.domain.Page<AssetResponseDTO>> listAll(
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(defaultValue = "ALL") String status,
-            @RequestParam(defaultValue = "createdAt") String sortBy
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "0") int page
     ) {
-        AssetFilterStatus parsedStatus = assetQueryService.parseFilterStatus(status);
-        AssetSortBy parsedSortBy = assetQueryService.parseSortBy(sortBy);
-
-        List<Asset> assets = parsedSortBy == AssetSortBy.MAINTENANCE_COUNT
-                ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name())
-                : assetRepository.findWithFiltersOrderByCreatedAtDesc(categoryId, parsedStatus.name());
-
-        List<AssetResponseDTO> response = assets
-                .stream()
-                .map(assetQueryService::toResponseDTO)
-                .toList();
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
+        org.springframework.data.domain.Page<AssetResponseDTO> response = assetQueryService.listAssets(
+                categoryId,
+                status,
+                sortBy,
+                pageable,
+                assetRepository
+        );
         return ResponseEntity.ok(response);
     }
 

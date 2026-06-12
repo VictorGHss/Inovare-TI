@@ -1,9 +1,10 @@
 // Modal para registrar entrada de lote de estoque
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { addBatch, uploadBatchInvoice } from '../../services/inventoryService';
 import type { Item } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 interface AddBatchModalProps {
   isOpen: boolean;
@@ -30,9 +31,41 @@ export default function AddBatchModal({
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
   const invoiceInputId = 'batch-invoice-input';
 
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [numInstallments, setNumInstallments] = useState(2);
-  const [installments, setInstallments] = useState<{ dueDate: string; amount: string }[]>([]);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const supplierRef = useRef<HTMLDivElement>(null);
+  
+  const defaultSuppliers = [
+    'Amazon',
+    'Dell Store',
+    'HP',
+    'Kabum',
+    'Kalunga',
+    'Lenovo',
+    'Logitech',
+    'Mercado Livre',
+  ];
+
+  // Fechar o dropdown de fornecedores quando o utilizador clica fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (supplierRef.current && !supplierRef.current.contains(event.target as Node)) {
+        setShowSupplierDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Ordena e filtra os fornecedores alfabeticamente de forma estrita
+  const filteredSuppliers = defaultSuppliers
+    .filter((sup) => sup.toLowerCase().includes(supplier.toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
+
+  // Mapeia os itens para o formato do dropdown contendo a informação do stock
+  const itemOptions = items.map((item) => ({
+    id: item.id,
+    name: `${item.name} (Estoque: ${item.currentStock})`,
+  }));
 
   // Update selected item when preselected changes
   useEffect(() => {
@@ -41,53 +74,13 @@ export default function AddBatchModal({
     }
   }, [preselectedItemId]);
 
-  // Calcula parcelas automaticamente ao alterar dados do lote
-  useEffect(() => {
-    if (!isInstallment) {
-      setInstallments([]);
-      return;
-    }
-    const total = (parseFloat(unitPrice) || 0) * (quantity || 0);
-    const baseAmount = total / numInstallments;
-    const list = Array.from({ length: numInstallments }).map((_, idx) => {
-      const d = new Date();
-      d.setMonth(d.getMonth() + idx);
-      const dateStr = d.toISOString().split('T')[0];
 
-      let amt = baseAmount.toFixed(2);
-      if (idx === numInstallments - 1) {
-        const sumOfPrev = parseFloat(baseAmount.toFixed(2)) * (numInstallments - 1);
-        amt = (total - sumOfPrev).toFixed(2);
-      }
-
-      return {
-        dueDate: dateStr,
-        amount: amt,
-      };
-    });
-    setInstallments(list);
-  }, [isInstallment, numInstallments, quantity, unitPrice]);
-
-  const handleInstallmentChange = (index: number, field: 'dueDate' | 'amount', value: string) => {
-    setInstallments((prev) =>
-      prev.map((inst, idx) => (idx === index ? { ...inst, [field]: value } : inst))
-    );
-  };
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!selectedItemId || quantity < 1 || !unitPrice) {
       toast.error('Preencha todos os campos corretamente.');
       return;
-    }
-
-    const total = parseFloat(unitPrice) * quantity;
-    if (isInstallment) {
-      const sumOfInstallments = installments.reduce((acc, inst) => acc + (parseFloat(inst.amount) || 0), 0);
-      if (Math.abs(sumOfInstallments - total) > 0.02) {
-        toast.error(`A soma das parcelas (R$ ${sumOfInstallments.toFixed(2)}) deve ser igual ao valor total do lote (R$ ${total.toFixed(2)}).`);
-        return;
-      }
     }
 
     setSubmitting(true);
@@ -98,12 +91,6 @@ export default function AddBatchModal({
         brand: brand.trim() || undefined,
         supplier: supplier.trim() || undefined,
         purchaseReason: purchaseReason.trim() || undefined,
-        installments: isInstallment
-          ? installments.map((inst) => ({
-              dueDate: inst.dueDate,
-              amount: parseFloat(inst.amount) || 0,
-            }))
-          : undefined,
       });
 
       if (selectedInvoiceFile) {
@@ -122,9 +109,6 @@ export default function AddBatchModal({
       setSupplier('');
       setPurchaseReason('');
       setSelectedInvoiceFile(null);
-      setIsInstallment(false);
-      setNumInstallments(2);
-      setInstallments([]);
     } catch {
       toast.error('Erro ao registrar lote. Tente novamente.');
     } finally {
@@ -152,24 +136,17 @@ export default function AddBatchModal({
 
         {/* Formulário */}
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-          {/* Select de item */}
+          {/* Select de item (pesquisável e ordenado alfabeticamente) */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-700">
               Item <span className="text-red-500">*</span>
             </label>
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
+            <SearchableDropdown
+              options={itemOptions}
               value={selectedItemId}
-              onChange={(e) => setSelectedItemId(e.target.value)}
-              required
-            >
-              <option value="">Selecione um item</option>
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} (Estoque: {item.currentStock})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedItemId(val)}
+              placeholder="Selecione um item..."
+            />
           </div>
 
           {/* Quantidade */}
@@ -219,19 +196,49 @@ export default function AddBatchModal({
             />
           </div>
 
-          {/* Fornecedor */}
-          <div className="flex flex-col gap-1.5">
+          {/* Fornecedor (dropdown com sugestões filtradas e ordenadas) */}
+          <div className="flex flex-col gap-1.5 relative" ref={supplierRef}>
             <label className="text-sm font-medium text-slate-700">
               Fornecedor
             </label>
-            <input
-              type="text"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              placeholder="Ex: Kabum, Amazon, Kalunga"
-              maxLength={150}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
+                value={supplier}
+                onChange={(e) => {
+                  setSupplier(e.target.value);
+                  setShowSupplierDropdown(true);
+                }}
+                onFocus={() => setShowSupplierDropdown(true)}
+                placeholder="Ex: Kabum, Amazon, Kalunga"
+                maxLength={150}
+              />
+              {showSupplierDropdown && (
+                <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg top-full left-0 divide-y divide-slate-50">
+                  {filteredSuppliers.length === 0 ? (
+                    <li className="px-4 py-2.5 text-xs text-slate-400 text-center">
+                      Nenhum fornecedor pré-definido encontrado (pode digitar livremente)
+                    </li>
+                  ) : (
+                    filteredSuppliers.map((sup) => (
+                      <li key={sup}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSupplier(sup);
+                            setShowSupplierDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-slate-700 transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark"
+                        >
+                          {sup}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Motivo da Compra */}
@@ -274,69 +281,6 @@ export default function AddBatchModal({
             </div>
             <p className="text-xs text-slate-500">Máximo 5MB. Formatos: PDF, PNG, JPG.</p>
           </div>
-
-          {/* Compra Parcelada? */}
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="checkbox"
-              id="isInstallment"
-              checked={isInstallment}
-              onChange={(e) => setIsInstallment(e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-slate-350 text-[#feb56c] focus:ring-[#feb56c]"
-              disabled={submitting}
-            />
-            <label htmlFor="isInstallment" className="cursor-pointer text-sm font-semibold text-slate-700">
-              Compra Parcelada?
-            </label>
-          </div>
-
-          {isInstallment && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-[#feb56c]/35 bg-slate-50/50 p-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-600">Número de Parcelas</label>
-                <input
-                  type="number"
-                  min={2}
-                  max={24}
-                  value={numInstallments}
-                  onChange={(e) => setNumInstallments(Math.max(2, parseInt(e.target.value) || 2))}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all"
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto mt-2 pr-1">
-                {installments.map((inst, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <span className="text-xs text-slate-500 font-bold w-12 shrink-0">Parc. {index + 1}</span>
-                    <input
-                      type="date"
-                      value={inst.dueDate}
-                      onChange={(e) => handleInstallmentChange(index, 'dueDate', e.target.value)}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] flex-1"
-                      disabled={submitting}
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={inst.amount}
-                      onChange={(e) => handleInstallmentChange(index, 'amount', e.target.value)}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] w-24 text-right font-semibold"
-                      disabled={submitting}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-between items-center text-xs text-slate-500 font-semibold border-t border-slate-200/60 pt-2 mt-1">
-                <span>Valor Total:</span>
-                <span className="text-slate-800 font-bold">
-                  R$ {((parseFloat(unitPrice) || 0) * (quantity || 0)).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Botões de ação */}
           <div className="flex items-center justify-end gap-3 pt-2">

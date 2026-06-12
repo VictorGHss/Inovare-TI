@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.modules.inventory.application.dto;
+package br.dev.ctrls.inovareti.modules.asset.application.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -6,7 +6,10 @@ import java.time.LocalDate;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
-public record StockBatchInstallmentRequestDTO(
+/**
+ * DTO de entrada para o registo de uma parcela de financiamento de um equipamento (ativo imobilizado).
+ */
+public record AssetInstallmentRequestDTO(
         @NotNull(message = "A data de vencimento da parcela é obrigatória.")
         LocalDate dueDate,
 

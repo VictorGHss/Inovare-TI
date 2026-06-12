@@ -203,7 +203,7 @@ public class BlipLIMEClient implements BlipClientPort {
                 .path(properties.getBlipSetContextPath())
                 .build().toUri();
 
-        log.info("Enviando comando LIME (Scope: {}) para a URL: {}", actualScope, url);
+        log.debug("Enviando comando LIME (Scope: {}) para a URL: {}", actualScope, url);
         try {
             log.debug("Payload completo: {}", new ObjectMapper().writeValueAsString(finalPayload));
         } catch (JsonProcessingException ignored) {
@@ -269,9 +269,9 @@ public class BlipLIMEClient implements BlipClientPort {
         if (response != null) {
             var body = response.getBody();
             if (body == null || body.isEmpty()) {
-                log.info("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
+                log.debug("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
             } else {
-                log.info("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
+                log.debug("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
             }
         }
         return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
@@ -353,7 +353,7 @@ public class BlipLIMEClient implements BlipClientPort {
             "uri", "/contacts/" + normalizedIdentity
         );
         try {
-            log.info("[LIME-CLIENT] [CONTACT-PROFILE] Consultando perfil do contato para identity={}", normalizedIdentity);
+            log.debug("[LIME-CLIENT] [CONTACT-PROFILE] Consultando perfil do contato para identity={}", normalizedIdentity);
             return executeCommand(command, AuthorizationScope.ROUTER);
         } catch (RestClientException ex) {
             log.error("[LIME-CLIENT] [CONTACT-PROFILE] Falha ao buscar perfil do contato no Blip para {}", normalizedIdentity, ex);

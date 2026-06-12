@@ -58,7 +58,11 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
                     ? "<empty>"
                     : new String(body, resolveCharset(wrapped.getCharacterEncoding()));
 
-            log.info("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+            if ("GET".equalsIgnoreCase(request.getMethod())) {
+                log.debug("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+            } else {
+                log.info("[RAW BODY] {} {} -> {}", request.getMethod(), request.getRequestURI(), rawBody);
+            }
         }
     }
 
@@ -67,7 +71,10 @@ public class RawBodyLoggingFilter extends OncePerRequestFilter {
             return false;
         }
 
-        return uri.startsWith(BLIP_WEBHOOK_PREFIX) || uri.contains(WS_PATH_FRAGMENT);
+        return uri.startsWith(BLIP_WEBHOOK_PREFIX) 
+            || uri.contains(WS_PATH_FRAGMENT)
+            || uri.contains("/actuator")
+            || uri.contains("/notifications");
     }
 
     private Charset resolveCharset(String encoding) {

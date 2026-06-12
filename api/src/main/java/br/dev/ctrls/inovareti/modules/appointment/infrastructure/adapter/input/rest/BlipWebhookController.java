@@ -196,7 +196,7 @@ public class BlipWebhookController {
             });
 
             if (isDuplicate.get()) {
-                log.info("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 5s). Ignorando messageId='{}'", messageId);
+                log.debug("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 5s). Ignorando messageId='{}'", messageId);
                 return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "strict-duplicate-ignored"
@@ -288,7 +288,7 @@ public class BlipWebhookController {
         // 3. IDEMPOTÊNCIA (Prevenção de Duplicidade): Early Return 200 se for duplicado
         boolean isNotification = payload.containsKey("event");
         if (!isNotification && !isFirstTimeProcessing(messageId)) {
-            log.info("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
+            log.debug("[IDEMPOTÊNCIA] Evento duplicado ignorado. messageId='{}'", messageId);
             return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "duplicate-ignored"

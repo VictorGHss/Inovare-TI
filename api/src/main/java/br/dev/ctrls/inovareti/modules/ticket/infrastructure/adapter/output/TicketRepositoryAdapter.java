@@ -109,32 +109,32 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByCategory(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByCategory(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countTicketsByCategory(isAdmin, requesterId);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsBySector(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsBySector(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countTicketsBySector(isAdmin, requesterId);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByRequester(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByRequester(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countTicketsByRequester(isAdmin, requesterId);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView> countTicketsBySectorAndPriority(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.SectorPriorityMetricView> countTicketsBySectorAndPriority(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countTicketsBySectorAndPriority(isAdmin, requesterId);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countSlaBreachesByCategory(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countSlaBreachesByCategory(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countSlaBreachesByCategory(isAdmin, requesterId);
     }
 
     @Override
-    public java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByMonth(boolean isAdmin, java.util.UUID requesterId) {
+    public java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByMonth(boolean isAdmin, java.util.UUID requesterId) {
         return repository.countTicketsByMonth(isAdmin, requesterId);
     }
 

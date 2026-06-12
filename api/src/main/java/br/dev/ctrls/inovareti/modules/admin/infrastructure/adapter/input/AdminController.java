@@ -1,0 +1,78 @@
+package br.dev.ctrls.inovareti.modules.admin.infrastructure.adapter.input;
+
+import br.dev.ctrls.inovareti.modules.admin.application.service.CsvImportService;
+import br.dev.ctrls.inovareti.modules.admin.application.dto.ImportResultDTO;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Controlador para operações administrativas.
+ * Caminho base: /api/admin
+ */
+@RestController
+@RequestMapping("/admin")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
+@Slf4j
+public class AdminController {
+
+    private final CsvImportService csvImportService;
+
+    /**
+     * Importação em massa de usuários e equipamentos a partir de arquivo CSV.
+     * Formato CSV: UserName;UserEmail;UserRole;SectorName;AssetName;AssetCategory;PatrimonyCode;AssetSpecs
+     *
+     * @param file arquivo CSV
+     * @return resultado da importação com estatísticas
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/import/csv")
+    public ResponseEntity<ImportResultDTO> importCsv(
+            @RequestParam("file") MultipartFile file) {
+        
+        log.info("CSV import request received. File: {}, Size: {} bytes", 
+            file.getOriginalFilename(), file.getSize());
+        
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(createErrorResult("CSV file is empty"));
+        }
+        
+        if (!file.getOriginalFilename().toLowerCase().endsWith(".csv")) {
+            return ResponseEntity.badRequest()
+                .body(createErrorResult("Only CSV files are accepted"));
+        }
+        
+        try {
+            ImportResultDTO result = csvImportService.importCsv(file);
+            
+            if (result.isSuccess()) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(result);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing CSV import", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(createErrorResult("Error processing file: " + e.getMessage()));
+        }
+    }
+    
+    private ImportResultDTO createErrorResult(String errorMessage) {
+        ImportResultDTO result = new ImportResultDTO();
+        result.setSuccess(false);
+        result.getErrors().add(errorMessage);
+        return result;
+    }
+}

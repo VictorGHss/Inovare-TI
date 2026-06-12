@@ -38,11 +38,11 @@ public class ContaAzulOAuthToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @jakarta.persistence.Convert(converter = br.dev.ctrls.inovareti.domain.security.CryptoConverter.class)
+    @jakarta.persistence.Convert(converter = br.dev.ctrls.inovareti.infrastructure.shared.security.CryptoConverter.class)
     @Column(name = "access_token", nullable = false, columnDefinition = "text")
     private String accessToken;
 
-    @jakarta.persistence.Convert(converter = br.dev.ctrls.inovareti.domain.security.CryptoConverter.class)
+    @jakarta.persistence.Convert(converter = br.dev.ctrls.inovareti.infrastructure.shared.security.CryptoConverter.class)
     @Column(name = "refresh_token", nullable = false, columnDefinition = "text")
     private String refreshToken;
 

@@ -15,8 +15,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView;
-import br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView;
+import br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView;
+import br.dev.ctrls.inovareti.modules.analytics.application.dto.SectorPriorityMetricView;
 
 /**
  * Repositório de acesso a dados para a entidade {@link Ticket}.

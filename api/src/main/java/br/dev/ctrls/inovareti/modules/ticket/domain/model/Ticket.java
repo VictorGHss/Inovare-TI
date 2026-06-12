@@ -8,7 +8,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.JoinTable;
 
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.domain.security.CryptoConverter;
+import br.dev.ctrls.inovareti.infrastructure.shared.security.CryptoConverter;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;

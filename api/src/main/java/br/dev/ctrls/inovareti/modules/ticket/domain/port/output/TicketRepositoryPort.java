@@ -30,12 +30,12 @@ public interface TicketRepositoryPort {
     long countByStatus(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus status);
     long countByRequesterIdAndClosedAtIsNotNull(java.util.UUID requesterId);
     long countByClosedAtIsNotNull();
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByCategory(boolean isAdmin, java.util.UUID requesterId);
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsBySector(boolean isAdmin, java.util.UUID requesterId);
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByRequester(boolean isAdmin, java.util.UUID requesterId);
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.SectorPriorityMetricView> countTicketsBySectorAndPriority(boolean isAdmin, java.util.UUID requesterId);
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countSlaBreachesByCategory(boolean isAdmin, java.util.UUID requesterId);
-    java.util.List<br.dev.ctrls.inovareti.domain.analytics.dto.AnalyticsMetricView> countTicketsByMonth(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByCategory(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsBySector(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByRequester(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.SectorPriorityMetricView> countTicketsBySectorAndPriority(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countSlaBreachesByCategory(boolean isAdmin, java.util.UUID requesterId);
+    java.util.List<br.dev.ctrls.inovareti.modules.analytics.application.dto.AnalyticsMetricView> countTicketsByMonth(boolean isAdmin, java.util.UUID requesterId);
     long countByRequesterId(java.util.UUID requesterId);
     long count();
 

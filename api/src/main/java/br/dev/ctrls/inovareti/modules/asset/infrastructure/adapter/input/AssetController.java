@@ -42,8 +42,8 @@ import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceResp
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetRequestDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetResponseDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.TransferAssetDTO;
-import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
-import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.FileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.InvoiceFileMetadata;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;

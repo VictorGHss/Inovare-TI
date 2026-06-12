@@ -15,7 +15,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditLog;
 import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
 import br.dev.ctrls.inovareti.modules.audit.domain.port.output.AuditLogRepositoryPort;
 import br.dev.ctrls.inovareti.modules.audit.application.dto.AuditLogResponseDTO;

@@ -40,8 +40,8 @@ import br.dev.ctrls.inovareti.modules.inventory.application.usecase.FindItemById
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.ListAllItemsUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.ListItemBatchesUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.RegisterStockBatchUseCase;
-import br.dev.ctrls.inovareti.domain.shared.FileStorageService;
-import br.dev.ctrls.inovareti.domain.shared.InvoiceFileMetadata;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.FileStorageService;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.InvoiceFileMetadata;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 

@@ -157,14 +157,27 @@ public class ContaAzulTokenService {
     }
 
     private ContaAzulOAuthToken refreshAndPersist(ContaAzulOAuthToken token) {
-        ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
-        if (!StringUtils.hasText(response.refreshToken())) {
-            throw new IllegalStateException("Resposta de refresh da ContaAzul não forneceu um novo refresh_token.");
+        try {
+            ContaAzulTokenResponse response = requestTokenByRefreshToken(token.getRefreshToken());
+            if (!StringUtils.hasText(response.refreshToken())) {
+                throw new IllegalStateException("Resposta de refresh da ContaAzul não forneceu um novo refresh_token.");
+            }
+            updateTokenFromResponse(token, response);
+            ContaAzulOAuthToken saved = tokenRepository.save(token);
+            log.info("Token salvo. expires_at={}, access_token_preview={}", saved.getExpiresAt(), previewToken(saved.getAccessToken()));
+            return saved;
+        } catch (org.springframework.web.client.HttpClientErrorException.BadRequest ex) {
+            String responseBody = ex.getResponseBodyAsString();
+            if (responseBody != null && responseBody.contains("invalid_grant")) {
+                log.error("Token da ContaAzul foi invalidado (invalid_grant). Removendo todos os tokens persistidos para forçar nova autorização.", ex);
+                try {
+                    tokenRepository.deleteAll();
+                } catch (Exception dbEx) {
+                    log.error("Falha ao remover os tokens do repositório da ContaAzul após invalid_grant", dbEx);
+                }
+            }
+            throw ex;
         }
-        updateTokenFromResponse(token, response);
-        ContaAzulOAuthToken saved = tokenRepository.save(token);
-        log.info("Token salvo. expires_at={}, access_token_preview={}", saved.getExpiresAt(), previewToken(saved.getAccessToken()));
-        return saved;
     }
 
     private ContaAzulTokenResponse requestTokenByAuthorizationCode(String code, String redirectUri) {

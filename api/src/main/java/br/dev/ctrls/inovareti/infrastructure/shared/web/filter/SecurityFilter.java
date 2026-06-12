@@ -133,7 +133,13 @@ public class SecurityFilter extends OncePerRequestFilter {
             || path.equals("/v1/webhook/blip")
             || path.equals("/v1/webhook/blip/")
             || path.equals(BLIP_WEBHOOK_ALIAS_PATH)
-            || path.equals(BLIP_WEBHOOK_ALIAS_PATH + "/")) {
+            || path.equals(BLIP_WEBHOOK_ALIAS_PATH + "/")
+            || path.equals("/api/v1/appointments/blip/webhook")
+            || path.equals("/api/v1/appointments/blip/webhook/")
+            || path.equals("/api/v1/webhook/blip")
+            || path.equals("/api/v1/webhook/blip/")
+            || path.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH)
+            || path.equals("/api" + BLIP_WEBHOOK_ALIAS_PATH + "/")) {
             filterChain.doFilter(request, response);
             return;
         }

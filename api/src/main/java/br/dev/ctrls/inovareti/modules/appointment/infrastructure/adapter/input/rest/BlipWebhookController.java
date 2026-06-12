@@ -71,12 +71,7 @@ public class BlipWebhookController {
         summary = "Recebe e processa webhooks enviados pelo Blip",
         description = "Este endpoint recebe as mensagens enviadas pela plataforma Blip, executa a validação de assinatura criptográfica HMAC-SHA256 (X-Blip-Signature) para atestar a autenticidade e aplica controle de idempotência de eventos."
     )
-    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"},
-        consumes = {
-            MediaType.APPLICATION_JSON_VALUE,
-            "application/vnd.lime.select+json",
-            "application/vnd.lime.reply+json"
-        })
+    @PostMapping(value = {"/v1/webhook/blip", "/webhooks/blip"})
     public ResponseEntity<?> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,

@@ -180,11 +180,7 @@ public class AppointmentMotorController {
         }
     }
 
-    @PostMapping(value = "/blip/webhook", consumes = {
-            MediaType.APPLICATION_JSON_VALUE,
-            "application/vnd.lime.select+json",
-            "application/vnd.lime.reply+json"
-    })
+    @PostMapping(value = "/blip/webhook")
     public ResponseEntity<Map<String, Object>> blipWebhook(
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Inovare-Token", required = false) String inovareToken,
             @org.springframework.web.bind.annotation.RequestHeader(value = "X-Blip-Signature", required = false) String blipSignature,

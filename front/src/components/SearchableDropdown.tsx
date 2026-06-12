@@ -16,6 +16,7 @@ interface SearchableDropdownProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  onAddNewClick?: (searchTerm: string) => void; // Permite cadastrar uma nova opção remotamente ou localmente
 }
 
 /**
@@ -31,6 +32,7 @@ interface SearchableDropdownProps {
  * @param placeholder Texto de substituição exibido quando não há seleção.
  * @param className Classes CSS adicionais do ecrã.
  * @param disabled Se o dropdown está desativado.
+ * @param onAddNewClick Função opcional chamada para adicionar um novo valor.
  */
 export default function SearchableDropdown({
   options,
@@ -40,6 +42,7 @@ export default function SearchableDropdown({
   placeholder = 'Selecione uma opção...',
   className = '',
   disabled = false,
+  onAddNewClick,
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,6 +163,20 @@ export default function SearchableDropdown({
                   </li>
                 );
               })
+            )}
+            {onAddNewClick && (
+              <li className="p-2 border-t border-slate-100 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddNewClick(searchTerm);
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-center px-4 py-2 text-xs font-semibold text-brand-primary bg-brand-secondary/25 hover:bg-brand-secondary/40 rounded-lg transition-colors"
+                >
+                  ➕ Adicionar Novo Fornecedor {searchTerm ? `"${searchTerm}"` : ''}
+                </button>
+              </li>
             )}
           </ul>
         </div>

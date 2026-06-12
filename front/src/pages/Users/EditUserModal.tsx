@@ -3,6 +3,7 @@ import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { updateUser } from '../../services/userService';
 import type { User, Sector, UpdateUserDto } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 interface EditUserModalProps {
   user: User | null;
@@ -116,19 +117,18 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
           {/* Setor */}
           <div>
             <label className={labelClassName}>Setor *</label>
-            <select
-              value={formData.sectorId}
-              onChange={(e) => setFormData({ ...formData, sectorId: e.target.value })}
-              className={inputClassName}
-              disabled={submitting}
-            >
-              <option value="">Selecione o setor...</option>
-              {sectors.map((sector) => (
-                <option key={sector.id} value={sector.id}>
-                  {sector.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableDropdown
+                options={sectors.map((sector) => ({
+                  id: sector.id,
+                  name: sector.name,
+                }))}
+                value={formData.sectorId || ''}
+                onChange={(val) => setFormData({ ...formData, sectorId: val })}
+                placeholder="Selecione o setor..."
+                disabled={submitting}
+              />
+            </div>
           </div>
 
           {/* Localização */}

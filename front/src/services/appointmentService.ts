@@ -22,3 +22,17 @@ export async function triggerAppointmentMotorManual(): Promise<AppointmentManual
   const { data } = await api.post<AppointmentManualTriggerResponse>('/v1/appointments/trigger-manual');
   return data;
 }
+
+export interface Doctor {
+  id: string;
+  name: string;
+}
+
+export async function getDoctors(params?: { search?: string; page?: number; size?: number }): Promise<Doctor[]> {
+  const { data } = await api.get<Doctor[]>('/v1/appointments/professionals', { params });
+  if (params?.search) {
+    const q = params.search.toLowerCase();
+    return data.filter(d => d.name && d.name.toLowerCase().includes(q)).slice(0, params.size ?? 15);
+  }
+  return data.slice(0, params?.size ?? 15);
+}

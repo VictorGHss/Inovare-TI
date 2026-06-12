@@ -75,8 +75,15 @@ export function extractQueueNamesFromBlipDebugPayload(payload: BlipDebugQueuesPa
   return uniqueNames;
 }
 
-export async function getMappings(): Promise<DoctorMapping[]> {
-  const { data } = await api.get<DoctorMapping[]>(APPOINTMENT_ADMIN_MAPPINGS_URL);
+export async function getMappings(params?: { search?: string; page?: number; size?: number }): Promise<DoctorMapping[]> {
+  const { data } = await api.get<DoctorMapping[]>(APPOINTMENT_ADMIN_MAPPINGS_URL, { params });
+  if (params?.search) {
+    const q = params.search.toLowerCase();
+    return data.filter(m => 
+      (m.profissionalNome && m.profissionalNome.toLowerCase().includes(q)) ||
+      (m.profissionalId && m.profissionalId.toLowerCase().includes(q))
+    ).slice(0, params.size ?? 15);
+  }
   return data;
 }
 

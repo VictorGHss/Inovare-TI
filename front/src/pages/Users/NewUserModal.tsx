@@ -2,6 +2,7 @@ import { CircleHelp, Loader2, SearchCheck, UserPlus2, UserRound, X } from 'lucid
 import { toast } from 'react-toastify';
 import { checkContaAzulCustomerByEmail } from '../../services/userService';
 import type { CreateUserDto, Sector } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 const customerNotFoundMessage =
   'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';
@@ -132,19 +133,18 @@ export default function NewUserModal({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClassName}>Setor</label>
-              <select
-                value={formData.sectorId}
-                onChange={(event) => onChange({ ...formData, sectorId: event.target.value })}
-                className={`${inputClassName} mt-2`}
-                disabled={submitting}
-              >
-                <option value="">Selecione...</option>
-                {sectors.map((sector) => (
-                  <option key={sector.id} value={sector.id}>
-                    {sector.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-2">
+                <SearchableDropdown
+                  options={sectors.map((sector) => ({
+                    id: sector.id,
+                    name: sector.name,
+                  }))}
+                  value={formData.sectorId || ''}
+                  onChange={(val) => onChange({ ...formData, sectorId: val })}
+                  placeholder="Selecione um setor..."
+                  disabled={submitting}
+                />
+              </div>
             </div>
 
             <div>

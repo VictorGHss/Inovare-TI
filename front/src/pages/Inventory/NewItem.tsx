@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItemCategories, createItem, addBatch } from '../../services/inventoryService';
 import type { ItemCategory } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 interface SpecEntry {
   key: string;
@@ -29,6 +30,57 @@ export default function NewItem() {
   const [batchBrand, setBatchBrand] = useState('');
   const [batchSupplier, setBatchSupplier] = useState('');
   const [batchPurchaseReason, setBatchPurchaseReason] = useState('');
+
+  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+
+  const defaultSuppliers = [
+    'Amazon',
+    'Dell Store',
+    'HP',
+    'Kabum',
+    'Kalunga',
+    'Lenovo',
+    'Logitech',
+    'Mercado Livre',
+  ];
+
+  useEffect(() => {
+    const stored = localStorage.getItem('inovareti_dynamic_suppliers');
+    if (stored) {
+      try {
+        setSuppliers(JSON.parse(stored));
+      } catch {
+        setSuppliers(defaultSuppliers);
+      }
+    } else {
+      setSuppliers(defaultSuppliers);
+      localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(defaultSuppliers));
+    }
+  }, []);
+
+  const handleSaveNewSupplier = () => {
+    const nameTrimmed = newSupplierName.trim();
+    if (!nameTrimmed) {
+      toast.warn('O nome do fornecedor não pode estar vazio.');
+      return;
+    }
+    if (suppliers.includes(nameTrimmed)) {
+      toast.info('Este fornecedor já existe.');
+      setBatchSupplier(nameTrimmed);
+      setIsAddingSupplier(false);
+      setNewSupplierName('');
+      return;
+    }
+    const updatedSuppliers = [...suppliers, nameTrimmed];
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(updatedSuppliers));
+    setBatchSupplier(nameTrimmed);
+    setIsAddingSupplier(false);
+    setNewSupplierName('');
+    toast.success('Fornecedor adicionado com sucesso!');
+  };
 
   useEffect(() => {
     // Carrega as categorias de item disponíveis
@@ -300,19 +352,56 @@ export default function NewItem() {
               </div>
 
               {/* Fornecedor */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">
-                  Fornecedor
-                </label>
-                <input
-                  type="text"
-                  className={inputCls}
-                  value={batchSupplier}
-                  onChange={(e) => setBatchSupplier(e.target.value)}
-                  placeholder="Ex: Kabum, Amazon, Kalunga"
-                  maxLength={150}
-                />
-              </div>
+              {isAddingSupplier ? (
+                <div className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200 animate-fadeIn">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-500">Nome do Novo Fornecedor</label>
+                    <input
+                      type="text"
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      placeholder="Nome do fornecedor..."
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-1 self-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveNewSupplier}
+                      className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-primary-dark transition"
+                    >
+                      Salvar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingSupplier(false);
+                        setNewSupplierName('');
+                      }}
+                      className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-300 transition"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-slate-700">
+                    Fornecedor
+                  </label>
+                  <SearchableDropdown
+                    options={suppliers.map((sup) => ({ id: sup, name: sup }))}
+                    value={batchSupplier}
+                    onChange={(val) => setBatchSupplier(val)}
+                    onAddNewClick={(term) => {
+                      setNewSupplierName(term);
+                      setIsAddingSupplier(true);
+                    }}
+                    placeholder="Selecione um fornecedor..."
+                  />
+                </div>
+              )}
 
               {/* Motivo da Compra */}
               <div className="flex flex-col gap-1.5 md:col-span-2">

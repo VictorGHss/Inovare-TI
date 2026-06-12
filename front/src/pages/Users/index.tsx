@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff, Search, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getUsers, createUser, getSectors, resetUserPassword, adminReset2FA } from '../../services/userService';
+import { getAllUsers, createUser, getSectors, resetUserPassword, adminReset2FA } from '../../services/userService';
 import type { User, Sector, CreateUserDto } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import BulkImportModal from './BulkImportModal';
@@ -32,6 +32,8 @@ export default function Users() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc' | 'sector-asc'>('name-asc');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const [formData, setFormData] = useState<CreateUserDto>({
     name: '',
@@ -44,14 +46,24 @@ export default function Users() {
   });
 
   useEffect(() => {
-    void Promise.all([loadUsers(), loadSectors()]);
+    void loadSectors();
   }, []);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [currentPage, searchQuery, sortOption]);
 
   async function loadUsers() {
     setLoading(true);
     try {
-      const data = await getUsers();
-      setUsers(data);
+      const response = await getAllUsers({
+        page: currentPage,
+        size: 15,
+        search: searchQuery,
+        sort: sortOption,
+      });
+      setUsers(response.content);
+      setTotalPages(response.totalPages);
     } catch {
       toast.error('Erro ao carregar usuários.');
       setUsers([]);
@@ -154,33 +166,8 @@ export default function Users() {
   } as const;
 
   const filteredAndSortedUsers = useMemo(() => {
-    let result = [...users];
-
-    // Filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.name?.toLowerCase().includes(q) ||
-          u.email?.toLowerCase().includes(q) ||
-          u.sectorName?.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      if (sortOption === 'name-asc') {
-        return (a.name ?? '').localeCompare(b.name ?? '');
-      } else if (sortOption === 'name-desc') {
-        return (b.name ?? '').localeCompare(a.name ?? '');
-      } else if (sortOption === 'sector-asc') {
-        return (a.sectorName ?? '').localeCompare(b.sectorName ?? '');
-      }
-      return 0;
-    });
-
-    return result;
-  }, [users, searchQuery, sortOption]);
+    return users;
+  }, [users]);
 
   return (
     <main className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -215,7 +202,10 @@ export default function Users() {
             type="text"
             placeholder="Pesquisar por nome, e-mail ou setor..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(0);
+            }}
             className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition"
           />
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -223,7 +213,10 @@ export default function Users() {
           </div>
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setCurrentPage(0);
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X size={16} />
@@ -237,7 +230,10 @@ export default function Users() {
           </span>
           <select
             value={sortOption}
-            onChange={(e) => setSortOption(e.target.value as 'name-asc' | 'name-desc' | 'sector-asc')}
+            onChange={(e) => {
+              setSortOption(e.target.value as 'name-asc' | 'name-desc' | 'sector-asc');
+              setCurrentPage(0);
+            }}
             className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
           >
             <option value="name-asc">Nome (A-Z)</option>
@@ -260,61 +256,89 @@ export default function Users() {
             {searchQuery ? 'Nenhum usuário correspondente à pesquisa.' : 'Nenhum usuário cadastrado.'}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto text-sm">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">E-mail</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Setor</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nível de Acesso</th>
-                  <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Alertas Discord</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredAndSortedUsers.map((currentUser) => (
-                  <tr
-                    key={currentUser.id}
-                    onClick={() => setSelectedUser(currentUser)}
-                    className="cursor-pointer transition-colors hover:bg-orange-50/40"
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-800">{currentUser.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
-                    <td className="px-4 py-3 text-slate-600">{currentUser.sectorName}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          currentUser.role === 'ADMIN'
-                            ? 'bg-red-100 text-red-700'
-                            : currentUser.role === 'TECHNICIAN'
-                              ? 'bg-brand-secondary/40 text-brand-primary-dark'
-                              : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {roleLabels[currentUser.role]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className="inline-flex"
-                        title={
-                          currentUser.receives_it_notifications
-                            ? 'Recebe alertas de chamados e SLA no Discord'
-                            : 'Não recebe alertas de chamados e SLA no Discord'
-                        }
-                      >
-                        {currentUser.receives_it_notifications ? (
-                          <Bell size={16} className="text-brand-primary" />
-                        ) : (
-                          <BellOff size={16} className="text-slate-400" />
-                        )}
-                      </span>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">E-mail</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Setor</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">Nível de Acesso</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Alertas Discord</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAndSortedUsers.map((currentUser) => (
+                    <tr
+                      key={currentUser.id}
+                      onClick={() => setSelectedUser(currentUser)}
+                      className="cursor-pointer transition-colors hover:bg-orange-50/40"
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-800">{currentUser.name}</td>
+                      <td className="px-4 py-3 text-slate-600">{currentUser.email}</td>
+                      <td className="px-4 py-3 text-slate-600">{currentUser.sectorName}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            currentUser.role === 'ADMIN'
+                              ? 'bg-red-100 text-red-700'
+                              : currentUser.role === 'TECHNICIAN'
+                                ? 'bg-brand-secondary/40 text-brand-primary-dark'
+                                : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {roleLabels[currentUser.role]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className="inline-flex"
+                          title={
+                            currentUser.receives_it_notifications
+                              ? 'Recebe alertas de chamados e SLA no Discord'
+                              : 'Não recebe alertas de chamados e SLA no Discord'
+                          }
+                        >
+                          {currentUser.receives_it_notifications ? (
+                            <Bell size={16} className="text-brand-primary" />
+                          ) : (
+                            <BellOff size={16} className="text-slate-400" />
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-6">
+                <p className="text-xs text-slate-500 font-medium">
+                  A mostrar página <span className="font-semibold text-slate-800">{currentPage + 1}</span> de{' '}
+                  <span className="font-semibold text-slate-800">{totalPages}</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                    disabled={currentPage === 0}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                    disabled={currentPage >= totalPages - 1}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Seguinte
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

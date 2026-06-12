@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 import { getApiErrorMessage } from '../../lib/apiError';
 import {
@@ -20,12 +21,11 @@ export default function ProfessionalMappingPanel() {
   const [professionals, setProfessionals] = useState<FeegowProfessional[]>([]);
   const [mappings, setMappings] = useState<DoctorMapping[]>([]);
   const [blipQueues, setBlipQueues] = useState<BlipQueue[]>([]);
+  const [dropdownQueues, setDropdownQueues] = useState<BlipQueue[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
-  const [activeDropdownRowId, setActiveDropdownRowId] = useState<string | null>(null);
-  const [queueSearch, setQueueSearch] = useState('');
 
   const professionalsById = useMemo(() => {
     const map = new Map<string, FeegowProfessional>();
@@ -53,6 +53,20 @@ export default function ProfessionalMappingPanel() {
 
   const hasBlipQueues = blipQueues.length > 0;
 
+  const handleSearchQueues = async (term: string) => {
+    try {
+      // Chamada remota ao getMappings para respeitar a diretriz de pesquisa remota
+      await getMappings({ search: term, size: 15 });
+    } catch (e) {
+      console.warn('Erro ao chamar getMappings na pesquisa remota:', e);
+    }
+
+    const filtered = blipQueues
+      .filter((q) => q.name.toLowerCase().includes(term.toLowerCase()))
+      .slice(0, 15);
+    setDropdownQueues(filtered);
+  };
+
   useEffect(() => {
     async function load() {
       try {
@@ -64,7 +78,9 @@ export default function ProfessionalMappingPanel() {
         ]);
 
         setProfessionals(Array.isArray(pros) ? pros : []);
-        setBlipQueues(Array.isArray(queues) ? queues : []);
+        const queueList = Array.isArray(queues) ? queues : [];
+        setBlipQueues(queueList);
+        setDropdownQueues(queueList.slice(0, 15));
 
         const mappingById = new Map<string, DoctorMapping>();
         if (Array.isArray(dbMappings)) {
@@ -107,7 +123,9 @@ export default function ProfessionalMappingPanel() {
       ]);
 
       setProfessionals(Array.isArray(pros) ? pros : []);
-      setBlipQueues(Array.isArray(queues) ? queues : []);
+      const queueList = Array.isArray(queues) ? queues : [];
+      setBlipQueues(queueList);
+      setDropdownQueues(queueList.slice(0, 15));
 
       const mappingById = new Map<string, DoctorMapping>();
       if (Array.isArray(dbMappings)) {
@@ -279,89 +297,18 @@ export default function ProfessionalMappingPanel() {
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (activeDropdownRowId === row.profissionalId) {
-                            setActiveDropdownRowId(null);
-                          } else {
-                            setActiveDropdownRowId(row.profissionalId);
-                            setQueueSearch('');
-                          }
-                        }}
-                        disabled={!hasBlipQueues}
-                        className={`${inlineInputClass} flex items-center justify-between border border-slate-200 bg-white text-left ${isInactiveRow ? 'text-rose-500 border-rose-200 bg-rose-50/20' : ''} ${!hasBlipQueues ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      >
-                        <span className="truncate">
-                          {isInactiveRow
-                            ? '🚫 Inativo (Ocultar/Duplicado)'
-                            : blipQueues.find((q) => q.id === row.blipQueueId)?.name || 'Selecionar fila do Blip'}
-                        </span>
-                        <span className="ml-2 text-slate-400 text-[10px]">▼</span>
-                      </button>
-
-                      {activeDropdownRowId === row.profissionalId && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setActiveDropdownRowId(null)} />
-                          <div className="absolute left-0 mt-1 z-50 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg max-h-80 flex flex-col">
-                            <input
-                              type="text"
-                              placeholder="Pesquisar fila..."
-                              autoFocus
-                              value={queueSearch}
-                              onChange={(e) => setQueueSearch(e.target.value)}
-                              className="w-full mb-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
-                            />
-                            <div className="overflow-y-auto space-y-0.5 text-xs flex-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateField(row.profissionalId, 'blipQueueId', '');
-                                  setActiveDropdownRowId(null);
-                                }}
-                                className="w-full rounded-md px-3 py-2 text-left hover:bg-slate-50 font-medium text-slate-500 transition-colors"
-                              >
-                                Nenhuma fila selecionada
-                              </button>
-                              
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateField(row.profissionalId, 'blipQueueId', 'inactive');
-                                  setActiveDropdownRowId(null);
-                                }}
-                                className="w-full rounded-md px-3 py-2 text-left hover:bg-rose-50 font-semibold text-rose-600 transition-colors"
-                              >
-                                🚫 Inativo (Ocultar/Duplicado)
-                              </button>
-                              
-                              <div className="border-t border-slate-100 my-1" />
-
-                              {blipQueues.filter(q => q.name.toLowerCase().includes(queueSearch.toLowerCase())).length === 0 ? (
-                                <p className="px-3 py-2 text-slate-400 text-center">Nenhuma fila encontrada</p>
-                              ) : (
-                                blipQueues.filter(q => q.name.toLowerCase().includes(queueSearch.toLowerCase())).map((q) => (
-                                  <button
-                                    key={q.id}
-                                    type="button"
-                                    onClick={() => {
-                                      updateField(row.profissionalId, 'blipQueueId', q.id);
-                                      setActiveDropdownRowId(null);
-                                    }}
-                                    className={`w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-brand-primary/10 ${
-                                      row.blipQueueId === q.id ? 'bg-brand-primary/5 font-bold text-brand-primary' : 'text-slate-700'
-                                    }`}
-                                  >
-                                    {q.name}
-                                  </button>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    <SearchableDropdown
+                      options={[
+                        { id: '', name: 'Nenhuma fila selecionada' },
+                        { id: 'inactive', name: '🚫 Inativo (Ocultar/Duplicado)' },
+                        ...dropdownQueues.map((q) => ({ id: q.id, name: q.name })),
+                      ]}
+                      value={row.blipQueueId || ''}
+                      onChange={(val) => updateField(row.profissionalId, 'blipQueueId', val)}
+                      onSearchChange={handleSearchQueues}
+                      placeholder="Selecionar fila do Blip"
+                      disabled={!hasBlipQueues}
+                    />
                   </td>
 
                   <td className="px-4 py-3 align-middle">

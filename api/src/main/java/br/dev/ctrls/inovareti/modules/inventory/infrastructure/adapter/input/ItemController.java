@@ -43,6 +43,8 @@ import br.dev.ctrls.inovareti.modules.inventory.application.usecase.RegisterStoc
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.FileStorageService;
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.InvoiceFileMetadata;
 import jakarta.validation.Valid;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -63,6 +65,7 @@ public class ItemController {
     private final StockBatchRepositoryPort stockBatchRepository;
     private final StockMovementRepositoryPort stockMovementRepository;
     private final FileStorageService fileStorageService;
+    private final ItemRepositoryPort itemRepository;
 
     /**
      * Retorna todos os itens de inventário, com categoria carregada via JOIN FETCH.
@@ -74,8 +77,20 @@ public class ItemController {
             @RequestParam(defaultValue = "name") String sortField,
             @RequestParam(defaultValue = "ASC") Sort.Direction sortDirection,
             @RequestParam(defaultValue = "false") boolean lowStockOnly,
-            @RequestParam(defaultValue = "0") int page) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String search) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
+        
+        if (search != null && !search.trim().isEmpty()) {
+            java.util.List<Item> items = itemRepository.findTop25ByNameContainingIgnoreCase(search.trim());
+            java.util.List<ItemResponseDTO> dtos = items.stream()
+                    .limit(15)
+                    .map(ItemResponseDTO::from)
+                    .toList();
+            org.springframework.data.domain.Page<ItemResponseDTO> pageResult = new org.springframework.data.domain.PageImpl<>(dtos, pageable, items.size());
+            return ResponseEntity.ok(pageResult);
+        }
+        
         return ResponseEntity.ok(listAllItemsUseCase.execute(sortField, sortDirection, lowStockOnly, pageable));
     }
 

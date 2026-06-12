@@ -9,6 +9,7 @@ export interface GetItemsParams {
   lowStockOnly?: boolean;
   page?: number;
   size?: number;
+  search?: string;
 }
 
 // Busca todos os itens de inventário disponíveis

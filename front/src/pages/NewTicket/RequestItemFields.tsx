@@ -1,14 +1,13 @@
-// Fields for REQUEST tickets with typeahead/autocomplete
-import { useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import type { Item } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
+import { getItems } from '../../services/inventoryService';
 
 interface Props {
   items: Item[];
   // UUID do item selecionado (string) — alinhado com TicketRequestDTO.requestedItemId
   requestedItemId?: string;
   requestedQuantity: number;
-  inputCls: string;
   // Retorna o UUID e o nome do item para permitir geração do título automático
   onItemChange: (id: string | undefined, name: string | undefined) => void;
   onQuantityChange: (q: number) => void;
@@ -16,121 +15,83 @@ interface Props {
 
 const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
 
+/**
+ * Componente encarregue dos campos de solicitação de itens de inventário no ecrã de novo chamado.
+ * Utiliza o componente SearchableDropdown para permitir a pesquisa remota assíncrona de itens da API.
+ */
 export default function RequestItemFields({
-  items, requestedItemId, requestedQuantity, inputCls, onItemChange, onQuantityChange,
+  items, requestedItemId, requestedQuantity, onItemChange, onQuantityChange,
 }: Props) {
-  const [searchTerm, setSearchTerm] = useState(() => {
-    return items.find((i) => i.id === requestedItemId)?.name ?? '';
-  });
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // Estado local para armazenar a lista de itens carregada dinamicamente via pesquisa remota
+  const [localItems, setLocalItems] = useState<Item[]>(items);
 
-  const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Sincroniza o estado local com os itens fornecidos pelo ecrã pai
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
 
-  const handleSelectItem = (item: Item) => {
-    setSearchTerm(item.name);
-    onItemChange(item.id, item.name);
-    setIsDropdownOpen(false);
+  /**
+   * Função para carregar os itens do inventário remotamente com base no termo de pesquisa digitado pelo utilizador.
+   * 
+   * @param searchTerm O termo de pesquisa introduzido pelo utilizador no dropdown.
+   */
+  const handleFetchItemsRemote = async (searchTerm: string) => {
+    try {
+      const response = await getItems({
+        page: 0,
+        size: 15,
+        search: searchTerm,
+      });
+      setLocalItems(response.content);
+    } catch (error) {
+      console.error('Erro ao efetuar pesquisa remota de itens de inventário:', error);
+    }
   };
 
-  const handleSelectOther = () => {
-    setSearchTerm('Outro (Especificar na descrição)');
-    onItemChange('OUTRO', undefined);
-    setIsDropdownOpen(false);
-  };
+  // Mapeia os itens locais para o formato do dropdown de forma a suportar o design unificado,
+  // injetando a opção especial de "Outro" no final da lista.
+  const dropdownOptions = [
+    ...localItems.map((item) => ({
+      id: item.id,
+      name: `${item.name} (Estoque: ${item.currentStock})`,
+    })),
+    { id: 'OUTRO', name: '📝 Outro (Especificar na descrição)' }
+  ];
 
-  const handleClear = () => {
-    setSearchTerm('');
-    onItemChange(undefined, undefined);
-    setIsDropdownOpen(true);
+  const handleDropdownChange = (val: string) => {
+    if (val === 'OUTRO') {
+      onItemChange('OUTRO', undefined);
+    } else {
+      const selectedItem = localItems.find((item) => item.id === val);
+      onItemChange(val, selectedItem?.name);
+    }
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="flex flex-col gap-1.5 relative">
+      {/* Dropdown de Item Solicitado com Pesquisa Remota Assíncrona */}
+      <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Item Solicitado</label>
-        <div className="relative">
-          <div className="relative flex items-center">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Digite para buscar um item..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setIsDropdownOpen(true);
-              }}
-              onFocus={() => setIsDropdownOpen(true)}
-              className={`${inputCls} pl-9 pr-10`}
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                aria-label="Limpar campo"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          {isDropdownOpen && filteredItems.length > 0 && (
-            <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg top-full">
-              {filteredItems.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectItem(item)}
-                    className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark"
-                  >
-                    {item.name}
-                  </button>
-                </li>
-              ))}
-              <li className="border-t border-slate-100" />
-              <li>
-                <button
-                  type="button"
-                  onClick={handleSelectOther}
-                  className="w-full text-left px-4 py-2.5 hover:bg-amber-50 hover:text-amber-700 transition-colors text-sm font-medium text-amber-600"
-                >
-                  📝 Outro (Especificar na descrição)
-                </button>
-              </li>
-            </ul>
-          )}
-          {isDropdownOpen && searchTerm.length > 0 && filteredItems.length === 0 && (
-            <ul className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg top-full">
-              <li className="px-4 py-2.5 text-sm text-slate-500">
-                Nenhum item encontrado
-              </li>
-              <li className="border-t border-slate-100" />
-              <li>
-                <button
-                  type="button"
-                  onClick={handleSelectOther}
-                  className="w-full text-left px-4 py-2.5 hover:bg-amber-50 hover:text-amber-700 transition-colors text-sm font-medium text-amber-600"
-                >
-                  📝 Outro (Especificar na descrição)
-                </button>
-              </li>
-            </ul>
-          )}
-        </div>
+        <SearchableDropdown
+          options={dropdownOptions}
+          value={requestedItemId || ''}
+          onChange={handleDropdownChange}
+          onSearchChange={handleFetchItemsRemote}
+          placeholder="Selecione um item..."
+        />
       </div>
+
+      {/* Quantidade Solicitada */}
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Quantidade</label>
         <input
           type="number"
           min={1}
-          className={inputCls}
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
           value={requestedQuantity}
-          onChange={(e) => onQuantityChange(Math.max(1, Number(e.target.value)))}
+          onChange={(e) => onQuantityChange(Math.max(1, Number(e.target.value) || 1))}
         />
       </div>
     </div>
   );
 }
-
-

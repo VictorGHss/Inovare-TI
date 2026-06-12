@@ -239,7 +239,6 @@ export default function TicketForm({ type, onTypeChange }: Props) {
             items={items}
             requestedItemId={form.requestedItemId}
             requestedQuantity={form.requestedQuantity ?? 1}
-            inputCls={inputCls}
             onItemChange={handleItemChange}
             onQuantityChange={(q) => set('requestedQuantity', q)}
           />

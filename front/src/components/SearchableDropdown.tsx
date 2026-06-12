@@ -12,6 +12,7 @@ interface SearchableDropdownProps {
   options: DropdownOption[];
   value: string;
   onChange: (value: string) => void;
+  onSearchChange?: (searchTerm: string) => void; // Callback opcional para pesquisa remota assíncrona
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -21,10 +22,12 @@ interface SearchableDropdownProps {
  * Componente de dropdown filtrável e pesquisável com design premium.
  * Apresenta as opções ordenadas alfabeticamente de forma estrita e dispõe de uma barra de pesquisa interna rápida.
  * Suporta formatos de opções flexíveis como { id, name } ou { value, label }.
+ * Integra suporte a pesquisa remota assíncrona (onSearchChange) ou filtragem local.
  * 
  * @param options Lista de opções disponíveis para seleção pelo utilizador.
  * @param value O valor atualmente selecionado (id ou value da opção).
  * @param onChange Função chamada quando o utilizador seleciona uma nova opção.
+ * @param onSearchChange Função de retorno (callback) para busca remota à medida que o utilizador escreve.
  * @param placeholder Texto de substituição exibido quando não há seleção.
  * @param className Classes CSS adicionais do ecrã.
  * @param disabled Se o dropdown está desativado.
@@ -33,6 +36,7 @@ export default function SearchableDropdown({
   options,
   value,
   onChange,
+  onSearchChange,
   placeholder = 'Selecione uma opção...',
   className = '',
   disabled = false,
@@ -50,13 +54,26 @@ export default function SearchableDropdown({
     getOptName(a).localeCompare(getOptName(b))
   );
 
-  // Filtra as opções com base no termo de pesquisa introduzido pelo utilizador
-  const filteredOptions = sortedOptions.filter((opt) =>
-    getOptName(opt).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtra as opções localmente apenas se não houver um callback de pesquisa remota
+  const filteredOptions = onSearchChange
+    ? sortedOptions
+    : sortedOptions.filter((opt) =>
+        getOptName(opt).toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
   // Obtém a opção atualmente selecionada
   const selectedOption = options.find((opt) => getOptId(opt) === value);
+
+  // Efeito de debounce para pesquisa remota assíncrona
+  useEffect(() => {
+    if (!onSearchChange) return;
+
+    const delayDebounceFn = setTimeout(() => {
+      onSearchChange(searchTerm);
+    }, 300); // 300ms de debounce para evitar chamadas excessivas à API
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, onSearchChange]);
 
   // Fecha o dropdown quando o utilizador clica fora do componente
   useEffect(() => {

@@ -8,6 +8,10 @@ import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
 
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
+import java.math.BigDecimal;
 
 
 import java.util.ArrayList;
@@ -38,6 +42,8 @@ public class AssetService {
     private final AssetCategoryRepositoryPort assetCategoryRepository;
     private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
+    private final FinancialTransactionRepository financialTransactionRepository;
+    private final FinancialLinkRepository financialLinkRepository;
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
@@ -92,15 +98,52 @@ public class AssetService {
             // Popula a coleção de usuários com os usuários associados
             Set<User> usuariosParaAtivo = new HashSet<>(usuarios);
 
+            BigDecimal totalValue = BigDecimal.ZERO;
+            if (request.installments() != null && !request.installments().isEmpty()) {
+                for (var inst : request.installments()) {
+                    totalValue = totalValue.add(inst.amount());
+                }
+            }
+
             Asset asset = Asset.builder()
                     .users(usuariosParaAtivo)
                     .name(request.name().trim())
                     .patrimonyCode(patrimonyCode)
                     .category(category)
                     .specifications(request.specifications())
+                    .isNewAcquisition(request.isNewAcquisition())
+                    .acquisitionValue(totalValue.compareTo(BigDecimal.ZERO) > 0 ? totalValue : null)
                     .build();
 
             Asset savedAsset = assetRepository.save(asset);
+
+            // Se for uma nova aquisição com valor maior que zero, lança a transação financeira de saída contábil
+            if (savedAsset.isNewAcquisition() && totalValue.compareTo(BigDecimal.ZERO) > 0) {
+                FinancialTransaction.TargetType targetType = null;
+                java.util.UUID targetId = null;
+
+                if (savedAsset.getUsers() != null && !savedAsset.getUsers().isEmpty()) {
+                    User user = savedAsset.getUsers().iterator().next();
+                    if (user.getContaAzulId() != null && financialLinkRepository.findByContaAzulCustomerId(user.getContaAzulId()).isPresent()) {
+                        targetType = FinancialTransaction.TargetType.DOCTOR;
+                        targetId = user.getId();
+                    } else if (user.getSector() != null) {
+                        targetType = FinancialTransaction.TargetType.SECTOR;
+                        targetId = user.getSector().getId();
+                    }
+                }
+
+                if (targetId != null) {
+                    FinancialTransaction tx = FinancialTransaction.builder()
+                            .targetType(targetType)
+                            .targetId(targetId)
+                            .resourceType(FinancialTransaction.ResourceType.ASSET)
+                            .amount(totalValue)
+                            .build();
+                    financialTransactionRepository.save(tx);
+                }
+            }
+
             auditLogService.publish(AuditEvent.of(AuditAction.ASSET_CREATE)
                         .resourceType("Asset")
                         .resourceId(savedAsset.getId())
@@ -151,6 +194,7 @@ public class AssetService {
         asset.setPatrimonyCode(request.patrimonyCode().trim());
         asset.setCategory(category);
         asset.setSpecifications(request.specifications());
+        asset.setNewAcquisition(request.isNewAcquisition());
 
         return assetRepository.save(asset);
     }

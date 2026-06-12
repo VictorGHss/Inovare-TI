@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { createAsset, updateAsset, uploadAssetInvoice } from '../../../services/inventoryService';
@@ -35,8 +35,6 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
   });
 
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [userSearch, setUserSearch] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
   
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +43,7 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
   const [numInstallments, setNumInstallments] = useState(2);
   const [installments, setInstallments] = useState<{ dueDate: string; amount: string }[]>([]);
   const [totalValue, setTotalValue] = useState('');
+  const [isNewAcquisition, setIsNewAcquisition] = useState(true);
 
   // Calcula parcelas automaticamente ao alterar dados do financiamento
   useEffect(() => {
@@ -91,6 +90,7 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
         });
         const ids = assetToEdit.userIds || (assetToEdit.userId ? [assetToEdit.userId] : []);
         setSelectedUserIds(ids);
+        setIsNewAcquisition(assetToEdit.isNewAcquisition ?? false);
       } else {
         setFormData({
           name: '',
@@ -100,10 +100,9 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
           quantity: 1,
         });
         setSelectedUserIds([]);
+        setIsNewAcquisition(true);
       }
       setSelectedInvoiceFile(null);
-      setUserSearch('');
-      setShowDropdown(false);
       setIsInstallment(false);
       setNumInstallments(2);
       setInstallments([]);
@@ -115,12 +114,11 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
     setFormData({ name: '', patrimonyCode: '', categoryId: '', specifications: '', quantity: 1 });
     setSelectedUserIds([]);
     setSelectedInvoiceFile(null);
-    setUserSearch('');
-    setShowDropdown(false);
     setIsInstallment(false);
     setNumInstallments(2);
     setInstallments([]);
     setTotalValue('');
+    setIsNewAcquisition(true);
   }
 
   function handleClose() {
@@ -159,12 +157,20 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
         categoryId: formData.categoryId || undefined,
         specifications: formData.specifications?.trim() || undefined,
         quantity: formData.quantity && formData.quantity > 0 ? formData.quantity : 1,
+        isNewAcquisition: isNewAcquisition,
         installments: isInstallment
           ? installments.map((inst) => ({
               dueDate: inst.dueDate,
               amount: parseFloat(inst.amount) || 0,
             }))
-          : undefined,
+          : totalValue && parseFloat(totalValue) > 0
+            ? [
+                {
+                  dueDate: new Date().toISOString().split('T')[0],
+                  amount: parseFloat(totalValue) || 0,
+                },
+              ]
+            : undefined,
       };
 
       if (assetToEdit) {
@@ -189,27 +195,10 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
     }
   }
 
-  const filteredUsers = users
-    .filter((u) => {
-      const query = userSearch.toLowerCase().trim();
-      if (selectedUserIds.includes(u.id)) return false;
-      if (!query) return true;
-      return (
-        u.name.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
-        (u.sectorName && u.sectorName.toLowerCase().includes(query))
-      );
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      {showDropdown && (
-        <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
-      )}
-      
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto z-20">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-800">
@@ -288,9 +277,18 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
           <div className="flex flex-col gap-1.5 relative">
             <label className="text-sm font-medium text-slate-700">Colaboradores Vinculados</label>
             
+            <SearchableDropdown
+              isMulti
+              selectedValues={selectedUserIds}
+              onMultiChange={setSelectedUserIds}
+              options={users.map((u) => ({ id: u.id, name: u.name }))}
+              placeholder="Deixar no estoque (TI) / Vincular colaboradores..."
+              disabled={submitting}
+            />
+
             {/* Visualização de Chips dos usuários selecionados */}
             {selectedUserIds.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl mb-1">
+              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl mt-2">
                 {selectedUserIds.map((id) => {
                   const u = users.find((user) => user.id === id);
                   const fallbackName = `Usuário ${id.slice(0, 8).toUpperCase()}`;
@@ -310,59 +308,6 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
                     </span>
                   );
                 })}
-              </div>
-            )}
-
-            {/* Input de Busca */}
-            <div className="relative z-20">
-              <input
-                type="text"
-                value={userSearch}
-                onFocus={() => setShowDropdown(true)}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder={
-                  selectedUserIds.length > 0
-                    ? 'Pesquisar para adicionar mais colaboradores...'
-                    : 'Deixar no estoque (TI) / Vincular colaboradores...'
-                }
-                className={`${inputClassName} pl-10`}
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <Search size={16} />
-              </div>
-            </div>
-
-            {/* Dropdown com os usuários filtrados */}
-            {showDropdown && (
-              <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-30 divide-y divide-slate-50">
-                {filteredUsers.length === 0 ? (
-                  <div className="p-3.5 text-sm text-slate-400 text-center">
-                    Nenhum colaborador disponível encontrado
-                  </div>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedUserIds((prev) => [...prev, u.id]);
-                        setUserSearch('');
-                        setShowDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-orange-50/50 text-sm text-slate-700 flex items-center justify-between transition-colors"
-                    >
-                      <div>
-                        <div className="font-semibold text-slate-800">{u.name}</div>
-                        <div className="text-xs text-slate-400">{u.email}</div>
-                      </div>
-                      {u.sectorName && (
-                        <span className="text-xs font-semibold bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5">
-                          {u.sectorName}
-                        </span>
-                      )}
-                    </button>
-                  ))
-                )}
               </div>
             )}
           </div>
@@ -406,6 +351,21 @@ export default function NewAssetModal({ isOpen, onClose, users, categories, onCr
 
           {!assetToEdit && (
             <>
+              {/* Considerar como nova aquisição? */}
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  id="isNewAcquisition"
+                  checked={isNewAcquisition}
+                  onChange={(e) => setIsNewAcquisition(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                  disabled={submitting}
+                />
+                <label htmlFor="isNewAcquisition" className="cursor-pointer text-sm font-semibold text-slate-700">
+                  Considerar como nova aquisição (Exibir no Relatório de Saídas)
+                </label>
+              </div>
+
               {/* Valor de Aquisição */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-slate-700">Valor Total de Aquisição (R$)</label>

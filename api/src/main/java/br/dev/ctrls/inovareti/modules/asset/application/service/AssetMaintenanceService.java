@@ -20,6 +20,9 @@ import org.springframework.stereotype.Service;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceRequestDTO;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetMaintenanceResponseDTO;
+import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
+import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +33,8 @@ public class AssetMaintenanceService {
 
     private final AssetMaintenanceRepositoryPort maintenanceRepository;
     private final AssetRepositoryPort assetRepository;
+    private final FinancialTransactionRepository financialTransactionRepository;
+    private final FinancialLinkRepository financialLinkRepository;
 
     public AssetMaintenanceResponseDTO create(UUID assetId, AssetMaintenanceRequestDTO request, User technician) {
         Asset asset = assetRepository.findById(assetId)
@@ -45,6 +50,40 @@ public class AssetMaintenanceService {
                 .build();
 
         AssetMaintenance savedMaintenance = maintenanceRepository.save(maintenance);
+
+        // Se a manutenção tiver custo maior que zero, lança o débito financeiro correspondente
+        if (request.cost() != null && request.cost().compareTo(BigDecimal.ZERO) > 0) {
+            FinancialTransaction.TargetType targetType = null;
+            UUID targetId = null;
+
+            if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {
+                User user = asset.getUsers().iterator().next();
+                if (user.getContaAzulId() != null && financialLinkRepository.findByContaAzulCustomerId(user.getContaAzulId()).isPresent()) {
+                    targetType = FinancialTransaction.TargetType.DOCTOR;
+                    targetId = user.getId();
+                } else if (user.getSector() != null) {
+                    targetType = FinancialTransaction.TargetType.SECTOR;
+                    targetId = user.getSector().getId();
+                }
+            }
+
+            // Fallback: se o ativo não tiver colaboradores ou se o colaborador não tiver setor associado, usa o setor do técnico
+            if (targetId == null && technician != null && technician.getSector() != null) {
+                targetType = FinancialTransaction.TargetType.SECTOR;
+                targetId = technician.getSector().getId();
+            }
+
+            if (targetId != null) {
+                FinancialTransaction tx = FinancialTransaction.builder()
+                        .targetType(targetType)
+                        .targetId(targetId)
+                        .resourceType(FinancialTransaction.ResourceType.ASSET)
+                        .amount(request.cost())
+                        .build();
+                financialTransactionRepository.save(tx);
+            }
+        }
+
         return AssetMaintenanceResponseDTO.from(savedMaintenance);
     }
 

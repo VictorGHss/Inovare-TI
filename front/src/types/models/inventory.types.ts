@@ -37,6 +37,7 @@ export interface Asset {
   invoiceFileName?: string;
   invoiceContentType?: string;
   invoiceFilePath?: string;
+  isNewAcquisition?: boolean;
 }
 
 export type AssetFilterStatus = 'ALL' | 'IN_USE' | 'IN_STOCK';
@@ -62,6 +63,7 @@ export interface CreateAssetDto {
     dueDate: string;
     amount: number;
   }[];
+  isNewAcquisition?: boolean;
 }
 
 export interface StockMovement {

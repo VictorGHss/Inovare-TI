@@ -92,6 +92,11 @@ public class Asset {
     @Builder.Default
     private boolean isCritical = false;
 
+    /** Indica se este equipamento foi adquirido recentemente, devendo aparecer no relatório de saídas. */
+    @Column(name = "is_new_acquisition", nullable = false)
+    @Builder.Default
+    private boolean isNewAcquisition = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

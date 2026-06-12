@@ -10,13 +10,16 @@ interface DropdownOption {
 
 interface SearchableDropdownProps {
   options: DropdownOption[];
-  value: string;
-  onChange: (value: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
   onSearchChange?: (searchTerm: string) => void; // Callback opcional para pesquisa remota assíncrona
   placeholder?: string;
   className?: string;
   disabled?: boolean;
   onAddNewClick?: (searchTerm: string) => void; // Permite cadastrar uma nova opção remotamente ou localmente
+  isMulti?: boolean;
+  selectedValues?: string[];
+  onMultiChange?: (values: string[]) => void;
 }
 
 /**
@@ -43,6 +46,9 @@ export default function SearchableDropdown({
   className = '',
   disabled = false,
   onAddNewClick,
+  isMulti = false,
+  selectedValues = [],
+  onMultiChange,
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,7 +71,7 @@ export default function SearchableDropdown({
       );
 
   // Obtém a opção atualmente selecionada
-  const selectedOption = options.find((opt) => getOptId(opt) === value);
+  const selectedOption = value ? options.find((opt) => getOptId(opt) === value) : undefined;
 
   // Efeito de debounce para pesquisa remota assíncrona
   useEffect(() => {
@@ -97,8 +103,16 @@ export default function SearchableDropdown({
   }, [isOpen]);
 
   const handleSelect = (id: string) => {
-    onChange(id);
-    setIsOpen(false);
+    if (isMulti && onMultiChange && selectedValues) {
+      const isAlreadySelected = selectedValues.includes(id);
+      const newValues = isAlreadySelected
+        ? selectedValues.filter((v) => v !== id)
+        : [...selectedValues, id];
+      onMultiChange(newValues);
+    } else if (onChange) {
+      onChange(id);
+      setIsOpen(false);
+    }
   };
 
   return (
@@ -109,8 +123,22 @@ export default function SearchableDropdown({
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition disabled:opacity-60 disabled:cursor-not-allowed text-left font-medium"
       >
-        <span className={selectedOption ? 'text-slate-800' : 'text-slate-400'}>
-          {selectedOption ? getOptName(selectedOption) : placeholder}
+        <span className={(selectedOption || (isMulti && selectedValues && selectedValues.length > 0)) ? 'text-slate-800' : 'text-slate-400'}>
+          {isMulti && selectedValues ? (
+            selectedValues.length === 0
+              ? placeholder
+              : selectedValues
+                  .map((val) => {
+                    const opt = options.find((o) => getOptId(o) === val);
+                    return opt ? getOptName(opt) : '';
+                  })
+                  .filter(Boolean)
+                  .join(', ')
+          ) : selectedOption ? (
+            getOptName(selectedOption)
+          ) : (
+            placeholder
+          )}
         </span>
         <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -155,7 +183,9 @@ export default function SearchableDropdown({
                       type="button"
                       onClick={() => handleSelect(optId)}
                       className={`w-full text-left px-4 py-2.5 text-xs transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark ${
-                        optId === value ? 'bg-brand-secondary/20 text-brand-primary-dark font-semibold' : 'text-slate-700'
+                        (isMulti && selectedValues ? selectedValues.includes(optId) : optId === value)
+                          ? 'bg-brand-secondary/20 text-brand-primary-dark font-semibold'
+                          : 'text-slate-700'
                       }`}
                     >
                       {optName}

@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.audit;
+package br.dev.ctrls.inovareti.modules.audit.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

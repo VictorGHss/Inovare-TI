@@ -5,9 +5,9 @@ import io.micrometer.observation.annotation.Observed;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Component;
 
-import br.dev.ctrls.inovareti.domain.audit.AuditAction;
-import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
-import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
+import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthRequestDTO;
 import br.dev.ctrls.inovareti.modules.auth.application.dto.AuthResponseDTO;
 import br.dev.ctrls.inovareti.modules.auth.domain.port.output.AuthenticatorPort;

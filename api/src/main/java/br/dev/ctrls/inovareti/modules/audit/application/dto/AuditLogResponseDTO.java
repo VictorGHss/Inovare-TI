@@ -1,10 +1,10 @@
-package br.dev.ctrls.inovareti.domain.audit.dto;
+package br.dev.ctrls.inovareti.modules.audit.application.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.domain.audit.AuditAction;
-import br.dev.ctrls.inovareti.domain.audit.AuditLog;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditLog;
 
 public record AuditLogResponseDTO(
         UUID id,

@@ -1,8 +1,10 @@
-package br.dev.ctrls.inovareti.domain.audit;
+package br.dev.ctrls.inovareti.modules.audit.application.service;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.Builder;
 import org.springframework.data.jpa.domain.Specification;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditLog;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;

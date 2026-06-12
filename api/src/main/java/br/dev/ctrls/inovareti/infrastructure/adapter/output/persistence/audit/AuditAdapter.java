@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
-import br.dev.ctrls.inovareti.domain.audit.AuditAction;
-import br.dev.ctrls.inovareti.domain.audit.AuditLog;
-import br.dev.ctrls.inovareti.domain.audit.AuditLogRepository;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditLog;
+import br.dev.ctrls.inovareti.modules.audit.domain.port.output.AuditLogRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,7 +21,7 @@ public class AuditAdapter implements AuditPort {
     private static final String TRACE_ID_KEY = "traceId";
     private static final String TRACE_ID_FALLBACK_KEY = "trace_id";
 
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogRepositoryPort auditLogRepository;
 
     @Override
     public void record(String module, String action, String details, String traceId) {

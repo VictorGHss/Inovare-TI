@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.audit;
+package br.dev.ctrls.inovareti.modules.audit.infrastructure.adapter.output;
 
 import java.time.LocalDateTime;
 
@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditLog;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
+import br.dev.ctrls.inovareti.modules.audit.domain.port.output.AuditLogRepositoryPort;
 
 /**
  * Listener assíncrono que persiste registros de auditoria sem bloquear a transação principal.
@@ -19,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuditEventListener {
 
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogRepositoryPort auditLogRepository;
 
     @Async
     @EventListener

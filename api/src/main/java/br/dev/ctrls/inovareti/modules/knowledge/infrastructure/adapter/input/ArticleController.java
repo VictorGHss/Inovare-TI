@@ -20,9 +20,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.domain.audit.AuditAction;
-import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
-import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
+import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article;
 import br.dev.ctrls.inovareti.modules.knowledge.domain.model.ArticleStatus;
 import br.dev.ctrls.inovareti.modules.knowledge.domain.port.output.ArticleRepositoryPort;

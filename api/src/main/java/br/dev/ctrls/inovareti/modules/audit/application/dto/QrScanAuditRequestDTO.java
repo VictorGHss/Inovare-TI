@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.audit.dto;
+package br.dev.ctrls.inovareti.modules.audit.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

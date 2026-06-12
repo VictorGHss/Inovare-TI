@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.domain.audit.AuditAction;
-import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
-import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
+import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;

@@ -1,10 +1,10 @@
-package br.dev.ctrls.inovareti.domain.knowledge.dto;
+package br.dev.ctrls.inovareti.modules.knowledge.application.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import br.dev.ctrls.inovareti.domain.knowledge.Article;
-import br.dev.ctrls.inovareti.domain.knowledge.ArticleStatus;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.ArticleStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

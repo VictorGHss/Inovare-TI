@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.knowledge;
+package br.dev.ctrls.inovareti.modules.knowledge.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

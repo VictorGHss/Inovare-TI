@@ -1,6 +1,6 @@
-package br.dev.ctrls.inovareti.domain.knowledge.dto;
+package br.dev.ctrls.inovareti.modules.knowledge.application.dto;
 
-import br.dev.ctrls.inovareti.domain.knowledge.ArticleStatus;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.ArticleStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

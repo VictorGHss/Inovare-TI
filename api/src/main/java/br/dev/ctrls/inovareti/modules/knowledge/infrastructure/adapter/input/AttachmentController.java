@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.knowledge;
+package br.dev.ctrls.inovareti.modules.knowledge.infrastructure.adapter.input;
 
 import java.io.IOException;
 
@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import br.dev.ctrls.inovareti.domain.knowledge.dto.AttachmentResponseDTO;
+import br.dev.ctrls.inovareti.modules.knowledge.application.dto.AttachmentResponseDTO;
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

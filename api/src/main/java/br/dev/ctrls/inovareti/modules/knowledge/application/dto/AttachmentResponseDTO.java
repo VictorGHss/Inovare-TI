@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.knowledge.dto;
+package br.dev.ctrls.inovareti.modules.knowledge.application.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

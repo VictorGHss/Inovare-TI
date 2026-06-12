@@ -20,8 +20,8 @@ import br.dev.ctrls.inovareti.modules.notification.domain.port.output.FaqTiRepos
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import br.dev.ctrls.inovareti.domain.knowledge.Article;
-import br.dev.ctrls.inovareti.domain.knowledge.ArticleRepository;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.port.output.ArticleRepositoryPort;
 
 /**
  * Serviço de comando do Discord responsável pela lógica de negócios e transações
@@ -36,7 +36,7 @@ public class DiscordCommandService {
     private final TicketRepositoryPort ticketRepository;
     private final FaqTiRepositoryPort faqTiRepository;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
-    private final ArticleRepository articleRepository;
+    private final ArticleRepositoryPort articleRepository;
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;

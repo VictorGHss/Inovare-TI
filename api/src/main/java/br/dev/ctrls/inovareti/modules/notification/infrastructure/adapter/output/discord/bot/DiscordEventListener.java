@@ -321,7 +321,7 @@ public class DiscordEventListener extends ListenerAdapter {
                 embedBuilder.setDescription("Resultados da busca para: *" + busca + "*\n\n");
 
                 if (resultados.isEmpty()) {
-                    List<br.dev.ctrls.inovareti.domain.knowledge.Article> artigos = discordCommandService.buscarArtigos(busca);
+                    List<br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article> artigos = discordCommandService.buscarArtigos(busca);
                     if (artigos.isEmpty()) {
                         String descricaoSemResultados = """
                                 ❌ Nenhuma dúvida correspondente encontrada no FAQ local.
@@ -333,7 +333,7 @@ public class DiscordEventListener extends ListenerAdapter {
                     } else {
                         embedBuilder.appendDescription("💡 Não encontrei uma resposta direta no FAQ rápido, mas achei estes artigos na Base de Conhecimento que podem te ajudar:\n\n");
                         String baseLink = discordCommandService.getFrontendUrl();
-                        for (br.dev.ctrls.inovareti.domain.knowledge.Article artigo : artigos) {
+                        for (br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article artigo : artigos) {
                             String link = baseLink + "/articles/" + artigo.getId();
                             embedBuilder.appendDescription(java.util.Objects.requireNonNull(String.format("• **[%s](%s)** (ID: `%s`)\n", artigo.getTitle(), link, artigo.getId())));
                         }

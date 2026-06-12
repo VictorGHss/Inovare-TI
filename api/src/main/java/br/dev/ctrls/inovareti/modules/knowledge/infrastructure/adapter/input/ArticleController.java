@@ -1,4 +1,4 @@
-package br.dev.ctrls.inovareti.domain.knowledge;
+package br.dev.ctrls.inovareti.modules.knowledge.infrastructure.adapter.input;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,9 +23,12 @@ import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundExcepti
 import br.dev.ctrls.inovareti.domain.audit.AuditAction;
 import br.dev.ctrls.inovareti.domain.audit.AuditEvent;
 import br.dev.ctrls.inovareti.domain.audit.AuditLogService;
-import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleRequestDTO;
-import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleResponseDTO;
-import br.dev.ctrls.inovareti.domain.knowledge.dto.ArticleSearchResultDTO;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.Article;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.model.ArticleStatus;
+import br.dev.ctrls.inovareti.modules.knowledge.domain.port.output.ArticleRepositoryPort;
+import br.dev.ctrls.inovareti.modules.knowledge.application.dto.ArticleRequestDTO;
+import br.dev.ctrls.inovareti.modules.knowledge.application.dto.ArticleResponseDTO;
+import br.dev.ctrls.inovareti.modules.knowledge.application.dto.ArticleSearchResultDTO;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;
@@ -42,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ArticleController {
 
-    private final ArticleRepository articleRepository;
+    private final ArticleRepositoryPort articleRepository;
     private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
 

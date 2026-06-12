@@ -287,7 +287,6 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       {type === 'INCIDENT' && (
       <PriorityCategoryFields
         priority={form.priority} categoryId={form.categoryId} categories={categories}
-        inputCls={inputCls}
         onPriorityChange={(v) => set('priority', v)}
         onCategoryChange={(id) => set('categoryId', id)}
       />

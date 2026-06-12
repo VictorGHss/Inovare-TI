@@ -1,5 +1,5 @@
 // Modal para registrar entrada de lote de estoque
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { addBatch, uploadBatchInvoice } from '../../services/inventoryService';
@@ -30,9 +30,6 @@ export default function AddBatchModal({
   const [submitting, setSubmitting] = useState(false);
   const [selectedInvoiceFile, setSelectedInvoiceFile] = useState<File | null>(null);
   const invoiceInputId = 'batch-invoice-input';
-
-  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
-  const supplierRef = useRef<HTMLDivElement>(null);
   
   const defaultSuppliers = [
     'Amazon',
@@ -45,21 +42,11 @@ export default function AddBatchModal({
     'Mercado Livre',
   ];
 
-  // Fechar o dropdown de fornecedores quando o utilizador clica fora
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (supplierRef.current && !supplierRef.current.contains(event.target as Node)) {
-        setShowSupplierDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Ordena e filtra os fornecedores alfabeticamente de forma estrita
-  const filteredSuppliers = defaultSuppliers
-    .filter((sup) => sup.toLowerCase().includes(supplier.toLowerCase()))
-    .sort((a, b) => a.localeCompare(b));
+  // Mapeia os fornecedores padrão para o formato aceito pelo SearchableDropdown
+  const supplierOptions = defaultSuppliers.map((sup) => ({
+    id: sup,
+    name: sup,
+  }));
 
   // Mapeia os itens para o formato do dropdown contendo a informação do stock
   const itemOptions = items.map((item) => ({
@@ -196,49 +183,17 @@ export default function AddBatchModal({
             />
           </div>
 
-          {/* Fornecedor (dropdown com sugestões filtradas e ordenadas) */}
-          <div className="flex flex-col gap-1.5 relative" ref={supplierRef}>
+          {/* Fornecedor (dropdown pesquisável e ordenado alfabeticamente) */}
+          <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-700">
               Fornecedor
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition"
-                value={supplier}
-                onChange={(e) => {
-                  setSupplier(e.target.value);
-                  setShowSupplierDropdown(true);
-                }}
-                onFocus={() => setShowSupplierDropdown(true)}
-                placeholder="Ex: Kabum, Amazon, Kalunga"
-                maxLength={150}
-              />
-              {showSupplierDropdown && (
-                <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg top-full left-0 divide-y divide-slate-50">
-                  {filteredSuppliers.length === 0 ? (
-                    <li className="px-4 py-2.5 text-xs text-slate-400 text-center">
-                      Nenhum fornecedor pré-definido encontrado (pode digitar livremente)
-                    </li>
-                  ) : (
-                    filteredSuppliers.map((sup) => (
-                      <li key={sup}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSupplier(sup);
-                            setShowSupplierDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-slate-700 transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark"
-                        >
-                          {sup}
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
+            <SearchableDropdown
+              options={supplierOptions}
+              value={supplier}
+              onChange={(val) => setSupplier(val)}
+              placeholder="Selecione um fornecedor..."
+            />
           </div>
 
           {/* Motivo da Compra */}

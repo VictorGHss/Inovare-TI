@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, ChevronDown, X } from 'lucide-react';
 
 interface DropdownOption {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
+  value?: string;
+  label?: string;
 }
 
 interface SearchableDropdownProps {
@@ -18,9 +20,10 @@ interface SearchableDropdownProps {
 /**
  * Componente de dropdown filtrável e pesquisável com design premium.
  * Apresenta as opções ordenadas alfabeticamente de forma estrita e dispõe de uma barra de pesquisa interna rápida.
+ * Suporta formatos de opções flexíveis como { id, name } ou { value, label }.
  * 
  * @param options Lista de opções disponíveis para seleção pelo utilizador.
- * @param value O valor atualmente selecionado (id da opção).
+ * @param value O valor atualmente selecionado (id ou value da opção).
  * @param onChange Função chamada quando o utilizador seleciona uma nova opção.
  * @param placeholder Texto de substituição exibido quando não há seleção.
  * @param className Classes CSS adicionais do ecrã.
@@ -38,16 +41,22 @@ export default function SearchableDropdown({
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Ordena as opções alfabeticamente de forma estrita pelo nome
-  const sortedOptions = [...options].sort((a, b) => a.name.localeCompare(b.name));
+  // Funções utilitárias para normalizar as chaves e nomes das opções
+  const getOptId = (opt: DropdownOption): string => opt.id ?? opt.value ?? '';
+  const getOptName = (opt: DropdownOption): string => opt.name ?? opt.label ?? '';
+
+  // Ordena as opções alfabeticamente de forma estrita pelo nome normalizado
+  const sortedOptions = [...options].sort((a, b) =>
+    getOptName(a).localeCompare(getOptName(b))
+  );
 
   // Filtra as opções com base no termo de pesquisa introduzido pelo utilizador
   const filteredOptions = sortedOptions.filter((opt) =>
-    opt.name.toLowerCase().includes(searchTerm.toLowerCase())
+    getOptName(opt).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Obtém a opção atualmente selecionada
-  const selectedOption = options.find((opt) => opt.id === value);
+  const selectedOption = options.find((opt) => getOptId(opt) === value);
 
   // Fecha o dropdown quando o utilizador clica fora do componente
   useEffect(() => {
@@ -81,7 +90,7 @@ export default function SearchableDropdown({
         className="w-full flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition disabled:opacity-60 disabled:cursor-not-allowed text-left font-medium"
       >
         <span className={selectedOption ? 'text-slate-800' : 'text-slate-400'}>
-          {selectedOption ? selectedOption.name : placeholder}
+          {selectedOption ? getOptName(selectedOption) : placeholder}
         </span>
         <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -117,19 +126,23 @@ export default function SearchableDropdown({
                 Nenhuma opção encontrada
               </li>
             ) : (
-              filteredOptions.map((opt) => (
-                <li key={opt.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(opt.id)}
-                    className={`w-full text-left px-4 py-2.5 text-xs transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark ${
-                      opt.id === value ? 'bg-brand-secondary/20 text-brand-primary-dark font-semibold' : 'text-slate-700'
-                    }`}
-                  >
-                    {opt.name}
-                  </button>
-                </li>
-              ))
+              filteredOptions.map((opt) => {
+                const optId = getOptId(opt);
+                const optName = getOptName(opt);
+                return (
+                  <li key={optId}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(optId)}
+                      className={`w-full text-left px-4 py-2.5 text-xs transition-colors hover:bg-brand-secondary/30 hover:text-brand-primary-dark ${
+                        optId === value ? 'bg-brand-secondary/20 text-brand-primary-dark font-semibold' : 'text-slate-700'
+                      }`}
+                    >
+                      {optName}
+                    </button>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>

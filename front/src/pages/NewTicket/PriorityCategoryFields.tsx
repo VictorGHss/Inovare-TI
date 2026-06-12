@@ -7,7 +7,6 @@ interface Props {
   // categoryId é o UUID (string) alinhado com o backend
   categoryId: string;
   categories: TicketCategory[];
-  inputCls: string;
   onPriorityChange: (v: CreateTicketDto['priority']) => void;
   onCategoryChange: (id: string) => void;
 }
@@ -26,17 +25,19 @@ const labelCls = 'text-xs font-bold uppercase tracking-widest text-slate-400';
  * Utiliza o dropdown premium pesquisável para a seleção de categorias.
  */
 export default function PriorityCategoryFields({
-  priority, categoryId, categories, inputCls, onPriorityChange, onCategoryChange,
+  priority, categoryId, categories, onPriorityChange, onCategoryChange,
 }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* Dropdown de Prioridade (Simples e estático) */}
+      {/* Dropdown de Prioridade (Filtrável e pesquisável com design premium) */}
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Prioridade</label>
-        <select className={inputCls} value={priority}
-          onChange={(e) => onPriorityChange(e.target.value as CreateTicketDto['priority'])}>
-          {priorities.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-        </select>
+        <SearchableDropdown
+          options={priorities}
+          value={priority}
+          onChange={(val) => onPriorityChange(val as CreateTicketDto['priority'])}
+          placeholder="Selecione uma prioridade..."
+        />
       </div>
 
       {/* Dropdown de Categoria (Filtrável, ordenado alfabeticamente e pesquisável) */}

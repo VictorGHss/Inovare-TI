@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { toast } from 'react-toastify';
+import { ProblemDetail } from '../lib/apiError';
 
 // Use exatamente o valor fornecido via VITE_API_URL como baseURL.
 // A variável de ambiente deve conter o sufixo '/api' (ex: http://localhost:8085/api).
@@ -33,10 +35,32 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('@InovareTI:token');
-      localStorage.removeItem('@InovareTI:user');
-      window.location.href = '/login';
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data as ProblemDetail | undefined;
+
+      if (status === 401) {
+        localStorage.removeItem('@InovareTI:token');
+        localStorage.removeItem('@InovareTI:user');
+        window.location.href = '/login';
+      }
+
+      // Exibe a mensagem de validação contida no campo 'detail' se o erro for 400 ou 409
+      if ((status === 400 || status === 409) && data?.detail) {
+        toast.error(data.detail);
+      }
+
+      // Adiciona logs de depuração e alertas amigáveis caso o traceId de auditoria esteja presente
+      if (data?.traceId) {
+        console.warn(`[Auditoria Inovare-TI] Erro na requisição. Trace ID: ${data.traceId}`);
+        
+        // Em caso de falha inesperada (como erros de servidor 5xx), notifica visualmente com o traceId
+        if (status >= 500) {
+          toast.error(`Falha inesperada no servidor. Por favor, informe o ID de suporte para auditoria: ${data.traceId}`, {
+            autoClose: 10000,
+          });
+        }
+      }
     }
     return Promise.reject(error);
   },

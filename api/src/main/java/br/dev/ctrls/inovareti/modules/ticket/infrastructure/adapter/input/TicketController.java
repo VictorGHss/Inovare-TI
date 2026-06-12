@@ -137,10 +137,11 @@ public class TicketController {
             return ResponseEntity.notFound().build();
         }
         
+        String sortProperty = "createdAt";
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
                 page,
                 15,
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, sortProperty)
         );
         
         return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds, pageable));

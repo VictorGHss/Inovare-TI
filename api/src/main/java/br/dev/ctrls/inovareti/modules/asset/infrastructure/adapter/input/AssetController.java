@@ -45,11 +45,9 @@ import br.dev.ctrls.inovareti.infrastructure.shared.storage.InvoiceFileMetadata;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/assets")
-@RequiredArgsConstructor
 @Observed
 public class AssetController {
 
@@ -60,6 +58,24 @@ public class AssetController {
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
     private final AuditLogService auditLogService;
+
+    public AssetController(
+            AssetRepositoryPort assetRepository,
+            UserRepositoryPort userRepository,
+            AssetService assetService,
+            AssetQueryService assetQueryService,
+            FileStorageService fileStorageService,
+            AssetMaintenanceService maintenanceService,
+            AuditLogService auditLogService
+    ) {
+        this.assetRepository = assetRepository;
+        this.userRepository = userRepository;
+        this.assetService = assetService;
+        this.assetQueryService = assetQueryService;
+        this.fileStorageService = fileStorageService;
+        this.maintenanceService = maintenanceService;
+        this.auditLogService = auditLogService;
+    }
 
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")

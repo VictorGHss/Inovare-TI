@@ -1,9 +1,6 @@
 package br.dev.ctrls.inovareti.modules.inventory.application.usecase;
 
-import java.util.List;
-
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +24,6 @@ public class ListAllItemsUseCase {
     private static final String FIELD_CURRENT_STOCK = "currentStock";
 
     private static final int LOW_STOCK_THRESHOLD = 3;
-    private static final int MAX_PAGE_SIZE = 500;
 
     private final ItemRepositoryPort itemRepository;
 

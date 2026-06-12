@@ -118,6 +118,7 @@ public class TicketController {
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
+    @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> listAll(
             @RequestParam(required = false) List<UUID> tagIds,
             @RequestParam(defaultValue = "0") int page) {

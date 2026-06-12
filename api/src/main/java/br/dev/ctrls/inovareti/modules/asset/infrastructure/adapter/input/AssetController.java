@@ -2,9 +2,7 @@ package br.dev.ctrls.inovareti.modules.asset.infrastructure.adapter.input;
 
 import io.micrometer.observation.annotation.Observed;
 
-import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetSortBy;
 
-import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetFilterStatus;
 
 import br.dev.ctrls.inovareti.modules.asset.application.service.AssetService;
 import br.dev.ctrls.inovareti.modules.asset.application.service.AssetQueryService;
@@ -61,7 +59,7 @@ public class AssetController {
     private final AssetQueryService assetQueryService;
     private final FileStorageService fileStorageService;
     private final AssetMaintenanceService maintenanceService;
-        private final AuditLogService auditLogService;
+    private final AuditLogService auditLogService;
 
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")

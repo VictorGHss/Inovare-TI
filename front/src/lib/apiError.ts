@@ -1,14 +1,25 @@
+export interface InvalidParam {
+  /**
+   * O nome do campo que falhou na validação de dados no ecrã.
+   */
+  name: string;
+  /**
+   * A razão pela qual a validação deste campo falhou.
+   */
+  reason: string;
+}
+
 export interface ProblemDetail {
   /**
    * Um URI que identifica o tipo do problema.
    */
   type?: string;
   /**
-   * Um resumo curto e legível para humanos sobre o problema.
+   * Um resumo curto e legível para o utilizador sobre o problema.
    */
   title?: string;
   /**
-   * O código de status HTTP original.
+   * O código de estado HTTP original.
    */
   status?: number;
   /**
@@ -20,9 +31,13 @@ export interface ProblemDetail {
    */
   instance?: string;
   /**
-   * Identificador de rastreamento (traceId) para fins de auditoria e depuração.
+   * Identificador de rastreio (traceId) para fins de auditoria e depuração no servidor.
    */
   traceId?: string;
+  /**
+   * Lista de parâmetros inválidos para validações granulares de dados no ecrã.
+   */
+  invalidParams?: InvalidParam[];
   /**
    * Permite capturar outras propriedades dinâmicas adicionais estendidas pelo backend.
    */

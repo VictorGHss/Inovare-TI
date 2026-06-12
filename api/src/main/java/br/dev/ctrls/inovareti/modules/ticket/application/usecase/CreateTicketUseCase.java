@@ -150,6 +150,26 @@ public class CreateTicketUseCase {
                 .asset(asset)
                 .build();
 
+        java.util.List<br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketItemRequestEntity> reqItems = new java.util.ArrayList<>();
+        if (request.requestedItems() != null && !request.requestedItems().isEmpty()) {
+            for (var dtoItem : request.requestedItems()) {
+                Item item = itemRepository.findById(dtoItem.itemId())
+                        .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Requested item not found with id: " + dtoItem.itemId()));
+                reqItems.add(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketItemRequestEntity.builder()
+                        .ticket(ticket)
+                        .item(item)
+                        .quantity(dtoItem.quantity())
+                        .build());
+            }
+        } else if (requestedItem != null && request.requestedQuantity() != null) {
+            reqItems.add(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketItemRequestEntity.builder()
+                    .ticket(ticket)
+                    .item(requestedItem)
+                    .quantity(request.requestedQuantity())
+                    .build());
+        }
+        ticket.setRequestedItems(reqItems);
+
         Ticket savedTicket = ticketRepository.save(ticket);
         auditLogService.publish(AuditEvent.of(AuditAction.TICKET_OPEN)
             .userId(requester.getId())

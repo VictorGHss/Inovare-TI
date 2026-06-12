@@ -95,6 +95,11 @@ public class Ticket {
     @Column(name = "requested_quantity")
     private Integer requestedQuantity;
 
+    /** Coleção de múltiplos itens de inventário solicitados neste chamado. */
+    @Builder.Default
+    @jakarta.persistence.OneToMany(mappedBy = "ticket", cascade = jakarta.persistence.CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private java.util.List<TicketItemRequestEntity> requestedItems = new java.util.ArrayList<>();
+
     @NotNull
     @Column(name = "sla_deadline", nullable = false)
     private LocalDateTime slaDeadline;

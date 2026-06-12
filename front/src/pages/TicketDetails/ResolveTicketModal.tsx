@@ -2,7 +2,8 @@
 import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 
 import { useResolveTicket } from '../../hooks/useResolveTicket';
-import type { ResolveTicketRequest, Ticket } from '../../types/models';
+import type { ResolveTicketRequest, Ticket, User } from '../../types/models';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;
@@ -10,15 +11,21 @@ interface ResolveTicketModalProps {
   requesterId: string;
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
   ticket?: Ticket;
+  users?: User[];
   initialNotes?: string;
 }
 
+/**
+ * Componente modal para encerramento de chamados (resolução).
+ * Permite realizar a entrega nominal de ativos de património ou insumos a funcionárias originalmente vinculadas ao chamado.
+ */
 export default function ResolveTicketModal({
   isOpen,
   onClose,
   requesterId,
   onResolve,
   ticket,
+  users = [],
   initialNotes,
 }: ResolveTicketModalProps) {
   const {
@@ -54,15 +61,17 @@ export default function ResolveTicketModal({
     hasAutoInventoryDeduction,
     recipientUserId,
     setRecipientUserId,
-    assetUsers,
-    loadingAssetUsers,
     handleSubmit,
+    itemsToDeliver,
+    handleRecipientChange,
+    ticketUsers,
   } = useResolveTicket({
     isOpen,
     onClose,
     requesterId,
     onResolve,
     ticket,
+    users,
     initialNotes,
   });
 
@@ -108,36 +117,32 @@ export default function ResolveTicketModal({
               <div className="flex items-start gap-3 rounded-2xl border border-brand-primary/35 bg-brand-secondary/55 p-4">
                 <AlertCircle size={18} className="mt-0.5 shrink-0 text-brand-primary-dark" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Dedução Automática</p>
+                  <p className="text-sm font-semibold text-slate-800">Dedução Automática de Insumos</p>
                   <p className="mt-1 text-sm text-slate-700">
-                    O item <strong>{ticket?.requestedItemName ?? 'selecionado'}</strong> ({ticket?.requestedQuantity} unidade
-                    {ticket?.requestedQuantity && ticket.requestedQuantity > 1 ? 's' : ''}) será deduzido automaticamente do
-                    stock ao fechar este chamado.
+                    Os seguintes itens solicitados serão deduzidos automaticamente do stock ao fechar este chamado:
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-slate-700">Quem recebeu o item?</label>
-                {loadingAssetUsers ? (
-                  <div className="text-sm text-slate-500">Carregando usuários do ativo...</div>
-                ) : assetUsers.length === 0 ? (
-                  <div className="text-sm text-amber-600">Nenhum usuário associado ao ativo deste chamado.</div>
-                ) : (
-                  <select
-                    value={recipientUserId}
-                    onChange={(event) => setRecipientUserId(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
-                    disabled={isSubmitting}
-                  >
-                    <option value="">-- Selecione quem recebeu --</option>
-                    {assetUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4">
+                {itemsToDeliver.map((item) => (
+                  <div key={item.itemId} className="flex flex-col sm:flex-row gap-4 items-center justify-between border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      <span className="text-sm font-bold text-slate-800">{item.itemName}</span>
+                      <span className="text-xs text-slate-500">Quantidade: {item.quantity} unidade(s)</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 w-full sm:w-64">
+                      <label className="text-xs font-semibold text-slate-600">Entregar a quem? *</label>
+                      <SearchableDropdown
+                        options={ticketUsers.map((u) => ({ id: u.id, name: u.name }))}
+                        value={item.recipientUserId}
+                        onChange={(val) => handleRecipientChange(item.itemId, val)}
+                        placeholder="Selecione quem recebeu..."
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
@@ -340,6 +345,16 @@ export default function ResolveTicketModal({
                           disabled={isSubmitting}
                         />
                       </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-slate-700">Entregar a quem? *</label>
+                        <SearchableDropdown
+                          options={ticketUsers.map((u) => ({ id: u.id, name: u.name }))}
+                          value={recipientUserId}
+                          onChange={(val) => setRecipientUserId(val)}
+                          placeholder="Selecione quem recebeu..."
+                        />
+                      </div>
                     </>
                   )}
                 </div>
@@ -370,4 +385,3 @@ export default function ResolveTicketModal({
     </div>
   );
 }
-

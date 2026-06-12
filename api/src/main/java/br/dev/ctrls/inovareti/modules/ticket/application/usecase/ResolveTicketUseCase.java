@@ -11,29 +11,26 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
-import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
-import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetCategory;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
-import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetCategoryRepositoryPort;
+import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetMaintenanceRepositoryPort;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
+import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditAction;
+import br.dev.ctrls.inovareti.modules.audit.domain.model.AuditEvent;
 import br.dev.ctrls.inovareti.modules.inventory.application.service.StockDeductionService;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovement;
-import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockMovementType;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.StockMovementRepositoryPort;
 import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
-import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
+import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,7 +54,6 @@ public class ResolveTicketUseCase {
         private final AssetMaintenanceRepositoryPort assetMaintenanceRepository;
         private final CreateNotificationService createNotificationService;
         private final StockDeductionService stockDeductionService;
-        private final StockMovementRepositoryPort stockMovementRepository;
         private final br.dev.ctrls.inovareti.modules.finance.application.service.FinancialService financialService;
         private final DiscordDirectMessageService discordDirectMessageService;
         private final UserRepositoryPort userRepository;
@@ -90,50 +86,39 @@ public class ResolveTicketUseCase {
             throw new AccessDeniedException("Você não tem permissão para alterar este chamado.");
         }
 
-        // Debita estoque se o chamado tiver item solicitado
-        // Observações em Português: garantimos aqui que a dedução de estoque
-        // será realizada dentro da mesma transação que marca o chamado como RESOLVED.
-        // O parâmetro `reference` segue o padrão: "TICKET:{ticketId}" para garantir
-        // que relatórios que buscam por prefixo (ex.: TICKET:{id}) encontrem o movimento.
-        if (ticket.getRequestedItem() != null && ticket.getRequestedQuantity() != null) {
-            if (ticket.getRequestedQuantity() <= 0) {
-                throw new IllegalStateException("Quantidade solicitada deve ser maior ou igual a 1.");
-            }
-
-            String reference = "TICKET:" + ticketId;
-            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                    ticket.getRequestedItem().getId(),
-                    ticket.getRequestedQuantity(),
-                    reference,
-                    request.recipientUserId()
-            );
-
-            // Registra débito financeiro com base no valor apurado pela dedução FIFO
-            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("[ESTOQUE] Baixa automática realizada para item solicitado no chamado. "
-                    + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
-                    ticketId, ticket.getRequestedItem().getId(), ticket.getRequestedQuantity(), totalDeduction);
-
-            // Fallback de segurança: caso o StockDeductionService não tenha persistido
-            // o movimento (situação incomum), cria-se um registro adicional para
-            // preservar a trilha de auditoria e permitir que relatórios encontrem a saída.
-            try {
-                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
-                if (movements == null || movements.isEmpty()) {
-                    StockMovement movement = StockMovement.builder()
-                            .itemId(ticket.getRequestedItem().getId())
-                            .type(StockMovementType.OUT)
-                            .quantity(ticket.getRequestedQuantity())
-                            .reference(reference)
-                            .date(LocalDateTime.now())
-                            .unitPriceAtTime(totalDeduction)
-                            .recipientUserId(request.recipientUserId())
-                            .build();
-                    stockMovementRepository.save(movement);
-                    log.info("Fallback: StockMovement criado para ticket {} (requestedItem)", ticketId);
+        // Debita estoque de forma consolidada e atómica para todos os itens da entrega
+        if (request.itemsToDeliver() != null && !request.itemsToDeliver().isEmpty()) {
+            for (var itemDeduction : request.itemsToDeliver()) {
+                if (itemDeduction.quantity() <= 0) {
+                    throw new IllegalStateException("Quantidade a entregar deve ser maior que zero.");
                 }
-            } catch (Exception e) {
-                log.warn("Falha ao verificar/criar fallback de StockMovement para ticket {}: {}", ticketId, e.getMessage());
+
+                String reference = "TICKET:" + ticketId;
+                java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
+                        itemDeduction.itemId(),
+                        itemDeduction.quantity(),
+                        reference,
+                        itemDeduction.recipientUserId()
+                );
+
+                financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
+                log.info("[ESTOQUE] Baixa de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
+                        ticketId, itemDeduction.itemId(), itemDeduction.quantity(), itemDeduction.recipientUserId(), totalDeduction);
+            }
+        } else if (ticket.getRequestedItems() != null && !ticket.getRequestedItems().isEmpty()) {
+            for (var reqItem : ticket.getRequestedItems()) {
+                java.util.UUID recipient = request.recipientUserId() != null ? request.recipientUserId() : ticket.getRequester().getId();
+                String reference = "TICKET:" + ticketId;
+                java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
+                        reqItem.getItem().getId(),
+                        reqItem.getQuantity(),
+                        reference,
+                        recipient
+                );
+
+                financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
+                log.info("[ESTOQUE] Baixa automatica de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
+                        ticketId, reqItem.getItem().getId(), reqItem.getQuantity(), recipient, totalDeduction);
             }
         }
 
@@ -226,48 +211,7 @@ public class ResolveTicketUseCase {
             log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
         }
 
-        // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
-        // Entrega item de estoque se inventoryItemIdToDeliver for fornecido
-        // Garantimos quantidade mínima e uso do padrão de referência `TICKET:{id}`
-        if (request.inventoryItemIdToDeliver() != null && request.quantityToDeliver() != null) {
-            if (request.quantityToDeliver() <= 0) {
-                throw new IllegalStateException("Quantidade para entrega deve ser maior ou igual a 1.");
-            }
-
-            String reference = "TICKET:" + ticketId;
-            java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                    request.inventoryItemIdToDeliver(),
-                    request.quantityToDeliver(),
-                    reference,
-                    request.recipientUserId()
-            );
-
-            // Registra débito financeiro para a entrega manual de item (INVENTORY)
-            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-            log.info("[ESTOQUE] Baixa automática realizada via encerramento do chamado. "
-                    + "Chamado: {}, Item: {}, Quantidade: {}, Valor total deduzido (FIFO): {}",
-                    ticketId, request.inventoryItemIdToDeliver(), request.quantityToDeliver(), totalDeduction);
-
-            // Mesmo fallback para entregas manuais: garante persistência do movimento OUT
-            try {
-                var movements = stockMovementRepository.findByReferenceStartingWithAndTypeOrderByDateDesc(reference, StockMovementType.OUT);
-                if (movements == null || movements.isEmpty()) {
-                    StockMovement movement = StockMovement.builder()
-                            .itemId(request.inventoryItemIdToDeliver())
-                            .type(StockMovementType.OUT)
-                            .quantity(request.quantityToDeliver())
-                            .reference(reference)
-                            .date(LocalDateTime.now())
-                            .unitPriceAtTime(totalDeduction)
-                            .recipientUserId(request.recipientUserId())
-                            .build();
-                    stockMovementRepository.save(movement);
-                    log.info("Fallback: StockMovement criado para ticket {} (manual delivery)", ticketId);
-                }
-            } catch (Exception e) {
-                log.warn("Falha ao verificar/criar fallback de StockMovement para entrega manual no ticket {}: {}", ticketId, e.getMessage());
-            }
-        }
+        // Baixa consolidada processada no início
 
         // Marca o chamado como resolvido e salva a nota de resolução (texto da solução)
         ticket.setStatus(TicketStatus.RESOLVED);

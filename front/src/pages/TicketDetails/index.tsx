@@ -239,6 +239,7 @@ export default function TicketDetails() {
         onResolve={handleResolve}
         requesterId={ticket.requesterId}
         ticket={ticket}
+        users={users}
         initialNotes={resolveInitialNotes}
       />
     </main>

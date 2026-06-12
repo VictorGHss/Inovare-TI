@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 
 import { getAssetCategories, getAssets, getItems, getAssetById } from '../services/inventoryService';
-import type { Asset, AssetCategory, Item, ResolveTicketRequest, Ticket } from '../types/models';
+import type { Asset, AssetCategory, Item, ResolveTicketRequest, Ticket, User } from '../types/models';
 
 interface UseResolveTicketParams {
   isOpen: boolean;
@@ -11,8 +11,20 @@ interface UseResolveTicketParams {
   onResolve: (request: ResolveTicketRequest) => Promise<void>;
   ticket?: Ticket;
   initialNotes?: string;
+  users?: User[];
 }
 
+export interface ResolveTicketItemState {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  recipientUserId: string;
+}
+
+/**
+ * Hook personalizado para gerir o estado da resolução do chamado.
+ * Lida com a entrega de ativos de património ou insumos de consumo nominalmente.
+ */
 export function useResolveTicket({
   isOpen,
   onClose,
@@ -20,17 +32,51 @@ export function useResolveTicket({
   onResolve,
   ticket,
   initialNotes = '',
+  users = [],
 }: UseResolveTicketParams) {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [recipientUserId, setRecipientUserId] = useState('');
   const [assetUsers, setAssetUsers] = useState<{ id: string; name: string }[]>([]);
   const [loadingAssetUsers, setLoadingAssetUsers] = useState(false);
 
+  // Lista de insumos que serão entregues e deduzidos na resolução
+  const [itemsToDeliver, setItemsToDeliver] = useState<ResolveTicketItemState[]>([]);
+
   useEffect(() => {
     if (isOpen) {
       setResolutionNotes(initialNotes);
     }
   }, [isOpen, initialNotes]);
+
+  // Inicializa a lista de insumos com base no chamado
+  useEffect(() => {
+    if (isOpen && ticket) {
+      const initialItems: ResolveTicketItemState[] = [];
+      
+      // 1. Se o chamado tem múltiplos itens solicitados cadastrados
+      if (ticket.requestedItems && ticket.requestedItems.length > 0) {
+        ticket.requestedItems.forEach((ri) => {
+          initialItems.push({
+            itemId: ri.itemId,
+            itemName: ri.itemName || 'Material de Consumo',
+            quantity: ri.quantity,
+            recipientUserId: ticket.requesterId,
+          });
+        });
+      } 
+      // 2. Fallback para chamado com item único de inventário legado
+      else if (ticket.requestedItemId && ticket.requestedQuantity) {
+        initialItems.push({
+          itemId: ticket.requestedItemId,
+          itemName: ticket.requestedItemName || 'Material de Consumo',
+          quantity: ticket.requestedQuantity,
+          recipientUserId: ticket.requesterId,
+        });
+      }
+
+      setItemsToDeliver(initialItems);
+    }
+  }, [isOpen, ticket]);
 
   const [deliverEquipment, setDeliverEquipment] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'asset' | 'item'>('asset');
@@ -54,9 +100,32 @@ export function useResolveTicket({
   const [loadingAssetCategories, setLoadingAssetCategories] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Filtra as funcionárias originalmente vinculadas ao chamado para a entrega nominal
+  const ticketUsers = useMemo(() => {
+    if (!ticket) return [];
+    const ids = new Set([ticket.requesterId, ...(ticket.additionalUserIds || [])].filter(Boolean) as string[]);
+    
+    // Filtra utilizadores globais vinculados
+    const filtered = users.filter((u) => ids.has(u.id));
+    
+    // Assegura que a requerente esteja presente na lista
+    if (!filtered.some((u) => u.id === ticket.requesterId)) {
+      filtered.push({
+        id: ticket.requesterId,
+        name: ticket.requesterName || 'Requerente',
+        email: '',
+        role: 'USER',
+        active: true,
+      } as any);
+    }
+    
+    return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [users, ticket]);
+
+  // Se houver insumos a entregar atrelados ao chamado, ativa a dedução automática
   const hasAutoInventoryDeduction = useMemo(
-    () => !!ticket?.requestedItemId && !!ticket?.requestedQuantity,
-    [ticket?.requestedItemId, ticket?.requestedQuantity],
+    () => itemsToDeliver.length > 0,
+    [itemsToDeliver],
   );
 
   // Carrega ativos disponíveis quando o fluxo de entrega de patrimônio estiver ativo.
@@ -182,12 +251,29 @@ export function useResolveTicket({
     setNewAssetSpecifications('');
     setRecipientUserId('');
     setAssetUsers([]);
+    setItemsToDeliver([]);
+  }
+
+  function handleRecipientChange(itemId: string, recipientId: string) {
+    setItemsToDeliver((prev) =>
+      prev.map((item) =>
+        item.itemId === itemId ? { ...item, recipientUserId: recipientId } : item
+      )
+    );
   }
 
   function validateBeforeSubmit() {
     if (!resolutionNotes.trim()) {
       toast.error('Digite a nota de resolução.');
       return false;
+    }
+
+    if (hasAutoInventoryDeduction) {
+      const missingRecipient = itemsToDeliver.some((item) => !item.recipientUserId);
+      if (missingRecipient) {
+        toast.error('Selecione quem recebeu cada um dos insumos solicitados.');
+        return false;
+      }
     }
 
     if (!deliverEquipment) {
@@ -216,9 +302,15 @@ export function useResolveTicket({
       }
     }
 
-    if (deliveryType === 'item' && (!selectedItemId || quantity < 1)) {
-      toast.error('Selecione um material e quantidade válida.');
-      return false;
+    if (deliveryType === 'item') {
+      if (!selectedItemId || quantity < 1) {
+        toast.error('Selecione um material e quantidade válida.');
+        return false;
+      }
+      if (!recipientUserId) {
+        toast.error('Selecione quem recebeu o material de consumo entregue.');
+        return false;
+      }
     }
 
     return true;
@@ -233,37 +325,47 @@ export function useResolveTicket({
 
     setIsSubmitting(true);
     try {
-      if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
-        await onResolve({
-          resolutionNotes,
-          assetIdToDeliver: selectedAssetId,
-          recipientUserId: recipientUserId || undefined,
-        });
-      } else if (deliverEquipment && deliveryType === 'asset' && assetMode === 'new') {
-        await onResolve({
-          resolutionNotes,
-          newAssetToDeliver: {
-            userId: requesterId,
-            name: newAssetName.trim(),
-            patrimonyCode: newAssetPatrimonyCode.trim(),
-            categoryId: newAssetCategoryId,
-            specifications: newAssetSpecifications.trim() || undefined,
-          },
-          recipientUserId: recipientUserId || undefined,
-        });
-      } else if (deliverEquipment && deliveryType === 'item') {
-        await onResolve({
-          resolutionNotes,
-          inventoryItemIdToDeliver: selectedItemId,
-          quantityToDeliver: quantity,
-          recipientUserId: recipientUserId || undefined,
-        });
-      } else {
-        await onResolve({
-          resolutionNotes,
-          recipientUserId: recipientUserId || undefined,
+      const finalItemsToDeliver = [...itemsToDeliver];
+
+      // Se o técnico adicionou manualmente a entrega de um insumo avulso
+      if (deliverEquipment && deliveryType === 'item' && selectedItemId) {
+        finalItemsToDeliver.push({
+          itemId: selectedItemId,
+          itemName: items.find((i) => i.id === selectedItemId)?.name || 'Insumo',
+          quantity: quantity,
+          recipientUserId: recipientUserId || requesterId,
         });
       }
+
+      const itemsPayload = finalItemsToDeliver.map((item) => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+        recipientUserId: item.recipientUserId || undefined,
+      }));
+
+      const payload: ResolveTicketRequest = {
+        resolutionNotes: resolutionNotes.trim(),
+        itemsToDeliver: itemsPayload.length > 0 ? itemsPayload : undefined,
+      };
+
+      if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
+        payload.assetIdToDeliver = selectedAssetId;
+        payload.recipientUserId = recipientUserId || undefined;
+      } else if (deliverEquipment && deliveryType === 'asset' && assetMode === 'new') {
+        payload.newAssetToDeliver = {
+          userId: requesterId,
+          name: newAssetName.trim(),
+          patrimonyCode: newAssetPatrimonyCode.trim(),
+          categoryId: newAssetCategoryId,
+          specifications: newAssetSpecifications.trim() || undefined,
+        };
+        payload.recipientUserId = recipientUserId || undefined;
+      } else if (deliverEquipment && deliveryType === 'item') {
+        // Envia recipientUserId global se necessário, mas os itens já vão com destinatário individual
+        payload.recipientUserId = recipientUserId || undefined;
+      }
+
+      await onResolve(payload);
 
       resetForm();
       onClose();
@@ -310,5 +412,8 @@ export function useResolveTicket({
     assetUsers,
     loadingAssetUsers,
     handleSubmit,
+    itemsToDeliver,
+    handleRecipientChange,
+    ticketUsers,
   };
 }

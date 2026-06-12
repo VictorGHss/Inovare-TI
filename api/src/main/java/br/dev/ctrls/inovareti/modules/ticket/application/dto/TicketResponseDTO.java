@@ -41,10 +41,15 @@ public record TicketResponseDTO(
         List<UUID> additionalUserIds,
         UUID assetId,
         String assetName,
-        boolean isAssetCritical
+        boolean isAssetCritical,
+        List<TicketItemRequestResponseDTO> requestedItems
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
+        return from(ticket, List.of());
+    }
+
+    public static TicketResponseDTO from(Ticket ticket, List<AttachmentResponseDTO> attachments) {
         return new TicketResponseDTO(
                 ticket.getId(),
                 ticket.getTitle(),
@@ -66,7 +71,7 @@ public record TicketResponseDTO(
                 ticket.getSlaDeadline(),
                 ticket.getCreatedAt(),
                 ticket.getClosedAt(),
-                List.of(), // Lista vazia por padrão, pode ser populada pelo caso de uso
+                attachments,
                 ticket.getSolutionText(),
                 ticket.getSolutionText(),
                 ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
@@ -74,7 +79,13 @@ public record TicketResponseDTO(
                 ticket.getAdditionalUsers() != null ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList() : List.of(),
                 ticket.getAsset() != null ? ticket.getAsset().getId() : null,
                 ticket.getAsset() != null ? ticket.getAsset().getName() : null,
-                ticket.getAsset() != null && ticket.getAsset().isCritical()
+                ticket.getAsset() != null && ticket.getAsset().isCritical(),
+                ticket.getRequestedItems() != null ? ticket.getRequestedItems().stream()
+                        .map(ri -> new TicketItemRequestResponseDTO(
+                                ri.getItem().getId(),
+                                ri.getItem().getName(),
+                                ri.getQuantity()
+                        )).toList() : List.of()
         );
     }
 
@@ -82,4 +93,10 @@ public record TicketResponseDTO(
         String description = ticket.getDescription();
         return description != null && description.startsWith("[DISCORD]");
     }
+
+    public record TicketItemRequestResponseDTO(
+            UUID itemId,
+            String itemName,
+            Integer quantity
+    ) {}
 }

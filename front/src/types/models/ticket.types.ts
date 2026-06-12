@@ -13,6 +13,12 @@ export interface TicketTag {
   defaultResolution?: string | null;
 }
 
+export interface TicketItemRequest {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -32,6 +38,7 @@ export interface Ticket {
   requestedItemId: string | null;
   requestedItemName: string | null;
   requestedQuantity: number | null;
+  requestedItems?: TicketItemRequest[] | null;
   isFromDiscord: boolean;
   slaDeadline: string | null;
   createdAt: string;
@@ -65,6 +72,12 @@ export interface CreateTicketCategoryDto {
   baseSlaHours: number;
 }
 
+export interface ResolveTicketItemRequest {
+  itemId: string;
+  quantity: number;
+  recipientUserId?: string;
+}
+
 export interface ResolveTicketRequest {
   resolutionNotes?: string;
   assetIdToDeliver?: string;
@@ -78,6 +91,7 @@ export interface ResolveTicketRequest {
     specifications?: string;
   };
   recipientUserId?: string;
+  itemsToDeliver?: ResolveTicketItemRequest[];
 }
 
 export interface TicketAttachment {
@@ -89,6 +103,11 @@ export interface TicketAttachment {
   uploadedAt: string;
 }
 
+export interface RequestedItemDto {
+  itemId: string;
+  quantity: number;
+}
+
 export interface CreateTicketDto {
   title: string;
   description: string;
@@ -97,6 +116,7 @@ export interface CreateTicketDto {
   categoryId: string;
   requestedItemId?: string;
   requestedQuantity?: number;
+  requestedItems?: RequestedItemDto[];
 }
 
 export interface TicketComment {

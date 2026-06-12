@@ -40,6 +40,14 @@ public record TicketRequestDTO(
         Integer requestedQuantity,
 
         /* ID do ativo associado. Opcional. */
-        UUID assetId
+        UUID assetId,
 
-) {}
+        /* Lista de múltiplos itens solicitados de uma só vez na abertura de chamados. */
+        java.util.List<RequestedItemDTO> requestedItems
+
+) {
+    public record RequestedItemDTO(
+        UUID itemId,
+        Integer quantity
+    ) {}
+}

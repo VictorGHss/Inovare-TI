@@ -8,7 +8,7 @@ import type { TicketCategory, Item, CreateTicketDto, ArticleSearchResult } from 
 import TicketTypeToggle, { type TicketType } from './TicketTypeToggle';
 import KbSuggestions from './KbSuggestions';
 import FileAttachment from './FileAttachment';
-import RequestItemFields from './RequestItemFields';
+import RequestItemFields, { type RequestedItemState } from './RequestItemFields';
 import PriorityCategoryFields from './PriorityCategoryFields';
 
 interface Props {
@@ -32,8 +32,9 @@ export default function TicketForm({ type, onTypeChange }: Props) {
   const [suggestedArticles, setSuggestedArticles] = useState<ArticleSearchResult[]>([]);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Nome do item selecionado — usado para gerar o título automático de solicitações
-  const [selectedItemName, setSelectedItemName] = useState('');
+  const [requestedItems, setRequestedItems] = useState<RequestedItemState[]>([
+    { itemId: '', quantity: 1 }
+  ]);
 
   const [form, setForm] = useState<CreateTicketDto>({
     title: '',
@@ -42,12 +43,10 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     priority: 'NORMAL',
     // categoryId é UUID (string) — inicializado vazio enquanto as categorias carregam
     categoryId: '',
-    requestedItemId: undefined,
-    requestedQuantity: 1,
   });
 
   // Track if "Outro" (other) option was selected
-  const isOtherItemSelected = form.requestedItemId === 'OUTRO';
+  const isOtherItemSelected = requestedItems.some(ri => ri.itemId === 'OUTRO');
 
   useEffect(() => {
     Promise.all([getTicketCategories(), getItems()])
@@ -112,18 +111,15 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       title: '',
       description: '',
       anydeskCode: '',
-      requestedItemId: undefined,
-      requestedQuantity: 1,
       priority: 'NORMAL',
     }));
-    setSelectedItemName('');
+    setRequestedItems([{ itemId: '', quantity: 1 }]);
   }
 
-  function handleItemChange(id: string | undefined, name: string | undefined) {
-    set('requestedItemId', id);
-    setSelectedItemName(name ?? '');
-    // Force HIGH priority if "Outro" is selected
-    if (id === 'OUTRO') {
+  function handleItemsListChange(updatedItems: RequestedItemState[]) {
+    setRequestedItems(updatedItems);
+    const hasOutro = updatedItems.some(ri => ri.itemId === 'OUTRO');
+    if (hasOutro) {
       set('priority', 'HIGH');
     }
   }
@@ -182,12 +178,14 @@ export default function TicketForm({ type, onTypeChange }: Props) {
 
     let finalTitle = form.title.trim();
     if (type === 'REQUEST') {
-      if (isOtherItemSelected) {
+      const hasOutro = requestedItems.some(ri => ri.itemId === 'OUTRO');
+      if (hasOutro) {
         finalTitle = 'Solicitação: Aquisição de Equipamento';
       } else {
-        const itemName = selectedItemName || 'Item não especificado';
-        const qty = form.requestedQuantity ?? 1;
-        finalTitle = `Solicitação: ${itemName}, ${qty} unidade${qty !== 1 ? 's' : ''}`;
+        const itemSummaries = requestedItems.map(ri => {
+          return `${ri.itemName || 'Item não especificado'} (x${ri.quantity})`;
+        });
+        finalTitle = `Solicitação: ${itemSummaries.join(', ')}`;
       }
     }
     if (!finalTitle) return;
@@ -198,9 +196,9 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       anydeskCode: type === 'INCIDENT' ? (form.anydeskCode || undefined) : undefined,
       priority: type === 'INCIDENT' ? form.priority : (isOtherItemSelected ? 'HIGH' : 'NORMAL'),
       categoryId: effectiveCategoryId,
-      // Don't send requestedItemId if "Outro" was selected
-      requestedItemId: type === 'REQUEST' && !isOtherItemSelected ? form.requestedItemId : undefined,
-      requestedQuantity: type === 'REQUEST' && !isOtherItemSelected ? (form.requestedQuantity ?? 1) : undefined,
+      requestedItems: type === 'REQUEST' ? requestedItems
+        .filter(ri => ri.itemId && ri.itemId !== 'OUTRO')
+        .map(ri => ({ itemId: ri.itemId, quantity: ri.quantity })) : undefined,
     };
 
     setSubmitting(true);
@@ -237,10 +235,8 @@ export default function TicketForm({ type, onTypeChange }: Props) {
         <>
           <RequestItemFields
             items={items}
-            requestedItemId={form.requestedItemId}
-            requestedQuantity={form.requestedQuantity ?? 1}
-            onItemChange={handleItemChange}
-            onQuantityChange={(q) => set('requestedQuantity', q)}
+            requestedItems={requestedItems}
+            onChange={handleItemsListChange}
           />
           {isOtherItemSelected && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

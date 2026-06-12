@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Download, FileText, HardDrive, Printer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Asset } from '../../../types/models';
@@ -10,6 +11,9 @@ interface Props {
   onOpenInvoiceModal: (asset: Asset) => void;
   onInvoiceDownload: (asset: Asset, e: React.MouseEvent) => void;
   onOpenPrintModal: (asset: Asset) => void;
+  parentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 export default function AssetTable({
@@ -20,7 +24,22 @@ export default function AssetTable({
   onOpenInvoiceModal,
   onInvoiceDownload,
   onOpenPrintModal,
+  parentPage,
+  totalPages,
+  onPageChange,
 }: Props) {
+  const [currentPage, setCurrentPage] = useState(0);
+
+  useEffect(() => {
+    if (parentPage !== currentPage) {
+      setCurrentPage(parentPage);
+    }
+  }, [parentPage, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    onPageChange(newPage);
+  };
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -151,6 +170,29 @@ export default function AssetTable({
           ))}
         </motion.tbody>
       </table>
+
+      {/* Barra de Paginação */}
+      <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4 px-4">
+        <button
+          type="button"
+          onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
+          disabled={currentPage === 0 || loading}
+          className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+        >
+          Anterior
+        </button>
+        <span className="text-xs text-slate-500 font-semibold">
+          Página {currentPage + 1} de {totalPages || 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
+          disabled={currentPage >= totalPages - 1 || loading}
+          className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+        >
+          Seguinte
+        </button>
+      </div>
     </div>
   );
 }

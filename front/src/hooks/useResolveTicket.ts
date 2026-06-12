@@ -69,8 +69,8 @@ export function useResolveTicket({
 
       setLoadingAssets(true);
       try {
-        const allAssets = await getAssets();
-        const availableAssets = allAssets.filter((asset) => !asset.userId);
+        const allAssetsPage = await getAssets();
+        const availableAssets = allAssetsPage.content.filter((asset) => !asset.userId);
         setAssets(availableAssets);
         setSelectedAssetId('');
       } catch {
@@ -153,8 +153,8 @@ export function useResolveTicket({
 
       setLoadingItems(true);
       try {
-        const allItems = await getItems();
-        const availableItems = allItems.filter((item) => item.currentStock > 0);
+        const allItemsPage = await getItems();
+        const availableItems = allItemsPage.content.filter((item) => item.currentStock > 0);
         setItems(availableItems);
         setSelectedItemId('');
       } catch {

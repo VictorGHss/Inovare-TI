@@ -33,6 +33,9 @@ export default function Assets() {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const canManageAssets = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
@@ -61,23 +64,30 @@ export default function Assets() {
     }
     setLoading(true);
     try {
-      const filters: { status: AssetFilterStatus; sortBy: AssetSortBy; categoryId: string } = {
+      const filters = {
         status: statusFilter,
-        sortBy: sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt',
+        sortBy: (sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt') as AssetSortBy,
         categoryId: categoryFilter !== 'ALL' ? categoryFilter : '',
+        page: currentPage,
       };
       const assetsData = await getAssets(filters);
-      setAssets(sortFilter === 'OLDEST' ? [...assetsData].reverse() : assetsData);
+      setAssets(sortFilter === 'OLDEST' ? [...assetsData.content].reverse() : assetsData.content);
+      setTotalPages(assetsData.totalPages);
     } catch {
       toast.error('Erro ao carregar ativos.');
       setAssets([]);
     } finally {
       setLoading(false);
     }
-  }, [canManageAssets, statusFilter, categoryFilter, sortFilter]);
+  }, [canManageAssets, statusFilter, categoryFilter, sortFilter, currentPage]);
 
   useEffect(() => { void fetchInitialData(); }, [fetchInitialData]);
   useEffect(() => { void fetchAssets(); }, [fetchAssets]);
+
+  // Reseta para a primeira página quando os filtros mudam
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [statusFilter, categoryFilter, sortFilter]);
 
   const filteredAssets = useMemo(() => {
     if (!searchQuery.trim()) return assets;
@@ -274,6 +284,9 @@ export default function Assets() {
           onOpenInvoiceModal={(asset) => { setSelectedAssetForInvoice(asset); setShowInvoiceModal(true); }}
           onInvoiceDownload={handleInvoiceDownload}
           onOpenPrintModal={(asset) => { setSelectedAssetForPrint(asset); setShowPrintModal(true); }}
+          parentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
       </section>
 

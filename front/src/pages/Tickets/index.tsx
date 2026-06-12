@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Search, X, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -22,28 +22,46 @@ export default function Tickets() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
+  const fetchTickets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const ticketsPage = await getTickets(selectedTagIds, currentPage);
+      setTickets(ticketsPage.content);
+      setTotalPages(ticketsPage.totalPages);
+    } catch {
+      toast.error('Erro ao carregar chamados. Tente novamente.');
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTagIds, currentPage]);
+
   useEffect(() => {
-    const fetchTicketsAndTags = async () => {
+    void fetchTickets();
+  }, [fetchTickets]);
+
+  useEffect(() => {
+    const fetchTags = async () => {
       try {
-        const [ticketsData, tagsData] = await Promise.all([
-          getTickets(),
-          getTicketTags(true),
-        ]);
-        setTickets(ticketsData);
+        const tagsData = await getTicketTags(true);
         setAvailableTags(tagsData);
       } catch {
-        toast.error('Erro ao carregar chamados. Tente novamente.');
-        setTickets([]);
         setAvailableTags([]);
-      } finally {
-        setLoading(false);
       }
     };
-    fetchTicketsAndTags();
+    void fetchTags();
   }, []);
+
+  // Reseta a página para a primeira ao alterar qualquer um dos filtros
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedTagIds, activeTab, searchTitle, selectedPriority, selectedCategory]);
 
   const filteredTickets = tickets.filter((ticket) => {
     // Filter by tab status
@@ -349,8 +367,35 @@ export default function Tickets() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        {loading ? <SkeletonTable /> : <TicketsTable tickets={sortedTickets} />}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col gap-4">
+        {loading ? (
+          <SkeletonTable />
+        ) : (
+          <>
+            <TicketsTable tickets={sortedTickets} />
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0 || loading}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+              >
+                Anterior
+              </button>
+              <span className="text-xs text-slate-500 font-semibold">
+                Página {currentPage + 1} de {totalPages || 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                disabled={currentPage >= totalPages - 1 || loading}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+              >
+                Seguinte
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

@@ -47,6 +47,7 @@ export interface GetAssetsParams {
   categoryId?: string;
   status?: AssetFilterStatus;
   sortBy?: AssetSortBy;
+  page?: number;
 }
 
 export interface CreateAssetDto {

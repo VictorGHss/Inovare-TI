@@ -58,7 +58,7 @@ export default function Dashboard() {
         const analyticsData = await getDashboardAnalytics();
         if (!isAdmin) {
           const ticketsData = await getTickets();
-          setTickets(ticketsData);
+          setTickets(ticketsData.content);
         } else {
           setTickets([]);
         }

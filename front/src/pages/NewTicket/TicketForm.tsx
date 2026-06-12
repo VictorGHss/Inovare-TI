@@ -51,9 +51,9 @@ export default function TicketForm({ type, onTypeChange }: Props) {
 
   useEffect(() => {
     Promise.all([getTicketCategories(), getItems()])
-      .then(([cats, itens]) => {
+      .then(([cats, itensPage]) => {
         setCategories(cats);
-        setItems(itens);
+        setItems(itensPage.content);
         // Pré-seleciona a primeira categoria; id é UUID (string)
         if (cats.length > 0) setForm((f) => ({ ...f, categoryId: cats[0].id }));
       })

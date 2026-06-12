@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload } from '../types/models';
+import type { Page, AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload } from '../types/models';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
@@ -12,8 +12,8 @@ export interface GetItemsParams {
 }
 
 // Busca todos os itens de inventário disponíveis
-export async function getItems(params?: GetItemsParams): Promise<Item[]> {
-  const { data } = await api.get<Item[]>('/items', {
+export async function getItems(params?: GetItemsParams): Promise<Page<Item>> {
+  const { data } = await api.get<Page<Item>>('/items', {
     params,
   });
   return data;
@@ -63,12 +63,12 @@ export async function addBatch(itemId: string, dto: CreateBatchDto): Promise<Bat
   return data;
 }
 
-export async function getAssets(params?: GetAssetsParams): Promise<Asset[]> {
+export async function getAssets(params?: GetAssetsParams): Promise<Page<Asset>> {
   const sanitizedParams = Object.fromEntries(
     Object.entries(params ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ''),
   );
 
-  const { data } = await api.get<Asset[]>('/assets', {
+  const { data } = await api.get<Page<Asset>>('/assets', {
     params: sanitizedParams,
   });
   return data;

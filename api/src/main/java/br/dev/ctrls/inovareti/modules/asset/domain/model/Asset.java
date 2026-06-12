@@ -92,10 +92,15 @@ public class Asset {
     @Builder.Default
     private boolean isCritical = false;
 
-    /** Indica se este equipamento foi adquirido recentemente, devendo aparecer no relatório de saídas. */
-    @Column(name = "is_new_acquisition", nullable = false)
+    /**
+     * Indica se este equipamento foi adquirido recentemente, devendo aparecer no relatório de saídas.
+     * Coluna adicionada ao esquema de base de dados pela migração V28__add_is_new_acquisition_to_assets.sql.
+     * columnDefinition explícita garante consistência entre o mapeamento Hibernate e o tipo PostgreSQL BOOLEAN.
+     */
+    @Column(name = "is_new_acquisition", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     @Builder.Default
     private boolean isNewAcquisition = false;
+
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

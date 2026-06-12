@@ -1,6 +1,6 @@
 package br.dev.ctrls.inovareti.modules.admin.application.service;
 
-import br.dev.ctrls.inovareti.modules.admin.application.dto.ImportResultDTO;
+
 
 /**
  * Representa uma linha do arquivo CSV já parseada e validada.

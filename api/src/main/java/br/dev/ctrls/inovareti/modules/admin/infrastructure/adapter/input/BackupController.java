@@ -1,7 +1,6 @@
 package br.dev.ctrls.inovareti.modules.admin.infrastructure.adapter.input;
 
-import br.dev.ctrls.inovareti.modules.admin.application.service.CsvImportService;
-import br.dev.ctrls.inovareti.modules.admin.application.dto.ImportResultDTO;
+
 
 import java.io.File;
 import java.io.IOException;

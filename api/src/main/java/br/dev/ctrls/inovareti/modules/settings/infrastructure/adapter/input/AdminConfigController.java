@@ -1,9 +1,6 @@
 package br.dev.ctrls.inovareti.modules.settings.infrastructure.adapter.input;
 
-import br.dev.ctrls.inovareti.modules.settings.domain.model.SystemSetting;
-import br.dev.ctrls.inovareti.modules.settings.domain.port.output.SystemSettingRepositoryPort;
-import br.dev.ctrls.inovareti.modules.settings.application.service.SystemSettingService;
-import br.dev.ctrls.inovareti.modules.settings.application.dto.SystemSettingResponseDTO;
+
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;

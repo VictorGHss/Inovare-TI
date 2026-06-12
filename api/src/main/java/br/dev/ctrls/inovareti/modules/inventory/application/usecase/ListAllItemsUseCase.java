@@ -20,7 +20,11 @@ import lombok.RequiredArgsConstructor;
  */
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("spring-data-string-property-reference")
 public class ListAllItemsUseCase {
+
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_CURRENT_STOCK = "currentStock";
 
     private static final int LOW_STOCK_THRESHOLD = 3;
     private static final int MAX_PAGE_SIZE = 500;
@@ -38,7 +42,6 @@ public class ListAllItemsUseCase {
      * @return lista de DTOs com os dados públicos dos itens filtrados
      */
     @Transactional(readOnly = true)
-    @SuppressWarnings("spring-data-string-property-reference")
     public List<ItemResponseDTO> execute(
             String sortField,
             Sort.Direction sortDirection,
@@ -59,7 +62,7 @@ public class ListAllItemsUseCase {
                     ? itemRepository.findAllOrderByOldestBatchEntryDateAsc(lowStockOnly, LOW_STOCK_THRESHOLD, pageable)
                     : itemRepository.findAllOrderByOldestBatchEntryDateDesc(lowStockOnly, LOW_STOCK_THRESHOLD, pageable);
         } else {
-            Sort sort = Sort.by(safeDirection, safeSortField).and(Sort.by(Sort.Direction.ASC, "name"));
+            Sort sort = Sort.by(safeDirection, safeSortField).and(Sort.by(Sort.Direction.ASC, FIELD_NAME));
             PageRequest pageable = PageRequest.of(safePage, safeSize, sort);
             itemsPage = lowStockOnly
                     ? itemRepository.findByCurrentStockLessThanEqual(LOW_STOCK_THRESHOLD, pageable)
@@ -73,8 +76,14 @@ public class ListAllItemsUseCase {
     }
 
     private String normalizeSortField(String sortField) {
-        if ("name".equals(sortField) || "currentStock".equals(sortField) || "oldestBatchEntryDate".equals(sortField)) {
-            return sortField;
+        if (FIELD_NAME.equals(sortField)) {
+            return FIELD_NAME;
+        }
+        if (FIELD_CURRENT_STOCK.equals(sortField)) {
+            return FIELD_CURRENT_STOCK;
+        }
+        if ("oldestBatchEntryDate".equals(sortField)) {
+            return "oldestBatchEntryDate";
         }
         throw new BadRequestException("Campo de ordenação inválido para listagem de itens.");
     }

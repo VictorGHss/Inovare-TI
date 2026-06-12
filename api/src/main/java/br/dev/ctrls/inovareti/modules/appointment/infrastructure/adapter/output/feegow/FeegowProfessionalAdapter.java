@@ -22,6 +22,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.web.client.RestClientException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,6 +58,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
 
     @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackGetProfessionalName")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public String getProfessionalName(String professionalId) {
         if (professionalId == null || professionalId.isBlank()) {
             return null;
@@ -162,6 +171,11 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
 
     @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackListProfessionals")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
     public List<FeegowProfessional> listProfessionals() {
         String configuredPath = properties.getFeegowProfessionalPath();
         String resolvedPath = (configuredPath == null || configuredPath.isBlank())
@@ -427,6 +441,26 @@ public class FeegowProfessionalAdapter extends AbstractFeegowAdapter implements 
         }
         String name = nome.toString().trim();
         return name.isEmpty() ? null : name;
+    }
+
+    /**
+     * Recupera graciosamente a falha definitiva após 3 tentativas de busca de nome de profissional.
+     */
+    @Recover
+    public String recoverGetProfessionalName(RestClientException ex, String professionalId) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de busca de nome do profissional {} no Feegow ERP. Erro: {}", 
+            professionalId, ex.getMessage(), ex);
+        return "Clínica Inovare";
+    }
+
+    /**
+     * Recupera graciosamente a falha definitiva após 3 tentativas de listagem de profissionais.
+     */
+    @Recover
+    public List<FeegowProfessional> recoverListProfessionals(RestClientException ex) {
+        log.error("[RECOVERY-FEEGOW] Falha definitiva após 3 tentativas de listagem de profissionais no Feegow ERP. Erro: {}", 
+            ex.getMessage(), ex);
+        return List.of();
     }
 }
 

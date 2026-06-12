@@ -216,8 +216,7 @@ export default function ProfessionalMappingPanel() {
         </div>
       </header>
 
-      {(missingIdCount > 0 || !hasBlipQueues || true) && (
-        <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600 gap-4">
+      <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600 gap-4">
           <div className="space-y-1">
             {missingIdCount > 0 ? (
               <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
@@ -236,7 +235,6 @@ export default function ProfessionalMappingPanel() {
             Mostrar profissionais inativos / duplicados
           </label>
         </div>
-      )}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">

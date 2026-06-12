@@ -94,7 +94,7 @@ export default function FaqManagement() {
         setShowForm(false);
         loadFaqs();
       }
-    } catch (error: any) {
+    } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
         toast.error('Erro: Já existe um FAQ cadastrado com esta palavra-chave!');
       } else {

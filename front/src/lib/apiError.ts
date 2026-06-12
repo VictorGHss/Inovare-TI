@@ -41,7 +41,7 @@ export interface ProblemDetail {
   /**
    * Permite capturar outras propriedades dinâmicas adicionais estendidas pelo backend.
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export function getApiErrorMessage(error: unknown, fallbackMessage: string): string {

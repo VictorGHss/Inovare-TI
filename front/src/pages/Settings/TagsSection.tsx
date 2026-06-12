@@ -127,7 +127,7 @@ export default function TagsSection() {
       if (editingId === id) {
         handleCancel();
       }
-    } catch (err) {
+    } catch {
       toast.error('Erro ao excluir tag.');
     }
   }

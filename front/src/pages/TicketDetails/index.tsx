@@ -72,7 +72,7 @@ export default function TicketDetails() {
       toast.success('Descrição da solução salva com sucesso!');
       setIsEditingSolution(false);
       loadTicket();
-    } catch (err) {
+    } catch {
       toast.error('Falha ao salvar a descrição da solução.');
     } finally {
       setIsSavingSolution(false);

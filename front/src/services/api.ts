@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { ProblemDetail } from '../lib/apiError';
+import type { ProblemDetail } from '../lib/apiError';
 
 // Use exatamente o valor fornecido via VITE_API_URL como baseURL.
 // A variável de ambiente deve conter o sufixo '/api' (ex: http://localhost:8085/api).

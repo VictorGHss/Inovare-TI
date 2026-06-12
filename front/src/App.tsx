@@ -35,7 +35,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
               reg.unregister();
             }
           });
-        } catch (_e) {
+        } catch {
           // Falha ao desregistrar service worker — ignorado intencionalmente
         }
       }
@@ -46,7 +46,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
           caches.keys().then(function(keys) {
             keys.forEach(key => caches.delete(key));
           });
-        } catch (_e) {
+        } catch {
           // Falha ao limpar cacheStorage — ignorado intencionalmente
         }
       }

@@ -111,14 +111,16 @@ export default function TicketSidebar({
 
   const canManageTicket = userRole === 'ADMIN' || userRole === 'TECHNICIAN';
   const additionalUserIds = ticket.additionalUserIds ?? [];
+  const additionalUserIdsSerialized = additionalUserIds.join(',');
 
   // Memoiza a lista de usuários disponíveis para evitar recriação de referências e loops de renderização
   const availableUsers = useMemo(() => {
+    const ids = additionalUserIdsSerialized.split(',').filter(Boolean);
     return users
       .filter((user) => user.id !== ticket.requesterId)
-      .filter((user) => !additionalUserIds.includes(user.id))
+      .filter((user) => !ids.includes(user.id))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [users, ticket.requesterId, additionalUserIds.join(',')]);
+  }, [users, ticket.requesterId, additionalUserIdsSerialized]);
 
   const normalizedAdditionalQuery = additionalUserQuery.trim().toLowerCase();
   
@@ -162,6 +164,8 @@ export default function TicketSidebar({
     void loadAllTickets();
   }, []);
 
+  const relatedTicketIdsSerialized = (ticket.relatedTicketIds ?? []).join(',');
+
   // Filtra as sugestões conforme digita (depende do join(',') primitivo dos arrays para evitar loops por referência)
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -170,11 +174,13 @@ export default function TicketSidebar({
       return;
     }
 
+    const ids = relatedTicketIdsSerialized.split(',').filter(Boolean);
+
     const filtered = allTickets.filter((t) => {
       // Não pode vincular o próprio chamado
       if (t.id === ticket.id) return false;
       // Não pode vincular se já estiver associado
-      if (ticket.relatedTicketIds?.includes(t.id)) return false;
+      if (ids.includes(t.id)) return false;
 
       const matchesId = t.id.toLowerCase().includes(query);
       const matchesTitle = t.title.toLowerCase().includes(query);
@@ -183,7 +189,7 @@ export default function TicketSidebar({
     });
 
     setSuggestions(filtered.slice(0, 5)); // limita a 5 sugestões
-  }, [searchQuery, allTickets, ticket.id, ticket.relatedTicketIds?.join(',')]);
+  }, [searchQuery, allTickets, ticket.id, relatedTicketIdsSerialized]);
 
   useEffect(() => {
     if (!selectedAdditionalUserId) return;

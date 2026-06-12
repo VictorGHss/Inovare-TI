@@ -51,8 +51,13 @@ public class DiscordCommandService {
     @Transactional(readOnly = true)
     public User resolverTecnico(String discordUserId) {
         User usuario = userRepository.findByDiscordUserId(discordUserId).orElse(null);
-        if (usuario == null || (usuario.getRole() != UserRole.ADMIN && usuario.getRole() != UserRole.TECHNICIAN)) {
-            log.warn("[DISCORD] Acesso negado para Discord ID={} — não é técnico/admin vinculado.", discordUserId);
+        if (usuario == null) {
+            log.warn("[DISCORD] Acesso negado para Discord ID={}: utilizador não encontrado no sistema.", discordUserId);
+            return null;
+        }
+        if (usuario.getRole() != UserRole.ADMIN && usuario.getRole() != UserRole.TECHNICIAN) {
+            log.warn("[DISCORD] Acesso negado para Discord ID={} (User ID: {}) — perfil '{}' não é técnico/admin vinculado.",
+                    discordUserId, usuario.getId(), usuario.getRole());
             return null;
         }
         return usuario;
@@ -67,7 +72,7 @@ public class DiscordCommandService {
             UUID ticketId = UUID.fromString(ticketIdStr.trim());
             return ticketRepository.findById(ticketId).orElse(null);
         } catch (IllegalArgumentException ex) {
-            log.warn("[DISCORD] UUID inválido fornecido: '{}'", ticketIdStr);
+            log.warn("[DISCORD] UUID de chamado inválido fornecido: '{}'. Detalhe: {}", ticketIdStr, ex.getMessage());
             return null;
         }
     }
@@ -96,8 +101,8 @@ public class DiscordCommandService {
         ticketRepository.save(ticket);
 
         String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-        log.info("[DISCORD] Chamado #{} assumido pelo técnico {} (Discord: {})",
-                shortId, tecnico.getName(), discordUserId);
+        log.info("[DISCORD] Chamado #{} (ID: {}) assumido pelo técnico {} (ID: {}, Discord ID: {})",
+                shortId, ticket.getId(), tecnico.getName(), tecnico.getId(), discordUserId);
 
         return "✅ Chamado #" + shortId + " assumido por **" + tecnico.getName() + "**";
     }
@@ -118,8 +123,8 @@ public class DiscordCommandService {
         }
 
         String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();
-        log.info("[DISCORD] Chamado #{} recusado pelo técnico {} (Discord: {})",
-                shortId, tecnico.getName(), discordUserId);
+        log.info("[DISCORD] Chamado #{} (ID: {}) recusado pelo técnico {} (ID: {}, Discord ID: {})",
+                shortId, ticket.getId(), tecnico.getName(), tecnico.getId(), discordUserId);
 
         return "❌ Chamado #" + shortId + " recusado por **" + tecnico.getName() + "**. Aguardando outro técnico.";
     }
@@ -187,8 +192,8 @@ public class DiscordCommandService {
 
         addAdditionalUserUseCase.execute(ticket.getId(), afetado.getId());
 
-        log.info("[DISCORD] Usuário '{}' vinculado como afetado no chamado #{} por técnico '{}'",
-                afetado.getName(), shortId, tecnico.getName());
+        log.info("[DISCORD] Utilizador '{}' (ID: {}, Discord ID: {}) vinculado como afetado no chamado #{} (ID: {}) por técnico '{}' (ID: {})",
+                afetado.getName(), afetado.getId(), cleanDiscordId, shortId, ticket.getId(), tecnico.getName(), tecnico.getId());
 
         return "✅ **" + afetado.getName() + "** foi vinculado como afetado no chamado #" + shortId
                 + ". Ele receberá uma notificação quando o chamado for resolvido.";

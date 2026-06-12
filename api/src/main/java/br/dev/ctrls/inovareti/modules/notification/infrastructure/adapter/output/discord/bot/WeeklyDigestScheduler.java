@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class WeeklyDigestScheduler {
     /**
      * Roda todas as sextas-feiras às 17:00 e envia o resumo de métricas executivo para a equipe de TI.
      */
+    @Async
     @Scheduled(cron = "0 0 17 * * FRI")
     @Transactional(readOnly = true)
     @SuppressWarnings({"unchecked", "null"})

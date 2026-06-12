@@ -15,6 +15,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.slf4j.MDC;
 
 import br.dev.ctrls.inovareti.modules.finance.domain.model.SystemAlert;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.SystemAlertRepository;
@@ -47,6 +54,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 public class DiscordWebhookService {
 
     private final UserRepositoryPort userRepository;
@@ -56,9 +64,15 @@ public class DiscordWebhookService {
     private final SystemSettingRepositoryPort systemSettingRepository;
     private final TicketRepositoryPort ticketRepository;
     private final DiscordEmbedBuilder discordEmbedBuilder;
-    private final DiscordWebhookRetryUtility discordWebhookRetryUtility;
-    /** Provider lazy do JDA para envio de mensagens com botíÂµes interativos. */
+    /** Provider lazy do JDA para envio de mensagens com botíÂ§íÂµes interativos. */
     private final ObjectProvider<JDA> jdaProvider;
+
+    private DiscordWebhookService self;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setSelf(@org.springframework.context.annotation.Lazy DiscordWebhookService self) {
+        this.self = self;
+    }
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -95,13 +109,13 @@ public class DiscordWebhookService {
         try {
             Optional<Ticket> maybe = ticketRepository.findByIdWithRelations(ticketId);
             if (maybe.isEmpty()) {
-                log.warn("Chamado {} níÂ£o encontrado para notificaíÂ§íÂ£o Discord", ticketId);
+                log.warn("Chamado {} não encontrado para notificação Discord", ticketId);
                 return;
             }
             Ticket fullTicket = maybe.get();
-            sendNewTicketAlertAsync(fullTicket);
+            self.sendNewTicketAlertAsync(fullTicket);
         } catch (Exception e) {
-            log.error("Erro ao carregar chamado {} para notificaíÂ§íÂ£o Discord: {}", ticketId, e.getMessage(), e);
+            log.error("Erro ao carregar chamado {} para notificação Discord: {}", ticketId, e.getMessage(), e);
         }
     }
 
@@ -217,7 +231,8 @@ public class DiscordWebhookService {
                 message,
                 resolveThumbnailUrl());
 
-        discordWebhookRetryUtility.sendEmbedWithRetry(webhook, embed, "alerta operacional", title != null ? title : "sem tíÂ­tulo");
+        String traceId = getTraceId();
+        self.sendWebhook(webhook, embed, traceId, "alerta-operacional");
     }
 
     private String resolveWebhookUrl(String configured, String settingKey) {
@@ -280,10 +295,16 @@ public class DiscordWebhookService {
                 resolveThumbnailUrl(),
                 operationalTicketUrlBase);
 
+        String traceId = getTraceId();
         String ticketContext = ticket != null && ticket.getId() != null ? ticket.getId().toString() : "desconhecido";
-        boolean enviado = discordWebhookRetryUtility.sendEmbedWithRetry(webhook, embed, "chamado", ticketContext);
+        boolean enviado = false;
+        try {
+            enviado = self.sendWebhook(webhook, embed, traceId, ticketContext);
+        } catch (Exception ex) {
+            log.warn("[DISCORD] Falha ao despachar webhook para chamado {}: {}", ticketContext, ex.getMessage());
+        }
 
-        // Complemento via JDA: envia ao canal configurado com botíÂµes interativos de aíÂ§íÂ£o
+        // Complemento via JDA: envia ao canal configurado com botões interativos de ação
         if (ticket != null && ticket.getId() != null) {
             enviarNotificacaoJdaComBotoes(ticket);
         }
@@ -368,7 +389,6 @@ public class DiscordWebhookService {
     @org.springframework.beans.factory.annotation.Value("${discord.bot.operational-channel-id:}")
     private String operationalChannelId;
 
-    @SuppressWarnings("null")
     private void enviarNotificacaoJdaComBotoes(Ticket ticket) {
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
@@ -386,8 +406,8 @@ public class DiscordWebhookService {
         try {
             TextChannel canal = jda.getTextChannelById(operationalChannelId);
             if (canal == null) {
-                log.warn("[JDA] Canal operacional '{}' níÂ£o encontrado. Verifique 'discord.bot.operational-channel-id'.",
-                        operationalChannelId);
+                log.warn("[JDA] Canal operacional '{}' não encontrado para o chamado {}. Verifique 'discord.bot.operational-channel-id'.",
+                        operationalChannelId, ticket.getId());
                 return;
             }
 
@@ -413,18 +433,78 @@ public class DiscordWebhookService {
                     .setFooter("Inovare TI • Clique em Assumir para atribuir o chamado a você")
                     .build();
 
-            canal.sendMessageEmbeds(embed)
-                    .setComponents(DiscordInteractionListener.criarBotoesDeAcao(ticket.getId()))
-                    .queue(
-                            ok  -> log.info("[JDA] NotificaíÂ§íÂ£o com botíÂµes enviada ao canal '{}' para chamado {}",
-                                    operationalChannelId, ticket.getId()),
-                            err -> log.warn("[JDA] Falha ao enviar notificaíÂ§íÂ£o com botíÂµes para chamado {}: {}",
-                                    ticket.getId(), err.getMessage())
-                    );
+            String traceId = getTraceId();
+            String ticketIdStr = ticket.getId().toString();
+            self.sendMessage(canal, embed, DiscordInteractionListener.criarBotoesDeAcao(ticket.getId()), traceId, ticketIdStr);
         } catch (Exception ex) {
-            log.warn("[JDA] Erro inesperado ao enviar notificaíÂ§íÂ£o JDA com botíÂµes para chamado {}: {}",
+            log.warn("[JDA] Erro inesperado ao enviar notificação JDA com botões para chamado {}: {}",
                     ticket.getId(), ex.getMessage());
         }
+    }
+
+    private String getTraceId() {
+        String traceId = MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = MDC.get("trace_id");
+        }
+        if (traceId == null || traceId.isBlank()) {
+            traceId = UUID.randomUUID().toString();
+        }
+        return traceId;
+    }
+
+    @Retryable(
+        retryFor = { RestClientException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public boolean sendWebhook(String webhookUrl, Map<String, Object> embed, String traceId, String ticketId) {
+        log.info("[DISCORD] A tentar enviar webhook. Ticket ID: {}, Trace ID: {}", ticketId, traceId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, Object> payload = Map.of("embeds", List.of(embed));
+        restTemplate.postForEntity(webhookUrl, new HttpEntity<>(payload, headers), Void.class);
+        return true;
+    }
+
+    @Recover
+    public boolean recoverWebhook(RestClientException ex, String webhookUrl, Map<String, Object> embed, String traceId, String ticketId) {
+        log.warn("[DISCORD] Falha definitiva após todas as tentativas de envio do webhook. Ticket ID: {}, Trace ID: {}. Erro: {}",
+                ticketId, traceId, ex.getMessage());
+        try {
+            systemAlertRepository.save(SystemAlert.builder()
+                    .alertType("DISCORD_WEBHOOK_FAILURE")
+                    .severity("WARN")
+                    .source("DiscordWebhookService")
+                    .title("Falha no envio do webhook do Discord")
+                    .details(ex.getMessage())
+                    .context(Map.of("ticketId", String.valueOf(ticketId), "traceId", String.valueOf(traceId), "webhookUrl", webhookUrl))
+                    .build());
+        } catch (Exception e) {
+            log.warn("[DISCORD] Erro ao registar SystemAlert na recuperação do webhook: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    @Retryable(
+        retryFor = { Exception.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public void sendMessage(TextChannel canal, net.dv8tion.jda.api.entities.MessageEmbed embed, net.dv8tion.jda.api.interactions.components.ActionRow components, String traceId, String ticketId) {
+        log.info("[DISCORD] A tentar enviar mensagem JDA para o canal '{}'. Ticket ID: {}, Trace ID: {}", canal.getId(), ticketId, traceId);
+        if (components != null) {
+            canal.sendMessageEmbeds(embed).setComponents(components).complete();
+        } else {
+            canal.sendMessageEmbeds(embed).complete();
+        }
+        log.info("[JDA] Notificação com botões enviada ao canal '{}' para chamado {} (Trace ID: {})", canal.getId(), ticketId, traceId);
+    }
+
+    @Recover
+    public void recoverMessage(Exception ex, TextChannel canal, net.dv8tion.jda.api.entities.MessageEmbed embed, net.dv8tion.jda.api.interactions.components.ActionRow components, String traceId, String ticketId) {
+        log.warn("[DISCORD] Falha definitiva após todas as tentativas ao enviar mensagem JDA para o canal '{}'. Ticket ID: {}, Trace ID: {}. Erro: {}",
+                canal != null ? canal.getId() : "desconhecido", ticketId, traceId, ex.getMessage());
     }
 }
 

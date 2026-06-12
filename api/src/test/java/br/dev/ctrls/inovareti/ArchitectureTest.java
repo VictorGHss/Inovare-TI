@@ -49,15 +49,21 @@ public class ArchitectureTest {
     }
 
     /**
-     * Valida que os módulos vizinhos (como 'finance' e 'appointment') permanecem desacoplados,
-     * impedindo imports cruzados diretos de entidades internas sem passar por portas de comunicação.
+     * Valida que os módulos independentes (como 'finance' e 'appointment') permanecem desacoplados,
+     * impedindo imports diretos entre eles. A comunicação deve ser feita via interfaces ou eventos.
      */
     @ArchTest
     public static void modulos_devem_ser_independentes(JavaClasses classes) {
         noClasses()
+            .that().resideInAPackage("..modules.appointment..")
+            .should().dependOnClassesThat().resideInAPackage("..modules.finance..")
+            .because("O módulo appointment não deve depender diretamente de classes do módulo finance.")
+            .check(classes);
+
+        noClasses()
             .that().resideInAPackage("..modules.finance..")
-            .should().dependOnClassesThat().resideInAPackage("..modules.appointment.domain.model..")
-            .because("Os módulos devem ser acoplados de forma fraca e interagir através de interfaces e portas de saída de domínio.")
+            .should().dependOnClassesThat().resideInAPackage("..modules.appointment..")
+            .because("O módulo finance não deve depender diretamente de classes do módulo appointment.")
             .check(classes);
     }
 }

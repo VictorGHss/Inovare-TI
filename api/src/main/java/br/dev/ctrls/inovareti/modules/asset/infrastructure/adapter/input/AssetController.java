@@ -87,13 +87,7 @@ public class AssetController {
             @RequestParam(defaultValue = "0") int page
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
-        org.springframework.data.domain.Page<AssetResponseDTO> response = assetQueryService.listAssets(
-                categoryId,
-                status,
-                sortBy,
-                pageable,
-                assetRepository
-        );
+        org.springframework.data.domain.Page<AssetResponseDTO> response = assetQueryService.listAssets(categoryId, status, sortBy, pageable, assetRepository);
         return ResponseEntity.ok(response);
     }
 

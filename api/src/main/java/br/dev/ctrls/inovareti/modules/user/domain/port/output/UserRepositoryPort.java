@@ -22,6 +22,7 @@ public interface UserRepositoryPort {
     List<User> findAllByRole(UserRole role);
     List<User> findAllByRoleInAndReceivesItNotificationsTrue(List<UserRole> roles);
     List<User> findAllWithSector();
+    List<User> findAllWithSector(String search);
     Optional<User> findByDiscordUserId(String discordUserId);
     User save(User user);
     void deleteById(UUID id);

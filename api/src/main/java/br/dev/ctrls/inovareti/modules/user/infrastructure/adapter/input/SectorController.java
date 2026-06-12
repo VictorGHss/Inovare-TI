@@ -58,8 +58,9 @@ public class SectorController {
     @PreAuthorize("isAuthenticated()")
     @GetMapping
     public ResponseEntity<List<SectorResponseDTO>> listAll(
-            @org.springframework.web.bind.annotation.RequestParam(required = false) Boolean activeOnly) {
-        return ResponseEntity.ok(listAllSectorsUseCase.execute(activeOnly));
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Boolean activeOnly,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String search) {
+        return ResponseEntity.ok(listAllSectorsUseCase.execute(activeOnly, search));
     }
 
     /**

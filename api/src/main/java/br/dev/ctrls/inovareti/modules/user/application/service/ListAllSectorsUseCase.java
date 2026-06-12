@@ -28,11 +28,16 @@ public class ListAllSectorsUseCase {
      */
     @Transactional(readOnly = true)
     public List<SectorResponseDTO> execute(Boolean activeOnly) {
+        return execute(activeOnly, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SectorResponseDTO> execute(Boolean activeOnly, String search) {
         List<Sector> list;
         if (activeOnly != null && activeOnly) {
-            list = sectorRepository.findByActiveTrue();
+            list = sectorRepository.findByActiveTrue(search);
         } else {
-            list = sectorRepository.findAll();
+            list = sectorRepository.findAll(search);
         }
         return list.stream()
                 .map(SectorResponseDTO::from)

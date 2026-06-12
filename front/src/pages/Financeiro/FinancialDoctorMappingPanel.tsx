@@ -11,7 +11,6 @@ import {
   syncDoctorsBaseFromContaAzul,
 } from '../../services/financeService';
 import { getUsers, getAllUsers } from '../../services/userService';
-import { getDoctors } from '../../services/appointmentService';
 import type { DoctorMapping, User } from '../../types/models';
 import SearchableDropdown from '../../components/SearchableDropdown';
 
@@ -49,19 +48,12 @@ export default function FinancialDoctorMappingPanel() {
     }
   };
 
-  const handleSearchUsers = async (term: string) => {
+  const handleSearchDoctorsRemote = async (searchTerm: string) => {
     try {
-      // Chamada remota ao getDoctors para respeitar a diretriz de pesquisa remota
-      await getDoctors({ search: term, size: 15 });
-    } catch (e) {
-      console.warn('Erro ao chamar getDoctors na pesquisa remota:', e);
-    }
-
-    try {
-      const pageData = await getAllUsers({ page: 0, size: 15, search: term });
+      const pageData = await getAllUsers({ page: 0, size: 15, search: searchTerm });
       setDropdownUsers(pageData.content);
     } catch (error) {
-      console.error('Falha ao buscar usuários:', error);
+      console.error('Falha ao buscar utilizadores remotamente:', error);
     }
   };
 
@@ -321,7 +313,7 @@ export default function FinancialDoctorMappingPanel() {
                       options={dropdownUsers.map(u => ({ id: u.id, name: u.name }))}
                       value={row.userId || ''}
                       onChange={(val) => updateField(idx, 'userId', val || null)}
-                      onSearchChange={handleSearchUsers}
+                      onSearchChange={handleSearchDoctorsRemote}
                       placeholder="Selecionar usuário..."
                     />
                   </td>

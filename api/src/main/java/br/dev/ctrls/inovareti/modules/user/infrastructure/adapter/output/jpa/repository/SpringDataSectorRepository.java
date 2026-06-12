@@ -18,4 +18,8 @@ public interface SpringDataSectorRepository extends JpaRepository<Sector, UUID> 
     boolean existsByName(String name);
 
     List<Sector> findByActiveTrue();
+
+    List<Sector> findByNameContainingIgnoreCase(String name, org.springframework.data.domain.Pageable pageable);
+
+    List<Sector> findByActiveTrueAndNameContainingIgnoreCase(String name, org.springframework.data.domain.Pageable pageable);
 }

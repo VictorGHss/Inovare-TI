@@ -28,7 +28,12 @@ public class ListAllUsersUseCase {
      */
     @Transactional(readOnly = true)
     public List<UserResponseDTO> execute() {
-        return userRepository.findAllWithSector()
+        return execute(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponseDTO> execute(String search) {
+        return userRepository.findAllWithSector(search)
                 .stream()
                 .map(UserResponseDTO::from)
                 .toList();

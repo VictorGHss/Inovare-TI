@@ -74,6 +74,16 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
+    public List<User> findAllWithSector(String search) {
+        if (search != null && !search.isBlank()) {
+            return repository.findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                search, search, org.springframework.data.domain.PageRequest.of(0, 15)
+            );
+        }
+        return repository.findAllWithSector();
+    }
+
+    @Override
     public Optional<User> findByDiscordUserId(String discordUserId) {
         return repository.findByDiscordUserId(discordUserId);
     }

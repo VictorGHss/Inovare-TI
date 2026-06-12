@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { updateUser } from '../../services/userService';
+import { updateUser, getSectors } from '../../services/userService';
 import type { User, Sector, UpdateUserDto } from '../../types/models';
 import SearchableDropdown from '../../components/SearchableDropdown';
 
@@ -18,6 +18,21 @@ const inputClassName =
 const labelClassName = 'block text-xs font-medium text-slate-600 mb-1.5';
 
 export default function EditUserModal({ user, sectors, onClose, onSuccess }: EditUserModalProps) {
+  const [dropdownSectors, setDropdownSectors] = useState<Sector[]>(sectors);
+
+  useEffect(() => {
+    setDropdownSectors(sectors);
+  }, [sectors]);
+
+  async function handleSearchSectorsRemote(searchTerm: string) {
+    try {
+      const data = await getSectors({ search: searchTerm, activeOnly: true }) as unknown as Sector[];
+      setDropdownSectors(data);
+    } catch (error) {
+      console.error('Falha ao buscar setores remotamente:', error);
+    }
+  }
+
   const [formData, setFormData] = useState<UpdateUserDto>({
     name: '',
     email: '',
@@ -119,12 +134,13 @@ export default function EditUserModal({ user, sectors, onClose, onSuccess }: Edi
             <label className={labelClassName}>Setor *</label>
             <div className="mt-1">
               <SearchableDropdown
-                options={sectors.map((sector) => ({
+                options={dropdownSectors.map((sector) => ({
                   id: sector.id,
                   name: sector.name,
                 }))}
                 value={formData.sectorId || ''}
                 onChange={(val) => setFormData({ ...formData, sectorId: val })}
+                onSearchChange={handleSearchSectorsRemote}
                 placeholder="Selecione o setor..."
                 disabled={submitting}
               />

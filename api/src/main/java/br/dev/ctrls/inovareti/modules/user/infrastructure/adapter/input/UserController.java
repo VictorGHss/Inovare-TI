@@ -69,8 +69,9 @@ public class UserController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping
-    public ResponseEntity<List<UserResponseDTO>> listAll() {
-        return ResponseEntity.ok(listAllUsersUseCase.execute());
+    public ResponseEntity<List<UserResponseDTO>> listAll(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String search) {
+        return ResponseEntity.ok(listAllUsersUseCase.execute(search));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")

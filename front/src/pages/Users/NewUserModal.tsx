@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { CircleHelp, Loader2, SearchCheck, UserPlus2, UserRound, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { checkContaAzulCustomerByEmail } from '../../services/userService';
+import { checkContaAzulCustomerByEmail, getSectors } from '../../services/userService';
 import type { CreateUserDto, Sector } from '../../types/models';
 import SearchableDropdown from '../../components/SearchableDropdown';
 
@@ -38,6 +39,21 @@ export default function NewUserModal({
   onChange,
   onCheckContaAzul,
 }: NewUserModalProps) {
+  const [dropdownSectors, setDropdownSectors] = useState<Sector[]>(sectors);
+
+  useEffect(() => {
+    setDropdownSectors(sectors);
+  }, [sectors]);
+
+  async function handleSearchSectorsRemote(searchTerm: string) {
+    try {
+      const data = await getSectors({ search: searchTerm, activeOnly: true }) as unknown as Sector[];
+      setDropdownSectors(data);
+    } catch (error) {
+      console.error('Falha ao buscar setores remotamente:', error);
+    }
+  }
+
   if (!isOpen) {
     return null;
   }
@@ -135,12 +151,13 @@ export default function NewUserModal({
               <label className={labelClassName}>Setor</label>
               <div className="mt-2">
                 <SearchableDropdown
-                  options={sectors.map((sector) => ({
+                  options={dropdownSectors.map((sector) => ({
                     id: sector.id,
                     name: sector.name,
                   }))}
                   value={formData.sectorId || ''}
                   onChange={(val) => onChange({ ...formData, sectorId: val })}
+                  onSearchChange={handleSearchSectorsRemote}
                   placeholder="Selecione um setor..."
                   disabled={submitting}
                 />

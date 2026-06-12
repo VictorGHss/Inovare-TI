@@ -33,5 +33,8 @@ public interface SpringDataUserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u JOIN FETCH u.sector")
     List<User> findAllWithSector();
 
+    @EntityGraph(attributePaths = "sector")
+    List<User> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(String name, String email, org.springframework.data.domain.Pageable pageable);
+
     Optional<User> findByDiscordUserId(String discordUserId);
 }

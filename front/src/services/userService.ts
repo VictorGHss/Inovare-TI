@@ -96,7 +96,7 @@ export async function getSectors(paramsOrActiveOnly?: GetSectorsParams | boolean
   }
 
   const { data } = await api.get<Sector[]>('/sectors', {
-    params: { activeOnly }
+    params: { activeOnly, search: search || undefined }
   });
 
   let filteredData = data;

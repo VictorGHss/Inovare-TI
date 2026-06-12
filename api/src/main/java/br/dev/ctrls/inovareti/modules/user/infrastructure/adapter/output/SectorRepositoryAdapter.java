@@ -27,6 +27,14 @@ public class SectorRepositoryAdapter implements SectorRepositoryPort {
     }
 
     @Override
+    public List<Sector> findAll(String search) {
+        if (search != null && !search.isBlank()) {
+            return repository.findByNameContainingIgnoreCase(search, org.springframework.data.domain.PageRequest.of(0, 15));
+        }
+        return repository.findAll();
+    }
+
+    @Override
     public Optional<Sector> findById(UUID id) {
         return repository.findById(id);
     }
@@ -43,6 +51,14 @@ public class SectorRepositoryAdapter implements SectorRepositoryPort {
 
     @Override
     public List<Sector> findByActiveTrue() {
+        return repository.findByActiveTrue();
+    }
+
+    @Override
+    public List<Sector> findByActiveTrue(String search) {
+        if (search != null && !search.isBlank()) {
+            return repository.findByActiveTrueAndNameContainingIgnoreCase(search, org.springframework.data.domain.PageRequest.of(0, 15));
+        }
         return repository.findByActiveTrue();
     }
 

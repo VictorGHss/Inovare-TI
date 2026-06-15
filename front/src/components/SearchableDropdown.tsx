@@ -89,9 +89,17 @@ export default function SearchableDropdown({
   const selectedOption = (value ? options.find((opt) => getOptId(opt) === value) : undefined)
     || (cachedSelection && getOptId(cachedSelection) === value ? cachedSelection : undefined);
 
+  const isFirstRender = useRef(true);
+
   // Efeito de debounce para pesquisa remota assíncrona
   useEffect(() => {
     if (!onSearchChange) return;
+
+    // Evita a chamada remota no carregamento inicial se o termo de pesquisa estiver vazio
+    if (isFirstRender.current && !searchTerm.trim()) {
+      isFirstRender.current = false;
+      return;
+    }
 
     const delayDebounceFn = setTimeout(() => {
       onSearchChange(searchTerm);

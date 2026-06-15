@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import SearchableDropdown from '../../components/SearchableDropdown';
@@ -53,7 +53,7 @@ export default function ProfessionalMappingPanel() {
 
   const hasBlipQueues = blipQueues.length > 0;
 
-  const handleSearchQueues = async (term: string) => {
+  const handleSearchQueues = useCallback(async (term: string) => {
     try {
       // Chamada remota ao getMappings para respeitar a diretriz de pesquisa remota
       await getMappings({ search: term, size: 15 });
@@ -65,7 +65,7 @@ export default function ProfessionalMappingPanel() {
       .filter((q) => q.name.toLowerCase().includes(term.toLowerCase()))
       .slice(0, 15);
     setDropdownQueues(filtered);
-  };
+  }, [blipQueues]);
 
   useEffect(() => {
     async function load() {

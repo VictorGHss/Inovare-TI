@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Loader2, Save, Trash2, Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -48,14 +48,14 @@ export default function FinancialDoctorMappingPanel() {
     }
   };
 
-  const handleSearchDoctorsRemote = async (searchTerm: string) => {
+  const handleSearchDoctorsRemote = useCallback(async (searchTerm: string) => {
     try {
       const pageData = await getAllUsers({ page: 0, size: 15, search: searchTerm });
       setDropdownUsers(pageData.content);
     } catch (error) {
       console.error('Falha ao buscar utilizadores remotamente:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadData();

@@ -158,14 +158,49 @@ public class BlipWebhookController {
             ));
         }
 
-        // Ignora notificações de status de entrega/leitura do Blip (received, consumed, failed)
+        // Ignora notificações de status de entrega/leitura do Blip (received, consumed, etc.), exceto falhas (failed)
         String messageType = payload.get("type") != null ? payload.get("type").toString() : "";
+        boolean hasEventField = payload.containsKey("event");
+        String event = hasEventField ? Objects.toString(payload.get("event"), "") : "";
         boolean isLimeNotification = messageType.toLowerCase().contains("notification") 
-            || payload.containsKey("event") 
+            || hasEventField 
             || (payload.get("content") instanceof Map<?, ?> contentMap && contentMap.containsKey("event"));
 
         if (isLimeNotification) {
-            log.debug("[NOTIFICATION] Ignorando notificação de status/sistema do Blip. type='{}'", messageType);
+            // Se for especificamente uma notificação de falha de entrega (failed), processamos o erro
+            if ("failed".equalsIgnoreCase(event)) {
+                log.info("[WEBHOOK] Notificação de falha de entrega do Blip recebida. Processando...");
+                try {
+                    // Executa o parsing específico da falha
+                    BlipWebhookInboundService.ParsedFailure failure = blipWebhookInboundService.parseFailure(payload);
+                    String traceId = org.slf4j.MDC.get("traceId");
+                    if (traceId == null || traceId.isBlank()) {
+                        traceId = org.slf4j.MDC.get("trace_id");
+                    }
+                    if (traceId == null || traceId.isBlank()) {
+                        traceId = UUID.randomUUID().toString();
+                    }
+
+                    // Constrói o comando de falha
+                    HandleBlipWebhookUseCase.BlipDeliveryFailureCommand command =
+                            new HandleBlipWebhookUseCase.BlipDeliveryFailureCommand(
+                                    failure.messageId(),
+                                    failure.appointmentId(),
+                                    failure.errorCode(),
+                                    failure.errorMessage(),
+                                    traceId
+                            );
+
+                    // Delega o processamento ao Caso de Uso
+                    handleBlipWebhookUseCase.executeNotificationFailure(command);
+                } catch (Exception e) {
+                    log.error("[WEBHOOK-ERROR] Erro ao processar webhook de falha de entrega do Blip", e);
+                }
+                // Retorna 200 OK imediatamente para blindar contra retentativas do Blip
+                return ResponseEntity.ok().build();
+            }
+
+            log.debug("[NOTIFICATION] Ignorando notificação de status/sistema do Blip. type='{}', event='{}'", messageType, event);
             return ResponseEntity.ok().build();
         }
 

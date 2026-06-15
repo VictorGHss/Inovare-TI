@@ -43,6 +43,13 @@ public class BlipWebhookInboundService {
         }
     }
 
+    public record ParsedFailure(
+            String messageId,
+            String appointmentId,
+            Integer errorCode,
+            String errorMessage
+    ) {}
+
     public ParsedInbound parse(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
             return new ParsedInbound(null, null, null, null, null, null, null, false, null);
@@ -90,6 +97,59 @@ public class BlipWebhookInboundService {
                 asText(getNested(payload, "message", "from")));
 
         return new ParsedInbound(from, action, messageId, appointmentId, content, bsuid, messageType, checkIsOutbound(payload), rawFrom);
+    }
+
+    /**
+     * Realiza o parsing de um envelope de notificação de falha do Blip de forma segura.
+     * Extrai o ID da mensagem original, o código do erro, a mensagem descritiva
+     * e tenta correlacionar com o ID de agendamento Feegow a partir dos metadados.
+     *
+     * @param payload O mapa contendo os campos do JSON recebido no webhook.
+     * @return O record ParsedFailure contendo os dados estruturados do erro.
+     */
+    public ParsedFailure parseFailure(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return new ParsedFailure(null, null, null, null);
+        }
+
+        // 1. Extração do messageId da mensagem original (enviado no campo "id" da notificação)
+        String messageId = extractMessageId(payload);
+
+        // 2. Extração do appointmentId a partir dos metadados (metadata) do envelope
+        String appointmentId = extractAppointmentId(payload);
+
+        // 3. Extração dos dados de erro dentro do objeto "reason"
+        Integer errorCode = null;
+        String errorMessage = null;
+
+        Object reasonObj = firstNonNullValue(
+                getNested(payload, "reason"),
+                getNested(payload, "resource", "reason"),
+                getNested(payload, "message", "reason")
+        );
+
+        Map<String, Object> reasonMap = asMap(reasonObj);
+        if (reasonMap != null) {
+            Object codeObj = reasonMap.get("code");
+            if (codeObj instanceof Number num) {
+                errorCode = num.intValue();
+            } else if (codeObj != null) {
+                try {
+                    errorCode = Integer.parseInt(codeObj.toString().trim());
+                } catch (NumberFormatException ignored) {}
+            }
+
+            errorMessage = asText(reasonMap.get("description"));
+        }
+
+        if (errorCode == null) {
+            errorCode = 0; // Código padrão para falha genérica desconhecida
+        }
+        if (errorMessage == null || errorMessage.isBlank()) {
+            errorMessage = "Falha de entrega sem descrição detalhada.";
+        }
+
+        return new ParsedFailure(messageId, appointmentId, errorCode, errorMessage);
     }
 
     private String extractBsuid(Map<String, Object> payload) {

@@ -109,6 +109,8 @@ public enum AuditAction {
     CIRCUIT_BREAKER_FALLBACK,
     /** Faturamento/recebimento gerado ou processado com sucesso. */
     FATURAMENTO_GERADO,
+    /** Falha crítica de entrega de notificação relatada pelo Blip. */
+    BLIP_DELIVERY_FAILURE,
 
     // ── Perfil ─────────────────────────────────────────────────────────────────
     /** Alteração de senha realizada pelo próprio usuário. */

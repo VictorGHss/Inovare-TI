@@ -35,11 +35,15 @@ import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.StockBatchRequestDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.StockBatchResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.StockMovementResponseDTO;
+import br.dev.ctrls.inovareti.modules.inventory.application.dto.LinkComponentRequestDTO;
+import br.dev.ctrls.inovareti.modules.inventory.application.dto.AllocateConsumableRequestDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.CreateItemUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.FindItemByIdUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.ListAllItemsUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.ListItemBatchesUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.RegisterStockBatchUseCase;
+import br.dev.ctrls.inovareti.modules.inventory.application.usecase.LinkAssetComponentUseCase;
+import br.dev.ctrls.inovareti.modules.inventory.application.usecase.AllocateConsumableUseCase;
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.FileStorageService;
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.InvoiceFileMetadata;
 import jakarta.validation.Valid;
@@ -62,6 +66,8 @@ public class ItemController {
     private final RegisterStockBatchUseCase registerStockBatchUseCase;
     private final FindItemByIdUseCase findItemByIdUseCase;
     private final ListItemBatchesUseCase listItemBatchesUseCase;
+    private final LinkAssetComponentUseCase linkAssetComponentUseCase;
+    private final AllocateConsumableUseCase allocateConsumableUseCase;
     private final StockBatchRepositoryPort stockBatchRepository;
     private final StockMovementRepositoryPort stockMovementRepository;
     private final FileStorageService fileStorageService;
@@ -251,6 +257,42 @@ public class ItemController {
         org.springframework.data.domain.Page<Item> itemsPage = itemRepository.findObsoleteItems(pageable);
         org.springframework.data.domain.Page<ItemResponseDTO> pageResult = itemsPage.map(ItemResponseDTO::from);
         return ResponseEntity.ok(pageResult);
+    }
+
+    /**
+     * Acopla um ativo filho (componente) a um ativo principal (pai) no inventário.
+     *
+     * POST /items/{id}/components
+     *
+     * @param id      UUID do ativo principal (pai).
+     * @param request DTO contendo o ID do ativo filho a ser acoplado.
+     * @return        200 OK sem conteúdo.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PostMapping("/{id}/components")
+    public ResponseEntity<Void> linkComponent(
+            @PathVariable UUID id,
+            @RequestBody @Valid LinkComponentRequestDTO request) {
+        linkAssetComponentUseCase.execute(id, request.componentId());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Aloca um consumível ou periférico a um ativo principal, decrementando o estoque físico (FIFO).
+     *
+     * POST /items/{id}/allocations
+     *
+     * @param id      UUID do ativo principal que receberá a alocação.
+     * @param request DTO com o ID do consumível, a quantidade e opcionalmente o chamado associado.
+     * @return        200 OK sem conteúdo.
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @PostMapping("/{id}/allocations")
+    public ResponseEntity<Void> allocateConsumable(
+            @PathVariable UUID id,
+            @RequestBody @Valid AllocateConsumableRequestDTO request) {
+        allocateConsumableUseCase.execute(id, request.childItemId(), request.quantity(), request.ticketId());
+        return ResponseEntity.ok().build();
     }
 }
 

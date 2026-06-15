@@ -47,4 +47,27 @@ public class BlipErrorClassifier {
             default -> "FALHA_DESCONHECIDA";
         };
     }
+
+    /**
+     * Retorna a lista de códigos de erro numéricos associados a uma categoria específica.
+     *
+     * @param category Categoria textual do erro.
+     * @return Lista de inteiros correspondente ou null se a categoria for nula ou desconhecida.
+     */
+    public static java.util.List<Integer> getErrorCodesByCategory(String category) {
+        if (category == null || category.isBlank()) {
+            return null;
+        }
+        return switch (category.trim()) {
+            case "ERRO_INTERNO_OU_GATEWAY" -> java.util.Arrays.asList(1, 2, 51, 81, 86, 1601);
+            case "RATE_LIMIT_EXCEDIDO" -> java.util.Arrays.asList(38, 429);
+            case "PARAMETRO_INVALIDO_TEMPLATE" -> java.util.Arrays.asList(100);
+            case "DESTINATARIO_INVALIDO_WHATSAPP" -> java.util.Arrays.asList(1505, 131026);
+            case "CONFLITO_ATENDIMENTO_ATIVO" -> java.util.Arrays.asList(1602);
+            case "EXPERIMENTO_META_BLOQUEADO" -> java.util.Arrays.asList(130472);
+            case "CONTA_BUSINESS_BLOQUEADA" -> java.util.Arrays.asList(131031);
+            case "MEDIA_OU_TIPO_INCOMPATIVEL" -> java.util.Arrays.asList(131051, 131052, 131053);
+            default -> null;
+        };
+    }
 }

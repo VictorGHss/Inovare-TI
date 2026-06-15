@@ -42,4 +42,18 @@ public interface BlipDeliveryFailureRepositoryPort {
      * @return Lista de falhas registradas para o agendamento.
      */
     List<BlipDeliveryFailure> findByAppointmentId(String appointmentId);
+
+    /**
+     * Busca paginada e filtrada de todas as falhas de entrega registradas.
+     *
+     * @param appointmentId O ID do agendamento Feegow (opcional).
+     * @param category A categoria textual do erro (opcional).
+     * @param pageable Configuração de paginação e ordenação.
+     * @return Página de falhas de entrega encontradas.
+     */
+    org.springframework.data.domain.Page<BlipDeliveryFailure> findAllFiltered(
+            String appointmentId,
+            String category,
+            org.springframework.data.domain.Pageable pageable
+    );
 }

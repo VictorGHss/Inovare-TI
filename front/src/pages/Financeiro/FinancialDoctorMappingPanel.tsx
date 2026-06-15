@@ -89,12 +89,12 @@ export default function FinancialDoctorMappingPanel() {
     setMappings((prev) => [newRow, ...prev]);
   }
 
-  function updateField(index: number, field: keyof ExtendedDoctorMapping, value: string | null) {
+  function updateField(rowId: string, field: keyof ExtendedDoctorMapping, value: string | null) {
     setMappings((current) =>
-      current.map((m, i) => {
-        if (i !== index) return m;
+      current.map((m) => {
+        if (m.id !== rowId) return m;
 
-        // If updating userId, try to resolve the linked user's Conta Azul ID
+        // Ao atualizar o userId, tenta obter o Conta Azul ID do utilizador correspondente
         if (field === 'userId') {
           const linkedUser = users.find((u) => u.id === value);
           return {
@@ -109,8 +109,10 @@ export default function FinancialDoctorMappingPanel() {
     );
   }
 
-  async function handleSaveRow(index: number) {
-    const row = mappings[index];
+  async function handleSaveRow(rowId: string) {
+    const row = mappings.find((m) => m.id === rowId);
+    if (!row) return;
+
     if (!row.contaAzulCustomerUuid?.trim()) {
       toast.error('O UUID do cliente da Conta Azul é obrigatório.');
       return;
@@ -128,13 +130,13 @@ export default function FinancialDoctorMappingPanel() {
       if (row.isNew) {
         const saved = await createDoctorMapping(payload);
         setMappings((current) =>
-          current.map((m, i) => (i === index ? { ...saved, isNew: false } : m))
+          current.map((m) => (m.id === rowId ? { ...saved, isNew: false } : m))
         );
         toast.success('Mapeamento criado com sucesso.');
       } else {
         const saved = await updateDoctorMapping(row.id, payload);
         setMappings((current) =>
-          current.map((m, i) => (i === index ? saved : m))
+          current.map((m) => (m.id === rowId ? saved : m))
         );
         toast.success('Mapeamento atualizado com sucesso.');
       }
@@ -145,9 +147,9 @@ export default function FinancialDoctorMappingPanel() {
     }
   }
 
-  async function handleDeleteRow(row: ExtendedDoctorMapping, index: number) {
+  async function handleDeleteRow(row: ExtendedDoctorMapping) {
     if (row.isNew) {
-      setMappings((current) => current.filter((_, i) => i !== index));
+      setMappings((current) => current.filter((m) => m.id !== row.id));
       toast.success('Rascunho removido.');
       return;
     }
@@ -268,7 +270,7 @@ export default function FinancialDoctorMappingPanel() {
                 </td>
               </tr>
             ) : (
-              filteredMappings.map((row, idx) => (
+              filteredMappings.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
                   {/* UUID Conta Azul */}
                   <td className="px-4 py-3 align-middle font-mono text-xs">
@@ -277,7 +279,7 @@ export default function FinancialDoctorMappingPanel() {
                         type="text"
                         placeholder="UUID do Cliente"
                         value={row.contaAzulCustomerUuid || ''}
-                        onChange={(e) => updateField(idx, 'contaAzulCustomerUuid', e.target.value)}
+                        onChange={(e) => updateField(row.id, 'contaAzulCustomerUuid', e.target.value)}
                         className={inlineInputClass}
                       />
                     ) : (
@@ -291,7 +293,7 @@ export default function FinancialDoctorMappingPanel() {
                       type="text"
                       placeholder="Nome do Médico"
                       value={row.doctorName || ''}
-                      onChange={(e) => updateField(idx, 'doctorName', e.target.value)}
+                      onChange={(e) => updateField(row.id, 'doctorName', e.target.value)}
                       className={inlineInputClass}
                     />
                   </td>
@@ -302,7 +304,7 @@ export default function FinancialDoctorMappingPanel() {
                       type="email"
                       placeholder="E-mail de Fallback"
                       value={row.doctorEmail || ''}
-                      onChange={(e) => updateField(idx, 'doctorEmail', e.target.value)}
+                      onChange={(e) => updateField(row.id, 'doctorEmail', e.target.value)}
                       className={inlineInputClass}
                     />
                   </td>
@@ -312,7 +314,7 @@ export default function FinancialDoctorMappingPanel() {
                     <SearchableDropdown
                       options={dropdownUsers.map(u => ({ id: u.id, name: u.name }))}
                       value={row.userId || ''}
-                      onChange={(val) => updateField(idx, 'userId', val || null)}
+                      onChange={(val) => updateField(row.id, 'userId', val || null)}
                       onSearchChange={handleSearchDoctorsRemote}
                       placeholder="Selecionar usuário..."
                     />
@@ -323,7 +325,7 @@ export default function FinancialDoctorMappingPanel() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => void handleSaveRow(idx)}
+                        onClick={() => void handleSaveRow(row.id)}
                         disabled={savingId === row.id}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
                       >
@@ -337,7 +339,7 @@ export default function FinancialDoctorMappingPanel() {
 
                       <button
                         type="button"
-                        onClick={() => void handleDeleteRow(row, idx)}
+                        onClick={() => void handleDeleteRow(row)}
                         disabled={savingId === row.id}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
                       >

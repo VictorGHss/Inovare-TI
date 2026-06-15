@@ -54,9 +54,24 @@ export default function SearchableDropdown({
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Retenção de estado: mantém em cache local o último item selecionado encontrado para exibição
+  const [cachedSelection, setCachedSelection] = useState<DropdownOption | undefined>(undefined);
+
   // Funções utilitárias para normalizar as chaves e nomes das opções
   const getOptId = (opt: DropdownOption): string => opt.id ?? opt.value ?? '';
   const getOptName = (opt: DropdownOption): string => opt.name ?? opt.label ?? '';
+
+  // Efeito para atualizar a retenção de estado da opção selecionada
+  useEffect(() => {
+    if (value) {
+      const found = options.find((opt) => getOptId(opt) === value);
+      if (found) {
+        setCachedSelection(found);
+      }
+    } else {
+      setCachedSelection(undefined);
+    }
+  }, [value, options]);
 
   // Ordena as opções alfabeticamente de forma estrita pelo nome normalizado
   const sortedOptions = [...options].sort((a, b) =>
@@ -70,8 +85,9 @@ export default function SearchableDropdown({
         getOptName(opt).toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-  // Obtém a opção atualmente selecionada
-  const selectedOption = value ? options.find((opt) => getOptId(opt) === value) : undefined;
+  // Obtém a opção atualmente selecionada, caindo na cache se não estiver presente no array options
+  const selectedOption = (value ? options.find((opt) => getOptId(opt) === value) : undefined)
+    || (cachedSelection && getOptId(cachedSelection) === value ? cachedSelection : undefined);
 
   // Efeito de debounce para pesquisa remota assíncrona
   useEffect(() => {

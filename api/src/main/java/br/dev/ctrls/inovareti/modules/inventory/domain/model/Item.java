@@ -62,6 +62,13 @@ public class Item {
     @Column(name = "current_stock", nullable = false)
     private Integer currentStock;
 
+    /** Estoque mínimo para disparo de alerta preventivo. */
+    @NotNull
+    @PositiveOrZero
+    @Column(name = "min_stock", nullable = false)
+    @Builder.Default
+    private Integer minStock = 0;
+
     /**
      * Especificações técnicas livres armazenadas como JSONB no PostgreSQL.
      * Exemplos de chaves: "marca", "modelo", "serialNumber", "voltagem".

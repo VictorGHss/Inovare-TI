@@ -23,6 +23,8 @@ import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
+import br.dev.ctrls.inovareti.modules.inventory.application.event.LowStockEvent;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class StockDeductionService {
     private final ItemRepositoryPort itemRepository;
     private final StockBatchRepositoryPort stockBatchRepository;
     private final StockMovementRepositoryPort stockMovementRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Deduz quantidade do estoque seguindo a política FIFO por lotes.
@@ -120,6 +123,18 @@ public class StockDeductionService {
         stockMovementRepository.save(movement);
 
         log.info("Dedução FIFO aplicada. itemId={}, quantidade={}, referência={}, valorTotal={}", itemId, quantity, reference, totalValue);
+ 
+        // Dispara o alerta de estoque crítico de forma assíncrona se necessário
+        if (lockedItem.getCurrentStock() <= lockedItem.getMinStock()) {
+            eventPublisher.publishEvent(new LowStockEvent(
+                lockedItem.getId(),
+                lockedItem.getName(),
+                lockedItem.getCurrentStock(),
+                lockedItem.getMinStock()
+            ));
+            log.info("[ALERTA] Evento LowStockEvent publicado para o item '{}' (Estoque: {}, Mínimo: {})",
+                lockedItem.getName(), lockedItem.getCurrentStock(), lockedItem.getMinStock());
+        }
 
         return totalValue;
     }

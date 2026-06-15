@@ -62,6 +62,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 @Observed
+@SuppressWarnings("spring-data-string-property-reference")
 public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
@@ -118,7 +119,6 @@ public class TicketController {
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
-    @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> listAll(
             @RequestParam(required = false) List<UUID> tagIds,
             @RequestParam(defaultValue = "0") int page,
@@ -397,7 +397,6 @@ public class TicketController {
      * @return ResponseEntity contendo a página de chamados vinculados ao item
      */
     @GetMapping("/item/{itemId}")
-    @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> getTicketsByItem(
             @PathVariable UUID itemId,
             @RequestParam(defaultValue = "0") int page) {

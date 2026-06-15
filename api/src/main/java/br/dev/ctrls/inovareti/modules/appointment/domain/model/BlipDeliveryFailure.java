@@ -21,6 +21,12 @@ import lombok.Setter;
 public class BlipDeliveryFailure {
 
     /**
+     * Nome do campo usado para ordenação e buscas temporais.
+     */
+    public static final String FIELD_CREATED_AT = "createdAt";
+
+
+    /**
      * Identificador único da falha de entrega no banco de dados.
      */
     private UUID id;

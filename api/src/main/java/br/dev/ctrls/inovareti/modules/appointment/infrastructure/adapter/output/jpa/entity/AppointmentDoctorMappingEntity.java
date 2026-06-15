@@ -12,6 +12,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -36,7 +37,7 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "profissional_id", nullable = false, length = 64, unique = true)
     private String profissionalId;
 
-    @Column(name = "profissional_nome", length = 255)
+    @Transient
     private String profissionalNome;
 
     @Column(name = "secretary_names", length = 255)
@@ -48,8 +49,8 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "is_external", nullable = false)
     private boolean external;
 
-    @Column(name = "itsm_user_id", length = 120)
-    private String itsmUserId;
+    @Column(name = "itsm_user_id")
+    private UUID itsmUserId;
 
     @Column(name = "discord_webhook_url", length = 500)
     private String discordWebhookUrl;
@@ -69,6 +70,7 @@ public class AppointmentDoctorMappingEntity {
     private LocalDateTime updatedAt;
 
     public AppointmentDoctorMapping toDomain() {
+        // Conversão de UUID da entidade para String no objeto de domínio puro
         return AppointmentDoctorMapping.builder()
                 .id(this.id)
                 .profissionalId(this.profissionalId)
@@ -76,7 +78,7 @@ public class AppointmentDoctorMappingEntity {
                 .secretaryNames(this.secretaryNames)
                 .blipQueueId(this.blipQueueId)
                 .external(this.external)
-                .itsmUserId(this.itsmUserId)
+                .itsmUserId(this.itsmUserId != null ? this.itsmUserId.toString() : null)
                 .discordWebhookUrl(this.discordWebhookUrl)
                 .externalWaLink(this.externalWaLink)
                 .ignoreAutoSchedule(this.ignoreAutoSchedule)
@@ -87,6 +89,17 @@ public class AppointmentDoctorMappingEntity {
 
     public static AppointmentDoctorMappingEntity fromDomain(AppointmentDoctorMapping domain) {
         if (domain == null) return null;
+
+        // Converte com segurança a String itsmUserId do domínio para UUID antes de salvar na entidade JPA
+        UUID parsedItsmUserId = null;
+        if (domain.getItsmUserId() != null && !domain.getItsmUserId().isBlank()) {
+            try {
+                parsedItsmUserId = UUID.fromString(domain.getItsmUserId().trim());
+            } catch (IllegalArgumentException e) {
+                // Mantém nulo caso não seja um formato de UUID válido (garante integridade ACID no banco)
+            }
+        }
+
         return AppointmentDoctorMappingEntity.builder()
                 .id(domain.getId())
                 .profissionalId(domain.getProfissionalId())
@@ -94,7 +107,7 @@ public class AppointmentDoctorMappingEntity {
                 .secretaryNames(domain.getSecretaryNames())
                 .blipQueueId(domain.getBlipQueueId())
                 .external(domain.isExternal())
-                .itsmUserId(domain.getItsmUserId())
+                .itsmUserId(parsedItsmUserId)
                 .discordWebhookUrl(domain.getDiscordWebhookUrl())
                 .externalWaLink(domain.getExternalWaLink())
                 .ignoreAutoSchedule(domain.isIgnoreAutoSchedule())

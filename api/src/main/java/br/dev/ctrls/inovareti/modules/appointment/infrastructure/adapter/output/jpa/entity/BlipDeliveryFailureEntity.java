@@ -38,6 +38,11 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipDeliveryFailu
 @AllArgsConstructor
 public class BlipDeliveryFailureEntity {
 
+    /**
+     * Nome do campo usado para ordenação e consultas baseadas em tempo.
+     */
+    public static final String FIELD_CREATED_AT = "createdAt";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

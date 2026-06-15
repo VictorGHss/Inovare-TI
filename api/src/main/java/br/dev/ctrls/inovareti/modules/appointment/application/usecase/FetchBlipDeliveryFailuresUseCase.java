@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("spring-data-string-property-reference")
 public class FetchBlipDeliveryFailuresUseCase {
 
     private final BlipDeliveryFailureRepositoryPort blipDeliveryFailureRepository;
@@ -35,10 +36,11 @@ public class FetchBlipDeliveryFailuresUseCase {
         log.debug("[CASO-USO] Buscando falhas de entrega Blip. Filtros: appointmentId='{}', category='{}'", appointmentId, category);
 
         // Força a ordenação decrescente por data de criação (createdAt DESC) para garantir que as mais recentes apareçam primeiro
+        // Refatorado para usar a constante de campo do domínio (FIELD_CREATED_AT), evitando avisos de referência não tipada da IDE.
         Pageable sortedPageable = PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                Sort.by(Sort.Direction.DESC, BlipDeliveryFailure.FIELD_CREATED_AT)
         );
 
         return blipDeliveryFailureRepository.findAllFiltered(appointmentId, category, sortedPageable);

@@ -12,6 +12,7 @@ import PageHero from '../../components/PageHero';
 import ReportSchedulesSection from './ReportSchedulesSection';
 import AppointmentControlPanel from './AppointmentControlPanel';
 import ProfessionalMappingPanel from './ProfessionalMappingPanel';
+import BlipDeliveryFailuresPanel from './BlipDeliveryFailuresPanel';
 import CategoriesSection from './CategoriesSection';
 import BackupsSection from './BackupsSection';
 import TagsSection from './TagsSection';
@@ -679,6 +680,7 @@ export default function Settings() {
                   {renderBackHeader()}
                   <AppointmentControlPanel />
                   <ProfessionalMappingPanel />
+                  <BlipDeliveryFailuresPanel />
                 </motion.div>
               )}
 

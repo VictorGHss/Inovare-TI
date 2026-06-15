@@ -1,4 +1,5 @@
 import api from './api';
+import type { BlipDeliveryFailure, PaginatedResponse } from '../types/models';
 
 export interface AppointmentMotorConfig {
   enabled: boolean;
@@ -36,3 +37,22 @@ export async function getDoctors(params?: { search?: string; page?: number; size
   }
   return data.slice(0, params?.size ?? 15);
 }
+
+export interface FetchBlipFailuresParams {
+  page?: number;
+  size?: number;
+  appointmentId?: string;
+  category?: string;
+}
+
+/**
+ * Consome o endpoint GET /v1/audit/blip-failures para obter as falhas de entrega.
+ *
+ * @param params Filtros opcionais para a busca paginada.
+ * @returns Lista paginada de falhas de entrega registradas.
+ */
+export async function getBlipDeliveryFailures(params?: FetchBlipFailuresParams): Promise<PaginatedResponse<BlipDeliveryFailure>> {
+  const { data } = await api.get<PaginatedResponse<BlipDeliveryFailure>>('/v1/audit/blip-failures', { params });
+  return data;
+}
+

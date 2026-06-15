@@ -29,6 +29,9 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Notificatio
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipDeliveryFailure;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipDeliveryFailureRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.metrics.BlipNotificationMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,6 +63,8 @@ public class HandleBlipWebhookUseCase {
     private final BlipNudgeResponseHandler blipNudgeResponseHandler;
     private final BlipGroupActionHandler blipGroupActionHandler;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
+    private final BlipDeliveryFailureRepositoryPort blipDeliveryFailureRepository;
+    private final BlipNotificationMetrics blipNotificationMetrics;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -465,6 +470,73 @@ public class HandleBlipWebhookUseCase {
     }
 
     public record WebhookResult(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {
+    }
+
+    public record BlipDeliveryFailureCommand(
+        String messageId,
+        String appointmentId,
+        Integer errorCode,
+        String errorMessage,
+        String traceId
+    ) {}
+
+    /**
+     * Processa a notificação de falha de entrega de mensagem recebida do Blip.
+     * Registra o erro no MDC para rastreabilidade de logs, atualiza as métricas
+     * de observabilidade e persiste a falha no banco de dados.
+     *
+     * @param failureCommand Comando contendo os detalhes da falha.
+     */
+    public void executeNotificationFailure(BlipDeliveryFailureCommand failureCommand) {
+        if (failureCommand == null) {
+            log.warn("Tentativa de processar falha de entrega com comando nulo.");
+            return;
+        }
+
+        // Injeta os metadados da falha no MDC
+        MDC.put("blipMessageId", failureCommand.messageId());
+        MDC.put("blipErrorCode", failureCommand.errorCode() != null ? failureCommand.errorCode().toString() : "UNKNOWN");
+        MDC.put("appointmentId", failureCommand.appointmentId() != null ? failureCommand.appointmentId() : "N/A");
+
+        try {
+            // Dispara log detalhado nível ERROR para monitoramento de SRE
+            log.error("[BLIP-DELIVERY-FAILURE] ❌ Falha crítica de entrega de mensagem Blip! " +
+                      "MessageID: '{}' | AppointmentID: '{}' | Código: '{}' | Motivo: '{}' | TraceID: '{}'",
+                      failureCommand.messageId(),
+                      failureCommand.appointmentId(),
+                      failureCommand.errorCode(),
+                      failureCommand.errorMessage(),
+                      failureCommand.traceId());
+
+            // Atualiza métricas de observabilidade via Micrometer
+            blipNotificationMetrics.incrementFailureCount(failureCommand.errorCode(), failureCommand.errorMessage());
+
+            // Persiste a falha no banco de dados através da porta de saída
+            BlipDeliveryFailure domainModel = BlipDeliveryFailure.builder()
+                    .messageId(failureCommand.messageId())
+                    .appointmentId(failureCommand.appointmentId())
+                    .errorCode(failureCommand.errorCode())
+                    .errorMessage(failureCommand.errorMessage())
+                    .traceId(failureCommand.traceId())
+                    .build();
+
+            blipDeliveryFailureRepository.save(domainModel);
+
+            // Registra o evento no histórico de auditoria
+            auditPort.record(
+                    "APPOINTMENT_MOTOR",
+                    "BLIP_DELIVERY_FAILURE",
+                    String.format("Falha de entrega Blip para agendamento %s. Código: %s - %s",
+                            failureCommand.appointmentId(), failureCommand.errorCode(), failureCommand.errorMessage()),
+                    failureCommand.traceId()
+            );
+
+        } finally {
+            // Limpa as chaves inseridas no MDC para evitar poluição de thread em requisições concorrentes
+            MDC.remove("blipMessageId");
+            MDC.remove("blipErrorCode");
+            MDC.remove("appointmentId");
+        }
     }
 
     private boolean secureCompare(String a, String b) {

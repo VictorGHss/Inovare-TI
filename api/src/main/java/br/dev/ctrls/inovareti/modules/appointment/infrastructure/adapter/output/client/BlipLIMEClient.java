@@ -98,7 +98,7 @@ public class BlipLIMEClient implements BlipClientPort {
             "id", UUID.randomUUID().toString(),
             "to", "postmaster@desk.msging.net",
             "method", "get",
-            "uri", "/teams"
+            "uri", "/attendance-queues"
         );
         try {
             return executeCommand(command, AuthorizationScope.ROUTER);
@@ -188,6 +188,8 @@ public class BlipLIMEClient implements BlipClientPort {
                     finalPayload.put("uri", "/threads");
                 } else if (uri.contains("/tickets")) {
                     finalPayload.put("uri", "/tickets");
+                } else if (uri.contains("/attendance-queues")) {
+                    finalPayload.put("uri", "/attendance-queues");
                 }
             } else if (uri.contains("/message-templates")) {
                 finalPayload.put("to", "postmaster@wa.gw.msging.net");

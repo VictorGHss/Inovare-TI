@@ -35,6 +35,7 @@ import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ClaimTicketUseC
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.GetTicketCommentsUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateSolutionTextUseCase;

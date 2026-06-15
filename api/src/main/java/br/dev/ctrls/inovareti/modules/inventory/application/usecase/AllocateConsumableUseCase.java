@@ -95,8 +95,15 @@ public class AllocateConsumableUseCase {
         }
 
         // 5. Dedução física do estoque usando a política FIFO e geração do histórico financeiro por lote.
-        String destinationName = parentItem != null ? parentItem.getName() : targetAsset.getName();
-        UUID destinationId = parentItem != null ? parentItem.getId() : targetAsset.getId();
+        String destinationName = "desconhecido";
+        UUID destinationId = null;
+        if (parentItem != null) {
+            destinationName = parentItem.getName();
+            destinationId = parentItem.getId();
+        } else if (targetAsset != null) {
+            destinationName = targetAsset.getName();
+            destinationId = targetAsset.getId();
+        }
         String referenceDescription = String.format("Alocação do item '%s' ao ativo '%s' (ID: %s)",
                 childItem.getName(), destinationName, destinationId);
         

@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.inventory.application.event.LowStockEvent;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
@@ -23,13 +23,11 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DiscordAlertListener {
 
-    @Autowired
-    private DiscordWebhookService discordWebhookService;
-
-    @Autowired
-    private ObjectProvider<JDA> jdaProvider;
+    private final DiscordWebhookService discordWebhookService;
+    private final ObjectProvider<JDA> jdaProvider;
 
     @Value("${discord.operational.webhook.url:}")
     private String operationalWebhookUrl;
@@ -69,7 +67,7 @@ public class DiscordAlertListener {
         JDA jda = jdaProvider.getIfAvailable();
         if (jda != null && operationalChannelId != null && !operationalChannelId.isBlank()) {
             try {
-                TextChannel canal = jda.getTextChannelById(operationalChannelId);
+                TextChannel canal = jda.getTextChannelById(java.util.Objects.requireNonNull(operationalChannelId));
                 if (canal != null) {
                     var embed = new EmbedBuilder()
                         .setColor(0xFFA500) // Laranja

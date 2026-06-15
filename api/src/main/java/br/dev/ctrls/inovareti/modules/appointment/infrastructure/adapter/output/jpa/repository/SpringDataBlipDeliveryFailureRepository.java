@@ -4,14 +4,12 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.jpa.entity.BlipDeliveryFailureEntity;
 
 /**
  * Interface de repositório Spring Data JPA para realizar operações na tabela blip_delivery_failures.
  */
-@Repository
 public interface SpringDataBlipDeliveryFailureRepository extends JpaRepository<BlipDeliveryFailureEntity, UUID> {
 
     /**

@@ -7,6 +7,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipErrorClassifier;
+
 /**
  * Componente de infraestrutura que registra métricas customizadas de notificações e entregas do Blip.
  * Alimenta o Prometheus em tempo real para permitir a criação de alertas de SRE.
@@ -27,14 +29,16 @@ public class BlipNotificationMetrics {
      */
     public void incrementFailureCount(Integer errorCode, String reason) {
         String codeStr = errorCode != null ? errorCode.toString() : "UNKNOWN";
-        String category = resolveCategory(errorCode);
+        String reasonCategory = resolveCategory(errorCode);
+        String category = BlipErrorClassifier.classify(errorCode);
 
-        log.debug("[MÉTRICAS] Incrementando métrica blip_delivery_failures_total para código: {}, categoria: {}", codeStr, category);
+        log.debug("[MÉTRICAS] Incrementando métrica blip_delivery_failures_total para código: {}, reason_category: {}, category: {}", codeStr, reasonCategory, category);
 
         Counter.builder("blip_delivery_failures_total")
                 .description("Total de falhas críticas de entrega de mensagens enviadas via Blip")
                 .tag("error_code", codeStr)
-                .tag("reason_category", category)
+                .tag("reason_category", reasonCategory)
+                .tag("category", category)
                 .register(registry)
                 .increment();
     }

@@ -125,8 +125,8 @@ public class BlipWebhookController {
         // 2. FAST-FAIL GUARD (Early Return): Validação estrutural genérica por padrões
         String rawLower = rawJson.toLowerCase();
 
-        // Compila uma Regex genérica para capturar QUALQUER UUID presente no JSON bruto
-        boolean containsAnyUuid = rawLower.matches(".*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*");
+        // Compila uma Regex genérica para capturar QUALQUER UUID presente no JSON bruto (usando (?s) para suportar múltiplas linhas)
+        boolean containsAnyUuid = rawLower.matches("(?s).*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.*");
 
         boolean hasActionKeyword = containsAnyUuid
                 || rawLower.contains("confirm_")
@@ -139,7 +139,8 @@ public class BlipWebhookController {
                 || rawLower.contains("ver_agendamentos")
                 || rawLower.contains("group_view_fallback")
                 || rawLower.contains("preparar_atendimento")
-                || rawLower.contains("exibir_agenda");
+                || rawLower.contains("exibir_agenda")
+                || rawLower.contains("failed");
 
         if (!hasActionKeyword) {
             return ResponseEntity.ok().build(); // Ignora spams irrelevantes de forma segura e veloz

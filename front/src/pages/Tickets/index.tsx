@@ -18,7 +18,11 @@ export default function Tickets() {
   const [isTagsDropdownOpen, setIsTagsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
-  const [searchTitle, setSearchTitle] = useState('');
+  
+  // Estados para a pesquisa global com debounce
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -28,10 +32,22 @@ export default function Tickets() {
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
+  // Efeito de debounce para a pesquisa global
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
+
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
-      const ticketsPage = await getTickets(selectedTagIds, currentPage);
+      // Invoca a pesquisa global no servidor passando o termo debouncedSearch
+      const ticketsPage = await getTickets(selectedTagIds, currentPage, debouncedSearch);
       setTickets(ticketsPage.content);
       setTotalPages(ticketsPage.totalPages);
     } catch {
@@ -40,7 +56,7 @@ export default function Tickets() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTagIds, currentPage]);
+  }, [selectedTagIds, currentPage, debouncedSearch]);
 
   useEffect(() => {
     void fetchTickets();
@@ -58,31 +74,28 @@ export default function Tickets() {
     void fetchTags();
   }, []);
 
-  // Reseta a página para a primeira ao alterar qualquer um dos filtros
+  // Reseta o ecrã/página de listagem para 0 ao iniciar uma nova busca ou alterar os filtros
   useEffect(() => {
     setCurrentPage(0);
-  }, [selectedTagIds, activeTab, searchTitle, selectedPriority, selectedCategory]);
+  }, [selectedTagIds, activeTab, searchQuery, selectedPriority, selectedCategory]);
 
   const filteredTickets = tickets.filter((ticket) => {
-    // Filter by tab status
+    // Filtrar por estado no ecrã (tab ativa)
     if (activeTab !== 'ALL' && ticket.status !== activeTab) return false;
     
-    // Filter by title search
-    if (searchTitle && !ticket.title.toLowerCase().includes(searchTitle.toLowerCase())) {
-      return false;
-    }
+    // O filtro local por título foi removido para usar a pesquisa global no servidor
     
-    // Filter by priority
+    // Filtrar por prioridade
     if (selectedPriority !== 'all' && ticket.priority !== selectedPriority) {
       return false;
     }
     
-    // Filter by category
+    // Filtrar por categoria
     if (selectedCategory !== 'all' && ticket.categoryId !== selectedCategory) {
       return false;
     }
 
-    // Filter by tags
+    // Filtrar por tags
     if (selectedTagIds.length > 0) {
       if (!ticket.tags || ticket.tags.length === 0) return false;
       const ticketTagIds = ticket.tags.map((t) => t.id);
@@ -93,7 +106,7 @@ export default function Tickets() {
     return true;
   });
 
-  // Sort tickets by created date
+  // Ordenar a tabela de chamados localmente pela data de criação
   const sortedTickets = [...filteredTickets].sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
     const dateB = new Date(b.createdAt).getTime();
@@ -165,14 +178,14 @@ export default function Tickets() {
               <Search size={16} className="absolute left-3 text-slate-400" />
               <input
                 type="text"
-                value={searchTitle}
-                onChange={(e) => setSearchTitle(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Digite o título do chamado..."
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
               />
-              {searchTitle && (
+              {searchQuery && (
                 <button
-                  onClick={() => setSearchTitle('')}
+                  onClick={() => setSearchQuery('')}
                   className="absolute right-3 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <X size={16} />
@@ -301,13 +314,13 @@ export default function Tickets() {
         </div>
 
         {/* Active Filters Indicator */}
-        {(searchTitle || selectedPriority !== 'all' || selectedCategory !== 'all' || selectedTagIds.length > 0) && (
+        {(searchQuery || selectedPriority !== 'all' || selectedCategory !== 'all' || selectedTagIds.length > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
             <span className="text-xs text-slate-600 font-medium">Filtros ativos:</span>
-            {searchTitle && (
+            {searchQuery && (
               <span className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-2.5 py-0.5 text-xs font-medium text-brand-primary">
-                Título: "{searchTitle}"
-                <button onClick={() => setSearchTitle('')} className="hover:text-brand-primary">
+                Título: "{searchQuery}"
+                <button onClick={() => setSearchQuery('')} className="hover:text-brand-primary">
                   <X size={14} />
                 </button>
               </span>
@@ -353,7 +366,7 @@ export default function Tickets() {
             })}
             <button
               onClick={() => {
-                setSearchTitle('');
+                setSearchQuery('');
                 setSelectedPriority('all');
                 setSelectedCategory('all');
                 setSelectedTagIds([]);

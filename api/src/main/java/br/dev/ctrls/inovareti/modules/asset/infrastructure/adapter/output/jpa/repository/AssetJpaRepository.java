@@ -48,6 +48,7 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                     or (:status = 'IN_USE' and size(a.users) > 0)
                     or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
+                and (:search is null or :search = '' or lower(a.name) like lower(concat('%', :search, '%')) or lower(a.patrimonyCode) like lower(concat('%', :search, '%')))
             order by a.createdAt desc
             """,
             countQuery = """
@@ -59,10 +60,12 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                     or (:status = 'IN_USE' and size(a.users) > 0)
                     or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
+                and (:search is null or :search = '' or lower(a.name) like lower(concat('%', :search, '%')) or lower(a.patrimonyCode) like lower(concat('%', :search, '%')))
             """)
     org.springframework.data.domain.Page<Asset> findWithFiltersOrderByCreatedAtDesc(
             @Param("categoryId") UUID categoryId,
             @Param("status") String status,
+            @Param("search") String search,
             org.springframework.data.domain.Pageable pageable
     );
 
@@ -75,6 +78,7 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                     or (:status = 'IN_USE' and size(a.users) > 0)
                     or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
+                and (:search is null or :search = '' or lower(a.name) like lower(concat('%', :search, '%')) or lower(a.patrimonyCode) like lower(concat('%', :search, '%')))
             order by (
                 select count(m.id)
                 from AssetMaintenance m
@@ -90,10 +94,12 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
                     or (:status = 'IN_USE' and size(a.users) > 0)
                     or (:status = 'IN_STOCK' and size(a.users) = 0)
                 )
+                and (:search is null or :search = '' or lower(a.name) like lower(concat('%', :search, '%')) or lower(a.patrimonyCode) like lower(concat('%', :search, '%')))
             """)
     org.springframework.data.domain.Page<Asset> findWithFiltersOrderByMaintenanceCountDesc(
             @Param("categoryId") UUID categoryId,
             @Param("status") String status,
+            @Param("search") String search,
             org.springframework.data.domain.Pageable pageable
     );
 

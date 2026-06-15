@@ -32,7 +32,10 @@ export default function Assets() {
   const [statusFilter, setStatusFilter] = useState<AssetFilterStatus>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'OLDEST' | 'MOST_MAINTENANCES'>('NEWEST');
+  
+  // Estados para a pesquisa global com debounce
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -43,6 +46,17 @@ export default function Assets() {
     () => new Map(users.map((u) => [u.id, u.name])),
     [users],
   );
+
+  // Efeito de debounce de 300ms para a pesquisa global de ativos
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
 
   const fetchInitialData = useCallback(async () => {
     if (!canManageAssets) return;
@@ -69,6 +83,7 @@ export default function Assets() {
         sortBy: (sortFilter === 'MOST_MAINTENANCES' ? 'maintenanceCount' : 'createdAt') as AssetSortBy,
         categoryId: categoryFilter !== 'ALL' ? categoryFilter : '',
         page: currentPage,
+        search: debouncedSearch,
       };
       const assetsData = await getAssets(filters);
       setAssets(sortFilter === 'OLDEST' ? [...assetsData.content].reverse() : assetsData.content);
@@ -79,28 +94,18 @@ export default function Assets() {
     } finally {
       setLoading(false);
     }
-  }, [canManageAssets, statusFilter, categoryFilter, sortFilter, currentPage]);
+  }, [canManageAssets, statusFilter, categoryFilter, sortFilter, currentPage, debouncedSearch]);
 
   useEffect(() => { void fetchInitialData(); }, [fetchInitialData]);
   useEffect(() => { void fetchAssets(); }, [fetchAssets]);
 
-  // Reseta para a primeira página quando os filtros mudam
+  // Reseta o ecrã/página de listagem para a primeira quando os filtros ou busca mudam
   useEffect(() => {
     setCurrentPage(0);
-  }, [statusFilter, categoryFilter, sortFilter]);
+  }, [statusFilter, categoryFilter, sortFilter, searchQuery]);
 
-  const filteredAssets = useMemo(() => {
-    if (!searchQuery.trim()) return assets;
-    const q = searchQuery.toLowerCase().trim();
-    return assets.filter(
-      (asset) =>
-        asset.name?.toLowerCase().includes(q) ||
-        asset.patrimonyCode?.toLowerCase().includes(q) ||
-        asset.categoryName?.toLowerCase().includes(q) ||
-        asset.assignedToName?.toLowerCase().includes(q) ||
-        (asset.assignedToNames && asset.assignedToNames.some((n) => n.toLowerCase().includes(q)))
-    );
-  }, [assets, searchQuery]);
+  // A filtragem local foi removida para realizar a pesquisa global diretamente na base de dados
+  const filteredAssets = assets;
 
   function formatCreatedAt(isoDate: string) {
     return new Date(isoDate).toLocaleDateString('pt-BR');

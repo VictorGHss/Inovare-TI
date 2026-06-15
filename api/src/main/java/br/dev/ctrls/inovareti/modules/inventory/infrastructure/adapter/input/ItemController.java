@@ -82,12 +82,8 @@ public class ItemController {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
         
         if (search != null && !search.trim().isEmpty()) {
-            java.util.List<Item> items = itemRepository.findTop25ByNameContainingIgnoreCase(search.trim());
-            java.util.List<ItemResponseDTO> dtos = items.stream()
-                    .limit(15)
-                    .map(ItemResponseDTO::from)
-                    .toList();
-            org.springframework.data.domain.Page<ItemResponseDTO> pageResult = new org.springframework.data.domain.PageImpl<>(dtos, pageable, items.size());
+            org.springframework.data.domain.Page<Item> itemsPage = itemRepository.findByNameContainingIgnoreCase(search.trim(), pageable);
+            org.springframework.data.domain.Page<ItemResponseDTO> pageResult = itemsPage.map(ItemResponseDTO::from);
             return ResponseEntity.ok(pageResult);
         }
         

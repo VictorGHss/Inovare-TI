@@ -56,7 +56,11 @@ export default function Inventory() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [preselectedItemId, setPreselectedItemId] = useState<string | undefined>(undefined);
   const [sortOption, setSortOption] = useState<InventorySortOption>('name-asc');
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados para a pesquisa global com debounce na tabela de inventário
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   
@@ -65,13 +69,26 @@ export default function Inventory() {
 
   const lowStockOnly = searchParams.get('status') === LOW_STOCK_STATUS_PARAM;
 
+  // Efeito de debounce de 300ms para a pesquisa global de itens
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
+
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
+      // Faz a chamada à API repassando o termo debouncedSearch na query string
       const data = await getItems({
         ...mapSortOptionToApi(sortOption),
         lowStockOnly,
         page: currentPage,
+        search: debouncedSearch,
       });
       setItems(data.content);
       setTotalPages(data.totalPages);
@@ -81,16 +98,16 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [sortOption, lowStockOnly, currentPage]);
+  }, [sortOption, lowStockOnly, currentPage, debouncedSearch]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
-  // Reseta para a primeira página quando os filtros mudam
+  // Reseta o ecrã/página para a primeira ao iniciar uma nova busca ou alterar filtros
   useEffect(() => {
     setCurrentPage(0);
-  }, [sortOption, lowStockOnly]);
+  }, [sortOption, lowStockOnly, searchQuery]);
 
   function handleBatchAdded() {
     setShowBatchModal(false);
@@ -109,12 +126,8 @@ export default function Inventory() {
     setShowBatchModal(true);
   }
 
-  // Filtro textual leve no frontend para agilizar a localização visual de itens.
-  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
-  const filteredItems = normalizedSearchTerm
-    ? items.filter((item) => item.name.toLowerCase().includes(normalizedSearchTerm)
-      || item.itemCategoryName.toLowerCase().includes(normalizedSearchTerm))
-    : items;
+  // O filtro textual local foi removido para que a pesquisa corra diretamente no PostgreSQL
+  const filteredItems = items;
 
   // A ordenação está sempre ativa na listagem (incluindo o padrão Nome A-Z).
   const isSortActive = true;
@@ -196,8 +209,8 @@ export default function Inventory() {
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nome ou categoria"
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
               />

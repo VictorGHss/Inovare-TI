@@ -84,10 +84,11 @@ public class AssetController {
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(defaultValue = "ALL") String status,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "0") int page
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String search
     ) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
-        org.springframework.data.domain.Page<AssetResponseDTO> response = assetQueryService.listAssets(categoryId, status, sortBy, pageable, assetRepository);
+        org.springframework.data.domain.Page<AssetResponseDTO> response = assetQueryService.listAssets(categoryId, status, sortBy, search, pageable, assetRepository);
         return ResponseEntity.ok(response);
     }
 

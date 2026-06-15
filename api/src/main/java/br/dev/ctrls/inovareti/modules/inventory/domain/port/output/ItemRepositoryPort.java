@@ -24,6 +24,8 @@ public interface ItemRepositoryPort {
 
     java.util.List<br.dev.ctrls.inovareti.modules.inventory.domain.model.Item> findTop25ByNameContainingIgnoreCase(String name);
 
+    org.springframework.data.domain.Page<Item> findByNameContainingIgnoreCase(String name, org.springframework.data.domain.Pageable pageable);
+
     long count();
     long countByCurrentStockLessThanEqual(int stock);
 }

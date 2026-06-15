@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,7 +23,13 @@ import br.dev.ctrls.inovareti.modules.analytics.application.dto.SectorPriorityMe
 /**
  * Repositório de acesso a dados para a entidade {@link Ticket}.
  */
-public interface TicketJpaRepository extends JpaRepository<Ticket, UUID> {
+public interface TicketJpaRepository extends JpaRepository<Ticket, UUID>, JpaSpecificationExecutor<Ticket> {
+
+    @Override
+    @EntityGraph(attributePaths = {"requester", "requester.sector", "category", "requestedItem", "requestedItem.itemCategory", "assignedTo"})
+    org.springframework.data.domain.Page<Ticket> findAll(
+            org.springframework.data.jpa.domain.Specification<Ticket> spec,
+            org.springframework.data.domain.Pageable pageable);
 
     /**
      * Busca todos os chamados com as relações obrigatórias carregadas

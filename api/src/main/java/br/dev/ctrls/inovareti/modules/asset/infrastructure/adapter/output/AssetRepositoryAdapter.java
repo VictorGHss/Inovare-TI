@@ -89,13 +89,13 @@ public class AssetRepositoryAdapter implements AssetRepositoryPort {
     }
 
     @Override
-    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable) {
-        return repository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, searchTerm, pageable);
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByMaintenanceCountDesc(java.util.UUID categoryId, String status, String search, org.springframework.data.domain.Pageable pageable) {
+        return repository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, status, search, pageable);
     }
 
     @Override
-    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String searchTerm, org.springframework.data.domain.Pageable pageable) {
-        return repository.findWithFiltersOrderByCreatedAtDesc(categoryId, searchTerm, pageable);
+    public org.springframework.data.domain.Page<br.dev.ctrls.inovareti.modules.asset.domain.model.Asset> findWithFiltersOrderByCreatedAtDesc(java.util.UUID categoryId, String status, String search, org.springframework.data.domain.Pageable pageable) {
+        return repository.findWithFiltersOrderByCreatedAtDesc(categoryId, status, search, pageable);
     }
 
 }

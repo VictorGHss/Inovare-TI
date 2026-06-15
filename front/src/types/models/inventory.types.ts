@@ -49,6 +49,7 @@ export interface GetAssetsParams {
   status?: AssetFilterStatus;
   sortBy?: AssetSortBy;
   page?: number;
+  search?: string;
 }
 
 export interface CreateAssetDto {

@@ -80,6 +80,11 @@ public class ItemRepositoryAdapter implements ItemRepositoryPort {
     public java.util.List<br.dev.ctrls.inovareti.modules.inventory.domain.model.Item> findTop25ByNameContainingIgnoreCase(String name) {
         return repository.findTop25ByNameContainingIgnoreCase(name);
     }
+    
+    @Override
+    public org.springframework.data.domain.Page<Item> findByNameContainingIgnoreCase(String name, org.springframework.data.domain.Pageable pageable) {
+        return repository.findByNameContainingIgnoreCase(name, pageable);
+    }
 
 
     @Override

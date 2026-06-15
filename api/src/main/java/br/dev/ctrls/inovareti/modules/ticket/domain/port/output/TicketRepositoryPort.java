@@ -2,6 +2,9 @@ package br.dev.ctrls.inovareti.modules.ticket.domain.port.output;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 
 
@@ -12,6 +15,8 @@ public interface TicketRepositoryPort {
     List<Ticket> findAll();
     void deleteById(UUID id);
     boolean existsById(UUID id);
+    
+    Page<Ticket> findAll(Specification<Ticket> spec, Pageable pageable);
     // Add custom methods manually if needed
 
     java.util.List<Ticket> findByShortIdStartingWith(String shortId);

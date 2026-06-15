@@ -41,6 +41,11 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
     }
 
     @Override
+    public org.springframework.data.domain.Page<Ticket> findAll(org.springframework.data.jpa.domain.Specification<Ticket> spec, org.springframework.data.domain.Pageable pageable) {
+        return repository.findAll(spec, pageable);
+    }
+
+    @Override
     public java.util.List<Ticket> findByShortIdStartingWith(String shortId) {
         return repository.findByShortIdStartingWith(shortId);
     }

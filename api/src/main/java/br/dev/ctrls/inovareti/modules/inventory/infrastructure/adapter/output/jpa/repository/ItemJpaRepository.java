@@ -102,4 +102,11 @@ public interface ItemJpaRepository extends JpaRepository<Item, UUID> {
      * Limitado a 25 pois a API do Discord não aceita mais que 25 opções de autocomplete.
      */
     java.util.List<Item> findTop25ByNameContainingIgnoreCase(String nome);
+
+    /**
+     * Realiza uma pesquisa global de itens pelo nome de forma paginada e case-insensitive.
+     * Utiliza EntityGraph para evitar o problema de carregamento N+1 da categoria do item.
+     */
+    @EntityGraph(attributePaths = "itemCategory")
+    Page<Item> findByNameContainingIgnoreCase(String name, Pageable pageable);
 }

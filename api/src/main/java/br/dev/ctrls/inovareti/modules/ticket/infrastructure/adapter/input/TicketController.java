@@ -1,14 +1,4 @@
 package br.dev.ctrls.inovareti.modules.ticket.infrastructure.adapter.input;
-import io.micrometer.observation.annotation.Observed;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketAttachment;
-
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketAttachmentRepositoryPort;
-
-import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
-
-
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -28,15 +18,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
+import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
-import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketAttachmentResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddAdditionalUserUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddTicketCommentUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ChangeCategoryUseCase;
@@ -44,12 +35,15 @@ import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ClaimTicketUseC
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.GetTicketCommentsUseCase;
-import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateSolutionTextUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketAttachment;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketAttachmentRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
-import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
+import io.micrometer.observation.annotation.Observed;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +66,6 @@ public class TicketController {
     private final TransferTicketUseCase transferTicketUseCase;
     private final AddTicketCommentUseCase addTicketCommentUseCase;
     private final GetTicketCommentsUseCase getTicketCommentsUseCase;
-    private final ListAllTicketsUseCase listAllTicketsUseCase;
     private final FindTicketByIdUseCase findTicketByIdUseCase;
     private final LocalFileStorageService fileStorageService;
     private final TicketAttachmentRepositoryPort attachmentRepository;
@@ -112,7 +105,7 @@ public class TicketController {
     }
 
     /**
-     * Lista todos os chamados com isolamento por role.
+     * Lista todos os chamados com isolamento por role e suporte a pesquisa global.
      * ADMIN/TECHNICIAN: ver todos os chamados
      * USER: ver apenas seus próprios chamados
      * Retorna 200 OK com a lista de chamados.
@@ -121,7 +114,8 @@ public class TicketController {
     @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> listAll(
             @RequestParam(required = false) List<UUID> tagIds,
-            @RequestParam(defaultValue = "0") int page) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String search) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         
@@ -144,7 +138,7 @@ public class TicketController {
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, sortProperty)
         );
         
-        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds, pageable));
+        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds, search, pageable));
     }
 
     /**

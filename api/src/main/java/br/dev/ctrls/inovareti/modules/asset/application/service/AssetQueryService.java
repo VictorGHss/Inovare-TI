@@ -77,6 +77,7 @@ public class AssetQueryService {
             UUID categoryId,
             String status,
             String sortBy,
+            String search,
             org.springframework.data.domain.Pageable pageable,
             br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository) {
         
@@ -84,8 +85,8 @@ public class AssetQueryService {
         AssetSortBy parsedSortBy = parseSortBy(sortBy);
 
         org.springframework.data.domain.Page<Asset> assets = parsedSortBy == AssetSortBy.MAINTENANCE_COUNT
-                ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name(), pageable)
-                : assetRepository.findWithFiltersOrderByCreatedAtDesc(categoryId, parsedStatus.name(), pageable);
+                ? assetRepository.findWithFiltersOrderByMaintenanceCountDesc(categoryId, parsedStatus.name(), search, pageable)
+                : assetRepository.findWithFiltersOrderByCreatedAtDesc(categoryId, parsedStatus.name(), search, pageable);
 
         return assets.map(this::toResponseDTO);
     }

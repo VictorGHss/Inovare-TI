@@ -413,10 +413,11 @@ public class TicketController {
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> getTicketsByItem(
             @PathVariable UUID itemId,
             @RequestParam(defaultValue = "0") int page) {
+        String sortProperty = "createdAt";
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
                 page,
                 15,
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, sortProperty)
         );
         return ResponseEntity.ok(fetchTicketsByItemUseCase.execute(itemId, pageable));
     }

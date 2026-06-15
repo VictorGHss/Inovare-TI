@@ -1,8 +1,6 @@
 package br.dev.ctrls.inovareti.modules.ticket.application.service;
 
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
-import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTag;
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -79,7 +77,7 @@ public class TicketSpecification {
                 predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             }
 
-            return cb.and(predicates.toArray(new Predicate[0]));
+            return cb.and(predicates.toArray(Predicate[]::new));
         };
     }
 

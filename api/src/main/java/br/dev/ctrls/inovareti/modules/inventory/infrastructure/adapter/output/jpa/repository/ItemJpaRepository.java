@@ -109,4 +109,37 @@ public interface ItemJpaRepository extends JpaRepository<Item, UUID> {
      */
     @EntityGraph(attributePaths = "itemCategory")
     Page<Item> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    /**
+     * Busca de forma paginada os itens que atingiram o fim de vida útil (obsolescência de hardware).
+     * Analisa o campo especificações (JSONB) extraindo a data de fabricação e o tempo de vida útil em anos,
+     * ou uma data de obsolescência efetiva explicitamente configurada.
+     *
+     * @param pageable Configuração de paginação.
+     * @return Página de itens obsoletos.
+     */
+    @Query(value = """
+            SELECT i.*
+            FROM items i
+            WHERE 
+              (i.specifications ->> 'data_obsolescencia_efetiva' IS NOT NULL 
+               AND (i.specifications ->> 'data_obsolescencia_efetiva')::date <= CURRENT_DATE)
+              OR
+              (i.specifications ->> 'data_fabricacao' IS NOT NULL 
+               AND i.specifications ->> 'tempo_vida_util_anos' IS NOT NULL 
+               AND (i.specifications ->> 'data_fabricacao')::date + ((i.specifications ->> 'tempo_vida_util_anos')::integer * INTERVAL '1 year') <= CURRENT_DATE)
+            """,
+            countQuery = """
+            SELECT COUNT(*)
+            FROM items i
+            WHERE 
+              (i.specifications ->> 'data_obsolescencia_efetiva' IS NOT NULL 
+               AND (i.specifications ->> 'data_obsolescencia_efetiva')::date <= CURRENT_DATE)
+              OR
+              (i.specifications ->> 'data_fabricacao' IS NOT NULL 
+               AND i.specifications ->> 'tempo_vida_util_anos' IS NOT NULL 
+               AND (i.specifications ->> 'data_fabricacao')::date + ((i.specifications ->> 'tempo_vida_util_anos')::integer * INTERVAL '1 year') <= CURRENT_DATE)
+            """,
+            nativeQuery = true)
+    Page<Item> findObsoleteItems(Pageable pageable);
 }

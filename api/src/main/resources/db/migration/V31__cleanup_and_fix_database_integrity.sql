@@ -8,18 +8,19 @@ DROP TABLE IF EXISTS appointment_variable_logs;
 DROP TABLE IF EXISTS processing_attempts;
 
 -- 2. Correção de Integridade ACID (itsm_user_id)
--- Converte o campo itsm_user_id da tabela appointment_doctor_mapping para o tipo UUID.
+-- Passo A: Limpeza prévia de registros inconsistentes usando UPDATE
 -- Valores que não seguem o padrão de formato UUID ou que não possuam correspondência na tabela public.users
--- são definidos como NULL de forma a manter a consistência e integridade referencial dos dados.
-ALTER TABLE appointment_doctor_mapping
-    ALTER COLUMN itsm_user_id TYPE UUID USING (
-        CASE 
-            WHEN itsm_user_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' 
-                 AND EXISTS (SELECT 1 FROM public.users u WHERE u.id = itsm_user_id::uuid)
-            THEN itsm_user_id::uuid 
-            ELSE NULL 
-        END
-    );
+-- são definidos como NULL antes da conversão de tipo para evitar quebra de integridade referencial.
+UPDATE appointment_doctor_mapping
+SET itsm_user_id = NULL
+WHERE itsm_user_id IS NOT NULL 
+  AND (itsm_user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+       OR itsm_user_id::uuid NOT IN (SELECT id FROM public.users));
+
+-- Passo B: Alteração de tipo segura sem subquery na expressão
+-- Agora que todos os dados inconsistentes foram sanitizados, a conversão para UUID é executada com segurança.
+ALTER TABLE appointment_doctor_mapping 
+    ALTER COLUMN itsm_user_id TYPE UUID USING itsm_user_id::uuid;
 
 -- Adiciona a restrição de Chave Estrangeira (FOREIGN KEY) ligando o campo itsm_user_id diretamente à tabela public.users.
 -- Configura a ação de exclusão do usuário pai como ON DELETE SET NULL.

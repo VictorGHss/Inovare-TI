@@ -10,6 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority;
+
 /**
  * Ficheiro que define a especificação para filtrar chamados na camada de persistência.
  * Fornece métodos para criar filtros dinâmicos para a pesquisa global.
@@ -18,14 +21,23 @@ public class TicketSpecification {
 
     /**
      * Constrói uma especificação combinada para filtrar chamados com base no utilizador solicitante,
-     * identificadores de tags e um termo para pesquisa global nos campos de título e descrição.
+     * tags, termo de pesquisa global, status, prioridade e categoria.
      *
      * @param requesterId identificador opcional do utilizador solicitante para isolamento de dados
      * @param tagIds lista opcional de identificadores de tags
      * @param search termo opcional para a pesquisa global (título ou descrição)
+     * @param status status opcional do chamado
+     * @param priority prioridade opcional do chamado
+     * @param categoryId identificador opcional da categoria do chamado
      * @return a especificação JPA configurada
      */
-    public static Specification<Ticket> filterTickets(UUID requesterId, List<UUID> tagIds, String search) {
+    public static Specification<Ticket> filterTickets(
+            UUID requesterId,
+            List<UUID> tagIds,
+            String search,
+            TicketStatus status,
+            TicketPriority priority,
+            UUID categoryId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -34,19 +46,37 @@ public class TicketSpecification {
                 predicates.add(cb.equal(root.get("requester").get("id"), requesterId));
             }
 
-            // Filtro por etiquetas/tags
+            // Filtro por etiquetas/tags usando subquery para manter paginação correta no banco
             if (tagIds != null && !tagIds.isEmpty()) {
-                Join<Ticket, TicketTag> tagsJoin = root.join("tags");
-                predicates.add(tagsJoin.get("id").in(tagIds));
-                query.distinct(true);
+                var subquery = query.subquery(UUID.class);
+                var subRoot = subquery.from(Ticket.class);
+                var subJoin = subRoot.join("tags");
+                subquery.select(subRoot.get("id"))
+                        .where(subJoin.get("id").in(tagIds));
+                predicates.add(root.get("id").in(subquery));
             }
 
-            // Pesquisa global no título ou descrição (contendo o termo, ignorando maiúsculas/minúsculas)
+            // Pesquisa global no título ou descrição
             if (search != null && !search.trim().isEmpty()) {
                 String pattern = "%" + search.trim().toLowerCase() + "%";
                 Predicate titlePredicate = cb.like(cb.lower(root.get("title")), pattern);
                 Predicate descriptionPredicate = cb.like(cb.lower(root.get("description")), pattern);
                 predicates.add(cb.or(titlePredicate, descriptionPredicate));
+            }
+
+            // Filtro dinâmico por status
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            // Filtro dinâmico por prioridade
+            if (priority != null) {
+                predicates.add(cb.equal(root.get("priority"), priority));
+            }
+
+            // Filtro dinâmico por categoria
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

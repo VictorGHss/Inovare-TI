@@ -1,8 +1,15 @@
 import api from './api';
 import type { Page, PaginatedResponse, CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment, TicketTag } from '../types/models';
 
-// Busca todos os tickets do usuário autenticado (suporta filtro opcional por tags, paginação e pesquisa global)
-export async function getTickets(tagIds?: string[], page: number = 0, search?: string): Promise<Page<Ticket>> {
+// Busca todos os tickets do usuário autenticado (suporta filtro opcional por tags, paginação, pesquisa global, status, prioridade e categoria no servidor)
+export async function getTickets(
+  tagIds?: string[],
+  page: number = 0,
+  search?: string,
+  status?: string,
+  priority?: string,
+  categoryId?: string
+): Promise<Page<Ticket>> {
   const params = new URLSearchParams();
   if (tagIds && tagIds.length > 0) {
     tagIds.forEach(id => params.append('tagIds', id));
@@ -10,6 +17,15 @@ export async function getTickets(tagIds?: string[], page: number = 0, search?: s
   params.append('page', String(page));
   if (search && search.trim() !== '') {
     params.append('search', search.trim());
+  }
+  if (status && status !== 'ALL' && status !== 'all') {
+    params.append('status', status);
+  }
+  if (priority && priority !== 'all') {
+    params.append('priority', priority);
+  }
+  if (categoryId && categoryId !== 'all') {
+    params.append('categoryId', categoryId);
   }
   const { data } = await api.get<Page<Ticket>>('/tickets', { params });
   return data;

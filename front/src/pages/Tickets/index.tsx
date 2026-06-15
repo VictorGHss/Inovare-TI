@@ -46,8 +46,15 @@ export default function Tickets() {
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
-      // Invoca a pesquisa global no servidor passando o termo debouncedSearch
-      const ticketsPage = await getTickets(selectedTagIds, currentPage, debouncedSearch);
+      // Repassa os filtros de tags, paginação, busca por texto, status, prioridade e categoria para o backend
+      const ticketsPage = await getTickets(
+        selectedTagIds,
+        currentPage,
+        debouncedSearch,
+        activeTab,
+        selectedPriority,
+        selectedCategory
+      );
       setTickets(ticketsPage.content);
       setTotalPages(ticketsPage.totalPages);
     } catch {
@@ -56,7 +63,7 @@ export default function Tickets() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTagIds, currentPage, debouncedSearch]);
+  }, [selectedTagIds, currentPage, debouncedSearch, activeTab, selectedPriority, selectedCategory]);
 
   useEffect(() => {
     void fetchTickets();
@@ -79,32 +86,8 @@ export default function Tickets() {
     setCurrentPage(0);
   }, [selectedTagIds, activeTab, searchQuery, selectedPriority, selectedCategory]);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    // Filtrar por estado no ecrã (tab ativa)
-    if (activeTab !== 'ALL' && ticket.status !== activeTab) return false;
-    
-    // O filtro local por título foi removido para usar a pesquisa global no servidor
-    
-    // Filtrar por prioridade
-    if (selectedPriority !== 'all' && ticket.priority !== selectedPriority) {
-      return false;
-    }
-    
-    // Filtrar por categoria
-    if (selectedCategory !== 'all' && ticket.categoryId !== selectedCategory) {
-      return false;
-    }
-
-    // Filtrar por tags
-    if (selectedTagIds.length > 0) {
-      if (!ticket.tags || ticket.tags.length === 0) return false;
-      const ticketTagIds = ticket.tags.map((t) => t.id);
-      const hasMatchingTag = selectedTagIds.some((id) => ticketTagIds.includes(id));
-      if (!hasMatchingTag) return false;
-    }
-    
-    return true;
-  });
+  // Com a filtragem ocorrendo no servidor, o array filteredTickets apenas repassa a lista original recebida
+  const filteredTickets = tickets;
 
   // Ordenar a tabela de chamados localmente pela data de criação
   const sortedTickets = [...filteredTickets].sort((a, b) => {

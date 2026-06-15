@@ -119,10 +119,14 @@ public class TicketController {
      * Retorna 200 OK com a lista de chamados.
      */
     @GetMapping
+    @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> listAll(
             @RequestParam(required = false) List<UUID> tagIds,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus status,
+            @RequestParam(required = false) br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority priority,
+            @RequestParam(required = false) UUID categoryId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId;
         
@@ -145,7 +149,16 @@ public class TicketController {
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, sortProperty)
         );
         
-        return ResponseEntity.ok(listAllTicketsUseCase.execute(userId, user.getRole(), tagIds, search, pageable));
+        return ResponseEntity.ok(listAllTicketsUseCase.execute(
+                userId,
+                user.getRole(),
+                tagIds,
+                search,
+                status,
+                priority,
+                categoryId,
+                pageable
+        ));
     }
 
     /**

@@ -57,20 +57,22 @@ public interface TicketJpaRepository extends JpaRepository<Ticket, UUID>, JpaSpe
     List<br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket> findByRequesterIdOrderByCreatedAtDesc(@Param("requesterId") UUID requesterId);
 
     @Query(value = """
-            SELECT DISTINCT t FROM Ticket t
+            SELECT t FROM Ticket t
             JOIN FETCH t.requester r
             LEFT JOIN FETCH r.sector
             JOIN FETCH t.category
             LEFT JOIN FETCH t.requestedItem i
             LEFT JOIN FETCH i.itemCategory
             LEFT JOIN FETCH t.assignedTo
-            LEFT JOIN t.tags tag
-            WHERE (:hasTags = false OR tag.id IN :tagIds)
+            WHERE (:hasTags = false OR t.id IN (
+                SELECT t2.id FROM Ticket t2 JOIN t2.tags tag WHERE tag.id IN :tagIds
+            ))
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT t) FROM Ticket t
-            LEFT JOIN t.tags tag
-            WHERE (:hasTags = false OR tag.id IN :tagIds)
+            SELECT COUNT(t) FROM Ticket t
+            WHERE (:hasTags = false OR t.id IN (
+                SELECT t2.id FROM Ticket t2 JOIN t2.tags tag WHERE tag.id IN :tagIds
+            ))
             """)
     org.springframework.data.domain.Page<Ticket> findAllWithRelations(
             @Param("hasTags") boolean hasTags,
@@ -78,22 +80,24 @@ public interface TicketJpaRepository extends JpaRepository<Ticket, UUID>, JpaSpe
             org.springframework.data.domain.Pageable pageable);
 
     @Query(value = """
-            SELECT DISTINCT t FROM Ticket t
+            SELECT t FROM Ticket t
             JOIN FETCH t.requester r
             LEFT JOIN FETCH r.sector
             JOIN FETCH t.category
             LEFT JOIN FETCH t.requestedItem i
             LEFT JOIN FETCH i.itemCategory
             LEFT JOIN FETCH t.assignedTo
-            LEFT JOIN t.tags tag
             WHERE t.requester.id = :requesterId
-              AND (:hasTags = false OR tag.id IN :tagIds)
+              AND (:hasTags = false OR t.id IN (
+                  SELECT t2.id FROM Ticket t2 JOIN t2.tags tag WHERE tag.id IN :tagIds
+              ))
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT t) FROM Ticket t
-            LEFT JOIN t.tags tag
+            SELECT COUNT(t) FROM Ticket t
             WHERE t.requester.id = :requesterId
-              AND (:hasTags = false OR tag.id IN :tagIds)
+              AND (:hasTags = false OR t.id IN (
+                  SELECT t2.id FROM Ticket t2 JOIN t2.tags tag WHERE tag.id IN :tagIds
+              ))
             """)
     org.springframework.data.domain.Page<Ticket> findByRequesterIdWithRelations(
             @Param("requesterId") UUID requesterId,

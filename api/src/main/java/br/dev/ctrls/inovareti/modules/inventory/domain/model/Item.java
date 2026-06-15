@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.modules.inventory.domain.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -67,4 +70,21 @@ public class Item {
     @Column(name = "specifications", columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, Object> specifications = new HashMap<>();
+
+    /**
+     * Relacionamento autorreferencial de composição hierárquica (ativo pai).
+     * O carregamento tardio (LAZY) evita consultas recursivas excessivas.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_item_id")
+    private Item parent;
+
+    /**
+     * Lista de componentes vinculados a este ativo (ex.: nobreak, monitor).
+     * Configurado com carregamento tardio (LAZY) e sem regras de exclusão em cascata,
+     * respeitando a restrição relacional ON DELETE SET NULL configurada no banco de dados.
+     */
+    @Builder.Default
+    @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
+    private List<Item> components = new ArrayList<>();
 }

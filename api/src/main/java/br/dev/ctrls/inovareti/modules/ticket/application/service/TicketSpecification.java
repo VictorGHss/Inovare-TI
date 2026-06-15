@@ -52,4 +52,34 @@ public class TicketSpecification {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    /**
+     * Constrói uma especificação JPA para buscar todos os chamados que possuem vínculo com um item
+     * específico do inventário de TI (seja o item solicitado principal ou qualquer item na lista associativa).
+     *
+     * @param itemId O identificador único do item de inventário (UUID)
+     * @return a especificação JPA configurada
+     */
+    public static Specification<Ticket> byItemId(java.util.UUID itemId) {
+        return (root, query, cb) -> {
+            if (itemId == null) {
+                return cb.conjunction();
+            }
+
+            // Realiza um join (LEFT JOIN) com a tabela associativa de múltiplos itens
+            var join = root.join("requestedItems", jakarta.persistence.criteria.JoinType.LEFT);
+
+            // Condição 1: O item é o item principal solicitado diretamente no chamado (requestedItem)
+            jakarta.persistence.criteria.Predicate isRequestedItemDirect = cb.equal(root.get("requestedItem").get("id"), itemId);
+
+            // Condição 2: O item está contido na lista associativa de múltiplos itens (requestedItems)
+            jakarta.persistence.criteria.Predicate isRequestedItemInList = cb.equal(join.get("item").get("id"), itemId);
+
+            // Garante que não haverá duplicidade de linhas no resultado
+            query.distinct(true);
+
+            // Retorna se atende a qualquer uma das duas condições
+            return cb.or(isRequestedItemDirect, isRequestedItemInList);
+        };
+    }
 }

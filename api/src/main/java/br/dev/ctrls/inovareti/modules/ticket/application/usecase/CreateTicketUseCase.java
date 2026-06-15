@@ -14,7 +14,7 @@ import br.dev.ctrls.inovareti.modules.audit.application.service.AuditLogService;
 import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
-import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketInventoryGateway;
 import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNotificationService;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.DiscordWebhookService;
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
@@ -51,7 +51,7 @@ public class CreateTicketUseCase {
     private final TicketRepositoryPort ticketRepository;
     private final UserRepositoryPort userRepository;
     private final TicketCategoryRepositoryPort ticketCategoryRepository;
-    private final ItemRepositoryPort itemRepository;
+    private final TicketInventoryGateway itemRepository;
     private final CreateNotificationService createNotificationService;
     private final DiscordWebhookService discordWebhookService;
     private final AuditLogService auditLogService;

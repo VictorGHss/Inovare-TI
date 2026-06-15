@@ -28,17 +28,20 @@ import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentRespon
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
+import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateTicketItemsDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddAdditionalUserUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddTicketCommentUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ChangeCategoryUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ClaimTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.CreateTicketUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FetchTicketsByItemUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ListAllTicketsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ResolveTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.TransferTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateSolutionTextUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.UpdateTicketItemsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketAttachment;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketAttachmentRepositoryPort;
@@ -76,6 +79,8 @@ public class TicketController {
     private final UpdateSolutionTextUseCase updateSolutionTextUseCase;
     private final ChangeCategoryUseCase changeCategoryUseCase;
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
+    private final FetchTicketsByItemUseCase fetchTicketsByItemUseCase;
+    private final UpdateTicketItemsUseCase updateTicketItemsUseCase;
 
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -381,6 +386,44 @@ public class TicketController {
             @PathVariable UUID id,
             @PathVariable UUID userId) {
         return ResponseEntity.ok(addAdditionalUserUseCase.execute(id, userId));
+    }
+
+    /**
+     * Recupera de forma paginada todos os chamados que possuem vínculo com um item de inventário específico.
+     * Retorna 200 OK com a página de chamados associados.
+     *
+     * @param itemId O identificador único do item de inventário (UUID)
+     * @param page O número da página a ser retornada (padrão: 0)
+     * @return ResponseEntity contendo a página de chamados vinculados ao item
+     */
+    @GetMapping("/item/{itemId}")
+    public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> getTicketsByItem(
+            @PathVariable UUID itemId,
+            @RequestParam(defaultValue = "0") int page) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page,
+                15,
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+        return ResponseEntity.ok(fetchTicketsByItemUseCase.execute(itemId, pageable));
+    }
+
+    /**
+     * Atualiza a lista de itens de inventário vinculados a um chamado existente.
+     * Apenas o solicitante original ou membros da equipe de suporte (ADMIN/TECHNICIAN) podem realizar essa alteração.
+     * Retorna 200 OK com os dados atualizados do chamado.
+     *
+     * @param id O identificador único do chamado (UUID)
+     * @param request O DTO contendo a nova lista de itens e quantidades
+     * @return ResponseEntity contendo os dados atualizados do chamado
+     */
+    @PatchMapping("/{id}/items")
+    public ResponseEntity<TicketResponseDTO> updateTicketItems(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateTicketItemsDTO request) {
+        // Valida se o utilizador atual possui permissão de leitura/escrita no chamado correspondente
+        checkTicketOwnershipOrStaff(id);
+        return ResponseEntity.ok(updateTicketItemsUseCase.execute(id, request));
     }
 }
 

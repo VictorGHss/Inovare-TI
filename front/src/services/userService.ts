@@ -78,7 +78,7 @@ export interface GetSectorsParams {
 // Busca todos os setores cadastrados (requer ADMIN) - Suporta paginação simulada ou retorno simples
 export async function getSectors(activeOnly?: boolean): Promise<Sector[]>;
 export async function getSectors(params: GetSectorsParams): Promise<Page<Sector>>;
-export async function getSectors(paramsOrActiveOnly?: GetSectorsParams | boolean): Promise<any> {
+export async function getSectors(paramsOrActiveOnly?: GetSectorsParams | boolean): Promise<Sector[] | Page<Sector>> {
   let activeOnly = false;
   let page: number | undefined;
   let size: number | undefined;

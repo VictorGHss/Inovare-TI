@@ -16,6 +16,7 @@ public record ResolveTicketDTO(
     UUID assetIdToDeliver,
     AssetRequestDTO newAssetToDeliver,
     UUID recipientUserId,
+    UUID targetAssetId,
     
     java.util.List<TicketItemDeductionDTO> itemsToDeliver
 ) {

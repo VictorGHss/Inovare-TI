@@ -65,6 +65,13 @@ export default function ResolveTicketModal({
     itemsToDeliver,
     handleRecipientChange,
     ticketUsers,
+    // Novos campos desestruturados para vinculação de insumos a ativos do setor
+    linkInsumosToAsset,
+    setLinkInsumosToAsset,
+    targetAssetId,
+    setTargetAssetId,
+    sectorAssets,
+    loadingAllAssets,
   } = useResolveTicket({
     isOpen,
     onClose,
@@ -360,6 +367,53 @@ export default function ResolveTicketModal({
                 </div>
               )}
             </>
+          )}
+
+          {/* Bloco de Vinculação Patrimonial de Insumos (Vertical 3) */}
+          {(hasAutoInventoryDeduction || (deliverEquipment && deliveryType === 'item' && selectedItemId)) && (
+            <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="linkInsumosToAsset"
+                  checked={linkInsumosToAsset}
+                  onChange={(event) => setLinkInsumosToAsset(event.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                  disabled={isSubmitting}
+                />
+                <label htmlFor="linkInsumosToAsset" className="cursor-pointer text-sm font-medium text-slate-700">
+                  Vincular insumos diretamente a um Equipamento/Ativo?
+                </label>
+              </div>
+
+              {linkInsumosToAsset && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-slate-700">Equipamento de Destino (CMDB) *</label>
+                  {loadingAllAssets ? (
+                    <div className="text-sm text-slate-500">Carregando equipamentos do setor...</div>
+                  ) : sectorAssets.length === 0 ? (
+                    <div className="text-sm text-amber-600 flex items-center gap-1.5">
+                      <AlertCircle size={14} />
+                      Nenhum equipamento físico encontrado para o setor deste chamado.
+                    </div>
+                  ) : (
+                    <select
+                      value={targetAssetId}
+                      onChange={(event) => setTargetAssetId(event.target.value)}
+                      className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">-- Selecione o equipamento físico --</option>
+                      {sectorAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.name} ({asset.patrimonyCode})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Ações */}

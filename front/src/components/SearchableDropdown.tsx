@@ -61,8 +61,13 @@ export default function SearchableDropdown({
   const getOptId = (opt: DropdownOption): string => opt.id ?? opt.value ?? '';
   const getOptName = (opt: DropdownOption): string => opt.name ?? opt.label ?? '';
 
-  // Efeito para atualizar a retenção de estado da opção selecionada
-  useEffect(() => {
+  // Sincronização do estado em tempo de renderização (derivada de props / estado anterior)
+  // para evitar o uso de useEffect que provoca cascading renders.
+  const [prevValue, setPrevValue] = useState<string | undefined>(value);
+  const [prevOptions, setPrevOptions] = useState<DropdownOption[]>(options);
+  if (value !== prevValue || options !== prevOptions) {
+    setPrevValue(value);
+    setPrevOptions(options);
     if (value) {
       const found = options.find((opt) => getOptId(opt) === value);
       if (found) {
@@ -71,7 +76,15 @@ export default function SearchableDropdown({
     } else {
       setCachedSelection(undefined);
     }
-  }, [value, options]);
+  }
+
+  const [prevIsOpen, setPrevIsOpen] = useState<boolean>(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }
 
   // Ordena as opções alfabeticamente de forma estrita pelo nome normalizado
   const sortedOptions = [...options].sort((a, b) =>
@@ -118,13 +131,6 @@ export default function SearchableDropdown({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Limpa o termo de pesquisa ao fechar o dropdown
-  useEffect(() => {
-    if (!isOpen) {
-      setSearchTerm('');
-    }
-  }, [isOpen]);
 
   const handleSelect = (id: string) => {
     if (isMulti && onMultiChange && selectedValues) {

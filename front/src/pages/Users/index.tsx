@@ -1,5 +1,5 @@
 // Página de listagem e cadastro de usuários
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { PlusCircle, X, Upload, Pencil, KeyRound, ShieldOff, Bell, BellOff, Search, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getAllUsers, createUser, getSectors, resetUserPassword, adminReset2FA } from '../../services/userService';
@@ -49,11 +49,7 @@ export default function Users() {
     void loadSectors();
   }, []);
 
-  useEffect(() => {
-    void loadUsers();
-  }, [currentPage, searchQuery, sortOption]);
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getAllUsers({
@@ -70,7 +66,11 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentPage, searchQuery, sortOption]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   async function loadSectors() {
     try {

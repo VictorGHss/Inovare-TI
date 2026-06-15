@@ -1,7 +1,7 @@
 // Página de detalhes de um item — exibe especificações e histórico de lotes
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Package, FileText, Download, Link as LinkIcon, Unlink, Cpu, Plus, Calendar, User, Ticket as TicketIcon, Wrench, History } from 'lucide-react';
+import { ArrowLeft, Package, FileText, Download, Cpu, Plus, History } from 'lucide-react';
 import { toast } from 'react-toastify';
 import UploadInvoiceModal from '../../components/UploadInvoiceModal';
 import SearchableDropdown from '../../components/SearchableDropdown';
@@ -584,7 +584,7 @@ export default function ItemDetails() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'IN' | 'OUT' | 'TICKETS')}
               className={`relative px-4 py-2 text-xs font-bold transition-all z-10 ${
                 activeTab === tab.id ? 'text-brand-primary' : 'text-slate-500 hover:text-slate-700'
               }`}

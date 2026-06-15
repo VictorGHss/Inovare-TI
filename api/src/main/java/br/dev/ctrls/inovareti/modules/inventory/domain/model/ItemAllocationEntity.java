@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
+import br.dev.ctrls.inovareti.modules.asset.domain.model.Asset;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -41,15 +42,17 @@ public class ItemAllocationEntity {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    /**
-     * Ativo principal ao qual o periférico ou consumível está sendo associado (ex.: Impressora).
-     * Mapeado com carregamento tardio (LAZY) para melhor eficiência em queries.
-     * Configurado com ON DELETE CASCADE no banco (se o pai for excluído, remove-se a alocação).
-     */
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "parent_item_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_item_id")
     private Item parentItem;
+
+    /**
+     * Equipamento físico (CMDB) ao qual o consumível/periférico está sendo alocado.
+     * Mapeado com carregamento tardio (LAZY).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "asset_id")
+    private Asset asset;
 
     /**
      * Periférico ou consumível que está sendo alocado (ex.: Toner).

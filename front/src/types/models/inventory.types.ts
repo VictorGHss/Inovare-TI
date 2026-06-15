@@ -65,6 +65,7 @@ export interface GetAssetsParams {
   status?: AssetFilterStatus;
   sortBy?: AssetSortBy;
   page?: number;
+  size?: number;
   search?: string;
 }
 

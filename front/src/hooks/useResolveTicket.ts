@@ -88,6 +88,12 @@ export function useResolveTicket({
 
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedItemId, setSelectedItemId] = useState('');
+
+  // Novos estados para a Vertical 3: Módulo de Chamados — Vínculo de Alocações
+  const [linkInsumosToAsset, setLinkInsumosToAsset] = useState(false);
+  const [targetAssetId, setTargetAssetId] = useState('');
+  const [allAssets, setAllAssets] = useState<Asset[]>([]);
+  const [loadingAllAssets, setLoadingAllAssets] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   const [newAssetName, setNewAssetName] = useState('');
@@ -115,8 +121,13 @@ export function useResolveTicket({
         name: ticket.requesterName || 'Requerente',
         email: '',
         role: 'USER',
-        active: true,
-      } as any);
+        sectorId: '',
+        sectorName: '',
+        location: '',
+        discordUserId: null,
+        contaAzulId: null,
+        receives_it_notifications: false,
+      } as User);
     }
     
     return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -175,6 +186,48 @@ export function useResolveTicket({
 
     void loadAssetCategories();
   }, [assetMode, deliverEquipment, deliveryType, isOpen]);
+
+  // Carrega todos os ativos sem filtro de usuário para a vinculação opcional de insumos
+  useEffect(() => {
+    async function loadAllAssets() {
+      if (!isOpen) {
+        setAllAssets([]);
+        return;
+      }
+      setLoadingAllAssets(true);
+      try {
+        const allAssetsPage = await getAssets({ page: 0, size: 100 });
+        setAllAssets(allAssetsPage.content || []);
+      } catch (err) {
+        console.error('Erro ao carregar lista geral de ativos:', err);
+      } finally {
+        setLoadingAllAssets(false);
+      }
+    }
+    void loadAllAssets();
+  }, [isOpen]);
+
+  // Filtra ativos pertencentes ao setor do chamado (do solicitante)
+  const sectorAssets = useMemo(() => {
+    if (!ticket || !users || users.length === 0) return [];
+    
+    // Acha o setor do solicitante do chamado
+    const requester = users.find((u) => u.id === ticket.requesterId);
+    const sectorId = requester?.sectorId;
+    if (!sectorId) return [];
+
+    // Filtra ativos cujos usuários pertençam ao mesmo setor do chamado
+    return allAssets.filter((asset) => {
+      if (asset.userIds && asset.userIds.length > 0) {
+        return asset.userIds.some((uid) => {
+          const u = users.find((user) => user.id === uid);
+          return u?.sectorId === sectorId;
+        });
+      }
+      // Se não tiver usuários, é um ativo disponível globalmente/em estoque que pode ser vinculado
+      return true;
+    });
+  }, [allAssets, ticket, users]);
 
   // Carrega os usuários associados ao ativo do chamado
   useEffect(() => {
@@ -252,6 +305,8 @@ export function useResolveTicket({
     setRecipientUserId('');
     setAssetUsers([]);
     setItemsToDeliver([]);
+    setLinkInsumosToAsset(false);
+    setTargetAssetId('');
   }
 
   function handleRecipientChange(itemId: string, recipientId: string) {
@@ -265,6 +320,11 @@ export function useResolveTicket({
   function validateBeforeSubmit() {
     if (!resolutionNotes.trim()) {
       toast.error('Digite a nota de resolução.');
+      return false;
+    }
+
+    if (linkInsumosToAsset && !targetAssetId) {
+      toast.error('Selecione o equipamento de destino para vinculação dos insumos.');
       return false;
     }
 
@@ -346,6 +406,7 @@ export function useResolveTicket({
       const payload: ResolveTicketRequest = {
         resolutionNotes: resolutionNotes.trim(),
         itemsToDeliver: itemsPayload.length > 0 ? itemsPayload : undefined,
+        targetAssetId: linkInsumosToAsset ? targetAssetId : undefined,
       };
 
       if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
@@ -415,5 +476,12 @@ export function useResolveTicket({
     itemsToDeliver,
     handleRecipientChange,
     ticketUsers,
+    // Novos campos expostos para vinculação da alocação de insumos
+    linkInsumosToAsset,
+    setLinkInsumosToAsset,
+    targetAssetId,
+    setTargetAssetId,
+    sectorAssets,
+    loadingAllAssets,
   };
 }

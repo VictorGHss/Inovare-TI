@@ -132,7 +132,7 @@ export default function BlipDeliveryFailuresPanel() {
     try {
       const date = new Date(isoString);
       return date.toLocaleString('pt-BR');
-    } catch (e) {
+    } catch {
       return isoString;
     }
   };

@@ -91,6 +91,7 @@ export interface ResolveTicketRequest {
     specifications?: string;
   };
   recipientUserId?: string;
+  targetAssetId?: string;
   itemsToDeliver?: ResolveTicketItemRequest[];
 }
 

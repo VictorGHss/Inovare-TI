@@ -14,6 +14,16 @@ import {
   type BlipQueue,
 } from '../../services/doctorMappingService';
 
+interface LegacyDoctorMapping extends DoctorMapping {
+  blip_queue_id?: string;
+  itsm_user_id?: string;
+  discord_webhook_url?: string;
+  external_wa_link?: string;
+  profissional_nome?: string;
+  is_external?: boolean;
+  ignore_auto_schedule?: boolean;
+}
+
 const inlineInputClass =
   'w-full rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25';
 
@@ -92,13 +102,13 @@ export default function ProfessionalMappingPanel() {
           return {
             id: existing?.id,
             profissionalId: String(p.id ?? ''),
-            blipQueueId: existing?.blipQueueId || (existing as any)?.blip_queue_id || '',
-            itsmUserId: existing?.itsmUserId || (existing as any)?.itsm_user_id || '',
-            discordWebhookUrl: existing?.discordWebhookUrl || (existing as any)?.discord_webhook_url || '',
-            externalWaLink: existing?.externalWaLink || (existing as any)?.external_wa_link || '',
-            profissionalNome: existing?.profissionalNome || (existing as any)?.profissional_nome || p.name || '',
-            isExternal: existing?.isExternal ?? (existing as any)?.is_external ?? false,
-            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as any)?.ignore_auto_schedule ?? false,
+            blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
+            itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
+            discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
+            externalWaLink: existing?.externalWaLink || (existing as LegacyDoctorMapping)?.external_wa_link || '',
+            profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
+            isExternal: existing?.isExternal ?? (existing as LegacyDoctorMapping)?.is_external ?? false,
+            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
           } as DoctorMapping;
         });
 
@@ -137,13 +147,13 @@ export default function ProfessionalMappingPanel() {
         return {
           id: existing?.id,
           profissionalId: String(p.id ?? ''),
-          blipQueueId: existing?.blipQueueId || (existing as any)?.blip_queue_id || '',
-          itsmUserId: existing?.itsmUserId || (existing as any)?.itsm_user_id || '',
-          discordWebhookUrl: existing?.discordWebhookUrl || (existing as any)?.discord_webhook_url || '',
-          externalWaLink: existing?.externalWaLink || (existing as any)?.external_wa_link || '',
-          profissionalNome: existing?.profissionalNome || (existing as any)?.profissional_nome || p.name || '',
-          isExternal: existing?.isExternal ?? (existing as any)?.is_external ?? false,
-          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as any)?.ignore_auto_schedule ?? false,
+          blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
+          itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
+          discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
+          externalWaLink: existing?.externalWaLink || (existing as LegacyDoctorMapping)?.external_wa_link || '',
+          profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
+          isExternal: existing?.isExternal ?? (existing as LegacyDoctorMapping)?.is_external ?? false,
+          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
         } as DoctorMapping;
       });
 

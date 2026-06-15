@@ -1,5 +1,5 @@
 // Página de listagem, cadastro e gestão de setores
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { PlusCircle, Building2, Search, X, ArrowDownWideNarrow, Edit2, Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSectors, createSector, updateSector, toggleSectorActive } from '../../services/userService';
@@ -24,11 +24,7 @@ export default function Sectors() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => {
-    loadSectors();
-  }, [currentPage, searchQuery, sortOption]);
-
-  async function loadSectors() {
+  const loadSectors = useCallback(async () => {
     setLoading(true);
     try {
       // Carrega os setores com paginação, busca e ordenação
@@ -43,11 +39,14 @@ export default function Sectors() {
       setTotalPages(response.totalPages);
     } catch {
       toast.error('Erro ao carregar setores.');
-      setSectors([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentPage, searchQuery, sortOption]);
+
+  useEffect(() => {
+    loadSectors();
+  }, [loadSectors]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

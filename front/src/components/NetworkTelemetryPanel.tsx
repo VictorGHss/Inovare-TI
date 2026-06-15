@@ -29,7 +29,18 @@ export default function NetworkTelemetryPanel() {
   };
 
   useEffect(() => {
-    void fetchTelemetry();
+    let active = true;
+    const initTelemetry = async () => {
+      const telemetry = await getMacroTelemetry();
+      if (active) {
+        setData(telemetry);
+        setLoading(false);
+      }
+    };
+    void initTelemetry();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

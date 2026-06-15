@@ -15,6 +15,17 @@ interface SpecEntry {
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';
 
+const DEFAULT_SUPPLIERS = [
+  'Amazon',
+  'Dell Store',
+  'HP',
+  'Kabum',
+  'Kalunga',
+  'Lenovo',
+  'Logitech',
+  'Mercado Livre',
+];
+
 export default function NewItem() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<ItemCategory[]>([]);
@@ -35,16 +46,6 @@ export default function NewItem() {
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
 
-  const defaultSuppliers = [
-    'Amazon',
-    'Dell Store',
-    'HP',
-    'Kabum',
-    'Kalunga',
-    'Lenovo',
-    'Logitech',
-    'Mercado Livre',
-  ];
 
   useEffect(() => {
     const stored = localStorage.getItem('inovareti_dynamic_suppliers');
@@ -52,11 +53,11 @@ export default function NewItem() {
       try {
         setSuppliers(JSON.parse(stored));
       } catch {
-        setSuppliers(defaultSuppliers);
+        setSuppliers(DEFAULT_SUPPLIERS);
       }
     } else {
-      setSuppliers(defaultSuppliers);
-      localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(defaultSuppliers));
+      setSuppliers(DEFAULT_SUPPLIERS);
+      localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(DEFAULT_SUPPLIERS));
     }
   }, []);
 

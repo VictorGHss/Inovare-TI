@@ -25,6 +25,7 @@ import br.dev.ctrls.inovareti.modules.notification.application.service.CreateNot
 import br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord.bot.DiscordDirectMessageService;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.modules.inventory.application.usecase.AllocateConsumableUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
@@ -58,6 +59,7 @@ public class ResolveTicketUseCase {
         private final DiscordDirectMessageService discordDirectMessageService;
         private final UserRepositoryPort userRepository;
         private final AuditLogService auditLogService;
+        private final AllocateConsumableUseCase allocateConsumableUseCase;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -93,32 +95,63 @@ public class ResolveTicketUseCase {
                     throw new IllegalStateException("Quantidade a entregar deve ser maior que zero.");
                 }
 
-                String reference = "TICKET:" + ticketId;
-                java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                        itemDeduction.itemId(),
-                        itemDeduction.quantity(),
-                        reference,
-                        itemDeduction.recipientUserId()
-                );
+                java.math.BigDecimal totalDeduction;
+                if (request.targetAssetId() != null) {
+                    // Se o targetAssetId não for nulo, aloca o insumo ao ativo físico
+                    totalDeduction = allocateConsumableUseCase.execute(
+                            null,
+                            request.targetAssetId(),
+                            itemDeduction.itemId(),
+                            itemDeduction.quantity(),
+                            ticketId
+                    );
+                    log.info("[ALOCAÇÃO] Insumo alocado ao ativo físico no fechamento. Chamado: {}, Item: {}, Ativo: {}, Qtd: {}, Custo: {}",
+                            ticketId, itemDeduction.itemId(), request.targetAssetId(), itemDeduction.quantity(), totalDeduction);
+                } else {
+                    // Fallback para dedução simples de estoque
+                    String reference = "TICKET:" + ticketId;
+                    totalDeduction = stockDeductionService.deductWithFifo(
+                            itemDeduction.itemId(),
+                            itemDeduction.quantity(),
+                            reference,
+                            itemDeduction.recipientUserId()
+                    );
+                    log.info("[ESTOQUE] Baixa de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
+                            ticketId, itemDeduction.itemId(), itemDeduction.quantity(), itemDeduction.recipientUserId(), totalDeduction);
+                }
 
                 financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-                log.info("[ESTOQUE] Baixa de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
-                        ticketId, itemDeduction.itemId(), itemDeduction.quantity(), itemDeduction.recipientUserId(), totalDeduction);
             }
         } else if (ticket.getRequestedItems() != null && !ticket.getRequestedItems().isEmpty()) {
             for (var reqItem : ticket.getRequestedItems()) {
                 java.util.UUID recipient = request.recipientUserId() != null ? request.recipientUserId() : ticket.getRequester().getId();
-                String reference = "TICKET:" + ticketId;
-                java.math.BigDecimal totalDeduction = stockDeductionService.deductWithFifo(
-                        reqItem.getItem().getId(),
-                        reqItem.getQuantity(),
-                        reference,
-                        recipient
-                );
+                java.math.BigDecimal totalDeduction;
+
+                if (request.targetAssetId() != null) {
+                    // Se o targetAssetId não for nulo, aloca o insumo solicitado ao ativo físico
+                    totalDeduction = allocateConsumableUseCase.execute(
+                            null,
+                            request.targetAssetId(),
+                            reqItem.getItem().getId(),
+                            reqItem.getQuantity(),
+                            ticketId
+                    );
+                    log.info("[ALOCAÇÃO] Insumo solicitado alocado ao ativo físico no fechamento. Chamado: {}, Item: {}, Ativo: {}, Qtd: {}, Custo: {}",
+                            ticketId, reqItem.getItem().getId(), request.targetAssetId(), reqItem.getQuantity(), totalDeduction);
+                } else {
+                    // Fallback para dedução simples de estoque
+                    String reference = "TICKET:" + ticketId;
+                    totalDeduction = stockDeductionService.deductWithFifo(
+                            reqItem.getItem().getId(),
+                            reqItem.getQuantity(),
+                            reference,
+                            recipient
+                    );
+                    log.info("[ESTOQUE] Baixa automatica de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
+                            ticketId, reqItem.getItem().getId(), reqItem.getQuantity(), recipient, totalDeduction);
+                }
 
                 financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
-                log.info("[ESTOQUE] Baixa automatica de stock realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
-                        ticketId, reqItem.getItem().getId(), reqItem.getQuantity(), recipient, totalDeduction);
             }
         }
 

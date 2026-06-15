@@ -14,6 +14,17 @@ interface AddBatchModalProps {
   preselectedItemId?: string;
 }
 
+const DEFAULT_SUPPLIERS = [
+  'Amazon',
+  'Dell Store',
+  'HP',
+  'Kabum',
+  'Kalunga',
+  'Lenovo',
+  'Logitech',
+  'Mercado Livre',
+];
+
 export default function AddBatchModal({
   isOpen,
   onClose,
@@ -35,16 +46,6 @@ export default function AddBatchModal({
   const [isAddingSupplier, setIsAddingSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState('');
 
-  const defaultSuppliers = [
-    'Amazon',
-    'Dell Store',
-    'HP',
-    'Kabum',
-    'Kalunga',
-    'Lenovo',
-    'Logitech',
-    'Mercado Livre',
-  ];
 
   useEffect(() => {
     const stored = localStorage.getItem('inovareti_dynamic_suppliers');
@@ -52,11 +53,11 @@ export default function AddBatchModal({
       try {
         setSuppliers(JSON.parse(stored));
       } catch {
-        setSuppliers(defaultSuppliers);
+        setSuppliers(DEFAULT_SUPPLIERS);
       }
     } else {
-      setSuppliers(defaultSuppliers);
-      localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(defaultSuppliers));
+      setSuppliers(DEFAULT_SUPPLIERS);
+      localStorage.setItem('inovareti_dynamic_suppliers', JSON.stringify(DEFAULT_SUPPLIERS));
     }
   }, []);
 

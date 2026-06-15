@@ -286,6 +286,22 @@ export default function ProfessionalMappingPanel() {
                 const isMissingId = !profissionalId;
                 const isInactiveRow = row.blipQueueId === 'inactive';
 
+                const currentQueue = blipQueues.find((q) => q.id === row.blipQueueId);
+                const rowOptions = [
+                  { id: '', name: 'Nenhuma fila selecionada' },
+                  { id: 'inactive', name: '🚫 Inativo (Ocultar/Duplicado)' },
+                  ...dropdownQueues.map((q) => ({ id: q.id, name: q.name })),
+                ];
+
+                if (
+                  row.blipQueueId &&
+                  row.blipQueueId !== 'inactive' &&
+                  currentQueue &&
+                  !rowOptions.some((opt) => opt.id === row.blipQueueId)
+                ) {
+                  rowOptions.push({ id: currentQueue.id, name: currentQueue.name });
+                }
+
                 return (
                   <tr key={`${row.profissionalId}-${idx}`} className={`hover:bg-slate-50/80 transition-colors ${isInactiveRow ? 'bg-slate-100/50 opacity-70' : ''}`}>
                     <td className={`px-4 py-3 align-middle ${isMissingId ? 'text-rose-600' : ''}`}>
@@ -298,11 +314,7 @@ export default function ProfessionalMappingPanel() {
 
                   <td className="px-4 py-3 align-middle">
                     <SearchableDropdown
-                      options={[
-                        { id: '', name: 'Nenhuma fila selecionada' },
-                        { id: 'inactive', name: '🚫 Inativo (Ocultar/Duplicado)' },
-                        ...dropdownQueues.map((q) => ({ id: q.id, name: q.name })),
-                      ]}
+                      options={rowOptions}
                       value={row.blipQueueId || ''}
                       onChange={(val) => updateField(row.profissionalId, 'blipQueueId', val)}
                       onSearchChange={handleSearchQueues}

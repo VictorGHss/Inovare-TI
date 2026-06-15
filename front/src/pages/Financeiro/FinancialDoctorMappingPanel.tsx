@@ -270,55 +270,62 @@ export default function FinancialDoctorMappingPanel() {
                 </td>
               </tr>
             ) : (
-              filteredMappings.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
-                  {/* UUID Conta Azul */}
-                  <td className="px-4 py-3 align-middle font-mono text-xs">
-                    {row.isNew ? (
+              filteredMappings.map((row) => {
+                const currentUser = users.find((u) => u.id === row.userId);
+                const rowOptions = dropdownUsers.map(u => ({ id: u.id, name: u.name }));
+                if (currentUser && !rowOptions.some((opt) => opt.id === currentUser.id)) {
+                  rowOptions.push({ id: currentUser.id, name: currentUser.name });
+                }
+
+                return (
+                  <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
+                    {/* UUID Conta Azul */}
+                    <td className="px-4 py-3 align-middle font-mono text-xs">
+                      {row.isNew ? (
+                        <input
+                          type="text"
+                          placeholder="UUID do Cliente"
+                          value={row.contaAzulCustomerUuid || ''}
+                          onChange={(e) => updateField(row.id, 'contaAzulCustomerUuid', e.target.value)}
+                          className={inlineInputClass}
+                        />
+                      ) : (
+                        row.contaAzulCustomerUuid
+                      )}
+                    </td>
+
+                    {/* Nome do Médico */}
+                    <td className="px-4 py-3 align-middle">
                       <input
                         type="text"
-                        placeholder="UUID do Cliente"
-                        value={row.contaAzulCustomerUuid || ''}
-                        onChange={(e) => updateField(row.id, 'contaAzulCustomerUuid', e.target.value)}
+                        placeholder="Nome do Médico"
+                        value={row.doctorName || ''}
+                        onChange={(e) => updateField(row.id, 'doctorName', e.target.value)}
                         className={inlineInputClass}
                       />
-                    ) : (
-                      row.contaAzulCustomerUuid
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Nome do Médico */}
-                  <td className="px-4 py-3 align-middle">
-                    <input
-                      type="text"
-                      placeholder="Nome do Médico"
-                      value={row.doctorName || ''}
-                      onChange={(e) => updateField(row.id, 'doctorName', e.target.value)}
-                      className={inlineInputClass}
-                    />
-                  </td>
+                    {/* E-mail */}
+                    <td className="px-4 py-3 align-middle">
+                      <input
+                        type="email"
+                        placeholder="E-mail de Fallback"
+                        value={row.doctorEmail || ''}
+                        onChange={(e) => updateField(row.id, 'doctorEmail', e.target.value)}
+                        className={inlineInputClass}
+                      />
+                    </td>
 
-                  {/* E-mail */}
-                  <td className="px-4 py-3 align-middle">
-                    <input
-                      type="email"
-                      placeholder="E-mail de Fallback"
-                      value={row.doctorEmail || ''}
-                      onChange={(e) => updateField(row.id, 'doctorEmail', e.target.value)}
-                      className={inlineInputClass}
-                    />
-                  </td>
-
-                  {/* Usuário Vinculado */}
-                  <td className="px-4 py-3 align-middle">
-                    <SearchableDropdown
-                      options={dropdownUsers.map(u => ({ id: u.id, name: u.name }))}
-                      value={row.userId || ''}
-                      onChange={(val) => updateField(row.id, 'userId', val || null)}
-                      onSearchChange={handleSearchDoctorsRemote}
-                      placeholder="Selecionar usuário..."
-                    />
-                  </td>
+                    {/* Usuário Vinculado */}
+                    <td className="px-4 py-3 align-middle">
+                      <SearchableDropdown
+                        options={rowOptions}
+                        value={row.userId || ''}
+                        onChange={(val) => updateField(row.id, 'userId', val || null)}
+                        onSearchChange={handleSearchDoctorsRemote}
+                        placeholder="Selecionar usuário..."
+                      />
+                    </td>
 
                   {/* Ações */}
                   <td className="px-4 py-3 align-middle">
@@ -349,7 +356,8 @@ export default function FinancialDoctorMappingPanel() {
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+            })
             )}
           </tbody>
         </table>

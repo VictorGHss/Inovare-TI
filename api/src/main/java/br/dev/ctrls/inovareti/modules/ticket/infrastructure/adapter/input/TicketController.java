@@ -66,6 +66,7 @@ public class TicketController {
     private final TransferTicketUseCase transferTicketUseCase;
     private final AddTicketCommentUseCase addTicketCommentUseCase;
     private final GetTicketCommentsUseCase getTicketCommentsUseCase;
+    private final ListAllTicketsUseCase listAllTicketsUseCase;
     private final FindTicketByIdUseCase findTicketByIdUseCase;
     private final LocalFileStorageService fileStorageService;
     private final TicketAttachmentRepositoryPort attachmentRepository;

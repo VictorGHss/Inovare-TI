@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment, TicketTag } from '../types/models';
+import type { Page, PaginatedResponse, CreateTicketDto, ResolveTicketRequest, Ticket, TicketAttachment, TicketCategory, TicketComment, TicketTag } from '../types/models';
 
 // Busca todos os tickets do usuário autenticado (suporta filtro opcional por tags, paginação e pesquisa global)
 export async function getTickets(tagIds?: string[], page: number = 0, search?: string): Promise<Page<Ticket>> {
@@ -141,6 +141,22 @@ export async function getSimilarTickets(id: string): Promise<Ticket[]> {
   const { data } = await api.get<Ticket[]>(`/tickets/${id}/similar`);
   return data;
 }
+
+/**
+ * Busca de forma paginada todos os chamados de suporte associados a um item de inventário específico.
+ * Consome o endpoint GET /api/tickets/item/{itemId}.
+ *
+ * @param itemId O identificador único do item de inventário (UUID)
+ * @param page O número da página (padrão: 0)
+ * @returns Promessa com o retorno paginado de chamados contendo a tipagem unificada
+ */
+export async function getItemTickets(itemId: string, page: number = 0): Promise<PaginatedResponse<Ticket>> {
+  const { data } = await api.get<PaginatedResponse<Ticket>>(`/tickets/item/${itemId}`, {
+    params: { page, size: 15 }
+  });
+  return data;
+}
+
 
 
 

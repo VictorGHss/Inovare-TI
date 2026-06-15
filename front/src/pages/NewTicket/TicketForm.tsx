@@ -10,6 +10,8 @@ import KbSuggestions from './KbSuggestions';
 import FileAttachment from './FileAttachment';
 import RequestItemFields, { type RequestedItemState } from './RequestItemFields';
 import PriorityCategoryFields from './PriorityCategoryFields';
+import SearchableDropdown from '../../components/SearchableDropdown';
+
 
 interface Props {
   type: TicketType;
@@ -45,8 +47,12 @@ export default function TicketForm({ type, onTypeChange }: Props) {
     categoryId: '',
   });
 
+  // Estado para armazenar o ID do item do inventário selecionado no incidente
+  const [incidentItemId, setIncidentItemId] = useState<string>('');
+
   // Track if "Outro" (other) option was selected
   const isOtherItemSelected = requestedItems.some(ri => ri.itemId === 'OUTRO');
+
 
   useEffect(() => {
     Promise.all([getTicketCategories(), getItems()])
@@ -105,7 +111,7 @@ export default function TicketForm({ type, onTypeChange }: Props) {
   function handleTypeChange(v: TicketType) {
     onTypeChange(v);
     setFiles([]);
-    // Reset type-specific fields when toggling
+    // Reseta os campos específicos do chamado ao trocar o tipo
     setForm((f) => ({
       ...f,
       title: '',
@@ -114,7 +120,23 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       priority: 'NORMAL',
     }));
     setRequestedItems([{ itemId: '', quantity: 1 }]);
+    setIncidentItemId('');
   }
+
+  // Efetua a busca remota de itens do inventário baseada no termo de pesquisa com debounce
+  const handleFetchItemsRemote = async (searchTerm: string) => {
+    try {
+      const response = await getItems({
+        page: 0,
+        size: 15,
+        search: searchTerm,
+      });
+      setItems(response.content);
+    } catch (error) {
+      console.error('Erro ao efetuar busca remota de itens de inventário no incidente:', error);
+    }
+  };
+
 
   function handleItemsListChange(updatedItems: RequestedItemState[]) {
     setRequestedItems(updatedItems);
@@ -196,10 +218,13 @@ export default function TicketForm({ type, onTypeChange }: Props) {
       anydeskCode: type === 'INCIDENT' ? (form.anydeskCode || undefined) : undefined,
       priority: type === 'INCIDENT' ? form.priority : (isOtherItemSelected ? 'HIGH' : 'NORMAL'),
       categoryId: effectiveCategoryId,
-      requestedItems: type === 'REQUEST' ? requestedItems
-        .filter(ri => ri.itemId && ri.itemId !== 'OUTRO')
-        .map(ri => ({ itemId: ri.itemId, quantity: ri.quantity })) : undefined,
+      requestedItems: type === 'REQUEST'
+        ? requestedItems
+            .filter(ri => ri.itemId && ri.itemId !== 'OUTRO')
+            .map(ri => ({ itemId: ri.itemId, quantity: ri.quantity }))
+        : (incidentItemId ? [{ itemId: incidentItemId, quantity: 1 }] : undefined),
     };
+
 
     setSubmitting(true);
     try {
@@ -267,6 +292,24 @@ export default function TicketForm({ type, onTypeChange }: Props) {
         <p className="text-xs text-slate-400">Use este código para permitir acesso remoto ao seu computador durante o suporte.</p>
       </div>
       )}
+
+      {type === 'INCIDENT' && (
+        <div className="flex flex-col gap-1.5">
+          <label className={labelCls}>Equipamento com Falha (Opcional)</label>
+          <SearchableDropdown
+            options={items.map((item) => ({
+              id: item.id,
+              name: `${item.name} (Estoque: ${item.currentStock})`,
+            }))}
+            value={incidentItemId}
+            onChange={(val) => setIncidentItemId(val)}
+            onSearchChange={handleFetchItemsRemote}
+            placeholder="Pesquise por nome do equipamento ou ativo..."
+          />
+          <p className="text-xs text-slate-400">Selecione o item do inventário de TI que está apresentando o problema.</p>
+        </div>
+      )}
+
 
       <div className="flex flex-col gap-1.5">
         <label className={labelCls}>Descrição</label>

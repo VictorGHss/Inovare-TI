@@ -397,6 +397,7 @@ public class TicketController {
      * @return ResponseEntity contendo a página de chamados vinculados ao item
      */
     @GetMapping("/item/{itemId}")
+    @SuppressWarnings("spring-data-string-property-reference")
     public ResponseEntity<org.springframework.data.domain.Page<TicketResponseDTO>> getTicketsByItem(
             @PathVariable UUID itemId,
             @RequestParam(defaultValue = "0") int page) {

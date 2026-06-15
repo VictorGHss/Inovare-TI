@@ -21,6 +21,7 @@ import QrScannerLauncher from '../../components/QrScannerLauncher';
 import ReportHubModal from '../../components/ReportHubModal';
 import PageHero from '../../components/PageHero';
 import { useAuth } from '../../contexts/AuthContext';
+import NetworkTelemetryPanel from '../../components/NetworkTelemetryPanel';
 import { VIBRANT_CHART_COLORS } from '../../lib/chartPalette';
 
 export default function Dashboard() {
@@ -201,6 +202,9 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* Telemetria Técnica e Integração de APIs de Infraestrutura */}
+          <NetworkTelemetryPanel />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {analytics && analytics.ticketsBySector.length > 0 && (

@@ -92,13 +92,13 @@ export default function ProfessionalMappingPanel() {
           return {
             id: existing?.id,
             profissionalId: String(p.id ?? ''),
-            blipQueueId: existing?.blipQueueId ?? '',
-            itsmUserId: existing?.itsmUserId ?? '',
-            discordWebhookUrl: existing?.discordWebhookUrl ?? '',
-            externalWaLink: existing?.externalWaLink ?? '',
-            profissionalNome: existing?.profissionalNome ?? p.name ?? '',
-            isExternal: existing?.isExternal ?? false,
-            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? false,
+            blipQueueId: existing?.blipQueueId || (existing as any)?.blip_queue_id || '',
+            itsmUserId: existing?.itsmUserId || (existing as any)?.itsm_user_id || '',
+            discordWebhookUrl: existing?.discordWebhookUrl || (existing as any)?.discord_webhook_url || '',
+            externalWaLink: existing?.externalWaLink || (existing as any)?.external_wa_link || '',
+            profissionalNome: existing?.profissionalNome || (existing as any)?.profissional_nome || p.name || '',
+            isExternal: existing?.isExternal ?? (existing as any)?.is_external ?? false,
+            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as any)?.ignore_auto_schedule ?? false,
           } as DoctorMapping;
         });
 
@@ -137,13 +137,13 @@ export default function ProfessionalMappingPanel() {
         return {
           id: existing?.id,
           profissionalId: String(p.id ?? ''),
-          blipQueueId: existing?.blipQueueId ?? '',
-          itsmUserId: existing?.itsmUserId ?? '',
-          discordWebhookUrl: existing?.discordWebhookUrl ?? '',
-          externalWaLink: existing?.externalWaLink ?? '',
-          profissionalNome: existing?.profissionalNome ?? p.name ?? '',
-          isExternal: existing?.isExternal ?? false,
-          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? false,
+          blipQueueId: existing?.blipQueueId || (existing as any)?.blip_queue_id || '',
+          itsmUserId: existing?.itsmUserId || (existing as any)?.itsm_user_id || '',
+          discordWebhookUrl: existing?.discordWebhookUrl || (existing as any)?.discord_webhook_url || '',
+          externalWaLink: existing?.externalWaLink || (existing as any)?.external_wa_link || '',
+          profissionalNome: existing?.profissionalNome || (existing as any)?.profissional_nome || p.name || '',
+          isExternal: existing?.isExternal ?? (existing as any)?.is_external ?? false,
+          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as any)?.ignore_auto_schedule ?? false,
         } as DoctorMapping;
       });
 

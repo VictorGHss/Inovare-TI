@@ -12,7 +12,7 @@ import br.dev.ctrls.inovareti.modules.finance.domain.model.FinancialTransaction;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialTransactionRepository;
 import br.dev.ctrls.inovareti.modules.finance.domain.port.FinancialLinkRepository;
 import java.math.BigDecimal;
-
+import java.time.LocalDate;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,6 +44,7 @@ public class AssetService {
     private final AuditLogService auditLogService;
     private final FinancialTransactionRepository financialTransactionRepository;
     private final FinancialLinkRepository financialLinkRepository;
+    private final AssetDepreciationService assetDepreciationService;
 
     @Transactional
     public List<Asset> createAssets(AssetRequestDTO request) {
@@ -155,15 +156,29 @@ public class AssetService {
         }
 
         // Se houver parcelas de financiamento fornecidas no registo do ativo,
-        // prepara o envio para os contratos de sincronização da Conta Azul.
+        // prepara o envio para os contratos de sincronização da Conta Azul utilizando o serviço contábil para precisão exata.
         if (request.installments() != null && !request.installments().isEmpty()) {
+            BigDecimal totalAcquisitionValue = createdAssets.isEmpty() ? BigDecimal.ZERO : createdAssets.get(0).getAcquisitionValue();
+            if (totalAcquisitionValue == null) {
+                totalAcquisitionValue = BigDecimal.ZERO;
+            }
+
+            // Divide as parcelas utilizando a regra do banqueiro (RoundingMode.HALF_EVEN) para precisão e à prova de centavos
+            List<BigDecimal> calculatedAmounts = assetDepreciationService.calculateInstallments(totalAcquisitionValue, request.installments().size());
+
             log.info("[ContaAzul] Preparando o envio de {} parcelas de financiamento para o equipamento '{}'.",
                     request.installments().size(), request.name());
+
             for (int i = 0; i < request.installments().size(); i++) {
-                var inst = request.installments().get(i);
-                log.info("[ContaAzul] Parcela {}/{} - Vencimento: {}, Valor: {}", 
-                        (i + 1), request.installments().size(), inst.dueDate(), inst.amount());
+                LocalDate dueDate = request.installments().get(i).dueDate();
+                BigDecimal exactAmount = calculatedAmounts.get(i);
+                log.info("[ContaAzul] Parcela {}/{} - Vencimento: {}, Valor Exato Ajustado (HALF_EVEN): {}", 
+                        (i + 1), request.installments().size(), dueDate, exactAmount);
             }
+
+            // Realiza cálculo da depreciação mensal estimada para cronograma de depreciação linear (base de 60 meses)
+            BigDecimal monthlyDep = assetDepreciationService.calculateMonthlyDepreciation(totalAcquisitionValue, 60);
+            log.info("[CONTABILIDADE] Cronograma de depreciacao linear de longo prazo iniciado. Depreciacao mensal estimada (HALF_EVEN): {}", monthlyDep);
         }
 
         return createdAssets;

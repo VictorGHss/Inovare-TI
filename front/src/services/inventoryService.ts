@@ -20,6 +20,14 @@ export async function getItems(params?: GetItemsParams): Promise<Page<Item>> {
   return data;
 }
 
+// Busca todos os itens obsoletos (End of Life) de forma paginada
+export async function getObsoleteItems(params?: { page?: number }): Promise<Page<Item>> {
+  const { data } = await api.get<Page<Item>>('/items/obsolete', {
+    params,
+  });
+  return data;
+}
+
 // Busca um item de inventário específico pelo UUID
 export async function getItemById(id: string): Promise<Item> {
   const { data } = await api.get<Item>(`/items/${id}`);

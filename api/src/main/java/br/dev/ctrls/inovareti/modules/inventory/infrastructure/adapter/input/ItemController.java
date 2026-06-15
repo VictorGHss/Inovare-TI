@@ -239,6 +239,19 @@ public class ItemController {
                         "inline; filename=\"" + batch.getInvoiceFileName() + "\"")
                 .body(fileContent);
     }
+
+    /**
+     * Busca de forma paginada os itens que atingiram o fim de vida útil (obsolescência de hardware).
+     * Retorna 200 OK com os itens obsoletos.
+     */
+    @GetMapping("/obsolete")
+    public ResponseEntity<org.springframework.data.domain.Page<ItemResponseDTO>> listObsolete(
+            @RequestParam(defaultValue = "0") int page) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, 15);
+        org.springframework.data.domain.Page<Item> itemsPage = itemRepository.findObsoleteItems(pageable);
+        org.springframework.data.domain.Page<ItemResponseDTO> pageResult = itemsPage.map(ItemResponseDTO::from);
+        return ResponseEntity.ok(pageResult);
+    }
 }
 
 

@@ -97,4 +97,8 @@ public class ItemRepositoryAdapter implements ItemRepositoryPort {
         return repository.countByCurrentStockLessThanEqual(stock);
     }
 
+    @Override
+    public org.springframework.data.domain.Page<Item> findObsoleteItems(org.springframework.data.domain.Pageable pageable) {
+        return repository.findObsoleteItems(pageable);
+    }
 }

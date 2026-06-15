@@ -28,4 +28,6 @@ public interface ItemRepositoryPort {
 
     long count();
     long countByCurrentStockLessThanEqual(int stock);
+
+    org.springframework.data.domain.Page<Item> findObsoleteItems(org.springframework.data.domain.Pageable pageable);
 }

@@ -37,6 +37,10 @@ import br.dev.ctrls.inovareti.modules.inventory.application.dto.StockBatchRespon
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.StockMovementResponseDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.LinkComponentRequestDTO;
 import br.dev.ctrls.inovareti.modules.inventory.application.dto.AllocateConsumableRequestDTO;
+import br.dev.ctrls.inovareti.modules.inventory.application.dto.ItemAllocationResponseDTO;
+import br.dev.ctrls.inovareti.modules.inventory.infrastructure.adapter.output.jpa.repository.ItemAllocationJpaRepository;
+import br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemAllocationEntity;
+import java.util.stream.Collectors;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.CreateItemUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.FindItemByIdUseCase;
 import br.dev.ctrls.inovareti.modules.inventory.application.usecase.ListAllItemsUseCase;
@@ -68,6 +72,7 @@ public class ItemController {
     private final ListItemBatchesUseCase listItemBatchesUseCase;
     private final LinkAssetComponentUseCase linkAssetComponentUseCase;
     private final AllocateConsumableUseCase allocateConsumableUseCase;
+    private final ItemAllocationJpaRepository itemAllocationRepository;
     private final StockBatchRepositoryPort stockBatchRepository;
     private final StockMovementRepositoryPort stockMovementRepository;
     private final FileStorageService fileStorageService;
@@ -293,6 +298,28 @@ public class ItemController {
             @RequestBody @Valid AllocateConsumableRequestDTO request) {
         allocateConsumableUseCase.execute(id, request.childItemId(), request.quantity(), request.ticketId());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Retorna a lista de alocações vinculadas a este item de inventário.
+     * Pode filtrar onde o item é o ativo principal (asParent = true) ou o insumo alocado (asParent = false).
+     *
+     * GET /items/{id}/allocations
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
+    @GetMapping("/{id}/allocations")
+    public ResponseEntity<List<ItemAllocationResponseDTO>> listAllocations(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "false") boolean asParent) {
+        
+        List<ItemAllocationEntity> allocations = asParent
+                ? itemAllocationRepository.findByParentItemIdOrderByAllocatedAtDesc(id)
+                : itemAllocationRepository.findByChildItemIdOrderByAllocatedAtDesc(id);
+
+        List<ItemAllocationResponseDTO> dtos = allocations.stream()
+                .map(ItemAllocationResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
     }
 }
 

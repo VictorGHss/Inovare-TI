@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, Notification, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload } from '../types/models';
+import type { Page, AdminConfig, Article, ArticleSearchResult, Asset, AssetCategory, AssetMaintenance, AuditLogPage, Batch, CreateArticleDto, CreateAssetCategoryDto, CreateAssetDto, CreateAssetMaintenanceData, CreateBatchDto, CreateItemCategoryDto, CreateItemDto, CreateTicketCategoryDto, FinancialTransactionLineDTO, GenericAttachmentResponse, GetAssetsParams, GetAuditLogsParams, Item, ItemCategory, ItemAllocation, Notification, StockMovement, SystemSetting, TicketCategoryResponse, TransferAssetData, UpdateSystemSettingsPayload } from '../types/models';
 
 // Serviço centralizado para operações de inventário, ativos e relatórios operacionais.
 
@@ -331,4 +331,36 @@ export async function createTicketCategory(dto: CreateTicketCategoryDto): Promis
 /** Exclui uma categoria de chamado pelo UUID. Retorna 409 se houver tickets vinculados. */
 export async function deleteTicketCategory(id: string): Promise<void> {
   await api.delete(`/ticket-categories/${id}`);
+}
+
+export interface AllocateConsumablePayload {
+  childItemId: string;
+  quantity: number;
+  ticketId?: string;
+}
+
+/**
+ * Vincula (acopla) um ativo filho (componente) a um ativo principal (pai) no inventário.
+ */
+export async function linkAssetComponent(id: string, componentId: string): Promise<void> {
+  await api.post(`/items/${id}/components`, { componentId });
+}
+
+/**
+ * Aloca um consumível ou periférico a um ativo principal com baixa de estoque.
+ */
+export async function allocateConsumable(id: string, payload: AllocateConsumablePayload): Promise<void> {
+  await api.post(`/items/${id}/allocations`, payload);
+}
+
+/**
+ * Busca o histórico de alocações de um item do inventário.
+ * Se asParent for true, busca itens alocados a ele (ele como pai).
+ * Se asParent for false, busca onde ele foi alocado (ele como filho).
+ */
+export async function getItemAllocations(id: string, asParent = false): Promise<ItemAllocation[]> {
+  const { data } = await api.get<ItemAllocation[]>(`/items/${id}/allocations`, {
+    params: { asParent },
+  });
+  return data;
 }

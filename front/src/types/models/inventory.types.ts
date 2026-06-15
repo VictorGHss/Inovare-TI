@@ -3,14 +3,30 @@ export interface Item {
   name: string;
   itemCategoryId: string;
   itemCategoryName: string;
+  isConsumable: boolean;
   currentStock: number;
   specifications: Record<string, unknown> | null;
+  parent?: Item | null;
+  components?: Item[];
 }
 
 export interface ItemCategory {
   id: string;
   name: string;
   isConsumable: boolean;
+}
+
+export interface ItemAllocation {
+  id: string;
+  parentItemId: string;
+  parentItemName: string;
+  childItemId: string;
+  childItemName: string;
+  quantity: number;
+  allocatedAt: string;
+  allocatedById: string;
+  allocatedByName: string;
+  ticketId: string | null;
 }
 
 export interface CreateAssetCategoryDto {

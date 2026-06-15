@@ -12,6 +12,7 @@ public record ItemResponseDTO(
         UUID id,
         UUID itemCategoryId,
         String itemCategoryName,
+        Boolean isConsumable,
         String name,
         Integer currentStock,
         Map<String, Object> specifications
@@ -22,6 +23,7 @@ public record ItemResponseDTO(
                 item.getId(),
                 item.getItemCategory().getId(),
                 item.getItemCategory().getName(),
+                item.getItemCategory().getIsConsumable(),
                 item.getName(),
                 item.getCurrentStock(),
                 item.getSpecifications()

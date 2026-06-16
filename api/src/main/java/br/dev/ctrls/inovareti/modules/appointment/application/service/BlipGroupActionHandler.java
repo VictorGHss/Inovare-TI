@@ -389,17 +389,7 @@ public class BlipGroupActionHandler {
             log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
         }
 
-        // COMENTÁRIO EM PORTUGUÊS (PT-BR):
-        // Dispara ativamente a mensagem de grupo interativa (select) contendo a agenda detalhada
-        // de consultas e os botões rápidos para confirmação ou alteração do lote.
-        if (!listaDetalhada.isBlank()) {
-            try {
-                blipNotificationService.sendGroupScheduleMessage(fromPhone, listaDetalhada, groupId);
-                log.info("[WEBHOOK] Mensagem interativa de grupo enviada ativamente com sucesso para {}.", fromPhone);
-            } catch (Exception e) {
-                log.error("[WEBHOOK] Erro ao enviar mensagem interativa de grupo para {}: {}", fromPhone, e.getMessage(), e);
-            }
-        }
+
     }
 
     private static final java.util.regex.Pattern STRICT_UUID_PATTERN = 

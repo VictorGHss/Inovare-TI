@@ -34,7 +34,6 @@ public class BlipGroupActionHandler {
     private final BlipIdentityReconciler blipIdentityReconciler;
     private final BlipProperties blipProperties;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
-    private final BlipNotificationService blipNotificationService;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.

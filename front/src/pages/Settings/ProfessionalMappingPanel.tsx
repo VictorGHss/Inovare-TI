@@ -97,6 +97,7 @@ export default function ProfessionalMappingPanel() {
           (dbMappings as DoctorMapping[]).forEach((m) => mappingById.set(String(m.profissionalId), m));
         }
 
+        // 1. Mapeamento a partir dos profissionais ativos retornados da API Feegow
         const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
           const existing = mappingById.get(String(p.id));
           return {
@@ -111,6 +112,28 @@ export default function ProfessionalMappingPanel() {
             ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
           } as DoctorMapping;
         });
+
+        // 2. Mesclagem bidirecional: inclui todos os mapeamentos cadastrados no banco de dados
+        // que não estão na lista de profissionais ativos da Feegow (evita dados em branco/ocultação)
+        const proIds = new Set((Array.isArray(pros) ? pros : []).map((p) => String(p.id)));
+        if (Array.isArray(dbMappings)) {
+          dbMappings.forEach((m) => {
+            const mappedId = String(m.profissionalId);
+            if (mappedId && !proIds.has(mappedId)) {
+              merged.push({
+                id: m.id,
+                profissionalId: mappedId,
+                blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
+                itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
+                discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
+                externalWaLink: m.externalWaLink || (m as LegacyDoctorMapping).external_wa_link || '',
+                profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
+                isExternal: m.isExternal ?? (m as LegacyDoctorMapping).is_external ?? false,
+                ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
+              } as DoctorMapping);
+            }
+          });
+        }
 
         setMappings(merged);
       } catch (error) {
@@ -142,6 +165,7 @@ export default function ProfessionalMappingPanel() {
         (dbMappings as DoctorMapping[]).forEach((m) => mappingById.set(String(m.profissionalId), m));
       }
 
+      // 1. Mapeamento a partir dos profissionais ativos retornados da API Feegow
       const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
         const existing = mappingById.get(String(p.id));
         return {
@@ -156,6 +180,28 @@ export default function ProfessionalMappingPanel() {
           ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
         } as DoctorMapping;
       });
+
+      // 2. Mesclagem bidirecional: inclui todos os mapeamentos cadastrados no banco de dados
+      // que não estão na lista de profissionais ativos da Feegow (evita dados em branco/ocultação)
+      const proIds = new Set((Array.isArray(pros) ? pros : []).map((p) => String(p.id)));
+      if (Array.isArray(dbMappings)) {
+        dbMappings.forEach((m) => {
+          const mappedId = String(m.profissionalId);
+          if (mappedId && !proIds.has(mappedId)) {
+            merged.push({
+              id: m.id,
+              profissionalId: mappedId,
+              blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
+              itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
+              discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
+              externalWaLink: m.externalWaLink || (m as LegacyDoctorMapping).external_wa_link || '',
+              profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
+              isExternal: m.isExternal ?? (m as LegacyDoctorMapping).is_external ?? false,
+              ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
+            } as DoctorMapping);
+          }
+        });
+      }
 
       setMappings(merged);
       toast.success('Dados sincronizados com sucesso.');
@@ -319,7 +365,7 @@ export default function ProfessionalMappingPanel() {
                     </td>
                     <td className="px-4 py-3 align-middle font-medium text-slate-700">{resolvedFeegowName}</td>
                   <td className="px-4 py-3 align-middle">
-                    <input value={row.profissionalNome} onChange={(e) => updateField(row.profissionalId, 'profissionalNome', e.target.value)} className={inlineInputClass} />
+                    <span className="font-medium text-slate-800">{row.profissionalNome || resolvedFeegowName}</span>
                   </td>
 
                   <td className="px-4 py-3 align-middle">
@@ -352,7 +398,7 @@ export default function ProfessionalMappingPanel() {
                   </td>
 
                   <td className="px-4 py-3 align-middle">
-                    <input value={row.externalWaLink} onChange={(e) => updateField(row.profissionalId, 'externalWaLink', e.target.value)} className={inlineInputClass} />
+                    <input value={row.externalWaLink || ''} onChange={(e) => updateField(row.profissionalId, 'externalWaLink', e.target.value)} className={inlineInputClass} />
                   </td>
 
                   <td className="px-4 py-3 align-middle">

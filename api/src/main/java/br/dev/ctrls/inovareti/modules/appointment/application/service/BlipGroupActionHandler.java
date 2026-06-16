@@ -392,7 +392,7 @@ public class BlipGroupActionHandler {
         // COMENTÁRIO EM PORTUGUÊS (PT-BR):
         // Dispara ativamente a mensagem de grupo interativa (select) contendo a agenda detalhada
         // de consultas e os botões rápidos para confirmação ou alteração do lote.
-        if (listaDetalhada != null && !listaDetalhada.isBlank()) {
+        if (!listaDetalhada.isBlank()) {
             try {
                 blipNotificationService.sendGroupScheduleMessage(fromPhone, listaDetalhada, groupId);
                 log.info("[WEBHOOK] Mensagem interativa de grupo enviada ativamente com sucesso para {}.", fromPhone);

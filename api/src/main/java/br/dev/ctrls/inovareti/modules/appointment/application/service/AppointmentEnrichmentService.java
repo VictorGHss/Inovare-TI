@@ -255,13 +255,6 @@ public class AppointmentEnrichmentService {
         return true;
     }
 
-    private String firstNonBlank(String... values) {
-        if (values == null) return null;
-        for (String value : values) {
-            if (StringUtils.hasText(value)) return value.trim();
-        }
-        return null;
-    }
 
     private String normalizeValue(String value) {
         if (!StringUtils.hasText(value)) return null;

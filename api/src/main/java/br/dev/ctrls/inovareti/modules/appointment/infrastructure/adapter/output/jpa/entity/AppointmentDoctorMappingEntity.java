@@ -63,6 +63,7 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @SuppressWarnings("deprecation")
     public AppointmentDoctorMapping toDomain() {
         // Conversão de UUID da entidade para String no objeto de domínio puro
         // Retorna valores fixados (false/null) para propriedades depreciadas no domínio

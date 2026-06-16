@@ -107,41 +107,44 @@ public class BlipGroupActionHandler {
         }
 
         if (groups == null || groups.isEmpty()) {
-            log.warn("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação por busca de sessão...", groupId);
+            log.info("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação defensiva por busca de sessão...", groupId);
             if (fromPhone != null && !fromPhone.isBlank()) {
-                
-                // 1. Tentar buscar pelo agendamento mais recente vinculado ao phone_number que esteja com status PENDING
-                Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
-                if (latestGroupOpt.isPresent()) {
-                    NotificationGroup latestGroup = latestGroupOpt.get();
-                    Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findById(latestGroup.getSessionId());
-                    if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.PENDING) {
-                        groupId = latestGroup.getGroupId();
-                        groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
-                        log.info("[WEBHOOK] Recuperado grupo com sucesso via agendamento PENDING recente para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                try {
+                    // 1. Tentar buscar pelo agendamento mais recente vinculado ao phone_number que esteja com status PENDING
+                    Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
+                    if (latestGroupOpt.isPresent()) {
+                        NotificationGroup latestGroup = latestGroupOpt.get();
+                        Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findById(latestGroup.getSessionId());
+                        if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.PENDING) {
+                            groupId = latestGroup.getGroupId();
+                            groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
+                            log.info("[WEBHOOK] Recuperado grupo com sucesso via agendamento PENDING recente para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                        }
                     }
-                }
 
-                // 2. Fallback secundário: buscar por qualquer sessão ativa se o mais recente não estiver PENDING
-                if (groups == null || groups.isEmpty()) {
-                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
-                    if (activeSessions != null && !activeSessions.isEmpty()) {
-                        for (AppointmentSession session : activeSessions) {
-                            List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
-                            if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
-                                groups = recoveredGroups;
-                                groupId = recoveredGroups.get(0).getGroupId();
-                                log.info("[WEBHOOK] Recuperado grupo com sucesso via sessao ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
-                                break;
+                    // 2. Fallback secundário: buscar por qualquer sessão ativa se o mais recente não estiver PENDING
+                    if (groups == null || groups.isEmpty()) {
+                        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                        if (activeSessions != null && !activeSessions.isEmpty()) {
+                            for (AppointmentSession session : activeSessions) {
+                                List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
+                                if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
+                                    groups = recoveredGroups;
+                                    groupId = recoveredGroups.get(0).getGroupId();
+                                    log.info("[WEBHOOK] Recuperado grupo com sucesso via sessao ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                                    break;
+                                }
                             }
                         }
                     }
+                } catch (Exception e) {
+                    log.debug("[WEBHOOK] Erro defensivo durante a recuperação de grupo/sessão para o telefone {}: {}", dbPhone, e.getMessage());
                 }
             }
         }
         
         if (groups == null || groups.isEmpty()) {
-            log.warn("[WEBHOOK] Falha definitiva: Grupo não encontrado e nenhuma sessão ativa pôde recuperar o groupId={}.", groupId);
+            log.debug("[WEBHOOK] Falha ao processar ação: Grupo não encontrado e nenhuma sessão ativa pôde recuperar o groupId={}.", groupId);
             return null;
         }
         

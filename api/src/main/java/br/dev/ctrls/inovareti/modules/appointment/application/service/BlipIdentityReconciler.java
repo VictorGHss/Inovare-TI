@@ -42,6 +42,14 @@ public class BlipIdentityReconciler {
         if (identity.contains("@")) {
             localPart = identity.substring(0, identity.indexOf('@'));
         }
+
+        // Filtro de Identidade: Se o localPart for um UUID puro (GUID de controle do Blip),
+        // encerra imediatamente para evitar consultas custosas na API do Blip e no banco local.
+        boolean isUuid = localPart.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+        if (isUuid) {
+            log.debug("[RECONCILIATION] Ignorando identidade de controle do Blip (UUID puro): {}", identity);
+            return "";
+        }
         
         boolean isGuidOrUser = localPart.matches(".*[a-zA-Z\\-].*");
         if (!isGuidOrUser) {
@@ -136,7 +144,7 @@ public class BlipIdentityReconciler {
             return resolvedPhone;
         }
         
-        log.warn("[RECONCILIATION] Não foi possível reconciliar o GUID do WhatsApp {} para nenhum número telefônico.", blipGuid);
+        log.debug("[RECONCILIATION] Não foi possível reconciliar o GUID do WhatsApp {} para nenhum número telefônico.", blipGuid);
         return "";
     }
 

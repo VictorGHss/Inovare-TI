@@ -120,7 +120,7 @@ public class DiscordWebhookService {
     }
 
     @Async
-    private void sendNewTicketAlertAsync(Ticket ticket) {
+    public void sendNewTicketAlertAsync(Ticket ticket) {
         try {
             validateTicket(ticket);
             String shortId = ticket.getId().toString().substring(0, 8).toUpperCase();

@@ -363,22 +363,25 @@ public class BlipNotificationService {
 
         Map<String, Object> optionConfirm = Map.of(
             "text", "CONFIRMAR TUDO",
-            "value", Map.of(
-                "type", "text/plain",
-                "value", "confirm_group_" + groupId.toString()
-            )
+            "previewText", "CONFIRMAR TUDO",
+            "value", "confirm_group_" + groupId.toString(),
+            "type", "text/plain",
+            "index", 0
         );
 
         Map<String, Object> optionAlter = Map.of(
             "text", "PRECISO ALTERAR",
-            "value", Map.of(
-                "type", "text/plain",
-                "value", "alter_group_" + groupId.toString()
-            )
+            "previewText", "PRECISO ALTERAR",
+            "value", "alter_group_" + groupId.toString(),
+            "type", "text/plain",
+            "index", 1
         );
 
+        String fullMessageText = "PRÓXIMOS ATENDIMENTOS:\n" + text + "\n\nPor favor, confirme se você comparecerá aos horários listados acima.";
+
         Map<String, Object> content = Map.of(
-            "text", text,
+            "text", fullMessageText,
+            "scope", "immediate",
             "options", List.of(optionConfirm, optionAlter)
         );
 

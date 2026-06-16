@@ -80,6 +80,8 @@ public class MonitorAppointmentNudgesUseCase {
         List<AppointmentSession> finalSessions = appointmentSessionRepository
                 .findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus.NUDGE_FINAL_SENT, finalThreshold);
 
+        boolean hasSentBefore = false;
+
         // --- 3. FLUXO 1: PENDING -> NUDGE_1_SENT ---
         Set<UUID> processedGroup1 = new HashSet<>();
         for (AppointmentSession session : pendingSessions) {
@@ -96,11 +98,23 @@ public class MonitorAppointmentNudgesUseCase {
                 }
 
                 processedGroup1.add(groupId);
+                
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
+                }
                 processGroupNudge(groupId, AppointmentCategory.GROUP_NUDGE_1, AppointmentSessionStatus.PENDING);
             } else {
                 // FLUXO INDIVIDUAL
                 if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(pendingThreshold)) {
                     continue;
+                }
+                
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
                 }
                 processIndividualNudge(session, AppointmentCategory.NUDGE_1, AppointmentSessionStatus.PENDING);
             }
@@ -122,11 +136,23 @@ public class MonitorAppointmentNudgesUseCase {
                 }
 
                 processedGroupFinal.add(groupId);
+                
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
+                }
                 processGroupNudge(groupId, AppointmentCategory.GROUP_NUDGE_FINAL, AppointmentSessionStatus.NUDGE_1_SENT);
             } else {
                 // FLUXO INDIVIDUAL
                 if (session.getLastNotificationSentAt() != null && !session.getLastNotificationSentAt().isBefore(nudge1Threshold)) {
                     continue;
+                }
+                
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
                 }
                 processIndividualNudge(session, AppointmentCategory.NUDGE_FINAL, AppointmentSessionStatus.NUDGE_1_SENT);
             }
@@ -143,9 +169,20 @@ public class MonitorAppointmentNudgesUseCase {
                 }
 
                 processedGroupCancel.add(groupId);
+                
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
+                }
                 processGroupCancel(groupId);
             } else {
                 // FLUXO INDIVIDUAL
+                if (hasSentBefore) {
+                    aplicarPacingDelay();
+                } else {
+                    hasSentBefore = true;
+                }
                 processIndividualCancel(session);
             }
         }
@@ -315,6 +352,17 @@ public class MonitorAppointmentNudgesUseCase {
                 log.error("[GRUPO-CANCEL] Erro ao restaurar Master-State para {}", phoneNumber, e);
             }
         });
+    }
+
+    private void aplicarPacingDelay() {
+        long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
+        log.info("[PACING-LOG] Aplicando espaçamento temporal controlado de {} milissegundos nas notificações de nudges/cancelamento para respeitar o Rate Limit do Blip.", delayMillis);
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("[PACING-LOG] O delay de espaçamento de nudges foi interrompido: {}", e.getMessage());
+        }
     }
 
     private LocalDateTime resolvePendingThreshold(int xHours) {

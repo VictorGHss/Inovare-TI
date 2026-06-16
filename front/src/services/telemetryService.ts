@@ -46,28 +46,46 @@ function parsePrometheusMetrics(rawText: string): TelemetryData {
 
   if (!rawText) return { mikrotikRx, mikrotikTx, ubiquitiRx, ubiquitiTx, blipFailuresTotal };
 
+  // Expressão regular robusta para o formato plano do Prometheus (compatível com Micrometer/Actuator):
+  // - Grupo 1: Nome da métrica (letras, números, sublinhados, dois-pontos)
+  // - Grupo 2 (opcional): Conteúdo bruto das labels dentro das chaves { ... }
+  // - Grupo 3: Valor numérico da métrica (incluindo inteiros, floats e notação científica como 1.2E7 ou NaN)
+  // - Grupo 4 (opcional): Timestamp numérico no final da linha
+  const prometheusLineRegex = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]+)\})?\s+([0-9.eE+-]+|NaN)(?:\s+\d+)?$/;
+
   const lines = rawText.split('\n');
   lines.forEach((line) => {
-    // Ignora comentários do Prometheus (# HELP, # TYPE)
-    if (line.startsWith('#')) return;
+    const trimmed = line.trim();
+    // Ignora linhas em branco e comentários (# HELP, # TYPE)
+    if (!trimmed || trimmed.startsWith('#')) return;
 
-    // Métricas de tráfego de rede: network_traffic_bytes_total{device="mikrotik",direction="rx"} 12345
-    if (line.startsWith('network_traffic_bytes_total')) {
-      const value = extractMetricValue(line);
-      if (line.includes('device="mikrotik"') && line.includes('direction="rx"')) {
+    const match = trimmed.match(prometheusLineRegex);
+    if (!match) return;
+
+    const metricName = match[1];
+    const labelsStr = match[2] || '';
+    const valueStr = match[3];
+    const value = parseFloat(valueStr);
+    if (isNaN(value)) return;
+
+    // Métricas de tráfego de rede: network_traffic_bytes_total_total{device="mikrotik",direction="rx"} 12345
+    // Com o uso do startsWith, cobrimos tanto o nome base quanto com o sufixo _total gerado pelo Micrometer
+    if (metricName.startsWith('network_traffic_bytes_total')) {
+      if (labelsStr.includes('device="mikrotik"') && labelsStr.includes('direction="rx"')) {
         mikrotikRx = value;
-      } else if (line.includes('device="mikrotik"') && line.includes('direction="tx"')) {
+      } else if (labelsStr.includes('device="mikrotik"') && labelsStr.includes('direction="tx"')) {
         mikrotikTx = value;
-      } else if (line.includes('device="ubiquiti"') && line.includes('direction="rx"')) {
+      } else if (labelsStr.includes('device="ubiquiti"') && labelsStr.includes('direction="rx"')) {
         ubiquitiRx = value;
-      } else if (line.includes('device="ubiquiti"') && line.includes('direction="tx"')) {
+      } else if (labelsStr.includes('device="ubiquiti"') && labelsStr.includes('direction="tx"')) {
         ubiquitiTx = value;
       }
     }
 
-    // Métricas de falhas Blip: blip_delivery_failures_total{category="XXX"} 42
-    if (line.startsWith('blip_delivery_failures_total')) {
-      blipFailuresTotal += extractMetricValue(line);
+    // Métricas de falhas Blip: blip_delivery_failures_total_total{category="XXX"} 42
+    // Igualmente compatível com a métrica nativa e o formato do Micrometer com sufixo
+    if (metricName.startsWith('blip_delivery_failures_total')) {
+      blipFailuresTotal += value;
     }
   });
 
@@ -78,15 +96,4 @@ function parsePrometheusMetrics(rawText: string): TelemetryData {
     ubiquitiTx,
     blipFailuresTotal,
   };
-}
-
-/**
- * Extrai o valor numérico final de uma linha de métrica do Prometheus.
- */
-function extractMetricValue(line: string): number {
-  const parts = line.trim().split(/\s+/);
-  if (parts.length < 2) return 0;
-  const numStr = parts[parts.length - 1];
-  const value = parseFloat(numStr);
-  return isNaN(value) ? 0 : value;
 }

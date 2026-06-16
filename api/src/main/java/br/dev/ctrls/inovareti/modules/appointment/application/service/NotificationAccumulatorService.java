@@ -61,9 +61,27 @@ public class NotificationAccumulatorService {
                 .filter(s -> s.getPhoneNumber() != null && !s.getPhoneNumber().isBlank())
                 .collect(Collectors.groupingBy(AppointmentSession::getPhoneNumber));
 
+        boolean hasSentBefore = false;
         for (Map.Entry<String, List<AppointmentSession>> entry : groupedByPhone.entrySet()) {
             String phoneNumber = entry.getKey();
             List<AppointmentSession> sessions = entry.getValue();
+
+            // Implementação do Delay Seguro (Pacing/Throttling) em Português do Brasil (PT-BR)
+            // Se já houver um disparo anterior neste lote do acumulador, aplica-se um delay controlado de 150 a 300 ms.
+            // O uso de Thread.sleep é seguro porque o projeto utiliza as Virtual Threads do Java 21,
+            // não bloqueando a CPU do servidor.
+            if (hasSentBefore) {
+                long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
+                log.info("[PACING-LOG] Aplicando espaçamento temporal controlado de {} milissegundos antes do próximo disparo de notificação acumulada.", delayMillis);
+                try {
+                    Thread.sleep(delayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[PACING-LOG] O delay de espaçamento no acumulador foi interrompido: {}", e.getMessage());
+                }
+            } else {
+                hasSentBefore = true;
+            }
 
             // 3. Verificar se a lista tem tamanho > 1 (é um grupo) ou == 1 (individual)
             if (sessions.size() > 1) {

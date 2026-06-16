@@ -176,6 +176,7 @@ public class IngestAppointmentsUseCase {
         // limitado pela latência do serviço mais lento (Blip ou banco de dados).
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
+            boolean hasSentBefore = false;
 
             for (Map.Entry<String, List<FeegowAppointment>> entry : grouped.entrySet()) {
                 String key = entry.getKey();
@@ -200,6 +201,23 @@ public class IngestAppointmentsUseCase {
                 String[] keyParts = key.split("#", 2);
                 String normalizedPhone = keyParts[0];
                 if (normalizedPhone.isBlank()) continue;
+
+                // Implementação do Delay Seguro (Pacing/Throttling) em Português do Brasil (PT-BR)
+                // Se já houver um disparo anterior neste lote de envio, aplica-se um delay controlado de 150 a 300 ms.
+                // Como o projeto roda com as Virtual Threads do Java 21, o uso de Thread.sleep é seguro e não bloqueia
+                // a CPU do servidor, suspendendo apenas a execução da thread coordenadora do processo em lote.
+                if (hasSentBefore) {
+                    long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
+                    log.info("[PACING-LOG] Aplicando espaçamento temporal controlado de {} milissegundos antes do próximo disparo de notificação na API do Blip.", delayMillis);
+                    try {
+                        Thread.sleep(delayMillis);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.warn("[PACING-LOG] O delay de espaçamento de notificações foi interrompido: {}", e.getMessage());
+                    }
+                } else {
+                    hasSentBefore = true;
+                }
 
                 if (eligibleAppointments.size() == 1) {
                     // Agendamento individual: processa em paralelo também

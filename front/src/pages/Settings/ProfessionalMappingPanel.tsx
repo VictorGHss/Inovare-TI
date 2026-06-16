@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import SearchableDropdown from '../../components/SearchableDropdown';
@@ -30,7 +30,6 @@ export default function ProfessionalMappingPanel() {
   const [professionals, setProfessionals] = useState<FeegowProfessional[]>([]);
   const [mappings, setMappings] = useState<DoctorMapping[]>([]);
   const [blipQueues, setBlipQueues] = useState<BlipQueue[]>([]);
-  const [dropdownQueues, setDropdownQueues] = useState<BlipQueue[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
@@ -62,20 +61,6 @@ export default function ProfessionalMappingPanel() {
 
   const hasBlipQueues = blipQueues.length > 0;
 
-  const handleSearchQueues = useCallback(async (term: string) => {
-    try {
-      // Chamada remota ao getMappings para respeitar a diretriz de pesquisa remota
-      await getMappings({ search: term, size: 15 });
-    } catch (e) {
-      console.warn('Erro ao chamar getMappings na pesquisa remota:', e);
-    }
-
-    const filtered = blipQueues
-      .filter((q) => q.name.toLowerCase().includes(term.toLowerCase()))
-      .slice(0, 15);
-    setDropdownQueues(filtered);
-  }, [blipQueues]);
-
   useEffect(() => {
     async function load() {
       try {
@@ -89,7 +74,6 @@ export default function ProfessionalMappingPanel() {
         setProfessionals(Array.isArray(pros) ? pros : []);
         const queueList = Array.isArray(queues) ? queues : [];
         setBlipQueues(queueList);
-        setDropdownQueues(queueList.slice(0, 15));
 
         const mappingById = new Map<string, DoctorMapping>();
         if (Array.isArray(dbMappings)) {
@@ -105,9 +89,7 @@ export default function ProfessionalMappingPanel() {
             blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
             itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
             discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
-            externalWaLink: existing?.externalWaLink || (existing as LegacyDoctorMapping)?.external_wa_link || '',
             profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
-            isExternal: existing?.isExternal ?? (existing as LegacyDoctorMapping)?.is_external ?? false,
             ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
           } as DoctorMapping;
         });
@@ -125,9 +107,7 @@ export default function ProfessionalMappingPanel() {
                 blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
                 itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
                 discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
-                externalWaLink: m.externalWaLink || (m as LegacyDoctorMapping).external_wa_link || '',
                 profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
-                isExternal: m.isExternal ?? (m as LegacyDoctorMapping).is_external ?? false,
                 ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
               } as DoctorMapping);
             }
@@ -157,7 +137,6 @@ export default function ProfessionalMappingPanel() {
       setProfessionals(Array.isArray(pros) ? pros : []);
       const queueList = Array.isArray(queues) ? queues : [];
       setBlipQueues(queueList);
-      setDropdownQueues(queueList.slice(0, 15));
 
       const mappingById = new Map<string, DoctorMapping>();
       if (Array.isArray(dbMappings)) {
@@ -173,9 +152,7 @@ export default function ProfessionalMappingPanel() {
           blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
           itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
           discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
-          externalWaLink: existing?.externalWaLink || (existing as LegacyDoctorMapping)?.external_wa_link || '',
           profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
-          isExternal: existing?.isExternal ?? (existing as LegacyDoctorMapping)?.is_external ?? false,
           ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
         } as DoctorMapping;
       });
@@ -193,9 +170,7 @@ export default function ProfessionalMappingPanel() {
               blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
               itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
               discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
-              externalWaLink: m.externalWaLink || (m as LegacyDoctorMapping).external_wa_link || '',
               profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
-              isExternal: m.isExternal ?? (m as LegacyDoctorMapping).is_external ?? false,
               ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
             } as DoctorMapping);
           }
@@ -337,21 +312,11 @@ export default function ProfessionalMappingPanel() {
                 const isMissingId = !profissionalId;
                 const isInactiveRow = row.blipQueueId === 'inactive';
 
-                const currentQueue = blipQueues.find((q) => q.id === row.blipQueueId);
                 const rowOptions = [
                   { id: '', name: 'Nenhuma fila selecionada' },
                   { id: 'inactive', name: '🚫 Inativo (Ocultar/Duplicado)' },
-                  ...dropdownQueues.map((q) => ({ id: q.id, name: q.name })),
+                  ...blipQueues.map((q) => ({ id: q.id, name: q.name })),
                 ];
-
-                if (
-                  row.blipQueueId &&
-                  row.blipQueueId !== 'inactive' &&
-                  currentQueue &&
-                  !rowOptions.some((opt) => opt.id === row.blipQueueId)
-                ) {
-                  rowOptions.push({ id: currentQueue.id, name: currentQueue.name });
-                }
 
                 return (
                   <tr key={`${row.profissionalId}-${idx}`} className={`hover:bg-slate-50/80 transition-colors ${isInactiveRow ? 'bg-slate-100/50 opacity-70' : ''}`}>
@@ -368,7 +333,6 @@ export default function ProfessionalMappingPanel() {
                       options={rowOptions}
                       value={row.blipQueueId || ''}
                       onChange={(val) => updateField(row.profissionalId, 'blipQueueId', val)}
-                      onSearchChange={handleSearchQueues}
                       placeholder="Selecionar fila do Blip"
                       disabled={!hasBlipQueues}
                     />

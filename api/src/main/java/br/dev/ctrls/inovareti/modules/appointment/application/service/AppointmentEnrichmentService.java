@@ -148,46 +148,39 @@ public class AppointmentEnrichmentService {
 
         String blipQueueId = normalizeValue(item.blipQueueId());
         String itsmUserId = normalizeValue(item.itsmUserId());
-        String externalLink = normalizeValue(firstNonBlank(item.externalWaLink(), item.externalLink()));
 
         AppointmentDoctorMapping mapping = appointmentDoctorMappingRepository.findByProfissionalId(profissionalId).orElse(null);
         if (mapping == null) {
             if (!StringUtils.hasText(blipQueueId)) {
                 return new SyncItemResult(false, item, "missing-blipQueueId-for-create");
             }
-            createMapping(item, profissionalId, blipQueueId, itsmUserId, externalLink);
+            createMapping(item, profissionalId, blipQueueId, itsmUserId);
             return new SyncItemResult(true, null, "created");
         }
 
-        updateMapping(mapping, item, blipQueueId, itsmUserId, externalLink);
+        updateMapping(mapping, item, blipQueueId, itsmUserId);
         return new SyncItemResult(true, null, "updated");
     }
 
-    private void createMapping(SyncMappingRequest item, String profissionalId, String blipQueueId, String itsmUserId, String externalLink) {
+    private void createMapping(SyncMappingRequest item, String profissionalId, String blipQueueId, String itsmUserId) {
         AppointmentDoctorMapping createdMapping = AppointmentDoctorMapping.builder()
                 .profissionalId(profissionalId)
                 .blipQueueId(blipQueueId)
                 .itsmUserId(itsmUserId)
-                .externalWaLink(externalLink)
-                .external(StringUtils.hasText(externalLink))
                 .ignoreAutoSchedule(Boolean.TRUE.equals(item.ignoreAutoSchedule()))
                 .build();
 
-        applyMappingDetails(createdMapping, item.profissionalNome(), item.discordWebhookUrl(), item.isExternal(), item.ignoreAutoSchedule(), itsmUserId);
+        applyMappingDetails(createdMapping, item.profissionalNome(), item.discordWebhookUrl(), item.ignoreAutoSchedule(), itsmUserId);
         enrichDoctorName(createdMapping, profissionalId);
         appointmentDoctorMappingRepository.save(createdMapping);
     }
 
-    private void updateMapping(AppointmentDoctorMapping mapping, SyncMappingRequest item, String blipQueueId, String itsmUserId, String externalLink) {
+    private void updateMapping(AppointmentDoctorMapping mapping, SyncMappingRequest item, String blipQueueId, String itsmUserId) {
         if (StringUtils.hasText(blipQueueId)) {
             mapping.setBlipQueueId(blipQueueId);
         }
-        if (StringUtils.hasText(externalLink)) {
-            mapping.setExternalWaLink(externalLink);
-            mapping.setExternal(true);
-        }
 
-        applyMappingDetails(mapping, item.profissionalNome(), item.discordWebhookUrl(), item.isExternal(), item.ignoreAutoSchedule(), itsmUserId);
+        applyMappingDetails(mapping, item.profissionalNome(), item.discordWebhookUrl(), item.ignoreAutoSchedule(), itsmUserId);
 
         if (!StringUtils.hasText(mapping.getProfissionalNome())) {
             enrichDoctorName(mapping, mapping.getProfissionalId());
@@ -195,15 +188,12 @@ public class AppointmentEnrichmentService {
         appointmentDoctorMappingRepository.save(mapping);
     }
 
-    private void applyMappingDetails(AppointmentDoctorMapping mapping, String name, String discordUrl, Boolean isExt, Boolean ignoreAuto, String itsmUserId) {
+    private void applyMappingDetails(AppointmentDoctorMapping mapping, String name, String discordUrl, Boolean ignoreAuto, String itsmUserId) {
         if (StringUtils.hasText(name)) {
             mapping.setProfissionalNome(formatProperName(name));
         }
         if (StringUtils.hasText(discordUrl)) {
             mapping.setDiscordWebhookUrl(discordUrl);
-        }
-        if (isExt != null) {
-            mapping.setExternal(isExt);
         }
         if (ignoreAuto != null) {
             mapping.setIgnoreAutoSchedule(ignoreAuto);
@@ -249,11 +239,7 @@ public class AppointmentEnrichmentService {
             mapping.setBlipQueueId(payload.blipQueueId().trim());
         }
 
-        applyMappingDetails(mapping, payload.profissionalNome(), payload.discordWebhookUrl(), payload.isExternal(), payload.ignoreAutoSchedule(), payload.itsmUserId());
-        if (StringUtils.hasText(payload.externalWaLink())) {
-            mapping.setExternalWaLink(payload.externalWaLink().trim());
-            mapping.setExternal(true);
-        }
+        applyMappingDetails(mapping, payload.profissionalNome(), payload.discordWebhookUrl(), payload.ignoreAutoSchedule(), payload.itsmUserId());
 
         appointmentDoctorMappingRepository.save(mapping);
         return Map.of("status", "success", "profissionalId", profissionalId);

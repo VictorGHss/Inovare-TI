@@ -27,25 +27,38 @@ public class AppointmentDoctorMapping {
     private String blipQueueId;
 
     /**
-     * Campo armazenado internamente como "external".
-     * Serializado/desserializado como "isExternal" no JSON para alinhar com o contrato do frontend.
-     * O getter gerado pelo Lombok (isExternal()) é ignorado para evitar duplicação no JSON.
+     * @deprecated Removido em prol da centralização obrigatória de atendimento via Blip Desk.
      */
+    @Deprecated
     @JsonIgnore
     private boolean external;
 
     private String itsmUserId;
     private String discordWebhookUrl;
+
+    /**
+     * @deprecated Removido em prol da centralização obrigatória de atendimento via Blip Desk.
+     */
+    @Deprecated
     private String externalWaLink;
+
     private boolean ignoreAutoSchedule;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    /**
+     * @deprecated Removido em prol da centralização obrigatória de atendimento via Blip Desk.
+     */
+    @Deprecated
     @JsonGetter("isExternal")
     public boolean getIsExternal() {
         return this.external;
     }
 
+    /**
+     * @deprecated Removido em prol da centralização obrigatória de atendimento via Blip Desk.
+     */
+    @Deprecated
     @JsonProperty("isExternal")
     public void setIsExternal(boolean value) {
         this.external = value;

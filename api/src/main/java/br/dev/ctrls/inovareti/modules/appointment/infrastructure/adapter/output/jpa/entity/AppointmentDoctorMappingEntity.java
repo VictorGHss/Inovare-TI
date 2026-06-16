@@ -46,17 +46,11 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "blip_queue_id", nullable = false, length = 120)
     private String blipQueueId;
 
-    @Column(name = "is_external", nullable = false)
-    private boolean external;
-
     @Column(name = "itsm_user_id")
     private UUID itsmUserId;
 
     @Column(name = "discord_webhook_url", length = 500)
     private String discordWebhookUrl;
-
-    @Column(name = "external_wa_link", length = 500)
-    private String externalWaLink;
 
     @Column(name = "ignore_auto_schedule", nullable = false)
     private boolean ignoreAutoSchedule;
@@ -71,16 +65,17 @@ public class AppointmentDoctorMappingEntity {
 
     public AppointmentDoctorMapping toDomain() {
         // Conversão de UUID da entidade para String no objeto de domínio puro
+        // Retorna valores fixados (false/null) para propriedades depreciadas no domínio
         return AppointmentDoctorMapping.builder()
                 .id(this.id)
                 .profissionalId(this.profissionalId)
                 .profissionalNome(this.profissionalNome)
                 .secretaryNames(this.secretaryNames)
                 .blipQueueId(this.blipQueueId)
-                .external(this.external)
+                .external(false)
                 .itsmUserId(this.itsmUserId != null ? this.itsmUserId.toString() : null)
                 .discordWebhookUrl(this.discordWebhookUrl)
-                .externalWaLink(this.externalWaLink)
+                .externalWaLink(null)
                 .ignoreAutoSchedule(this.ignoreAutoSchedule)
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
@@ -106,10 +101,8 @@ public class AppointmentDoctorMappingEntity {
                 .profissionalNome(domain.getProfissionalNome())
                 .secretaryNames(domain.getSecretaryNames())
                 .blipQueueId(domain.getBlipQueueId())
-                .external(domain.isExternal())
                 .itsmUserId(parsedItsmUserId)
                 .discordWebhookUrl(domain.getDiscordWebhookUrl())
-                .externalWaLink(domain.getExternalWaLink())
                 .ignoreAutoSchedule(domain.isIgnoreAutoSchedule())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())

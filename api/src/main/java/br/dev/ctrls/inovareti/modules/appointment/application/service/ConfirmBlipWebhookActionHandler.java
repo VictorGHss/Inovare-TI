@@ -175,7 +175,26 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 throw new RuntimeException("Falha na atualização do Feegow para o agendamento " + session.getFeegowAppointmentId() + ". Cancelando confirmação local (rollback).", ex);
             }
             confirmationStateMachineService.markConfirmed(session);
-            log.info("[MENSAGERIA] Ação de confirmação processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.");
+
+            // --- REDIRECIONAMENTO OFICIAL E OBRIGATÓRIO PARA O BLIP DESK ---
+            String targetQueue = null;
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+            if (mappingOpt.isPresent()) {
+                String queue = mappingOpt.get().getBlipQueueId();
+                if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                    targetQueue = queue.trim();
+                }
+            }
+            if (targetQueue == null || targetQueue.isBlank()) {
+                targetQueue = "Recepção Central / Suporte";
+            }
+
+            String userPhone = session.getPhoneNumber();
+            blipContextService.setQueueRedirect(userPhone, targetQueue);
+            blipContextService.setMasterState(userPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
+
+            log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para usuário {} (Individual). Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
+                    userPhone, targetQueue);
         }
     }
 

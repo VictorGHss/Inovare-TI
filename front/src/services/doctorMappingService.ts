@@ -14,7 +14,7 @@ export interface DoctorMapping {
   blipQueueId: string;
   itsmUserId: string;
   discordWebhookUrl: string;
-  externalWaLink: string;
+  externalWaLink?: string;
   profissionalNome?: string;
   isExternal?: boolean;
   ignoreAutoSchedule?: boolean;

@@ -24,8 +24,7 @@ interface LegacyDoctorMapping extends DoctorMapping {
   ignore_auto_schedule?: boolean;
 }
 
-const inlineInputClass =
-  'w-full rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25';
+
 
 export default function ProfessionalMappingPanel() {
   const [professionals, setProfessionals] = useState<FeegowProfessional[]>([]);
@@ -226,9 +225,7 @@ export default function ProfessionalMappingPanel() {
         blipQueueId: String(m.blipQueueId ?? '').trim(),
         itsmUserId: String(m.itsmUserId ?? '').trim(),
         discordWebhookUrl: String(m.discordWebhookUrl ?? '').trim(),
-        externalWaLink: String(m.externalWaLink ?? '').trim(),
         profissionalNome: String(m.profissionalNome ?? '').trim(),
-        isExternal: Boolean(m.isExternal),
         ignoreAutoSchedule: Boolean(m.ignoreAutoSchedule),
       }));
       try {
@@ -237,13 +234,11 @@ export default function ProfessionalMappingPanel() {
         if (status >= 200 && status < 300) {
           toast.success('Mapeamentos salvos com sucesso.');
         } else {
-          // If the API client returns a non-2xx response without throwing, ensure we show the real API message
           const fakeError = { response: { data: resp?.data } } as unknown;
           const reason = getApiErrorMessage(fakeError, resp?.data?.reason ?? resp?.statusText ?? `HTTP ${status}`);
           toast.error(reason);
         }
       } catch (err) {
-        // axios throws for non-2xx; extract server message when available and show as error
         toast.error(getApiErrorMessage(err, 'Falha ao salvar mapeamentos.'));
       }
     } catch (error) {
@@ -314,7 +309,7 @@ export default function ProfessionalMappingPanel() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Ignorar auto', 'Is External', 'WA Link', 'Ações'].map((col) => (
+              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Ignorar auto', 'Ações'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -323,11 +318,11 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : filteredMappings.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
               filteredMappings.map((row, idx) => {
@@ -388,18 +383,7 @@ export default function ProfessionalMappingPanel() {
                     />
                   </td>
 
-                  <td className="px-4 py-3 align-middle">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-                      checked={Boolean(row.isExternal)}
-                      onChange={(e) => updateField(row.profissionalId, 'isExternal', e.target.checked)}
-                    />
-                  </td>
 
-                  <td className="px-4 py-3 align-middle">
-                    <input value={row.externalWaLink || ''} onChange={(e) => updateField(row.profissionalId, 'externalWaLink', e.target.value)} className={inlineInputClass} />
-                  </td>
 
                   <td className="px-4 py-3 align-middle">
                     {isInactiveRow ? (

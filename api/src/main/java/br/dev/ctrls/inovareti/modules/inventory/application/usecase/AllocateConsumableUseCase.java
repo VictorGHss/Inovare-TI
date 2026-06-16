@@ -12,7 +12,7 @@ import br.dev.ctrls.inovareti.modules.inventory.application.service.StockDeducti
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.Item;
 import br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemAllocationEntity;
 import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemRepositoryPort;
-import br.dev.ctrls.inovareti.modules.inventory.infrastructure.adapter.output.jpa.repository.ItemAllocationJpaRepository;
+import br.dev.ctrls.inovareti.modules.inventory.domain.port.output.ItemAllocationRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
@@ -34,7 +34,7 @@ public class AllocateConsumableUseCase {
 
     private final ItemRepositoryPort itemRepository;
     private final StockDeductionService stockDeductionService;
-    private final ItemAllocationJpaRepository itemAllocationRepository;
+    private final ItemAllocationRepositoryPort itemAllocationRepository;
     private final UserRepositoryPort userRepository;
     private final TicketRepositoryPort ticketRepository;
     private final AssetRepositoryPort assetRepository;

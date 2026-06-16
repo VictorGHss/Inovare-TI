@@ -34,6 +34,7 @@ public class BlipGroupActionHandler {
     private final BlipIdentityReconciler blipIdentityReconciler;
     private final BlipProperties blipProperties;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
+    private final BlipNotificationService blipNotificationService;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -386,6 +387,18 @@ public class BlipGroupActionHandler {
             log.info("[WEBHOOK] Injetado contexto e master-state (Exibir Agenda) com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
+        }
+
+        // COMENTÁRIO EM PORTUGUÊS (PT-BR):
+        // Dispara ativamente a mensagem de grupo interativa (select) contendo a agenda detalhada
+        // de consultas e os botões rápidos para confirmação ou alteração do lote.
+        if (listaDetalhada != null && !listaDetalhada.isBlank()) {
+            try {
+                blipNotificationService.sendGroupScheduleMessage(fromPhone, listaDetalhada, groupId);
+                log.info("[WEBHOOK] Mensagem interativa de grupo enviada ativamente com sucesso para {}.", fromPhone);
+            } catch (Exception e) {
+                log.error("[WEBHOOK] Erro ao enviar mensagem interativa de grupo para {}: {}", fromPhone, e.getMessage(), e);
+            }
         }
     }
 

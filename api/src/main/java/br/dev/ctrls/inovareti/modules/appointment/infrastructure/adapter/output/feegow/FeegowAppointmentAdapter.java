@@ -267,8 +267,9 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
         String unitName = item.unitName() != null ? item.unitName().trim() : "";
         String statusId = item.statusId() != null ? String.valueOf(item.statusId()) : "";
         String procedureName = item.procedureName() != null ? item.procedureName().trim() : "";
+        String procedureId = item.procedureId() != null ? item.procedureId().trim() : "";
 
-        return new FeegowAppointment(id, pacienteId, profissionalId, doctorName, unitName, parsedStartAt, statusId, procedureName);
+        return new FeegowAppointment(id, pacienteId, profissionalId, doctorName, unitName, parsedStartAt, statusId, procedureName, procedureId);
     }
 
     private LocalDateTime parseLocalDateTime(String data, String hora) {

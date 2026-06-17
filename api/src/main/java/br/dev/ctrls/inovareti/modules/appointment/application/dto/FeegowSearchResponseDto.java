@@ -41,6 +41,7 @@ public record FeegowSearchResponseDto(
             @JsonProperty("data") String appointmentDate,
             @JsonProperty("horario") String appointmentTime,
             @JsonProperty("status_id") String statusId,
-            @JsonProperty("procedimento_nome") @JsonAlias({"procedimento", "procedimento_nome", "procedimentoNome"}) String procedureName) {
+            @JsonProperty("procedimento_nome") @JsonAlias({"procedimento", "procedimento_nome", "procedimentoNome"}) String procedureName,
+            @JsonProperty("procedimento_id") @JsonAlias({"procedimentoId", "procedimento_id"}) String procedureId) {
         }
 }

@@ -19,6 +19,7 @@ public class AppointmentMotorProperties {
     private String testDoctorId;
     private String testModeDoctorIds;
     private String testPhone;
+    private String eligibleProcedureIds;
     private boolean feegowStartupProbeEnabled;
     private String feegowBaseUrl;
     private String feegowUnidadeId;

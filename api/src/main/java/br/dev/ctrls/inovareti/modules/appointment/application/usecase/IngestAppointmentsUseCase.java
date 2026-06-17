@@ -94,30 +94,48 @@ public class IngestAppointmentsUseCase {
     private record GroupPersistenceResult(List<AppointmentSession> savedSessions, String preCompiledText) {}
 
     public IngestionSummary execute() {
-        LocalDate targetDate = LocalDate.now().plusDays(1);
-        log.info("Iniciando ingestão de agendamentos para a data: {}", targetDate);
+        java.time.DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
+        LocalDate targetDate;
+        if (dayOfWeek == java.time.DayOfWeek.FRIDAY) {
+            targetDate = LocalDate.now().plusDays(3);
+        } else {
+            targetDate = LocalDate.now().plusDays(1);
+        }
+        log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
 
         List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate);
         int total = appointments.size();
 
-        // Filtro de Procedimento: apenas "Consulta" ou "Retorno" (Case-Insensitive)
+        // Filtro de Procedimento: apenas IDs permitidos na propriedade ELIGIBLE_PROCEDURE_IDS
+        String eligibleIdsProp = appointmentMotorProperties.getEligibleProcedureIds();
+        final java.util.List<String> eligibleProcedureIdsList;
+        if (eligibleIdsProp == null || eligibleIdsProp.isBlank()) {
+            eligibleProcedureIdsList = java.util.Collections.emptyList();
+            log.warn("[FILTRO-PROCEDIMENTO] A lista de IDs de procedimentos elegíveis (ELIGIBLE_PROCEDURE_IDS) está vazia ou nula.");
+        } else {
+            eligibleProcedureIdsList = java.util.Arrays.stream(eligibleIdsProp.split(","))
+                    .map(String::trim)
+                    .filter(id -> !id.isEmpty())
+                    .toList();
+            log.info("[FILTRO-PROCEDIMENTO] IDs de procedimentos elegíveis configurados: {}", eligibleProcedureIdsList);
+        }
+
         appointments = appointments.stream()
                 .filter(a -> {
-                    String proc = a.procedureName();
-                    if (proc == null) {
-                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o nome do procedimento está nulo.", a.id());
+                    String procId = a.procedureId();
+                    if (procId == null || procId.isBlank()) {
+                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o ID do procedimento está nulo ou vazio.", a.id());
                         return false;
                     }
-                    String procLower = proc.toLowerCase();
-                    boolean val = procLower.contains("consulta") || procLower.contains("retorno");
+                    boolean val = eligibleProcedureIdsList.contains(procId.trim());
                     if (!val) {
-                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o procedimento '{}' não contém 'Consulta' ou 'Retorno'.", a.id(), proc);
+                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o procedimento_id '{}' (nome: '{}') não está na lista de procedimentos elegíveis.", a.id(), procId, a.procedureName());
                     }
                     return val;
                 })
                 .collect(Collectors.toList());
         int aposProcedimentos = appointments.size();
-        log.info("Agendamentos filtrados por procedimento (Consulta/Retorno). Total antes: {}, Total depois: {}", total, aposProcedimentos);
+        log.info("Agendamentos filtrados por procedimento. Total antes: {}, Total depois: {}", total, aposProcedimentos);
 
         appointments = appointments.stream()
                 .filter(a -> a.startAt() != null && !a.startAt().toLocalDate().isBefore(LocalDate.now()))

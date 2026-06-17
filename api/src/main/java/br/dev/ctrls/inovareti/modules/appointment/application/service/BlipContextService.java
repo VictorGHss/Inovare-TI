@@ -283,13 +283,42 @@ public class BlipContextService {
         }
     }
 
-    public boolean setQueueRedirect(String userIdentity, String queueName) {
+    public boolean setQueueRedirect(String userIdentity, String queueNameOrId) {
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        String resolvedQueueName = queueNameOrId;
 
-        String safeQueueName = cleanQueueName(queueName);
+        // Se o valor de entrada parecer com a estrutura de um UUID de fila, realiza a tradução dinâmica
+        if (queueNameOrId != null && queueNameOrId.trim().matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+            String uuid = queueNameOrId.trim();
+            log.info("[QUEUE-RESOLVER] Detectado UUID de fila '{}'. Buscando nome descritivo correspondente na API do Blip...", uuid);
+            try {
+                java.util.List<br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipClientPort.BlipQueue> queues = limeClient.listBlipQueues();
+                String foundName = null;
+                if (queues != null) {
+                    for (var q : queues) {
+                        if (uuid.equalsIgnoreCase(q.id())) {
+                            foundName = q.name();
+                            break;
+                        }
+                    }
+                }
+                if (foundName != null && !foundName.isBlank()) {
+                    log.info("[QUEUE-RESOLVER] Traduzido UUID {} para o nome de pauta '{}'", uuid, foundName);
+                    resolvedQueueName = foundName;
+                } else {
+                    log.warn("[QUEUE-RESOLVER] UUID {} não foi localizado na listagem de filas oficiais do Blip. Aplicando fallback de segurança.", uuid);
+                    resolvedQueueName = "Recepção Central / Suporte";
+                }
+            } catch (Exception ex) {
+                log.error("[QUEUE-RESOLVER] Falha na comunicação com a API do Blip ao resolver o UUID {}. Aplicando fallback de segurança.", uuid, ex);
+                resolvedQueueName = "Recepção Central / Suporte";
+            }
+        }
+
+        String safeQueueName = cleanQueueName(resolvedQueueName);
         if (safeQueueName.isBlank()) {
             safeQueueName = "Recepção Central / Suporte";
-            log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueName, safeQueueName);
+            log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueNameOrId, safeQueueName);
         }
 
         if (!safeQueueName.isBlank()

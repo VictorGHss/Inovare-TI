@@ -1,116 +1,101 @@
-# 🏥 Inovare TI — Ecossistema Integrado ITSM
+# 🏥 Inovare TI — Landing Page e Guia Central
+
+Sua solução unificada e integrada de gerenciamento de serviços e automação clínica.
 
 [![Java Version](https://img.shields.io/badge/Java-21-orange.svg?style=flat-square&logo=openjdk)](https://adoptium.net/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4-brightgreen.svg?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![React Version](https://img.shields.io/badge/React-19-blue.svg?style=flat-square&logo=react)](https://react.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg?style=flat-square&logo=docker)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-
-Sistema premium de **Gerenciamento de Serviços de TI (ITSM)** customizado para clínicas médicas. Centraliza o controle de chamados de suporte, gestão avançada de inventário e lotes (FIFO), custódia de credenciais seguras (Vault criptografado), base de conhecimento inteligente e automação de faturamento com integração direta com o ERP ContaAzul.
 
 ---
 
-## 📋 Visão Geral
+## 🌟 Propósito do Ecossistema
 
-O Inovare TI é uma aplicação corporativa full-stack de alto padrão projetada para automatizar e blindar a operação de suporte tecnológico de ambientes de saúde:
+O **Inovare-TI** é uma solução corporativa unificada de **ITSM (IT Service Management)** projetada especificamente para ambientes de saúde e clínicas médicas de alto padrão. O ecossistema visa centralizar a gestão de suporte tecnológico, blindar processos operacionais e de estoque, e integrar os fluxos de relacionamento e faturamento da clínica em um perímetro robusto e escalável.
 
-*   **Motor de Chamados (Helpdesk)**: Abertura e triagem rápida com cálculo dinâmico de prazos de SLA baseados em categorias de serviços de TI, além de uma **Base de Conhecimento Contextual Inteligente** com injeção de **Macros de Resolução** em um clique para acelerar o fechamento de incidentes.
-*   **Inventário FIFO & Ativos (CMDB Avançado)**: Gestão rígida de estoque e patrimônio organizada por lotes de aquisição. Saídas de insumos realizam o consumo automático no algoritmo FIFO. Adiciona suporte a **Gestão de Ativos Multi-usuário** (como impressoras e servidores de rede compartilhados).
-*   **Cofre Seguro (Vault)**: Proteção de credenciais e notas confidenciais utilizando criptografia simétrica robusta **AES-256-GCM** na camada de aplicação, blindada por barreira obrigatória de 2FA.
-*   **Automação de Recibos & Performance**: Integração de alta performance com o ERP ContaAzul, otimizada via chamadas HTTP paralelas por Virtual Threads e caching estratégico de curta duração.
-*   **Relatório Executivo de TI Automatizado**: Schedulers de alta fidelidade integrados que consolidam métricas operacionais e despacham automaticamente informativos executivos de TI ao Discord.
-*   **Auditoria Imutável 360**: Trilha assíncrona e desacoplada que registra ações críticas e logs de conformidade de acessos para conformidade LGPD.
+O ecossistema é governado por quatro pilares estratégicos:
+*   **Gestão de Suporte (ITSM)**: Abertura e triagem estruturada de chamados de TI, cálculo dinâmico de conformidade de SLA e respostas instantâneas via Macros de 1-Clique.
+*   **Motor de Agendamentos e WhatsApp**: Ingestão de consultas e automação de lembretes aos pacientes via Blip/Meta Cloud API, com Pacing não-bloqueante e anti-spam via agrupamento de lotes.
+*   **Gestão Patrimonial e Estoque (CMDB)**: CMDB avançado com ativos de hardware multi-usuário vinculados a QR Codes e controle transacional rígido de insumos baseado na lógica contábil FIFO.
+*   **Automação e Conciliação Financeira**: Integração contínua bidirecional com o ERP Conta Azul V2 para leitura de faturamentos, geração de recibos internos e despacho automático de PDFs via e-mail.
 
 ---
 
-## 🛠️ Stack Tecnológica do Ecossistema
+## 🛠️ Matriz Tecnológica (Tech Stack Core)
 
-| Camada | Tecnologia | Descrição |
+A arquitetura do Inovare-TI está estruturada sobre tecnologias estáveis, priorizando performance assíncrona, robustez contábil e isolamento de domínios:
+
+| Camada | Tecnologia | Descrição / Finalidade |
 | :--- | :--- | :--- |
-| **Backend API** | `Java 21` · `Spring Boot 4` · `Spring Security` · `JWT` | Core robusto, stateless, com validação de privilégios em dois fatores. |
-| **Persistência / Cache** | `PostgreSQL 16` · `Redis` · `Spring Data JPA` · `Flyway` | Banco relacional estruturado, migrações DDL controladas e cache/rate-limiting distribuído. |
-| **Frontend SPA** | `React 19` · `TypeScript` · `Vite 6` · `React Router v7` | SPA ultra-rápido com lazy loading por rota e design system unificado. |
-| **Integração Externa** | `Discord JDA 5` · `ContaAzul API` · `Brevo / SMTP` | Bot assíncrono para notificações e resets, faturamento no ERP e disparos SMTP corporativos. |
-| **Monitoramento / SRE** | `Prometheus` · `Grafana` · `Micrometer Actuator` | Stack de observabilidade local integrada com dashboards de saúde no container. |
+| **Backend** | `Java 21` | Linguagem base moderna com suporte nativo a *Virtual Threads* para concorrência escalável. |
+| **Backend** | `Spring Boot 3.x` | Framework mestre para injeção de dependências, controle transacional e REST API. |
+| **Backend** | `Hibernate / JPA` | Abstração de persistência relacional e mapeamento objeto-relacional (ORM). |
+| **Backend** | `Flyway` | Versionamento de banco de dados para controle de migrações DDL e sementes em ambientes. |
+| **Backend** | `PostgreSQL 16` | Banco de dados relacional oficial do ecossistema, com suporte nativo a dados estruturados em JSONB. |
+| **Backend** | `Redis` | Camada de cache distribuído de alta velocidade para armazenamento temporário e rate-limiting. |
+| **Backend** | `Prometheus / Micrometer` | Coleta de telemetria técnica e exposição de métricas de SRE para observabilidade local. |
+| **Frontend** | `React` | Biblioteca declarativa de alto padrão para estruturação de SPAs responsivas e modulares. |
+| **Frontend** | `TypeScript` | Tipagem estática aplicada a interfaces e componentes, reduzindo falhas de dados em runtime. |
+| **Frontend** | `Vite` | Ferramenta de build e desenvolvimento ultra-rápida baseada em ESM nativo com HMR. |
+| **Frontend** | `Axios` | Cliente HTTP modular com suporte a interceptadores e renovação assíncrona de sessões JWT. |
+| **Frontend** | `TailwindCSS / UI` | Design System customizado e baseado na paleta da Inovare (`#feb56c`), otimizada para CSS moderno. |
 
 ---
 
-## 📂 Documentação Técnica Mestre
+## 🗺️ Índice de Documentação (Atalhos Rápidos)
 
-Toda a engenharia e governança de processos do sistema está organizada e mantida em apenas **cinco documentos canônicos** na pasta `docs/`. Clique abaixo para acessar os guias detalhados em português:
+Toda a engenharia, runbooks de SRE, especificações técnicas e mapeamentos do banco de dados estão estruturados de forma especializada e podem ser acessados diretamente pelos atalhos abaixo:
 
-*   ### 🏗️ [Arquitetura e Modelo de Dados (docs/ARCHITECTURE.md)](docs/ARCHITECTURE.md)
-    *Decisões arquiteturais de 3 camadas, configurações do Docker Compose, organograma de pacotes do Spring Boot, considerações do perímetro de segurança, além do **Dicionário Completo de Tabelas** e relacionamentos do PostgreSQL.*
-
-*   ### 💻 [Guia do Desenvolvedor e Operações (docs/DEVELOPER_GUIDE.md)](docs/DEVELOPER_GUIDE.md)
-    *Instruções de setup local, suítes de testes, mapeamento de variáveis do `.env`, tratamento de exceções (RFC 7807), SMTP, geração de PDFs, **Playbooks de SRE & Triagem de Incidentes** e a linha do tempo cronológica de fases do projeto.*
-
-*   ### 🚀 [Catálogo de Funcionalidades (docs/FEATURES.md)](docs/FEATURES.md)
-    *Especificações funcionais e regras de negócio do Vault com 2FA, do Helpdesk com SLA, da Base de Conhecimento, do PWA Mobile, além do detalhamento matemático e transacional do **Algoritmo FIFO de Estoque** e auditoria.*
-
-*   ### 🔌 [Integrações de Serviços (docs/INTEGRATIONS.md)](docs/INTEGRATIONS.md)
-    *Configurações, autenticação OAuth2 e fluxos técnicos de processamento da ContaAzul, conexões do Bot Discord (JDA) e regras do gateway Brevo.*
-
-*   ### 📖 [Especificação de APIs REST (docs/API_DOCS.md)](docs/API_DOCS.md)
-    *Documentação exaustiva de contratos, payloads e esquemas de requisição/resposta JSON para todos os controllers da aplicação.*
+*   🏗️ **[Arquitetura e Design de Software](file:///C:/Projeto/Inovare-TI/docs/ARCHITECTURE.md)**
+    *Detalhamento do padrão de Arquitetura Hexagonal (Ports & Adapters) adotado nos pacotes do backend, diagrama de relacionamentos das tabelas do banco de dados PostgreSQL e planejamento estratégico de segurança de rede via túneis Cloudflare.*
+*   🚀 **[Guia de Inicialização do Desenvolvedor (Setup Local)](file:///C:/Projeto/Inovare-TI/docs/DEVELOPER_GUIDE.md)**
+    *Requisitos mínimos, inicialização da infraestrutura de containers via Docker Compose, configuração do arquivo de ambiente baseando-se no `.env.example`, comandos para compilação e execução de testes de integração (`mvn clean test`) e inicialização do front React (`npm run dev`).*
+*   ⚙️ **[Regras de Negócio e Funcionalidades do Motor](file:///C:/Projeto/Inovare-TI/docs/FEATURES.md)**
+    *Entendimento aprofundado das regras do Motor de Agendamentos (Pacing/Throttling com Virtual Threads do Java 21, Dilema de Segunda-Feira e a idempotência em lote com a tabela `NotificationGroup`), regras do cofre Vault criptografado, SLA de chamados e algoritmo FIFO de estoque.*
+*   🔌 **[Manual de Integrações de APIs Externas](file:///C:/Projeto/Inovare-TI/docs/INTEGRATIONS.md)**
+    *Mapeamento técnico e contratos de comunicação de APIs de parceiros: a estratégia de fallback em cascata de telefones e filtros de procedimentos na Feegow ERP, o transbordo via variáveis de contexto e Master-States na plataforma Blip/Meta, e a conciliação bancária periódica e manual na Conta Azul V2.*
 
 ---
 
-## ⚙️ Inicialização Rápida via Docker Compose
+## ⚙️ Inicialização Rápida
 
-### 1) Arquivo de Configuração `.env`
-Crie um arquivo `.env` na raiz do projeto contendo as chaves necessárias para execução local. Para detalhes técnicos sobre cada variável, consulte o [Guia do Desenvolvedor](docs/DEVELOPER_GUIDE.md).
-
-```env
-# Banco de Dados
-POSTGRES_DB=inovareti
-POSTGRES_USER=inovareti_user
-POSTGRES_PASSWORD=change_this_secure_password
-DB_URL=jdbc:postgresql://db:5432/inovareti
-
-# Segurança
-JWT_SECRET=SuaStringSeguraComMaisDe32CaracteresAleatorios
-VAULT_ENCRYPTION_KEY=SuaChaveMestraDerivadaDe32BytesBase64
-
-# Configurações Adicionais
-API_PORT=8085
-FRONTEND_URL=http://localhost:5173
-```
-
-### 2) Executar a Aplicação
-Com o Docker Desktop ativo, acione o bootstrap completo do ecossistema a partir da raiz do repositório:
+### 1) Configuração do Ambiente `.env`
+Renomeie o modelo [.env.example](file:///C:/Projeto/Inovare-TI/.env.example) na raiz do projeto para `.env` e preencha as variáveis locais de banco, Redis e portas (consulte o [Guia de Inicialização](file:///C:/Projeto/Inovare-TI/docs/DEVELOPER_GUIDE.md) para detalhes):
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
-A aplicação subirá todas as dependências organizadas em contêineres e fará o build do frontend Nginx e da API Java automaticamente.
-*   **Acesso ao Frontend SPA**: `http://localhost:5173`
-*   **Acesso à API Backend**: `http://localhost:8085/api`
-*   **PostgreSQL Externo**: `localhost:5436` (host local mapeado para o container)
+
+### 2) Subir o Ambiente Integrado
+Para rodar toda a infraestrutura física (Banco Postgres, Redis e Prometheus) de suporte local:
+```bash
+docker compose up -d db redis prometheus
+```
+
+### 3) Execução do Backend & Frontend
+*   **Compilar e testar backend Java**:
+    ```bash
+    cd api
+    ./mvnw clean test
+    ./mvnw spring-boot:run
+    ```
+*   **Instalar e rodar o frontend React**:
+    ```bash
+    cd front
+    npm install
+    npm run dev
+    ```
 
 ---
 
-## 🔑 Credenciais Padrão de Semente (`seed` dev profile)
+## 🔑 Credenciais de Semente (`dev` profile)
 
-Quando executado com o profile do Spring de desenvolvimento (`dev`) e a propriedade `app.seeder.enabled=true` ativa, o Flyway inicializa automaticamente três usuários de teste para homologação:
+Quando o backend é executado sob o perfil de desenvolvimento (`dev`) e a propriedade `app.seeder.enabled=true` está configurada, os seguintes usuários de teste são carregados no banco de dados:
 
-| Perfil de Acesso | E-mail de Login | Senha Provisória | Nível de Autoridade (Role) |
+| Especialidade | E-mail de Login | Senha Provisória | Perfil de Acesso |
 | :--- | :--- | :--- | :--- |
-| **Administrador** | `admin@inovare.med.br` | `admin123` | `ROLE_ADMIN` |
-| **Técnico de TI** | `tecnico@inovare.med.br` | `tech123` | `ROLE_TECHNICIAN` |
-| **Usuário Final** | `joao.silva@inovare.med.br` | `user123` | `ROLE_USER` |
+| **Diretoria / Administrador** | `admin@inovare.med.br` | `admin123` | `ROLE_ADMIN` |
+| **Suporte Técnico / TI** | `tecnico@inovare.med.br` | `tech123` | `ROLE_TECHNICIAN` |
+| **Colaborador / Solicitante** | `joao.silva@inovare.med.br` | `user123` | `ROLE_USER` |
 
 > [!CAUTION]
-> Estas sementes de desenvolvimento são injetadas estritamente sob o profile `dev`. Em ambientes produtivos, o seeder automático de banco é desativado por padrão.
-
----
-
-## 🛠️ Ferramentas Técnicas e Observabilidade
-
-*   **Swagger Spec local via UI**:
-    ```bash
-    docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json -v "%CD%/docs":/usr/share/nginx/html:ro swaggerapi/swagger-ui
-    ```
-    Acesse em: `http://localhost:8080`
-*   **Endpoints de Coleta Actuator**:
-    *   Métricas Prometheus: `http://localhost:8085/api/actuator/prometheus` (coleta anônima liberada para o target do Prometheus).
-    *   Painel de Saúde Geral: `http://localhost:8085/api/actuator/health` (restrito a usuários autenticados `ADMIN`).
+> Estas sementes são exclusivas para o perfil local `dev` e são ignoradas em ambientes de homologação e produção por diretivas de segurança do Flyway.

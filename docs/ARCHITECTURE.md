@@ -1,6 +1,6 @@
 # Arquitetura do Sistema e Modelo de Dados — Inovare TI
 
-Este documento descreve a arquitetura técnica global do sistema ITSM Inovare TI, decisões de design estrutural, o mapeamento detalhado dos pacotes de domínio no backend, o dicionário completo do banco de dados e o planejamento de infraestrutura para produção.
+Este documento descreve a arquitetura técnica global do sistema ITSM Inovare TI, decisões de design estrutural, a adoção do padrão hexagonal (Ports & Adapters), o mapeamento de domínios no backend, o dicionário completo do banco de dados e o planejamento de infraestrutura para produção.
 
 ---
 
@@ -82,78 +82,90 @@ networks:
 
 ---
 
-## 📈 Evolução Arquitetural e Refatoração Modular
+## 📐 Padrão Arquitetural Predominante: Arquitetura Hexagonal (Ports & Adapters)
 
-O projeto passou por uma profunda reorganização para obedecer a boas práticas e reduzir o acoplamento:
+O backend do Inovare TI adota rigorosamente a **Arquitetura Hexagonal (Ports & Adapters)** em seus módulos internos (localizados sob o pacote [api/src/main/java/br/dev/ctrls/inovareti/modules](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/)). Esse padrão visa isolar as regras de negócio essenciais contra dependências externas de infraestrutura, bancos de dados, APIs de terceiros ou frameworks como o Spring Boot.
 
-### 1. Camada de Serviços do Frontend
-A comunicação HTTP do frontend React foi refatorada e dividida em módulos focados em domínios específicos para centralizar requisições:
-* `services/api.ts`: Client HTTP base (Axios), interceptors de autenticação e tratamento global de tokens.
-* `services/ticketService.ts`: Chamados, envio de anexos e comentários.
-* `services/inventoryService.ts`: Categorias, controle de estoque e lotes.
-* `services/financeService.ts`: Configurações financeiras, sincronizações e dashboard ContaAzul.
-* `services/userService.ts`: Gestão de usuários, setores e perfis administrativos.
+A divisão de pacotes por módulo é estruturada em três camadas bem definidas:
 
-### 2. Arquitetura Backend de Integrações (ContaAzul)
-A integração com o ERP ContaAzul foi reorganizada para desacoplar as responsabilidades:
-* `ContaAzulClient`: Fachada estável para integração de alto nível com o sistema.
-* `ContaAzulSalesClient`: Centraliza pesquisas, vendas e fluxos de dados de faturamento.
-* `ContaAzulFinancialClient`: Controla baixas de pagamento, download de recibos e geração de PDFs.
-* `ContaAzulCustomerClient`: Responsável pela busca de pessoas e conversão cadastral.
-* `ContaAzulRequestExecutor`: Componente técnico para envio seguro e retentativas HTTP.
-* `ContaAzulResponseParser`: Normaliza e traduz payloads recebidos de APIs externas.
+```
+                  ┌─────────────────────────────────────┐
+                  │          INFRASTRUCTURE             │
+                  │   • controllers  • repositories jpa │
+                  │   • rest clients • configurations   │
+                  └──────────────────┬──────────────────┘
+                                     │ implementa / chama
+                                     ▼
+                  ┌─────────────────────────────────────┐
+                  │            APPLICATION              │
+                  │  (Usecases, Services da Aplicação)  │
+                  └──────────────────┬──────────────────┘
+                                     │ orquestra
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                                DOMAIN                                  │
+│                                                                        │
+│   ┌────────────────────────┐         ┌──────────────────────────────┐  │
+│   │         MODEL          │         │             PORT             │  │
+│   │ • Entidades de negócio │         │  • output (Interfaces SPI)   │  │
+│   │ • Regras puras         │         │  • input (Use Cases Ports)   │  │
+│   └────────────────────────┘         └──────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-### 3. Divisão de Responsabilidades no Gerador de Relatórios
-O `ReportService` foi desacoplado segundo o princípio de responsabilidade única (SRP):
-* `ReportService`: Orquestrador central e fachada de exportação de relatórios.
-* `ReportPdfExporter`: Renderização visual avançada e geração do arquivo PDF.
-* `ReportExcelExporter`: Exportação de planilhas formatadas em Excel.
-* `InventoryPricingService`: Algoritmo matemático para cálculo de custos e valores médios do estoque.
+### 1. Camada de Domínio Isolado (`domain`)
+Contém o núcleo intelectual e as entidades puras de negócio do sistema. Esta camada não depende do Spring Boot nem de bibliotecas de infraestrutura.
+*   **Modelos de Domínio (`domain/model`)**: Classes ricas que encapsulam o estado e o comportamento das regras do sistema. Exemplos:
+    *   [AppointmentSession](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/AppointmentSession.java): Controla o estado de um agendamento individualizado.
+    *   [NotificationGroup](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/NotificationGroup.java): Agrupa consultas para disparos em lote sem duplicidade.
+    *   [StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java): Mapeia as quantidades e custos de aquisição do estoque local.
+    *   [Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java): Representa o ciclo de vida e informações de suporte do chamado.
+*   **Portas de Domínio (`domain/port`)**: Delimitam a fronteira do hexágono definindo contratos de interface:
+    *   **Portas de Entrada (Input Ports)**: Definem o que o mundo externo pode solicitar ao domínio (interfaces que os Use Cases da camada de aplicação herdam ou expõem).
+    *   **Portas de Saída (Output Ports / SPI - Service Provider Interfaces)**: Contratos abstratos de serviços necessários para o domínio, tais como banco de dados e APIs externas. Exemplos:
+        *   [AppointmentSessionRepositoryPort](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/port/output/AppointmentSessionRepositoryPort.java): Porta de acesso ao banco de dados para gerir sessões.
+        *   [ProfessionalExternalPort](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/port/output/ProfessionalExternalPort.java): Porta de saída para ler dados de médicos no Feegow.
+
+### 2. Camada de Aplicação (`application`)
+Coordenadora das transações e do fluxo de informações, esta camada traduz os fluxos de negócios em casos de uso operacionais utilizando as portas de entrada e saída.
+*   **Use Cases**: Classes responsáveis por orquestrar a lógica e regras que alteram o estado da aplicação. Exemplos:
+    *   [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java): Orquestra a busca, agrupamento, persistência atômica e disparo de mensagens em lote.
+    *   [SendAppointmentTemplateUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/SendAppointmentTemplateUseCase.java): Coordena o envio individualizado de mensagens do WhatsApp.
+
+### 3. Camada de Infraestrutura (`infrastructure`)
+Os adaptadores concretos (`infrastructure/adapter`) ligam a aplicação às tecnologias, contendo detalhes de rede, serialização, frameworks e bibliotecas externas.
+*   **Adaptadores de Entrada (Input Adapters / Driving Adapters)**: Componentes tecnológicos que interceptam gatilhos externos e os enviam para a aplicação.
+    *   *Exemplos*: Endpoints REST baseados em `@RestController`. Ex: [FinanceiroController](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/infrastructure/adapter/input/FinanceiroController.java) que expõe endpoints HTTP para a conciliação manual de parcelas.
+*   **Adaptadores de Saída (Output Adapters / Driven Adapters)**: Classes que implementam as interfaces de portas de saída (`domain/port/output`).
+    *   *Exemplos*: Clientes HTTP de APIs externas (ex: [FeegowPatientAdapter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/feegow/FeegowPatientAdapter.java) que implementa as conexões com o ERP Feegow; [BlipLIMEClient](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/client/BlipLIMEClient.java) para envio LIME de metadados no Blip) e adaptadores JPA que encapsulam o Spring Data para persistência de tabelas no PostgreSQL (ex: `AppointmentSessionRepositoryAdapter`).
 
 ---
 
-## 📂 Mapeamento Técnico de Domínios e Pacotes do Backend
+## 🔄 Fluxo dos Módulos Internos
 
-A estrutura interna do backend Spring Boot (`api/src/main/java/br/dev/ctrls/inovareti`) está modularizada em pacotes de domínio coesos. Abaixo estão os mapeamentos funcionais de cada domínio:
+A plataforma está subdividida em módulos de negócio focados. Abaixo descreve-se o comportamento de seus principais componentes internos:
 
-### 1. `domain.auth` (Autenticação e Segurança Básica)
-* `AuthController.java` — Endpoints públicos e seguros para fluxos de login, TOTP e troca de senhas temporárias.
-* `LoginUseCase.java` — Validação de e-mail/senha e geração do token JWT via `TokenService`.
-* `TwoFactorAuthService.java` — Lógica para geração de chaves secretas TOTP, QR Code e verificação ativa do código de 6 dígitos.
-* `TwoFactorResetService.java` — Controla o reset de chaves de duplo fator de segurança por ação administrativa ou autônoma.
+### 1. Vault de Credenciais e Documentos (Vault)
+Fornece custódia segura de credenciais confidenciais, documentos técnicos e anotações.
+*   **Criptografia ativa em nível de aplicação**: O conteúdo confidencial de um segredo (`secret_content`) é interceptado antes da gravação física no banco de dados e encriptado utilizando o algoritmo simétrico **AES-256-GCM** com IV dinâmico (gerido por [CryptoConverter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/infrastructure/shared/security/CryptoConverter.java)).
+*   **Barreira de Segurança MFA**: Operações críticas de escrita (criação, edição e remoção física de dados) e leitura de segredos confidenciais exigem que o token JWT possua uma claim válida de duplo fator (`two_factor_verified = true`), validada interceptando a sessão com o `TwoFactorSessionGuard`. Em caso de reset do 2FA do usuário (via dashboard ou Bot do Discord), a sessão é invalidada imediatamente.
 
-### 2. `domain.user` (Gestão de Usuários e Setores)
-* `User.java` — Entidade do usuário que mapeia credenciais, nível de acesso (`ADMIN`, `TECHNICIAN`, `USER`), segredos de 2FA e chaves de integração do Discord.
-* `Sector.java` — Setores funcionais (ex. Cardiologia, Recepção) associados aos usuários para mapear demandas de chamados.
-* `UserController.java` & `SectorController.java` — CRUDs e endpoints administrativos.
+### 2. Módulo de Inventário e Algoritmo FIFO
+Garante a integridade fiscal e o controle de quantidades de hardware e insumos consumidos.
+*   **Entrada de Produtos por Lotes**: Insumos cadastrados são agrupados em lotes de estoque ([StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java)) registrando preço de compra e data de entrada.
+*   **Algoritmo FIFO Transacional**: No encerramento de chamados que exigem peças de reposição (ex. troca de toner ou teclado), a rotina de encerramento (`ResolveTicketUseCase`) executa de forma automática a saída baseando-se na regra FIFO: os lotes de entrada mais antigos são consumidos preferencialmente. A execução herda o nível de propagação obrigatório (`Propagation.MANDATORY`), garantindo que se o algoritmo FIFO falhar ou o estoque estiver inconsistente, a transação da baixa do chamado sofra rollback completo.
+*   **Fallback de Movimentações**: Uma barreira protetiva autônoma verifica se a saída gerou registros de movimentação em `stock_movements`. Em caso de ausência por instabilidade de rede ou banco de dados, cria um registro de fallback de saída (tipo `OUT` e referência `TICKET:{ticketId}`) de forma independente para evitar furos no balanço contábil.
 
-### 3. `domain.ticket` (Motor de Chamados e Helpdesk)
-* `Ticket.java` — Representação das solicitações do usuário final. Contém título, descrição, AnyDesk, status, prioridade, prazos de SLA e relacionamentos.
-* `TicketCategory.java` — Categorias de chamados vinculadas a prazos de SLA específicos de suporte.
-* `TicketComment.java` & `TicketAttachment.java` — Logs de conversações internas e anexos enviados por técnicos e solicitantes.
+### 3. Gestão de Tickets e Helpdesk (ITSM)
+Centraliza a triagem, direcionamento e monitoramento de incidentes e solicitações de TI da clínica.
+*   **Cálculo Dinâmico de SLA**: O prazo de atendimento (`sla_deadline`) de um chamado ([Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java)) é calculado com base nas horas úteis vigentes da categoria atribuída no momento da abertura.
+*   **Regra de Parada Crítica (Incidentes Críticos)**: Se o chamado estiver vinculado a um ativo físico mestre sinalizado como crítico (`is_critical = true`), ou se a descrição aberta via Bot de Discord contiver expressões regulares associadas a patrimônios críticos (padrão regex `INV-\d{4}-\d+`), a regra é acionada: a prioridade do chamado é forçada para `URGENT`, o SLA é forçado para **1 hora** limite, e a tag `#🚨ParadaCrítica` é injetada. Um alerta vermelho é disparado via webhook e bot (JDA) diretamente na DM do técnico responsável.
+*   **Macros de 1-Clique e Busca Lateral**: Permite que o técnico encontre soluções sugeridas de chamados resolvidos que compartilham tags similares e utilize Macros ("Aplicar Solução Padrão") para automatizar o preenchimento de notas de resolução.
 
-### 4. `domain.inventory` (Gestão de Inventário e Algoritmo FIFO)
-* `Item.java` — Cadastro físico de insumos e hardware da clínica. Contém um campo estruturado em `specifications` mapeado como JSONB no PostgreSQL.
-* `StockBatch.java` — Lotes de estoque com datas de aquisição e valores de compra específicos.
-* `StockDeductionService.java` — Implementa a lógica transacional do algoritmo **FIFO (First-In, First-Out)** para dar saídas de estoque priorizando lotes mais antigos.
-* `StockMovement.java` — Rastreamento de entradas e saídas de itens para auditoria financeira e conferência de inventário.
-
-### 5. `domain.asset` (Patrimônio e Ativos de Hardware)
-* `Asset.java` — Ativos físicos individuais (ex. Computador ID 45) vinculados a setores ou usuários específicos.
-* `AssetMaintenance.java` — Registro de manutenções preventivas ou corretivas nos ativos de TI.
-
-### 6. `domain.financeiro` (Automação de Recibos e Hub ContaAzul)
-* `FinanceiroController.java` — Gerencia endpoints protegidos para consulta de alertas de SRE, reinício de jobs e painel ContaAzul.
-* `ContaAzulAutomationService.java` — Cron job operacional de processamento de baixas no ERP e envio automático de e-mails.
-* `FinanceEmailService.java` — Lógica dedicada para formatação e envio de e-mails com anexos PDF por SMTP corporativo.
-
-### 7. `domain.vault` (Cofre Eletrônico Criptografado)
-* `VaultItem.java` & `VaultItemShare.java` — Armazena senhas, documentos e anotações. Dados confidenciais são encriptados com **AES-256-GCM** em nível de aplicação.
-* `VaultController.java` — Endpoints protegidos pelo `TwoFactorSessionGuard` que exigem 2FA ativo no JWT antes de expor ou salvar chaves.
-
-### 8. `domain.audit` (Auditoria e Trilha de Compliance)
-* `AuditLog.java` — Tabela que grava de maneira imutável ações cruciais no sistema (ex. leitura de segredos do Vault, logins malsucedidos).
-* `AuditEventListener.java` — Listener assíncrono que escuta eventos de domínio publicados pela API e persiste logs em background.
+### 4. Telemetria e Analytics com Prometheus
+Fornece métricas de SRE para diagnóstico preventivo e controle técnico do ecossistema.
+*   **Exposição de Actuator**: O pacote `analytics` configura e exporta telemetria nativa do Micrometer no endpoint exposto `/api/actuator/prometheus`.
+*   **Monitoramento de Circuit Breakers**: Integração com resiliência de rede monitorando estados do Circuit Breaker do Feegow ERP. Se o Circuit Breaker de comunicação entrar em estado `OPEN` (bloqueando requisições devido a falhas consecutivas de rede), o alerta é gerado no Prometheus e propagado como notificação via webhook de alertas para o Discord da equipe de SRE da Inovare TI.
 
 ---
 
@@ -399,7 +411,7 @@ O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente
 
 ---
 
-## 🗺️ Diagrama de Relacionamentos do Banco de Dados
+## 🗺 /> Diagrama de Relacionamentos do Banco de Dados
 
 ```
 sectors             (1) ──<  users              (N)

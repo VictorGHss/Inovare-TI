@@ -1,92 +1,97 @@
 # Guia do Desenvolvedor e Operações — Inovare TI
 
-Este documento centraliza todas as instruções técnicas para engenheiros de software e operadores de infraestrutura: configuração local, execução do ecossistema, padrões de arquitetura e segurança, manipulação de erros, SMTP, relatórios em PDF, além dos playbooks de SRE, monitoramento de incidentes e o histórico detalhado do projeto.
+Este documento centraliza todas as instruções técnicas para engenheiros de software e operadores de infraestrutura: requisitos mínimos, configuração local do ambiente, execução do ecossistema, execução de testes, SMTP, relatórios em PDF, além dos playbooks de SRE e monitoramento de incidentes.
 
 ---
 
 ## 💻 Configuração do Ambiente e Execução Local
 
-### 1) Pré-requisitos
-* Java JDK 21 instalado localmente (para desenvolvimento nativo).
-* Apache Maven 3.9+ (ou uso do wrapper `./mvnw` incluso).
-* Docker e Docker Compose instalados e em execução.
+Esta seção descreve o passo a passo definitivo para que um novo desenvolvedor configure e execute a plataforma Inovare TI localmente a partir do código-fonte.
 
-### 2) Como Compilar e Executar Testes
-Para rodar a suíte completa de testes unitários e de integração do backend Java:
+### 1) Requisitos Mínimos
+Antes de iniciar, certifique-se de ter instalado e configurado em sua estação de trabalho:
+*   **Java SE Development Kit (JDK) 21**: Necessário para compilação e execução do backend.
+*   **Node.js (v20 ou superior)** e **npm**: Necessários para gerenciar dependências e rodar o servidor de desenvolvimento do frontend.
+*   **Docker** e **Docker Compose**: Necessários para orquestrar e rodar os serviços locais de banco de dados, cache e observabilidade.
+*   **Apache Maven (3.9+)**: Opcional (o projeto inclui o Maven Wrapper `./mvnw`).
+*   **Banco de Dados PostgreSQL (v16)** e **Redis (v6+)**: Opcionais caso opte por executá-los fora do Docker.
+
+### 2) Inicialização dos Serviços de Infraestrutura (Containers Docker)
+O ecossistema local depende dos contêineres de banco de dados PostgreSQL e cache Redis estarem saudáveis.
+Na raiz do projeto (onde está o arquivo [docker-compose.yml](file:///C:/Projeto/Inovare-TI/docker-compose.yml)), execute o seguinte comando no terminal para subir os serviços em segundo plano:
+
 ```bash
-cd api
-./mvnw clean test
+docker compose up -d db redis prometheus
 ```
-Para executar um teste isolado ou classe específica:
+
+Esse comando inicializa:
+*   **PostgreSQL (`inovareti_db`)**: Mapeado na porta local `5436:5432`, com persistência ligada ao volume `postgres_data`.
+*   **Redis (`inovareti_redis`)**: Mapeado na porta local `6380:6379`.
+*   **Prometheus (`inovareti_prometheus`)**: Mapeado na porta local `9095:9090` para telemetria.
+
+Para verificar se os contêineres e seus respectivos healthchecks estão saudáveis (`healthy`), execute:
 ```bash
-./mvnw -Dtest=NomeDaClasseTest test
+docker compose ps
 ```
+> [!IMPORTANT]
+> A API do backend possui um mecanismo de dependência que aguarda o banco de dados e o Redis estarem completamente ativos e saudáveis antes de concluir seu bootstrap. Isso evita estouro de conexões e erros no carregamento inicial de agendadores.
 
-### 3) Variáveis de Ambiente (`.env`)
-Crie um arquivo `.env` na raiz do projeto contendo as seguintes configurações para desenvolvimento local (use o `/.env.example` como referência).
+### 3) Configuração Inicial dos Arquivos de Ambiente (`.env`)
+A parametrização de segurança, credenciais e integrações locais é gerida por variáveis de ambiente.
+1. Na raiz do projeto, realize uma cópia do arquivo modelo [.env.example](file:///C:/Projeto/Inovare-TI/.env.example) renomeando-o para `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Abra o arquivo `.env` criado e customize as chaves e caminhos para o seu ambiente de desenvolvimento local.
+3. Repita o processo na subpasta [api](file:///C:/Projeto/Inovare-TI/api), garantindo que exista um arquivo `.env` populado na pasta de execução do Java.
 
-```env
-# ----------------------------------------------------------------------
-# Banco de Dados (PostgreSQL 16)
-# ----------------------------------------------------------------------
-POSTGRES_DB=inovareti
-POSTGRES_USER=inovareti_user
-POSTGRES_PASSWORD=change_this_secure_password
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-DB_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+*Variáveis críticas de atenção na primeira configuração:*
+*   `POSTGRES_PASSWORD`: Senha de acesso ao banco (deve corresponder à configurada no Compose).
+*   `JWT_SECRET`: Chave secreta de no mínimo 32 caracteres para assinatura e cifragem dos tokens JWT de autenticação.
+*   `VAULT_ENCRYPTION_KEY`: Chave simétrica em formato Base64 para descriptografia dos dados e credenciais do Vault.
+*   `SPRING_REDIS_HOST` e `SPRING_REDIS_PORT`: Configurações de conexão para o Redis (em ambiente local fora do contêiner, mude para `localhost` e porta `6380` ou `6379` conforme mapeado).
 
-# ----------------------------------------------------------------------
-# API Backend e Comunicação Frontend
-# ----------------------------------------------------------------------
-API_PORT=8085
-FRONTEND_URL=http://localhost:5173
+---
 
-# ----------------------------------------------------------------------
-# Cache e Rate-Limiting Distribuído (Redis)
-# ----------------------------------------------------------------------
-SPRING_REDIS_HOST=redis
-SPRING_REDIS_PORT=6379
-SPRING_REDIS_TIMEOUT=60000
+## 🚀 Compilação, Testes e Inicialização das Camadas
 
-# ----------------------------------------------------------------------
-# Segurança, JWT e Criptografia do Cofre
-# ----------------------------------------------------------------------
-JWT_SECRET=SuaStringSeguraComMaisDe32CaracteresAleatorios
-VAULT_ENCRYPTION_KEY=SuaChaveMestraDerivadaDe32BytesBase64
+Após a subida dos serviços auxiliares no Docker e configuração das variáveis em `.env`, siga o fluxo para rodar as aplicações.
 
-# ----------------------------------------------------------------------
-# Integração com Bot Discord (Opcional em Dev)
-# ----------------------------------------------------------------------
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/sua_url_aqui
-DISCORD_BOT_TOKEN=seu_token_de_bot_discord_aqui
-DISCORD_BOT_ENABLED=false
+### 1) Backend (API Spring Boot Java 21)
+O código principal está localizado na pasta [api](file:///C:/Projeto/Inovare-TI/api).
 
-# ----------------------------------------------------------------------
-# SMTP / Gateway de E-mails de Cobrança e Recibos
-# ----------------------------------------------------------------------
-APP_FINANCEIRO_TEST_MODE=true
-APP_FINANCEIRO_DEV_EMAIL=desenvolvedor@inovare.med.br
-APP_FINANCEIRO_SMTP_FROM_EMAIL=no-reply@inovare.med.br
-APP_FINANCEIRO_SMTP_FROM_NAME=Inovare TI Financeiro
+*   **Compilar o Projeto e Rodar Testes de Integração**:
+    Para rodar a suíte completa de validações unitárias e testes de integração de ponta a ponta (E2E), execute a diretiva do Maven a partir do diretório do backend:
+    ```bash
+    cd api
+    ./mvnw clean test
+    ```
+*   **Rodar um Teste Isolado**:
+    Caso queira executar apenas uma classe de testes específica (ex. `IngestAppointmentsE2ETest`):
+    ```bash
+    ./mvnw -Dtest=IngestAppointmentsE2ETest test
+    ```
+*   **Executar a API Localmente**:
+    Para iniciar o servidor backend em modo de desenvolvimento (escutando na porta `8085` configurada em `API_PORT`):
+    ```bash
+    ./mvnw spring-boot:run
+    ```
 
-# ----------------------------------------------------------------------
-# Hub de Automação ContaAzul
-# ----------------------------------------------------------------------
-CONTAAZUL_CLIENT_ID=seu_client_id_conta_azul_aqui
-CONTAAZUL_CLIENT_SECRET=seu_client_secret_conta_azul_aqui
-CONTAAZUL_AUTHORIZATION_URL=https://auth.contaazul.com/oauth2/authorize
-CONTAAZUL_TOKEN_URL=https://auth.contaazul.com/oauth2/token
-CONTAAZUL_AUTOMATION_FIXED_DELAY_MS=300000
+### 2) Frontend (React + Vite + TypeScript)
+O código visual do sistema está na pasta [front](file:///C:/Projeto/Inovare-TI/front).
 
-# ----------------------------------------------------------------------
-# Feature Toggles e Inicializadores
-# ----------------------------------------------------------------------
-APP_SEEDER_ENABLED=true
-```
-
-> [!WARNING]
-> Nunca versionar o arquivo `.env` com chaves ou segredos reais. Em ambientes produtivos (Staging/Produção), utilize variáveis injetadas diretamente na orquestração ou geridas por um Secrets Manager/Vault.
+*   **Instalar as Dependências do Node**:
+    Antes do primeiro boot, navegue para o diretório do frontend e instale os pacotes npm necessários:
+    ```bash
+    cd front
+    npm install
+    ```
+*   **Iniciar o Servidor de Desenvolvimento**:
+    Para rodar o frontend com suporte a Hot Module Replacement (HMR) escutando na porta `5173`:
+    ```bash
+    npm run dev
+    ```
+    O console apresentará o link para acesso local: `http://localhost:5173/`.
 
 ---
 
@@ -117,7 +122,7 @@ Esta estabilidade é obtida através de três frentes coordenadas:
        TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));
    }
    ```
-2. **Propriedades Casadas do Jackson & Hibernate**: No arquivo `application.properties`, alinhamos os fusos de conversão JSON e conexões JDBC:
+2. **Propriedades Casadas do Jackson & Hibernate**: Encontradas no arquivo `application.properties`, alinhamos os fusos de conversão JSON e conexões JDBC:
    ```properties
    spring.jpa.properties.hibernate.jdbc.time_zone=America/Sao_Paulo
    spring.jackson.time-zone=America/Sao_Paulo
@@ -140,25 +145,22 @@ O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` par
 | `MaxUploadSizeExceeded`| `413 Payload Too Large`| `ERR_UPLOAD_LIMIT` | Upload excede o tamanho configurado (5MB) |
 | `SQLGrammarException` / `DataAccessException` | `500 Internal Error` | `ERR_DATABASE_FAILURE` | Exceção de persistência mitigada e envelopada de forma segura para não vazar a DDL física |
 
-> [!IMPORTANT]
-> Todas as mensagens estruturadas no Problem Details visíveis na interface do usuário devem ser redigidas em **português brasileiro (PT-BR)**.
-
 ---
 
 ## 📧 Configurações do SMTP de Cobrança
 
 O envio de recibos e notificações financeiras por e-mail utiliza a infraestrutura do `spring-boot-starter-mail` (gerido pela classe `FinanceEmailService`):
 
-* **Modo de Teste Financeiro**: Quando `APP_FINANCEIRO_TEST_MODE=true`, todos os e-mails disparados pelo sistema (independente do e-mail do cliente cadastrado no ERP) são forçadamente redirecionados para o endereço cadastrado em `APP_FINANCEIRO_DEV_EMAIL`, contendo o marcador técnico `[TESTE]` no assunto. Isso evita disparos de testes acidentais para médicos ou clientes reais.
+*   **Modo de Teste Financeiro**: Quando `APP_FINANCEIRO_TEST_MODE=true`, todos os e-mails disparados pelo sistema (independente do e-mail do cliente cadastrado no ERP) são forçadamente redirecionados para o endereço cadastrado em `APP_FINANCEIRO_DEV_EMAIL`, contendo o marcador técnico `[TESTE]` no assunto. Isso evita disparos de testes acidentais para médicos ou clientes reais.
 
 ---
 
 ## 📄 Geração e Layout de Relatórios em PDF
 
 Para a exportação de relatórios corporativos, o sistema utiliza a biblioteca **OpenPDF** (API livre compatível com iText):
-* **Renderização**: A formatação visual utiliza a classe `PdfPTable` para estruturar colunas reais com alinhamentos coerentes (valores financeiros e numéricos alinhados à direita, textos à esquerda).
-* **Identidade Visual**: O cabeçalho dos relatórios adota a cor primária da marca Inovare (`#feb56c`), fontes Helvetica-Bold em branco para contraste, e renderização dinâmica do logotipo empresarial (`src/main/resources/images/logo.png`).
-* **Rodapé Financeiro**: Linha de somatório total destacado com fundo cinza claro e resumo descritivo de custos ao final do documento.
+*   **Renderização**: A formatação visual utiliza a classe `PdfPTable` para estruturar colunas reais com alinhamentos coerentes (valores financeiros e numéricos alinhados à direita, textos à esquerda).
+*   **Identidade Visual**: O cabeçalho dos relatórios adota a cor primária da marca Inovare (`#feb56c`), fontes Helvetica-Bold em branco para contraste, e renderização dinâmica do logotipo empresarial (`src/main/resources/images/logo.png`).
+*   **Rodapé Financeiro**: Linha de somatório total destacado com fundo cinza claro e resumo descritivo de custos ao final do documento.
 
 ---
 
@@ -168,18 +170,18 @@ Esta seção destina-se aos operadores e administradores encarregados de sustent
 
 ### 1. Stack de Observabilidade Local
 O ecossistema Docker Compose disponibiliza ferramentas completas de triagem local:
-* **Prometheus**: Disponível em `http://localhost:9095` (porta interna `9090`).
-* **Grafana**: Disponível em `http://localhost:3001` (porta interna `3000`).
-* **Endpoint de Coleta da API**: `/api/actuator/prometheus` (expõe métricas Micrometer).
+*   **Prometheus**: Disponível em `http://localhost:9095` (porta interna `9090`).
+*   **Grafana**: Disponível em `http://localhost:3001` (porta interna `3000`).
+*   **Endpoint de Coleta da API**: `/api/actuator/prometheus` (expõe métricas Micrometer).
 
 > [!NOTE]
 > Para suportar o embedding do painel de monitoramento diretamente no frontend do sistema, o Grafana está pré-configurado com a variável `GF_SECURITY_ALLOW_EMBEDDING=true` e suporte a provisionamento automático de datasources em `docs/grafana/`.
 
 ### 2. Monitoramento de Saúde das Dependências (Healthcheck)
 Os contêineres de banco de dados e cache possuem monitoramento automático:
-* **PostgreSQL Health**: `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}`
-* **Redis Health**: `redis-cli ping`
-* A API só conclui a inicialização após o Postgres e o Redis reportarem `healthy`. Isso previne crashes e race conditions no boot dos agendadores e do rate-limiter.
+*   **PostgreSQL Health**: `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}`
+*   **Redis Health**: `redis-cli ping`
+*   A API só conclui a inicialização após o Postgres e o Redis reportarem `healthy`. Isso previne crashes e race conditions no boot dos agendadores e do rate-limiter.
 
 ---
 

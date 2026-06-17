@@ -50,11 +50,11 @@ public class FeegowAppointmentSearcher {
         String testDoctorIds = appointmentMotorProperties.getTestModeDoctorIds();
         
         // HIGIENIZAÇÃO / VALIDAÇÃO DE PLACEHOLDER VAZADO:
-        // Caso a propriedade venha nula, vazia ou contendo a sintaxe de placeholder cru do Spring (ex: "${TEST_MODE_DOCTOR_IDS}"),
-        // aplica-se um fallback de segurança com as IDs de médicos padrão para evitar requisições com strings inválidas.
+        // Caso a propriedade de configuração venha com a sintaxe de placeholder cru do Spring (ex. "${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}"),
+        // trata-se o valor como nulo para forçar o aborto seguro da execução da rotina.
         if (testDoctorIds != null && (testDoctorIds.contains("${") || testDoctorIds.contains("}"))) {
-            log.warn("[FEEGOW-SEARCH] Alerta de segurança: detectado placeholder cru ou vazamento de configuração '{}'. Aplicando fallback de IDs padrão (8,6,7,13,14,12).", testDoctorIds);
-            testDoctorIds = "8,6,7,13,14,12";
+            log.warn("[FEEGOW-SEARCH] Detectada sintaxe de placeholder cru de ambiente na configuração: '{}'. Nenhuma pauta médica configurada.", testDoctorIds);
+            testDoctorIds = null;
         }
         
         if (testDoctorIds == null || testDoctorIds.isBlank()) {
@@ -62,8 +62,8 @@ public class FeegowAppointmentSearcher {
         }
         
         if (testDoctorIds == null || testDoctorIds.isBlank()) {
-            log.warn("[FEEGOW-SEARCH] Nenhuma ID de médico de teste configurada. Utilizando IDs padrão de emergência (8,6,7,13,14,12).");
-            testDoctorIds = "8,6,7,13,14,12";
+            log.info("[MODO-TESTE] Busca abortada. Nenhuma pauta médica configurada no ambiente.");
+            return Collections.emptyList();
         }
         
         log.info("[MODO TESTE] Buscando agendamentos apenas para os médicos de teste IDs: {}", testDoctorIds);

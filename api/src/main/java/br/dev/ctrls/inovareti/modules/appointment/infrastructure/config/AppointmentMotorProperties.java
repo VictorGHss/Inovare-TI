@@ -22,6 +22,7 @@ public class AppointmentMotorProperties {
     private String blipTemplateNudgePending;
     private String blipTemplateGroup;
     private String eligibleProcedureIds;
+    private String blipBlocksConfirmSuccess;
     private boolean feegowStartupProbeEnabled;
     private String feegowBaseUrl;
     private String feegowUnidadeId;

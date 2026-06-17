@@ -118,10 +118,16 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 // Configurar variável de contexto da fila no Blip
                 blipContextService.setQueueRedirect(userPhone, targetQueue);
 
+                // Recupera dinamicamente a propriedade do bloco de sucesso
+                String confirmSuccessBlockId = appointmentMotorProperties.getBlipBlocksConfirmSuccess();
+                if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
+                    confirmSuccessBlockId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                }
+
                 // Enviar redirecionamento de estado (Change State) para o bloco Atendimento Humano
-                blipContextService.setMasterState(userPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
-                log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para usuário {}. Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
-                        userPhone, targetQueue);
+                blipContextService.setMasterState(userPhone, "desk@msging.net", confirmSuccessBlockId);
+                log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para o usuário {}. Fila: '{}', Bloco de destino dinâmico: 'desk:{}'",
+                        userPhone, targetQueue, confirmSuccessBlockId);
 
             } catch (Exception e) {
                 log.error("[CONFIRM-BATCH] Erro no processamento em lote da Feegow para ação: " + action, e);
@@ -191,10 +197,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
             String userPhone = session.getPhoneNumber();
             blipContextService.setQueueRedirect(userPhone, targetQueue);
-            blipContextService.setMasterState(userPhone, "desk@msging.net", "644d54dd-aefd-478b-93eb-10081acdd387");
 
-            log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para usuário {} (Individual). Fila: '{}', Bloco: 'desk:644d54dd-aefd-478b-93eb-10081acdd387'",
-                    userPhone, targetQueue);
+            // Recupera dinamicamente a propriedade do bloco de sucesso
+            String confirmSuccessBlockId = appointmentMotorProperties.getBlipBlocksConfirmSuccess();
+            if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
+                confirmSuccessBlockId = "644d54dd-aefd-478b-93eb-10081acdd387";
+            }
+
+            blipContextService.setMasterState(userPhone, "desk@msging.net", confirmSuccessBlockId);
+
+            log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para o usuário {} (Individual). Fila: '{}', Bloco de destino dinâmico: 'desk:{}'",
+                    userPhone, targetQueue, confirmSuccessBlockId);
         }
     }
 

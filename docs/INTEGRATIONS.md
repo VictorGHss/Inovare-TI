@@ -1,158 +1,82 @@
-# Integrações — Inovare TI
+# Manual de Integrações — Inovare TI
 
-Este documento descreve as integrações externas suportadas pela plataforma: ContaAzul (financeiro), envio de e-mails, Discord e Vault.
+Este documento detalha a arquitetura técnica, classes relevantes, configurações e regras de negócio que governam a comunicação da plataforma Inovare TI com parceiros e sistemas externos.
 
 ---
 
-## ContaAzul (Financeiro)
+## 🏥 Feegow ERP (Integração de Consultas e Cadastro)
 
-### Arquivos e classes relevantes
+A integração com a Feegow centraliza a busca incremental de consultas para notificação e sincronização de dados de cadastro clínico.
 
-- `domain/financeiro/contaazul/ContaAzulTokenService` — gerenciamento OAuth2 (authorization_code, refresh), persistência e refresh proativo.
-- `ContaAzulClient` — cliente HTTP para endpoints ContaAzul (vendas, parcelas, baixas, anexos).
-- `ContaAzulOAuthToken` / `ContaAzulOAuthTokenRepository` — persistência em `contaazul_oauth_tokens`.
-- `ContaAzulAutomationService` — job de automação que processa vendas/parcelas e envia recibos.
-- `ContaAzulController` — endpoints: authorize, callback, status, testes.
+### 1. Filtro Estrito de Procedimentos Elegíveis
+Para evitar o envio de notificações sobre exames de rotina ou procedimentos não cobertos pelas políticas de relacionamento da clínica, a ingestão executa um filtro estrito:
+* A propriedade `app.appointment.eligible-procedure-ids` (ou variável de ambiente `ELIGIBLE_PROCEDURE_IDS`) carrega uma lista de IDs separados por vírgula.
+* No início do processamento do lote em [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java), o sistema valida o ID do procedimento de cada agendamento recebido contra esta lista configurada. Caso o ID não esteja mapeado, o agendamento é imediatamente descartado com logs de auditoria detalhados.
 
-### Variáveis de configuração
+### 2. Estratégia de Fallback em Cascata de Telefone do Paciente
+Devido à ausência de padronização nos registros telefônicos inseridos no ERP, o adapter de busca de dados do paciente [FeegowPatientAdapter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/feegow/FeegowPatientAdapter.java) implementa uma rotina inteligente de fallback em cascata para extrair e normalizar o melhor telefone de contato no método `resolvePreferredPhone`:
 
-- `app.contaazul.client-id`
-- `app.contaazul.client-secret`
-- `app.contaazul.authorization-url` (ex.: https://auth.contaazul.com/oauth2/authorize)
-- `app.contaazul.token-url` (ex.: https://auth.contaazul.com/oauth2/token)
-- `contaazul.redirect-uri` — callback
-- `contaazul.automation.enabled`, `contaazul.automation.fixed-delay-ms`
-
-### Banco de dados — tabela de tokens
-
-Tabela: `contaazul_oauth_tokens`
-
-Colunas relevantes:
-
-- `id` UUID (PK)
-- `access_token` TEXT
-- `refresh_token` TEXT
-- `token_type` VARCHAR
-- `scope` VARCHAR
-- `expires_at` TIMESTAMP
-- `refreshed_at` TIMESTAMP
-- `created_at`, `updated_at`
-
-### Fluxo OAuth2 (Authorization Code)
-
-1. Usuário clica em "Conectar ContaAzul" no frontend → backend chama `buildAuthorizationUrl()`.
-2. ContaAzul redireciona com `code` e `state` para o `redirect_uri`.
-3. Backend troca `code` por tokens via `exchangeAuthorizationCode()` e persiste em `contaazul_oauth_tokens`.
-4. Serviços utilizam `getValidAccessToken()` que faz refresh automático quando necessário.
-
-### Exemplos (curl)
-
-Montar URL de autorização (exemplo retornado pela API):
-
-```
-https://auth.contaazul.com/oauth2/authorize?response_type=code&client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:5173/contaazul/callback&state=RANDOM
+```mermaid
+graph TD
+    A[Início: Avaliar Telefone do Paciente] --> B{Possui Celulares?}
+    B -- Sim --> C{Encontra celular válido do PR?<br>DDD 41 a 46 + nono dígito 9}
+    C -- Sim --> D[Retorna celular do PR com DDI 55]
+    C -- Não --> E{Possui Telefones Fixos?}
+    B -- Não --> E
+    E -- Sim --> F[Fallback 1: Retorna primeiro Fixo com DDI 55]
+    E -- Não --> G{Possui Celulares?}
+    G -- Sim --> H[Fallback 2: Retorna primeiro celular não vazio de qualquer DDD com DDI 55]
+    G -- Não --> I[Retorna null]
+    H --> J[Fim]
+    F --> J
+    D --> J
+    I --> J
 ```
 
-Trocar code por token (curl):
-
-```bash
-curl -X POST "https://auth.contaazul.com/oauth2/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=authorization_code&code=THE_CODE&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET&redirect_uri=http://localhost:5173/contaazul/callback"
-```
-
-Refresh token (curl):
-
-```bash
-curl -X POST "https://auth.contaazul.com/oauth2/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=refresh_token&refresh_token=REFRESH_TOKEN&client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET"
-```
-
-### Automação e envio de recibos
-
-- `ContaAzulAutomationService` realiza polling de vendas/parcelas e determina se já foram processadas.
-- Faz download de PDF (quando disponível) e aciona `FinanceEmailService` para envio de recibos.
-- Registra `ProcessedReceipt`/`ProcessedSale` para garantir idempotência.
-
-- Nota técnica: A geração do PDF do recibo após a baixa é assíncrona. O sistema realiza até 20 tentativas automáticas antes de gerar um alerta operacional.
-
-### ⚡ Redesenho de Performance e Concorrência Paralela
-Para sanar o gargalo crítico de rede que causava tempos de carregamento de até 12 segundos nas rotas financeiras, implementamos uma nova arquitetura de alta concorrência:
-- **Execução Paralela**: Refatoramos o orquestrador `fetchSummary` no `ContaAzulFinancialSummaryService` para disparar as buscas de recebidos (`status=RECEBIDO`/`QUITADO`), contas em aberto (`status=EM_ABERTO`) e saldos consolidados de contas financeiras simultaneamente em background.
-- **CompletableFuture + Virtual Threads**: Cada consulta é envolvida em `CompletableFuture.supplyAsync()` rodando no executor de *Virtual Threads* (`Executors.newVirtualThreadPerTaskExecutor()`). As chamadas são aguardadas de forma não-bloqueante e síncrona com `CompletableFuture.allOf(...).join()`, reduzindo o tempo de latência de rede em mais de 50%.
-- **Mecanismo de Cache**: Protegemos a API da ContaAzul anotando o método principal com `@Cacheable(value = "contaAzulSummary", key = "'dashboard'")` para cachear os dados do resumo financeiro por 10 minutos (TTL), economizando custos de requisições redundantes a cada troca de tela no frontend React.
-
-### Erros comuns e troubleshooting
-
-- `Invalid ContaAzul token response.` — verificar `client_id`/`client_secret` e `redirect_uri`.
-- `NoReceiptAvailableException` — baixar manualmente no painel ContaAzul.
-- 401 após refresh — verificar possível revogação de credenciais.
+* **Prioridade Máxima (Celular do PR)**: Varre o array de celulares (`patientDetails.getCelulares()`). Tenta localizar um celular que corresponda às regras locais do Paraná (PR), verificadas no método `isPrCellPhone`: remove caracteres especiais (`cleanPhoneString`) e valida se o número limpo possui 11 dígitos iniciando com os DDDs **419, 429, 439, 449, 459 ou 469**. Se encontrado, normaliza com o DDI `55` via `formatWithCountryCode` e o retorna.
+* **Fallback 1 (Telefone Fixo)**: Caso não encontre nenhum celular do Paraná, busca na lista de telefones fixos (`patientDetails.getTelefones()`). Se houver algum número preenchido, limpa a string, formata com o prefixo `55` e o retorna.
+* **Fallback 2 (Celulares de outros estados)**: Se não houver telefone fixo cadastrado, varre novamente o array de celulares e retorna a primeira entrada não vazia encontrada (mesmo que pertença a outro estado e não passe no filtro de DDD do PR), formatada com o DDI `55`.
+* **Descarte de Registro**: Se nenhuma das condições anteriores for atendida, o sistema retorna `null` e o agendamento é ignorado.
 
 ---
 
-## Email financeiro / `FinanceEmailService`
+## 💬 Plataforma Blip e Meta Cloud API (Integração WhatsApp / Chatbot)
 
-- Local: `domain/notification/FinanceEmailService`.
-- Usa `JavaMailSender` para enviar emails com anexos (PDFs de recibo).
-- Suporta `app.financeiro.test-mode` para redirecionar envios para email de desenvolvedor.
-- Variáveis: `app.financeiro.smtp.*`, `app.financeiro.dev-email`.
+O Inovare TI conecta-se ao ecossistema do Blip para despacho de templates ativos de lembretes no WhatsApp e orquestração de transbordo humano para operadores clínicos.
 
----
+As rotinas e comandos LIME são gerenciados em [BlipContextService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/service/BlipContextService.java) e chamados na API do Blip via [BlipLIMEClient](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/client/BlipLIMEClient.java).
 
-## Discord — notificações e recuperação
+### 1. Engenharia de Transbordo e Roteamento Interno
+O roteamento do usuário entre os canais de atendimento humano no Blip Desk é efetuado por variáveis de contexto e desvios dinâmicos de fluxo:
+* **Fila de Redirecionamento (`attendanceQueueToRedirect`)**: O método `setQueueRedirect` realiza o direcionamento do paciente para filas de especialidades médicas específicas no Desk:
+  1. **Limpeza Prévia Obrigatória**: Envia um comando `delete` para a URI `/contexts/{identity}/attendanceQueueToRedirect` no Blip. Isso remove resquícios de filas salvas em conversas anteriores, prevenindo desvios incorretos causados por contextos obsoletos.
+  2. **Sanitização de String (`cleanQueueName`)**: Remove marcas invisíveis de leitura esquerda-para-direita (`\u200E`), referências a strings `"null"` e formata múltiplos espaços em branco.
+  3. **Validação de Segurança e Fallback**: Se o nome limpo da fila for vazio ou inválido, define a fila como `"Recepção Central / Suporte"`. O sistema emite logs de alerta preventivos caso detecte que o nome da fila não possui a estrutura `" - "` esperada pelo Desk (evitando perdas de chamados por nomes incompletos).
+  4. **Persistência do Contexto**: Realiza um comando `set` gravando o nome final da fila na URI `/contexts/{identity}/attendanceQueueToRedirect` como `text/plain`.
 
-- Pacote: `domain/notification/discord` e `infra/discord`.
-- Componentes: `DiscordWebhookService`, `DiscordDirectMessageService`, `DiscordTicketService`, `DiscordUserLinkingService`, `DiscordBotConfig`, `DiscordEventListener`.
-- Bot (JDA 5) inicializado assíncronamente para evitar impacto no startup.
-- Usado para: notificações de tickets, DMs de recuperação de 2FA e notificações operacionais.
-
-### ⚡ Isolamento de Concorrência e Resiliência (Discord Bot)
-Para mitigar a queda silenciosa do Bot e prevenir bloqueios na thread principal causados por **Carrier Thread Pinning** (comum no uso direto de Virtual Threads nos loops internos do JDA), implementamos uma separação rígida de concorrência no `DiscordBotConfig.java`:
-- **Pool Nativo para Infraestrutura**: Deixamos o JDA utilizar estritamente seus pools nativos e padronizados para gerenciar o tráfego de WebSocket (Gateway), Heartbeats e Rate-Limits com as APIs do Discord.
-- **Virtual Threads isoladas para Regras de Negócio**: Injetamos o pool customizado de Virtual Threads (`discordExecutor`) estritamente para a execução assíncrona de nossas regras e UseCases, mantendo o ciclo de vida de conexão do JDA completamente isolado e livre de pinagem.
-- **Limpeza e Registro de Comandos**: No boot do Bot, acionamos `updateCommands().queue()` para expurgar comandos globais antigos ou obsoletos, forçando o registro imediato e consistente apenas dos comandos definidos na inicialização.
-
-### Variáveis de ambiente (Discord)
-
-- `DISCORD_WEBHOOK_URL`: webhook utilizado para notificações operacionais (canal de SRE/ops). Preferir webhook para alertas automáticos.
-- `DISCORD_BOT_TOKEN`: token do bot JDA (usado para DMs, linking de usuários e eventos bidirecionais).
-- `DISCORD_BOT_ENABLED`: `true|false` — ativa inicialização do bot JDA.
-
-Observação: o sistema suporta tanto notificações via webhook (unidirecional, recomendado para alertas operacionais) quanto via bot (JDA) para interações/DMs. Configure o webhook operacional em `DISCORD_WEBHOOK_URL` antes de validar o fluxo de alertas.
+### 2. Controle de Estados do Roteador (Master-States)
+Para posicionar o usuário no bloco ou bot correto da Take Blip de forma ativa e sem causar disputas com o chatbot de triagem:
+* **Master-State do Roteador principal (`setMasterState`)**: Modifica o estado do usuário no roteador. Combina o ID do bloco destino (`stateId`) e o ID do bot destino (`flowId`), codifica o valor combinado em formato URL (`URLEncoder.encode`) e grava na URI `/contexts/{identity}/{encodedState}` definindo o bot alvo como recurso (`resource`).
+* **Builder Master-State do Subbot (`setBuilderMasterState`)**: Atualiza o estado direto no chatbot Builder subordinado. Para isso, calcula o endereço do túnel de comunicação do subbot (`{cleanPhone}.{subbotLocalPart}@tunnel.msging.net`) e define o ID do bloco na URI `/contexts/{tunnelIdentity}/master-state` como recurso.
+* **Aplicação na Ingestão**: Durante a ingestão de grupos no [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java), o sistema chama ambos os métodos em background (fire-and-forget) direcionando o paciente para o bloco `"PrepararAtendimento"`, o que garante que assim que o paciente interagir com a notificação, seu atendimento iniciará imediatamente no bloco correto de confirmações estruturadas.
 
 ---
 
-## Take Blip (Integração WhatsApp / Chatbot)
+## 💙 Conta Azul V2 (Conciliação Financeira e Recibos)
 
-O ecossistema Inovare-TI integra-se nativamente com a plataforma Take Blip para automação de lembretes e triagem via WhatsApp (Chatbot):
+A plataforma integra-se de forma nativa com a API Conta Azul V2 para a leitura de faturamentos de pacientes, geração de relatórios de auditoria e envio automático de recibos oficiais aos clientes após a confirmação do pagamento.
 
-### 1. Comportamento do Webhook e Agrupamento em Lote
-- O webhook processa os retornos e interações do paciente de forma resiliente.
-- Implementa lógica para agrupamento em lote (*batch ingestion*) de múltiplos agendamentos em um curto espaço de tempo para o mesmo paciente. Isso evita múltiplos envios de lembretes concorrentes e melhora o fluxo de mensagens enviadas.
+### 1. Processamento e Automação de Recibos
+* **Automação Incremental (`processAcquittedSales`)**: Em execução agendada periódica (ou sob demanda), o serviço [ContaAzulReceiptProcessor](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/application/service/ContaAzulReceiptProcessor.java) busca vendas com status `ACQUITTED` (Quitadas) via `contaAzulClient.fetchAcquittedSales` em um período específico, efetuando o processamento do recibo individual.
+* **Pacing e Proteção Contra Rate Limits**: Para mitigar estouros de limite de requisições na API do Conta Azul, o método `applyThrottle()` em [ContaAzulReceiptProcessor](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/application/service/ContaAzulReceiptProcessor.java) induz uma pausa temporal controlada e não-bloqueante de **350ms** usando `LockSupport.parkNanos(350_000_000L)` a cada venda iterada no loop de execução.
+* **Bloqueio Concorrente de Baixas**: Para impedir que execuções concorrentes processem e enviem recibos da mesma baixa em paralelo, o processador utiliza o [ReceiptConcurrencyHandler](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/infrastructure/adapter/output/ReceiptConcurrencyHandler.java) com trava baseada no `baixaId`. O sistema verifica se o ID já foi processado e tenta adquirir a trava. O bloqueio é obrigatoriamente liberado no escopo de um bloco `finally`.
+* **Mapeamento de Médicos (`DoctorEmailMapping`)**: O validador resolve a qual profissional a transação pertence para determinar a conta de e-mail de remetente configurada no sistema de mensageria, personalizando os comunicados enviados ao cliente.
 
-### 2. Barreira de Atendimento Humano (Desk)
-- Antes de disparar lembretes e *nudges* sequenciais automatizados, o motor valida ativamente o estado de interações do paciente.
-- Implementamos a verificação `hasActiveTicket` na API do Blip (verificando status `Open` ou `Waiting` de atendimentos humanos ativos). Se houver um atendimento humano em curso no Blip Desk, a esteira incremental de nudges automáticos é imediatamente suspensa para evitar ruído com o paciente.
+### 2. Conciliação Manual e Backfill Operacional
+Geridos pelas rotinas do serviço [FinanceiroOperationsService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/application/service/FinanceiroOperationsService.java):
+* **Conciliação por ID (`conciliarParcelaPorId`)**: Endpoint de processamento manual para conciliar parcelas individuais. Verifica duplicidades, obtém os dados da parcela no Conta Azul, faz o download do recibo oficial e despacha o e-mail via `receiptDispatcher`. Em caso de erro 404 (recibo indisponível), trata o erro graciosamente despachando o e-mail com hash fictício e sem anexo (`dispatchReceiptWithoutPdf`).
+* **Backfill Histórico dos Últimos 30 Dias (`executarBackfillUltimos30Dias`)**: Permite rodar uma carga histórica retroativa de parcelas quitadas. A busca é dividida em pequenas janelas temporais (`WINDOW_DAYS`) e paginada. O sistema verifica vínculos cadastrados (`FinancialLink`), cria registros históricos de recibo (`ProcessedReceipt`), e realiza pausas entre janelas temporais via `LockSupport.parkNanos` para se adequar ao limite de concorrência.
 
-### 3. Interceptação de Respostas e Redirecionamento Determinista
-- Quando o paciente responde ao lembrete clicando em "Manter Agendamento" ou "Cancelar Consulta", a resposta é interceptada no webhook do backend.
-- **Manter Agendamento**: Atualiza a sessão local para `CONFIRMED` e dispara a baixa correspondente de confirmação na API do Feegow.
-- **Cancelar Consulta**: Atualiza a sessão local para `CANCELED` e dispara o cancelamento da consulta correspondente na API do Feegow.
-- **Roteamento Puro via MASTER_STATE (LIME)**: Removemos o uso da variável poluente `attendanceQueueToRedirect` (que causava conflitos na distribuição do portal do Blip). O redirecionamento para o Desk é realizado estritamente de forma pura e nativa usando o comando LIME `MASTER_STATE` apontando diretamente para o bloco do Desk (`desk:644d54dd-aefd-478b-93eb-10081acdd387`), deixando a Take Blip distribuir a fila de forma padrão.
-
----
-
-## Vault — armazenamento de segredos
-
-- `VaultService` realiza CRUD de itens do cofre e criptografa `secretContent` via `EncryptionService`.
-- Arquivos anexos ao Vault são armazenados via `LocalFileStorageService`.
-- Criptografia: AES-256/GCM com IV aleatório; chave derivada de `app.vault.encryption-key`.
-
----
-
-## Observações e Boas Práticas
-
-- Tratar `app.contaazul.client-secret` e `app.vault.encryption-key` como segredos críticos.
-- Não logar tokens completos em produção; use previews quando necessário.
-- Implementar métricas e health indicators para tokens e automações.
+### 3. Mecanismos de Contingência e Blindagem de Planos
+* **Geração Interna de Recibo (Fallback de PDF)**: Caso o recibo oficial de faturamento na Conta Azul não exista ou falhe o download (exemplo: erro `NoReceiptAvailableException` lançado pela API do parceiro), a aplicação aciona o fallback via [InternalReceiptEmissionService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/application/service/InternalReceiptEmissionService.java). Esse serviço gera de forma autônoma um PDF de recibo interno com base nas informações e metadados transacionados, viabilizando o despacho do e-mail ao paciente mesmo em cenários de indisponibilidade no ERP.
+* **Tratamento de Plano Inelegível / Suspenso**: Respostas de erro HTTP `403 Forbidden` vindas do parceiro que contêm termos como `"END_TRIAL"` ou `"NAO ESTA ELEGIVEL"` no corpo do JSON são identificadas e tratadas de forma silenciosa e graciosa (`isPlanIneligibleResponse`). O sistema suspende temporariamente os jobs de polling sem disparar alertas críticos ou exceptions que gerem instabilidade no servidor.

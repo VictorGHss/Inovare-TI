@@ -11,6 +11,40 @@ Este documento apresenta o resumo executivo, especificações funcionais e as re
 
 ---
 
+## 📅 Motor de Agendamentos e Comunicação com Pacientes
+
+O Motor de Agendamentos automatiza a ingestão diária de consultas externas e gerencia a esteira de lembretes e confirmações enviadas aos pacientes por meio da plataforma WhatsApp, operando sob regras rígidas de segurança operacional e conformidade técnica.
+
+O processamento principal é orquestrado pelo caso de uso [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java), que interage com os adapters de mensageria e persistência local.
+
+### 1. Algoritmo de Pacing e Throttling (Virtual Threads do Java 21)
+Para garantir a saúde operacional da aplicação e mitigar estouros de limite de requisições (**Rate Limit / HTTP 429**) na API do Take Blip/Meta Cloud, a rotina de ingestão e despacho implementa um controle rigoroso de vazão temporal:
+* **Espaçamento Temporal (Pacing)**: Durante o processamento concorrente do lote diário de agendamentos, o sistema avalia se um disparo anterior já foi efetuado. Em caso positivo, aplica um atraso aleatório controlado entre **150ms e 300ms** antes de iniciar a próxima tarefa de notificação (implementado na linha 248 de [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java)):
+  ```java
+  long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
+  Thread.sleep(delayMillis);
+  ```
+* **Virtual Threads do Java 21**: O uso de `Thread.sleep` é completamente seguro e não prejudica o desempenho do servidor. Como o projeto está estruturado sobre as *Virtual Threads* do Java 21 (`Executors.newVirtualThreadPerTaskExecutor()`), a chamada suspende temporariamente apenas a thread virtual coordenadora, cedendo os recursos físicos da CPU (Carrier Threads) a outros processos na JVM.
+* **Limitação de Concorrência Secundária**: Adicionalmente, um semáforo de concorrência ([blipSemaphore](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java#L86)) com limite dinâmico configurável (propriedade `APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY`, padrão: `20`) protege os barramentos de rede, bloqueando excessos de requisições simultâneas de configuração de contexto e envio de templates ao Blip.
+
+### 2. Regra do Dilema de Segunda-Feira
+Para evitar o envio inconveniente de mensagens automáticas de lembretes durante o final de semana (sábado e domingo), a rotina de busca de consultas executa uma antecipação estratégica de datas, baseando-se no dia da semana em que é executada:
+* **Execuções em Dias Úteis (Segunda a Quinta-Feira)**: O sistema busca e ingere consultas agendadas para o dia seguinte (`LocalDate.now().plusDays(1)`).
+* **Execuções na Sexta-Feira (O Dilema de Segunda-Feira)**: Quando a rotina de ingestão detecta que o dia atual é sexta-feira (`FRIDAY`), o sistema calcula a data alvo com um salto temporal de três dias (`LocalDate.now().plusDays(3)`). Com isso, todas as consultas agendadas para a próxima **segunda-feira** são ingeridas e notificadas antecipadamente na própria sexta-feira, em horário comercial, blindando o descanso do paciente no final de semana.
+
+### 3. Idempotência de Envio e Agrupamento em Lote (NotificationGroup)
+Duplicidades de envio e bombardeio de mensagens múltiplas a um único cliente são bloqueadas por dois mecanismos de segurança:
+* **Filtro de Idempotência Individual**: O serviço [AppointmentSendIdempotencyService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/service/AppointmentSendIdempotencyService.java) intercepta o identificador do agendamento vindo do ERP. O método `registerIfFirstSend(feegowAppointmentId)` atua como uma barreira que registra o despacho e rejeita reprocessamentos da mesma consulta no mesmo ciclo.
+* **Estratégia de Envio Agrupado (NotificationGroup)**: Caso o paciente possua múltiplos agendamentos cadastrados para a mesma data alvo, o motor impede o spam de mensagens isoladas unificando o fluxo:
+  1. Os agendamentos são agrupados na chave composta do telefone purificado e da data (`normalizedPhone + "#" + date`).
+  2. Um identificador único de grupo (`groupId`) em formato UUID é gerado.
+  3. Em uma **única transação de banco de dados** via `transactionTemplate.execute(...)`, todas as sessões ([AppointmentSession](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/AppointmentSession.java)) são persistidas associadas ao `groupId` e registros na tabela [NotificationGroup](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/NotificationGroup.java) são inseridos de uma só vez, reduzindo o overhead do pool de conexões (HikariCP).
+  4. O sistema pré-compila uma lista de agendamentos detalhada contendo informações consolidadas de todas as consultas do grupo e armazena na coluna `pre_compiled_schedule_text`.
+  5. O contexto do Blip do usuário é configurado de forma assíncrona (fire-and-forget) com a lista detalhada compilada, o `groupId` e a flag `isConfirmingAgenda = true`.
+  6. É disparado um único template unificado de grupo informando ao paciente sobre as suas consultas coletivas. As confirmações ou cancelamentos feitos pelo paciente são computados no grupo e propagados a todas as sessões vinculadas de forma correlata.
+
+---
+
 ## 🔒 Cofre Eletrônico de Senhas e Documentos (Vault)
 
 O Vault atua como um perímetro de segurança para custódia de credenciais corporativas e dados sensíveis:
@@ -29,7 +63,7 @@ O Vault atua como um perímetro de segurança para custódia de credenciais corp
 
 O motor de chamados centraliza e agiliza o fluxo de suporte de TI da clínica:
 
-* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculado de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
+* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculated de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
 * **Gestão de Atribuições**: Técnicos podem assumir chamados autonomamente (Claim) ou administradores podem designar operadores específicos.
 * **Comentários e Histórico**: Suporte a diálogos e troca de mensagens entre os solicitantes e a equipe de suporte técnico, com upload de anexos legados integrados ao chamado.
 * **Base de Conhecimento Lateral & Macros de 1-Clique**:
@@ -84,17 +118,6 @@ Para evitar qualquer discrepância entre a redução do saldo físico (`current_
 Espaço estruturado para o compartilhamento de artigos, tutoriais técnicos e runbooks de autoatendimento para os colaboradores da clínica:
 * **Fluxo de Rascunhos**: Artigos criados no estado `DRAFT` (Rascunho) são visíveis e editáveis exclusivamente pelo próprio autor do texto ou por operadores `ADMIN`.
 * **Publicação Controlada**: A transição para o estado `PUBLISHED` disponibiliza o conteúdo para leitura de todos os setores corporativos do sistema.
-
----
-
-## 💳 Automação Financeira Protegida (ERP ContaAzul)
-
-Integração bidirecional robusta com o ERP financeiro ContaAzul para automatizar processos de faturamento internos:
-
-* **Duplo Fator Obrigatório**: Qualquer requisição às rotas financeiras `/api/financeiro/**` exige a barreira prévia do TOTP/2FA ativo. A interface só carrega o dashboard financeiro após o operador responder com sucesso ao desafio de segurança.
-* **Envio Automatizado de Recibos**: A plataforma intercepta eventos de baixas de boletos e faturamentos de clientes no ERP e dispara automaticamente e-mails de agradecimento e recibos oficiais formatados aos clientes.
-* **Prevenção de Duplicidades (Idempotência)**: A tabela `processed_receipts` calcula hashes do payload financeiro e armazena os IDs de parcelas processadas, garantindo que nenhum e-mail de recibo seja enviado em duplicidade para os clientes mesmo com disparos manuais sucessivos.
-* **Fila de Incidentes Técnicos**: Falhas de comunicação ou ausência temporária de PDFs gerados pelo ERP são retidas em `system_alerts` com payload técnico completo para permitir a reexecução manual em um único clique assim que os sistemas externos estabilizarem.
 
 ---
 

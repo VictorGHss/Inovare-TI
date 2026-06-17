@@ -48,10 +48,25 @@ public class FeegowAppointmentSearcher {
 
     private List<FeegowAppointment> searchTestModeAppointments(LocalDate targetDate) {
         String testDoctorIds = appointmentMotorProperties.getTestModeDoctorIds();
+        
+        // HIGIENIZAÇÃO / VALIDAÇÃO DE PLACEHOLDER VAZADO:
+        // Caso a propriedade venha nula, vazia ou contendo a sintaxe de placeholder cru do Spring (ex: "${TEST_MODE_DOCTOR_IDS}"),
+        // aplica-se um fallback de segurança com as IDs de médicos padrão para evitar requisições com strings inválidas.
+        if (testDoctorIds != null && (testDoctorIds.contains("${") || testDoctorIds.contains("}"))) {
+            log.warn("[FEEGOW-SEARCH] Alerta de segurança: detectado placeholder cru ou vazamento de configuração '{}'. Aplicando fallback de IDs padrão (8,6,7,13,14,12).", testDoctorIds);
+            testDoctorIds = "8,6,7,13,14,12";
+        }
+        
         if (testDoctorIds == null || testDoctorIds.isBlank()) {
             testDoctorIds = appointmentMotorProperties.getTestDoctorId();
         }
-        log.info("[MODO TESTE] Buscando agendamentos apenas para os medicos de teste IDs: {}", testDoctorIds);
+        
+        if (testDoctorIds == null || testDoctorIds.isBlank()) {
+            log.warn("[FEEGOW-SEARCH] Nenhuma ID de médico de teste configurada. Utilizando IDs padrão de emergência (8,6,7,13,14,12).");
+            testDoctorIds = "8,6,7,13,14,12";
+        }
+        
+        log.info("[MODO TESTE] Buscando agendamentos apenas para os médicos de teste IDs: {}", testDoctorIds);
         
         List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
         if (testDoctorIds != null && !testDoctorIds.isBlank()) {
@@ -61,9 +76,12 @@ public class FeegowAppointmentSearcher {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String docId : doctorIds) {
                     String trimmedDocId = docId.trim();
-                    if (!trimmedDocId.isEmpty()) {
+                    // Valida se o ID do médico contém apenas dígitos numéricos para barrar injeções de texto inválidas
+                    if (!trimmedDocId.isEmpty() && trimmedDocId.matches("\\d+")) {
                         futures.add(runAsyncSearch(LocalDate.now(), trimmedDocId, threadSafeAppointments, executor));
                         futures.add(runAsyncSearch(targetDate, trimmedDocId, threadSafeAppointments, executor));
+                    } else if (!trimmedDocId.isEmpty()) {
+                        log.warn("[FEEGOW-SEARCH] ID de médico de teste '{}' inválido (deve ser estritamente numérico). Ignorando.", trimmedDocId);
                     }
                 }
                 CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();

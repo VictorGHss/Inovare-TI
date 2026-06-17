@@ -156,7 +156,7 @@ public class IngestAppointmentsE2ETest {
 
             appointments.add(new FeegowAppointment(
                 apptId, patientId, "123", "Dr. Teste Inovare", "Unidade Central",
-                LocalDateTime.now().plusDays(1).withHour(8).withMinute(0), "1" // Status "1" (ativo/pendente)
+                LocalDateTime.now().plusDays(1).withHour(8).withMinute(0), "1", "Consulta"
             ));
 
             patients.put(patientId, new FeegowPatient(

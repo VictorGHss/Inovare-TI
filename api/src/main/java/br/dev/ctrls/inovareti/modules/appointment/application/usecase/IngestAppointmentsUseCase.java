@@ -99,11 +99,31 @@ public class IngestAppointmentsUseCase {
 
         List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate);
         int total = appointments.size();
+
+        // Filtro de Procedimento: apenas "Consulta" ou "Retorno" (Case-Insensitive)
+        appointments = appointments.stream()
+                .filter(a -> {
+                    String proc = a.procedureName();
+                    if (proc == null) {
+                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o nome do procedimento está nulo.", a.id());
+                        return false;
+                    }
+                    String procLower = proc.toLowerCase();
+                    boolean val = procLower.contains("consulta") || procLower.contains("retorno");
+                    if (!val) {
+                        log.info("[FILTRO-PROCEDIMENTO] Agendamento ID={} ignorado porque o procedimento '{}' não contém 'Consulta' ou 'Retorno'.", a.id(), proc);
+                    }
+                    return val;
+                })
+                .collect(Collectors.toList());
+        int aposProcedimentos = appointments.size();
+        log.info("Agendamentos filtrados por procedimento (Consulta/Retorno). Total antes: {}, Total depois: {}", total, aposProcedimentos);
+
         appointments = appointments.stream()
                 .filter(a -> a.startAt() != null && !a.startAt().toLocalDate().isBefore(LocalDate.now()))
                 .collect(Collectors.toList());
         int filtrados = appointments.size();
-        log.info("Filtrando agendamentos antigos. Total antes: {}, Total depois: {}", total, filtrados);
+        log.info("Filtrando agendamentos antigos. Total antes: {}, Total depois: {}", aposProcedimentos, filtrados);
 
         int totalReceived = filtrados;
 
@@ -278,6 +298,8 @@ public class IngestAppointmentsUseCase {
             boolean isConfirmedLocally = existingSessionOpt.map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED).orElse(false);
 
             if (isConfirmedLocally || isConfirmedOnFeegow) {
+                log.info("[FILTRO-CONFIRMACAO] Abortando disparo para o agendamento ID={} pois o paciente já confirmou. (Confirmado no Feegow: {}, Confirmado localmente: {})",
+                        feegowAppointmentId, isConfirmedOnFeegow, isConfirmedLocally);
                 continue;
             }
 
@@ -614,7 +636,13 @@ public class IngestAppointmentsUseCase {
         if (!appointmentMotorProperties.isTestMode()) {
             return true;
         }
-        String testDoctorId = appointmentMotorProperties.getTestDoctorId();
+        String testDoctorId = appointmentMotorProperties.getTestModeDoctorIds();
+        if (testDoctorId == null || testDoctorId.isBlank()) {
+            testDoctorId = appointmentMotorProperties.getTestDoctorId();
+        }
+        if (testDoctorId == null || testDoctorId.isBlank()) {
+            return false;
+        }
         java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
                 .map(String::trim)
                 .filter(id -> !id.isEmpty())

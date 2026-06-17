@@ -89,7 +89,7 @@ public class AppointmentTemplateDataBuilder {
             session.getFeegowAppointmentId(),
             session.getPatientId(),
             session.getDoctorProfissionalId(),
-            null, null, session.getAppointmentAt(), null
+            null, null, session.getAppointmentAt(), null, ""
         );
     }
 

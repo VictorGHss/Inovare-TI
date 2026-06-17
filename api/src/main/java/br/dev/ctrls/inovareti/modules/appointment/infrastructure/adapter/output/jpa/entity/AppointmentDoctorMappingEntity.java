@@ -12,7 +12,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,7 +36,7 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "profissional_id", nullable = false, length = 64, unique = true)
     private String profissionalId;
 
-    @Transient
+    @Column(name = "profissional_nome", length = 255)
     private String profissionalNome;
 
     @Column(name = "secretary_names", length = 255)

@@ -17,6 +17,7 @@ public class AppointmentMotorProperties {
     private String monitorCron;
     private boolean testMode;
     private String testDoctorId;
+    private String testModeDoctorIds;
     private String testPhone;
     private boolean feegowStartupProbeEnabled;
     private String feegowBaseUrl;
@@ -61,6 +62,10 @@ public class AppointmentMotorProperties {
     public void setBlipLandingBlockId(String blipLandingBlockId) { this.state.setBlipLandingBlockId(blipLandingBlockId); }
 
     public void setBlipFallbackTemplates(String blipFallbackTemplates) { this.template.setBlipFallbackTemplates(blipFallbackTemplates); }
+
+    public String getFeegowConfirmedStatusId() {
+        return this.feegowConfirmedStatusId;
+    }
 
     public void setWebhookToken(String webhookToken) { this.security.setWebhookToken(webhookToken); }
 

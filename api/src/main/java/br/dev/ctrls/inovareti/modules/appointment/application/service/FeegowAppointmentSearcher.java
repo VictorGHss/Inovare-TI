@@ -47,12 +47,15 @@ public class FeegowAppointmentSearcher {
     }
 
     private List<FeegowAppointment> searchTestModeAppointments(LocalDate targetDate) {
-        String testDoctorId = appointmentMotorProperties.getTestDoctorId();
-        log.info("[TEST MODE] Buscando agendamentos apenas para os médicos de teste ID: {}", testDoctorId);
+        String testDoctorIds = appointmentMotorProperties.getTestModeDoctorIds();
+        if (testDoctorIds == null || testDoctorIds.isBlank()) {
+            testDoctorIds = appointmentMotorProperties.getTestDoctorId();
+        }
+        log.info("[MODO TESTE] Buscando agendamentos apenas para os medicos de teste IDs: {}", testDoctorIds);
         
         List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
-        if (testDoctorId != null && !testDoctorId.isBlank()) {
-            String[] doctorIds = testDoctorId.split(",");
+        if (testDoctorIds != null && !testDoctorIds.isBlank()) {
+            String[] doctorIds = testDoctorIds.split(",");
             
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();

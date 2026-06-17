@@ -163,23 +163,93 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         if (patientDetails == null) {
             return null;
         }
-        String celular = firstNonBlank(patientDetails.getCelulares());
-        if (celular != null) {
-            return celular;
-        }
-        return firstNonBlank(patientDetails.getTelefones());
-    }
 
-    private String firstNonBlank(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
+        // COMENTÁRIO BR: Prioriza a busca por um número de celular válido do PR (iniciando com 419, 429, 439, 449, 459 ou 469)
+        if (patientDetails.getCelulares() != null) {
+            for (String cel : patientDetails.getCelulares()) {
+                if (cel != null && !cel.isBlank()) {
+                    String cleaned = cleanPhoneString(cel);
+                    if (isPrCellPhone(cleaned)) {
+                        return formatWithCountryCode(cleaned);
+                    }
+                }
             }
         }
+
+        // COMENTÁRIO BR: Fallback 1: Caso não encontre celular do PR válido, aplica fallback buscando nos telefones fixos
+        if (patientDetails.getTelefones() != null) {
+            for (String tel : patientDetails.getTelefones()) {
+                if (tel != null && !tel.isBlank()) {
+                    String cleaned = cleanPhoneString(tel);
+                    if (!cleaned.isEmpty()) {
+                        return formatWithCountryCode(cleaned);
+                    }
+                }
+            }
+        }
+
+        // COMENTÁRIO BR: Fallback 2: Se não houver telefone fixo, retorna o primeiro celular encontrado (mesmo de outro estado)
+        if (patientDetails.getCelulares() != null) {
+            for (String cel : patientDetails.getCelulares()) {
+                if (cel != null && !cel.isBlank()) {
+                    String cleaned = cleanPhoneString(cel);
+                    if (!cleaned.isEmpty()) {
+                        return formatWithCountryCode(cleaned);
+                    }
+                }
+            }
+        }
+
         return null;
+    }
+
+    private String cleanPhoneString(String phone) {
+        if (phone == null) {
+            return "";
+        }
+        // COMENTÁRIO BR: Limpa a string de telefone removendo parênteses, hífens e espaços em branco
+        return phone.replaceAll("[()\\s-]", "");
+    }
+
+    private boolean isPrCellPhone(String cleanedNumber) {
+        if (cleanedNumber == null || cleanedNumber.isBlank()) {
+            return false;
+        }
+        String digits = cleanedNumber;
+        if (digits.startsWith("+")) {
+            digits = digits.substring(1);
+        }
+        if (digits.startsWith("55")) {
+            digits = digits.substring(2);
+        }
+        if (digits.startsWith("0")) {
+            digits = digits.substring(1);
+        }
+        // COMENTÁRIO BR: Valida se possui o formato de celular válido do PR (DDD 41 a 46 seguido do dígito 9 e mais 8 dígitos)
+        if (digits.length() == 11) {
+            String prefix = digits.substring(0, 3);
+            return "419".equals(prefix) || "429".equals(prefix) || "439".equals(prefix)
+                || "449".equals(prefix) || "459".equals(prefix) || "469".equals(prefix);
+        }
+        return false;
+    }
+
+    private String formatWithCountryCode(String cleanedNumber) {
+        if (cleanedNumber == null || cleanedNumber.isBlank()) {
+            return "";
+        }
+        String number = cleanedNumber;
+        if (number.startsWith("+")) {
+            number = number.substring(1);
+        }
+        if (number.startsWith("55")) {
+            return number;
+        }
+        if (number.startsWith("0")) {
+            number = number.substring(1);
+        }
+        // COMENTÁRIO BR: Garante o retorno do número purificado com o prefixo do país (55)
+        return "55" + number;
     }
 
     private String sanitizeCpf(String cpf) {

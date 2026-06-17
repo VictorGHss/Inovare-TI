@@ -429,7 +429,10 @@ public class BlipNotificationService {
         if (!motorProperties.isTestMode()) {
             return true;
         }
-        String testDoctorId = motorProperties.getTestDoctorId();
+        String testDoctorId = motorProperties.getTestModeDoctorIds();
+        if (testDoctorId == null || testDoctorId.isBlank()) {
+            testDoctorId = motorProperties.getTestDoctorId();
+        }
         if (testDoctorId == null || testDoctorId.isBlank()) {
             return false;
         }

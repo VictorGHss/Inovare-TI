@@ -40,6 +40,7 @@ public record FeegowSearchResponseDto(
             @JsonProperty("unidade") String unitName,
             @JsonProperty("data") String appointmentDate,
             @JsonProperty("horario") String appointmentTime,
-            @JsonProperty("status_id") String statusId) {
+            @JsonProperty("status_id") String statusId,
+            @JsonProperty("procedimento_nome") @JsonAlias({"procedimento", "procedimento_nome", "procedimentoNome"}) String procedureName) {
         }
 }

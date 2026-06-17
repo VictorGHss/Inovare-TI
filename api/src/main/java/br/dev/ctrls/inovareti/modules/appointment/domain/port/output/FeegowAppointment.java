@@ -13,5 +13,6 @@ public record FeegowAppointment(
         String doctorName,
         String unitName,
         LocalDateTime startAt,
-        String statusId) {
+        String statusId,
+        String procedureName) {
 }

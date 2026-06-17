@@ -245,7 +245,7 @@ public class MonitorAppointmentNudgesUseCase {
 
             String templateId = appointmentConfigRepository.findByCategory(category)
                     .map(config -> config.getTemplateId())
-                    .orElse("aviso_confirmacao_pendente_grupo");
+                    .orElse(appointmentMotorProperties.getBlipTemplateNudgePending());
 
             try {
                 log.info("[GRUPO-NUDGE] Enviando template de nudge '{}' para {}. groupId={}, category={}", templateId, phoneNumber, groupId, category);

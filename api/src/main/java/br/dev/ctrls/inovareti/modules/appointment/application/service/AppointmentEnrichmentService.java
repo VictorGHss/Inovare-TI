@@ -182,14 +182,14 @@ public class AppointmentEnrichmentService {
 
         applyMappingDetails(mapping, item.profissionalNome(), item.discordWebhookUrl(), item.ignoreAutoSchedule(), itsmUserId);
 
-        if (!StringUtils.hasText(mapping.getProfissionalNome())) {
+        if (!StringUtils.hasText(mapping.getProfissionalNome()) || isUuid(mapping.getProfissionalNome())) {
             enrichDoctorName(mapping, mapping.getProfissionalId());
         }
         appointmentDoctorMappingRepository.save(mapping);
     }
 
     private void applyMappingDetails(AppointmentDoctorMapping mapping, String name, String discordUrl, Boolean ignoreAuto, String itsmUserId) {
-        if (StringUtils.hasText(name)) {
+        if (StringUtils.hasText(name) && !isUuid(name)) {
             mapping.setProfissionalNome(formatProperName(name));
         }
         if (StringUtils.hasText(discordUrl)) {
@@ -219,6 +219,18 @@ public class AppointmentEnrichmentService {
         }
     }
 
+    private boolean isUuid(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        try {
+            UUID.fromString(value.trim());
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     @Transactional
     public Map<String, Object> upsertDoctorMapping(DoctorMappingUpsert payload) {
         log.info("upsertDoctorMapping chamado com payload: {}", payload);
@@ -240,6 +252,10 @@ public class AppointmentEnrichmentService {
         }
 
         applyMappingDetails(mapping, payload.profissionalNome(), payload.discordWebhookUrl(), payload.ignoreAutoSchedule(), payload.itsmUserId());
+
+        if (!StringUtils.hasText(mapping.getProfissionalNome()) || isUuid(mapping.getProfissionalNome())) {
+            enrichDoctorName(mapping, mapping.getProfissionalId());
+        }
 
         appointmentDoctorMappingRepository.save(mapping);
         return Map.of("status", "success", "profissionalId", profissionalId);

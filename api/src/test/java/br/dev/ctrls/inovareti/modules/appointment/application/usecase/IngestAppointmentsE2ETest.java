@@ -30,6 +30,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 
 /**
  * Teste de integração ponta a ponta (E2E) para validação do ecossistema pós-refatoração
@@ -52,6 +53,9 @@ public class IngestAppointmentsE2ETest {
     @Autowired
     private AppointmentTemplateMappingRepositoryPort templateMappingRepository;
 
+    @Autowired
+    private AppointmentMotorProperties motorProperties;
+
     @MockitoBean
     private FeegowAppointmentSearcher feegowAppointmentSearcher;
 
@@ -63,11 +67,14 @@ public class IngestAppointmentsE2ETest {
 
     @BeforeEach
     public void setUp() {
+        String templateConfirmation = motorProperties.getBlipTemplateConfirmation();
+        String templateGroup = motorProperties.getBlipTemplateGroup();
+
         // Garante que o template do Blip exista na tabela de configurações para não dar NotFoundException
         if (configRepository.findByCategory(AppointmentCategory.CONFIRMATION).isEmpty()) {
             AppointmentConfig config = AppointmentConfig.builder()
                     .category(AppointmentCategory.CONFIRMATION)
-                    .templateId("confirmacao_consulta_v6_itsm")
+                    .templateId(templateConfirmation)
                     .timingHours(24)
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -79,7 +86,7 @@ public class IngestAppointmentsE2ETest {
         if (configRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION).isEmpty()) {
             AppointmentConfig groupConfig = AppointmentConfig.builder()
                     .category(AppointmentCategory.GROUP_NOTIFICATION)
-                    .templateId("aviso_agendamento_grupo")
+                    .templateId(templateGroup)
                     .timingHours(24)
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -100,32 +107,32 @@ public class IngestAppointmentsE2ETest {
             doctorMappingRepository.save(doctorMapping);
         }
 
-        // Garante que existam mapeamentos de placeholders para o template "confirmacao_consulta_v6_itsm" para evitar abort por parâmetros vazios
-        if (templateMappingRepository.findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc("confirmacao_consulta_v6_itsm").isEmpty()) {
+        // Garante que existam mapeamentos de placeholders para o template de confirmação para evitar abort por parâmetros vazios
+        if (templateMappingRepository.findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateConfirmation).isEmpty()) {
             List<AppointmentTemplateMapping> mappings = List.of(
                 AppointmentTemplateMapping.builder()
-                        .templateName("confirmacao_consulta_v6_itsm")
+                        .templateName(templateConfirmation)
                         .placeholderIndex(0)
                         .feegowFieldName("patient_name")
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build(),
                 AppointmentTemplateMapping.builder()
-                        .templateName("confirmacao_consulta_v6_itsm")
+                        .templateName(templateConfirmation)
                         .placeholderIndex(1)
                         .feegowFieldName("appointment_date_short")
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build(),
                 AppointmentTemplateMapping.builder()
-                        .templateName("confirmacao_consulta_v6_itsm")
+                        .templateName(templateConfirmation)
                         .placeholderIndex(2)
                         .feegowFieldName("appointment_time")
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build(),
                 AppointmentTemplateMapping.builder()
-                        .templateName("confirmacao_consulta_v6_itsm")
+                        .templateName(templateConfirmation)
                         .placeholderIndex(3)
                         .feegowFieldName("doctor_name")
                         .createdAt(LocalDateTime.now())

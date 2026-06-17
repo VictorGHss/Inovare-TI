@@ -82,7 +82,7 @@ public class BlipNotificationService {
     }
 
     public void sendAppointmentNotification(String destination, AppointmentTemplateData appointmentData) {
-        sendTemplateMessage(destination, "confirmacao_consulta_v6_itsm", appointmentData);
+        sendTemplateMessage(destination, motorProperties.getBlipTemplateConfirmation(), appointmentData);
     }
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {

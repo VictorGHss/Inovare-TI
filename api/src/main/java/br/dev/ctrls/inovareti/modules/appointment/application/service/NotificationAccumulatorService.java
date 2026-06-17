@@ -161,7 +161,7 @@ public class NotificationAccumulatorService {
 
         // 5. Disparar o template de aviso passando o group_id no payload
         try {
-            String templateName = motorProperties.getBlipGroupTemplateName();
+            String templateName = motorProperties.getBlipTemplateGroup();
             blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateName, groupId, patientName);
             log.info("[ACÚMULO] Notificação agrupada enviada com sucesso para: {}", phoneNumber);
         } catch (Exception e) {

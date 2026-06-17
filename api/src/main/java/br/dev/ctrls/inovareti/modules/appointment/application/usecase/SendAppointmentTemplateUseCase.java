@@ -20,6 +20,7 @@ import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTem
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentTemplateDataBuilder;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +44,7 @@ public class SendAppointmentTemplateUseCase {
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final AppointmentTemplateDataBuilder appointmentTemplateDataBuilder;
+    private final AppointmentMotorProperties appointmentMotorProperties;
 
     /**
      * Executa o envio a partir de um contexto de despacho resolvido previamente.
@@ -149,7 +151,7 @@ public class SendAppointmentTemplateUseCase {
                     || "confirmacao_consulta_v6_itsm".equalsIgnoreCase(templateId.trim())
                     || "aviso_agendamento_grupo".equalsIgnoreCase(templateId.trim())
                     || "aviso_confirmacao_pendente".equalsIgnoreCase(templateId.trim())) {
-                templateId = "aviso_confirmacao_pendente_v2";
+                templateId = appointmentMotorProperties.getBlipTemplateNudgePending();
             }
         }
         return templateId;

@@ -200,7 +200,7 @@ public class IngestAppointmentsUseCase {
         String cachedGroupTemplateName = transactionTemplate.execute(status ->
             appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION)
                 .map(AppointmentConfig::getTemplateId)
-                .orElse("aviso_agendamento_grupo")
+                .orElse(appointmentMotorProperties.getBlipTemplateGroup())
         );
         log.info("[INGESTAO] Template de grupo resolvido antes do loop: '{}'", cachedGroupTemplateName);
 

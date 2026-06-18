@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import br.dev.ctrls.inovareti.config.security.WebhookSignatureValidator;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
+import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -355,16 +356,22 @@ public class BlipWebhookController {
             });
         }
 
-        HandleBlipWebhookUseCase.WebhookResult result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
-                messageId,
-                appointmentId,
-                action,
-                from,
-                inovareToken,
-                content,
-                metadata,
-                parsed.bsuid(),
-                parsed.type()));
+        HandleBlipWebhookUseCase.WebhookResult result;
+        try {
+            result = handleBlipWebhookUseCase.execute(new HandleBlipWebhookUseCase.BlipWebhookPayload(
+                    messageId,
+                    appointmentId,
+                    action,
+                    from,
+                    inovareToken,
+                    content,
+                    metadata,
+                    parsed.bsuid(),
+                    parsed.type()));
+        } catch (NotFoundException ex) {
+            log.warn("[WEBHOOK-AVISO] Recurso não localizado ao processar o webhook do Blip. Detalhes: {}", ex.getMessage());
+            return ResponseEntity.ok().build();
+        }
 
         if (result == null) {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));

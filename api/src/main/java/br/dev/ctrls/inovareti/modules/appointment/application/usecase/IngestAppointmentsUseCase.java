@@ -170,7 +170,7 @@ public class IngestAppointmentsUseCase {
         }
 
         List<FeegowAppointment> activeAppointments = appointments.stream()
-                .filter(appointment -> !"12".equals(appointment.statusId()))
+                .filter(appointment -> "1".equals(appointment.statusId()))
                 .collect(Collectors.toList());
 
         java.util.Set<String> patientIds = activeAppointments.stream()

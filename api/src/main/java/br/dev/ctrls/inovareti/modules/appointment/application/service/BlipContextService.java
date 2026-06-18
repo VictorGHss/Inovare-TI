@@ -218,6 +218,8 @@ public class BlipContextService {
             String normalizedPhone = limeClient.normalizeUserIdentity(userPhone);
             String userIdentity = normalizedPhone; // A identidade já possui o domínio correto pós-normalização
 
+            String resolvedQueue = resolveQueueName(payload.getQueue());
+
             // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistência imediata)
             BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
             BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
@@ -227,14 +229,14 @@ public class BlipContextService {
 
             java.util.Map<String, String> extras = new java.util.HashMap<>();
             extras.put("Medico", payload.getDoctorName());
-            extras.put("fila", payload.getQueue());
+            extras.put("fila", resolvedQueue);
             extras.put("nascimento", payload.getPatientBirthdate());
             extras.put("data_nascimento", payload.getPatientBirthdate());
             contactResource.setExtras(extras);
             contactCommand.setResource(contactResource);
 
             // POST para /commands
-            log.info("[LIME PUSH] Passo 1: Atualizando contato para identity={}: Medico={}, fila={}", userIdentity, payload.getDoctorName(), payload.getQueue());
+            log.info("[LIME PUSH] Passo 1: Atualizando contato para identity={}: Medico={}, fila={}", userIdentity, payload.getDoctorName(), resolvedQueue);
             sendToBlipCommandsApi(contactCommand);
 
             // Roteamento delegado ao payload nativo do Blip Builder.
@@ -283,12 +285,12 @@ public class BlipContextService {
         }
     }
 
-    public boolean setQueueRedirect(String userIdentity, String queueNameOrId) {
-        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+    public String resolveQueueName(String queueNameOrId) {
+        if (queueNameOrId == null) return "";
         String resolvedQueueName = queueNameOrId;
 
         // Se o valor de entrada parecer com a estrutura de um UUID de fila, realiza a tradução dinâmica
-        if (queueNameOrId != null && queueNameOrId.trim().matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+        if (queueNameOrId.trim().matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
             String uuid = queueNameOrId.trim();
             log.info("[QUEUE-RESOLVER] Detectado UUID de fila '{}'. Buscando nome descritivo correspondente na API do Blip...", uuid);
             try {
@@ -316,10 +318,12 @@ public class BlipContextService {
         }
 
         String safeQueueName = cleanQueueName(resolvedQueueName);
-        if (safeQueueName.isBlank()) {
-            safeQueueName = "Recepção Central / Suporte";
-            log.warn("[QUEUE] Nome de fila inválido ('{}') substituído por fallback: '{}'", queueNameOrId, safeQueueName);
-        }
+        return safeQueueName.isBlank() ? "Recepção Central / Suporte" : safeQueueName;
+    }
+
+    public boolean setQueueRedirect(String userIdentity, String queueNameOrId) {
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+        String safeQueueName = resolveQueueName(queueNameOrId);
 
         if (!safeQueueName.isBlank()
                 && !"Recepção Central / Suporte".equalsIgnoreCase(safeQueueName)

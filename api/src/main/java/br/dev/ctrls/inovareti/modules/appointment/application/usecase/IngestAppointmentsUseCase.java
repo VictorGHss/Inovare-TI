@@ -158,10 +158,24 @@ public class IngestAppointmentsUseCase {
 
         // FILTRO ESTRUTURAL DE AUDITORIA: Remove agendamentos de médicos não-assinantes ou inativos antes de buscar detalhes dos pacientes
         int totalBeforeDoctorFilter = appointments.size();
+        boolean billingEnabled = appointmentMotorProperties.isBillingEnabled();
         appointments = appointments.stream()
                 .filter(appointment -> {
                     var mapping = doctorMappingCache.get(appointment.doctorId());
-                    return mapping != null && !"inactive".equalsIgnoreCase(mapping.getBlipQueueId()) && !mapping.isIgnoreAutoSchedule();
+                    if (mapping == null) {
+                        return false;
+                    }
+                    if ("inactive".equalsIgnoreCase(mapping.getBlipQueueId()) || mapping.isIgnoreAutoSchedule()) {
+                        return false;
+                    }
+                    if (billingEnabled) {
+                        boolean isLicensed = mapping.isActive() || (mapping.getSubscriptionEndDate() != null && mapping.getSubscriptionEndDate().isAfter(LocalDateTime.now()));
+                        if (!isLicensed) {
+                            log.info("[MONETIZATION] Acesso bloqueado para o ID={}", appointment.doctorId());
+                            return false;
+                        }
+                    }
+                    return true;
                 })
                 .collect(Collectors.toList());
         int removedByDoctorFilter = totalBeforeDoctorFilter - appointments.size();
@@ -303,6 +317,14 @@ public class IngestAppointmentsUseCase {
             var mapping = doctorMappingCache.get(appointment.doctorId());
             if (mapping == null || "inactive".equalsIgnoreCase(mapping.getBlipQueueId()) || mapping.isIgnoreAutoSchedule()) {
                 continue;
+            }
+
+            if (appointmentMotorProperties.isBillingEnabled()) {
+                boolean isLicensed = mapping.isActive() || (mapping.getSubscriptionEndDate() != null && mapping.getSubscriptionEndDate().isAfter(LocalDateTime.now()));
+                if (!isLicensed) {
+                    log.info("[MONETIZATION] Acesso bloqueado para o ID={}", appointment.doctorId());
+                    continue;
+                }
             }
 
             AppointmentSession existing = sessionCache.get(feegowAppointmentId);

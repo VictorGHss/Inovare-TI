@@ -54,6 +54,13 @@ public class AppointmentDoctorMappingEntity {
     @Column(name = "ignore_auto_schedule", nullable = false)
     private boolean ignoreAutoSchedule;
 
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
+
+    @Column(name = "subscription_end_date")
+    private LocalDateTime subscriptionEndDate;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -77,6 +84,8 @@ public class AppointmentDoctorMappingEntity {
                 .discordWebhookUrl(this.discordWebhookUrl)
                 .externalWaLink(null)
                 .ignoreAutoSchedule(this.ignoreAutoSchedule)
+                .isActive(this.isActive)
+                .subscriptionEndDate(this.subscriptionEndDate)
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
                 .build();
@@ -104,6 +113,8 @@ public class AppointmentDoctorMappingEntity {
                 .itsmUserId(parsedItsmUserId)
                 .discordWebhookUrl(domain.getDiscordWebhookUrl())
                 .ignoreAutoSchedule(domain.isIgnoreAutoSchedule())
+                .isActive(domain.isActive())
+                .subscriptionEndDate(domain.getSubscriptionEndDate())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();

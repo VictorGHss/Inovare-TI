@@ -43,6 +43,11 @@ public class AppointmentDoctorMapping {
     private String externalWaLink;
 
     private boolean ignoreAutoSchedule;
+    
+    @Builder.Default
+    private boolean isActive = true;
+    private LocalDateTime subscriptionEndDate;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

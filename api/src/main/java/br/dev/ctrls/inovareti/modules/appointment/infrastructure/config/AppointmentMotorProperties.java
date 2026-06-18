@@ -13,6 +13,7 @@ import lombok.Setter;
 public class AppointmentMotorProperties {
 
     private boolean enabled;
+    private boolean billingEnabled;
     private String ingestionCron;
     private String monitorCron;
     private boolean testMode;

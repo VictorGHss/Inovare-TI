@@ -325,6 +325,7 @@ public class IngestAppointmentsUseCase {
                 AppointmentSessionStatus status = existingSessionOpt.get().getStatus();
                 if (status == AppointmentSessionStatus.PENDING || status == AppointmentSessionStatus.NUDGE_1_SENT ||
                     status == AppointmentSessionStatus.NUDGE_FINAL_SENT || status == AppointmentSessionStatus.CONFIRMED) {
+                    log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Mensagem já enviada anteriormente.", feegowAppointmentId);
                     continue;
                 }
             }

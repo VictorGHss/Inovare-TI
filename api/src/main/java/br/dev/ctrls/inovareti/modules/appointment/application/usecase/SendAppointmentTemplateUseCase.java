@@ -13,6 +13,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCatego
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
+import java.time.LocalDateTime;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
@@ -81,9 +83,22 @@ public class SendAppointmentTemplateUseCase {
             String templateId = resolveTemplateId(config.getTemplateId(), category);
             String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
+
+            if (session != null) {
+                if (category == AppointmentCategory.CONFIRMATION) {
+                    session.setStatus(AppointmentSessionStatus.PENDING);
+                } else if (category == AppointmentCategory.NUDGE_1) {
+                    session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                } else if (category == AppointmentCategory.NUDGE_FINAL) {
+                    session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                }
+                session.setLastInteractionAt(LocalDateTime.now());
+                session.setLastNotificationSentAt(LocalDateTime.now());
+                saveWithRetry(session, null);
+            }
+
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);
 
-            if (session != null) saveWithRetry(session, null);
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
             return true;
         } catch (RestClientResponseException ex) {
@@ -110,9 +125,20 @@ public class SendAppointmentTemplateUseCase {
             String templateId = resolveTemplateId(config.getTemplateId(), category);
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
+
+            if (category == AppointmentCategory.CONFIRMATION) {
+                session.setStatus(AppointmentSessionStatus.PENDING);
+            } else if (category == AppointmentCategory.NUDGE_1) {
+                session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+            } else if (category == AppointmentCategory.NUDGE_FINAL) {
+                session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+            }
+            session.setLastInteractionAt(LocalDateTime.now());
+            session.setLastNotificationSentAt(LocalDateTime.now());
+            saveWithRetry(session, null);
+
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             
-            saveWithRetry(session, null);
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
             return true;
         } catch (RestClientResponseException ex) {
@@ -131,8 +157,14 @@ public class SendAppointmentTemplateUseCase {
         AppointmentTemplateData templateData = appointmentTemplateDataBuilder.build(session);
 
         try {
-            blipNotificationService.sendSimpleTemplateMessage(session.getPhoneNumber(), templateName, templateData);
+            if ("aviso_final_cancelamento".equalsIgnoreCase(templateName)) {
+                session.setStatus(AppointmentSessionStatus.CANCELED_NO_RESPONSE);
+                session.setLastInteractionAt(LocalDateTime.now());
+                session.setClosedAt(LocalDateTime.now());
+            }
             saveWithRetry(session, null);
+
+            blipNotificationService.sendSimpleTemplateMessage(session.getPhoneNumber(), templateName, templateData);
             log.info("[MENSAGERIA] Template simples '{}' disparado.", templateName);
             return true;
         } catch (RestClientResponseException ex) {
@@ -190,6 +222,10 @@ public class SendAppointmentTemplateUseCase {
                 transactionTemplate.executeWithoutResult(status -> {
                     AppointmentSession currentSession = appointmentSessionRepository.findByIdLocked(session.getId())
                             .orElse(session);
+                    currentSession.setStatus(session.getStatus());
+                    currentSession.setLastInteractionAt(session.getLastInteractionAt());
+                    currentSession.setLastNotificationSentAt(session.getLastNotificationSentAt());
+                    currentSession.setClosedAt(session.getClosedAt());
                     currentSession.setStatusDetails(statusDetails);
                     appointmentSessionRepository.save(currentSession);
                 });

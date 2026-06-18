@@ -38,7 +38,6 @@ public class MonitorAppointmentNudgesUseCase {
     private final BlipNotificationService blipNotificationService;
     private final TransactionTemplate transactionTemplate;
 
-    @org.springframework.transaction.annotation.Transactional
     public void execute() {
         // --- 1. RESOLVER CONFIGURAÇÕES E TIMINGS ---
         // Individual Timings
@@ -192,7 +191,7 @@ public class MonitorAppointmentNudgesUseCase {
     }
 
     private void processIndividualNudge(AppointmentSession session, AppointmentCategory category, AppointmentSessionStatus expectedStatus) {
-        transactionTemplate.executeWithoutResult(status -> {
+        boolean shouldSend = transactionTemplate.execute(status -> {
             AppointmentSession lockedSession = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
             if (lockedSession != null && lockedSession.getStatus() == expectedStatus) {
                 if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber())) {
@@ -200,12 +199,7 @@ public class MonitorAppointmentNudgesUseCase {
                     lockedSession.setLastNotificationSentAt(LocalDateTime.now());
                     lockedSession.setLastInteractionAt(LocalDateTime.now());
                     appointmentSessionRepository.save(lockedSession);
-                    return;
-                }
-                boolean sent = sendAppointmentTemplateUseCase.execute(lockedSession, category);
-                if (!sent) {
-                    log.warn("Nudge não enviado. Mantendo sessão no estado atual. sessionId={}, category={}", lockedSession.getId(), category);
-                    return;
+                    return false;
                 }
                 if (category == AppointmentCategory.NUDGE_1) {
                     confirmationStateMachineService.markNudge1Sent(lockedSession);
@@ -213,22 +207,42 @@ public class MonitorAppointmentNudgesUseCase {
                     confirmationStateMachineService.markNudgeFinalSent(lockedSession);
                 }
                 appointmentSessionRepository.save(lockedSession);
+                return true;
             }
+            return false;
         });
+
+        if (shouldSend) {
+            AppointmentSession activeSession = transactionTemplate.execute(status ->
+                appointmentSessionRepository.findById(session.getId()).orElse(null)
+            );
+            if (activeSession != null) {
+                boolean sent = sendAppointmentTemplateUseCase.execute(activeSession, category);
+                if (!sent) {
+                    log.warn("Nudge não enviado. Revertendo status da sessão para o estado anterior. sessionId={}, category={}", activeSession.getId(), category);
+                    transactionTemplate.executeWithoutResult(status -> {
+                        AppointmentSession locked = appointmentSessionRepository.findByIdLocked(session.getId()).orElse(null);
+                        if (locked != null) {
+                            locked.setStatus(expectedStatus);
+                            appointmentSessionRepository.save(locked);
+                        }
+                    });
+                }
+            }
+        }
     }
 
     private void processGroupNudge(UUID groupId, AppointmentCategory category, AppointmentSessionStatus expectedStatus) {
-        transactionTemplate.executeWithoutResult(status -> {
+        boolean shouldSend = transactionTemplate.execute(status -> {
             List<AppointmentSession> groupSessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
             if (groupSessions == null || groupSessions.isEmpty()) {
-                return;
+                return false;
             }
 
-            // Verifica se todas as sessões do grupo ainda estão no status esperado
             boolean allInExpectedState = groupSessions.stream().allMatch(s -> s.getStatus() == expectedStatus);
             if (!allInExpectedState) {
                 log.info("[GRUPO-NUDGE] Grupo {} possui sessões em status divergente. Abortando nudge.", groupId);
-                return;
+                return false;
             }
 
             String phoneNumber = groupSessions.get(0).getPhoneNumber();
@@ -240,31 +254,51 @@ public class MonitorAppointmentNudgesUseCase {
                     locked.setLastInteractionAt(LocalDateTime.now());
                     appointmentSessionRepository.save(locked);
                 }
-                return;
+                return false;
             }
 
-            String templateId = appointmentConfigRepository.findByCategory(category)
-                    .map(config -> config.getTemplateId())
-                    .orElse(appointmentMotorProperties.getBlipTemplateNudgePending());
-
-            try {
-                log.info("[GRUPO-NUDGE] Enviando template de nudge '{}' para {}. groupId={}, category={}", templateId, phoneNumber, groupId, category);
-                // Sem passar nome do paciente, mantendo o corpo da mensagem mais limpo e genérico
-                blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateId, groupId, null);
-                
-                for (AppointmentSession s : groupSessions) {
-                    AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
-                    if (category == AppointmentCategory.GROUP_NUDGE_1) {
-                        confirmationStateMachineService.markNudge1Sent(locked);
-                    } else {
-                        confirmationStateMachineService.markNudgeFinalSent(locked);
-                    }
-                    appointmentSessionRepository.save(locked);
+            for (AppointmentSession s : groupSessions) {
+                AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                if (category == AppointmentCategory.GROUP_NUDGE_1) {
+                    confirmationStateMachineService.markNudge1Sent(locked);
+                } else {
+                    confirmationStateMachineService.markNudgeFinalSent(locked);
                 }
-            } catch (Exception e) {
-                log.error("[GRUPO-NUDGE] Erro ao enviar template de nudge para {}. groupId={}", phoneNumber, groupId, e);
+                appointmentSessionRepository.save(locked);
             }
+            return true;
         });
+
+        if (shouldSend) {
+            List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                appointmentSessionRepository.findByCurrentGroupId(groupId)
+            );
+            if (activeSessions != null && !activeSessions.isEmpty()) {
+                String phoneNumber = activeSessions.get(0).getPhoneNumber();
+                String templateId = transactionTemplate.execute(status ->
+                    appointmentConfigRepository.findByCategory(category)
+                        .map(config -> config.getTemplateId())
+                        .orElse(appointmentMotorProperties.getBlipTemplateNudgePending())
+                );
+
+                try {
+                    log.info("[GRUPO-NUDGE] Enviando template de nudge '{}' para {}. groupId={}, category={}", templateId, phoneNumber, groupId, category);
+                    blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateId, groupId, null);
+                } catch (Exception e) {
+                    log.error("[GRUPO-NUDGE] Erro ao enviar template de nudge para {}. Revertendo status do grupo. groupId={}", phoneNumber, groupId, e);
+                    transactionTemplate.executeWithoutResult(status -> {
+                        List<AppointmentSession> groupSessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
+                        if (groupSessions != null) {
+                            for (AppointmentSession s : groupSessions) {
+                                AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                                locked.setStatus(expectedStatus);
+                                appointmentSessionRepository.save(locked);
+                            }
+                        }
+                    });
+                }
+            }
+        }
     }
 
     private void processIndividualCancel(AppointmentSession session) {

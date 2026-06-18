@@ -387,7 +387,10 @@ public class HandleBlipWebhookUseCase {
                         .orElse(null);
                 return new SessionDbData(session, doctorMapping);
             });
-        } catch (NotFoundException | IllegalStateException ex) {
+        } catch (NotFoundException ex) {
+            log.warn("[WEBHOOK-AVISO] Callback recebido para o agendamento ID={}, mas a sessão local não foi encontrada no banco.", appointmentId);
+            return null;
+        } catch (IllegalStateException ex) {
             log.error("Erro na leitura transacional inicial do webhook para appointmentId={}. Detalhes: {}", appointmentId, ex.getMessage(), ex);
             return null;
         } catch (RuntimeException ex) {

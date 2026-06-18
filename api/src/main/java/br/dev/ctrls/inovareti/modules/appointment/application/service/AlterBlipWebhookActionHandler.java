@@ -27,7 +27,8 @@ public class AlterBlipWebhookActionHandler implements BlipWebhookActionHandler {
 
     @Override
     public void applySessionState(AppointmentSession session, String action) {
-        // Nenhuma alteração de estado no banco de dados necessária além da atualização comum do telefone.
+        session.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED);
+        session.setClosedAt(java.time.LocalDateTime.now());
         log.info("[MENSAGERIA] Ação de {} processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.", "alteração");
     }
 }

@@ -184,7 +184,30 @@ public class IngestAppointmentsUseCase {
         }
 
         List<FeegowAppointment> activeAppointments = appointments.stream()
-                .filter(appointment -> "1".equals(appointment.statusId()))
+                .filter(appointment -> {
+                    String statusId = appointment.statusId();
+                    if ("1".equals(statusId)) {
+                        return true;
+                    }
+                    
+                    String statusDescription = switch (statusId != null ? statusId.trim() : "") {
+                        case "2" -> "Confirmado";
+                        case "3" -> "Triagem";
+                        case "4" -> "Em Atendimento";
+                        case "5" -> "Atendido";
+                        case "6" -> "Cancelado";
+                        case "7" -> "Confirmado (Feegow)";
+                        case "11" -> "Falta";
+                        case "15" -> "Pré-Agendamento";
+                        case "16" -> "Remarcado";
+                        case "101", "103", "105" -> "Status de Telemedicina ou Integração";
+                        default -> "Outro Status Desconhecido";
+                    };
+                    
+                    log.info("[ELEGIBILIDADE-STATUS] Agendamento ID={} descartado sumariamente da esteira. Status ID={} ({}) não elegível. Apenas o status '1' (Marcado - não confirmado) é permitido para disparo.",
+                            appointment.id(), statusId, statusDescription);
+                    return false;
+                })
                 .collect(Collectors.toList());
 
         java.util.Set<String> patientIds = activeAppointments.stream()

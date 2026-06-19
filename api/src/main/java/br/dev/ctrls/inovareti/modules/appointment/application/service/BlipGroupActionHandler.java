@@ -310,6 +310,7 @@ public class BlipGroupActionHandler {
 
         Map<String, String> fields = Map.of(
             "lista_detalhada", listaDetalhada,
+            "listaDetalhada", listaDetalhada,
             "groupId", groupId.toString(),
             "isConfirmingAgenda", "true"
         );

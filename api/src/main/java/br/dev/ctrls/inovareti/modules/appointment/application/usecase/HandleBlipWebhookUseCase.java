@@ -279,7 +279,8 @@ public class HandleBlipWebhookUseCase {
 
                 if (listaDetalhada != null && !listaDetalhada.isBlank()) {
                     blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);
-                    log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada para {}.", normalizedPhone);
+                    blipContextService.setUserContextForUser(normalizedPhone, "listaDetalhada", listaDetalhada);
+                    log.info("[WEBHOOK-BLOCK] Injetada lista_detalhada e listaDetalhada para {}.", normalizedPhone);
                 } else {
                     log.warn("[WEBHOOK-BLOCK] lista_detalhada vazia ou nula para {}.", normalizedPhone);
                 }

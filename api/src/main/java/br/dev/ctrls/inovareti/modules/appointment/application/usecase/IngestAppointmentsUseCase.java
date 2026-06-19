@@ -650,6 +650,7 @@ public class IngestAppointmentsUseCase {
         try {
             Map<String, String> fields = Map.of(
                 "lista_detalhada", preCompiledText,
+                "listaDetalhada", preCompiledText,
                 "groupId", groupId.toString(),
                 "isConfirmingAgenda", "true"
             );

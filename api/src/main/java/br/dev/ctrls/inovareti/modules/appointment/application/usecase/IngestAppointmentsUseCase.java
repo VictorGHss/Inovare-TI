@@ -32,6 +32,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
@@ -74,6 +75,7 @@ public class IngestAppointmentsUseCase {
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     /**
      * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
@@ -655,15 +657,78 @@ public class IngestAppointmentsUseCase {
                 "isConfirmingAgenda", "true"
             );
             log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}", phoneNumber.trim(), groupId);
-            blipContextService.setUserContextFieldsInParallel(phoneNumber.trim(), fields);
 
-            // 1. Determina a identidade de túnel do subbot para a qual o Builder Master State deve ser aplicado
+            String cleanPhone = phoneNumber.trim();
+            String phoneDigits = cleanPhone;
+            if (phoneDigits.contains("@")) {
+                phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+            }
+
+            // Busca se há reconciliação de identidade
+            List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations =
+                blipUserIdentityReconciliationRepository.findByPhoneNumber(phoneDigits);
+
+            List<String> targetsForContext = new ArrayList<>();
+            targetsForContext.add(cleanPhone);
+
+            List<String> tunnelIdentities = new ArrayList<>();
+
             String subbotId = blipProperties.getSubbotId();
+            String subbotLocalPart = null;
+            if (subbotId != null && !subbotId.isBlank()) {
+                subbotLocalPart = subbotId.trim();
+                if (subbotLocalPart.contains("@")) {
+                    subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                }
+            }
+
+            // 1. Túnel determinístico (fallback)
+            if (subbotLocalPart != null) {
+                String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                tunnelIdentities.add(deterministicTunnel);
+            }
+
+            // 2. Túnel baseado na reconciliação real
+            if (reconciliations != null && !reconciliations.isEmpty()) {
+                for (var rec : reconciliations) {
+                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                        String realTunnel = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                        if (!tunnelIdentities.contains(realTunnel)) {
+                            tunnelIdentities.add(realTunnel);
+                            log.info("[INGESTAO-GRUPO-CONTEXTO] Identidade de túnel real reconciliada encontrada: {} para o telefone: {}", realTunnel, phoneDigits);
+                        }
+                    }
+                }
+            }
+
+            // Adiciona todas as identidades de túnel para injeção de contexto também
+            for (String tunnel : tunnelIdentities) {
+                if (!targetsForContext.contains(tunnel)) {
+                    targetsForContext.add(tunnel);
+                }
+            }
+
+            // Injeta o contexto em paralelo para todos os alvos (telefone e túneis)
+            List<CompletableFuture<Void>> contextFutures = new ArrayList<>();
+            for (String target : targetsForContext) {
+                contextFutures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        blipContextService.setUserContextFieldsInParallel(target, fields);
+                    } catch (Exception e) {
+                        log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao configurar variáveis de contexto para target {}", target, e);
+                    }
+                }));
+            }
+
+            try {
+                CompletableFuture.allOf(contextFutures.toArray(CompletableFuture[]::new)).join();
+            } catch (Exception e) {
+                log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao aguardar injeção paralela de contextos", e);
+            }
+
             String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
 
             if (prepararAtendimentoBlockId != null && !prepararAtendimentoBlockId.isBlank()) {
-                String cleanPhone = phoneNumber.trim();
-                
                 // Roteador Master-State
                 try {
                     blipContextService.setMasterState(cleanPhone, subbotId, prepararAtendimentoBlockId);
@@ -672,24 +737,23 @@ public class IngestAppointmentsUseCase {
                     log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Master-State no Roteador na ingestão para {}", cleanPhone, e);
                 }
 
-                // Subbot Builder Master-State (calcula o túnel)
-                if (subbotId != null && !subbotId.isBlank()) {
-                    String userLocalPart = cleanPhone;
-                    if (userLocalPart.contains("@")) {
-                        userLocalPart = userLocalPart.substring(0, userLocalPart.indexOf('@'));
-                    }
-                    String subbotLocalPart = subbotId.trim();
-                    if (subbotLocalPart.contains("@")) {
-                        subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
-                    }
-                    String tunnelIdentity = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
+                // Subbot Builder Master-State (para cada túnel identificado)
+                List<CompletableFuture<Void>> stateFutures = new ArrayList<>();
+                for (String tunnel : tunnelIdentities) {
+                    stateFutures.add(CompletableFuture.runAsync(() -> {
+                        try {
+                            blipContextService.setBuilderMasterState(tunnel, prepararAtendimentoBlockId);
+                            log.info("[INGESTAO-GRUPO-CONTEXTO] Builder Master-State atualizado na ingestão para o túnel {} e bloco {}", tunnel, prepararAtendimentoBlockId);
+                        } catch (Exception e) {
+                            log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Builder Master-State no Subbot na ingestão para {}", tunnel, e);
+                        }
+                    }));
+                }
 
-                    try {
-                        blipContextService.setBuilderMasterState(tunnelIdentity, prepararAtendimentoBlockId);
-                        log.info("[INGESTAO-GRUPO-CONTEXTO] Builder Master-State atualizado na ingestão para o túnel {} e bloco {}", tunnelIdentity, prepararAtendimentoBlockId);
-                    } catch (Exception e) {
-                        log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Builder Master-State no Subbot na ingestão para {}", tunnelIdentity, e);
-                    }
+                try {
+                    CompletableFuture.allOf(stateFutures.toArray(CompletableFuture[]::new)).join();
+                } catch (Exception e) {
+                    log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao aguardar atualização de Builder Master-States", e);
                 }
             }
         } catch (Exception e) {

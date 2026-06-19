@@ -111,6 +111,8 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
                 if (targetQueue == null || targetQueue.isBlank()) {
                     targetQueue = "Recepção Central / Suporte";
+                } else {
+                    targetQueue = blipContextService.resolveQueueName(targetQueue);
                 }
 
                 userPhone = session.getPhoneNumber();
@@ -193,6 +195,8 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
             if (targetQueue == null || targetQueue.isBlank()) {
                 targetQueue = "Recepção Central / Suporte";
+            } else {
+                targetQueue = blipContextService.resolveQueueName(targetQueue);
             }
 
             String userPhone = session.getPhoneNumber();

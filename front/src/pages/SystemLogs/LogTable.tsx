@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-import SkeletonTable from '../../components/SkeletonTable';
+import SkeletonTable from '@/components/ui/SkeletonTable';
 import type { AuditLogPage } from '../../types/models';
 import {
   ACTION_BADGE_CLASS,

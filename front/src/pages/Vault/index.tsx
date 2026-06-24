@@ -13,7 +13,7 @@ import VaultCreateModal from './components/VaultCreateModal';
 import VaultEditModal from './components/VaultEditModal';
 import VaultItemCard from './components/VaultItemCard';
 import VaultSecurityGuard from './components/VaultSecurityGuard';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 type AttachmentPreviewState = {
   itemId: string;

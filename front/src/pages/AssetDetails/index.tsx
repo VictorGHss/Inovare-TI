@@ -20,8 +20,8 @@ import type { Asset, AssetMaintenance, User, AssetCategory } from '../../types/m
 import NewMaintenanceModal from './NewMaintenanceModal';
 import MaintenanceTimeline from './MaintenanceTimeline';
 import TransferAssetModal from './TransferAssetModal';
-import PrintLabelModal from '../../components/PrintLabelModal';
-import PageHero from '../../components/PageHero';
+import PrintLabelModal from '@/components/PrintLabelModal';
+import PageHero from '@/components/ui/PageHero';
 import NewAssetModal from '../Assets/components/NewAssetModal';
 
 export default function AssetDetails() {

@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { addBatch, uploadBatchInvoice } from '../../services/inventoryService';
 import type { Item } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface AddBatchModalProps {
   isOpen: boolean;

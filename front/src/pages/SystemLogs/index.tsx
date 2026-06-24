@@ -1,6 +1,6 @@
 import { Shield } from 'lucide-react';
 
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 import { useSystemLogs } from '../../hooks/useSystemLogs';
 import LogFilters from './LogFilters';
 import LogTable from './LogTable';

@@ -3,7 +3,7 @@ import { X, Laptop, Box, AlertCircle } from 'lucide-react';
 
 import { useResolveTicket } from '../../hooks/useResolveTicket';
 import type { ResolveTicketRequest, Ticket, User } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface ResolveTicketModalProps {
   isOpen: boolean;

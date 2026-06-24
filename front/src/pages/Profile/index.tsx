@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { Key, Lock, ShieldCheck, UserCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { changePassword, generate2FA, verify2FA } from '../../services/userService';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 export default function Profile() {
   const { user, isTwoFactorVerified, updateAuthToken } = useAuth();

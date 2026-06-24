@@ -5,7 +5,7 @@ import { ArrowLeft, Plus, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getItemCategories, createItem, addBatch } from '../../services/inventoryService';
 import type { ItemCategory } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface SpecEntry {
   key: string;

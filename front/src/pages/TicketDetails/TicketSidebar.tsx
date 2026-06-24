@@ -18,7 +18,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-import SlaBadge from '../../components/SlaBadge';
+import SlaBadge from '@/components/ui/SlaBadge';
 import { getTickets, relateTicket, getSimilarTickets } from '../../services/ticketService';
 import type { Asset, Ticket, TicketCategory, User } from '../../types/models';
 

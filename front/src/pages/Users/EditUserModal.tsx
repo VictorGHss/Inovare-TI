@@ -3,7 +3,7 @@ import { CircleHelp, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { updateUser, getSectors } from '../../services/userService';
 import type { User, Sector, UpdateUserDto } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface EditUserModalProps {
   user: User | null;

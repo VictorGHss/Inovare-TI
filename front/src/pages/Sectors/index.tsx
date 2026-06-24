@@ -4,7 +4,7 @@ import { PlusCircle, Building2, Search, X, ArrowDownWideNarrow, Edit2, Check, Ey
 import { toast } from 'react-toastify';
 import { getSectors, createSector, updateSector, toggleSectorActive } from '../../services/userService';
 import type { Sector } from '../../types/models';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 export default function Sectors() {
   const [sectors, setSectors] = useState<Sector[]>([]);

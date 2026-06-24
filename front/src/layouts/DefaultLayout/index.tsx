@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import NotificationBell from '../../components/NotificationBell';
-import UserDropdown from '../../components/UserDropdown';
+import NotificationBell from '@/components/common/NotificationBell';
+import UserDropdown from '@/components/common/UserDropdown';
 import { connectAppointmentEvents } from '../../services/appointmentRealtimeService';
 import type { AppointmentRealtimeEvent } from '../../types/models';
 

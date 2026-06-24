@@ -12,7 +12,7 @@ import {
 } from '../../services/financeService';
 import { getUsers, getAllUsers } from '../../services/userService';
 import type { DoctorMapping, User } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 const inlineInputClass =
   'w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-700 transition-all focus:border-brand-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/25';

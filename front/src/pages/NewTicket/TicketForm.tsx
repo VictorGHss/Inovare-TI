@@ -10,7 +10,7 @@ import KbSuggestions from './KbSuggestions';
 import FileAttachment from './FileAttachment';
 import RequestItemFields, { type RequestedItemState } from './RequestItemFields';
 import PriorityCategoryFields from './PriorityCategoryFields';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 
 interface Props {

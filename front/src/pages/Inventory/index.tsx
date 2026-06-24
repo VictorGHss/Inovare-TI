@@ -14,7 +14,7 @@ import { toast } from 'react-toastify';
 import { getItems, getObsoleteItems } from '../../services/inventoryService';
 import type { Item } from '../../types/models';
 import AddBatchModal from './AddBatchModal';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 type InventorySortOption = 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'oldest-batch-asc';
 

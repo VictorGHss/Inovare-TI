@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import TicketForm from './TicketForm';
 import TutorialAside from './TutorialAside';
 import type { TicketType } from './TicketTypeToggle';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 export default function NewTicket() {
   const navigate = useNavigate();

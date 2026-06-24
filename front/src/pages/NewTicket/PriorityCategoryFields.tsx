@@ -1,6 +1,6 @@
 // Seletores de Prioridade e Categoria do chamado no ecrã
 import type { CreateTicketDto, TicketCategory } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface Props {
   priority: CreateTicketDto['priority'];

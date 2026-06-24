@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTicketDetails } from '../../hooks/useTicketDetails';
 import { updateTicketSolution } from '../../services/ticketService';

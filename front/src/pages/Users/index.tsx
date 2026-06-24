@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import BulkImportModal from './BulkImportModal';
 import EditUserModal from './EditUserModal';
 import NewUserModal from './NewUserModal';
-import PageHero from '../../components/PageHero';
+import PageHero from '@/components/ui/PageHero';
 
 export default function Users() {
   const { user: authenticatedUser, invalidateTwoFactorVerification } = useAuth();

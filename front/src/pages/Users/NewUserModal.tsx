@@ -3,7 +3,7 @@ import { CircleHelp, Loader2, SearchCheck, UserPlus2, UserRound, X } from 'lucid
 import { toast } from 'react-toastify';
 import { checkContaAzulCustomerByEmail, getSectors } from '../../services/userService';
 import type { CreateUserDto, Sector } from '../../types/models';
-import SearchableDropdown from '../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 const customerNotFoundMessage =
   'Não encontramos nenhum médico com este e-mail no Conta Azul. Verifique se o e-mail está correto no ERP ou insira o ID manualmente.';

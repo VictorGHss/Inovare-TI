@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 
 import { createAsset, updateAsset, uploadAssetInvoice } from '../../../services/inventoryService';
 import type { Asset, AssetCategory, CreateAssetDto, User } from '../../../types/models';
-import SearchableDropdown from '../../../components/SearchableDropdown';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 const inputClassName =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition';

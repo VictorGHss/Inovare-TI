@@ -4,8 +4,8 @@ import { PlusCircle, Search, X, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getTickets, getTicketTags } from '../../services/ticketService';
 import type { Ticket, TicketTag } from '../../types/models';
-import SkeletonTable from '../../components/SkeletonTable';
-import PageHero from '../../components/PageHero';
+import SkeletonTable from '@/components/ui/SkeletonTable';
+import PageHero from '@/components/ui/PageHero';
 import TicketsTable from '../Dashboard/TicketsTable';
 import { useAuth } from '../../contexts/AuthContext';
 

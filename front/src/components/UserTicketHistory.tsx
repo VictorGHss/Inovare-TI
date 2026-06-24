@@ -1,5 +1,5 @@
-import type { Ticket } from '../types/models';
-import StatusBadge from './StatusBadge';
+import type { Ticket } from '@/types/models';
+import StatusBadge from '@/components/ui/StatusBadge';
 import { Calendar, FileText } from 'lucide-react';
 
 interface UserTicketHistoryProps {

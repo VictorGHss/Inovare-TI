@@ -1,5 +1,5 @@
-import StatusBadge from '../../components/StatusBadge';
-import SlaBadge from '../../components/SlaBadge';
+import StatusBadge from '@/components/ui/StatusBadge';
+import SlaBadge from '@/components/ui/SlaBadge';
 import type { Ticket } from '../../types/models';
 
 interface TicketHeaderProps {

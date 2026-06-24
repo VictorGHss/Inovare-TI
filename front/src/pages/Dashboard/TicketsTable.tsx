@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bot } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Ticket } from '../../types/models';
-import StatusBadge from '../../components/StatusBadge';
-import SlaBadge from '../../components/SlaBadge';
+import StatusBadge from '@/components/ui/StatusBadge';
+import SlaBadge from '@/components/ui/SlaBadge';
 
 interface TicketsTableProps {
   tickets: Ticket[];

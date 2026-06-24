@@ -3,7 +3,7 @@ import type { Html5Qrcode } from 'html5-qrcode';
 import { Camera, QrCode, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { logQrScan } from '../services/inventoryService';
+import { logQrScan } from '@/services/inventoryService';
 
 function resolveInternalPath(decodedText: string): string | null {
   const normalizedText = decodedText.trim();

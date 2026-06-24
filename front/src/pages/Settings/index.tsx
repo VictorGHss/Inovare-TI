@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { getSystemSettings, getAdminConfig, updateSystemSettings } from '../../services/inventoryService';
-import FinancialTwoFactorChallenge from '@/components/FinancialTwoFactorChallenge';
+import FinancialTwoFactorChallenge from '@/pages/Financeiro/components/FinancialTwoFactorChallenge';
 import type { AdminConfig, SystemSetting, UpdateSystemSettingsPayload } from '../../types/models';
 
 import PageHero from '@/components/ui/PageHero';

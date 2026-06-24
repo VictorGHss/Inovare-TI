@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
-import { getUsers } from '../services/userService';
+import { getUsers } from '@/services/userService';
 import {
   addAdditionalUser,
   changeTicketCategory,
@@ -11,9 +11,9 @@ import {
   resolveTicket,
   transferTicket,
   uploadTicketAttachment,
-} from '../services/ticketService';
-import { getAssetsByUser } from '../services/inventoryService';
-import type { Asset, ResolveTicketRequest, Ticket, TicketCategory, User } from '../types/models';
+} from '@/services/ticketService';
+import { getAssetsByUser } from '@/services/inventoryService';
+import type { Asset, ResolveTicketRequest, Ticket, TicketCategory, User } from '@/types/models';
 
 interface UseTicketDetailsParams {
   ticketId?: string;

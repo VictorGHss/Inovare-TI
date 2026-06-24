@@ -1,5 +1,5 @@
 import { AlertTriangle, DollarSign, Landmark, Wallet } from 'lucide-react';
-import type { FinancialSummaryDTO } from '../../types/models';
+import type { FinancialSummaryDTO } from '@/types/models';
 
 interface FinancialMetricsGridProps {
   summary: FinancialSummaryDTO | null;

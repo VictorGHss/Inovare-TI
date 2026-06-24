@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { MetricDTO } from '../types/models';
+import type { MetricDTO } from '@/types/models';
 
 interface SlaBreachesBarProps {
   data: MetricDTO[];

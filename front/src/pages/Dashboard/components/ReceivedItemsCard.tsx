@@ -1,4 +1,4 @@
-import type { Ticket } from '../types/models';
+import type { Ticket } from '@/types/models';
 import { CheckCircle2 } from 'lucide-react';
 
 interface ReceivedItemsCardProps {

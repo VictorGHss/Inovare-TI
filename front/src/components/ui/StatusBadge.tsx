@@ -1,5 +1,5 @@
 // Componente de badge de status para chamados
-import type { Ticket } from '../types/models';
+import type { Ticket } from '@/types/models';
 
 type Status = Ticket['status'];
 

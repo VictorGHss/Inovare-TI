@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Server, Wifi, AlertOctagon, Activity } from 'lucide-react';
-import { getMacroTelemetry, type TelemetryData } from '../services/telemetryService';
+import { getMacroTelemetry, type TelemetryData } from '@/services/telemetryService';
 
 /**
  * Auxiliar para formatar volumetria de bytes para formatação legível (KB, MB, GB).

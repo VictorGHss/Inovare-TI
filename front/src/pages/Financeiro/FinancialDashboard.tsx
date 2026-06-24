@@ -1,12 +1,12 @@
 import { Activity, BadgeDollarSign, Eye, EyeOff, FileDown, LayoutDashboard, RefreshCw, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import FinancialDoctorMappingPanel from './FinancialDoctorMappingPanel';
-import InternalConsumptionPanel from './InternalConsumptionPanel';
-import FinancialMetricsGrid from './FinancialMetricsGrid';
-import FinancialAlertsList from './FinancialAlertsList';
-import ContaAzulStatusCard from './ContaAzulStatusCard';
-import { useFinancialDashboard } from '../../hooks/useFinancialDashboard';
-import { useFinancialActions } from '../../hooks/useFinancialActions';
+import FinancialDoctorMappingPanel from './components/FinancialDoctorMappingPanel';
+import InternalConsumptionPanel from './components/InternalConsumptionPanel';
+import FinancialMetricsGrid from './components/FinancialMetricsGrid';
+import FinancialAlertsList from './components/FinancialAlertsList';
+import ContaAzulStatusCard from './components/ContaAzulStatusCard';
+import { useFinancialDashboard } from './hooks/useFinancialDashboard';
+import { useFinancialActions } from './hooks/useFinancialActions';
 
 const CONTA_AZUL_AUTHORIZE_URL = 'https://itsm-inovare.ctrls.dev.br/api/financeiro/contaazul/authorize';
 const ISO_DATETIME_PREFIX_REGEX = /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/;

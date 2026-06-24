@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Loader2, Save, Trash2, Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import { getApiErrorMessage } from '../../lib/apiError';
+import { getApiErrorMessage } from '@/lib/apiError';
 import {
   getDoctorMappings,
   createDoctorMapping,
   updateDoctorMapping,
   deleteDoctorMapping,
   syncDoctorsBaseFromContaAzul,
-} from '../../services/financeService';
-import { getUsers, getAllUsers } from '../../services/userService';
-import type { DoctorMapping, User } from '../../types/models';
+} from '@/services/financeService';
+import { getUsers, getAllUsers } from '@/services/userService';
+import type { DoctorMapping, User } from '@/types/models';
 import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 const inlineInputClass =

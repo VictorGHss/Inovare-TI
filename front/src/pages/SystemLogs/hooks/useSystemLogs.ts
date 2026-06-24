@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
-import { getAuditLogs } from '../services/inventoryService';
-import { getUsers } from '../services/userService';
-import type { AuditAction, AuditLogPage, AuditSeverity, User } from '../types/models';
+import { getAuditLogs } from '@/services/inventoryService';
+import { getUsers } from '@/services/userService';
+import type { AuditAction, AuditLogPage, AuditSeverity, User } from '@/types/models';
 
 interface AppliedLogFilters {
   userId: string;

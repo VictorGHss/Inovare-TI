@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import type { MetricDTO } from '../types/models';
-import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
+import type { MetricDTO } from '@/types/models';
+import { VIBRANT_CHART_COLORS } from '@/lib/chartPalette';
 
 interface ChartsBarProps {
   data: MetricDTO[];

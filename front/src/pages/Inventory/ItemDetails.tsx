@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, FileText, Download, Cpu, Plus, History } from 'lucide-react';
 import { toast } from 'react-toastify';
-import UploadInvoiceModal from '@/components/UploadInvoiceModal';
+import UploadInvoiceModal from '@/pages/Financeiro/components/UploadInvoiceModal';
 import SearchableDropdown from '@/components/common/SearchableDropdown';
 import {
   getItemById,

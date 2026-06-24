@@ -92,3 +92,7 @@ export async function getContaAzulCustomerEmailById(customerId: string): Promise
   return data;
 }
 
+export async function triggerTestReceipt(): Promise<void> {
+  await api.get('/financeiro/trigger-test-receipt');
+}
+

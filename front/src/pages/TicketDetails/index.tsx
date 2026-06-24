@@ -4,9 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 import PageHero from '@/components/ui/PageHero';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTicketDetails } from '../../hooks/useTicketDetails';
-import { updateTicketSolution } from '../../services/ticketService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTicketDetails } from './hooks/useTicketDetails';
+import { updateTicketSolution } from '@/services/ticketService';
 import ResolveTicketModal from './ResolveTicketModal';
 import TicketHeader from './TicketHeader';
 import TicketSidebar from './TicketSidebar';

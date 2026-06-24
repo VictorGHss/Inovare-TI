@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
-import api from '../services/api';
-import { executeFinanceAutomationNow } from '../services/financeService';
-import { exportInventoryExitsReport } from '../services/reportService';
+import { executeFinanceAutomationNow, triggerTestReceipt } from '@/services/financeService';
+import { exportInventoryExitsReport } from '@/services/reportService';
 
 interface UseFinancialActionsParams {
   startDate: string;
@@ -22,7 +21,7 @@ export function useFinancialActions({
   const handleTriggerTestReceipt = useCallback(async () => {
     try {
       setTriggeringTestReceipt(true);
-      await api.get('/financeiro/trigger-test-receipt');
+      await triggerTestReceipt();
       toast.success('Recibo de teste enviado com sucesso.');
     } catch {
       toast.error('Falha ao enviar recibo de teste.');

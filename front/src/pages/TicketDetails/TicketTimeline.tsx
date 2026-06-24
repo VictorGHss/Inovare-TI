@@ -1,8 +1,8 @@
 import { CheckCircle2, Download, FileText, Paperclip, UploadCloud } from 'lucide-react';
 
-import TicketComments from '../../components/TicketComments';
-import { buildApiUrl } from '../../services/api';
-import type { Ticket, User } from '../../types/models';
+import TicketComments from './components/TicketComments';
+import { buildApiUrl } from '@/services/api';
+import type { Ticket, User } from '@/types/models';
 
 interface TicketTimelineProps {
   ticket: Ticket;

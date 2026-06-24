@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { SectorPriorityMetricDTO } from '../types/models';
-import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
+import type { SectorPriorityMetricDTO } from '@/types/models';
+import { VIBRANT_CHART_COLORS } from '@/lib/chartPalette';
 
 interface ChartsBarStackedProps {
   data: SectorPriorityMetricDTO[];

@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import type { MetricDTO } from '../types/models';
-import { VIBRANT_CHART_COLORS } from '../lib/chartPalette';
+import type { MetricDTO } from '@/types/models';
+import { VIBRANT_CHART_COLORS } from '@/lib/chartPalette';
 
 interface ChartsPieProps {
   data: MetricDTO[];

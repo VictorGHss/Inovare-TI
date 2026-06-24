@@ -8,7 +8,7 @@ import {
   getFinanceConnectionStatus,
   getFinanceReceipts,
   getFinancialSummary,
-} from '../services/financeService';
+} from '@/services/financeService';
 import type {
   DashboardAnalyticsDTO,
   DoctorMapping,
@@ -16,7 +16,7 @@ import type {
   FinanceConnectionStatus,
   FinanceReceipt,
   FinancialSummaryDTO,
-} from '../types/models';
+} from '@/types/models';
 
 function formatDateForInput(value: Date): string {
   const year = value.getFullYear();

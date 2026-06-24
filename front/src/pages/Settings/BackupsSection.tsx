@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, Trash2, Download, Database, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import api from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
-import type { FinanceAlert } from '../../types/models';
-
-interface BackupInfo {
-  filename: string;
-  sizeBytes: number;
-  lastModified: string;
-}
+import { useAuth } from '@/contexts/AuthContext';
+import type { FinanceAlert } from '@/types/models';
+import { getFinanceAlerts } from '@/services/financeService';
+import { getBackups, triggerBackup, downloadBackup, deleteBackup, type BackupInfo } from '@/services/adminService';
 
 export default function BackupsSection() {
   const { isTwoFactorVerified } = useAuth();
@@ -25,7 +20,7 @@ export default function BackupsSection() {
   const loadBackups = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get<BackupInfo[]>('/admin/backups');
+      const data = await getBackups();
       setBackups(Array.isArray(data) ? data : []);
     } catch {
       toast.error('Erro ao carregar lista de backups.');
@@ -38,7 +33,7 @@ export default function BackupsSection() {
   const loadBackupAlerts = async () => {
     try {
       setLoadingAlerts(true);
-      const { data } = await api.get<FinanceAlert[]>('/financeiro/alertas');
+      const data = await getFinanceAlerts();
       if (Array.isArray(data)) {
         const backupAlerts = data.filter((a) => a.alertType === 'DATABASE_BACKUP');
         setAlerts(backupAlerts);
@@ -72,7 +67,7 @@ export default function BackupsSection() {
   async function handleTriggerBackup() {
     setTriggering(true);
     try {
-      await api.post('/admin/backups/trigger');
+      await triggerBackup();
       toast.success('Backup gerado com sucesso.');
       await loadBackups();
       await loadBackupAlerts();
@@ -89,10 +84,8 @@ export default function BackupsSection() {
   async function handleDownload(filename: string) {
     setActionId(filename);
     try {
-      const response = await api.get(`/admin/backups/download/${filename}`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = await downloadBackup(filename);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', filename);
@@ -113,7 +106,7 @@ export default function BackupsSection() {
 
     setActionId(filename);
     try {
-      await api.delete(`/admin/backups/${filename}`);
+      await deleteBackup(filename);
       setBackups((prev) => prev.filter((b) => b.filename !== filename));
       toast.success('Backup excluído com sucesso.');
     } catch {

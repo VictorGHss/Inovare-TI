@@ -2,7 +2,7 @@ import type {
   FinanceConnectionStatus,
   FinanceReceipt,
   FinancialSummaryDTO,
-} from '../../types/models';
+} from '@/types/models';
 
 interface ContaAzulStatusCardProps {
   connectionStatus: FinanceConnectionStatus | null;

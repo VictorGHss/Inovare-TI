@@ -473,7 +473,7 @@ export default function ResolveTicketModal({
                   <label className="text-sm font-medium text-slate-700">Tipo de Manutenção</label>
                   <select
                     value={maintType}
-                    onChange={(event) => setMaintType(event.target.value as any)}
+                    onChange={(event) => setMaintType(event.target.value as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER')}
                     className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
                     disabled={isSubmitting}
                   >

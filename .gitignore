@@ -55,3 +55,23 @@ application-local.yml
 # Kiro
 # ========================
 .kiro/
+
+# ========================
+# Segurança, Chaves e Credenciais
+# ========================
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.pub
+.env.local
+.env.*.local
+
+# ========================
+# Dumps de Banco de Dados e Backups
+# ========================
+*.sql
+*.sql.gz
+*.backup
+*.dump

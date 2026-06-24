@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Loader2, Wrench } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createAssetMaintenance } from '../../services/inventoryService';
-import type { AssetMaintenance, CreateAssetMaintenanceData } from '../../types/models';
+import { getTickets } from '../../services/ticketService';
+import type { AssetMaintenance, CreateAssetMaintenanceData, Ticket } from '../../types/models';
 
 interface NewMaintenanceModalProps {
   isOpen: boolean;
@@ -23,12 +24,31 @@ export default function NewMaintenanceModal({
   onMaintenanceCreated,
 }: NewMaintenanceModalProps) {
   const [loading, setLoading] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
   const [formData, setFormData] = useState({
     maintenanceDate: new Date().toISOString().split('T')[0],
-    type: 'PREVENTIVE' as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE',
+    type: 'PREVENTIVE' as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER',
     description: '',
     cost: '',
+    ticketId: '',
   });
+
+  useEffect(() => {
+    async function loadTickets() {
+      if (!isOpen) return;
+      setLoadingTickets(true);
+      try {
+        const response = await getTickets([], 0, '', 'ALL');
+        setTickets(response.content || []);
+      } catch (err) {
+        console.error('Erro ao carregar chamados:', err);
+      } finally {
+        setLoadingTickets(false);
+      }
+    }
+    void loadTickets();
+  }, [isOpen]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +65,7 @@ export default function NewMaintenanceModal({
         type: formData.type,
         description: formData.description || undefined,
         cost: formData.cost ? parseFloat(formData.cost) : null,
+        ticketId: formData.ticketId || undefined,
       };
 
       const newMaintenance = await createAssetMaintenance(assetId, dto);
@@ -56,6 +77,7 @@ export default function NewMaintenanceModal({
         type: 'PREVENTIVE',
         description: '',
         cost: '',
+        ticketId: '',
       });
       onClose();
     } catch {
@@ -118,14 +140,38 @@ export default function NewMaintenanceModal({
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' })
+                setFormData({ ...formData, type: e.target.value as 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER' })
               }
               className={inputClassName}
             >
               <option value="PREVENTIVE">Preventiva</option>
               <option value="CORRECTIVE">Corretiva</option>
               <option value="UPGRADE">Upgrade</option>
+              <option value="TRANSFER">Transferência</option>
             </select>
+          </div>
+
+          {/* Associated Ticket */}
+          <div>
+            <label className={labelClassName}>
+              Chamado Relacionado <span className="normal-case tracking-normal font-normal text-slate-400">— opcional</span>
+            </label>
+            {loadingTickets ? (
+              <div className="text-xs text-slate-400">Carregando chamados...</div>
+            ) : (
+              <select
+                value={formData.ticketId}
+                onChange={(e) => setFormData({ ...formData, ticketId: e.target.value })}
+                className={inputClassName}
+              >
+                <option value="">-- Selecione o chamado --</option>
+                {tickets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    #{t.id.substring(0, 8).toUpperCase()} - {t.title}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Cost */}

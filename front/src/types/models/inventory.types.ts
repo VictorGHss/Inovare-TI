@@ -132,13 +132,15 @@ export interface AssetMaintenance {
   cost: number | null;
   technicianName: string;
   technicianEmail: string;
+  ticketId?: string;
 }
 
 export interface CreateAssetMaintenanceData {
   maintenanceDate: string;
-  type: 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE';
+  type: 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER';
   description?: string;
   cost?: number | null;
+  ticketId?: string;
 }
 
 export interface TransferAssetData {

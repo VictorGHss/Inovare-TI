@@ -13,4 +13,5 @@ import java.util.UUID;
  */
 public interface ReportPdfExporterPort {
     byte[] exportInventoryExitsToPdf(List<Ticket> tickets, Map<UUID, BigDecimal> totalsByTicket);
+    byte[] exportAssetMaintenancesToPdf(List<Object[]> consolidation, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

@@ -18,11 +18,19 @@ public record ResolveTicketDTO(
     UUID recipientUserId,
     UUID targetAssetId,
     
-    java.util.List<TicketItemDeductionDTO> itemsToDeliver
+    java.util.List<TicketItemDeductionDTO> itemsToDeliver,
+    ResolveTicketMaintenanceDTO maintenance
 ) {
     public record TicketItemDeductionDTO(
         UUID itemId,
         Integer quantity,
         UUID recipientUserId
+    ) {}
+
+    public record ResolveTicketMaintenanceDTO(
+        UUID assetId,
+        br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance.MaintenanceType type,
+        String description,
+        java.math.BigDecimal cost
     ) {}
 }

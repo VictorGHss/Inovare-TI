@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { FileSpreadsheet, TrendingUp, TrendingDown, X } from 'lucide-react';
+import { FileSpreadsheet, TrendingUp, TrendingDown, Wrench, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { exportTicketsReport, exportInventoryEntriesReport, exportInventoryExitsReport } from '../services/reportService';
+import { exportTicketsReport, exportInventoryEntriesReport, exportInventoryExitsReport, exportAssetMaintenancesReport } from '../services/reportService';
 
 function getDefaultCycleDates() {
   const now = new Date();
@@ -28,7 +28,7 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
   const [startDate, setStartDate] = useState<string>(defaults.start);
   const [endDate, setEndDate] = useState<string>(defaults.end);
 
-  const handleExport = async (type: 'tickets' | 'entries' | 'exits') => {
+  const handleExport = async (type: 'tickets' | 'entries' | 'exits' | 'maintenances') => {
     if (startDate > endDate) {
       toast.error('Data Início não pode ser maior que Data Fim.');
       return;
@@ -45,9 +45,12 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
       } else if (type === 'entries') {
         blob = await exportInventoryEntriesReport({ startDate, endDate });
         filename = `entradas_estoque_${startDate}_to_${endDate}.xlsx`;
-      } else {
+      } else if (type === 'exits') {
         blob = await exportInventoryExitsReport({ startDate, endDate });
         filename = `saidas_estoque_${startDate}_to_${endDate}.xlsx`;
+      } else {
+        blob = await exportAssetMaintenancesReport({ startDate, endDate });
+        filename = `manutencoes_ativos_${startDate}_to_${endDate}.pdf`;
       }
 
       // Iniciar download
@@ -157,6 +160,23 @@ export default function ReportHubModal({ isOpen, onClose }: ReportHubModalProps)
               </div>
               <div className="text-xs text-slate-500">
                 Consumo de itens por setor e usuário
+              </div>
+            </div>
+          </button>
+
+          {/* Custos de Manutenção */}
+          <button
+            onClick={() => handleExport('maintenances')}
+            disabled={exporting !== null}
+            className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-brand-primary transition-all disabled:opacity-50 text-left"
+          >
+            <Wrench size={20} className="text-brand-primary flex-shrink-0" />
+            <div className="flex-1">
+              <div className="font-semibold text-slate-800">
+                {exporting === 'maintenances' ? 'Exportando...' : 'Custos de Manutenção'}
+              </div>
+              <div className="text-xs text-slate-500">
+                Consolidado de custos agrupado por equipamento (PDF)
               </div>
             </div>
           </button>

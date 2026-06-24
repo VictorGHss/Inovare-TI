@@ -48,6 +48,12 @@ export function useResolveTicket({
     }
   }, [isOpen, initialNotes]);
 
+  useEffect(() => {
+    if (isOpen && ticket?.assetId) {
+      setMaintAssetId(ticket.assetId);
+    }
+  }, [isOpen, ticket]);
+
   // Inicializa a lista de insumos com base no chamado
   useEffect(() => {
     if (isOpen && ticket) {
@@ -95,6 +101,13 @@ export function useResolveTicket({
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [loadingAllAssets, setLoadingAllAssets] = useState(false);
   const [quantity, setQuantity] = useState(1);
+
+  // Estados para a funcionalidade de registrar manutenção de ativo no fechamento
+  const [registerMaintenance, setRegisterMaintenance] = useState(false);
+  const [maintAssetId, setMaintAssetId] = useState('');
+  const [maintType, setMaintType] = useState<'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER'>('CORRECTIVE');
+  const [maintDescription, setMaintDescription] = useState('');
+  const [maintCost, setMaintCost] = useState('');
 
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetCategoryId, setNewAssetCategoryId] = useState('');
@@ -307,6 +320,11 @@ export function useResolveTicket({
     setItemsToDeliver([]);
     setLinkInsumosToAsset(false);
     setTargetAssetId('');
+    setRegisterMaintenance(false);
+    setMaintAssetId(ticket?.assetId || '');
+    setMaintType('CORRECTIVE');
+    setMaintDescription('');
+    setMaintCost('');
   }
 
   function handleRecipientChange(itemId: string, recipientId: string) {
@@ -373,6 +391,11 @@ export function useResolveTicket({
       }
     }
 
+    if (registerMaintenance && !maintAssetId) {
+      toast.error('Selecione o equipamento para registrar a manutenção.');
+      return false;
+    }
+
     return true;
   }
 
@@ -408,6 +431,15 @@ export function useResolveTicket({
         itemsToDeliver: itemsPayload.length > 0 ? itemsPayload : undefined,
         targetAssetId: linkInsumosToAsset ? targetAssetId : undefined,
       };
+
+      if (registerMaintenance && maintAssetId) {
+        payload.maintenance = {
+          assetId: maintAssetId,
+          type: maintType,
+          description: maintDescription.trim() || undefined,
+          cost: maintCost ? parseFloat(maintCost) : undefined,
+        };
+      }
 
       if (deliverEquipment && deliveryType === 'asset' && assetMode === 'existing') {
         payload.assetIdToDeliver = selectedAssetId;
@@ -483,5 +515,17 @@ export function useResolveTicket({
     setTargetAssetId,
     sectorAssets,
     loadingAllAssets,
+    // Estados de registro de manutenção
+    registerMaintenance,
+    setRegisterMaintenance,
+    maintAssetId,
+    setMaintAssetId,
+    maintType,
+    setMaintType,
+    maintDescription,
+    setMaintDescription,
+    maintCost,
+    setMaintCost,
+    allAssets,
   };
 }

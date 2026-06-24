@@ -50,4 +50,9 @@ public class AssetMaintenanceRepositoryAdapter implements AssetMaintenanceReposi
         return repository.findByAssetIdOrderByMaintenanceDateDesc(assetId);
     }
 
+    @Override
+    public java.util.List<Object[]> consolidateMaintenanceByPeriod(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return repository.consolidateMaintenanceByPeriod(start, end);
+    }
+
 }

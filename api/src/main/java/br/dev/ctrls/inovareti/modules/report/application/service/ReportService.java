@@ -56,6 +56,11 @@ public class ReportService {
         return reportPdfExporter.exportInventoryExitsToPdf(unifiedTickets, totalsByTicket);
     }
 
+    public byte[] exportAssetMaintenancesToPdf(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        List<Object[]> consolidation = assetMaintenanceRepository.consolidateMaintenanceByPeriod(start, end);
+        return reportPdfExporter.exportAssetMaintenancesToPdf(consolidation, start, end);
+    }
+
     private List<Ticket> buildUnifiedExitRows(java.time.LocalDateTime start, java.time.LocalDateTime end, Map<UUID, BigDecimal> totalsByTicket) {
         List<Ticket> unifiedRows = new java.util.ArrayList<>();
 

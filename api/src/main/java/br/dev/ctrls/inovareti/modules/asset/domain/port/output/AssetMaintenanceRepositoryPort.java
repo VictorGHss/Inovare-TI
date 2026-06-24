@@ -16,4 +16,5 @@ public interface AssetMaintenanceRepositoryPort {
 
     java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance.MaintenanceType type);
     java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> findByAssetIdOrderByMaintenanceDateDesc(java.util.UUID assetId);
+    java.util.List<Object[]> consolidateMaintenanceByPeriod(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.asset.application.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +17,8 @@ public record AssetMaintenanceRequestDTO(
 
         String description,
 
-        BigDecimal cost
+        BigDecimal cost,
+
+        UUID ticketId
 
 ) {}

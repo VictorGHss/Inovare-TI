@@ -35,10 +35,17 @@ public class AssetMaintenanceService {
     private final AssetRepositoryPort assetRepository;
     private final FinancialTransactionRepository financialTransactionRepository;
     private final FinancialLinkRepository financialLinkRepository;
+    private final br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort ticketRepository;
 
     public AssetMaintenanceResponseDTO create(UUID assetId, AssetMaintenanceRequestDTO request, User technician) {
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new NotFoundException("Asset not found with id: " + assetId));
+
+        br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket ticket = null;
+        if (request.ticketId() != null) {
+            ticket = ticketRepository.findById(request.ticketId())
+                    .orElseThrow(() -> new NotFoundException("Ticket not found with id: " + request.ticketId()));
+        }
 
         AssetMaintenance maintenance = AssetMaintenance.builder()
                 .asset(asset)
@@ -47,6 +54,7 @@ public class AssetMaintenanceService {
                 .description(request.description())
                 .cost(request.cost())
                 .technician(technician)
+                .ticket(ticket)
                 .build();
 
         AssetMaintenance savedMaintenance = maintenanceRepository.save(maintenance);

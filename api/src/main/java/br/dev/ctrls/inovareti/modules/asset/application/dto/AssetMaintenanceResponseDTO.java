@@ -14,7 +14,8 @@ public record AssetMaintenanceResponseDTO(
         String description,
         BigDecimal cost,
         String technicianName,
-        String technicianEmail
+        String technicianEmail,
+        UUID ticketId
 ) {
     public static AssetMaintenanceResponseDTO from(AssetMaintenance maintenance) {
         return new AssetMaintenanceResponseDTO(
@@ -25,7 +26,8 @@ public record AssetMaintenanceResponseDTO(
                 maintenance.getDescription(),
                 maintenance.getCost(),
                 maintenance.getTechnician().getName(),
-                maintenance.getTechnician().getEmail()
+                maintenance.getTechnician().getEmail(),
+                maintenance.getTicket() != null ? maintenance.getTicket().getId() : null
         );
     }
 

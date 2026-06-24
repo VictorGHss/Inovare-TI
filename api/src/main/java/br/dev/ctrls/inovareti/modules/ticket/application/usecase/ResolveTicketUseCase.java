@@ -244,7 +244,29 @@ public class ResolveTicketUseCase {
             log.info("AssetMaintenance TRANSFER record created for quick-registered asset {}", deliveredAsset.getId());
         }
 
-        // Baixa consolidada processada no início
+        // Se houver manutenção informada no DTO, persistir em asset_maintenances vinculando o ticket
+        if (request.maintenance() != null) {
+            var maintReq = request.maintenance();
+            if (maintReq.assetId() == null) {
+                throw new IllegalStateException("Ativo (assetId) é obrigatório para registrar a manutenção.");
+            }
+            Asset asset = assetRepository.findById(maintReq.assetId())
+                    .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + maintReq.assetId()));
+
+            AssetMaintenance maintenanceObj = AssetMaintenance.builder()
+                    .asset(asset)
+                    .maintenanceDate(LocalDate.now())
+                    .type(maintReq.type() != null ? maintReq.type() : AssetMaintenance.MaintenanceType.CORRECTIVE)
+                    .description(maintReq.description() != null ? maintReq.description().trim() : null)
+                    .cost(maintReq.cost() != null ? maintReq.cost() : BigDecimal.ZERO)
+                    .technician(authenticatedUser)
+                    .ticket(ticket)
+                    .build();
+
+            assetMaintenanceRepository.save(maintenanceObj);
+            log.info("[MANUTENÇÃO] Registro de manutenção {} criado vinculado ao chamado {}", 
+                    maintenanceObj.getType(), ticketId);
+        }
 
         // Marca o chamado como resolvido e salva a nota de resolução (texto da solução)
         ticket.setStatus(TicketStatus.RESOLVED);

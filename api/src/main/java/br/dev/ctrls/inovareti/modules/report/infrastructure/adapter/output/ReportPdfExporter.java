@@ -188,6 +188,141 @@ public class ReportPdfExporter implements ReportPdfExporterPort {
         }
     }
 
+    @Override
+    public byte[] exportAssetMaintenancesToPdf(List<Object[]> consolidation, java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 50, 50, 50, 50);
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            java.awt.Color inovareColor = new java.awt.Color(254, 181, 108);
+            addLogo(document);
+            addTitle(document, inovareColor);
+
+            com.lowagie.text.Font subFont = FontFactory.getFont(
+                    FontFactory.HELVETICA,
+                    10,
+                    com.lowagie.text.Font.NORMAL,
+                    java.awt.Color.BLACK);
+
+            DateTimeFormatter dFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            Paragraph subtitle = new Paragraph(
+                    "Relatório de Manutenções de Ativos - Período: " + start.toLocalDate().format(dFormatter) + " a " + end.toLocalDate().format(dFormatter)
+                            + "    Gerado em: " + LocalDateTime.now().format(DATE_FORMATTER),
+                    subFont);
+            subtitle.setSpacingAfter(8f);
+            document.add(subtitle);
+
+            PdfPTable table = new PdfPTable(4);
+            table.setWidthPercentage(100f);
+            table.setWidths(new float[] { 25f, 40f, 15f, 20f });
+            table.setSpacingBefore(6f);
+
+            com.lowagie.text.Font headerFont = FontFactory.getFont(
+                    FontFactory.HELVETICA_BOLD,
+                    11,
+                    com.lowagie.text.Font.BOLD,
+                    java.awt.Color.WHITE);
+
+            String[] headers = { "Código Patrimônio", "Nome do Ativo", "Intervenções", "Soma dos Custos" };
+            for (String header : headers) {
+                PdfPCell hd = new PdfPCell(new Phrase(header, headerFont));
+                hd.setBackgroundColor(inovareColor);
+                hd.setBorderWidth(0.5f);
+                hd.setPadding(6f);
+                hd.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(hd);
+            }
+
+            com.lowagie.text.Font cellFont = FontFactory.getFont(
+                    FontFactory.HELVETICA,
+                    10,
+                    com.lowagie.text.Font.NORMAL,
+                    java.awt.Color.BLACK);
+            com.lowagie.text.Font cellFontBold = FontFactory.getFont(
+                    FontFactory.HELVETICA_BOLD,
+                    10,
+                    com.lowagie.text.Font.BOLD,
+                    java.awt.Color.BLACK);
+
+            BigDecimal grandTotalCost = BigDecimal.ZERO;
+            long grandTotalCount = 0;
+
+            for (Object[] row : consolidation) {
+                String patrimonyCode = sanitizeForPdf((String) row[0]);
+                String assetName = sanitizeForPdf((String) row[1]);
+                long count = ((Number) row[2]).longValue();
+                BigDecimal totalCost = (BigDecimal) row[3];
+
+                grandTotalCost = grandTotalCost.add(totalCost);
+                grandTotalCount += count;
+
+                PdfPCell c1 = new PdfPCell(new Phrase(patrimonyCode, cellFont));
+                c1.setPadding(6f);
+                c1.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(c1);
+
+                PdfPCell c2 = new PdfPCell(new Phrase(assetName, cellFont));
+                c2.setPadding(6f);
+                c2.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(c2);
+
+                PdfPCell c3 = new PdfPCell(new Phrase(String.valueOf(count), cellFont));
+                c3.setPadding(6f);
+                c3.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                table.addCell(c3);
+
+                PdfPCell c4 = new PdfPCell(new Phrase(CURRENCY_FORMATTER.format(totalCost), cellFont));
+                c4.setPadding(6f);
+                c4.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                table.addCell(c4);
+            }
+
+            if (!consolidation.isEmpty()) {
+                PdfPCell totalLabel = new PdfPCell(new Phrase("TOTAL", cellFontBold));
+                totalLabel.setColspan(2);
+                totalLabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                totalLabel.setPadding(6f);
+                totalLabel.setBorderWidthTop(1f);
+                table.addCell(totalLabel);
+
+                PdfPCell totalCountCell = new PdfPCell(new Phrase(String.valueOf(grandTotalCount), cellFontBold));
+                totalCountCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                totalCountCell.setPadding(6f);
+                totalCountCell.setBorderWidthTop(1f);
+                table.addCell(totalCountCell);
+
+                PdfPCell totalCostCell = new PdfPCell(new Phrase(CURRENCY_FORMATTER.format(grandTotalCost), cellFontBold));
+                totalCostCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                totalCostCell.setPadding(6f);
+                totalCostCell.setBorderWidthTop(1f);
+                table.addCell(totalCostCell);
+            }
+
+            document.add(table);
+
+            Paragraph resumoTitle = new Paragraph("Resumo do Período", cellFontBold);
+            resumoTitle.setSpacingBefore(8f);
+            document.add(resumoTitle);
+
+            Paragraph resumo = new Paragraph(
+                    "Total de Intervenções: " + grandTotalCount
+                            + "    Custo Total das Manutenções: " + CURRENCY_FORMATTER.format(grandTotalCost),
+                    cellFont);
+            document.add(resumo);
+
+            document.close();
+            return out.toByteArray();
+        } catch (DocumentException e) {
+            log.error("Erro ao gerar PDF de manutenções de ativos", e);
+            if (document.isOpen()) {
+                document.close();
+            }
+            throw new RuntimeException("Failed to generate asset maintenance PDF report", e);
+        }
+    }
+
     private void addLogo(Document document) {
         try {
             Image logo = null;

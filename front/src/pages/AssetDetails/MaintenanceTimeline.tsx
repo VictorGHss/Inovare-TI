@@ -1,6 +1,7 @@
 import type { AssetMaintenance } from '../../types/models';
 import { formatCurrency } from '../../lib/formatters';
 import { Stethoscope, AlertTriangle, ArrowUpCircle, MoveRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface MaintenanceTimelineProps {
   maintenances: AssetMaintenance[];
@@ -70,9 +71,19 @@ export default function MaintenanceTimeline({ maintenances }: MaintenanceTimelin
                   <Icon size={15} className={config.iconColor} />
                 </span>
                 <div>
-                  <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${config.badge}`}>
-                    {maintenance.type}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${config.badge}`}>
+                      {maintenance.type}
+                    </span>
+                    {maintenance.ticketId && (
+                      <Link
+                        to={`/tickets/${maintenance.ticketId}`}
+                        className="inline-flex items-center text-[10px] font-extrabold text-brand-primary hover:underline"
+                      >
+                        Chamado #{maintenance.ticketId.substring(0, 8).toUpperCase()}
+                      </Link>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-xs text-slate-500">{formattedDate}</p>
                 </div>
               </div>

@@ -93,6 +93,12 @@ export interface ResolveTicketRequest {
   recipientUserId?: string;
   targetAssetId?: string;
   itemsToDeliver?: ResolveTicketItemRequest[];
+  maintenance?: {
+    assetId: string;
+    type?: 'PREVENTIVE' | 'CORRECTIVE' | 'UPGRADE' | 'TRANSFER';
+    description?: string;
+    cost?: number;
+  };
 }
 
 export interface TicketAttachment {

@@ -15,4 +15,12 @@ public interface AssetMaintenanceJpaRepository extends JpaRepository<AssetMainte
     List<AssetMaintenance> findByDescriptionContainingIgnoreCase(String descriptionSubstring);
 
     List<AssetMaintenance> findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, AssetMaintenance.MaintenanceType type);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a.patrimonyCode, a.name, COUNT(am), COALESCE(SUM(am.cost), 0) " +
+           "FROM AssetMaintenance am JOIN am.asset a " +
+           "WHERE am.createdAt BETWEEN :start AND :end " +
+           "GROUP BY a.patrimonyCode, a.name")
+    List<Object[]> consolidateMaintenanceByPeriod(
+            @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
+            @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
 }

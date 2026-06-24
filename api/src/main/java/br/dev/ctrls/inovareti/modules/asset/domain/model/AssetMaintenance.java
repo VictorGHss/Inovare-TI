@@ -64,6 +64,10 @@ public class AssetMaintenance {
     @JoinColumn(name = "technician_id", nullable = false)
     private User technician;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id")
+    private br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket ticket;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

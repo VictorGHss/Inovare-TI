@@ -46,6 +46,11 @@ public class AssetMaintenanceRepositoryAdapter implements AssetMaintenanceReposi
     }
 
     @Override
+    public java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        return repository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+    }
+
+    @Override
     public java.util.List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> findByAssetIdOrderByMaintenanceDateDesc(java.util.UUID assetId) {
         return repository.findByAssetIdOrderByMaintenanceDateDesc(assetId);
     }

@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -134,7 +133,7 @@ public class ReportExcelExporter implements ReportExcelExporterPort {
     }
 
     @Override
-    public byte[] exportInventoryExitsToExcel(List<Ticket> tickets, Map<UUID, BigDecimal> totalsByTicket) {
+    public byte[] exportInventoryExitsToExcel(List<br.dev.ctrls.inovareti.modules.report.application.dto.OutflowReportRowDTO> rows) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Saídas");
 
@@ -152,28 +151,17 @@ public class ReportExcelExporter implements ReportExcelExporterPort {
             }
 
             int rowNum = 1;
-            for (Ticket ticket : tickets) {
-                if (ticket.getStatus() != null && ticket.getStatus().toString().equals("RESOLVED")
-                        && ticket.getRequestedItem() != null
-                        && ticket.getRequestedQuantity() != null) {
+            for (var rowDTO : rows) {
+                Row row = sheet.createRow(rowNum++);
 
-                    Row row = sheet.createRow(rowNum++);
-
-                    int qty = Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0);
-                    qty = Math.abs(qty);
-
-                    row.createCell(0).setCellValue(ticket.getRequestedItem().getItemCategory() != null ? ticket.getRequestedItem().getItemCategory().getName() : "-");
-                    row.createCell(1).setCellValue(ticket.getRequestedItem().getName());
-                    row.createCell(2).setCellValue(qty);
-                    row.createCell(3).setCellValue(ticket.getRequester() != null ? ticket.getRequester().getName() : "-");
-                    row.createCell(4).setCellValue(ticket.getRequester() != null && ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-");
-                    row.createCell(5).setCellValue(ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-");
-
-                    BigDecimal totalPrice = totalsByTicket.getOrDefault(ticket.getId(), BigDecimal.ZERO);
-                    row.createCell(6).setCellValue(CURRENCY_FORMATTER.format(totalPrice));
-
-                    row.createCell(7).setCellValue(ticket.getClosedAt() != null ? ticket.getClosedAt().format(DATE_FORMATTER) : "");
-                }
+                row.createCell(0).setCellValue(rowDTO.itemType() != null ? rowDTO.itemType() : "-");
+                row.createCell(1).setCellValue(rowDTO.item() != null ? rowDTO.item() : "-");
+                row.createCell(2).setCellValue(rowDTO.quantity() != null ? rowDTO.quantity() : 0);
+                row.createCell(3).setCellValue(rowDTO.requester() != null ? rowDTO.requester() : "-");
+                row.createCell(4).setCellValue(rowDTO.userLocation() != null ? rowDTO.userLocation() : "-");
+                row.createCell(5).setCellValue(rowDTO.userSector() != null ? rowDTO.userSector() : "-");
+                row.createCell(6).setCellValue(rowDTO.totalPrice() != null ? CURRENCY_FORMATTER.format(rowDTO.totalPrice()) : CURRENCY_FORMATTER.format(BigDecimal.ZERO));
+                row.createCell(7).setCellValue(rowDTO.deliveryDate() != null ? rowDTO.deliveryDate().format(DATE_FORMATTER) : "");
             }
 
             autoSizeColumns(sheet, headers.length);

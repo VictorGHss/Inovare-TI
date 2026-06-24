@@ -72,13 +72,3 @@ export async function exportInventoryExitsReport(params?: { startDate?: string; 
   return data;
 }
 
-/**
- * Exporta o relatório de custos de manutenções de ativos (Blob PDF).
- */
-export async function exportAssetMaintenancesReport(params?: { startDate?: string; endDate?: string }): Promise<Blob> {
-  const { data } = await api.get('/reports/maintenances', {
-    params,
-    responseType: 'blob',
-  });
-  return data;
-}

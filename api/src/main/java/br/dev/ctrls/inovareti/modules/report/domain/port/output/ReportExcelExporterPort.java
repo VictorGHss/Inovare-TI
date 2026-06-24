@@ -16,6 +16,6 @@ import java.util.UUID;
 public interface ReportExcelExporterPort {
     byte[] exportTicketsToExcel(List<Ticket> tickets);
     byte[] exportInventoryEntriesToExcel(List<StockBatch> batches, Map<UUID, BigDecimal> periodCosts);
-    byte[] exportInventoryExitsToExcel(List<Ticket> tickets, Map<UUID, BigDecimal> totalsByTicket);
+    byte[] exportInventoryExitsToExcel(List<br.dev.ctrls.inovareti.modules.report.application.dto.OutflowReportRowDTO> rows);
     byte[] generateTicketReport(List<TicketReportDTO> reports);
 }

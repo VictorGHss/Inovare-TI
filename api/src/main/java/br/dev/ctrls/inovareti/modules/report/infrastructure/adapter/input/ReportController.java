@@ -240,37 +240,6 @@ public class ReportController {
                 .headers(headers)
                 .body(new InputStreamResource(excelFile));
     }
-
-    /**
-     * Gera relatório de manutenções de ativos (CMDB).
-     * Retorna em formato PDF sob demanda.
-     */
-    @GetMapping("/maintenances")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")
-    public ResponseEntity<InputStreamResource> exportAssetMaintenances(
-            @org.springframework.web.bind.annotation.RequestParam(required = false)
-            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
-                LocalDate startDate,
-            @org.springframework.web.bind.annotation.RequestParam(required = false)
-            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
-                LocalDate endDate) {
-
-        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDate.now().minusMonths(1).atStartOfDay();
-        LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
-
-        byte[] pdfBytes = reportService.exportAssetMaintenancesToPdf(start, end);
-        ByteArrayInputStream pdfFile = new ByteArrayInputStream(pdfBytes);
-
-        String filename = String.format("manutencoes_ativos_%s_to_%s.pdf", start.toLocalDate().toString(), end.toLocalDate().toString());
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
-        headers.setContentType(MediaType.APPLICATION_PDF);
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(new InputStreamResource(pdfFile));
-    }
 }
 
 

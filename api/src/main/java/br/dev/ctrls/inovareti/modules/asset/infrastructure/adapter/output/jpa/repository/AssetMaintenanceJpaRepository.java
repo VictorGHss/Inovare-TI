@@ -16,6 +16,8 @@ public interface AssetMaintenanceJpaRepository extends JpaRepository<AssetMainte
 
     List<AssetMaintenance> findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, AssetMaintenance.MaintenanceType type);
 
+    List<AssetMaintenance> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
     @org.springframework.data.jpa.repository.Query("SELECT a.patrimonyCode, a.name, COUNT(am), COALESCE(SUM(am.cost), 0) " +
            "FROM AssetMaintenance am JOIN am.asset a " +
            "WHERE am.createdAt BETWEEN :start AND :end " +

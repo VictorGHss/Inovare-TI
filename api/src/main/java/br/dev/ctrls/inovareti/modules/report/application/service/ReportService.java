@@ -3,8 +3,10 @@ package br.dev.ctrls.inovareti.modules.report.application.service;
 import io.micrometer.observation.annotation.Observed;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatch;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportExcelExporterPort;
 import br.dev.ctrls.inovareti.modules.report.domain.port.output.ReportPdfExporterPort;
+import br.dev.ctrls.inovareti.modules.report.application.dto.OutflowReportRowDTO;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -45,26 +48,19 @@ public class ReportService {
     }
 
     public byte[] exportInventoryExitsToExcel(java.time.LocalDateTime start, java.time.LocalDateTime end) {
-        java.util.Map<UUID, BigDecimal> totalsByTicket = new java.util.HashMap<>();
-        List<Ticket> unifiedTickets = buildUnifiedExitRows(start, end, totalsByTicket);
-        return reportExcelExporter.exportInventoryExitsToExcel(unifiedTickets, totalsByTicket);
+        List<OutflowReportRowDTO> unifiedRows = buildUnifiedExitRows(start, end);
+        return reportExcelExporter.exportInventoryExitsToExcel(unifiedRows);
     }
 
     public byte[] exportInventoryExitsToPdf(java.time.LocalDateTime start, java.time.LocalDateTime end) {
-        java.util.Map<UUID, BigDecimal> totalsByTicket = new java.util.HashMap<>();
-        List<Ticket> unifiedTickets = buildUnifiedExitRows(start, end, totalsByTicket);
-        return reportPdfExporter.exportInventoryExitsToPdf(unifiedTickets, totalsByTicket);
+        List<OutflowReportRowDTO> unifiedRows = buildUnifiedExitRows(start, end);
+        return reportPdfExporter.exportInventoryExitsToPdf(unifiedRows);
     }
 
-    public byte[] exportAssetMaintenancesToPdf(java.time.LocalDateTime start, java.time.LocalDateTime end) {
-        List<Object[]> consolidation = assetMaintenanceRepository.consolidateMaintenanceByPeriod(start, end);
-        return reportPdfExporter.exportAssetMaintenancesToPdf(consolidation, start, end);
-    }
+    private List<OutflowReportRowDTO> buildUnifiedExitRows(java.time.LocalDateTime start, java.time.LocalDateTime end) {
+        List<OutflowReportRowDTO> unifiedRows = new java.util.ArrayList<>();
 
-    private List<Ticket> buildUnifiedExitRows(java.time.LocalDateTime start, java.time.LocalDateTime end, Map<UUID, BigDecimal> totalsByTicket) {
-        List<Ticket> unifiedRows = new java.util.ArrayList<>();
-
-        // 1) Chamados de SOLICITAí‡íO resolvidos no período (requestedItem preenchido)
+        // 1) Chamados de SOLICITAÇÃO resolvidos no período (requestedItem preenchido)
         try {
             List<Ticket> requestTickets = ticketRepository.findResolvedRequestTicketsInPeriod(start, end);
             for (Ticket ticket : requestTickets) {
@@ -81,8 +77,18 @@ public class ReportService {
                 } catch (Exception e) {
                     // Custo fica zero
                 }
-                totalsByTicket.put(ticket.getId(), cost);
-                unifiedRows.add(ticket);
+
+                String itemType = ticket.getRequestedItem() != null && ticket.getRequestedItem().getItemCategory() != null 
+                        ? ticket.getRequestedItem().getItemCategory().getName() 
+                        : "-";
+                String item = ticket.getRequestedItem() != null ? ticket.getRequestedItem().getName() : "-";
+                int qty = Math.abs(Optional.ofNullable(ticket.getRequestedQuantity()).orElse(0));
+                String requester = ticket.getRequester() != null ? ticket.getRequester().getName() : "-";
+                String location = ticket.getRequester() != null && ticket.getRequester().getLocation() != null ? ticket.getRequester().getLocation() : "-";
+                String sector = ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-";
+                LocalDateTime date = ticket.getClosedAt() != null ? ticket.getClosedAt() : ticket.getCreatedAt();
+
+                unifiedRows.add(new OutflowReportRowDTO(itemType, item, qty, requester, location, sector, cost, date));
             }
         } catch (Exception e) {
             // Ignorado
@@ -102,24 +108,13 @@ public class ReportService {
 
                     var item = itemRepository.findById(mv.getItemId()).orElse(null);
                     if (item != null) {
-                        UUID mockId = UUID.randomUUID();
-
-                        Ticket mockTicket = Ticket.builder()
-                                .id(mockId)
-                                .title("Saída Direta de Material: " + item.getName())
-                                .status(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus.RESOLVED)
-                                .priority(br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority.NORMAL)
-                                .requester(null)
-                                .assignedTo(null)
-                                .category(null)
-                                .closedAt(mv.getDate())
-                                .requestedItem(item)
-                                .requestedQuantity(mv.getQuantity())
-                                .build();
-
+                        String itemType = item.getItemCategory() != null ? item.getItemCategory().getName() : "-";
+                        String itemName = item.getName();
+                        int qty = mv.getQuantity();
                         BigDecimal cost = mv.getUnitPriceAtTime() != null ? mv.getUnitPriceAtTime() : BigDecimal.ZERO;
-                        totalsByTicket.put(mockId, cost);
-                        unifiedRows.add(mockTicket);
+                        LocalDateTime date = mv.getDate();
+
+                        unifiedRows.add(new OutflowReportRowDTO(itemType, itemName, qty, "-", "-", "-", cost, date));
                     }
                 }
             }
@@ -127,81 +122,60 @@ public class ReportService {
             // Ignorado
         }
 
-        // 3) Ativos entregues via AssetMaintenance do tipo TRANSFER no período
+        // 3) Manutenções de ativos ocorridas no período
         try {
             List<br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance> maintenances =
-                    assetMaintenanceRepository.findByCreatedAtBetweenAndTypeOrderByCreatedAtDesc(
-                            start, end, br.dev.ctrls.inovareti.modules.asset.domain.model.AssetMaintenance.MaintenanceType.TRANSFER);
+                    assetMaintenanceRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
 
             if (maintenances != null) {
                 for (var tf : maintenances) {
                     var asset = tf.getAsset();
                     if (asset != null) {
-                        UUID mockId = UUID.randomUUID();
-
-                        Ticket originalTicket = null;
-                        if (tf.getDescription() != null && tf.getDescription().contains("TICKET:")) {
-                            try {
-                                String desc = tf.getDescription();
-                                int startIdx = desc.indexOf("TICKET:") + 7;
-                                int endIdx = desc.indexOf("]", startIdx);
-                                if (endIdx > startIdx) {
-                                    String ticketIdStr = desc.substring(startIdx, endIdx).trim();
-                                    UUID ticketId = UUID.fromString(ticketIdStr);
-                                    originalTicket = ticketRepository.findByIdWithRelations(ticketId).orElse(null);
-                                }
-                            } catch (Exception e) {
-                                // Ignorado
-                            }
+                        String itemType = "Ativo - Manutenção";
+                        
+                        String description = tf.getDescription() != null ? tf.getDescription().trim() : "";
+                        String itemText = asset.getName() + " [Patr: " + asset.getPatrimonyCode() + "]";
+                        if (!description.isEmpty()) {
+                            itemText += " - " + description;
                         }
 
-                        String catName = "Ativo - Outros";
-                        if (null != tf.getType()) switch (tf.getType()) {
-                            case TRANSFER -> catName = "Ativo - Entrega";
-                            case PREVENTIVE -> catName = "Ativo - Manut. Preventiva";
-                            case CORRECTIVE -> catName = "Ativo - Manut. Corretiva";
-                            case UPGRADE -> catName = "Ativo - Upgrade";
-                            default -> {
-                            }
+                        int qty = 1;
+
+                        String requester = "-";
+                        if (tf.getTicket() != null && tf.getTicket().getRequester() != null) {
+                            requester = tf.getTicket().getRequester().getName();
+                        } else if (tf.getTechnician() != null) {
+                            requester = tf.getTechnician().getName();
                         }
 
-                        br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory mockCategory =
-                                br.dev.ctrls.inovareti.modules.inventory.domain.model.ItemCategory.builder()
-                                        .name(catName)
-                                        .isConsumable(false)
-                                        .build();
-
-                        br.dev.ctrls.inovareti.modules.inventory.domain.model.Item mockItem =
-                                br.dev.ctrls.inovareti.modules.inventory.domain.model.Item.builder()
-                                        .name(asset.getName() + " [Patr: " + asset.getPatrimonyCode() + "]")
-                                        .itemCategory(mockCategory)
-                                        .currentStock(1)
-                                        .build();
-
-                        br.dev.ctrls.inovareti.modules.user.domain.model.User recipient = null;
-                        if (originalTicket != null) {
-                            recipient = originalTicket.getRequester();
+                        String location = "-";
+                        if (tf.getTicket() != null && tf.getTicket().getRequester() != null && tf.getTicket().getRequester().getLocation() != null) {
+                            location = tf.getTicket().getRequester().getLocation();
                         } else if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {
-                            recipient = asset.getUsers().iterator().next();
+                            var firstUser = asset.getUsers().iterator().next();
+                            if (firstUser.getLocation() != null) {
+                                location = firstUser.getLocation();
+                            }
+                        } else if (tf.getTechnician() != null && tf.getTechnician().getLocation() != null) {
+                            location = tf.getTechnician().getLocation();
                         }
 
-                        Ticket mockTicket = Ticket.builder()
-                                .id(mockId)
-                                .title(originalTicket != null ? originalTicket.getTitle() : "Entrega Direta de Ativo: " + asset.getName())
-                                .status(originalTicket != null ? originalTicket.getStatus() : br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus.RESOLVED)
-                                .priority(originalTicket != null ? originalTicket.getPriority() : br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketPriority.NORMAL)
-                                .requester(recipient)
-                                .assignedTo(originalTicket != null ? originalTicket.getAssignedTo() : tf.getTechnician())
-                                .category(originalTicket != null ? originalTicket.getCategory() : null)
-                                .closedAt(tf.getCreatedAt())
-                                .requestedItem(mockItem)
-                                .requestedQuantity(1)
-                                .build();
+                        String sector = "-";
+                        if (tf.getTicket() != null && tf.getTicket().getRequester() != null && tf.getTicket().getRequester().getSector() != null) {
+                            sector = tf.getTicket().getRequester().getSector().getName();
+                        } else if (asset.getUsers() != null && !asset.getUsers().isEmpty()) {
+                            var firstUser = asset.getUsers().iterator().next();
+                            if (firstUser.getSector() != null) {
+                                sector = firstUser.getSector().getName();
+                            }
+                        } else if (tf.getTechnician() != null && tf.getTechnician().getSector() != null) {
+                            sector = tf.getTechnician().getSector().getName();
+                        }
 
                         BigDecimal cost = tf.getCost() != null ? tf.getCost() : BigDecimal.ZERO;
-                        totalsByTicket.put(mockId, cost);
+                        LocalDateTime date = tf.getMaintenanceDate() != null ? tf.getMaintenanceDate().atStartOfDay() : (tf.getCreatedAt() != null ? tf.getCreatedAt() : LocalDateTime.now());
 
-                        unifiedRows.add(mockTicket);
+                        unifiedRows.add(new OutflowReportRowDTO(itemType, itemText, qty, requester, location, sector, cost, date));
                     }
                 }
             }
@@ -209,12 +183,12 @@ public class ReportService {
             // Ignorado
         }
 
-        // Ordenação por data mais antiga até mais nova
+        // Ordenação estritamente cronológica
         unifiedRows.sort((a, b) -> {
-            if (a.getClosedAt() == null && b.getClosedAt() == null) return 0;
-            if (a.getClosedAt() == null) return 1;
-            if (b.getClosedAt() == null) return -1;
-            return a.getClosedAt().compareTo(b.getClosedAt());
+            if (a.deliveryDate() == null && b.deliveryDate() == null) return 0;
+            if (a.deliveryDate() == null) return 1;
+            if (b.deliveryDate() == null) return -1;
+            return a.deliveryDate().compareTo(b.deliveryDate());
         });
 
         return unifiedRows;

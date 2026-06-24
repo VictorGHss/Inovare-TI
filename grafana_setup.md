@@ -48,9 +48,9 @@ O dashboard `inovare_resiliencia_dashboard.json` contém os seguintes painéis:
 - **Tipo**: Stat (indicador visual por cor)
 - **Métricas**: `resilience4j_circuitbreaker_state{name=~".+"}`
 - **Interpretação**:
-  - 🟢 `CLOSED (0)` → Saudável, chamadas fluindo normalmente
-  - 🟡 `HALF-OPEN (0.5)` → Testando recuperação após período aberto
-  - 🔴 `OPEN (1)` → **Disjuntor aberto, chamadas à Feegow interrompidas!**
+  - `CLOSED (0)`: Saudável, chamadas fluindo normalmente
+  - `HALF-OPEN (0.5)`: Testando recuperação após período aberto
+  - `OPEN (1)`: Disjuntor aberto, chamadas à Feegow interrompidas
 
 ### Painel 2: Taxa de Erros Feegow
 - **Tipo**: Time Series (gráfico temporal)

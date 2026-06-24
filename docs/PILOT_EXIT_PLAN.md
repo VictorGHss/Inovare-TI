@@ -1,6 +1,6 @@
-# Plano de Transição do Piloto e Ativação da Monetização
+# Plano de Transição do Piloto e Ativação de Planos
 
-Este documento serve como guia de operações de SRE e Tech Lead para ativação segura da lógica de cobrança (monetização) e transição do piloto do motor de confirmação de consultas da **Inovare-TI**.
+Este documento serve como guia de operações para ativação da lógica de cobrança e transição do piloto do motor de confirmação de consultas da **Inovare-TI**.
 
 ---
 
@@ -70,13 +70,13 @@ WHERE profissional_id NOT IN ('8', '6', '7', '13', '14', '12');
 
 ## (C) Template de Comunicação Pré-Desativação (48 Horas Antes)
 
-Este template deve ser adaptado e disparado (via WhatsApp Corporativo/E-mail de Suporte) para os profissionais ou suas equipes de secretariado **48 horas antes** de qualquer bloqueio real do motor de automação por falta de assinatura.
+Este template deve ser adaptado e disparado para os profissionais ou secretários **48 horas antes** de qualquer desativação do envio automático de mensagens por falta de assinatura.
 
 ### Template de Mensagem (WhatsApp / E-mail)
 
-**Assunto:** Ação Necessária: Transição do Piloto de Confirmações Automáticas — Inovare-TI
+**Assunto:** Transição do Piloto de Confirmações Automáticas — Inovare-TI
 
-> **Olá, equipe de atendimento do [Nome do Médico/Profissional]!**
+> **Olá, atendimento do [Nome do Médico/Profissional]!**
 >
 > Esperamos que este contato encontre vocês bem.
 >
@@ -96,4 +96,4 @@ Este template deve ser adaptado e disparado (via WhatsApp Corporativo/E-mail de 
 > Agradecemos a parceria de sempre e seguimos à disposição para qualquer dúvida técnica!
 >
 > Atenciosamente,  
-> **Time de Tecnologia e Operações (SRE) — Inovare-TI**
+> **Suporte Técnico — Inovare-TI**

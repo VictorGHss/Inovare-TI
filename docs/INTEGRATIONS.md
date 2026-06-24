@@ -1,15 +1,15 @@
 # Manual de Integrações — Inovare TI
 
-Este documento detalha a arquitetura técnica, classes relevantes, configurações e regras de negócio que governam a comunicação da plataforma Inovare TI com parceiros e sistemas externos.
+Este documento detalha as configurações e as regras de negócio das integrações da plataforma com sistemas externos.
 
 ---
 
-## 🏥 Feegow ERP (Integração de Consultas e Cadastro)
+## Feegow ERP (Integração de Consultas e Cadastro)
 
-A integração com a Feegow centraliza a busca incremental de consultas para notificação e sincronização de dados de cadastro clínico.
+A integração com o Feegow automatiza a busca de consultas para notificação e a sincronização de dados cadastrais.
 
-### 1. Filtro Estrito de Procedimentos Elegíveis
-Para evitar o envio de notificações sobre exames de rotina ou procedimentos não cobertos pelas políticas de relacionamento da clínica, a ingestão executa um filtro estrito:
+### 1. Filtro de Procedimentos Elegíveis
+Para evitar o envio de notificações sobre procedimentos ou exames que não fazem parte do fluxo da clínica:
 * A propriedade `app.appointment.eligible-procedure-ids` (ou variável de ambiente `ELIGIBLE_PROCEDURE_IDS`) carrega uma lista de IDs separados por vírgula.
 * No início do processamento do lote em [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java), o sistema valida o ID do procedimento de cada agendamento recebido contra esta lista configurada. Caso o ID não esteja mapeado, o agendamento é imediatamente descartado com logs de auditoria detalhados.
 
@@ -40,9 +40,9 @@ graph TD
 
 ---
 
-## 💬 Plataforma Blip e Meta Cloud API (Integração WhatsApp / Chatbot)
+## Plataforma Blip e Meta Cloud API (WhatsApp)
 
-O Inovare TI conecta-se ao ecossistema do Blip para despacho de templates ativos de lembretes no WhatsApp e orquestração de transbordo humano para operadores clínicos.
+A plataforma se conecta ao Blip para envio de lembretes no WhatsApp e direcionamento de conversas para atendimento humano.
 
 As rotinas e comandos LIME são gerenciados em [BlipContextService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/service/BlipContextService.java) e chamados na API do Blip via [BlipLIMEClient](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/client/BlipLIMEClient.java).
 
@@ -62,9 +62,9 @@ Para posicionar o usuário no bloco ou bot correto da Take Blip de forma ativa e
 
 ---
 
-## 💙 Conta Azul V2 (Conciliação Financeira e Recibos)
+## Conta Azul V2 (Conciliação Financeira e Recibos)
 
-A plataforma integra-se de forma nativa com a API Conta Azul V2 para a leitura de faturamentos de pacientes, geração de relatórios de auditoria e envio automático de recibos oficiais aos clientes após a confirmação do pagamento.
+A plataforma integra-se com a API Conta Azul V2 para leitura de faturamentos de pacientes, relatórios e envio automático de recibos oficiais aos clientes após a confirmação do pagamento.
 
 ### 1. Processamento e Automação de Recibos
 * **Automação Incremental (`processAcquittedSales`)**: Em execução agendada periódica (ou sob demanda), o serviço [ContaAzulReceiptProcessor](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/application/service/ContaAzulReceiptProcessor.java) busca vendas com status `ACQUITTED` (Quitadas) via `contaAzulClient.fetchAcquittedSales` em um período específico, efetuando o processamento do recibo individual.

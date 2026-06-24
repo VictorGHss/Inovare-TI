@@ -1,17 +1,17 @@
 # Catálogo de Funcionalidades — Inovare TI
 
-Este documento apresenta o resumo executivo, especificações funcionais e as regras de negócio dos módulos principais que compõem a plataforma Inovare TI.
+Este documento apresenta as especificações e as regras de negócio dos módulos que compõem o sistema.
 
 ---
 
-## 🎨 Identidade e Experiência do Usuário
+## Interface e Experiência do Usuário
 
-* **Design System Premium**: Interface responsiva baseada na cor primária da marca Inovare (`#feb56c`), desenvolvida para garantir leitura ágil e navegação fluida em desktops, tablets e smartphones.
-* **Dashboard Executivo**: Painel centralizado que exibe cards de resumos operacionais em tempo real, atalhos de monitoramento técnico, rankings Top 5 de demandas e gráficos interativos de controle de chamados e finanças.
+* **Design System**: Interface responsiva baseada na cor primária da clínica Inovare (`#feb56c`), desenvolvida para navegação em computadores e celulares.
+* **Dashboard**: Painel centralizado que exibe cards de resumos operacionais em tempo real, atalhos, rankings de demandas e gráficos de controle de chamados e finanças.
 
 ---
 
-## 📅 Motor de Agendamentos e Comunicação com Pacientes
+## Motor de Agendamentos e Comunicação com Pacientes
 
 O Motor de Agendamentos automatiza a ingestão diária de consultas externas e gerencia a esteira de lembretes e confirmações enviadas aos pacientes por meio da plataforma WhatsApp, operando sob regras rígidas de segurança operacional e conformidade técnica.
 
@@ -27,12 +27,12 @@ Para garantir a saúde operacional da aplicação e mitigar estouros de limite d
 * **Virtual Threads do Java 21**: O uso de `Thread.sleep` é completamente seguro e não prejudica o desempenho do servidor. Como o projeto está estruturado sobre as *Virtual Threads* do Java 21 (`Executors.newVirtualThreadPerTaskExecutor()`), a chamada suspende temporariamente apenas a thread virtual coordenadora, cedendo os recursos físicos da CPU (Carrier Threads) a outros processos na JVM.
 * **Limitação de Concorrência Secundária**: Adicionalmente, um semáforo de concorrência ([blipSemaphore](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java#L86)) com limite dinâmico configurável (propriedade `APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY`, padrão: `20`) protege os barramentos de rede, bloqueando excessos de requisições simultâneas de configuração de contexto e envio de templates ao Blip.
 
-### 2. Regra do Dilema de Segunda-Feira
-Para evitar o envio inconveniente de mensagens automáticas de lembretes durante o final de semana (sábado e domingo), a rotina de busca de consultas executa uma antecipação estratégica de datas, baseando-se no dia da semana em que é executada:
-* **Execuções em Dias Úteis (Segunda a Quinta-Feira)**: O sistema busca e ingere consultas agendadas para o dia seguinte (`LocalDate.now().plusDays(1)`).
-* **Execuções na Sexta-Feira (O Dilema de Segunda-Feira)**: Quando a rotina de ingestão detecta que o dia atual é sexta-feira (`FRIDAY`), o sistema calcula a data alvo com um salto temporal de três dias (`LocalDate.now().plusDays(3)`). Com isso, todas as consultas agendadas para a próxima **segunda-feira** são ingeridas e notificadas antecipadamente na própria sexta-feira, em horário comercial, blindando o descanso do paciente no final de semana.
+### 2. Tratamento de Envio no Fim de Semana
+Para evitar o envio de mensagens automáticas de lembretes durante o final de semana (sábado e domingo), a rotina de busca de consultas realiza uma antecipação de datas:
+* **Execuções de Segunda a Quinta-Feira**: O sistema busca consultas agendadas para o dia seguinte (`LocalDate.now().plusDays(1)`).
+* **Execuções na Sexta-Feira**: O sistema busca as consultas agendadas para a próxima **segunda-feira** (`LocalDate.now().plusDays(3)`). Com isso, as consultas de segunda-feira são notificadas antecipadamente na própria sexta-feira, em horário comercial, evitando mensagens no final de semana.
 
-### 3. Idempotência de Envio e Agrupamento em Lote (NotificationGroup)
+### 3. Idempotência de Envio e Agrupamento em Lote
 Duplicidades de envio e bombardeio de mensagens múltiplas a um único cliente são bloqueadas por dois mecanismos de segurança:
 * **Filtro de Idempotência Individual**: O serviço [AppointmentSendIdempotencyService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/service/AppointmentSendIdempotencyService.java) intercepta o identificador do agendamento vindo do ERP. O método `registerIfFirstSend(feegowAppointmentId)` atua como uma barreira que registra o despacho e rejeita reprocessamentos da mesma consulta no mesmo ciclo.
 * **Estratégia de Envio Agrupado (NotificationGroup)**: Caso o paciente possua múltiplos agendamentos cadastrados para a mesma data alvo, o motor impede o spam de mensagens isoladas unificando o fluxo:
@@ -45,7 +45,7 @@ Duplicidades de envio e bombardeio de mensagens múltiplas a um único cliente s
 
 ---
 
-## 🔒 Cofre Eletrônico de Senhas e Documentos (Vault)
+## Cofre de Senhas e Documentos (Vault)
 
 O Vault atua como um perímetro de segurança para custódia de credenciais corporativas e dados sensíveis:
 
@@ -59,35 +59,38 @@ O Vault atua como um perímetro de segurança para custódia de credenciais corp
 
 ---
 
-## 🎫 Central de Chamados (Helpdesk)
+## Central de Chamados (Helpdesk)
 
-O motor de chamados centraliza e agiliza o fluxo de suporte de TI da clínica:
+O motor de chamados centraliza o fluxo de suporte de TI da clínica:
 
-* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculated de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
-* **Gestão de Atribuições**: Técnicos podem assumir chamados autonomamente (Claim) ou administradores podem designar operadores específicos.
-* **Comentários e Histórico**: Suporte a diálogos e troca de mensagens entre os solicitantes e a equipe de suporte técnico, com upload de anexos legados integrados ao chamado.
-* **Base de Conhecimento Lateral & Macros de 1-Clique**:
-  * **Pesquisa de Chamados Similares**: Na sidebar de detalhes de chamados em progresso (`IN_PROGRESS`), a aplicação executa uma lógica consultiva automática em background buscando chamados finalizados (`RESOLVED`/`CLOSED`) que compartilham de tags em comum. Isto apresenta runbooks e soluções antigas instantaneamente ao técnico na mesma tela.
-  * **Botão Premium "Aplicar Solução Padrão"**: Se qualquer uma das tags do chamado possuir uma macro de resolução (`default_resolution`) cadastrada, um botão de atalho premium surge na sidebar. Com **1-clique**, ele abre o modal de resolução e preenche automaticamente toda a nota de fechamento padrão, acelerando a finalização com segurança e padronização.
+* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculado de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
+* **Gestão de Atribuições**: O desenvolvedor pode assumir chamados autonomamente ou gerenciar atribuições diretamente.
+* **Comentários e Histórico**: Canal para troca de mensagens entre o solicitante e o suporte, com upload de anexos integrado ao chamado.
+* **Base de Conhecimento Lateral e Macros**:
+  * **Pesquisa de Chamados Similares**: Na sidebar de detalhes de chamados em progresso (`IN_PROGRESS`), a aplicação busca chamados finalizados (`RESOLVED`/`CLOSED`) que compartilham de tags em comum, apresentando soluções anteriores.
+  * **Botão "Aplicar Solução Padrão"**: Se alguma das tags do chamado possuir uma macro de resolução (`default_resolution`) cadastrada, um botão surge na sidebar permitindo preencher a nota de fechamento padrão com um clique.
 * **Notificações Operacionais**: Notificações por e-mail e web baseadas no perfil do operador, com preferência individual configurável de recebimento de alertas no Discord.
 
 ---
 
-## 🚨 Regra de Negócio de Parada Crítica (Incidentes Críticos)
+## Regra de Parada Crítica (Incidentes Críticos)
 
 Para blindar a operação de saúde contra paradas tecnológicas severas que afetem o atendimento ao paciente, o sistema possui uma esteira dedicada e prioritária de detecção e contenção de falhas em ativos críticos:
+## Gestão de Incidentes Críticos
 
-1. **Associação de Ativo Crítico**: No momento da criação do chamado, se for associado um ativo que esteja sinalizado no CMDB como crítico (`is_critical = true`), a regra é acionada instantaneamente.
-2. **Varredura Inteligente por Regex (Discord)**: Ao abrir chamados via slash command `/chamado` no Bot do Discord (onde a descrição é texto livre), o sistema executa em background uma varredura por expressão regular (`INV-\d{4}-\d+`) para capturar códigos de patrimônio digitados pelo usuário. Se corresponder a um patrimônio crítico cadastrado, a automação é disparada automaticamente.
-3. **Escalonamento Agressivo de SLA e Prioridade**:
-   * A prioridade do chamado é forçada para `URGENT`.
-   * O SLA (`sla_deadline`) é recalculado para **exatamente 1 hora** a partir do momento da criação, independente do SLA padrão da categoria.
-   * A tag mestre `#🚨ParadaCrítica` é injetada de forma automática no chamado.
-4. **Alerta Vermelho ao Técnico Responsável**: O bot do Discord despacha de forma síncrona uma mensagem privada de embed rico, estilizada com a barra vermelha e contendo detalhes do incidente urgente diretamente na Direct Message (DM) do técnico de plantão para ação imediata.
+Para proteger o atendimento ao paciente, o sistema prioriza incidentes graves:
+
+1. **Identificação de Ativo Crítico**: Se o ativo vinculado ao chamado estiver marcado como crítico (`is_critical = true`) no CMDB, o sistema prioriza o atendimento automaticamente.
+2. **Varredura por Discord**: Ao abrir um chamado via comando `/chamado` no Discord, o sistema busca automaticamente por padrões de código de patrimônio (`INV-\d{4}-\d+`). Se o patrimônio for crítico, a automação é disparada instantaneamente.
+3. **Escalonamento de Prioridade**:
+   * A prioridade é definida como `URGENT`.
+   * O prazo de resolução (`sla_deadline`) é ajustado para **1 hora**.
+   * A tag `#🚨ParadaCrítica` é aplicada ao chamado automaticamente.
+4. **Alerta ao Técnico Responsável**: O bot do Discord envia uma mensagem direta (DM) com os detalhes do problema para o técnico responsável, agilizando a resposta.
 
 ---
 
-## 📦 Inventário, Ativos e Algoritmo FIFO Transacional
+## Inventário, Ativos e Algoritmo FIFO
 
 O controle de insumos e hardware foi projetado para assegurar consistência fiscal e exatidão contábil total:
 
@@ -113,7 +116,7 @@ Para evitar qualquer discrepância entre a redução do saldo físico (`current_
 
 ---
 
-## 📖 Base de Conhecimento
+## Base de Conhecimento
 
 Espaço estruturado para o compartilhamento de artigos, tutoriais técnicos e runbooks de autoatendimento para os colaboradores da clínica:
 * **Fluxo de Rascunhos**: Artigos criados no estado `DRAFT` (Rascunho) são visíveis e editáveis exclusivamente pelo próprio autor do texto ou por operadores `ADMIN`.
@@ -121,14 +124,14 @@ Espaço estruturado para o compartilhamento de artigos, tutoriais técnicos e ru
 
 ---
 
-## 📱 PWA e Mobilidade
+## PWA e Mobilidade
 
 * **Experiência Instalável**: Configuração completa de manifesto PWA permitindo a instalação nativa do sistema em dispositivos iOS e Android como um aplicativo dedicado.
 * **Scanner de QR Code Nocivo**: Utilização das APIs nativas da câmera para ler códigos patrimoniais colados fisicamente nos computadores, proporcionando rapidez na triagem de problemas nos consultórios da clínica.
 
 ---
 
-## 📋 Auditoria 360 e Compliance Imutável
+## Auditoria e Logs de Ações
 
 Trilha de auditoria desacoplada e assíncrona gerida por eventos internos Spring Boot (`AuditEvent`) para compliance e conformidade LGPD:
 

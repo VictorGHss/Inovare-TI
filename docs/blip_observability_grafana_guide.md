@@ -81,4 +81,4 @@ groups:
         annotations:
           summary: "Pico de Números Inválidos no WhatsApp: {{ $value }} falhas"
           description: "Detectada uma alta taxa de números de telefone inválidos ou não cadastrados no WhatsApp nas confirmações disparadas nos últimos 10 minutos. Isso indica falhas de digitação ou cadastro desatualizado no Feegow."
-          action_plan: "1. Notificar a equipe de recepção/atendimento clínico para validação do preenchimento dos números com DDI e DDD no sistema Feegow. 2. Verificar o processo de saneamento/higienização de cadastros automáticos."
+          action_plan: "1. Ajustar os números de telefone com DDI e DDD no sistema Feegow. 2. Verificar o processo de higienização de cadastros automáticos."

@@ -1,10 +1,10 @@
 # Arquitetura do Sistema e Modelo de Dados — Inovare TI
 
-Este documento descreve a arquitetura técnica global do sistema ITSM Inovare TI, decisões de design estrutural, a adoção do padrão hexagonal (Ports & Adapters), o mapeamento de domínios no backend, o dicionário completo do banco de dados e o planejamento de infraestrutura para produção.
+Este documento descreve a estrutura técnica do sistema, a adoção do padrão hexagonal (Ports & Adapters), o mapeamento de domínios no backend, o dicionário do banco de dados e o deploy.
 
 ---
 
-## 📋 Visão Geral: Arquitetura em 3 Camadas
+## Visão Geral: Arquitetura em 3 Camadas
 
 O sistema é dividido em três camadas independentes, cada uma rodando de forma isolada dentro de contêineres Docker:
 
@@ -42,11 +42,11 @@ O sistema é dividido em três camadas independentes, cada uma rodando de forma 
 
 ---
 
-## 🛠️ Infraestrutura Docker Compose
+## Infraestrutura Docker Compose
 
 O `docker-compose.yml` define os serviços e a rede `inovare_network` (driver `bridge`). A comunicação entre API e DB usa o hostname `db` internamente.
 
-### Serviços (Resumo)
+### Serviços
 
 | Serviço       | Container               | Build / Imagem              | Porta local                                 |
 |---------------|-------------------------|-----------------------------|---------------------------------------------|
@@ -76,13 +76,13 @@ networks:
 
 ### Componentes de Infraestrutura Adicionais
 
-* **Redis & Cache**: O serviço `redis` é utilizado como camada de estabilidade para caching distribuído e para o rate-limiter (`RedisRateLimiter`). Implementamos um mecanismo de **Cache Temporário de Curta Duração (10 minutos TTL)** anotado sob `@Cacheable(value = "contaAzulSummary")` no resumo financeiro mensal (`fetchSummary`), blindando chamadas HTTP externas e repetitivas contra a API da ContaAzul a cada troca de tela no frontend React. O cachemanager do Redis centraliza essa expiração de forma integrada no ecossistema Spring Boot (`@EnableCaching`).
-* **Prometheus**: O projeto expõe métricas de SRE via Micrometer/Actuator em `/api/actuator/prometheus`. O serviço local `prometheus` permite visualizar dados e avaliar regras de alertas (regras em `docs/prometheus/alert.rules.yml`).
-* **Healthcheck e Readiness**: O serviço `api` depende do banco de dados `db` e do cache `redis` estarem totalmente saudáveis antes de iniciar o bootstrap da aplicação, evitando falhas de conexão prematuras.
+* **Redis e Cache**: O serviço `redis` é utilizado para caching distribuído e para o rate-limiter (`RedisRateLimiter`). O sistema implementa um **Cache Temporário de Curta Duração (10 minutos TTL)** anotado sob `@Cacheable(value = "contaAzulSummary")` no resumo financeiro mensal (`fetchSummary`), evitando chamadas repetitivas à API da ContaAzul a cada troca de tela no frontend React.
+* **Prometheus**: A API expõe métricas de uso via Micrometer/Actuator em `/api/actuator/prometheus`. O serviço local `prometheus` permite monitorar dados e avaliar regras de alertas (regras em `docs/prometheus/alert.rules.yml`).
+* **Healthcheck e Readiness**: A API depende do banco de dados `db` e do cache `redis` estarem ativos e saudáveis antes de iniciar, evitando falhas de conexão na inicialização.
 
 ---
 
-## 📐 Padrão Arquitetural Predominante: Arquitetura Hexagonal (Ports & Adapters)
+## Padrão Arquitetural: Arquitetura Hexagonal (Ports & Adapters)
 
 O backend do Inovare TI adota rigorosamente a **Arquitetura Hexagonal (Ports & Adapters)** em seus módulos internos (localizados sob o pacote [api/src/main/java/br/dev/ctrls/inovareti/modules](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/)). Esse padrão visa isolar as regras de negócio essenciais contra dependências externas de infraestrutura, bancos de dados, APIs de terceiros ou frameworks como o Spring Boot.
 
@@ -113,9 +113,9 @@ A divisão de pacotes por módulo é estruturada em três camadas bem definidas:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Camada de Domínio Isolado (`domain`)
-Contém o núcleo intelectual e as entidades puras de negócio do sistema. Esta camada não depende do Spring Boot nem de bibliotecas de infraestrutura.
-*   **Modelos de Domínio (`domain/model`)**: Classes ricas que encapsulam o estado e o comportamento das regras do sistema. Exemplos:
+### 1. Camada de Domínio (`domain`)
+Contém as regras de negócio e as entidades do sistema. Esta camada não depende do Spring Boot nem de bibliotecas de infraestrutura.
+*   **Modelos de Domínio (`domain/model`)**: Classes que encapsulam o estado e o comportamento das regras do sistema. Exemplos:
     *   [AppointmentSession](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/AppointmentSession.java): Controla o estado de um agendamento individualizado.
     *   [NotificationGroup](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/NotificationGroup.java): Agrupa consultas para disparos em lote sem duplicidade.
     *   [StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java): Mapeia as quantidades e custos de aquisição do estoque local.
@@ -141,35 +141,35 @@ Os adaptadores concretos (`infrastructure/adapter`) ligam a aplicação às tecn
 
 ---
 
-## 🔄 Fluxo dos Módulos Internos
+## Fluxo dos Módulos Internos
 
-A plataforma está subdividida em módulos de negócio focados. Abaixo descreve-se o comportamento de seus principais componentes internos:
+O sistema está estruturado em módulos de negócio:
 
-### 1. Vault de Credenciais e Documentos (Vault)
-Fornece custódia segura de credenciais confidenciais, documentos técnicos e anotações.
-*   **Criptografia ativa em nível de aplicação**: O conteúdo confidencial de um segredo (`secret_content`) é interceptado antes da gravação física no banco de dados e encriptado utilizando o algoritmo simétrico **AES-256-GCM** com IV dinâmico (gerido por [CryptoConverter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/infrastructure/shared/security/CryptoConverter.java)).
-*   **Barreira de Segurança MFA**: Operações críticas de escrita (criação, edição e remoção física de dados) e leitura de segredos confidenciais exigem que o token JWT possua uma claim válida de duplo fator (`two_factor_verified = true`), validada interceptando a sessão com o `TwoFactorSessionGuard`. Em caso de reset do 2FA do usuário (via dashboard ou Bot do Discord), a sessão é invalidada imediatamente.
+### 1. Cofre de Credenciais e Documentos (Vault)
+Armazena credenciais confidenciais, documentos técnicos e anotações.
+*   **Criptografia em nível de aplicação**: O conteúdo de um segredo (`secret_content`) é criptografado antes da gravação no banco de dados com o algoritmo **AES-256-GCM** e IV dinâmico (gerido por [CryptoConverter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/infrastructure/shared/security/CryptoConverter.java)).
+*   **Validação MFA**: Operações de escrita e leitura de segredos confidenciais exigem que o token JWT possua uma claim válida de duplo fator (`two_factor_verified = true`), validada pelo `TwoFactorSessionGuard`. Em caso de reset do 2FA do usuário (via dashboard ou Bot do Discord), a sessão é invalidada imediatamente.
 
 ### 2. Módulo de Inventário e Algoritmo FIFO
-Garante a integridade fiscal e o controle de quantidades de hardware e insumos consumidos.
+Gerencia a integridade e o controle de quantidades de hardware e insumos consumidos.
 *   **Entrada de Produtos por Lotes**: Insumos cadastrados são agrupados em lotes de estoque ([StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java)) registrando preço de compra e data de entrada.
-*   **Algoritmo FIFO Transacional**: No encerramento de chamados que exigem peças de reposição (ex. troca de toner ou teclado), a rotina de encerramento (`ResolveTicketUseCase`) executa de forma automática a saída baseando-se na regra FIFO: os lotes de entrada mais antigos são consumidos preferencialmente. A execução herda o nível de propagação obrigatório (`Propagation.MANDATORY`), garantindo que se o algoritmo FIFO falhar ou o estoque estiver inconsistente, a transação da baixa do chamado sofra rollback completo.
-*   **Fallback de Movimentações**: Uma barreira protetiva autônoma verifica se a saída gerou registros de movimentação em `stock_movements`. Em caso de ausência por instabilidade de rede ou banco de dados, cria um registro de fallback de saída (tipo `OUT` e referência `TICKET:{ticketId}`) de forma independente para evitar furos no balanço contábil.
+*   **Algoritmo FIFO Transacional**: No encerramento de chamados que exigem peças de reposição (ex. troca de toner ou teclado), a rotina de encerramento (`ResolveTicketUseCase`) executa de forma automática a saída baseando-se na regra FIFO (lotes mais antigos consumidos primeiro). A execução herda a propagação (`Propagation.MANDATORY`), garantindo que se o algoritmo FIFO falhar ou o estoque estiver inconsistente, a transação sofra rollback.
+*   **Fallback de Movimentações**: O sistema verifica se a saída gerou registros de movimentação em `stock_movements`. Em caso de ausência, cria um registro de fallback de saída (tipo `OUT` e referência `TICKET:{ticketId}`) para evitar furos no balanço contábil.
 
 ### 3. Gestão de Tickets e Helpdesk (ITSM)
 Centraliza a triagem, direcionamento e monitoramento de incidentes e solicitações de TI da clínica.
-*   **Cálculo Dinâmico de SLA**: O prazo de atendimento (`sla_deadline`) de um chamado ([Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java)) é calculado com base nas horas úteis vigentes da categoria atribuída no momento da abertura.
-*   **Regra de Parada Crítica (Incidentes Críticos)**: Se o chamado estiver vinculado a um ativo físico mestre sinalizado como crítico (`is_critical = true`), ou se a descrição aberta via Bot de Discord contiver expressões regulares associadas a patrimônios críticos (padrão regex `INV-\d{4}-\d+`), a regra é acionada: a prioridade do chamado é forçada para `URGENT`, o SLA é forçado para **1 hora** limite, e a tag `#🚨ParadaCrítica` é injetada. Um alerta vermelho é disparado via webhook e bot (JDA) diretamente na DM do técnico responsável.
-*   **Macros de 1-Clique e Busca Lateral**: Permite que o técnico encontre soluções sugeridas de chamados resolvidos que compartilham tags similares e utilize Macros ("Aplicar Solução Padrão") para automatizar o preenchimento de notas de resolução.
+*   **Cálculo Dinâmico de SLA**: O prazo de atendimento (`sla_deadline`) de um chamado ([Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java)) é calculado com base nas horas úteis vigentes da categoria.
+*   **Regra de Parada Crítica (Incidentes Críticos)**: Se o chamado estiver vinculado a um ativo físico mestre sinalizado como crítico (`is_critical = true`), ou se a descrição aberta via Bot de Discord contiver expressões regulares associadas a patrimônios críticos (padrão regex `INV-\d{4}-\d+`), a regra é acionada: a prioridade do chamado é definida como `URGENT`, o SLA é definido para **1 hora** limite, e a tag `#🚨ParadaCrítica` é injetada. Um alerta é disparado via webhook e bot (JDA) diretamente na DM do técnico responsável.
+*   **Macros de 1-Clique e Busca Lateral**: Permite encontrar soluções sugeridas de chamados resolvidos que compartilham tags similares e utilizar Macros ("Aplicar Solução Padrão") para preencher notas de resolução.
 
 ### 4. Telemetria e Analytics com Prometheus
-Fornece métricas de SRE para diagnóstico preventivo e controle técnico do ecossistema.
-*   **Exposição de Actuator**: O pacote `analytics` configura e exporta telemetria nativa do Micrometer no endpoint exposto `/api/actuator/prometheus`.
-*   **Monitoramento de Circuit Breakers**: Integração com resiliência de rede monitorando estados do Circuit Breaker do Feegow ERP. Se o Circuit Breaker de comunicação entrar em estado `OPEN` (bloqueando requisições devido a falhas consecutivas de rede), o alerta é gerado no Prometheus e propagado como notificação via webhook de alertas para o Discord da equipe de SRE da Inovare TI.
+Fornece métricas para diagnóstico preventivo e controle técnico do sistema.
+*   **Exposição de Actuator**: O pacote `analytics` configura e exporta telemetria do Micrometer no endpoint exposto `/api/actuator/prometheus`.
+*   **Monitoramento de Circuit Breakers**: Se o Circuit Breaker de comunicação com o Feegow ERP entrar em estado `OPEN`, o alerta é gerado no Prometheus e enviado como notificação via webhook para o canal de alertas do Discord.
 
 ---
 
-## 💾 Modelo de Banco de Dados (Dicionário de Schema)
+## Modelo de Banco de Dados (Dicionário de Schema)
 
 O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente via **Flyway** (`api/src/main/resources/db/migration/`). Todas as tabelas seguem a convenção `snake_case` e as chaves primárias são UUIDs gerados na aplicação (RFC 4122).
 
@@ -407,11 +407,11 @@ O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente
 | `created_at` | `timestamp` | NOT NULL | Instante exato da gravação imutável |
 
 > [!CAUTION]
-> A tabela `audit_logs` não possui chaves estrangeiras vinculadas programaticamente nem operações de UPDATE ou DELETE expostas na camada de aplicação. Isso garante a blindagem física dos históricos mesmo em cenários de exclusão lógica ou física de usuários de TI.
+> A tabela `audit_logs` não possui chaves estrangeiras vinculadas programaticamente nem permite operações de UPDATE ou DELETE pela aplicação. Isso garante a segurança do histórico de auditoria mesmo em cenários de exclusão de usuários.
 
 ---
 
-## 🗺 /> Diagrama de Relacionamentos do Banco de Dados
+## Diagrama de Relacionamentos do Banco de Dados
 
 ```
 sectors             (1) ──<  users              (N)
@@ -436,19 +436,19 @@ system_alerts             (Focado em falhas operacionais e de integrações)
 
 ---
 
-## 🔒 Mecanismos de Segurança de Acesso
+## Mecanismos de Segurança de Acesso
 
-O sistema emprega múltiplos perímetros para mitigar a exposição de dados sensíveis na internet:
+O sistema utiliza diferentes camadas para evitar a exposição de dados na internet:
 
-1. **Tokens de Sessão Degradáveis**: A autenticação JWT comum libera funções operacionais básicas. Funções do Cofre (`VaultItem`) e do financeiro exigem a presença da claim `two_factor_verified: true` no payload assinado do token JWT.
-2. **Criptografia Simétrica em Camada de Aplicação**: Todo segredo corporativo salvo na tabela `vault_items` e as chaves de 2FA dos usuários na tabela `users` são convertidos via `EncryptionService` utilizando o padrão **AES-256-GCM** com IV dinâmico de 12 bytes gerado com `SecureRandom`.
-3. **Revogação Instantânea de Sessões**: O reset administrativo ou autônomo do 2FA provoca a limpeza instantânea da chave secreta TOTP do usuário no banco. O `SecurityFilter` e o interceptor `TwoFactorSessionGuard` realizam consultas de sanidade no banco a cada requisição sensível, derrubando imediatamente acessos ativos mesmo de tokens JWT válidos com claims pré-assinadas.
+1. **Tokens de Sessão**: A autenticação JWT padrão libera funções básicas. Acesso ao Cofre (`VaultItem`) e recursos financeiros exige a presença da claim `two_factor_verified: true` no token JWT.
+2. **Criptografia Simétrica**: Segredos salvos na tabela `vault_items` e as chaves de 2FA dos usuários na tabela `users` são convertidos via `EncryptionService` utilizando o padrão **AES-256-GCM** com IV dinâmico de 12 bytes gerado com `SecureRandom`.
+3. **Revogação de Sessões**: O reset do 2FA apaga o segredo TOTP no banco. O `SecurityFilter` e o interceptor `TwoFactorSessionGuard` validam o status a cada requisição, invalidando o acesso caso necessário.
 
 ---
 
-## 🚀 Planejamento de Deploy e Segurança de Rede
+## Planejamento de Deploy e Segurança de Rede
 
-Para implantação segura sob o domínio público `itsm-inovare.ctrls.dev.br`, o modelo estrutural recomendado consiste no isolamento total do perímetro interno:
+Para implantar o sistema de forma segura sob o domínio público `itsm-inovare.ctrls.dev.br`, recomenda-se isolar a rede interna:
 
-* **Túnel de Rede Dedicado (Cloudflare Tunnel)**: A porta exposta do container do Nginx ou da API backend não fica exposta diretamente à internet pública. O container do Cloudflare Daemon (`cloudflared`) cria uma ponte de saída criptografada ligando a rede interna do Docker diretamente às bordas da rede de CDN da Cloudflare.
-* **Segurança na Borda (WAF & DDoS Protection)**: Todo o tráfego que atinge a aplicação é interceptado nas bordas, aplicando proteção ativa contra ataques automatizados, injeções SQL e permitindo a parametrização de bloqueios geográficos (Geo-IP) para limitar requisições exclusivamente ao território brasileiro.
+* **Túnel de Rede (Cloudflare Tunnel)**: A porta da API ou do frontend não fica exposta diretamente à internet. O contêiner do Cloudflare Daemon (`cloudflared`) cria uma ponte segura ligando a rede interna do Docker diretamente às bordas da Cloudflare.
+* **Segurança de Borda (WAF e Proteção contra DDoS)**: O tráfego que chega à aplicação é analisado pelas regras do firewall da Cloudflare, aplicando proteções e permitindo restringir acessos por região geográfica.

@@ -1,12 +1,12 @@
 # Guia do Desenvolvedor e Operações — Inovare TI
 
-Este documento centraliza todas as instruções técnicas para engenheiros de software e operadores de infraestrutura: requisitos mínimos, configuração local do ambiente, execução do ecossistema, execução de testes, SMTP, relatórios em PDF, além dos playbooks de SRE e monitoramento de incidentes.
+Este documento contém as instruções para configuração local do ambiente, execução de testes, envio de e-mails, relatórios em PDF e monitoramento de incidentes.
 
 ---
 
-## 💻 Configuração do Ambiente e Execução Local
+## Configuração do Ambiente e Execução Local
 
-Esta seção descreve o passo a passo definitivo para que um novo desenvolvedor configure e execute a plataforma Inovare TI localmente a partir do código-fonte.
+Esta seção descreve os passos para configurar e executar a plataforma localmente.
 
 ### 1) Requisitos Mínimos
 Antes de iniciar, certifique-se de ter instalado e configurado em sua estação de trabalho:
@@ -53,9 +53,9 @@ A parametrização de segurança, credenciais e integrações locais é gerida p
 
 ---
 
-## 🚀 Compilação, Testes e Inicialização das Camadas
+## Compilação, Testes e Inicialização das Camadas
 
-Após a subida dos serviços auxiliares no Docker e configuração das variáveis em `.env`, siga o fluxo para rodar as aplicações.
+Após a subida dos serviços auxiliares no Docker e configuração das variáveis em `.env`, siga os passos para rodar a aplicação.
 
 ### 1) Backend (API Spring Boot Java 21)
 O código principal está localizado na pasta [api](file:///C:/Projeto/Inovare-TI/api).
@@ -95,9 +95,9 @@ O código visual do sistema está na pasta [front](file:///C:/Projeto/Inovare-TI
 
 ---
 
-## 🔒 Mecanismos de Segurança e Autenticação (JWT + 2FA)
+## Mecanismos de Segurança e Autenticação (JWT + 2FA)
 
-O sistema utiliza um fluxo de autenticação em duas etapas refletido nas claims do JWT:
+O sistema utiliza um fluxo de autenticação em duas etapas:
 
 ### 1. Fluxo de Escalonamento de Privilégios
 1. **Etapa 1 (Login Comum)**: O usuário fornece e-mail e senha. O backend valida as credenciais e emite um JWT padrão que concede acesso a chamados básicos e visualização comum do inventário. Tentativas de acesso ao cofre ou configurações financeiras serão sumariamente bloqueadas.
@@ -109,11 +109,11 @@ O sistema utiliza um fluxo de autenticação em duas etapas refletido nas claims
 
 ---
 
-## 🌍 Configuração de Timezone e Fuso Horário (GMT-3 Brasília)
+## Configuração de Timezone e Fuso Horário (GMT-3 Brasília)
 
-Para sanar por completo discrepâncias de compensação de datas (+3 horas) na persistência e na geração de relatórios, o fuso horário oficial de todo o ecossistema Inovare-TI foi rigidamente alinhado e alocado no fuso de Brasília (**America/Sao_Paulo**).
+Para evitar divergências de datas na persistência e na geração de relatórios, o fuso horário padrão do sistema é definido como o de Brasília (**America/Sao_Paulo**).
 
-Esta estabilidade é obtida através de três frentes coordenadas:
+Esta configuração é feita em três frentes:
 
 1. **Congelamento da JVM (`@PostConstruct`)**: Na inicialização do Spring Boot, em `InovareTiApplication.java`, forçamos explicitamente o fuso horário padrão do sistema:
    ```java
@@ -131,7 +131,7 @@ Esta estabilidade é obtida através de três frentes coordenadas:
 
 ---
 
-## 🛡️ Manipulação de Erros — Padrão RFC 7807
+## Manipulação de Erros — Padrão RFC 7807
 
 O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` para formatar e normalizar respostas de erro seguindo a especificação **RFC 7807 (Problem Details)**:
 
@@ -147,7 +147,7 @@ O projeto adota o `@RestControllerAdvice` na classe `GlobalExceptionHandler` par
 
 ---
 
-## 📧 Configurações do SMTP de Cobrança
+## Configurações do SMTP de Cobrança
 
 O envio de recibos e notificações financeiras por e-mail utiliza a infraestrutura do `spring-boot-starter-mail` (gerido pela classe `FinanceEmailService`):
 
@@ -155,7 +155,7 @@ O envio de recibos e notificações financeiras por e-mail utiliza a infraestrut
 
 ---
 
-## 📄 Geração e Layout de Relatórios em PDF
+## Geração e Layout de Relatórios em PDF
 
 Para a exportação de relatórios corporativos, o sistema utiliza a biblioteca **OpenPDF** (API livre compatível com iText):
 *   **Renderização**: A formatação visual utiliza a classe `PdfPTable` para estruturar colunas reais com alinhamentos coerentes (valores financeiros e numéricos alinhados à direita, textos à esquerda).
@@ -164,9 +164,9 @@ Para a exportação de relatórios corporativos, o sistema utiliza a biblioteca 
 
 ---
 
-## 📊 Operações, Monitoramento & Runbooks de Emergência (SRE)
+## Operações, Monitoramento e Runbooks (SRE)
 
-Esta seção destina-se aos operadores e administradores encarregados de sustentar a estabilidade do sistema em ambiente produtivo.
+Esta seção traz informações para suporte e monitoramento em ambiente produtivo.
 
 ### 1. Stack de Observabilidade Local
 O ecossistema Docker Compose disponibiliza ferramentas completas de triagem local:
@@ -185,12 +185,12 @@ Os contêineres de banco de dados e cache possuem monitoramento automático:
 
 ---
 
-### 3. Cronograma de Agendamentos e Schedulers de Sistema
+### 3. Cronograma de Agendamentos e Schedulers
 
-O ecossistema conta com rotinas automatizadas e agendadas em background para auditoria, automação financeira e relatórios executivos corporativos:
+O sistema executa tarefas agendadas em background para auditoria, automação financeira e relatórios:
 
-*   **Automação ContaAzul**: Varreduras programadas executando processamento de baixas e disparos de recibos.
-*   **Weekly Digest Scheduler (`WeeklyDigestScheduler.java`)**: Cron de alta fidelidade configurado com `@Scheduled(cron = "0 0 17 * * FRI")` (todas as sextas-feiras às 17:00). Ele consolida de forma atômica e nativa métricas operacionais semanais do ITSM (total resolvido, conformidade de SLA, tags mais frequentes e setores afetados) e despacha um Embed executivo com cores harmonizadas direto para o Discord.
+*   **Automação ContaAzul**: Varreduras programadas que processam baixas e enviam recibos.
+*   **Weekly Digest Scheduler (`WeeklyDigestScheduler.java`)**: Configurado com `@Scheduled(cron = "0 0 17 * * FRI")` (toda sexta-feira às 17:00). Ele consolida métricas de chamados resolvidas, conformidade de SLA e envia um resumo diretamente para o Discord.
 
 ---
 
@@ -257,7 +257,7 @@ curl -X POST http://localhost:8085/api/financeiro/test/simulate-critical-alert \
 
 ---
 
-## 📅 Histórico de Desenvolvimento e Roadmap Tecnológico
+## Histórico de Desenvolvimento e Planejamento
 
 ### Cronologia de Fases do Projeto
 
@@ -278,10 +278,10 @@ curl -X POST http://localhost:8085/api/financeiro/test/simulate-critical-alert \
 
 ---
 
-## 🛠️ Ferramentas Técnicas Auxiliares
+## Ferramentas Auxiliares
 
 ### Rodar Interface Swagger localmente para APIs:
 ```bash
 docker run --rm -p 8080:8080 -e SWAGGER_JSON=/usr/share/nginx/html/openapi.json -v "%CD%/docs":/usr/share/nginx/html:ro swaggerapi/swagger-ui
 ```
-A especificação Swagger-UI ficará disponível em `http://localhost:8080`, facilitando a depuração rápida de novos endpoints expostos pelo time de desenvolvimento.
+A especificação Swagger-UI ficará disponível em `http://localhost:8080`, facilitando a consulta dos endpoints expostos.

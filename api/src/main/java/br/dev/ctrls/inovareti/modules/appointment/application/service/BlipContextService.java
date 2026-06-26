@@ -38,15 +38,13 @@ public class BlipContextService {
             return;
         }
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
-        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = fields.entrySet().stream()
-            .map(entry -> java.util.concurrent.CompletableFuture.runAsync(() -> {
+        log.info("[LIME-SEQUENCE] Configurando contexto LIME sequencialmente para target: {}. Campos: {}", normalizedIdentity, fields.keySet());
+        for (Map.Entry<String, String> entry : fields.entrySet()) {
+            try {
                 setUserContext(normalizedIdentity, entry.getKey(), entry.getValue());
-            }))
-            .toList();
-        try {
-            java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-        } catch (Exception e) {
-            log.error("Erro ao configurar contexto em paralelo para {}", normalizedIdentity, e);
+            } catch (Exception e) {
+                log.error("Erro ao configurar contexto sequencial para {} key: {}", normalizedIdentity, entry.getKey(), e);
+            }
         }
     }
 

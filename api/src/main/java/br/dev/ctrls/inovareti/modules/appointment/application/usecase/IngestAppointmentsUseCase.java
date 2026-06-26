@@ -76,6 +76,7 @@ public class IngestAppointmentsUseCase {
     private final BlipContextService blipContextService;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
 
     /**
      * Semaphore que limita a quantidade de grupos processando chamadas ao Blip simultaneamente.
@@ -618,7 +619,7 @@ public class IngestAppointmentsUseCase {
                 Thread.currentThread().interrupt();
                 log.warn("[GRUPO] Interrompido aguardando semáforo para contexto Blip. groupId={}", groupId);
             }
-        });
+        }, applicationTaskExecutor);
 
         // Envia o template imediatamente, sem esperar o contexto subir
         try {
@@ -708,22 +709,13 @@ public class IngestAppointmentsUseCase {
                 }
             }
 
-            // Injeta o contexto em paralelo para todos os alvos (telefone e túneis)
-            List<CompletableFuture<Void>> contextFutures = new ArrayList<>();
+            // Injeta o contexto sequencialmente para todos os alvos (telefone e túneis) para evitar estouro de threads
             for (String target : targetsForContext) {
-                contextFutures.add(CompletableFuture.runAsync(() -> {
-                    try {
-                        blipContextService.setUserContextFieldsInParallel(target, fields);
-                    } catch (Exception e) {
-                        log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao configurar variáveis de contexto para target {}", target, e);
-                    }
-                }));
-            }
-
-            try {
-                CompletableFuture.allOf(contextFutures.toArray(CompletableFuture[]::new)).join();
-            } catch (Exception e) {
-                log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao aguardar injeção paralela de contextos", e);
+                try {
+                    blipContextService.setUserContextFieldsInParallel(target, fields);
+                } catch (Exception e) {
+                    log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao configurar variáveis de contexto para target {}", target, e);
+                }
             }
 
             String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
@@ -737,23 +729,14 @@ public class IngestAppointmentsUseCase {
                     log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Master-State no Roteador na ingestão para {}", cleanPhone, e);
                 }
 
-                // Subbot Builder Master-State (para cada túnel identificado)
-                List<CompletableFuture<Void>> stateFutures = new ArrayList<>();
+                // Subbot Builder Master-State (para cada túnel identificado) sequencialmente
                 for (String tunnel : tunnelIdentities) {
-                    stateFutures.add(CompletableFuture.runAsync(() -> {
-                        try {
-                            blipContextService.setBuilderMasterState(tunnel, prepararAtendimentoBlockId);
-                            log.info("[INGESTAO-GRUPO-CONTEXTO] Builder Master-State atualizado na ingestão para o túnel {} e bloco {}", tunnel, prepararAtendimentoBlockId);
-                        } catch (Exception e) {
-                            log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Builder Master-State no Subbot na ingestão para {}", tunnel, e);
-                        }
-                    }));
-                }
-
-                try {
-                    CompletableFuture.allOf(stateFutures.toArray(CompletableFuture[]::new)).join();
-                } catch (Exception e) {
-                    log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao aguardar atualização de Builder Master-States", e);
+                    try {
+                        blipContextService.setBuilderMasterState(tunnel, prepararAtendimentoBlockId);
+                        log.info("[INGESTAO-GRUPO-CONTEXTO] Builder Master-State atualizado na ingestão para o túnel {} e bloco {}", tunnel, prepararAtendimentoBlockId);
+                    } catch (Exception e) {
+                        log.error("[INGESTAO-GRUPO-CONTEXTO] Erro ao atualizar Builder Master-State no Subbot na ingestão para {}", tunnel, e);
+                    }
                 }
             }
         } catch (Exception e) {

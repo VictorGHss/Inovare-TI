@@ -61,6 +61,11 @@ public class BlipLIMEClient implements BlipClientPort {
             // Configura um pool de conexões HTTP persistentes com Keep-Alive.
             // Sem pool, cada Virtual Thread abriria/fecharia um socket TCP com handshake SSL completo
             // (~250ms por request). Com pool, reutiliza conexões existentes reduzindo para ~50ms.
+            org.apache.hc.client5.http.config.ConnectionConfig connectionConfig =
+                org.apache.hc.client5.http.config.ConnectionConfig.custom()
+                    .setConnectTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
+                    .build();
+
             org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient =
                 org.apache.hc.client5.http.impl.classic.HttpClients.custom()
                     .setConnectionManager(
@@ -69,13 +74,14 @@ public class BlipLIMEClient implements BlipClientPort {
                             .setMaxConnTotal(100)
                             // Máximo de conexões por rota (mesmo host) — o Blip usa apenas 1 host
                             .setMaxConnPerRoute(100)
+                            .setDefaultConnectionConfig(connectionConfig)
                             .build()
                     )
                     // Configura timeout de conexão e leitura por request
                     .setDefaultRequestConfig(
                         org.apache.hc.client5.http.config.RequestConfig.custom()
-                            .setConnectionRequestTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
-                            .setResponseTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                            .setConnectionRequestTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
+                            .setResponseTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
                             .build()
                     )
                     .build();
@@ -222,6 +228,9 @@ public class BlipLIMEClient implements BlipClientPort {
         if (body == null) {
             log.debug("Blip retornou body null no executeCommand. Payload enviado: {}", finalPayload);
         } else {
+            if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
+                log.warn("[LIME-FAILURE] Comando LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, finalPayload);
+            }
             Object resource = body.get("resource");
             boolean isEmpty = resource == null;
             
@@ -246,8 +255,9 @@ public class BlipLIMEClient implements BlipClientPort {
      * Fallback para falha no envio de comando ao Blip.
      * Retorna fallback seguro e registra a intenção de sincronização offline para evitar estouro de erro 500.
      */
+    @Recover
     public Map<String, Object> fallbackExecuteCommand(Map<String, Object> payload, AuthorizationScope scope, Throwable t) {
-        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao executar comando no Blip após retentativas. Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
+        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao executar comando no Blip após retentativas (Timeout/Erro). Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
         return Map.of("status", "offline-queued", "message", t.getMessage());
     }
 
@@ -274,6 +284,9 @@ public class BlipLIMEClient implements BlipClientPort {
                 log.debug("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
             } else {
                 log.debug("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
+                if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
+                    log.warn("[LIME-FAILURE] Mensagem LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, payload);
+                }
             }
         }
         return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
@@ -283,8 +296,9 @@ public class BlipLIMEClient implements BlipClientPort {
      * Fallback para falha no envio de mensagem ao Blip.
      * Retorna fallback seguro e registra a intenção de sincronização offline para evitar estouro de erro 500.
      */
+    @Recover
     public Map<String, Object> fallbackExecuteMessage(Map<String, Object> payload, AuthorizationScope scope, Throwable t) {
-        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao enviar mensagem no Blip após retentativas. Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
+        log.warn("[OFFLINE-SYNC-INTENT] [BLIP] Falha ao enviar mensagem no Blip após retentativas (Timeout/Erro). Erro: {}. Gravando payload para sincronização offline posterior: {}", t.getMessage(), payload);
         return Map.of("status", "offline-queued", "message", t.getMessage());
     }
 

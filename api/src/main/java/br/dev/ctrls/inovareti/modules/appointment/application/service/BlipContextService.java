@@ -231,14 +231,22 @@ public class BlipContextService {
             BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
             BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
             contactResource.setIdentity(userIdentity);
+
+            // Restaura o nome oficial vindo do Feegow no card nativo do Blip
             contactResource.setName(payload.getPatientName());
             contactResource.setTaxDocument(payload.getPatientCPF());
 
             java.util.Map<String, String> extras = new java.util.HashMap<>();
             extras.put("Medico", payload.getDoctorName());
             extras.put("fila", resolvedQueue);
+            extras.put("deskFila", resolvedQueue);
             extras.put("nascimento", payload.getPatientBirthdate());
             extras.put("data_nascimento", payload.getPatientBirthdate());
+
+            // Injeta o nome também nas chaves extras de texto que o fluxo lê
+            extras.put("paciente", payload.getPatientName());
+            extras.put("Nome", payload.getPatientName());
+
             contactResource.setExtras(extras);
             contactCommand.setResource(contactResource);
 

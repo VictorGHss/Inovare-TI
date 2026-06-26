@@ -65,6 +65,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipAppointmentFormatter blipAppointmentFormatter;
     private final BlipDeliveryFailureRepositoryPort blipDeliveryFailureRepository;
     private final BlipNotificationMetrics blipNotificationMetrics;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient blipLimeClient;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -79,6 +80,21 @@ public class HandleBlipWebhookUseCase {
      * Ponto de entrada para execução do processamento do Webhook do Blip.
      */
     public WebhookResult execute(BlipWebhookPayload payload, boolean skipTokenValidation) {
+        String inboundIdentity = payload.from();
+        String reconciledIdentity = blipLimeClient.reconcileNinthDigit(inboundIdentity, appointmentSessionRepository);
+        
+        payload = new BlipWebhookPayload(
+            payload.messageId(),
+            payload.appointmentId(),
+            payload.action(),
+            reconciledIdentity,
+            payload.token(),
+            payload.content(),
+            payload.metadata(),
+            payload.bsuid(),
+            payload.type()
+        );
+
         String actionValue = payload.action() != null ? payload.action().trim() : "";
         String rawText = actionValue + " " + (payload.content() != null ? payload.content().toString() : "");
         String rawLower = rawText.toLowerCase();

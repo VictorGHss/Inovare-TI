@@ -41,4 +41,6 @@ public interface AppointmentSessionRepositoryPort {
     AppointmentSession save(AppointmentSession session);
 
     long deleteByStatusInAndCreatedAtBefore(java.util.Collection<AppointmentSessionStatus> statuses, LocalDateTime threshold);
+
+    boolean existsByPhoneNumber(String phoneNumber);
 }

@@ -123,4 +123,12 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     public long deleteByStatusInAndCreatedAtBefore(java.util.Collection<AppointmentSessionStatus> statuses, LocalDateTime threshold) {
         return springDataRepository.deleteByStatusInAndCreatedAtBefore(statuses, threshold);
     }
+
+    @Override
+    public boolean existsByPhoneNumber(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return false;
+        }
+        return springDataRepository.existsByPhoneNumber(phoneNumber.trim());
+    }
 }

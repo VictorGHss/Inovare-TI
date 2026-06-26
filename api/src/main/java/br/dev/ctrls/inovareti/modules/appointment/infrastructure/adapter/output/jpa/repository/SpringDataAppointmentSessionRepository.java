@@ -71,4 +71,6 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
     @org.springframework.transaction.annotation.Transactional
     @Query("DELETE FROM AppointmentSessionEntity a WHERE a.status IN :statuses AND a.createdAt < :threshold")
     long deleteByStatusInAndCreatedAtBefore(@Param("statuses") java.util.Collection<br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus> statuses, @Param("threshold") LocalDateTime threshold);
+
+    boolean existsByPhoneNumber(String phoneNumber);
 }

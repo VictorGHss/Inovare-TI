@@ -451,4 +451,27 @@ public class BlipLIMEClient implements BlipClientPort {
             ex.getMessage(), ex);
         return Map.of("status", "offline-queued", "message", ex.getMessage());
     }
+
+    public String reconcileNinthDigit(String identity, br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort sessionRepository) {
+        if (identity == null || !identity.contains("@")) return identity;
+        
+        String[] parts = identity.split("@");
+        String phone = parts[0];
+        String domain = parts[1];
+        
+        // Se o número for inbound do PR com faturamento de 9 dígitos (13 caracteres com 55)
+        if (phone.startsWith("55") && phone.length() == 13) {
+            String ddd = phone.substring(2, 4);
+            if (ddd.equals("41") || ddd.equals("42") || ddd.equals("43")) {
+                // Extrai o '9' sobressalente da posição index 4
+                String phoneWithout9 = phone.substring(0, 4) + phone.substring(5);
+                
+                // Consulta defensiva na persistência local
+                if (sessionRepository.existsByPhoneNumber(phoneWithout9)) {
+                    return phoneWithout9 + "@" + domain;
+                }
+            }
+        }
+        return identity;
+    }
 }

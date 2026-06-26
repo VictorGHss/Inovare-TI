@@ -1,454 +1,257 @@
 # Arquitetura do Sistema e Modelo de Dados — Inovare TI
 
-Este documento descreve a estrutura técnica do sistema, a adoção do padrão hexagonal (Ports & Adapters), o mapeamento de domínios no backend, o dicionário do banco de dados e o deploy.
+Este documento descreve o padrão hexagonal (Ports & Adapters) adotado na camada backend, a divisão de responsabilidades do frontend React e o dicionário de dados do banco PostgreSQL baseado no histórico de migrações do Flyway.
 
 ---
 
-## Visão Geral: Arquitetura em 3 Camadas
+## 1. Estrutura Arquitetural do Sistema
 
-O sistema é dividido em três camadas independentes, cada uma rodando de forma isolada dentro de contêineres Docker:
+O sistema é dividido em três camadas independentes executadas em contêineres Docker isolados:
+
+1. **Frontend SPA (React + Vite):** Interface responsiva estruturada em TypeScript, utilizando React Router para navegação. A camada de serviços é modularizada por domínio sobre chamadas HTTP Axios centralizadas.
+2. **Backend API (Spring Boot):** API modular em Java 21 utilizando Virtual Threads para chamadas assíncronas e concorrência leve. Adota o padrão de arquitetura hexagonal para isolar as regras de negócio de frameworks e adaptadores externos.
+3. **Banco de Dados (PostgreSQL 16):** Persistência relacional com controle de transações ACID. O ciclo de vida do schema é gerido de forma incremental via Flyway.
+
+### 1.1 Camada Backend: Arquitetura Hexagonal (Ports & Adapters)
+O código-fonte do backend, localizado em `api/src/main/java/br/dev/ctrls/inovareti/modules/`, é dividido em pacotes por contexto delimitado (módulos). Cada módulo implementa a seguinte estrutura de pacotes:
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                         CLIENTE (Navegador)                    │
-└────────────────────────┬───────────────────────────────────────┘
-                         │ HTTP (porta 5173)
-┌────────────────────────▼───────────────────────────────────────┐
-│           CAMADA 1 — Frontend SPA (React + Nginx)              │
-│  • React 19 + TypeScript + Vite 6 + Tailwind CSS               │
-│  • React Router v7 com Lazy Loading por rota                   │
-│  • Gerenciamento de estado via React Context (AuthContext)     │
-│  • Camada de serviços modular por domínio sobre Axios, com     │
-│    core HTTP central em services/api.ts                        │
-└────────────────────────┬───────────────────────────────────────┘
-                         │ HTTP/REST + JWT (porta 8085)
-┌────────────────────────▼───────────────────────────────────────┐
-│           CAMADA 2 — Backend API (Spring Boot)                 │
-│  • Java 21 + Spring Boot 4 + Spring Security                   │
-│  • Autenticação stateless via JWT                              │
-│  • 2FA via TOTP integrada ao fluxo de autenticação             │
-│  • Arquitetura por domínio (tickets, inventory, vault, etc.)   │
-│  • Uploads salvos em volume Docker (/app/uploads)              │
-│  • Discord Bot (JDA 5) inicializado assintronamente            │
-└────────────────────────┬───────────────────────────────────────┘
-                         │ JDBC / PostgreSQL protocol (porta 5432)
-┌────────────────────────▼───────────────────────────────────────┐
-│           CAMADA 3 — Banco de Dados (PostgreSQL 16)            │
-│  • Schema gerenciado pelo Flyway (V1, V2, ... )                │
-│  • Migrações versionadas para controle em produção             │
-│  • Persistência via volume Docker (postgres_data)              │
-└────────────────────────────────────────────────────────────────┘
+br.dev.ctrls.inovareti.modules.<modulo>/
+├── domain/                  <-- O Core do Hexágono (Sem dependência de frameworks)
+│   ├── model/               <-- Modelos de domínio ricos em regras de negócio puras
+│   └── port/                <-- Contratos de interface que definem as fronteiras
+│       ├── input/           <-- Portas de Entrada (Contratos dos Casos de Uso)
+│       └── output/          <-- Portas de Saída / SPI (Contratos para DB, APIs externas)
+│
+├── application/             <-- O Orquestrador
+│   ├── usecase/             <-- Implementação dos Casos de Uso (Fluxos de negócio transacionais)
+│   └── service/             <-- Serviços auxiliares do domínio
+│
+└── infrastructure/          <-- Os Adaptadores Tecnológicos (Spring, Banco, APIs)
+    ├── adapter/
+    │   ├── input/           <-- REST Controllers (@RestController) e Listeners
+    │   └── output/          <-- Repositórios JPA (@Repository), Clientes HTTP e Integradores
+    └── config/              <-- Classes de configuração específicas do módulo (@Configuration)
 ```
 
----
-
-## Infraestrutura Docker Compose
-
-O `docker-compose.yml` define os serviços e a rede `inovare_network` (driver `bridge`). A comunicação entre API e DB usa o hostname `db` internamente.
-
-### Serviços
-
-| Serviço       | Container               | Build / Imagem              | Porta local                                 |
-|---------------|-------------------------|-----------------------------|---------------------------------------------|
-| `db`          | `inovareti_db`          | `postgres:16-alpine`        | `5436:5432`                                 |
-| `api`         | `inovareti_api`         | Build local `./api`         | `8085:8085`                                 |
-| `front`       | `inovareti_front`       | Build local `./front`       | `5173:80`                                   |
-| `redis`       | `inovareti_redis`       | `redis:alpine`              | `6380:6379` (acesso interno: `redis:6379`)  |
-| `prometheus`  | `inovareti_prometheus`  | `prom/prometheus:latest`    | `9095:9090`                                 |
-
-### Rede
-
-```yaml
-networks:
-  inovare_network:
-    driver: bridge
-```
-
-### Volumes
-
-| Volume          | Finalidade                                                    |
-|-----------------|---------------------------------------------------------------|
-| `postgres_data` | Dados do PostgreSQL — sobrevive a restarts e rebuilds         |
-| `./uploads`     | Arquivos enviados pelos usuários (NFs, anexos de chamados)    |
-
-> [!NOTE]
-> O volume `./uploads` é montado como bind mount (`./uploads:/app/uploads`) para facilitar o backup local em ambiente de desenvolvimento.
-
-### Componentes de Infraestrutura Adicionais
-
-* **Redis e Cache**: O serviço `redis` é utilizado para caching distribuído e para o rate-limiter (`RedisRateLimiter`). O sistema implementa um **Cache Temporário de Curta Duração (10 minutos TTL)** anotado sob `@Cacheable(value = "contaAzulSummary")` no resumo financeiro mensal (`fetchSummary`), evitando chamadas repetitivas à API da ContaAzul a cada troca de tela no frontend React.
-* **Prometheus**: A API expõe métricas de uso via Micrometer/Actuator em `/api/actuator/prometheus`. O serviço local `prometheus` permite monitorar dados e avaliar regras de alertas (regras em `docs/prometheus/alert.rules.yml`).
-* **Healthcheck e Readiness**: A API depende do banco de dados `db` e do cache `redis` estarem ativos e saudáveis antes de iniciar, evitando falhas de conexão na inicialização.
+*   **Camada de Domínio (`domain`):** Perímetro isolado onde residem as entidades lógicas (ex. `Ticket`, `Item`, `Asset`) e os contratos das portas. Não possui importações de pacotes do Spring Framework. As portas de saída (`port/output`) representam SPIs (Service Provider Interfaces) a serem implementadas pela infraestrutura.
+*   **Camada de Aplicação (`application`):** Implementa os casos de uso expostos nas portas de entrada. Gerencia a coordenação lógica das transações, carregando modelos e invocando portas de saída.
+*   **Camada de Infraestrutura (`infrastructure`):** Conecta a aplicação com tecnologias externas. Os adaptadores de entrada (Driving) expõem REST APIs. Os adaptadores de saída (Driven) implementam as portas de persistência (JPA) e comunicação (HTTP clients).
 
 ---
 
-## Padrão Arquitetural: Arquitetura Hexagonal (Ports & Adapters)
+## 2. Dicionário de Dados (PostgreSQL 16)
 
-O backend do Inovare TI adota rigorosamente a **Arquitetura Hexagonal (Ports & Adapters)** em seus módulos internos (localizados sob o pacote [api/src/main/java/br/dev/ctrls/inovareti/modules](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/)). Esse padrão visa isolar as regras de negócio essenciais contra dependências externas de infraestrutura, bancos de dados, APIs de terceiros ou frameworks como o Spring Boot.
+O banco de dados do Inovare TI é estruturado sob o PostgreSQL 16. O controle do schema é efetuado de forma cronológica via arquivos SQL na pasta `api/src/main/resources/db/migration/`.
 
-A divisão de pacotes por módulo é estruturada em três camadas bem definidas:
-
-```
-                  ┌─────────────────────────────────────┐
-                  │          INFRASTRUCTURE             │
-                  │   • controllers  • repositories jpa │
-                  │   • rest clients • configurations   │
-                  └──────────────────┬──────────────────┘
-                                     │ implementa / chama
-                                     ▼
-                  ┌─────────────────────────────────────┐
-                  │            APPLICATION              │
-                  │  (Usecases, Services da Aplicação)  │
-                  └──────────────────┬──────────────────┘
-                                     │ orquestra
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                                DOMAIN                                  │
-│                                                                        │
-│   ┌────────────────────────┐         ┌──────────────────────────────┐  │
-│   │         MODEL          │         │             PORT             │  │
-│   │ • Entidades de negócio │         │  • output (Interfaces SPI)   │  │
-│   │ • Regras puras         │         │  • input (Use Cases Ports)   │  │
-│   └────────────────────────┘         └──────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1. Camada de Domínio (`domain`)
-Contém as regras de negócio e as entidades do sistema. Esta camada não depende do Spring Boot nem de bibliotecas de infraestrutura.
-*   **Modelos de Domínio (`domain/model`)**: Classes que encapsulam o estado e o comportamento das regras do sistema. Exemplos:
-    *   [AppointmentSession](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/AppointmentSession.java): Controla o estado de um agendamento individualizado.
-    *   [NotificationGroup](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/NotificationGroup.java): Agrupa consultas para disparos em lote sem duplicidade.
-    *   [StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java): Mapeia as quantidades e custos de aquisição do estoque local.
-    *   [Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java): Representa o ciclo de vida e informações de suporte do chamado.
-*   **Portas de Domínio (`domain/port`)**: Delimitam a fronteira do hexágono definindo contratos de interface:
-    *   **Portas de Entrada (Input Ports)**: Definem o que o mundo externo pode solicitar ao domínio (interfaces que os Use Cases da camada de aplicação herdam ou expõem).
-    *   **Portas de Saída (Output Ports / SPI - Service Provider Interfaces)**: Contratos abstratos de serviços necessários para o domínio, tais como banco de dados e APIs externas. Exemplos:
-        *   [AppointmentSessionRepositoryPort](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/port/output/AppointmentSessionRepositoryPort.java): Porta de acesso ao banco de dados para gerir sessões.
-        *   [ProfessionalExternalPort](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/port/output/ProfessionalExternalPort.java): Porta de saída para ler dados de médicos no Feegow.
-
-### 2. Camada de Aplicação (`application`)
-Coordenadora das transações e do fluxo de informações, esta camada traduz os fluxos de negócios em casos de uso operacionais utilizando as portas de entrada e saída.
-*   **Use Cases**: Classes responsáveis por orquestrar a lógica e regras que alteram o estado da aplicação. Exemplos:
-    *   [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java): Orquestra a busca, agrupamento, persistência atômica e disparo de mensagens em lote.
-    *   [SendAppointmentTemplateUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/SendAppointmentTemplateUseCase.java): Coordena o envio individualizado de mensagens do WhatsApp.
-
-### 3. Camada de Infraestrutura (`infrastructure`)
-Os adaptadores concretos (`infrastructure/adapter`) ligam a aplicação às tecnologias, contendo detalhes de rede, serialização, frameworks e bibliotecas externas.
-*   **Adaptadores de Entrada (Input Adapters / Driving Adapters)**: Componentes tecnológicos que interceptam gatilhos externos e os enviam para a aplicação.
-    *   *Exemplos*: Endpoints REST baseados em `@RestController`. Ex: [FinanceiroController](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/finance/infrastructure/adapter/input/FinanceiroController.java) que expõe endpoints HTTP para a conciliação manual de parcelas.
-*   **Adaptadores de Saída (Output Adapters / Driven Adapters)**: Classes que implementam as interfaces de portas de saída (`domain/port/output`).
-    *   *Exemplos*: Clientes HTTP de APIs externas (ex: [FeegowPatientAdapter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/feegow/FeegowPatientAdapter.java) que implementa as conexões com o ERP Feegow; [BlipLIMEClient](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/infrastructure/adapter/output/client/BlipLIMEClient.java) para envio LIME de metadados no Blip) e adaptadores JPA que encapsulam o Spring Data para persistência de tabelas no PostgreSQL (ex: `AppointmentSessionRepositoryAdapter`).
+### 2.1 Principais Marcos e Evolução do Schema
+*   **V1 (Inicialização):** Consolidação do schema inicial com tabelas base de usuários, setores, categorias, chamados, inventário (lotes e movimentos), ativos (CMDB), cofre (Vault) e auditoria.
+*   **V8 (Relacionamentos de Tickets e Tags):** Introdução da tabela autorreferencial `ticket_relations` e a primeira tabela simples de tags baseadas em strings textuais (`ticket_tags`).
+*   **V9 (Suporte Multi-usuário em Ativos):** Criação da tabela de junção `asset_users` para relacionamento Many-to-Many entre ativos e usuários, migrando a coluna `user_id` da tabela `assets` e removendo-a em seguida para permitir múltiplos usuários por equipamento.
+*   **V17 (ITSM e SLAs):** Introdução da tabela `itsm_categories` com chaves inteiras seriais e SLA configurável em horas, além da tabela de junção `ticket_additional_users` para vincular múltiplos colaboradores afetados pelo mesmo chamado.
+*   **V18 (Ativação de Setores e Defesas):** Adiciona a flag logicamente controlada `active` na tabela de setores (`sectors`) e recria defensivamente a tabela `asset_users`.
+*   **V19 (Tags Ricas e Criticidade):** Purga a antiga tabela textual de tags. Cria as tabelas `ticket_tags` (com suporte a cores em hexadecimal e macros de resolução `default_resolution`) e a tabela de junção `ticket_tag_relations`. Adiciona a flag `is_critical` na tabela de ativos (`assets`) e o relacionamento físico de ativos com chamados via coluna `asset_id` na tabela `tickets`.
+*   **V20 (Destinatários de Estoque):** Adiciona o campo `recipient_user_id` associando movimentações de inventário ao usuário que recebeu o insumo.
+*   **V34 (Controle de Estoque Crítico):** Adiciona a coluna `min_stock` na tabela de itens (`items`) para o controle e alertas de limites de estoque.
+*   **V38 (Vínculo Bidirecional ITSM/CMDB):** Adiciona a coluna `ticket_id` na tabela `asset_maintenances` (histórico de manutenções de ativos), permitindo associar as ordens de manutenção diretamente aos chamados de suporte de origem.
 
 ---
 
-## Fluxo dos Módulos Internos
-
-O sistema está estruturado em módulos de negócio:
-
-### 1. Cofre de Credenciais e Documentos (Vault)
-Armazena credenciais confidenciais, documentos técnicos e anotações.
-*   **Criptografia em nível de aplicação**: O conteúdo de um segredo (`secret_content`) é criptografado antes da gravação no banco de dados com o algoritmo **AES-256-GCM** e IV dinâmico (gerido por [CryptoConverter](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/infrastructure/shared/security/CryptoConverter.java)).
-*   **Validação MFA**: Operações de escrita e leitura de segredos confidenciais exigem que o token JWT possua uma claim válida de duplo fator (`two_factor_verified = true`), validada pelo `TwoFactorSessionGuard`. Em caso de reset do 2FA do usuário (via dashboard ou Bot do Discord), a sessão é invalidada imediatamente.
-
-### 2. Módulo de Inventário e Algoritmo FIFO
-Gerencia a integridade e o controle de quantidades de hardware e insumos consumidos.
-*   **Entrada de Produtos por Lotes**: Insumos cadastrados são agrupados em lotes de estoque ([StockBatch](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/inventory/domain/model/StockBatch.java)) registrando preço de compra e data de entrada.
-*   **Algoritmo FIFO Transacional**: No encerramento de chamados que exigem peças de reposição (ex. troca de toner ou teclado), a rotina de encerramento (`ResolveTicketUseCase`) executa de forma automática a saída baseando-se na regra FIFO (lotes mais antigos consumidos primeiro). A execução herda a propagação (`Propagation.MANDATORY`), garantindo que se o algoritmo FIFO falhar ou o estoque estiver inconsistente, a transação sofra rollback.
-*   **Fallback de Movimentações**: O sistema verifica se a saída gerou registros de movimentação em `stock_movements`. Em caso de ausência, cria um registro de fallback de saída (tipo `OUT` e referência `TICKET:{ticketId}`) para evitar furos no balanço contábil.
-
-### 3. Gestão de Tickets e Helpdesk (ITSM)
-Centraliza a triagem, direcionamento e monitoramento de incidentes e solicitações de TI da clínica.
-*   **Cálculo Dinâmico de SLA**: O prazo de atendimento (`sla_deadline`) de um chamado ([Ticket](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/ticket/domain/model/Ticket.java)) é calculado com base nas horas úteis vigentes da categoria.
-*   **Regra de Parada Crítica (Incidentes Críticos)**: Se o chamado estiver vinculado a um ativo físico mestre sinalizado como crítico (`is_critical = true`), ou se a descrição aberta via Bot de Discord contiver expressões regulares associadas a patrimônios críticos (padrão regex `INV-\d{4}-\d+`), a regra é acionada: a prioridade do chamado é definida como `URGENT`, o SLA é definido para **1 hora** limite, e a tag `#🚨ParadaCrítica` é injetada. Um alerta é disparado via webhook e bot (JDA) diretamente na DM do técnico responsável.
-*   **Macros de 1-Clique e Busca Lateral**: Permite encontrar soluções sugeridas de chamados resolvidos que compartilham tags similares e utilizar Macros ("Aplicar Solução Padrão") para preencher notas de resolução.
-
-### 4. Telemetria e Analytics com Prometheus
-Fornece métricas para diagnóstico preventivo e controle técnico do sistema.
-*   **Exposição de Actuator**: O pacote `analytics` configura e exporta telemetria do Micrometer no endpoint exposto `/api/actuator/prometheus`.
-*   **Monitoramento de Circuit Breakers**: Se o Circuit Breaker de comunicação com o Feegow ERP entrar em estado `OPEN`, o alerta é gerado no Prometheus e enviado como notificação via webhook para o canal de alertas do Discord.
-
----
-
-## Modelo de Banco de Dados (Dicionário de Schema)
-
-O banco de dados é o **PostgreSQL 16**. O schema é atualizado incrementalmente via **Flyway** (`api/src/main/resources/db/migration/`). Todas as tabelas seguem a convenção `snake_case` e as chaves primárias são UUIDs gerados na aplicação (RFC 4122).
-
----
-
-### Domínio: Controle de Usuários e Acessos
+### 2.2 Tabelas e Mapeamento Físico
 
 #### Tabela: `sectors` (Setores Corporativos)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador único do setor |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do setor |
 | `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo do setor |
-| `active` | `boolean` | NOT NULL, default `true` | Status ativo do setor para soft-delete lógico |
+| `active` | `boolean` | NOT NULL, default `true` | Indica se o setor está ativo no sistema (V18) |
 
-#### Tabela: `users` (Usuários e Operadores)
+#### Tabela: `users` (Colaboradores e Técnicos)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do usuário |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do usuário |
 | `name` | `varchar(150)` | NOT NULL | Nome completo |
-| `email` | `varchar(255)` | NOT NULL, UNIQUE | E-mail de login do usuário |
-| `password_hash` | `varchar(255)` | NOT NULL | Hash BCrypt de senha |
-| `must_change_password` | `boolean` | NOT NULL, default `false` | Forçar alteração de senha no próximo acesso |
+| `email` | `varchar(255)` | NOT NULL, UNIQUE | E-mail corporativo (login) |
+| `password_hash` | `varchar(255)` | NOT NULL | Hash BCrypt da senha do usuário |
+| `must_change_password` | `boolean` | NOT NULL, default `false` | Forçar redefinição no primeiro acesso |
 | `role` | `varchar(20)` | NOT NULL | Nível de acesso: `ADMIN`, `TECHNICIAN`, `USER` |
-| `sector_id` | `uuid` | NOT NULL, FK → `sectors.id` | Setor do usuário |
-| `location` | `varchar(150)` | NOT NULL | Localização física na clínica (sala, andar) |
-| `discord_user_id` | `varchar(50)` | NULLABLE | ID associado do Discord para notificações |
-| `totp_secret` | `varchar(500)` | NULLABLE | Segredo TOTP criptografado com AES-GCM |
-| `recovery_code_hash` | `varchar(255)` | NULLABLE | Hash BCrypt do código de emergência 2FA |
+| `sector_id` | `uuid` | NOT NULL, FK -> `sectors(id)` | Vínculo com o setor do colaborador |
+| `location` | `varchar(150)` | NOT NULL | Sala ou andar físico na clínica |
+| `discord_user_id` | `varchar(50)` | NULLABLE | ID da conta Discord para notificações |
+| `totp_secret` | `varchar(500)` | NULLABLE | Segredo TOTP de dois fatores criptografado |
+| `recovery_code_hash` | `varchar(255)` | NULLABLE | Hash do código de emergência do TOTP |
 | `recovery_code_expires_at`| `timestamp` | NULLABLE | Expiração da chave temporária do Discord |
+| `receives_it_notifications`| `boolean` | NOT NULL, default `true` | Define se o técnico recebe alertas de TI |
 
----
-
-### Domínio: Central de Chamados (Helpdesk)
-
-#### Tabela: `ticket_categories` (Categorias e Acordo de SLA)
+#### Tabela: `itsm_categories` (Categorias de Chamados com SLA)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador da categoria |
-| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo (ex. Telefonia) |
-| `base_sla_hours` | `integer` | NOT NULL, >= 1 | Horas previstas de SLA padrão |
+| `id` | `serial` | PK | Identificador incremental da categoria (V17) |
+| `name` | `varchar(150)` | NOT NULL, UNIQUE | Nome descritivo do canal de atendimento |
+| `sla_hours` | `integer` | NOT NULL | Prazo máximo em horas para solução (SLA) |
 
-#### Tabela: `tickets` (Registro de Solicitações)
+#### Tabela: `tickets` (Incidente e Solicitação de Suporte - ITSM)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do chamado |
-| `title` | `varchar(200)` | NOT NULL | Título da demanda |
-| `description` | `text` | NULLABLE | Descrição do problema |
-| `anydesk_code` | `varchar(50)` | NULLABLE | Código AnyDesk para suporte remoto |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do chamado |
+| `title` | `varchar(200)` | NOT NULL | Título resumido da demanda |
+| `description` | `text` | NULLABLE | Detalhamento do problema |
+| `anydesk_code` | `varchar(500)` | NULLABLE | Identificador para acesso remoto via AnyDesk |
 | `status` | `varchar(20)` | NOT NULL | Status: `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED` |
 | `priority` | `varchar(10)` | NOT NULL | Prioridade: `LOW`, `NORMAL`, `HIGH`, `URGENT` |
-| `requester_id` | `uuid` | NOT NULL, FK → `users.id` | Usuário solicitante |
-| `assigned_to_id` | `uuid` | NULLABLE, FK → `users.id` | Técnico responsável |
-| `category_id` | `uuid` | NOT NULL, FK → `ticket_categories.id` | Categoria de SLA |
-| `requested_item_id` | `uuid` | NULLABLE, FK → `items.id` | Item de estoque requisitado para baixa |
-| `requested_quantity` | `integer` | NULLABLE | Quantidade requisitada para o chamado |
-| `sla_deadline` | `timestamp` | NOT NULL | Data limite calculada para conclusão |
-| `created_at` | `timestamp` | NOT NULL | Criação da solicitação |
-| `closed_at` | `timestamp` | NULLABLE | Encerramento do chamado |
-| `asset_id` | `uuid` | NULLABLE, FK → `assets.id` ON DELETE SET NULL | ID do ativo/patrimônio associado |
+| `requester_id` | `uuid` | NOT NULL, FK -> `users(id)` | Usuário solicitante |
+| `assigned_to_id` | `uuid` | NULLABLE, FK -> `users(id)` | Técnico responsável |
+| `category_id` | `uuid` | NOT NULL, FK -> `ticket_categories(id)`| Antiga categoria mestre baseada em UUID |
+| `requested_item_id` | `uuid` | NULLABLE, FK -> `items(id)` | Item de estoque solicitado para baixa |
+| `requested_quantity` | `integer` | NULLABLE | Quantidade a ser retirada |
+| `sla_deadline` | `timestamp` | NOT NULL | Limite de prazo calculado para atendimento |
+| `created_at` | `timestamp` | NOT NULL | Instante de abertura do chamado |
+| `closed_at` | `timestamp` | NULLABLE | Instante de resolução ou encerramento |
+| `solution_text` | `text` | NULLABLE | Nota explicativa da resolução (V7) |
+| `asset_id` | `uuid` | NULLABLE, FK -> `assets(id)` | Equipamento associado do CMDB (V19) |
 
----
-
-### Domínio: Gestão de Tags e Base de Conhecimento
-
-#### Tabela: `ticket_tags` (Entidade Mestre de Tags)
+#### Tabela: `ticket_additional_users` (Vínculo de Usuários Afetados)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador único da tag |
-| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo da tag (ex. #🚨ParadaCrítica) |
-| `color` | `varchar(20)` | NULLABLE | Cor associada para renderização visual em formato HEX |
-| `active` | `boolean` | NOT NULL, default `true` | Status ativo para inativação lógica / soft-delete |
-| `default_resolution` | `text` | NULLABLE | Macro de resolução associada à tag (nota de fechamento automático) |
+| `ticket_id` | `uuid` | PK, FK -> `tickets(id)` ON DELETE CASCADE | Chamado de suporte de referência (V17) |
+| `user_id` | `uuid` | PK, FK -> `users(id)` ON DELETE CASCADE | Usuário adicional afetado pelo problema |
 
-#### Tabela: `ticket_tag_relations` (Relação Many-to-Many entre Chamados e Tags)
+#### Tabela: `ticket_tags` (Entidade Mestre de Tags Ricas)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `ticket_id` | `uuid` | PK, FK → `tickets.id` ON DELETE CASCADE | Chamado associado |
-| `tag_id` | `uuid` | PK, FK → `ticket_tags.id` ON DELETE CASCADE | Tag mestre associada |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador da tag (V19) |
+| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome descritivo da tag (ex. `#🚨ParadaCrítica`) |
+| `color` | `varchar(20)` | NOT NULL | Cor em código hexadecimal para a UI (ex. `#FF0000`) |
+| `active` | `boolean` | NOT NULL, default `true` | Flag para soft-delete lógico |
+| `default_resolution` | `text` | NULLABLE | Resolução padrão auto-preenchida (macro de 1 clique) |
 
----
-
-### Domínio: Controle de Estoque (Inventário)
-
-#### Tabela: `item_categories` (Categorias de Itens)
+#### Tabela: `ticket_tag_relations` (Junção Chamados x Tags)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador da categoria |
-| `name` | `varchar(100)` | NOT NULL, UNIQUE | Nome da categoria (ex. Toner, Periféricos) |
-| `is_consumable` | `boolean` | NOT NULL | Indica se é descartado no consumo |
+| `ticket_id` | `uuid` | PK, FK -> `tickets(id)` ON DELETE CASCADE | Vínculo com o chamado (V19) |
+| `tag_id` | `uuid` | PK, FK -> `ticket_tags(id)` ON DELETE CASCADE | Vínculo com a tag associada |
 
 #### Tabela: `items` (Insumos de TI)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do item |
-| `item_category_id` | `uuid` | NOT NULL, FK → `item_categories.id` | Categoria do item |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do insumo |
+| `item_category_id` | `uuid` | NOT NULL, FK -> `item_categories(id)`| Categoria de insumo (ex. Periféricos) |
 | `name` | `varchar(150)` | NOT NULL | Nome comercial do produto |
-| `current_stock` | `integer` | NOT NULL, >= 0 | Quantidade total disponível |
-| `specifications` | `jsonb` | NULLABLE | Dados em formato JSON livre (marca, modelo) |
+| `current_stock` | `integer` | NOT NULL, >= 0 | Quantidade total disponível no estoque principal |
+| `specifications` | `jsonb` | NOT NULL, default `'{}'` | Detalhes técnicos e marcas em formato JSON |
+| `min_stock` | `integer` | NOT NULL, default `0` | Estoque mínimo para trigger de alertas (V34) |
 
-#### Tabela: `stock_batches` (Lotes de Aquisição - FIFO)
+#### Tabela: `stock_batches` (Lotes de Inventário - Algoritmo FIFO)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do lote |
-| `item_id` | `uuid` | NOT NULL, FK → `items.id` | Item associado |
-| `original_quantity` | `integer` | NOT NULL, > 0 | Quantidade comprada originalmente |
-| `remaining_quantity`| `integer` | NOT NULL, >= 0 | Quantidade disponível no lote |
-| `unit_price` | `numeric(12,2)` | NOT NULL | Preço unitário pago |
-| `entry_date` | `timestamp` | NOT NULL | Data de entrada do lote no estoque |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do lote de compra |
+| `item_id` | `uuid` | NOT NULL, FK -> `items(id)` | Item de estoque associado |
+| `original_quantity` | `integer` | NOT NULL, >= 1 | Quantidade de unidades adquirida no lote |
+| `remaining_quantity`| `integer` | NOT NULL, >= 0 | Quantidade restante no lote (deduzida via FIFO) |
+| `unit_price` | `numeric(12,2)` | NOT NULL | Preço unitário pago na aquisição |
+| `brand` | `varchar(100)` | NULLABLE | Marca informada |
+| `supplier` | `varchar(150)` | NULLABLE | Fornecedor parceiro |
+| `purchase_reason` | `varchar(200)` | NULLABLE | Nota sobre o motivo da compra |
+| `entry_date` | `timestamp` | NOT NULL | Data de recebimento e entrada física |
+| `invoice_file_path` | `varchar(500)` | NULLABLE | Caminho local do arquivo de Nota Fiscal |
 
-#### Tabela: `stock_movements` (Histórico de Movimentações)
+#### Tabela: `stock_movements` (Histórico de Movimentações de Estoque)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do movimento |
-| `item_id` | `uuid` | NOT NULL, FK → `items.id` | Item afetado |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador do movimento |
+| `item_id` | `uuid` | NOT NULL, FK -> `items(id)` | Item de estoque afetado |
+| `type` | `varchar(10)` | NOT NULL, check IN/OUT | Tipo da ação: `IN` (entrada) ou `OUT` (saída) |
 | `quantity` | `integer` | NOT NULL, >= 1 | Quantidade movimentada |
-| `type` | `varchar(20)` | NOT NULL | Tipo do fluxo: `IN` (entrada) ou `OUT` (saída) |
-| `reference` | `varchar(150)` | NOT NULL | Identificador de referência (ex: `TICKET:{id}`) |
-| `unit_price_at_time`| `numeric(12,2)` | NULLABLE | Valor de aquisição praticado |
-| `created_at` | `timestamp` | NOT NULL | Data da movimentação |
+| `unit_price_at_time`| `numeric(19,2)`| NULLABLE | Custo unitário praticado na movimentação |
+| `reference` | `varchar(255)` | NOT NULL | Origem (ex. `TICKET:ticket_uuid` ou `WITHDRAWAL`) |
+| `date` | `timestamp` | NOT NULL | Data do registro da movimentação |
+| `recipient_user_id` | `uuid` | NULLABLE, FK -> `users(id)` | Usuário que recebeu/retirou o insumo (V20) |
 
----
-
-### Domínio: Patrimônio e Ativos de Hardware (CMDB)
-
-#### Tabela: `assets` (Patrimônio e Ativos)
+#### Tabela: `assets` (Ativos Físicos e Hardware - CMDB)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do ativo |
-| `name` | `varchar(100)` | NOT NULL | Nome descritivo (ex. Impressora Balcão) |
-| `type` | `varchar(50)` | NOT NULL | Tipo do ativo (ex. HARDWARE, SOFTWARE) |
-| `tag` | `varchar(50)` | NOT NULL, UNIQUE | Código único de patrimônio (ex. INV-2026-004) |
-| `active` | `boolean` | NOT NULL, default `true` | Status ativo do bem |
-| `is_critical` | `boolean` | NOT NULL, default `false` | Sinalização de ativo crítico para SLA de 1 hora e parada crítica |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do ativo |
+| `name` | `varchar(150)` | NOT NULL | Nome de registro (ex. Switch Switchroom) |
+| `patrimony_code` | `varchar(80)` | NOT NULL, UNIQUE | Placa de patrimônio (ex. `INV-2026-045`) |
+| `category_id` | `uuid` | NULLABLE, FK -> `asset_categories(id)`| Categoria de ativo (ex. Redes) |
+| `specifications` | `text` | NULLABLE | Detalhes físicos estruturados do bem |
+| `acquisition_value` | `numeric(19,2)`| NULLABLE | Preço de compra |
+| `created_at` | `timestamp` | NOT NULL | Data de registro |
+| `is_critical` | `boolean` | NOT NULL, default `false` | Se crítico, dispara fluxos de SLA de 1 hora (V19) |
 
-#### Tabela: `asset_users` (Relacionamento Multi-usuário de Ativos)
+#### Tabela: `asset_users` (Associação Multi-usuário em Ativos)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `asset_id` | `uuid` | PK, FK → `assets.id` ON DELETE CASCADE | Identificador do ativo compartilhado |
-| `user_id` | `uuid` | PK, FK → `users.id` ON DELETE CASCADE | Identificador do usuário associado |
+| `asset_id` | `uuid` | PK, FK -> `assets(id)` ON DELETE CASCADE | Ativo compartilhado (V9/V18) |
+| `user_id` | `uuid` | PK, FK -> `users(id)` ON DELETE CASCADE | Colaborador associado que utiliza o ativo |
 
----
-
-### Domínio: Cofre Eletrônico (Vault)
-
-#### Tabela: `vault_items` (Itens do Cofre)
+#### Tabela: `asset_maintenances` (Histórico de Ordens de Manutenção)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do segredo |
-| `title` | `varchar(150)` | NOT NULL | Título indicador |
-| `description` | `text` | NULLABLE | Notas funcionais complementares |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador da ordem |
+| `asset_id` | `uuid` | NOT NULL, FK -> `assets(id)` | Ativo em manutenção |
+| `maintenance_date` | `date` | NOT NULL | Data da intervenção |
+| `type` | `varchar(20)` | NOT NULL | Tipo: `PREVENTIVE`, `CORRECTIVE`, `UPGRADE`, `TRANSFER` |
+| `description` | `text` | NULLABLE | Descrição das atividades executadas |
+| `cost` | `numeric(10,2)`| NULLABLE | Custo da ordem de serviço |
+| `technician_id` | `uuid` | NOT NULL, FK -> `users(id)` | Técnico que efetuou o trabalho |
+| `ticket_id` | `uuid` | NULLABLE, FK -> `tickets(id)` ON DELETE SET NULL | Chamado ITSM originário (V38) |
+| `created_at` | `timestamp` | NOT NULL | Registro de criação |
+
+#### Tabela: `vault_items` (Cofre Eletrônico Criptografado)
+| Coluna | Tipo | Restrições | Descrição |
+|--------|------|------------|-----------|
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do segredo |
+| `title` | `varchar(150)` | NOT NULL | Título indicador da senha ou anotação |
+| `description` | `text` | NULLABLE | Descrição externa |
 | `item_type` | `varchar(20)` | NOT NULL | Tipo: `CREDENTIAL`, `DOCUMENT`, `NOTE` |
-| `secret_content` | `text` | NULLABLE | Dados confidenciais (Criptografados com AES-GCM) |
-| `file_path` | `varchar(500)` | NULLABLE | Caminho físico de arquivo de anexo seguro |
-| `owner_id` | `uuid` | NOT NULL, FK → `users.id` | Dono proprietário do segredo |
-| `sharing_type` | `varchar(20)` | NOT NULL | Acesso: `PRIVATE`, `ALL_TECH_ADMIN`, `CUSTOM` |
-| `created_at` | `timestamp` | NOT NULL | Registro inicial |
+| `secret_content` | `text` | NULLABLE | Conteúdo sigiloso criptografado com AES-256-GCM |
+| `file_path` | `varchar(500)` | NULLABLE | Caminho físico de anexo criptografado |
+| `owner_id` | `uuid` | NOT NULL, FK -> `users(id)` | Criador/Dono do registro |
+| `sharing_type` | `varchar(20)` | NOT NULL | Visibilidade: `PRIVATE`, `ALL_TECH_ADMIN`, `CUSTOM` |
+| `created_at` | `timestamp` | NOT NULL | Data de inserção |
 | `updated_at` | `timestamp` | NOT NULL | Última modificação |
 
-#### Tabela: `vault_item_shares` (Compartilhamentos de Itens Customizados)
+#### Tabela: `audit_logs` (Histórico de Compliance Imutável)
 | Coluna | Tipo | Restrições | Descrição |
 |--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do registro |
-| `vault_item_id` | `uuid` | NOT NULL, FK → `vault_items.id` | Item do cofre compartilhado |
-| `shared_with_user_id`| `uuid` | NOT NULL, FK → `users.id` | Usuário que recebeu a liberação de acesso |
+| `id` | `uuid` | PK, default `gen_random_uuid()` | Identificador único do log |
+| `user_id` | `uuid` | NULLABLE | Usuário autor da ação (nulo para sistema) |
+| `action` | `varchar(60)` | NOT NULL | Ação de auditoria (ex. `VAULT_SECRET_VIEW`) |
+| `resource_type` | `varchar(60)` | NULLABLE | Entidade modificada ou visualizada |
+| `resource_id` | `uuid` | NULLABLE | ID do registro afetado |
+| `details` | `text` | NULLABLE | Dump descritivo dos parâmetros em formato JSON |
+| `ip_address` | `varchar(45)` | NULLABLE | Endereço IP do cliente requisitante |
+| `created_at` | `timestamp` | NOT NULL | Data da gravação (imutável) |
 
 ---
 
-### Domínio: Monitoramento Técnico e Automação Financeira
+## 3. Relacionamentos Físicos no Banco de Dados
 
-#### Tabela: `contaazul_oauth_tokens` (Estado de Conexão ContaAzul)
-| Coluna | Tipo | Restrições | Descrição |
-|--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do registro |
-| `access_token` | `text` | NOT NULL | Token ativo de comunicação |
-| `refresh_token` | `text` | NOT NULL | Token para renovações automáticas |
-| `token_type` | `varchar(20)` | NOT NULL | Padrão OAuth2 (`Bearer`) |
-| `scope` | `varchar(255)` | NULLABLE | Escopo assinado |
-| `expires_at` | `timestamp` | NOT NULL | Validade limite de expiração |
-| `refreshed_at` | `timestamp` | NULLABLE | Data do último refresh bem-sucedido |
-| `created_at` | `timestamp` | NOT NULL | Criação da autorização |
-| `updated_at` | `timestamp` | NOT NULL | Atualização cadastral |
-
-#### Tabela: `financial_link` (Mapeamento Usuário ↔ Cliente ERP)
-| Coluna | Tipo | Restrições | Descrição |
-|--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do link |
-| `user_id` | `uuid` | NOT NULL, FK → `users.id` | Usuário interno correspondente |
-| `contaazul_customer_id` | `varchar(100)`| NOT NULL, UNIQUE | ID absoluto do cliente no ContaAzul |
-| `contaazul_customer_name`| `varchar(160)`| NULLABLE | Nome associado para conferência rápida |
-| `linked_by_user_id` | `uuid` | NULLABLE, FK → `users.id` | Operador que criou a vinculação |
-| `created_at` | `timestamp` | NOT NULL | Registro inicial |
-| `updated_at` | `timestamp` | NOT NULL | Modificação cadastral |
-
-#### Tabela: `processed_receipts` (Idempotência de Envios de Recibos)
-| Coluna | Tipo | Restrições | Descrição |
-|--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador de envio |
-| `financial_link_id` | `uuid` | NOT NULL, FK → `financial_link.id` | Link financeiro de destino |
-| `parcela_id` | `varchar(120)` | NOT NULL | ID da parcela no ERP para evitar duplicidade |
-| `receipt_hash` | `varchar(128)` | NOT NULL | Hash criptográfico do conteúdo para idempotência |
-| `original_recipient_email`| `varchar(255)`| NOT NULL | Endereço destinatário |
-| `status` | `varchar(20)` | NOT NULL | Status: `SENT`, `SKIPPED_DUPLICATE`, `FAILED` |
-| `brevo_message_id` | `varchar(120)` | NULLABLE | Identificador no gateway de envio (Brevo) |
-| `payload` | `jsonb` | NOT NULL | Dump completo em formato JSON da transação |
-| `processed_at` | `timestamp` | NOT NULL | Instante da execução |
-
-#### Tabela: `system_alerts` (Incidentes e Alertas do Sistema)
-| Coluna | Tipo | Restrições | Descrição |
-|--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do alerta |
-| `alert_type` | `varchar(60)` | NOT NULL | Tipo técnico do incidente |
-| `severity` | `varchar(20)` | NOT NULL | Gravidade: `INFO`, `WARN`, `ERROR`, `CRITICAL` |
-| `source` | `varchar(120)` | NOT NULL | Origem funcional da falha (ex: `FinanceService`) |
-| `title` | `varchar(255)` | NOT NULL | Título legível de diagnóstico |
-| `details` | `text` | NULLABLE | Rastreabilidade do erro técnico |
-| `context` | `jsonb` | NOT NULL | Payload necessário para reprocessamento manual |
-| `resolved` | `boolean` | NOT NULL, default `false` | Indica se o operador solucionou o caso |
-| `created_at` | `timestamp` | NOT NULL | Registro da ocorrência |
-| `resolved_at` | `timestamp` | NULLABLE | Instante em que foi marcado como resolvido |
-
----
-
-### Domínio: Auditoria Geral
-
-#### Tabela: `audit_logs` (Rastreabilidade e Compliance Imutável)
-| Coluna | Tipo | Restrições | Descrição |
-|--------|------|------------|-----------|
-| `id` | `uuid` | PK, NOT NULL | Identificador do log |
-| `user_id` | `uuid` | NULLABLE | Operador autor da ação (nulo para sistema) |
-| `action` | `varchar(60)` | NOT NULL | Ação executada (ex: `VAULT_SECRET_VIEW`) |
-| `resource_type` | `varchar(60)` | NULLABLE | Recurso afetado (ex: `VaultItem`) |
-| `resource_id` | `uuid` | NULLABLE | ID do recurso modificado |
-| `details` | `text` | NULLABLE | Contexto técnico detalhado em string JSON |
-| `ip_address` | `varchar(45)` | NULLABLE | IP de origem da requisição |
-| `created_at` | `timestamp` | NOT NULL | Instante exato da gravação imutável |
-
-> [!CAUTION]
-> A tabela `audit_logs` não possui chaves estrangeiras vinculadas programaticamente nem permite operações de UPDATE ou DELETE pela aplicação. Isso garante a segurança do histórico de auditoria mesmo em cenários de exclusão de usuários.
-
----
-
-## Diagrama de Relacionamentos do Banco de Dados
+O diagrama abaixo consolida a estrutura de chaves estrangeiras (FK) do sistema:
 
 ```
-sectors             (1) ──<  users              (N)
-item_categories     (1) ──<  items              (N)
-items               (1) ──<  stock_batches      (N)
-items               (1) ──<  stock_movements    (N)
-ticket_categories   (1) ──<  tickets            (N)
-users               (1) ──<  tickets            (N)  [solicitante]
-users               (1) ──<  tickets            (N)  [técnico, nullable]
-items               (1) ──<  tickets            (N)  [item de estoque, nullable]
-assets              (1) ──<  tickets            (N)  [patrimônio, nullable]
-vault_items         (1) ──<  vault_item_shares  (N)
-users               (1) ──<  vault_items        (N)  [proprietário]
-users               (1) ──<  vault_item_shares  (N)  [destinatário de share]
-financial_link      (1) ──<  processed_receipts (N)
-users               (1) ──<  financial_link     (N)  [usuário vinculado]
-assets              (N) ──o  asset_users        (N)  [muitos-para-muitos com users]
-tickets             (N) ──o  ticket_tag_relations (N) [muitos-para-muitos com ticket_tags]
-audit_logs                (Sem FK — Registros isolados e imutáveis)
-system_alerts             (Focado em falhas operacionais e de integrações)
+sectors (1) ────< users (N)
+users (1) ──────< tickets (N) [como requester_id]
+users (1) ──────< tickets (N) [como assigned_to_id, nullable]
+users (1) ──────< vault_items (N) [como owner_id]
+
+itsm_categories (1) ───< tickets (N) [via category_id]
+items (1) ─────────────< tickets (N) [via requested_item_id, nullable]
+assets (1) ────────────< tickets (N) [via asset_id, nullable]
+
+items (1) ─────────────< stock_batches (N)
+items (1) ─────────────< stock_movements (N)
+users (1) ─────────────< stock_movements (N) [como recipient_user_id, nullable]
+
+assets (1) ────────────< asset_maintenances (N)
+users (1) ─────────────< asset_maintenances (N) [como technician_id]
+tickets (1) ───────────< asset_maintenances (N) [via ticket_id, nullable]
+
+vault_items (1) ───< vault_item_shares (N)
+users (1) ─────────< vault_item_shares (N) [como shared_with_user_id]
+
+assets (N) ──────────o asset_users (N) ──o users (N) [Tabela de junção N:N]
+tickets (N) ─────────o ticket_tag_relations (N) ──o ticket_tags (N) [Tabela de junção N:N]
+tickets (N) ─────────o ticket_additional_users (N) ──o users (N) [Tabela de junção N:N]
 ```
-
----
-
-## Mecanismos de Segurança de Acesso
-
-O sistema utiliza diferentes camadas para evitar a exposição de dados na internet:
-
-1. **Tokens de Sessão**: A autenticação JWT padrão libera funções básicas. Acesso ao Cofre (`VaultItem`) e recursos financeiros exige a presença da claim `two_factor_verified: true` no token JWT.
-2. **Criptografia Simétrica**: Segredos salvos na tabela `vault_items` e as chaves de 2FA dos usuários na tabela `users` são convertidos via `EncryptionService` utilizando o padrão **AES-256-GCM** com IV dinâmico de 12 bytes gerado com `SecureRandom`.
-3. **Revogação de Sessões**: O reset do 2FA apaga o segredo TOTP no banco. O `SecurityFilter` e o interceptor `TwoFactorSessionGuard` validam o status a cada requisição, invalidando o acesso caso necessário.
-
----
-
-## Planejamento de Deploy e Segurança de Rede
-
-Para implantar o sistema de forma segura sob o domínio público `itsm-inovare.ctrls.dev.br`, recomenda-se isolar a rede interna:
-
-* **Túnel de Rede (Cloudflare Tunnel)**: A porta da API ou do frontend não fica exposta diretamente à internet. O contêiner do Cloudflare Daemon (`cloudflared`) cria uma ponte segura ligando a rede interna do Docker diretamente às bordas da Cloudflare.
-* **Segurança de Borda (WAF e Proteção contra DDoS)**: O tráfego que chega à aplicação é analisado pelas regras do firewall da Cloudflare, aplicando proteções e permitindo restringir acessos por região geográfica.

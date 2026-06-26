@@ -1,144 +1,106 @@
 # Catálogo de Funcionalidades — Inovare TI
 
-Este documento apresenta as especificações e as regras de negócio dos módulos que compõem o sistema.
+Este documento apresenta as especificações e regras de negócio de cada módulo do ecossistema Inovare TI.
 
 ---
 
-## Interface e Experiência do Usuário
+## 1. Motor de Agendamentos e WhatsApp
 
-* **Design System**: Interface responsiva baseada na cor primária da clínica Inovare (`#feb56c`), desenvolvida para navegação em computadores e celulares.
-* **Dashboard**: Painel centralizado que exibe cards de resumos operacionais em tempo real, atalhos, rankings de demandas e gráficos de controle de chamados e finanças.
+Este motor gerencia o envio automatizado de confirmações e lembretes aos pacientes da Clínica Inovare.
 
----
+### 1.1 Algoritmo de Pacing e Virtual Threads
+Para mitigar erros de estouro de requisições (**HTTP 429 - Rate Limit**) nos servidores da API Take Blip e WhatsApp:
+* **Pacing Dinâmico (Delay):** A cada envio individual de mensagem dentro do loop de processamento do lote, a thread suspende sua execução por um intervalo aleatório e controlado entre **150ms e 300ms** (`ThreadLocalRandom.current().nextLong(150, 301)`).
+* **Virtual Threads (Java 21):** O loop é executado sob um executor assíncrono de threads virtuais (`Executors.newVirtualThreadPerTaskExecutor()`). A chamada do `Thread.sleep` suspende apenas a thread virtual coordenadora, liberando os recursos físicos da CPU (Carrier Threads) para outros fluxos concorrentes do Spring Boot.
+* **Semáforo de Vazão de Rede:** Um semáforo de concorrência (`blipSemaphore`) limita em no máximo **20** as requisições simultâneas de atualização de contextos de usuários na API do Blip.
 
-## Motor de Agendamentos e Comunicação com Pacientes
+### 1.2 Regra de Final de Semana (Antecipação)
+Para evitar o incômodo de mensagens automáticas disparadas aos finais de semana (sábados e domingos):
+* **Segunda a Quinta-Feira:** O job notifica os pacientes com consultas marcadas para o dia seguinte (`LocalDate.now().plusDays(1)`).
+* **Sexta-Feira:** O job antecipa a busca e notifica as consultas marcadas para a próxima **segunda-feira** (`LocalDate.now().plusDays(3)`). As consultas do fim de semana que não puderem ser antecipadas são tratadas manualmente pela recepção.
 
-O Motor de Agendamentos automatiza a ingestão diária de consultas externas e gerencia a esteira de lembretes e confirmações enviadas aos pacientes por meio da plataforma WhatsApp, operando sob regras rígidas de segurança operacional e conformidade técnica.
-
-O processamento principal é orquestrado pelo caso de uso [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java), que interage com os adapters de mensageria e persistência local.
-
-### 1. Algoritmo de Pacing e Throttling (Virtual Threads do Java 21)
-Para garantir a saúde operacional da aplicação e mitigar estouros de limite de requisições (**Rate Limit / HTTP 429**) na API do Take Blip/Meta Cloud, a rotina de ingestão e despacho implementa um controle rigoroso de vazão temporal:
-* **Espaçamento Temporal (Pacing)**: Durante o processamento concorrente do lote diário de agendamentos, o sistema avalia se um disparo anterior já foi efetuado. Em caso positivo, aplica um atraso aleatório controlado entre **150ms e 300ms** antes de iniciar a próxima tarefa de notificação (implementado na linha 248 de [IngestAppointmentsUseCase](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java)):
-  ```java
-  long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
-  Thread.sleep(delayMillis);
-  ```
-* **Virtual Threads do Java 21**: O uso de `Thread.sleep` é completamente seguro e não prejudica o desempenho do servidor. Como o projeto está estruturado sobre as *Virtual Threads* do Java 21 (`Executors.newVirtualThreadPerTaskExecutor()`), a chamada suspende temporariamente apenas a thread virtual coordenadora, cedendo os recursos físicos da CPU (Carrier Threads) a outros processos na JVM.
-* **Limitação de Concorrência Secundária**: Adicionalmente, um semáforo de concorrência ([blipSemaphore](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/usecase/IngestAppointmentsUseCase.java#L86)) com limite dinâmico configurável (propriedade `APP_APPOINTMENT_BLIP_INGEST_CONCURRENCY`, padrão: `20`) protege os barramentos de rede, bloqueando excessos de requisições simultâneas de configuração de contexto e envio de templates ao Blip.
-
-### 2. Tratamento de Envio no Fim de Semana
-Para evitar o envio de mensagens automáticas de lembretes durante o final de semana (sábado e domingo), a rotina de busca de consultas realiza uma antecipação de datas:
-* **Execuções de Segunda a Quinta-Feira**: O sistema busca consultas agendadas para o dia seguinte (`LocalDate.now().plusDays(1)`).
-* **Execuções na Sexta-Feira**: O sistema busca as consultas agendadas para a próxima **segunda-feira** (`LocalDate.now().plusDays(3)`). Com isso, as consultas de segunda-feira são notificadas antecipadamente na própria sexta-feira, em horário comercial, evitando mensagens no final de semana.
-
-### 3. Idempotência de Envio e Agrupamento em Lote
-Duplicidades de envio e bombardeio de mensagens múltiplas a um único cliente são bloqueadas por dois mecanismos de segurança:
-* **Filtro de Idempotência Individual**: O serviço [AppointmentSendIdempotencyService](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/application/service/AppointmentSendIdempotencyService.java) intercepta o identificador do agendamento vindo do ERP. O método `registerIfFirstSend(feegowAppointmentId)` atua como uma barreira que registra o despacho e rejeita reprocessamentos da mesma consulta no mesmo ciclo.
-* **Estratégia de Envio Agrupado (NotificationGroup)**: Caso o paciente possua múltiplos agendamentos cadastrados para a mesma data alvo, o motor impede o spam de mensagens isoladas unificando o fluxo:
-  1. Os agendamentos são agrupados na chave composta do telefone purificado e da data (`normalizedPhone + "#" + date`).
-  2. Um identificador único de grupo (`groupId`) em formato UUID é gerado.
-  3. Em uma **única transação de banco de dados** via `transactionTemplate.execute(...)`, todas as sessões ([AppointmentSession](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/AppointmentSession.java)) são persistidas associadas ao `groupId` e registros na tabela [NotificationGroup](file:///C:/Projeto/Inovare-TI/api/src/main/java/br/dev/ctrls/inovareti/modules/appointment/domain/model/NotificationGroup.java) são inseridos de uma só vez, reduzindo o overhead do pool de conexões (HikariCP).
-  4. O sistema pré-compila uma lista de agendamentos detalhada contendo informações consolidadas de todas as consultas do grupo e armazena na coluna `pre_compiled_schedule_text`.
-  5. O contexto do Blip do usuário é configurado de forma assíncrona (fire-and-forget) com a lista detalhada compilada, o `groupId` e a flag `isConfirmingAgenda = true`.
-  6. É disparado um único template unificado de grupo informando ao paciente sobre as suas consultas coletivas. As confirmações ou cancelamentos feitos pelo paciente são computados no grupo e propagados a todas as sessões vinculadas de forma correlata.
+### 1.3 Agrupamento de Consultas (`NotificationGroup`) e Idempotência
+* **Idempotência Individual:** O serviço `AppointmentSendIdempotencyService` valida o ID de cada consulta via `registerIfFirstSend` no banco de dados local. Caso a consulta já tenha sido processada no ciclo diário corrente, ela é descartada.
+* **Envio Consolidado em Lote:** Pacientes com múltiplos agendamentos no mesmo dia são unificados sob uma chave composta de telefone + data.
+  1. O sistema cria um identificador único de grupo (`groupId` UUID) e persiste todas as sessões sob uma única transação atômica.
+  2. Compila um texto consolidado de consultas (`pre_compiled_schedule_text`) e o grava no `NotificationGroup` na coluna correspondente.
+  3. Atualiza o contexto do Blip daquele telefone com a listagem completa (fire-and-forget) e dispara apenas um template de WhatsApp unificado (`aviso_agendamento_grupo`).
 
 ---
 
-## Cofre de Senhas e Documentos (Vault)
+## 2. Central de Chamados (ITSM)
 
-O Vault atua como um perímetro de segurança para custódia de credenciais corporativas e dados sensíveis:
+Estrutura o suporte de TI, prioridades de atendimento e comunicação de incidentes tecnológicos.
 
-* **Proteção Ativa por MFA**: Exige validação obrigatória de segundo fator (TOTP) para a leitura de segredos (`secret_content`), downloads de anexos criptografados ou qualquer ação de escrita (criação, edição e exclusão de itens).
-* **Níveis de Compartilhamento**:
-  * `PRIVATE`: Acesso restrito exclusivamente ao usuário proprietário (`owner_id`) e administradores.
-  * `ALL_TECH_ADMIN`: Compartilhamento coletivo automático com todos os técnicos de TI e administradores cadastrados.
-  * `CUSTOM`: Compartilhamento granular com usuários selecionados individualmente (gerido pela tabela `vault_item_shares`).
-* **Edição e Exclusão Seguras**: Somente o criador do item (`owner_id`) ou um operador com permissão de `ADMIN` possuem autoridade para atualizar ou expurgar dados do cofre.
-* **Compliance de Acesso**: Todo e qualquer evento sensível no cofre (visualização de senhas, download de anexos, alterações) gera imediatamente um registro imutável na trilha de auditoria.
+### 2.1 Cálculo de SLA Útil e Prioridade
+O prazo limite para solução de incidentes (`sla_deadline`) é calculado dinamicamente na abertura do chamado:
+* Soma-se a quantidade de horas configurada em `sla_hours` (da tabela `itsm_categories` ou `ticket_categories`) à data e hora corrente.
+* O cálculo considera apenas as horas úteis configuradas para a equipe de TI, interrompendo a contagem fora do horário comercial da clínica.
 
----
+### 2.2 Regra de Parada Crítica (Incidentes Críticos)
+Caso um incidente possa inviabilizar o atendimento físico na clínica:
+* **Trigger por Ativo:** O chamado é associado a um ativo do CMDB marcado como crítico (`assets.is_critical = true`).
+* **Trigger por Varredura de Texto:** A descrição ou título do chamado (seja aberto via web ou via comando `/chamado` no Discord) bate com a expressão regular `INV-\d{4}-\d+` (referência a códigos patrimoniais corporativos).
+* **Ações Automatizadas:**
+  1. A prioridade é redefinida para `URGENT`.
+  2. O SLA é reduzido para o tempo fixo de **1 hora** a partir do instante de abertura.
+  3. A tag `#🚨ParadaCrítica` é injetada automaticamente nas relações do chamado.
+  4. Um alerta de prioridade máxima com detalhes de localização é enviado por DM do Discord ao técnico responsável e ao canal operacional.
 
-## Central de Chamados (Helpdesk)
-
-O motor de chamados centraliza o fluxo de suporte de TI da clínica:
-
-* **SLA Dinâmico por Categoria**: O prazo máximo de atendimento (`sla_deadline`) é calculado de forma automática no momento da abertura do chamado, com base no número de horas úteis configurado na categoria selecionada.
-* **Gestão de Atribuições**: O desenvolvedor pode assumir chamados autonomamente ou gerenciar atribuições diretamente.
-* **Comentários e Histórico**: Canal para troca de mensagens entre o solicitante e o suporte, com upload de anexos integrado ao chamado.
-* **Base de Conhecimento Lateral e Macros**:
-  * **Pesquisa de Chamados Similares**: Na sidebar de detalhes de chamados em progresso (`IN_PROGRESS`), a aplicação busca chamados finalizados (`RESOLVED`/`CLOSED`) que compartilham de tags em comum, apresentando soluções anteriores.
-  * **Botão "Aplicar Solução Padrão"**: Se alguma das tags do chamado possuir uma macro de resolução (`default_resolution`) cadastrada, um botão surge na sidebar permitindo preencher a nota de fechamento padrão com um clique.
-* **Notificações Operacionais**: Notificações por e-mail e web baseadas no perfil do operador, com preferência individual configurável de recebimento de alertas no Discord.
+### 2.3 Macros de Resolução e Sidebar Lateral
+* **Sidebar Recomendatória:** Detalhes de chamados no estado `IN_PROGRESS` exibem chamados finalizados que possuem tags idênticas.
+* **Aplicar Solução Padrão:** Se alguma tag associada possuir um texto na coluna `default_resolution` (ex. "Troca de toner efetuada e teste de impressão OK"), a interface web disponibiliza uma macro de 1 clique que preenche a nota de encerramento (`resolutionNotes`) automaticamente.
 
 ---
 
-## Regra de Parada Crítica (Incidentes Críticos)
+## 3. Gestão de Ativos e Inventário (CMDB + Estoque)
 
-Para blindar a operação de saúde contra paradas tecnológicas severas que afetem o atendimento ao paciente, o sistema possui uma esteira dedicada e prioritária de detecção e contenção de falhas em ativos críticos:
-## Gestão de Incidentes Críticos
+Garante o controle físico do patrimônio tecnológico e a consistência contábil das baixas de estoque.
 
-Para proteger o atendimento ao paciente, o sistema prioriza incidentes graves:
+### 3.1 Ativos Multi-usuário (CMDB)
+Os computadores e impressoras da clínica podem ser utilizados por múltiplos colaboradores (médicos e secretárias em turnos rotativos).
+* A associação de usuários a ativos é feita de forma granular (Many-to-Many) na tabela `asset_users`.
+* Permite à equipe de TI auditar quais usuários possuem acesso a um determinado computador, auxiliando na verificação de vazamento de credenciais.
 
-1. **Identificação de Ativo Crítico**: Se o ativo vinculado ao chamado estiver marcado como crítico (`is_critical = true`) no CMDB, o sistema prioriza o atendimento automaticamente.
-2. **Varredura por Discord**: Ao abrir um chamado via comando `/chamado` no Discord, o sistema busca automaticamente por padrões de código de patrimônio (`INV-\d{4}-\d+`). Se o patrimônio for crítico, a automação é disparada instantaneamente.
-3. **Escalonamento de Prioridade**:
-   * A prioridade é definida como `URGENT`.
-   * O prazo de resolução (`sla_deadline`) é ajustado para **1 hora**.
-   * A tag `#🚨ParadaCrítica` é aplicada ao chamado automaticamente.
-4. **Alerta ao Técnico Responsável**: O bot do Discord envia uma mensagem direta (DM) com os detalhes do problema para o técnico responsável, agilizando a resposta.
+### 3.2 Vínculo entre Chamados e Manutenção de Ativos (V38)
+Toda manutenção corretiva ou preventiva realizada em um equipamento é registrada para fins de controle de custos de hardware:
+* No encerramento do chamado (`ResolveTicketUseCase`), se houver metadados de manutenção preenchidos (`ResolveTicketRequest.maintenance()`), o sistema cria um registro em `asset_maintenances` com o tipo de manutenção, custo financeiro e técnico executor.
+* A coluna `ticket_id` é vinculada à manutenção do ativo, estabelecendo uma rastreabilidade bidirecional. Isso permite saber qual chamado de TI motivou aquela manutenção específica.
 
----
+### 3.3 Estoque Crítico e Alertas de Compra (V34)
+* A coluna `min_stock` determina o limite aceitável de segurança para cada insumo (como mouses, toners e cabos).
+* Ao realizar a saída física de qualquer item, se o estoque atual cair a um nível menor ou igual a `min_stock`, o sistema dispara o evento `LowStockEvent`.
+* O listener `DiscordAlertListener` processa o evento de forma assíncrona (`@Async`), formatando um aviso em laranja e enviando-o via webhook ou JDA Bot para o canal de compras da TI.
 
-## Inventário, Ativos e Algoritmo FIFO
-
-O controle de insumos e hardware foi projetado para assegurar consistência fiscal e exatidão contábil total:
-
-### 1. Gestão de Insumos e Lotes de Compra
-* Cadastro de itens de consumo de TI e peças de reposição agrupadas por categorias.
-* Lotes de estoque (`stock_batches`) individuais contendo o valor unitário de aquisição do produto e data de registro, o que viabiliza o acompanhamento financeiro preciso do estoque circulante.
-
-### 2. Algoritmo FIFO (First-In, First-Out)
-Para a saída de mercadorias no fechamento de chamados ou retiradas manuais, a plataforma executa estritamente a política FIFO:
-* Os lotes com a data de entrada mais antiga e quantidade disponível (`remaining_quantity > 0`) são consumidos prioritariamente.
-* Se a quantidade requisitada exceder o lote mais antigo, o motor realiza a dedução fracionada consumindo lotes subsequentes de forma recursiva até sanar a totalidade do pedido.
-
-### 3. Mecanismo Transacional e Fallback de Persistência
-Para evitar qualquer discrepância entre a redução do saldo físico (`current_stock` em `items`) e a trilha de relatórios financeiros de saída de inventário, a plataforma implementa uma camada transacional de alta robustez:
-* **Atomicidade Garantida**: O método de dedução FIFO utiliza `Propagation.MANDATORY`, executando obrigatoriamente dentro da mesma transação física do encerramento do chamado (`ResolveTicketUseCase`). Em caso de falha em qualquer etapa (dedução de lote, persistência, gravação de log), toda a operação sofre rollback.
-* **Persistência de Fallback**: Caso ocorra alguma falha pontual de comunicação e o serviço principal de dedução de lote não registre a movimentação, o caso de uso executa uma barreira de proteção ativa. Ele realiza uma consulta rápida pós-dedução e, caso não localize a movimentação, cria e persiste de forma autônoma um registro em `stock_movements` do tipo `OUT` associado ao ticket de origem (referência: `TICKET:{ticketId}`).
-* **Tratamento Fiel de Valores**: Os relatórios financeiros de saídas de inventário realizam filtragem exclusiva por movimentações do tipo `OUT` e tratam valores de aquisição (`unit_price_at_time`) nulos como zero, prevenindo travamento de relatórios e assegurando que nenhum consumo seja ignorado por falta de dados financeiros de entrada históricos.
-
-### 4. Controle de Ativos e QR Codes (CMDB Avançado)
-* **Gestão de Ativos Multi-usuário**: Suporta o relacionamento Many-to-Many entre ativos físicos e múltiplos usuários (ex: impressoras de balcão ou servidores locais compartilhados por secretárias de diferentes especialidades, como cardiologia e oftalmologia). Isto permite o rastreamento preciso e a injeção do contexto dos setores envolvidos.
-* **Sinalização de Criticidade**: Ativos podem ser marcados como críticos (`is_critical = true`), desencadeando fluxos urgentes de resolução e prioridade máxima quando associados a chamados de suporte.
-* **Geração e scanner nativo de QR Codes**: Frontend integrado para scanner de QR Codes físicos usando a câmera do celular, abrindo instantaneamente a tela de auditoria ou gerando chamados pré-configurados associados ao ativo.
+### 3.4 Baixa de Insumos via FIFO e Transacionalidade
+As peças e insumos de hardware de TI são retirados seguindo a regra FIFO (First-In, First-Out):
+* **Algoritmo FIFO:** A rotina de dedução (`StockDeductionService`) consome prioritariamente os lotes de estoque (`stock_batches`) com data de entrada mais antiga e quantidade disponível superior a zero (`remaining_quantity > 0`). Caso a retirada seja maior que o lote mais antigo, o saldo é abatido dos lotes subsequentes.
+* **Propagação Mandatória (`Propagation.MANDATORY`):** O método de dedução deve obrigatoriamente rodar dentro da mesma transação do caso de uso de resolução do chamado (`ResolveTicketUseCase`). Qualquer falha na redução de lotes ou inconsistência de saldos cancela a transação inteira no banco (Rollback).
+* **Mecanismo de Proteção e Fallback:** Se a baixa ocorrer com sucesso mas a movimentação de histórico não for gravada por oscilações no banco, o caso de uso executa uma verificação final. Constatando a ausência do registro histórico, ele insere de forma autônoma um registro em `stock_movements` do tipo `OUT` contendo a referência `TICKET:{ticketId}` e o custo unitário praticado na transação (`unit_price_at_time`), preservando a integridade do balanço contábil.
 
 ---
 
-## Base de Conhecimento
+## 4. Cofre de Credenciais (Vault)
 
-Espaço estruturado para o compartilhamento de artigos, tutoriais técnicos e runbooks de autoatendimento para os colaboradores da clínica:
-* **Fluxo de Rascunhos**: Artigos criados no estado `DRAFT` (Rascunho) são visíveis e editáveis exclusivamente pelo próprio autor do texto ou por operadores `ADMIN`.
-* **Publicação Controlada**: A transição para o estado `PUBLISHED` disponibiliza o conteúdo para leitura de todos os setores corporativos do sistema.
+O Vault armazena dados sigilosos e documentos técnicos sob regras rígidas de acesso e conformidade.
+
+### 4.1 Proteção Ativa com Dois Fatores (MFA)
+* Toda operação de leitura (visualizar segredo), download de anexos do cofre ou alteração física exige que o usuário passe pelo desafio TOTP (Google Authenticator).
+* O token JWT de autenticação deve carregar a claim `two_factor_verified = true`. A ausência desta claim bloqueia o acesso via interceptador `TwoFactorSessionGuard`.
+
+### 4.2 Níveis de Visibilidade de Segredos
+* `PRIVATE`: Acesso restrito ao criador do item (`owner_id`) e administradores.
+* `ALL_TECH_ADMIN`: Compartilhado automaticamente com toda a equipe técnica e administradores.
+* `CUSTOM`: Compartilhamento explícito e individual com colaboradores específicos cadastrados na tabela `vault_item_shares`.
 
 ---
 
-## PWA e Mobilidade
+## 5. Auditoria de Ações e LGPD
 
-* **Experiência Instalável**: Configuração completa de manifesto PWA permitindo a instalação nativa do sistema em dispositivos iOS e Android como um aplicativo dedicado.
-* **Scanner de QR Code Nocivo**: Utilização das APIs nativas da câmera para ler códigos patrimoniais colados fisicamente nos computadores, proporcionando rapidez na triagem de problemas nos consultórios da clínica.
-
----
-
-## Auditoria e Logs de Ações
-
-Trilha de auditoria desacoplada e assíncrona gerida por eventos internos Spring Boot (`AuditEvent`) para compliance e conformidade LGPD:
-
-* **Isolamento de Persistência**: A gravação de logs de auditoria ocorre em background de forma assíncrona por meio do `AuditEventListener`, impedindo que atrasos na gravação de logs prejudiquem o tempo de resposta das transações normais de tela.
-* **Ações Rastreáveis Mapeadas**:
-  * **Autenticação**: Sucesso de login (`LOGIN_SUCCESS`), falha de credenciais (`LOGIN_FAILURE`), validação TOTP, reset de 2FA por administrador ou via Discord.
-  * **Cofre (Vault)**: Criação de segredos, leitura descriptografada de senhas (`VAULT_SECRET_VIEW`), download de anexos do cofre, edições e remoções físicas de registros.
-  * **Operações**: Aberturas, claims de técnicos, transferências e encerramento de tickets. Alterações cadastrais de usuários e reset de senhas.
-  * **Estoque e Ativos**: Criação de insumos, registros de lotes de compra, saídas FIFO de inventário, cadastro e alteração de ativos, além de leituras de QR Code.
-  * **Artigos**: Criação de artigos, salvamento de rascunhos, edições e publicações globais de conteúdo na base de conhecimento.
+Trilha de auditoria assíncrona que registra eventos e ações de usuários para compliance de LGPD:
+* **Escuta de Eventos Assíncrona (`AuditEventListener`):** O Spring Boot publica eventos do tipo `AuditEvent` que são interceptados e salvos em segundo plano na tabela `audit_logs`, sem impactar o tempo de resposta da interface web.
+* **Eventos Rastreáveis:**
+  * Login com sucesso ou falha, resets e verificações de 2FA.
+  * Criação, remoção, alteração ou leitura de segredos no cofre (`VAULT_SECRET_VIEW`).
+  * Abertura, fechamento ou alteração de responsáveis de chamados de suporte.
+  * Entradas, saídas e transferências físicas de insumos e ativos.

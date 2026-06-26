@@ -18,13 +18,15 @@ public class BlipContextService {
 
     private final BlipLIMEClient limeClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
 
     @org.springframework.beans.factory.annotation.Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper, org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor) {
         this.limeClient = limeClient;
         this.objectMapper = objectMapper;
+        this.applicationTaskExecutor = applicationTaskExecutor;
     }
 
     public void setUserContextForUser(String userIdentity, String key, String value) {
@@ -38,13 +40,20 @@ public class BlipContextService {
             return;
         }
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
-        log.info("[LIME-SEQUENCE] Configurando contexto LIME sequencialmente para target: {}. Campos: {}", normalizedIdentity, fields.keySet());
-        for (Map.Entry<String, String> entry : fields.entrySet()) {
-            try {
-                setUserContext(normalizedIdentity, entry.getKey(), entry.getValue());
-            } catch (Exception e) {
-                log.error("Erro ao configurar contexto sequencial para {} key: {}", normalizedIdentity, entry.getKey(), e);
-            }
+        log.debug("[LIME-PARALLEL] Configurando contexto LIME em paralelo (Virtual Threads) para target: {}. Campos: {}", normalizedIdentity, fields.keySet());
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = fields.entrySet().stream()
+            .map(entry -> java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    setUserContext(normalizedIdentity, entry.getKey(), entry.getValue());
+                } catch (Exception e) {
+                    log.error("Erro ao configurar contexto para {} key: {}", normalizedIdentity, entry.getKey(), e);
+                }
+            }, applicationTaskExecutor))
+            .toList();
+        try {
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
+        } catch (Exception e) {
+            log.error("Erro ao aguardar configuração de contexto para {}", normalizedIdentity, e);
         }
     }
 

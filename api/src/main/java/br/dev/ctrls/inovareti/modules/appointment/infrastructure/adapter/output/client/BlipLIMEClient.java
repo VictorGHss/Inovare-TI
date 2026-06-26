@@ -456,22 +456,24 @@ public class BlipLIMEClient implements BlipClientPort {
         if (identity == null || !identity.contains("@")) return identity;
         
         String[] parts = identity.split("@");
-        String phone = parts[0];
+        String phone = parts[0]; // ex: 5511999998888
         String domain = parts[1];
         
-        // Se o número for inbound do PR com faturamento de 9 dígitos (13 caracteres com 55)
+        // Tenta buscar como veio (com 9)
+        if (sessionRepository.existsByPhoneNumber(phone)) {
+            return identity;
+        }
+        
+        // Se não achou, tenta remover o nono dígito (o '9' logo após o DDD)
+        // Ex: 55 11 9 99998888 -> 55 11 99998888
         if (phone.startsWith("55") && phone.length() == 13) {
-            String ddd = phone.substring(2, 4);
-            if (ddd.equals("41") || ddd.equals("42") || ddd.equals("43")) {
-                // Extrai o '9' sobressalente da posição index 4
-                String phoneWithout9 = phone.substring(0, 4) + phone.substring(5);
-                
-                // Consulta defensiva na persistência local
-                if (sessionRepository.existsByPhoneNumber(phoneWithout9)) {
-                    return phoneWithout9 + "@" + domain;
-                }
+            String phoneWithout9 = phone.substring(0, 4) + phone.substring(5);
+            if (sessionRepository.existsByPhoneNumber(phoneWithout9)) {
+                log.info("[RECONCILIAÇÃO-UNIVERSAL] Identidade ajustada para 8D: {} -> {}", phone, phoneWithout9);
+                return phoneWithout9 + "@" + domain;
             }
         }
+        
         return identity;
     }
 }

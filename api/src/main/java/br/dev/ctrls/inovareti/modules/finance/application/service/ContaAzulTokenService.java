@@ -21,7 +21,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -44,19 +43,26 @@ public class ContaAzulTokenService {
 
     public String buildAuthorizationUrl(String redirectUri) {
         String resolvedRedirectUri = StringUtils.hasText(redirectUri) ? redirectUri : properties.getRedirectUri();
-        String state = UUID.randomUUID().toString();
+        if (resolvedRedirectUri == null) {
+            resolvedRedirectUri = "";
+        }
         
-        log.debug("Construindo URL de autorização da Conta Azul. Redirect URI: {}", resolvedRedirectUri);
+        String baseAuthUrl = properties.getAuthorizationUrl();
+        if (baseAuthUrl != null && baseAuthUrl.contains("/login")) {
+            baseAuthUrl = baseAuthUrl.replace("/login", "/oauth2/authorize");
+        }
+        if (baseAuthUrl == null || baseAuthUrl.isBlank()) {
+            baseAuthUrl = "https://auth.contaazul.com/oauth2/authorize";
+        }
         
-        String authorizationUrl = UriComponentsBuilder
-            .fromUriString(properties.getAuthorizationUrl())
-                .queryParam("response_type", "code")
-                .queryParam("client_id", properties.getClientId())
-                .queryParam("redirect_uri", resolvedRedirectUri)
-                .queryParam("state", state)
-                .build()
-                .encode()
-                .toUriString();
+        log.debug("Construindo URL de autorização da Conta Azul. Base URL: {}, Redirect URI: {}", baseAuthUrl, resolvedRedirectUri);
+        
+        String encodedRedirectUri = java.net.URLEncoder.encode(resolvedRedirectUri, java.nio.charset.StandardCharsets.UTF_8);
+        
+        String authorizationUrl = String.format("%s?response_type=code&client_id=%s&redirect_uri=%s&scope=sales",
+                baseAuthUrl,
+                properties.getClientId(),
+                encodedRedirectUri);
         
         log.debug("URL de autorização construída: {}", authorizationUrl);
         return authorizationUrl;

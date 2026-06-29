@@ -128,3 +128,64 @@ A classe estende o `ListenerAdapter` da biblioteca JDA 5 para capturar cliques e
   * **Aceitar Chamado (`ticket_accept:<id>`):** Aciona o método `discordCommandService.assumirChamado`. O sistema associa o chamado ao técnico correspondente no banco. Se o fluxo completar com sucesso, edita a mensagem no Discord desabilitando os botões interativos e inclui o rodapé indicando qual técnico assumiu.
   * **Recusar Chamado (`ticket_reject:<id>`):** Aciona `discordCommandService.recusarChamado` liberando o chamado para os demais técnicos e desabilitando as ações.
 * **Virtual Threads Executor:** Todas as ações pesadas executadas nos comandos ou botões são despachadas para o executor assíncrono `discordExecutor` (Virtual Threads). Isso evita o travamento e a perda de conexões do JDA com os servidores do Discord.
+
+---
+
+## 4. Integração com Sistema de Catracas (Controle de Acesso Físico)
+
+Esta integração visa automatizar a liberação de entrada na recepção física da clínica a partir dos agendamentos no Feegow, notificando médicos e pacientes assim que o acesso for realizado.
+
+```mermaid
+sequenceDiagram
+    participant C as Catraca Física (Controladora)
+    participant I as Inovare TI Backend
+    participant F as Feegow ERP
+    participant D as Discord (Médico)
+    participant B as Take Blip (WhatsApp Paciente)
+
+    Note over I: Polling agendados (Scheduler)
+    I->>F: Consulta pauta do dia
+    F-->>I: Retorna pacientes + CPFs + Horários
+    I->>I: Salva em gate_access_permissions (Cache)
+
+    Note over C: Paciente digita CPF ou lê QR Code
+    C->>I: GET /api/gate/validate-access?document=CPF
+    alt Agendamento Válido (Janela ativa)
+        I-->>C: { authorized: true, patientName: "..." }
+        Note over C: Libera braço da catraca
+    else Sem agendamento
+        I-->>C: { authorized: false }
+    end
+
+    Note over C: Giro físico detectado
+    C->>I: POST /api/gate/events (Giro confirmado)
+    par Atualização ERP
+        I->>F: POST /atendimento/confirmar-presenca (Chegou)
+    and Alerta ao Profissional
+        I->>D: Notifica Médico (DM ou Canal do Consultório)
+    and Boas-vindas WhatsApp
+        I->>B: Dispara template "Paciente Chegou" (Boas-vindas/Instruções)
+    end
+```
+
+### 4.1 Sincronização Prévia e Carga de Permissões (Feegow -> Local DB)
+Para evitar que oscilações na conexão de internet externa bloqueiem a entrada física da clínica, a API Inovare TI implementa um modelo de resiliência local offline-first.
+* **Job Schedulado de Sincronização:** Um serviço em background configurado com `@Scheduled` consome a API do Feegow nas primeiras horas do dia, obtendo todos os agendamentos confirmados ou agendados da data.
+* **Tabela de Permissões (`gate_access_permissions`):** Extrai o CPF do paciente, nome, ID do agendamento no Feegow, ID do médico associado e a hora da consulta. Esses dados são persistidos na tabela local de permissões, que expira/limpa os registros ao fim do dia.
+
+### 4.2 Endpoint de Liberação de Acesso (`GET /api/gate/validate-access`)
+O firmware ou a controladora de acesso das catracas consome este endpoint no backend da Inovare TI.
+* **Mecanismo de Consulta:** A requisição passa o CPF/documento sanitizado na query string (`document`).
+* **Validação da Janela de Tolerância:** O serviço busca o CPF nas permissões locais do dia e valida a hora atual contra a hora agendada. A liberação padrão adota uma janela de tolerância configurável (ex: entrada autorizada a partir de **30 minutos antes** até **15 minutos após** o horário do agendamento).
+* **Resposta de Liberação:**
+  * **Sucesso (Janela ativa):** Retorna status `200 OK` com o payload `{ "authorized": true, "patientName": "..." }` e a catraca libera o acesso físico.
+  * **Sem permissão:** Retorna `200 OK` com `{ "authorized": false, "reason": "Sem agendamento ativo na janela de tempo" }`.
+
+### 4.3 Webhook de Evento de Giro e Ações em Cascata (`POST /api/gate/events`)
+Quando a passagem física do paciente é concluída, a controladora confirma o evento de acesso no backend.
+* **Consumo do Webhook:** A catraca envia uma requisição `POST /api/gate/events` contendo o CPF do paciente e a data/hora exata do giro.
+* **Processamento Transacional e Assíncrono:** Para que a catraca não sofra atraso na resposta de rede, o endpoint responde imediatamente `200 OK` e despacha as ações subsequentes de forma assíncrona (fire-and-forget) via Virtual Threads:
+  1. **Atualização no Feegow (Check-In):** Invoca o `AppointmentExternalPort` enviando a confirmação de presença do paciente. O status do agendamento é alterado para "Aguardando Atendimento" no ERP.
+  2. **Notificação ao Médico no Discord:** O `DiscordWebhookService` resolve o médico associado àquela consulta e envia uma mensagem direta (DM) ou um alerta rico em embed no canal de texto privado do consultório (ex: `"Seu paciente [Nome] acabou de passar pela catraca e está aguardando na recepção"`).
+  3. **Comunicação no WhatsApp via Blip:** O backend aciona a API de mensagens do Blip, enviando ao WhatsApp do paciente uma mensagem de recepção baseada em template (ex: `"Olá! Registramos sua entrada. Aguarde na recepção do 2º andar. O médico já foi notificado!"`).
+

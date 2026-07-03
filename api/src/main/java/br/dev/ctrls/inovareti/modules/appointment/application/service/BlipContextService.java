@@ -218,14 +218,6 @@ public class BlipContextService {
         }
     }
 
-
-
-    private void sendToBlipCommandsApi(Object commandPayload) {
-        @SuppressWarnings("unchecked")
-        java.util.Map<String, Object> commandMap = objectMapper.convertValue(commandPayload, java.util.Map.class);
-        limeClient.executeCommand(commandMap, BlipLIMEClient.AuthorizationScope.ROUTER);
-    }
-
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
             String userPhoneClean = userPhone != null ? userPhone.trim() : "";

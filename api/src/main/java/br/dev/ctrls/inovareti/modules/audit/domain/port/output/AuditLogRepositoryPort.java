@@ -25,4 +25,9 @@ public interface AuditLogRepositoryPort {
      * Busca um log de auditoria por seu identificador.
      */
     Optional<AuditLog> findById(UUID id);
+
+    /**
+     * Remove um lote de logs de auditoria anteriores à data de corte.
+     */
+    int deleteOldLogsBatch(java.time.LocalDateTime cutoffDate);
 }

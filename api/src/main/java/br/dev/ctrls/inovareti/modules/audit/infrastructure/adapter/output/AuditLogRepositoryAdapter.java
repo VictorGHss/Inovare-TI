@@ -34,4 +34,9 @@ public class AuditLogRepositoryAdapter implements AuditLogRepositoryPort {
     public Optional<AuditLog> findById(UUID id) {
         return repository.findById(id);
     }
+
+    @Override
+    public int deleteOldLogsBatch(java.time.LocalDateTime cutoffDate) {
+        return repository.deleteOldLogsBatch(cutoffDate);
+    }
 }

@@ -269,7 +269,18 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
         String procedureName = item.procedureName() != null ? item.procedureName().trim() : "";
         String procedureId = item.procedureId() != null ? item.procedureId().trim() : "";
 
-        return new FeegowAppointment(id, pacienteId, profissionalId, doctorName, unitName, parsedStartAt, statusId, procedureName, procedureId);
+        Boolean encaixe = false;
+        if (item.encaixe() != null) {
+            if (item.encaixe() instanceof Boolean b) {
+                encaixe = b;
+            } else if (item.encaixe() instanceof String s) {
+                encaixe = "true".equalsIgnoreCase(s.trim()) || "1".equals(s.trim());
+            } else if (item.encaixe() instanceof Number n) {
+                encaixe = n.intValue() == 1;
+            }
+        }
+
+        return new FeegowAppointment(id, pacienteId, profissionalId, doctorName, unitName, parsedStartAt, statusId, procedureName, procedureId, encaixe);
     }
 
     private LocalDateTime parseLocalDateTime(String data, String hora) {

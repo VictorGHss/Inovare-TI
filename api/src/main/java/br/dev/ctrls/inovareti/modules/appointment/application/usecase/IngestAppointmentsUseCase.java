@@ -109,6 +109,19 @@ public class IngestAppointmentsUseCase {
         List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate);
         int total = appointments.size();
 
+        // Filtro de Encaixe: ignora agendamentos que possuem a flag encaixe ativa
+        appointments = appointments.stream()
+                .filter(a -> {
+                    if (a.encaixe() != null && a.encaixe()) {
+                        log.info("[FILTRO-ENCAIXE] Agendamento ID={} ignorado porque é um encaixe.", a.id());
+                        return false;
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+        int aposEncaixe = appointments.size();
+        log.info("Agendamentos filtrados por encaixe. Total antes: {}, Total depois: {}", total, aposEncaixe);
+
         // Filtro de Procedimento: apenas IDs permitidos na propriedade ELIGIBLE_PROCEDURE_IDS
         String eligibleIdsProp = appointmentMotorProperties.getEligibleProcedureIds();
         final java.util.List<String> eligibleProcedureIdsList;
@@ -138,7 +151,7 @@ public class IngestAppointmentsUseCase {
                 })
                 .collect(Collectors.toList());
         int aposProcedimentos = appointments.size();
-        log.info("Agendamentos filtrados por procedimento. Total antes: {}, Total depois: {}", total, aposProcedimentos);
+        log.info("Agendamentos filtrados por procedimento. Total antes: {}, Total depois: {}", aposEncaixe, aposProcedimentos);
 
         appointments = appointments.stream()
                 .filter(a -> a.startAt() != null && !a.startAt().toLocalDate().isBefore(LocalDate.now()))

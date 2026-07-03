@@ -15,5 +15,6 @@ public record FeegowAppointment(
         LocalDateTime startAt,
         String statusId,
         String procedureName,
-        String procedureId) {
+        String procedureId,
+        Boolean encaixe) {
 }

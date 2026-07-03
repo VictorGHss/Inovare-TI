@@ -19,14 +19,20 @@ public class BlipContextService {
     private final BlipLIMEClient limeClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
+    private final BlipIdentityReconciler blipIdentityReconciler;
 
     @org.springframework.beans.factory.annotation.Value("${APP_BLIP_APPOINTMENT_ID:}")
     private String blipAppointmentId;
 
-    public BlipContextService(BlipLIMEClient limeClient, com.fasterxml.jackson.databind.ObjectMapper objectMapper, org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor) {
+    public BlipContextService(
+            BlipLIMEClient limeClient, 
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper, 
+            org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor,
+            BlipIdentityReconciler blipIdentityReconciler) {
         this.limeClient = limeClient;
         this.objectMapper = objectMapper;
         this.applicationTaskExecutor = applicationTaskExecutor;
+        this.blipIdentityReconciler = blipIdentityReconciler;
     }
 
     public void setUserContextForUser(String userIdentity, String key, String value) {
@@ -222,19 +228,23 @@ public class BlipContextService {
 
     public void processAppointmentPush(String userPhone, String action, AppointmentPayload payload) {
         try {
-            String normalizedPhone = limeClient.normalizeUserIdentity(userPhone);
-            String userIdentity = normalizedPhone; // A identidade já possui o domínio correto pós-normalização
+            String userPhoneClean = userPhone != null ? userPhone.trim() : "";
+            String masterIdentity = null;
+            String tunnelIdentity = null;
+
+            if (userPhoneClean.contains("@tunnel.msging.net")) {
+                tunnelIdentity = userPhoneClean;
+                // Reconcilia para obter o telefone real do paciente
+                String reconciledPhone = blipIdentityReconciler.resolveAndReconcileIdentity(userPhoneClean, null);
+                if (reconciledPhone != null && !reconciledPhone.isBlank()) {
+                    masterIdentity = reconciledPhone.contains("@") ? reconciledPhone : reconciledPhone + "@wa.gw.msging.net";
+                }
+            } else {
+                // Se for um telefone comum, normaliza normalmente
+                masterIdentity = limeClient.normalizeUserIdentity(userPhoneClean);
+            }
 
             String resolvedQueue = resolveQueueName(payload.getQueue());
-
-            // PASSO 1: Atualiza os dados do Contato no Roteador (Garante consistência imediata)
-            BlipContactUpdateCommand contactCommand = new BlipContactUpdateCommand();
-            BlipContactUpdateCommand.ContactResource contactResource = new BlipContactUpdateCommand.ContactResource();
-            contactResource.setIdentity(userIdentity);
-
-            // Restaura o nome oficial vindo do Feegow no card nativo do Blip
-            contactResource.setName(payload.getPatientName());
-            contactResource.setTaxDocument(payload.getPatientCPF());
 
             java.util.Map<String, String> extras = new java.util.HashMap<>();
             extras.put("Medico", payload.getDoctorName());
@@ -247,21 +257,70 @@ public class BlipContextService {
             extras.put("paciente", payload.getPatientName());
             extras.put("Nome", payload.getPatientName());
 
-            contactResource.setExtras(extras);
-            contactCommand.setResource(contactResource);
+            String blipBirthDate = convertBirthdateToBlipFormat(payload.getPatientBirthdate());
 
-            // POST para /commands
-            log.info("[LIME PUSH] Passo 1: Atualizando contato para identity={}: Medico={}, fila={}", userIdentity, payload.getDoctorName(), resolvedQueue);
-            sendToBlipCommandsApi(contactCommand);
+            // PASSO 1a: Atualiza os dados do Contato no Roteador (usando a identidade real master)
+            if (masterIdentity != null && !masterIdentity.isBlank()) {
+                BlipContactUpdateCommand masterCommand = new BlipContactUpdateCommand();
+                BlipContactUpdateCommand.ContactResource masterResource = new BlipContactUpdateCommand.ContactResource();
+                masterResource.setIdentity(masterIdentity);
+                masterResource.setName(payload.getPatientName());
+                masterResource.setTaxDocument(payload.getPatientCPF());
+                masterResource.setBirthDate(blipBirthDate);
+                masterResource.setExtras(extras);
+                masterCommand.setResource(masterResource);
+
+                log.info("[LIME PUSH] Atualizando contato no ROTEADOR para identity={}: Medico={}, fila={}, birthDate={}", 
+                        masterIdentity, payload.getDoctorName(), resolvedQueue, blipBirthDate);
+                
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> masterMap = objectMapper.convertValue(masterCommand, java.util.Map.class);
+                limeClient.executeCommand(masterMap, BlipLIMEClient.AuthorizationScope.ROUTER);
+            }
+
+            // PASSO 1b: Atualiza os dados do Contato no Subbot/Desk (usando a identidade de túnel)
+            if (tunnelIdentity != null && !tunnelIdentity.isBlank()) {
+                BlipContactUpdateCommand tunnelCommand = new BlipContactUpdateCommand();
+                BlipContactUpdateCommand.ContactResource tunnelResource = new BlipContactUpdateCommand.ContactResource();
+                tunnelResource.setIdentity(tunnelIdentity);
+                tunnelResource.setName(payload.getPatientName());
+                tunnelResource.setTaxDocument(payload.getPatientCPF());
+                tunnelResource.setBirthDate(blipBirthDate);
+                tunnelResource.setExtras(extras);
+                tunnelCommand.setResource(tunnelResource);
+
+                log.info("[LIME PUSH] Atualizando contato no SUBBOT/DESK para identity={}: Medico={}, fila={}, birthDate={}", 
+                        tunnelIdentity, payload.getDoctorName(), resolvedQueue, blipBirthDate);
+                
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> tunnelMap = objectMapper.convertValue(tunnelCommand, java.util.Map.class);
+                limeClient.executeCommand(tunnelMap, BlipLIMEClient.AuthorizationScope.DESK);
+            }
 
             // Roteamento delegado ao payload nativo do Blip Builder.
-            // Os Passos 3 e 4 (Master-State e stateid) foram removidos intencionalmente:
-            // o próprio Blip detecta 'confirm_' ou 'alter_' no payload do botão e faz o desvio
-            // de fluxo de forma nativa, eliminando a disputa de estado com o Roteador principal.
-            log.info("[MENSAGERIA] Registro processado. Delegando roteamento ao payload nativo do Blip Builder para a identidade: {}", userIdentity);
+            log.info("[MENSAGERIA] Registro processado. Delegando roteamento ao payload nativo do Blip Builder para a identidade: {}", userPhoneClean);
         } catch (Exception e) {
             throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
         }
+    }
+
+    private String convertBirthdateToBlipFormat(String birthdate) {
+        if (birthdate == null || birthdate.isBlank()) {
+            return null;
+        }
+        String clean = birthdate.trim();
+        try {
+            if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
+                java.time.LocalDate date = java.time.LocalDate.parse(clean, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                return date.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "T00:00:00Z";
+            }
+            if (clean.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return clean + "T00:00:00Z";
+            }
+        } catch (Exception ex) {
+            log.warn("Falha ao converter data de nascimento para formato do Blip: {}", birthdate);
+        }
+        return null;
     }
 
     /**

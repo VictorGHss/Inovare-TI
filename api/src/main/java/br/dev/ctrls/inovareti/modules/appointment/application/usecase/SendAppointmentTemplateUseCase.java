@@ -97,12 +97,17 @@ public class SendAppointmentTemplateUseCase {
             });
 
             if (session != null) {
-                if (category == AppointmentCategory.CONFIRMATION) {
-                    session.setStatus(AppointmentSessionStatus.PENDING);
-                } else if (category == AppointmentCategory.NUDGE_1) {
-                    session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
-                } else if (category == AppointmentCategory.NUDGE_FINAL) {
-                    session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                if (session.getCurrentGroupId() != null) {
+                    session.setCurrentGroupId(null);
+                    log.info("[SOLO-CTX] currentGroupId limpo na sessão local para template individual. sessionId={}, phone={}", session.getId(), ctx.phoneNumber());
+                }
+                switch (category) {
+                    case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                    case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                    case NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                    case GROUP_NOTIFICATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                    case GROUP_NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                    case GROUP_NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
                 }
                 session.setLastInteractionAt(LocalDateTime.now());
                 session.setLastNotificationSentAt(LocalDateTime.now());
@@ -150,12 +155,13 @@ public class SendAppointmentTemplateUseCase {
                 }
             });
 
-            if (category == AppointmentCategory.CONFIRMATION) {
-                session.setStatus(AppointmentSessionStatus.PENDING);
-            } else if (category == AppointmentCategory.NUDGE_1) {
-                session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
-            } else if (category == AppointmentCategory.NUDGE_FINAL) {
-                session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+            switch (category) {
+                case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                case NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                case GROUP_NOTIFICATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                case GROUP_NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                case GROUP_NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
             }
             session.setLastInteractionAt(LocalDateTime.now());
             session.setLastNotificationSentAt(LocalDateTime.now());

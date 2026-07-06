@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
@@ -36,6 +37,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final BlipContextService blipContextService;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     @Override
     public boolean supports(String actionType) {
@@ -142,6 +144,30 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
                 }
+
+                // Reconciliação retroativa para identidades de túnel históricas associadas a este telefone
+                try {
+                    if (userPhone != null && !userPhone.isBlank()) {
+                        List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
+                        reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
+                        String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
+                        reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+
+                        for (var rec : reconciliations) {
+                            if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                                String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                                if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
+                                    blipContextService.setQueueRedirect(tunnelId, targetQueue);
+                                    blipContextService.setMasterState(tunnelId, targetBot, confirmSuccessBlockId);
+                                    log.info("[CONFIRM-BATCH] Aplicado redirecionamento e fila na identidade de túnel reconciliada: {}", tunnelId);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[CONFIRM-BATCH] Falha ao aplicar redirecionamento retroativo em túneis: {}", ex.getMessage());
+                }
+
                 log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",
                         userPhone, fromIdentity, targetQueue, targetBot, confirmSuccessBlockId);
 
@@ -236,6 +262,29 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                 blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
+            }
+
+            // Reconciliação retroativa para identidades de túnel históricas associadas a este telefone
+            try {
+                if (userPhone != null && !userPhone.isBlank()) {
+                    List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
+                    String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+
+                    for (var rec : reconciliations) {
+                        if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                            String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                            if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
+                                blipContextService.setQueueRedirect(tunnelId, targetQueue);
+                                blipContextService.setMasterState(tunnelId, targetBot, confirmSuccessBlockId);
+                                log.info("[CONFIRM] Aplicado redirecionamento e fila na identidade de túnel reconciliada: {}", tunnelId);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[CONFIRM] Falha ao aplicar redirecionamento retroativo em túneis: {}", ex.getMessage());
             }
 
             log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",

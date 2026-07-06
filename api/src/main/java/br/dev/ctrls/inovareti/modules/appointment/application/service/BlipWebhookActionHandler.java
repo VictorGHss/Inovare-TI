@@ -21,8 +21,9 @@ public interface BlipWebhookActionHandler {
      * 
      * @param session dados atuais da sessão de agendamento carregados do banco
      * @param action a ação completa recebida no webhook
+     * @param fromIdentity a identidade que disparou a ação no webhook (pode ser telefone master ou túnel)
      */
-    void prePersistence(AppointmentSession session, String action);
+    void prePersistence(AppointmentSession session, String action, String fromIdentity);
 
     /**
      * Executa modificações específicas de estado na entidade da sessão de agendamento.
@@ -30,8 +31,9 @@ public interface BlipWebhookActionHandler {
      * 
      * @param session a entidade de sessão de agendamento carregada transacionalmente
      * @param action a ação completa recebida no webhook
+     * @param fromIdentity a identidade que disparou a ação no webhook (pode ser telefone master ou túnel)
      */
-    void applySessionState(AppointmentSession session, String action);
+    void applySessionState(AppointmentSession session, String action, String fromIdentity);
 }
 
 

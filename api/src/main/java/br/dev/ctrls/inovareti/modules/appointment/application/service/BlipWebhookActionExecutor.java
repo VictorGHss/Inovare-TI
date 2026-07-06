@@ -105,7 +105,7 @@ public class BlipWebhookActionExecutor {
         }
 
         // FASE 2: Chamada externa pré-persistência específica da ação
-        handler.prePersistence(session, action);
+        handler.prePersistence(session, action, dispatchIdentity);
 
         // FASE 3: Persistência no Banco de Dados em Transação Microscópica
         try {
@@ -117,7 +117,7 @@ public class BlipWebhookActionExecutor {
                     currentSession.setPhoneNumber(dispatchIdentity);
                 }
 
-                handler.applySessionState(currentSession, action);
+                handler.applySessionState(currentSession, action, dispatchIdentity);
 
                 appointmentSessionRepository.save(currentSession);
             });

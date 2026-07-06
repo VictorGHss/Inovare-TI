@@ -21,12 +21,12 @@ public class AlterBlipWebhookActionHandler implements BlipWebhookActionHandler {
     }
 
     @Override
-    public void prePersistence(AppointmentSession session, String action) {
+    public void prePersistence(AppointmentSession session, String action, String fromIdentity) {
         log.info("[ALTERAR] Iniciando processamento de solicitação de alteração.");
     }
 
     @Override
-    public void applySessionState(AppointmentSession session, String action) {
+    public void applySessionState(AppointmentSession session, String action, String fromIdentity) {
         session.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED);
         session.setClosedAt(java.time.LocalDateTime.now());
         log.info("[MENSAGERIA] Ação de {} processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.", "alteração");

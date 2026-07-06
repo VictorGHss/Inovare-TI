@@ -429,13 +429,47 @@ public class HandleBlipWebhookUseCase {
 
     private String resolveTextIntentions(String normalizedAction, String action, BlipWebhookPayload payload) {
         WebhookIntent intent = detectIntent(normalizedAction);
+        String groupContextId = resolveGroupContextId(payload);
         
         return switch (intent) {
-            case CONFIRM -> processIntent("confirm", action, payload, "confirmação");
+            case CONFIRM -> {
+                if (groupContextId != null) {
+                    yield "confirm_group_" + groupContextId;
+                }
+                yield processIntent("confirm", action, payload, "confirmação");
+            }
             case CANCEL -> processIntent("cancel", action, payload, "cancelamento");
-            case ALTER -> processIntent("alter", action, payload, "alteração");
+            case ALTER -> {
+                if (groupContextId != null) {
+                    yield "alter_group_" + groupContextId;
+                }
+                yield processIntent("alter", action, payload, "alteração");
+            }
             case UNKNOWN -> action;
         };
+    }
+
+    private String resolveGroupContextId(BlipWebhookPayload payload) {
+        if (payload == null || payload.from() == null || payload.from().isBlank()) {
+            return null;
+        }
+
+        try {
+            String groupId = blipContextService.getUserContext(payload.from(), "groupId");
+            if (groupId == null) {
+                return null;
+            }
+
+            String normalizedGroupId = groupId.trim();
+            if (normalizedGroupId.isBlank() || "null".equalsIgnoreCase(normalizedGroupId)) {
+                return null;
+            }
+
+            return normalizedGroupId;
+        } catch (Exception ex) {
+            log.debug("[WEBHOOK] Falha ao resolver groupId do contexto para {}: {}", payload.from(), ex.getMessage());
+            return null;
+        }
     }
 
     private String processIntent(String prefix, String action, BlipWebhookPayload payload, String label) {

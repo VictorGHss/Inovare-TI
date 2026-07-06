@@ -13,6 +13,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ public class BlipGroupActionHandler {
     private final BlipProperties blipProperties;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
     private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -320,10 +322,10 @@ public class BlipGroupActionHandler {
         String subbotId = blipProperties.getSubbotId();
         String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
 
-        // 1. Determina a identidade de túnel do subbot para a qual o contexto e o Builder Master State devem ser aplicados
-        String tunnelIdentity = null;
+        // 1. Determina as identidades de túnel do subbot para as quais o contexto e o Builder Master State devem ser aplicados
+        java.util.List<String> tunnelIdentities = new java.util.ArrayList<>();
         if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
-            tunnelIdentity = rawFrom.trim();
+            tunnelIdentities.add(rawFrom.trim());
         } else if (subbotId != null && !subbotId.isBlank()) {
             // Se o clique ocorreu fora do túnel (rawFrom nulo ou igual a fromPhone), calculamos a identidade de túnel de forma determinística
             String userLocalPart = fromPhone.trim();
@@ -334,8 +336,32 @@ public class BlipGroupActionHandler {
             if (subbotLocalPart.contains("@")) {
                 subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
             }
-            tunnelIdentity = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
-            log.info("[WEBHOOK] Clique fora do túnel. Identidade de túnel gerada deterministicamente: {}", tunnelIdentity);
+            String deterministicTunnel = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
+            tunnelIdentities.add(deterministicTunnel);
+            log.info("[WEBHOOK] Clique fora do túnel. Identidade de túnel gerada deterministicamente: {}", deterministicTunnel);
+        }
+
+        // Reconciliação retroativa: buscar identidades de túnel reais/GUIDs associadas a este paciente no banco
+        try {
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                String cleanPhone = fromPhone.trim();
+                java.util.List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new java.util.ArrayList<>();
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(cleanPhone));
+                String altPhone = cleanPhone.startsWith("55") ? cleanPhone.substring(2) : "55" + cleanPhone;
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+
+                for (var rec : reconciliations) {
+                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                        String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                        if (!tunnelId.equalsIgnoreCase(fromPhone) && !tunnelIdentities.contains(tunnelId)) {
+                            tunnelIdentities.add(tunnelId);
+                            log.info("[WEBHOOK] Reconciliada identidade de túnel adicional para grupo: {}", tunnelId);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[WEBHOOK] Falha ao reconciliar identidades de túnel retroativamente para grupo: {}", ex.getMessage());
         }
 
         // 2. Grava as variáveis de contexto no Blip PRIMEIRO em paralelo para máxima eficiência (usando Virtual Threads)
@@ -346,8 +372,7 @@ public class BlipGroupActionHandler {
             applicationTaskExecutor
         ));
 
-        if (tunnelIdentity != null) {
-            final String cleanTunnelIdentity = tunnelIdentity;
+        for (String cleanTunnelIdentity : tunnelIdentities) {
             contextFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
                 blipContextService.setUserContextFieldsInParallel(cleanTunnelIdentity, fields),
                 applicationTaskExecutor
@@ -356,7 +381,7 @@ public class BlipGroupActionHandler {
 
         try {
             java.util.concurrent.CompletableFuture.allOf(contextFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-            log.info("[WEBHOOK] Contextos de grupo injetados com sucesso para {} em {} ms.", fromPhone, System.currentTimeMillis() - start);
+            log.info("[WEBHOOK] Contextos de grupo injetados com sucesso para {} e túneis em {} ms.", fromPhone, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.error("[WEBHOOK] Erro ao injetar contextos do Blip para {}", fromPhone, e);
         }
@@ -373,8 +398,7 @@ public class BlipGroupActionHandler {
                 }
             }, applicationTaskExecutor));
 
-            if (tunnelIdentity != null) {
-                final String cleanTunnelIdentity = tunnelIdentity;
+            for (String cleanTunnelIdentity : tunnelIdentities) {
                 stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
                         blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId);

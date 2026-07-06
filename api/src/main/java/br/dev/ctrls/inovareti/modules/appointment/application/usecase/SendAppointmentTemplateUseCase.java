@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientResponseException;
@@ -9,20 +11,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
-import java.time.LocalDateTime;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTemplateData;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentTemplateDataBuilder;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentTemplateDataBuilder;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCategory;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -97,10 +98,6 @@ public class SendAppointmentTemplateUseCase {
             });
 
             if (session != null) {
-                if (session.getCurrentGroupId() != null) {
-                    session.setCurrentGroupId(null);
-                    log.info("[SOLO-CTX] currentGroupId limpo na sessão local para template individual. sessionId={}, phone={}", session.getId(), ctx.phoneNumber());
-                }
                 switch (category) {
                     case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
                     case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);

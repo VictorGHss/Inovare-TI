@@ -96,6 +96,48 @@ public class HandleBlipWebhookUseCase {
             payload.type()
         );
 
+        // Injeção de payloadclique no contexto para alinhamento nativo com o Builder do Blip
+        String actionForContext = payload.action();
+        if (actionForContext != null && (actionForContext.contains("confirm_") || actionForContext.contains("alter_"))) {
+            try {
+                blipContextService.setUserContextForUser(inboundIdentity, "payloadclique", actionForContext);
+                if (reconciledIdentity != null && !reconciledIdentity.equalsIgnoreCase(inboundIdentity)) {
+                    blipContextService.setUserContextForUser(reconciledIdentity, "payloadclique", actionForContext);
+                }
+                
+                // Também tenta setar no túnel determinístico
+                try {
+                    String subbotId = blipProperties.getSubbotId();
+                    String subbotLocalPart = null;
+                    if (subbotId != null && !subbotId.isBlank()) {
+                        subbotLocalPart = subbotId.trim();
+                        if (subbotLocalPart.contains("@")) {
+                            subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                        }
+                    }
+                    if (subbotLocalPart != null) {
+                        String phoneDigits = inboundIdentity.trim();
+                        if (phoneDigits.contains("@")) {
+                            phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+                        }
+                        phoneDigits = phoneDigits.replaceAll("\\D", "");
+                        if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                            phoneDigits = "55" + phoneDigits;
+                        }
+                        String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                        blipContextService.setUserContextForUser(deterministicTunnel, "payloadclique", actionForContext);
+                        log.info("[WEBHOOK] Injetado payloadclique={} no túnel determinístico: {}", actionForContext, deterministicTunnel);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[WEBHOOK] Falha ao setar payloadclique no túnel determinístico: {}", ex.getMessage());
+                }
+                
+                log.info("[WEBHOOK] Injetado payloadclique={} no contexto de {}", actionForContext, inboundIdentity);
+            } catch (Exception ex) {
+                log.warn("[WEBHOOK] Falha ao setar payloadclique no contexto: {}", ex.getMessage());
+            }
+        }
+
         // Reconciliação proativa com base no rawFrom recebido nos metadados
         if (payload.metadata() instanceof Map<?, ?> metadataMap) {
             Object rawFromObj = metadataMap.get("rawFrom");

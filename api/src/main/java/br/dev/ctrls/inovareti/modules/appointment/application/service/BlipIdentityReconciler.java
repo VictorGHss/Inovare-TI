@@ -38,6 +38,20 @@ public class BlipIdentityReconciler {
             } catch (Exception ignored) {}
         }
 
+        // Resolução direta para identidades de túnel determinísticas
+        if (identity.contains("@tunnel.msging.net")) {
+            String local = identity.substring(0, identity.indexOf('@'));
+            if (local.contains(".")) {
+                String firstPart = local.substring(0, local.indexOf('.'));
+                if (firstPart.matches("^\\d+$")) {
+                    String resolved = purifyPhoneNumber(firstPart);
+                    log.info("[RECONCILIATION] Identidade de túnel determinística resolvida via padrão: {} -> Telefone={}", 
+                        identity, resolved);
+                    return resolved;
+                }
+            }
+        }
+
         String localPart = identity;
         if (identity.contains("@")) {
             localPart = identity.substring(0, identity.indexOf('@'));

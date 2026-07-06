@@ -1,6 +1,8 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -22,7 +24,9 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.BlipErrorMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +52,8 @@ public class SendAppointmentTemplateUseCase {
     private final TransactionTemplate transactionTemplate;
     private final AppointmentTemplateDataBuilder appointmentTemplateDataBuilder;
     private final AppointmentMotorProperties appointmentMotorProperties;
+    private final BlipProperties blipProperties;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     /**
      * Executa o envio a partir de um contexto de despacho resolvido previamente.
@@ -85,17 +91,8 @@ public class SendAppointmentTemplateUseCase {
             String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
 
-            // Limpa contexto de grupo para evitar que o estado Exibir_Agenda contamine o fluxo solo
-            final String soloPhone = ctx.phoneNumber();
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                try {
-                    blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
-                    blipContextService.deleteUserContext(soloPhone, "groupId");
-                    log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
-                } catch (Exception e) {
-                    log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());
-                }
-            });
+            // Limpa contexto de grupo e redireciona para Preparar_Atendimento de forma assíncrona
+            cleanGroupContextAndRedirectToPrepararAtendimentoAsync(ctx.phoneNumber());
 
             if (session != null) {
                 switch (category) {
@@ -140,17 +137,8 @@ public class SendAppointmentTemplateUseCase {
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
 
-            // Limpa contexto de grupo para evitar que o estado Exibir_Agenda contamine o fluxo solo
-            final String soloPhone = session.getPhoneNumber();
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                try {
-                    blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
-                    blipContextService.deleteUserContext(soloPhone, "groupId");
-                    log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
-                } catch (Exception e) {
-                    log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());
-                }
-            });
+            // Limpa contexto de grupo e redireciona para Preparar_Atendimento de forma assíncrona
+            cleanGroupContextAndRedirectToPrepararAtendimentoAsync(session.getPhoneNumber());
 
             switch (category) {
                 case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
@@ -322,5 +310,89 @@ public class SendAppointmentTemplateUseCase {
             return feegowAppointmentId.trim();
         }
         return sessionId != null ? sessionId.toString() : null;
+    }
+
+    private void cleanGroupContextAndRedirectToPrepararAtendimentoAsync(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isBlank()) return;
+        final String soloPhone = phoneNumber.trim();
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                // 1. Limpa variáveis de contexto
+                blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
+                blipContextService.deleteUserContext(soloPhone, "groupId");
+                log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
+
+                // 2. Resolve target de estado (Preparar_Atendimento)
+                String prepararAtendimentoBlockId = blipProperties.getBlocks().getPrepararAtendimento();
+                if (prepararAtendimentoBlockId == null || prepararAtendimentoBlockId.isBlank()) {
+                    prepararAtendimentoBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+                }
+
+                String cleanPhone = soloPhone;
+                String phoneDigits = cleanPhone;
+                if (phoneDigits.contains("@")) {
+                    phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+                }
+                phoneDigits = phoneDigits.replaceAll("\\D", "");
+                if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                    phoneDigits = "55" + phoneDigits;
+                }
+
+                // Busca se há reconciliação de identidade
+                List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
+                try {
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(phoneDigits));
+                    String altPhone = phoneDigits.startsWith("55") ? phoneDigits.substring(2) : "55" + phoneDigits;
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+                } catch (Exception ex) {
+                    log.warn("[SOLO-CTX] Falha ao consultar reconciliação de identidades: {}", ex.getMessage());
+                }
+
+                List<String> tunnelIdentities = new ArrayList<>();
+                String subbotId = blipProperties.getSubbotId();
+                String subbotLocalPart = null;
+                if (subbotId != null && !subbotId.isBlank()) {
+                    subbotLocalPart = subbotId.trim();
+                    if (subbotLocalPart.contains("@")) {
+                        subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                    }
+                }
+
+                if (subbotLocalPart != null) {
+                    String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                    tunnelIdentities.add(deterministicTunnel);
+                }
+
+                if (reconciliations != null && !reconciliations.isEmpty()) {
+                    for (var rec : reconciliations) {
+                        if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                            String realTunnel = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                            if (!tunnelIdentities.contains(realTunnel)) {
+                                tunnelIdentities.add(realTunnel);
+                            }
+                        }
+                    }
+                }
+
+                // Redireciona Master-State
+                try {
+                    blipContextService.setMasterState(cleanPhone, subbotId, prepararAtendimentoBlockId);
+                    log.info("[SOLO-CTX] Master-State do Roteador atualizado ao enviar template solo para {}", cleanPhone);
+                } catch (Exception e) {
+                    log.error("[SOLO-CTX] Erro ao atualizar Master-State no Roteador para {}", cleanPhone, e);
+                }
+
+                for (String tunnel : tunnelIdentities) {
+                    try {
+                        blipContextService.setBuilderMasterState(tunnel, prepararAtendimentoBlockId);
+                        log.info("[SOLO-CTX] Builder Master-State atualizado ao enviar template solo para tunnel {}", tunnel);
+                    } catch (Exception e) {
+                        log.error("[SOLO-CTX] Erro ao atualizar Builder Master-State no Subbot para tunnel {}", tunnel, e);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[SOLO-CTX] Falha no fluxo de limpeza e redirecionamento solo para {}: {}", soloPhone, e.getMessage());
+            }
+        });
     }
 }

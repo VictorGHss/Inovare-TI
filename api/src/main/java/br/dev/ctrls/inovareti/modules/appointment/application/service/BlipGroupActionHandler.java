@@ -320,7 +320,13 @@ public class BlipGroupActionHandler {
 
         long start = System.currentTimeMillis();
         String subbotId = blipProperties.getSubbotId();
-        String exibirAgendaBlockId = blipProperties.getBlocks().getExibirAgenda();
+        final String exibirAgendaBlockId;
+        String rawExibirAgenda = blipProperties.getBlocks().getExibirAgenda();
+        if (rawExibirAgenda == null || rawExibirAgenda.isBlank()) {
+            exibirAgendaBlockId = "1438bc97-34ef-4337-adf5-e03e463c042c";
+        } else {
+            exibirAgendaBlockId = rawExibirAgenda;
+        }
 
         // 1. Determina as identidades de túnel do subbot para as quais o contexto e o Builder Master State devem ser aplicados
         java.util.List<String> tunnelIdentities = new java.util.ArrayList<>();
@@ -418,7 +424,7 @@ public class BlipGroupActionHandler {
 
             try {
                 java.util.concurrent.CompletableFuture.allOf(stateFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-                log.info("[WEBHOOK] Injetado contexto e master-state (Exibir Agenda) com sucesso para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
+                log.info("[GRUPO-OK] Master-State direcionado para Exibir Agenda (1438bc97-34ef-4337-adf5-e03e463c042c) para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
             } catch (Exception e) {
                 log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
             }

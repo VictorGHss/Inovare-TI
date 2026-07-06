@@ -1,14 +1,12 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
-import io.micrometer.observation.annotation.Observed;
-
 import java.util.Map;
 import java.util.UUID;
-
 
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.BlipContactUpdateCommand;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient;
+import io.micrometer.observation.annotation.Observed;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

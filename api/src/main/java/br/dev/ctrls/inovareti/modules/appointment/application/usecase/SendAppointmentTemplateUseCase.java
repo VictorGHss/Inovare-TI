@@ -84,6 +84,18 @@ public class SendAppointmentTemplateUseCase {
             String pendingAppointmentId = resolvePendingAppointmentId(ctx.feegowAppointmentId(), ctx.sessionId());
             blipContextService.setUserContextForUser(ctx.phoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
 
+            // Limpa contexto de grupo para evitar que o estado Exibir_Agenda contamine o fluxo solo
+            final String soloPhone = ctx.phoneNumber();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
+                    blipContextService.setUserContextForUser(soloPhone, "groupId", "");
+                    log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
+                } catch (Exception e) {
+                    log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());
+                }
+            });
+
             if (session != null) {
                 if (category == AppointmentCategory.CONFIRMATION) {
                     session.setStatus(AppointmentSessionStatus.PENDING);
@@ -125,6 +137,18 @@ public class SendAppointmentTemplateUseCase {
             String templateId = resolveTemplateId(config.getTemplateId(), category);
             String pendingAppointmentId = resolvePendingAppointmentId(session.getFeegowAppointmentId(), session.getId());
             blipContextService.setUserContextForUser(session.getPhoneNumber(), LAST_PENDING_APPOINTMENT_ID_CONTEXT_KEY, pendingAppointmentId);
+
+            // Limpa contexto de grupo para evitar que o estado Exibir_Agenda contamine o fluxo solo
+            final String soloPhone = session.getPhoneNumber();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
+                    blipContextService.setUserContextForUser(soloPhone, "groupId", "");
+                    log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
+                } catch (Exception e) {
+                    log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());
+                }
+            });
 
             if (category == AppointmentCategory.CONFIRMATION) {
                 session.setStatus(AppointmentSessionStatus.PENDING);

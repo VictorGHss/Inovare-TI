@@ -334,6 +334,7 @@ public class HandleBlipWebhookUseCase {
                 } else {
                     log.warn("[WEBHOOK-BLOCK] lista_detalhada vazia ou nula para {}.", normalizedPhone);
                 }
+                log.info("[WEBHOOK-HTTP] Requisição síncrona de Exibir_Agenda respondida com sucesso para o usuário: {}", normalizedPhone);
                 return new WebhookResult("", "", "", "", "processed", "");
             }
         }

@@ -344,7 +344,16 @@ public class BlipGroupActionHandler {
         // Reconciliação retroativa: buscar identidades de túnel reais/GUIDs associadas a este paciente no banco
         try {
             if (fromPhone != null && !fromPhone.isBlank()) {
-                String cleanPhone = fromPhone.trim();
+                String purified = fromPhone.trim();
+                if (purified.contains("@")) {
+                    purified = purified.substring(0, purified.indexOf('@')).trim();
+                }
+                purified = purified.replaceAll("\\D", "");
+                if (!purified.startsWith("55") && !purified.isEmpty()) {
+                    purified = "55" + purified;
+                }
+                String cleanPhone = purified;
+
                 java.util.List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new java.util.ArrayList<>();
                 reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(cleanPhone));
                 String altPhone = cleanPhone.startsWith("55") ? cleanPhone.substring(2) : "55" + cleanPhone;

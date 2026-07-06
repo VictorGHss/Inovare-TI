@@ -185,6 +185,11 @@
     "description": "Blip block id for the agenda display step."
   },
   {
+    "name": "blip.blocks.preparar-atendimento",
+    "type": "java.lang.String",
+    "description": "Blip block id for the preparing step used before the native agenda transition."
+  },
+  {
     "name": "blip.blocks.desk-state-id",
     "type": "java.lang.String",
     "description": "Blip block id used for the Desk redirect state."

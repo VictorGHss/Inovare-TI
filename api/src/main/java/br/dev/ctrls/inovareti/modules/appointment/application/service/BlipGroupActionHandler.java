@@ -1,20 +1,21 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
-import io.micrometer.observation.annotation.Observed;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
+import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -286,7 +287,9 @@ public class BlipGroupActionHandler {
 
     /**
      * Injeta contexto (lista_detalhada, groupId, isConfirmingAgenda) no Blip e
-     * redireciona o usuário para o bloco Exibir_Agenda via master-state.
+     * seta master-state de volta para Preparar_Atendimento, cujo bypass nativo
+     * avalia o input 'ver_agenda_' e transita para Exibir_Agenda,
+     * disparando o entering action que renderiza o conteúdo ao usuário.
      * Executado de forma assíncrona para não bloquear o 200 OK ao Blip.
      */
     private void injectContextAndRedirectToExibirAgenda(UUID groupId, String fromPhone, String rawFrom) {
@@ -294,11 +297,13 @@ public class BlipGroupActionHandler {
             return;
         }
 
-        final String exibirAgendaBlockId;
-        String rawExibirAgenda = blipProperties.getBlocks().getExibirAgenda();
-        exibirAgendaBlockId = (rawExibirAgenda != null && !rawExibirAgenda.isBlank())
-            ? rawExibirAgenda
-            : "1438bc97-34ef-4337-adf5-e03e463c042c";
+        // Usa Preparar_Atendimento como target: o bypass nativo do Builder avalia ver_agenda_
+        // e transita para Exibir_Agenda, disparando o entering action correto.
+        final String preparar_atendimentoBlockId;
+        String rawPrepararAtendimento = blipProperties.getBlocks().getPrepararAtendimento();
+        preparar_atendimentoBlockId = (rawPrepararAtendimento != null && !rawPrepararAtendimento.isBlank())
+            ? rawPrepararAtendimento
+            : "a0776d9c-6486-42f3-8a4f-2706f0185908";
 
         String subbotId = blipProperties.getSubbotId();
         String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone.trim(), null);
@@ -377,7 +382,7 @@ public class BlipGroupActionHandler {
 
         final List<String> finalTunnels = java.util.List.copyOf(tunnelIdentities);
         final String finalFromPhone = fromPhone.trim();
-        final String finalExibirAgendaBlockId = exibirAgendaBlockId;
+        final String finalBlockId = preparar_atendimentoBlockId;
         final String finalSubbotId = subbotId;
 
         // Executa de forma assíncrona para não atrasar o 200 OK
@@ -394,11 +399,11 @@ public class BlipGroupActionHandler {
                 }
                 java.util.concurrent.CompletableFuture.allOf(ctxFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
 
-                // 2. Redireciona master-state para Exibir_Agenda
+                // 2. Seta master-state para Preparar_Atendimento - o fluxo nativo vai concluir em Exibir_Agenda
                 java.util.List<java.util.concurrent.CompletableFuture<Void>> stateFutures = new java.util.ArrayList<>();
                 stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                     try {
-                        blipContextService.setMasterState(finalFromPhone, finalSubbotId, finalExibirAgendaBlockId);
+                        blipContextService.setMasterState(finalFromPhone, finalSubbotId, finalBlockId);
                     } catch (Exception e) {
                         log.error("[WEBHOOK] Erro ao atualizar Master-State do Roteador para {}", finalFromPhone, e);
                     }
@@ -406,7 +411,7 @@ public class BlipGroupActionHandler {
                 for (String tunnel : finalTunnels) {
                     stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
                         try {
-                            blipContextService.setBuilderMasterState(tunnel, finalExibirAgendaBlockId);
+                            blipContextService.setBuilderMasterState(tunnel, finalBlockId);
                         } catch (Exception e) {
                             log.error("[WEBHOOK] Erro ao atualizar Builder Master-State para {}", tunnel, e);
                         }
@@ -414,8 +419,7 @@ public class BlipGroupActionHandler {
                 }
                 java.util.concurrent.CompletableFuture.allOf(stateFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
 
-                log.info("[GRUPO-OK] Contexto e Master-State (Exibir_Agenda={}) configurados para groupId={} em {} ms.",
-                    finalExibirAgendaBlockId, groupId, System.currentTimeMillis() - start);
+                log.info("[GRUPO-OK] Master-State direcionado para Preparar Atendimento como escada para o fluxo nativo.");
             } catch (Exception e) {
                 log.error("[WEBHOOK] Erro ao injetar contexto/master-state para groupId={}", groupId, e);
             }

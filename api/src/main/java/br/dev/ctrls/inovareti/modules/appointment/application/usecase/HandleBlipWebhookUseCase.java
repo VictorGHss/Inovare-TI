@@ -66,6 +66,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipDeliveryFailureRepositoryPort blipDeliveryFailureRepository;
     private final BlipNotificationMetrics blipNotificationMetrics;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient blipLimeClient;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -94,6 +95,39 @@ public class HandleBlipWebhookUseCase {
             payload.bsuid(),
             payload.type()
         );
+
+        // Reconciliação proativa com base no rawFrom recebido nos metadados
+        if (payload.metadata() instanceof Map<?, ?> metadataMap) {
+            Object rawFromObj = metadataMap.get("rawFrom");
+            if (rawFromObj != null) {
+                String rawFrom = rawFromObj.toString().trim();
+                if (rawFrom.contains("@tunnel.msging.net")) {
+                    String guid = rawFrom.substring(0, rawFrom.indexOf('@')).trim();
+                    boolean isUuid = guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+                    if (isUuid) {
+                        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(payload.from(), payload.bsuid());
+                        if (dbPhone != null && !dbPhone.isBlank()) {
+                            try {
+                                Optional<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> existing =
+                                    blipUserIdentityReconciliationRepository.findByBlipGuid(guid);
+                                if (existing.isEmpty()) {
+                                    br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation newRec =
+                                        br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation.builder()
+                                            .blipGuid(guid)
+                                            .bsuid(payload.bsuid())
+                                            .phoneNumber(dbPhone)
+                                            .build();
+                                    blipUserIdentityReconciliationRepository.save(newRec);
+                                    log.info("[WEBHOOK] Reconciliação proativa salva para túnel GUID: {} -> Telefone={}", guid, dbPhone);
+                                }
+                            } catch (Exception ex) {
+                                log.warn("[WEBHOOK] Falha ao salvar reconciliação proativa: {}", ex.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         String actionValue = payload.action() != null ? payload.action().trim() : "";
         String rawText = actionValue + " " + (payload.content() != null ? payload.content().toString() : "");

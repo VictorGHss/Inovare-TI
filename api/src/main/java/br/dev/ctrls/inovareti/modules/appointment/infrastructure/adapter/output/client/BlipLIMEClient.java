@@ -229,7 +229,19 @@ public class BlipLIMEClient implements BlipClientPort {
             log.debug("Blip retornou body null no executeCommand. Payload enviado: {}", finalPayload);
         } else {
             if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
-                log.warn("[LIME-FAILURE] Comando LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, finalPayload);
+                boolean isResourceNotFound = false;
+                Object reasonObj = body.get("reason");
+                if (reasonObj instanceof Map<?, ?> reasonMap) {
+                    Object codeObj = reasonMap.get("code");
+                    if (codeObj != null && "67".equals(String.valueOf(codeObj))) {
+                        isResourceNotFound = true;
+                    }
+                }
+                if (isResourceNotFound) {
+                    log.debug("[LIME] Recurso não encontrado no Blip (Code 67). Payload enviado: {}", finalPayload);
+                } else {
+                    log.warn("[LIME-FAILURE] Comando LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, finalPayload);
+                }
             }
             Object resource = body.get("resource");
             boolean isEmpty = resource == null;

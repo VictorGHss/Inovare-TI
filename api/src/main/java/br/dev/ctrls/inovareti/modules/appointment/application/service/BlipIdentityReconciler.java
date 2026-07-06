@@ -44,9 +44,9 @@ public class BlipIdentityReconciler {
         }
 
         // Filtro de Identidade: Se o localPart for um UUID puro (GUID de controle do Blip),
-        // encerra imediatamente para evitar consultas custosas na API do Blip e no banco local.
+        // encerra imediatamente, EXCETO se pertencer ao domínio de túneis do subbot (@tunnel.msging.net)
         boolean isUuid = localPart.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
-        if (isUuid) {
+        if (isUuid && !identity.contains("@tunnel.msging.net")) {
             log.debug("[RECONCILIATION] Ignorando identidade de controle do Blip (UUID puro): {}", identity);
             return "";
         }

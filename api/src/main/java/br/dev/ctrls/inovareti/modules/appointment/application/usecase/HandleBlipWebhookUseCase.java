@@ -22,16 +22,16 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSa
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipDeliveryFailure;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipDeliveryFailureRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.metrics.BlipNotificationMetrics;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipDeliveryFailure;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipDeliveryFailureRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.metrics.BlipNotificationMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -264,7 +264,11 @@ public class HandleBlipWebhookUseCase {
                     }
                 }
                 blipContextService.setUserContextForUser(normalizedPhone, "isGroupFlow", String.valueOf(isGroup));
-                blipContextService.setUserContextForUser(normalizedPhone, "groupId", isGroup && groupId != null ? groupId.toString() : "");
+                if (isGroup && groupId != null) {
+                    blipContextService.setUserContextForUser(normalizedPhone, "groupId", groupId.toString());
+                } else {
+                    blipContextService.deleteUserContext(normalizedPhone, "groupId");
+                }
                 return new WebhookResult("", "", "", "", "processed", "");
             } else {
                 log.info("[WEBHOOK-BLOCK] Interceptando Exibir_Agenda para {} (DB Phone: {})", normalizedPhone, dbPhone);

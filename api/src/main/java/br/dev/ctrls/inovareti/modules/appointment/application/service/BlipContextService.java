@@ -291,8 +291,8 @@ public class BlipContextService {
 
             // Roteamento delegado ao payload nativo do Blip Builder.
             log.info("[MENSAGERIA] Registro processado. Delegando roteamento ao payload nativo do Blip Builder para a identidade: {}", userPhoneClean);
-        } catch (Exception e) {
-            throw new RuntimeException("Falha ao executar orquestração de push no Blip", e);
+        } catch (RuntimeException ex) {
+            throw new RuntimeException("Falha ao executar orquestração de push no Blip", ex);
         }
     }
 

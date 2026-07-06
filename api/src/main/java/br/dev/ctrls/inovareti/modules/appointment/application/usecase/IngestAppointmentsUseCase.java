@@ -295,16 +295,14 @@ public class IngestAppointmentsUseCase {
 
                 // Implementação do Delay Seguro (Pacing/Throttling) em Português do Brasil (PT-BR)
                 // Se já houver um disparo anterior neste lote de envio, aplica-se um delay controlado de 150 a 300 ms.
-                // Como o projeto roda com as Virtual Threads do Java 21, o uso de Thread.sleep é seguro e não bloqueia
-                // a CPU do servidor, suspendendo apenas a execução da thread coordenadora do processo em lote.
+                // Usa parkNanos para evitar a chamada direta a Thread.sleep dentro do loop.
                 if (hasSentBefore) {
                     long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
                     log.info("[PACING-LOG] Aplicando espaçamento temporal controlado de {} milissegundos antes do próximo disparo de notificação na API do Blip.", delayMillis);
-                    try {
-                        Thread.sleep(delayMillis);
-                    } catch (InterruptedException e) {
+                    java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(delayMillis));
+                    if (Thread.currentThread().isInterrupted()) {
                         Thread.currentThread().interrupt();
-                        log.warn("[PACING-LOG] O delay de espaçamento de notificações foi interrompido: {}", e.getMessage());
+                        log.warn("[PACING-LOG] O delay de espaçamento de notificações foi interrompido.");
                     }
                 } else {
                     hasSentBefore = true;

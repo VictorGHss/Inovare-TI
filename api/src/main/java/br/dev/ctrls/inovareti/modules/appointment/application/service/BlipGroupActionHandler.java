@@ -165,7 +165,7 @@ public class BlipGroupActionHandler {
         }
 
         switch (actionType) {
-            case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, bsuid, rawFrom);
+            case "ver_agenda" -> handleVerAgenda(groupId, fromPhone, rawFrom);
             case "confirm_group" -> handleConfirmGroup(groupId, fromPhone);
             case "alter_group" -> handleAlterGroup(groupId, fromPhone);
             case "group_view" -> handleGroupView(groupId, fromPhone, rawFrom);
@@ -182,7 +182,7 @@ public class BlipGroupActionHandler {
      * 2. Injeta contexto (lista_detalhada, groupId, isConfirmingAgenda) ativamente no Blip.
      * 3. Muda o master-state para o bloco Exibir_Agenda, corrigindo a rota do bot.
      */
-    private void handleVerAgenda(UUID groupId, String fromPhone, String bsuid, String rawFrom) {
+    private void handleVerAgenda(UUID groupId, String fromPhone, String rawFrom) {
         log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido. groupId={} para {}", groupId, fromPhone);
         saveGroupIdToSessions(fromPhone, groupId);
         injectContextAndRedirectToExibirAgenda(groupId, fromPhone, rawFrom);
@@ -387,7 +387,6 @@ public class BlipGroupActionHandler {
 
         // Executa de forma assíncrona para não atrasar o 200 OK
         java.util.concurrent.CompletableFuture.runAsync(() -> {
-            long start = System.currentTimeMillis();
             try {
                 // 1. Injeta contexto para o telefone principal e todos os túneis
                 java.util.List<java.util.concurrent.CompletableFuture<Void>> ctxFutures = new java.util.ArrayList<>();

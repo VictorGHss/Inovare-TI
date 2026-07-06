@@ -90,7 +90,7 @@ public class SendAppointmentTemplateUseCase {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
                     blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
-                    blipContextService.setUserContextForUser(soloPhone, "groupId", "");
+                    blipContextService.deleteUserContext(soloPhone, "groupId");
                     log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
                 } catch (Exception e) {
                     log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());
@@ -145,7 +145,7 @@ public class SendAppointmentTemplateUseCase {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
                     blipContextService.setUserContextForUser(soloPhone, "isConfirmingAgenda", "false");
-                    blipContextService.setUserContextForUser(soloPhone, "groupId", "");
+                    blipContextService.deleteUserContext(soloPhone, "groupId");
                     log.info("[SOLO-CTX] Contexto de grupo limpo para template individual. phone={}", soloPhone);
                 } catch (Exception e) {
                     log.warn("[SOLO-CTX] Falha ao limpar contexto de grupo para {}: {}", soloPhone, e.getMessage());

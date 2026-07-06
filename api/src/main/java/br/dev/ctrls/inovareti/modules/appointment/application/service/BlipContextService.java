@@ -118,6 +118,26 @@ public class BlipContextService {
         }
     }
 
+    public void deleteUserContext(String userIdentity, String key) {
+        if (userIdentity == null || userIdentity.isBlank() || key == null || key.isBlank()) return;
+
+        String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
+
+        Map<String, Object> command = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,
+            "method", "delete",
+            "uri", "/contexts/" + normalizedIdentity + "/" + key
+        );
+
+        try {
+            limeClient.executeCommand(command, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("Contexto removido. identity={}, key={}", normalizedIdentity, key);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            log.warn("Falha ao remover contexto. identity={}, key={}", normalizedIdentity, key, ex);
+        }
+    }
+
     /**
      * Envia um contexto JSON ao Blip via comando LIME.
      * O resource é passado como Object (Map, record, etc.) e serializado para string JSON,

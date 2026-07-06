@@ -18,6 +18,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +39,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final BlipContextService blipContextService;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final BlipProperties blipProperties;
 
     @Override
     public boolean supports(String actionType) {
@@ -126,9 +128,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
 
                 // Recupera dinamicamente a propriedade do bloco de sucesso
-                String confirmSuccessBlockId = appointmentMotorProperties.getBlipBlocksConfirmSuccess();
+                String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
                 if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
-                    confirmSuccessBlockId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                    confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
                 }
 
                 String targetBot = "desk@msging.net";
@@ -145,9 +147,33 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
                 }
 
-                // Reconciliação retroativa para identidades de túnel históricas associadas a este telefone
+                // Redirecionamento de estado nas identidades de túnel (deterministica e reconciliadas)
                 try {
                     if (userPhone != null && !userPhone.isBlank()) {
+                        List<String> tunnelIdentities = new ArrayList<>();
+                        String subbotId = blipProperties.getSubbotId();
+                        String subbotLocalPart = null;
+                        if (subbotId != null && !subbotId.isBlank()) {
+                            subbotLocalPart = subbotId.trim();
+                            if (subbotLocalPart.contains("@")) {
+                                subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                            }
+                        }
+
+                        String phoneDigits = userPhone.trim();
+                        if (phoneDigits.contains("@")) {
+                            phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+                        }
+                        phoneDigits = phoneDigits.replaceAll("\\D", "");
+                        if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                            phoneDigits = "55" + phoneDigits;
+                        }
+
+                        if (subbotLocalPart != null) {
+                            String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                            tunnelIdentities.add(deterministicTunnel);
+                        }
+
                         List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
                         reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
                         String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
@@ -156,11 +182,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         for (var rec : reconciliations) {
                             if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
                                 String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
-                                if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
-                                    blipContextService.setQueueRedirect(tunnelId, targetQueue);
-                                    blipContextService.setMasterState(tunnelId, targetBot, confirmSuccessBlockId);
-                                    log.info("[CONFIRM-BATCH] Aplicado redirecionamento e fila na identidade de túnel reconciliada: {}", tunnelId);
+                                if (!tunnelIdentities.contains(tunnelId)) {
+                                    tunnelIdentities.add(tunnelId);
                                 }
+                            }
+                        }
+
+                        for (String tunnelId : tunnelIdentities) {
+                            if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
+                                blipContextService.setQueueRedirect(tunnelId, targetQueue);
+                                blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
+                                log.info("[CONFIRM-BATCH] Aplicado redirecionamento e Builder Master-State na identidade de túnel: {}", tunnelId);
                             }
                         }
                     }
@@ -246,9 +278,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
 
             // Recupera dinamicamente a propriedade do bloco de sucesso
-            String confirmSuccessBlockId = appointmentMotorProperties.getBlipBlocksConfirmSuccess();
+            String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
             if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
-                confirmSuccessBlockId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
             }
 
             String targetBot = "desk@msging.net";
@@ -264,9 +296,33 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
             }
 
-            // Reconciliação retroativa para identidades de túnel históricas associadas a este telefone
+            // Redirecionamento de estado nas identidades de túnel (deterministica e reconciliadas)
             try {
                 if (userPhone != null && !userPhone.isBlank()) {
+                    List<String> tunnelIdentities = new ArrayList<>();
+                    String subbotId = blipProperties.getSubbotId();
+                    String subbotLocalPart = null;
+                    if (subbotId != null && !subbotId.isBlank()) {
+                        subbotLocalPart = subbotId.trim();
+                        if (subbotLocalPart.contains("@")) {
+                            subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                        }
+                    }
+
+                    String phoneDigits = userPhone.trim();
+                    if (phoneDigits.contains("@")) {
+                        phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+                    }
+                    phoneDigits = phoneDigits.replaceAll("\\D", "");
+                    if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                        phoneDigits = "55" + phoneDigits;
+                    }
+
+                    if (subbotLocalPart != null) {
+                        String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                        tunnelIdentities.add(deterministicTunnel);
+                    }
+
                     List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
                     reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
                     String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
@@ -275,11 +331,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     for (var rec : reconciliations) {
                         if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
                             String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
-                            if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
-                                blipContextService.setQueueRedirect(tunnelId, targetQueue);
-                                blipContextService.setMasterState(tunnelId, targetBot, confirmSuccessBlockId);
-                                log.info("[CONFIRM] Aplicado redirecionamento e fila na identidade de túnel reconciliada: {}", tunnelId);
+                            if (!tunnelIdentities.contains(tunnelId)) {
+                                tunnelIdentities.add(tunnelId);
                             }
+                        }
+                    }
+
+                    for (String tunnelId : tunnelIdentities) {
+                        if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
+                            blipContextService.setQueueRedirect(tunnelId, targetQueue);
+                            blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
+                            log.info("[CONFIRM] Aplicado redirecionamento e Builder Master-State na identidade de túnel: {}", tunnelId);
                         }
                     }
                 }

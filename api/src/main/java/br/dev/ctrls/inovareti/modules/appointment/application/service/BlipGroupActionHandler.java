@@ -13,8 +13,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,14 +27,9 @@ public class BlipGroupActionHandler {
 
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
-    private final BlipContextService blipContextService;
     private final TransactionTemplate transactionTemplate;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
     private final BlipIdentityReconciler blipIdentityReconciler;
-    private final BlipProperties blipProperties;
-    private final BlipAppointmentFormatter blipAppointmentFormatter;
-    private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
-    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -175,31 +168,14 @@ public class BlipGroupActionHandler {
         return new HandleBlipWebhookUseCase.WebhookResult("", "", "", "", "group_action_processed", "");
     }
 
+    /**
+     * Trata o clique em 'Ver Agendamentos' de forma passiva:
+     * apenas persiste o groupId no banco para que o endpoint síncrono
+     * Exibir_Agenda possa construir a lista_detalhada no momento certo.
+     */
     private void handleVerAgenda(UUID groupId, String fromPhone, String bsuid, String rawFrom) {
-        log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido para groupId={}", groupId);
-        if (fromPhone != null && !fromPhone.isBlank()) {
-            String normalizedPhone = fromPhone.trim();
-            String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
-
-            injectGroupSessionsContext(fromPhone, rawFrom, groupId);
-
-            transactionTemplate.executeWithoutResult(status -> {
-                List<AppointmentSession> activeSessions =
-                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
-                if (activeSessions == null || activeSessions.isEmpty()) {
-                    log.warn("[WEBHOOK] Nenhuma sessao ativa encontrada para {} ao salvar groupId={}",
-                        normalizedPhone, groupId);
-                    return;
-                }
-                for (AppointmentSession session : activeSessions) {
-                    session.setCurrentGroupId(groupId);
-                    appointmentSessionRepository.save(session);
-                }
-            });
-            log.info("[WEBHOOK] groupId salvo no banco para {}. groupId={}", normalizedPhone, groupId);
-        } else {
-            log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupId);
-        }
+        log.info("[WEBHOOK] Clique em 'Ver Agendamentos' recebido (passivo). Salvando groupId={} para {}", groupId, fromPhone);
+        saveGroupIdToSessions(fromPhone, groupId);
     }
 
     private void handleConfirmGroup(UUID groupId, String fromPhone) {
@@ -261,177 +237,40 @@ public class BlipGroupActionHandler {
     }
 
     private void handleGroupViewFallback(UUID groupId, String fromPhone, String rawFrom) {
-        log.info("[WEBHOOK] Visualização de grupo com fallback executada para groupId={}", groupId);
-        injectGroupSessionsContext(fromPhone, rawFrom, groupId);
+        log.info("[WEBHOOK] Visualização de grupo com fallback (passivo). Salvando groupId={} para {}", groupId, fromPhone);
+        saveGroupIdToSessions(fromPhone, groupId);
     }
 
     private void handleGroupView(UUID groupId, String fromPhone, String rawFrom) {
-        log.info("[WEBHOOK] Clique em visualização de grupo recebido para groupId={}", groupId);
-        injectGroupSessionsContext(fromPhone, rawFrom, groupId);
+        log.info("[WEBHOOK] Clique em visualização de grupo (passivo). Salvando groupId={} para {}", groupId, fromPhone);
+        saveGroupIdToSessions(fromPhone, groupId);
     }
 
-    private void injectGroupSessionsContext(String fromPhone, String rawFrom, UUID groupId) {
+    /**
+     * Persiste o groupId nas sessões ativas do paciente para que o endpoint
+     * síncrono Exibir_Agenda possa construir a lista_detalhada no momento certo.
+     */
+    private void saveGroupIdToSessions(String fromPhone, UUID groupId) {
         if (fromPhone == null || fromPhone.isBlank()) {
+            log.warn("[WEBHOOK] fromPhone ausente ao salvar groupId={}", groupId);
             return;
         }
-
-        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, null);
-        String listaDetalhada = "";
-
-        try {
-            List<NotificationGroup> groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
-            if (groups != null && !groups.isEmpty()) {
-                for (NotificationGroup g : groups) {
-                    if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
-                        listaDetalhada = g.getPreCompiledScheduleText();
-                        break;
-                    }
-                }
+        String normalizedPhone = fromPhone.trim();
+        String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(normalizedPhone, null);
+        transactionTemplate.executeWithoutResult(status -> {
+            List<AppointmentSession> activeSessions =
+                appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+            if (activeSessions == null || activeSessions.isEmpty()) {
+                log.warn("[WEBHOOK] Nenhuma sessao ativa encontrada para {} ao salvar groupId={}",
+                    normalizedPhone, groupId);
+                return;
             }
-        } catch (Exception e) {
-            log.error("[WEBHOOK] Erro ao buscar NotificationGroup no contexto para groupId={}. Usando fallback...", groupId, e);
-        }
-
-        // Fallback: se o texto pré-compilado estiver vazio, tenta compilar em tempo de execução a partir das sessões ativas do banco local
-        if (listaDetalhada == null || listaDetalhada.isBlank()) {
-            log.info("[WEBHOOK-CONTEXTO] preCompiledScheduleText vazio no NotificationGroup para groupId={}. Tentando compilar em tempo de execução...", groupId);
-            List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
-            if (activeSessions != null && !activeSessions.isEmpty()) {
-                try {
-                    listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
-                    log.info("[WEBHOOK-CONTEXTO] Lista detalhada compilada dinamicamente com sucesso em tempo de execução.");
-                } catch (Exception ex) {
-                    log.error("[WEBHOOK-CONTEXTO] Erro ao compilar lista detalhada em tempo de execução para {}", fromPhone, ex);
-                }
+            for (AppointmentSession session : activeSessions) {
+                session.setCurrentGroupId(groupId);
+                appointmentSessionRepository.save(session);
             }
-        }
-
-        if (listaDetalhada == null || listaDetalhada.isBlank()) {
-            log.warn("[WEBHOOK] preCompiledScheduleText vazio para o groupId={}", groupId);
-            listaDetalhada = ""; // Garante que não passará null para o Map.of
-        }
-
-        Map<String, String> fields = Map.of(
-            "lista_detalhada", listaDetalhada,
-            "listaDetalhada", listaDetalhada,
-            "groupId", groupId.toString(),
-            "isConfirmingAgenda", "true"
-        );
-
-        long start = System.currentTimeMillis();
-        String subbotId = blipProperties.getSubbotId();
-        final String exibirAgendaBlockId;
-        String rawExibirAgenda = blipProperties.getBlocks().getExibirAgenda();
-        if (rawExibirAgenda == null || rawExibirAgenda.isBlank()) {
-            exibirAgendaBlockId = "1438bc97-34ef-4337-adf5-e03e463c042c";
-        } else {
-            exibirAgendaBlockId = rawExibirAgenda;
-        }
-
-        // 1. Determina as identidades de túnel do subbot para as quais o contexto e o Builder Master State devem ser aplicados
-        java.util.List<String> tunnelIdentities = new java.util.ArrayList<>();
-        if (rawFrom != null && !rawFrom.isBlank() && !rawFrom.trim().equalsIgnoreCase(fromPhone.trim())) {
-            tunnelIdentities.add(rawFrom.trim());
-        } else if (subbotId != null && !subbotId.isBlank()) {
-            // Se o clique ocorreu fora do túnel (rawFrom nulo ou igual a fromPhone), calculamos a identidade de túnel de forma determinística
-            String userLocalPart = fromPhone.trim();
-            if (userLocalPart.contains("@")) {
-                userLocalPart = userLocalPart.substring(0, userLocalPart.indexOf('@'));
-            }
-            String subbotLocalPart = subbotId.trim();
-            if (subbotLocalPart.contains("@")) {
-                subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
-            }
-            String deterministicTunnel = userLocalPart + "." + subbotLocalPart + "@tunnel.msging.net";
-            tunnelIdentities.add(deterministicTunnel);
-            log.info("[WEBHOOK] Clique fora do túnel. Identidade de túnel gerada deterministicamente: {}", deterministicTunnel);
-        }
-
-        // Reconciliação retroativa: buscar identidades de túnel reais/GUIDs associadas a este paciente no banco
-        try {
-            if (fromPhone != null && !fromPhone.isBlank()) {
-                String purified = fromPhone.trim();
-                if (purified.contains("@")) {
-                    purified = purified.substring(0, purified.indexOf('@')).trim();
-                }
-                purified = purified.replaceAll("\\D", "");
-                if (!purified.startsWith("55") && !purified.isEmpty()) {
-                    purified = "55" + purified;
-                }
-                String cleanPhone = purified;
-
-                java.util.List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new java.util.ArrayList<>();
-                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(cleanPhone));
-                String altPhone = cleanPhone.startsWith("55") ? cleanPhone.substring(2) : "55" + cleanPhone;
-                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
-
-                for (var rec : reconciliations) {
-                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
-                        String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
-                        if (!tunnelId.equalsIgnoreCase(fromPhone) && !tunnelIdentities.contains(tunnelId)) {
-                            tunnelIdentities.add(tunnelId);
-                            log.info("[WEBHOOK] Reconciliada identidade de túnel adicional para grupo: {}", tunnelId);
-                        }
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("[WEBHOOK] Falha ao reconciliar identidades de túnel retroativamente para grupo: {}", ex.getMessage());
-        }
-
-        // 2. Grava as variáveis de contexto no Blip PRIMEIRO em paralelo para máxima eficiência (usando Virtual Threads)
-        java.util.List<java.util.concurrent.CompletableFuture<Void>> contextFutures = new java.util.ArrayList<>();
-        
-        contextFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-            blipContextService.setUserContextFieldsInParallel(fromPhone.trim(), fields),
-            applicationTaskExecutor
-        ));
-
-        for (String cleanTunnelIdentity : tunnelIdentities) {
-            contextFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> 
-                blipContextService.setUserContextFieldsInParallel(cleanTunnelIdentity, fields),
-                applicationTaskExecutor
-            ));
-        }
-
-        try {
-            java.util.concurrent.CompletableFuture.allOf(contextFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-            log.info("[WEBHOOK] Contextos de grupo injetados com sucesso para {} e túneis em {} ms.", fromPhone, System.currentTimeMillis() - start);
-        } catch (Exception e) {
-            log.error("[WEBHOOK] Erro ao injetar contextos do Blip para {}", fromPhone, e);
-        }
-        // 3. Somente após as variáveis de contexto estarem salvas no Blip, atualiza os Master-States para o bloco Exibir Agenda (exibirAgenda)
-        if (exibirAgendaBlockId != null && !exibirAgendaBlockId.isBlank()) {
-            java.util.List<java.util.concurrent.CompletableFuture<Void>> stateFutures = new java.util.ArrayList<>();
-
-            stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
-                try {
-                    blipContextService.setMasterState(fromPhone.trim(), subbotId, exibirAgendaBlockId);
-                } catch (Exception e) {
-                    log.error("[WEBHOOK] Erro ao atualizar Master-State no Roteador para {}", fromPhone, e);
-                }
-            }, applicationTaskExecutor));
-
-            for (String cleanTunnelIdentity : tunnelIdentities) {
-                stateFutures.add(java.util.concurrent.CompletableFuture.runAsync(() -> {
-                    try {
-                        blipContextService.setBuilderMasterState(cleanTunnelIdentity, exibirAgendaBlockId);
-                    } catch (Exception e) {
-                        log.error("[WEBHOOK] Erro ao atualizar Builder Master-State no Subbot para {}", cleanTunnelIdentity, e);
-                    }
-                }, applicationTaskExecutor));
-            }
-
-            try {
-                java.util.concurrent.CompletableFuture.allOf(stateFutures.toArray(java.util.concurrent.CompletableFuture[]::new)).join();
-                log.info("[GRUPO-OK] Master-State direcionado para Exibir Agenda (1438bc97-34ef-4337-adf5-e03e463c042c) para groupId={} em {} ms.", groupId, System.currentTimeMillis() - start);
-            } catch (Exception e) {
-                log.error("[WEBHOOK] Erro ao atualizar master-states do Blip para groupId={}", groupId, e);
-            }
-        }
-
-
-
+        });
+        log.info("[WEBHOOK] groupId={} salvo no banco para {}", groupId, normalizedPhone);
     }
 
     private static final java.util.regex.Pattern STRICT_UUID_PATTERN = 

@@ -108,6 +108,12 @@ public class BlipGroupActionHandler {
         List<NotificationGroup> groups = null;
         if (groupId != null) {
             groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
+            if (groups == null || groups.isEmpty()) {
+                groups = notificationGroupRepository.findByGroupId(groupId);
+                if (groups != null && !groups.isEmpty()) {
+                    log.info("[WEBHOOK] Grupo {} recuperado sem filtro de telefone para {}.", groupId, dbPhone);
+                }
+            }
         }
 
         if (groups == null || groups.isEmpty()) {

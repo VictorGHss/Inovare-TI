@@ -455,6 +455,20 @@ public class HandleBlipWebhookUseCase {
         }
 
         try {
+            String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(payload.from(), payload.bsuid());
+            if (dbPhone != null && !dbPhone.isBlank()) {
+                List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
+                );
+                if (activeSessions != null) {
+                    for (AppointmentSession session : activeSessions) {
+                        if (session.getCurrentGroupId() != null) {
+                            return session.getCurrentGroupId().toString();
+                        }
+                    }
+                }
+            }
+
             String groupId = blipContextService.getUserContext(payload.from(), "groupId");
             if (groupId == null) {
                 return null;

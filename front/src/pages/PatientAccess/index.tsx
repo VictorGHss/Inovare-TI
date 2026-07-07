@@ -9,7 +9,8 @@ import {
   RefreshCw, 
   ArrowRight,
   Info,
-  ExternalLink
+  ExternalLink,
+  MapPin
 } from 'lucide-react';
 
 export default function PatientAccess() {
@@ -385,8 +386,31 @@ export default function PatientAccess() {
 
         </main>
 
-        {/* Rodapé (SiteFooter Standard com Link do Dev) */}
-        <footer className="mt-auto border-t border-slate-100 bg-white py-6 px-6 text-center space-y-4">
+        {/* Rodapé (SiteFooter Standard com Endereço e Link do Dev) */}
+        <footer className="mt-auto border-t border-slate-100 bg-white py-6 px-6 text-center space-y-5">
+          {/* Bloco de Endereço da Clínica */}
+          <div className="space-y-2 text-slate-600 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <h5 className="text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5">
+              <MapPin className="w-4 h-4 text-brand-primary shrink-0" />
+              Inovare – Serviços de Saúde
+            </h5>
+            <p className="text-[11px] leading-relaxed text-slate-500 max-w-[280px] mx-auto">
+              R. Carlos Osternack, 111 - Vila Placidina, Ponta Grossa - PR, 84040-120
+            </p>
+            <p className="text-[10px] text-slate-400 italic">
+              Atendimento: Segunda a sexta, 08h – 12h e 13h – 18h30
+            </p>
+            <a 
+              href="https://share.google/JYhgFNv4A58Tz26VB" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-brand-primary text-[10px] font-bold text-slate-600 hover:text-brand-primary rounded-lg transition-colors shadow-sm shadow-slate-100"
+            >
+              Ver no Google Maps
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          </div>
+
           <div className="flex justify-center items-center gap-4 text-xs font-medium text-slate-500">
             <a href="https://itsm-inovare.ctrls.dev.br/suporte" target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors">
               Suporte Clínico

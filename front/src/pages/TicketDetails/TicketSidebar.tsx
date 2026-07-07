@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 import SlaBadge from '@/components/ui/SlaBadge';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 import { getTickets, relateTicket, getSimilarTickets } from '../../services/ticketService';
 import type { Asset, Ticket, TicketCategory, User } from '../../types/models';
 
@@ -141,13 +142,6 @@ export default function TicketSidebar({
     });
   }, [availableUsers, sectorFilter, normalizedAdditionalQuery]);
 
-  const groupedAvailableUsers = filteredAvailableUsers.reduce((acc, user) => {
-    const sectorName = user.sectorName || 'Sem setor';
-    if (!acc[sectorName]) acc[sectorName] = [];
-    acc[sectorName].push(user);
-    return acc;
-  }, {} as Record<string, User[]>);
-
   // Carrega a lista de chamados ao montar o componente
   useEffect(() => {
     async function loadAllTickets() {
@@ -244,22 +238,19 @@ export default function TicketSidebar({
               <p className="text-xs text-slate-400">Categoria</p>
               {canManageTicket ? (
                 <div className="mt-1">
-                  <select
+                  <SearchableDropdown
+                    options={
+                      loadingCategories
+                        ? [{ id: ticket.categoryId, name: 'Carregando...' }]
+                        : categories.length === 0
+                        ? [{ id: ticket.categoryId, name: ticket.categoryName || 'Sem categoria' }]
+                        : categories.map((c) => ({ id: c.id, name: c.name }))
+                    }
                     value={ticket.categoryId}
-                    onChange={(event) => handleCategoryChange(event.target.value)}
+                    onChange={handleCategoryChange}
                     disabled={loadingCategories || updatingCategory}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary disabled:opacity-60"
-                  >
-                    {loadingCategories && <option value={ticket.categoryId}>Carregando...</option>}
-                    {!loadingCategories && categories.length === 0 && (
-                      <option value={ticket.categoryId}>{ticket.categoryName}</option>
-                    )}
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Selecione uma categoria..."
+                  />
                 </div>
               ) : (
                 <p className="font-medium text-slate-700">{ticket.categoryName}</p>
@@ -456,23 +447,19 @@ export default function TicketSidebar({
             <label className="mt-3 block text-xs font-semibold text-slate-500">
               Selecionar colaborador
             </label>
-            <select
+            <SearchableDropdown
+              options={[
+                { id: '', name: 'Selecione um usuário' },
+                ...filteredAvailableUsers.map((user) => ({
+                  id: user.id,
+                  name: `${user.name} — ${user.sectorName || 'Sem setor'}`,
+                })),
+              ]}
               value={selectedAdditionalUserId}
-              onChange={(event) => setSelectedAdditionalUserId(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
-              disabled={loadingUsers || availableUsers.length === 0}
-            >
-              <option value="">Selecione um usuario</option>
-              {Object.entries(groupedAvailableUsers).map(([sector, sectorUsers]) => (
-                <optgroup key={sector} label={sector}>
-                  {sectorUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {user.sectorName || 'Sem setor'}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              onChange={(val) => setSelectedAdditionalUserId(val)}
+              disabled={loadingUsers || filteredAvailableUsers.length === 0}
+              placeholder="Selecione um usuário..."
+            />
             <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"

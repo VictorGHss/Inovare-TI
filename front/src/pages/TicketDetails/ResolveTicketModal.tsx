@@ -247,19 +247,16 @@ export default function ResolveTicketModal({
                           ) : assets.length === 0 ? (
                             <div className="text-sm text-red-600">Nenhum equipamento disponível no estoque da TI.</div>
                           ) : (
-                            <select
+                            <SearchableDropdown
+                              options={assets.map((asset) => ({
+                                id: asset.id,
+                                name: `${asset.name} (${asset.patrimonyCode})`,
+                              }))}
                               value={selectedAssetId}
-                              onChange={(event) => setSelectedAssetId(event.target.value)}
-                              className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                              onChange={(val) => setSelectedAssetId(val)}
+                              placeholder="Selecione um equipamento..."
                               disabled={isSubmitting}
-                            >
-                              <option value="">-- Selecione um equipamento --</option>
-                              {assets.map((asset) => (
-                                <option key={asset.id} value={asset.id}>
-                                  {asset.name} ({asset.patrimonyCode})
-                                </option>
-                              ))}
-                            </select>
+                            />
                           )}
                         </div>
                       )}
@@ -283,19 +280,16 @@ export default function ResolveTicketModal({
                             {loadingAssetCategories ? (
                               <div className="text-sm text-slate-500">Carregando categorias...</div>
                             ) : (
-                              <select
+                              <SearchableDropdown
+                                options={assetCategories.map((category) => ({
+                                  id: category.id,
+                                  name: category.name,
+                                }))}
                                 value={newAssetCategoryId}
-                                onChange={(event) => setNewAssetCategoryId(event.target.value)}
-                                className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                                onChange={(val) => setNewAssetCategoryId(val)}
+                                placeholder="Selecione a categoria..."
                                 disabled={isSubmitting}
-                              >
-                                <option value="">-- Selecione a categoria --</option>
-                                {assetCategories.map((category) => (
-                                  <option key={category.id} value={category.id}>
-                                    {category.name}
-                                  </option>
-                                ))}
-                              </select>
+                              />
                             )}
                           </div>
 
@@ -336,19 +330,16 @@ export default function ResolveTicketModal({
                         ) : items.length === 0 ? (
                           <div className="text-sm text-red-600">Nenhum material disponível em estoque.</div>
                         ) : (
-                          <select
+                          <SearchableDropdown
+                            options={items.map((item) => ({
+                              id: item.id,
+                              name: `${item.name} (Estoque: ${item.currentStock})`,
+                            }))}
                             value={selectedItemId}
-                            onChange={(event) => setSelectedItemId(event.target.value)}
-                            className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                            onChange={(val) => setSelectedItemId(val)}
+                            placeholder="Selecione um material..."
                             disabled={isSubmitting}
-                          >
-                            <option value="">-- Selecione um material --</option>
-                            {items.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name} (Estoque: {item.currentStock})
-                              </option>
-                            ))}
-                          </select>
+                          />
                         )}
                       </div>
 
@@ -408,19 +399,16 @@ export default function ResolveTicketModal({
                       Nenhum equipamento físico encontrado para o setor deste chamado.
                     </div>
                   ) : (
-                    <select
+                    <SearchableDropdown
+                      options={sectorAssets.map((asset) => ({
+                        id: asset.id,
+                        name: `${asset.name} (${asset.patrimonyCode})`,
+                      }))}
                       value={targetAssetId}
-                      onChange={(event) => setTargetAssetId(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                      onChange={(val) => setTargetAssetId(val)}
+                      placeholder="Selecione o equipamento físico..."
                       disabled={isSubmitting}
-                    >
-                      <option value="">-- Selecione o equipamento físico --</option>
-                      {sectorAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name} ({asset.patrimonyCode})
-                        </option>
-                      ))}
-                    </select>
+                    />
                   )}
                 </div>
               )}
@@ -453,19 +441,16 @@ export default function ResolveTicketModal({
                       Nenhum equipamento cadastrado no CMDB.
                     </div>
                   ) : (
-                    <select
+                    <SearchableDropdown
+                      options={allAssets.map((asset) => ({
+                        id: asset.id,
+                        name: `${asset.name} (${asset.patrimonyCode})`,
+                      }))}
                       value={maintAssetId}
-                      onChange={(event) => setMaintAssetId(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary/50"
+                      onChange={(val) => setMaintAssetId(val)}
+                      placeholder="Selecione o equipamento..."
                       disabled={isSubmitting}
-                    >
-                      <option value="">-- Selecione o equipamento --</option>
-                      {allAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name} ({asset.patrimonyCode})
-                        </option>
-                      ))}
-                    </select>
+                    />
                   )}
                 </div>
 

@@ -3,6 +3,7 @@ import { CheckCircle2, Download, FileText, Paperclip, UploadCloud } from 'lucide
 import TicketComments from './components/TicketComments';
 import { buildApiUrl } from '@/services/api';
 import type { Ticket, User } from '@/types/models';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 interface TicketTimelineProps {
   ticket: Ticket;
@@ -203,18 +204,20 @@ export default function TicketTimeline({
         <div className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold text-slate-700">Transferir Chamado</h3>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <select
-              value={selectedUserId}
-              onChange={(event) => onSelectedUserIdChange(event.target.value)}
-              className="flex-1 rounded-2xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60"
-            >
-              <option value="">Selecione um usuario</option>
-              {users.map((transferUser) => (
-                <option key={transferUser.id} value={transferUser.id}>
-                  {transferUser.name} ({transferUser.email})
-                </option>
-              ))}
-            </select>
+            <div className="flex-1">
+              <SearchableDropdown
+                options={[
+                  { id: '', name: 'Selecione um usuário' },
+                  ...users.map((transferUser) => ({
+                    id: transferUser.id,
+                    name: `${transferUser.name} (${transferUser.email})`,
+                  })),
+                ]}
+                value={selectedUserId}
+                onChange={(val) => onSelectedUserIdChange(val)}
+                placeholder="Selecione um usuário..."
+              />
+            </div>
             <button
               onClick={onTransfer}
               disabled={!selectedUserId || transferring}

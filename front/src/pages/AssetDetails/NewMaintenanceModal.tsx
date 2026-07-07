@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Wrench } from 'lucide-react';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 import { toast } from 'react-toastify';
 import { createAssetMaintenance } from '../../services/inventoryService';
 import { getTickets } from '../../services/ticketService';
@@ -159,18 +160,18 @@ export default function NewMaintenanceModal({
             {loadingTickets ? (
               <div className="text-xs text-slate-400">Carregando chamados...</div>
             ) : (
-              <select
+              <SearchableDropdown
+                options={[
+                  { id: '', name: 'Nenhum' },
+                  ...tickets.map((t) => ({
+                    id: t.id,
+                    name: `#${t.id.substring(0, 8).toUpperCase()} - ${t.title}`,
+                  })),
+                ]}
                 value={formData.ticketId}
-                onChange={(e) => setFormData({ ...formData, ticketId: e.target.value })}
-                className={inputClassName}
-              >
-                <option value="">-- Selecione o chamado --</option>
-                {tickets.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    #{t.id.substring(0, 8).toUpperCase()} - {t.title}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, ticketId: val })}
+                placeholder="Selecione o chamado..."
+              />
             )}
           </div>
 

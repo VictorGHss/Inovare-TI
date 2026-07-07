@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, RefreshCw, HardDrive } from 'lucide-react';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 import { toast } from 'react-toastify';
 import { getUsers } from '../../services/userService';
 import { transferAsset } from '../../services/inventoryService';
@@ -140,18 +141,18 @@ export default function TransferAssetModal({
                 Carregando usuários...
               </div>
             ) : (
-              <select
+              <SearchableDropdown
+                options={[
+                  { id: '', name: 'Nenhum — Devolver ao Estoque da TI' },
+                  ...users.map((user) => ({
+                    id: user.id,
+                    name: `${user.name} — ${user.email}`,
+                  })),
+                ]}
                 value={selectedUserId || ''}
-                onChange={(e) => setSelectedUserId(e.target.value || null)}
-                className={inputClassName}
-              >
-                <option value="">Nenhum — Devolver ao Estoque da TI</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} — {user.email}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedUserId(val || null)}
+                placeholder="Selecione o colaborador de destino..."
+              />
             )}
           </div>
 

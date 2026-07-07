@@ -8,6 +8,7 @@ import SkeletonTable from '@/components/ui/SkeletonTable';
 import PageHero from '@/components/ui/PageHero';
 import TicketsTable from '../Dashboard/TicketsTable';
 import { useAuth } from '../../contexts/AuthContext';
+import SearchableDropdown from '@/components/common/SearchableDropdown';
 
 export default function Tickets() {
   const navigate = useNavigate();
@@ -201,18 +202,18 @@ export default function Tickets() {
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Categoria
             </label>
-            <select
+            <SearchableDropdown
+              options={[
+                { id: 'all', name: 'Todas as Categorias' },
+                ...categories.map((category) => ({
+                  id: category.id || '',
+                  name: category.name || 'Sem Categoria',
+                })),
+              ]}
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
-            >
-              <option value="all">Todas as Categorias</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedCategory(val)}
+              placeholder="Todas as Categorias"
+            />
           </div>
 
           {/* Sort Order */}

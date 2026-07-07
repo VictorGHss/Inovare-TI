@@ -9,8 +9,11 @@ import {
   RefreshCw, 
   ArrowRight,
   Info,
-  ExternalLink,
-  MapPin
+  MapPin,
+  Facebook,
+  Instagram,
+  MessageCircle,
+  Github
 } from 'lucide-react';
 
 export default function PatientAccess() {
@@ -387,53 +390,86 @@ export default function PatientAccess() {
         </main>
 
         {/* Rodapé (SiteFooter Standard com Endereço e Link do Dev) */}
-        <footer className="mt-auto border-t border-slate-100 bg-white py-6 px-6 text-center space-y-5">
-          {/* Bloco de Endereço da Clínica */}
-          <div className="space-y-2 text-slate-600 bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <h5 className="text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5">
-              <MapPin className="w-4 h-4 text-brand-primary shrink-0" />
-              Inovare – Serviços de Saúde
-            </h5>
-            <p className="text-[11px] leading-relaxed text-slate-500 max-w-[280px] mx-auto">
-              R. Carlos Osternack, 111 - Vila Placidina, Ponta Grossa - PR, 84040-120
-            </p>
-            <p className="text-[10px] text-slate-400 italic">
-              Atendimento: Segunda a sexta, 08h – 12h e 13h – 18h30
-            </p>
+        <footer className="mt-auto border-t border-slate-100 bg-white py-8 px-6 text-center space-y-6">
+          {/* Logo da Clínica no Rodapé */}
+          <div className="flex flex-col items-center text-center gap-4">
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-brand-secondary/60 p-4 shadow-sm border border-brand-secondary/30">
+              <img
+                src="/Logo.png"
+                alt="Inovare – Serviços de Saúde"
+                className="h-full w-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://placehold.co/120x120/feb56c/ffffff?text=Inovare';
+                }}
+              />
+            </div>
+
+            {/* Bloco de Endereço da Clínica */}
+            <div className="space-y-1.5 max-w-xs sm:max-w-md">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Inovare – Serviços de Saúde
+              </p>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                R. Carlos Osternack, 111 - Vila Placidina, Ponta Grossa - PR, 84040-120
+              </p>
+              <p className="text-[10px] text-slate-400">
+                Atendimento: Segunda a sexta, 08h – 12h e 13h – 18h30
+              </p>
+            </div>
+          </div>
+
+          {/* Ações (Maps, WhatsApp, Redes Sociais) */}
+          <div className="flex flex-wrap justify-center gap-2">
             <a 
               href="https://share.google/JYhgFNv4A58Tz26VB" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-brand-primary text-[10px] font-bold text-slate-600 hover:text-brand-primary rounded-lg transition-colors shadow-sm shadow-slate-100"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/65 rounded-xl text-xs font-semibold text-slate-600 hover:text-brand-primary transition-all shadow-sm"
             >
-              Ver no Google Maps
-              <ExternalLink className="w-2.5 h-2.5" />
+              <MapPin className="w-4 h-4 text-brand-primary" />
+              Ver no Maps
+            </a>
+            <a 
+              href="https://wa.me/554230262601" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/65 rounded-xl text-xs font-semibold text-slate-600 hover:text-brand-primary transition-all shadow-sm"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-500" />
+              WhatsApp
+            </a>
+            <a 
+              href="https://www.instagram.com/inovaress/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/65 rounded-xl text-xs font-semibold text-slate-600 hover:text-brand-primary transition-all shadow-sm"
+            >
+              <Instagram className="w-4 h-4 text-pink-500" />
+              Instagram
+            </a>
+            <a 
+              href="https://www.facebook.com/inovarepg" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/65 rounded-xl text-xs font-semibold text-slate-600 hover:text-brand-primary transition-all shadow-sm"
+            >
+              <Facebook className="w-4 h-4 text-blue-600" />
+              Facebook
             </a>
           </div>
 
-          <div className="flex justify-center items-center gap-4 text-xs font-medium text-slate-500">
-            <a href="https://itsm-inovare.ctrls.dev.br/suporte" target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors">
-              Suporte Clínico
-            </a>
-            <span className="text-slate-300">•</span>
-            <a href="https://itsm-inovare.ctrls.dev.br/privacidade" target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors">
-              Políticas de Privacidade
-            </a>
-          </div>
-
+          {/* Assinatura de Desenvolvimento com Ícone do Git */}
           <div className="border-t border-slate-100 pt-4 flex flex-col items-center gap-2">
-            <p className="text-[10px] text-slate-400 leading-normal">
-              © 2026 Inovare TI • Todos os direitos reservados
-            </p>
-            <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
-              Feito por 
-              <a 
-                href="https://github.com/VictorGHss" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-brand-primary hover:text-brand-primary-dark font-semibold transition-colors flex items-center gap-0.5 underline decoration-brand-primary/30 underline-offset-2"
+            <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
+              Feito por
+              <Github className="inline w-4 h-4 mx-1 text-slate-400" />
+              <a
+                href="https://github.com/VictorGHss"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-primary hover:text-brand-primary-dark font-medium transition-colors underline underline-offset-2"
               >
-                VictorGHss <ExternalLink className="w-2.5 h-2.5 inline" />
+                VictorGHss
               </a>
             </p>
           </div>

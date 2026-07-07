@@ -84,6 +84,7 @@ const ArticleDetails = lazyWithRetry(() => import('./pages/KnowledgeBase/Article
 const Vault = lazyWithRetry(() => import('./pages/Vault'));
 const SystemLogs = lazyWithRetry(() => import('./pages/SystemLogs'));
 const Financeiro = lazyWithRetry(() => import('./pages/Financeiro'));
+const PatientAccess = lazyWithRetry(() => import('./pages/PatientAccess'));
 
 function PageLoader() {
   return (
@@ -153,6 +154,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/primeiro-acesso" element={<PageTransition><PrimeiroAcesso /></PageTransition>} />
+        <Route path="/:appointmentId" element={<PageTransition><PatientAccess /></PageTransition>} />
         {/* Rotas protegidas compartilham o DefaultLayout */}
         <Route element={<PrivateLayoutRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />

@@ -13,7 +13,8 @@ import {
   Facebook,
   Instagram,
   MessageCircle,
-  Github
+  Github,
+  Maximize2
 } from 'lucide-react';
 
 export default function PatientAccess() {
@@ -39,6 +40,54 @@ export default function PatientAccess() {
   const [secondsLeft, setSecondsLeft] = useState(300);
   const [uuid1, setUuid1] = useState('ea544b1e-bf09-48b4-2e68-1a0fd2476899');
   const [uuid2, setUuid2] = useState('b61cf82b-734f-4545-b037-1caa13223c3d');
+
+  // Controle de QR Code em tela cheia
+  const [fullscreenCard, setFullscreenCard] = useState<'titular' | 'dependente' | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const openFullscreen = (cardType: 'titular' | 'dependente') => {
+    setFullscreenCard(cardType);
+    
+    // Tenta usar API do navegador para tela cheia nativa
+    setTimeout(() => {
+      if (modalRef.current && modalRef.current.requestFullscreen) {
+        modalRef.current.requestFullscreen().catch(() => {});
+      }
+    }, 50);
+  };
+
+  const closeFullscreen = () => {
+    setFullscreenCard(null);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const getFullscreenData = () => {
+    if (fullscreenCard === 'titular') {
+      return { value: uuid1, title: "Acesso do Titular: Victor" };
+    }
+    if (fullscreenCard === 'dependente') {
+      return { value: uuid2, title: "Acesso do Dependente: Teste" };
+    }
+    return null;
+  };
+
+  const fullscreenData = getFullscreenData();
+
+  // Monitora saída da tela cheia nativa do browser para sincronizar o estado do React
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setFullscreenCard(null);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Controle do carrossel/slide
   const [activeCardIndex, setActiveCardIndex] = useState(0);
@@ -321,12 +370,21 @@ export default function PatientAccess() {
                 </div>
 
                 {/* Validade e Rotação */}
-                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 rounded-xl py-2 px-3 border border-slate-100">
+                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 rounded-xl py-2 px-3 border border-slate-100 mb-3">
                   <RefreshCw className="w-3 h-3 animate-spin text-brand-primary" style={{ animationDuration: '6s' }} />
                   <span className="text-[10px] font-medium tracking-wide">
                     Código expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b>
                   </span>
                 </div>
+
+                {/* Botão de Tela Cheia */}
+                <button 
+                  onClick={() => openFullscreen('titular')}
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  Ampliar QR Code
+                </button>
               </div>
 
               {/* Card 2: Dependente */}
@@ -352,12 +410,21 @@ export default function PatientAccess() {
                 </div>
 
                 {/* Validade e Rotação */}
-                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 rounded-xl py-2 px-3 border border-slate-100">
+                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 rounded-xl py-2 px-3 border border-slate-100 mb-3">
                   <RefreshCw className="w-3 h-3 animate-spin text-brand-primary-dark" style={{ animationDuration: '6s' }} />
                   <span className="text-[10px] font-medium tracking-wide">
                     Código expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b>
                   </span>
                 </div>
+
+                {/* Botão de Tela Cheia */}
+                <button 
+                  onClick={() => openFullscreen('dependente')}
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  Ampliar QR Code
+                </button>
               </div>
             </div>
 
@@ -476,6 +543,47 @@ export default function PatientAccess() {
         </footer>
 
       </div>
+
+      {/* Modal de Tela Cheia (Background Branco Puro para forçar brilho da tela do celular) */}
+      {fullscreenData && (
+        <div 
+          ref={modalRef}
+          className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-between p-8"
+        >
+          {/* Header do Modal */}
+          <div className="text-center mt-8">
+            <span className="text-[10px] font-bold tracking-wider text-brand-primary uppercase block">Catraca de Acesso</span>
+            <h4 className="text-lg font-bold text-slate-800 mt-1">{fullscreenData.title}</h4>
+            <p className="text-xs text-slate-400 mt-1">Brilho da tela aumentado para leitura na catraca</p>
+          </div>
+
+          {/* QR Code centralizado ampliado */}
+          <div className="flex flex-col items-center justify-center flex-1 my-6">
+            <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-xl shadow-slate-200/50">
+              <QRCodeSVG 
+                value={fullscreenData.value} 
+                size={260} 
+                fgColor="#0f172a" // Cor escura ideal para o leitor de código de barras
+                bgColor="#ffffff"
+              />
+            </div>
+
+            {/* Contador de expiração em tempo real */}
+            <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-4 py-2 mt-8 text-xs font-semibold">
+              <RefreshCw className="w-4 h-4 animate-spin text-brand-primary" style={{ animationDuration: '6s' }} />
+              <span>Expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b></span>
+            </div>
+          </div>
+
+          {/* Botão de Fechar */}
+          <button 
+            onClick={closeFullscreen}
+            className="w-full max-w-sm py-4 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white rounded-2xl font-bold tracking-wide transition-all duration-300 shadow-lg cursor-pointer"
+          >
+            Fechar Tela Cheia
+          </button>
+        </div>
+      )}
     </div>
   );
 }

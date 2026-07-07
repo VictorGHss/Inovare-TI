@@ -161,7 +161,7 @@ public class BlipNotificationService {
 
         List<Map<String, String>> parameters = new ArrayList<>();
         mappings.stream()
-            .sorted(Comparator.comparing(AppointmentTemplateMapping::getPlaceholderIndex))
+            .sorted(Comparator.comparing(mapping -> mapping.getPlaceholderIndex()))
             .forEach(mapping -> {
                 String fieldName = mapping.getFeegowFieldName();
                 String value = resolveDynamicFieldValue(appointmentData, fieldName);
@@ -437,7 +437,7 @@ public class BlipNotificationService {
             return false;
         }
         java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
-                .map(String::trim)
+                .map(id -> id.trim())
                 .filter(id -> !id.isEmpty())
                 .toList();
         

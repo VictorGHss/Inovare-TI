@@ -18,7 +18,7 @@ public class ListFeegowFieldsUseCase {
         }
 
         return Arrays.stream(components)
-                .map(RecordComponent::getName)
+                .map(component -> component.getName())
                 .sorted()
                 .toList();
     }

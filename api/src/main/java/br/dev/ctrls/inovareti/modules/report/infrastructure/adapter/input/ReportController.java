@@ -168,8 +168,8 @@ public class ReportController {
                         .filter(inst -> inst.getDueDate() != null &&
                                         (inst.getDueDate().isEqual(startDateLoc) || inst.getDueDate().isAfter(startDateLoc)) &&
                                         (inst.getDueDate().isBefore(endDateLoc) || inst.getDueDate().isEqual(endDateLoc)))
-                        .map(br.dev.ctrls.inovareti.modules.inventory.domain.model.StockBatchInstallment::getAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        .map(inst -> inst.getAmount())
+                        .reduce(BigDecimal.ZERO, (sumAcc, installmentAmount) -> sumAcc.add(installmentAmount));
                 periodCosts.put(b.getId(), sum);
             }
         }

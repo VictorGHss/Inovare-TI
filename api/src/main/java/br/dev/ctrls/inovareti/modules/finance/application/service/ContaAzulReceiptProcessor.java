@@ -83,7 +83,7 @@ public class ContaAzulReceiptProcessor {
         String resolvedSaleNumber = resolveSaleNumberForReceiptFlow(sale, resolvedSaleId);
 
         String baixaId = contaAzulClient.fetchBaixaIdByParcelaId(sale.parcelaId())
-                .map(String::trim)
+                .map(s -> s.trim())
                 .filter(StringUtils::hasText)
                 .orElseThrow(() -> new IllegalStateException("Nenhuma baixa válida encontrada."));
 

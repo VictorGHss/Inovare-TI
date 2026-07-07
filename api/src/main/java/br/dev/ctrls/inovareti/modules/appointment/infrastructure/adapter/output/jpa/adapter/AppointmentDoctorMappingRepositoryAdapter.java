@@ -25,17 +25,17 @@ public class AppointmentDoctorMappingRepositoryAdapter implements AppointmentDoc
 
     @Override
     public Optional<AppointmentDoctorMapping> findByProfissionalId(String profissionalId) {
-        return springDataRepository.findByProfissionalId(profissionalId).map(AppointmentDoctorMappingEntity::toDomain);
+        return springDataRepository.findByProfissionalId(profissionalId).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentDoctorMapping> findByProfissionalIdLocked(String profissionalId) {
-        return springDataRepository.findByProfissionalIdLocked(profissionalId).map(AppointmentDoctorMappingEntity::toDomain);
+        return springDataRepository.findByProfissionalIdLocked(profissionalId).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentDoctorMapping> findById(UUID id) {
-        return springDataRepository.findById(id).map(AppointmentDoctorMappingEntity::toDomain);
+        return springDataRepository.findById(id).map(entity -> entity.toDomain());
     }
 
     @Override
@@ -46,7 +46,7 @@ public class AppointmentDoctorMappingRepositoryAdapter implements AppointmentDoc
     @Override
     public List<AppointmentDoctorMapping> findAll() {
         return springDataRepository.findAll().stream()
-                .map(AppointmentDoctorMappingEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 

@@ -54,8 +54,8 @@ public record AssetResponseDTO(
         UUID primeiroUserId = userList.isEmpty() ? null : userList.getFirst().getId();
         String primeiroNome  = userList.isEmpty() ? null : userList.getFirst().getName();
 
-        List<UUID> todosIds   = userList.stream().map(User::getId).toList();
-        List<String> todosNomes = userList.stream().map(User::getName).toList();
+        List<UUID> todosIds   = userList.stream().map(u -> u.getId()).toList();
+        List<String> todosNomes = userList.stream().map(u -> u.getName()).toList();
 
         return new AssetResponseDTO(
                 asset.getId(),

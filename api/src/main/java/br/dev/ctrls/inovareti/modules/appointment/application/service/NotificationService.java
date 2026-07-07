@@ -4,7 +4,6 @@ import io.micrometer.observation.annotation.Observed;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentVariableLog;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentVariableLogRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
@@ -236,9 +235,9 @@ public class NotificationService {
     private String resolveDoctorName(AppointmentSession session) {
         return appointmentVariableLogRepository
                 .findFirstBySessionIdAndDictionaryKeyOrderBySentAtDesc(session.getId(), DOCTOR_NAME_KEY)
-                .map(AppointmentVariableLog::getResolvedValue)
+                .map(variableLog -> variableLog.getResolvedValue())
                 .filter(StringUtils::hasText)
-                .map(String::trim)
+                .map(s -> s.trim())
                 .orElseGet(() -> {
                     if (StringUtils.hasText(session.getDoctorProfissionalId())) {
                         return "Profissional " + session.getDoctorProfissionalId().trim();

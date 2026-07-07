@@ -55,11 +55,11 @@ public class CsvPersistenceService {
             return existingUser;
         }
 
-        String userName = csvRowParser.firstNonBlank(userRows, CsvImportRow::userName)
+        String userName = csvRowParser.firstNonBlank(userRows, row -> row.userName())
                 .orElseThrow(() -> new IllegalArgumentException("UserName é obrigatório para criar novo usuário"));
-        String sectorName = csvRowParser.firstNonBlank(userRows, CsvImportRow::sectorName)
+        String sectorName = csvRowParser.firstNonBlank(userRows, row -> row.sectorName())
                 .orElseThrow(() -> new IllegalArgumentException("SectorName é obrigatório para criar novo usuário"));
-        String userRoleStr = csvRowParser.firstNonBlank(userRows, CsvImportRow::userRoleStr).orElse("USER");
+        String userRoleStr = csvRowParser.firstNonBlank(userRows, row -> row.userRoleStr()).orElse("USER");
 
         Sector sector = sectorRepository.findByName(sectorName)
                 .orElseGet(() -> {

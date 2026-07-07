@@ -50,7 +50,7 @@ public class FeegowStartupProbe {
 
             if (appointmentMotorProperties.isTestMode()) {
                 List<String> allowedDoctorIds = java.util.Arrays.stream(testDoctorId.split(","))
-                        .map(String::trim)
+                        .map(id -> id.trim())
                         .filter(id -> !id.isEmpty())
                         .toList();
 
@@ -60,7 +60,7 @@ public class FeegowStartupProbe {
             }
 
             List<String> sampleAppointmentIds = appointments.stream()
-                    .map(FeegowAppointment::id)
+                    .map(appointment -> appointment.id())
                     .limit(MAX_LOGGED_APPOINTMENT_IDS)
                     .toList();
 

@@ -92,7 +92,7 @@ public class ContaAzulAutomationService {
 
     private LocalDate resolveIncrementalStartDate(LocalDate today) {
         return processedSaleRepository.findMaxProcessedAt()
-                .map(LocalDateTime::toLocalDate)
+                .map(dateTime -> dateTime.toLocalDate())
                 .orElse(today.minusMonths(1));
     }
 

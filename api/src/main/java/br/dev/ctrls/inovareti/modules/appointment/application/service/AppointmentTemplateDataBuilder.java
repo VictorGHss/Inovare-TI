@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentTemplateData;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
@@ -109,7 +108,7 @@ public class AppointmentTemplateDataBuilder {
             try {
                 doctorName = transactionTemplate.execute(status ->
                     appointmentDoctorMappingRepository.findByProfissionalIdLocked(normalizedProfissionalId)
-                        .map(AppointmentDoctorMapping::getProfissionalNome)
+                        .map(mapping -> mapping.getProfissionalNome())
                         .filter(nome -> !nome.isBlank() && !"null".equalsIgnoreCase(nome.trim()))
                         .orElse(null)
                 );

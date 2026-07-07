@@ -39,7 +39,7 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
         if (id == null) {
             return Optional.empty();
         }
-        return repository.findById(id).map(BlipDeliveryFailureEntity::toDomain);
+        return repository.findById(id).map(entity -> entity.toDomain());
     }
 
     @Override
@@ -48,7 +48,7 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
             return List.of();
         }
         return repository.findByMessageId(messageId.trim()).stream()
-                .map(BlipDeliveryFailureEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -58,7 +58,7 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
             return List.of();
         }
         return repository.findByAppointmentId(appointmentId.trim()).stream()
-                .map(BlipDeliveryFailureEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -96,6 +96,6 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
                 filterByNotInCodes,
                 notInErrorCodes,
                 pageable
-        ).map(BlipDeliveryFailureEntity::toDomain);
+        ).map(entity -> entity.toDomain());
     }
 }

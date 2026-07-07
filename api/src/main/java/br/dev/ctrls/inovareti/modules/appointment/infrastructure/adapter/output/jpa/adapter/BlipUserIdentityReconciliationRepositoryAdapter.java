@@ -38,7 +38,7 @@ public class BlipUserIdentityReconciliationRepositoryAdapter implements BlipUser
             return Optional.empty();
         }
         return springDataRepository.findByBlipGuid(blipGuid.trim())
-                .map(BlipUserIdentityReconciliationEntity::toDomain);
+                .map(entity -> entity.toDomain());
     }
 
     @Override
@@ -47,7 +47,7 @@ public class BlipUserIdentityReconciliationRepositoryAdapter implements BlipUser
             return Optional.empty();
         }
         return springDataRepository.findByBsuid(bsuid.trim())
-                .map(BlipUserIdentityReconciliationEntity::toDomain);
+                .map(entity -> entity.toDomain());
     }
 
     @Override
@@ -56,7 +56,7 @@ public class BlipUserIdentityReconciliationRepositoryAdapter implements BlipUser
             return List.of();
         }
         return springDataRepository.findByPhoneNumber(phoneNumber.trim()).stream()
-                .map(BlipUserIdentityReconciliationEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 }

@@ -26,18 +26,18 @@ public class AppointmentConfigRepositoryAdapter implements AppointmentConfigRepo
 
     @Override
     public Optional<AppointmentConfig> findByCategory(AppointmentCategory category) {
-        return springDataRepository.findByCategory(category).map(AppointmentConfigEntity::toDomain);
+        return springDataRepository.findByCategory(category).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentConfig> findById(UUID id) {
-        return springDataRepository.findById(id).map(AppointmentConfigEntity::toDomain);
+        return springDataRepository.findById(id).map(entity -> entity.toDomain());
     }
 
     @Override
     public List<AppointmentConfig> findAll() {
         return springDataRepository.findAll().stream()
-                .map(AppointmentConfigEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 

@@ -38,7 +38,7 @@ public class SaveAppointmentTemplateMappingsUseCase {
         Map<Integer, SaveAppointmentTemplateMappingsRequest.TemplateMappingItem> normalizedMappings = mappings.stream()
                 .filter(item -> item != null && item.placeholderIndex() != null && StringUtils.hasText(item.feegowFieldName()))
                 .collect(Collectors.toMap(
-                        SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex,
+                        item -> item.placeholderIndex(),
                         Function.identity(),
                         (previous, current) -> current,
                         LinkedHashMap::new));
@@ -48,14 +48,14 @@ public class SaveAppointmentTemplateMappingsUseCase {
 
         Map<Integer, AppointmentTemplateMapping> existingByPlaceholderIndex = existingMappings.stream()
                 .collect(Collectors.toMap(
-                        AppointmentTemplateMapping::getPlaceholderIndex,
+                        mapping -> mapping.getPlaceholderIndex(),
                         Function.identity(),
                         (previous, current) -> previous,
                         LinkedHashMap::new));
 
         List<AppointmentTemplateMapping> entitiesToPersist = new ArrayList<>();
         normalizedMappings.values().stream()
-                .sorted(Comparator.comparing(SaveAppointmentTemplateMappingsRequest.TemplateMappingItem::placeholderIndex))
+                .sorted(Comparator.comparing(item -> item.placeholderIndex()))
                 .forEach(item -> {
                     AppointmentTemplateMapping existing = existingByPlaceholderIndex.remove(item.placeholderIndex());
                     if (existing != null) {

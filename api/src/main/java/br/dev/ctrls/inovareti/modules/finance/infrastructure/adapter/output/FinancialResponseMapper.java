@@ -77,12 +77,12 @@ public class FinancialResponseMapper {
                     "itens.0.baixado_em");
 
             String normalizedSaleId = Optional.ofNullable(saleId)
-                    .map(String::trim)
+                    .map(s -> s.trim())
                     .filter(StringUtils::hasText)
                     .orElse(null);
 
             String normalizedBaixaId = Optional.ofNullable(baixaId)
-                    .map(String::trim)
+                    .map(s -> s.trim())
                     .filter(StringUtils::hasText)
                     .orElse(null);
 

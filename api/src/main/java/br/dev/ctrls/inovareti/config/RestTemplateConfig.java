@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpRequest;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
@@ -95,8 +94,8 @@ public class RestTemplateConfig {
         return RestClient.builder()
                 .baseUrl(normalizedBase)
                 .requestFactory(createFeegowClientRequestFactory())
-                .defaultStatusHandler(HttpStatusCode::is4xxClientError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
-                .defaultStatusHandler(HttpStatusCode::is5xxServerError, RestTemplateConfig::drainFeegowErrorWithoutThrowing)
+                .defaultStatusHandler(status -> status.is4xxClientError(), RestTemplateConfig::drainFeegowErrorWithoutThrowing)
+                .defaultStatusHandler(status -> status.is5xxServerError(), RestTemplateConfig::drainFeegowErrorWithoutThrowing)
                 .build();
     }
 

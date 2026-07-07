@@ -165,12 +165,12 @@ public class ContaAzulFinancialSummaryService {
                 .toList();
 
         List<AccountBalanceAudit> audits = futures.stream()
-                .map(CompletableFuture::join)
+                .map(f -> f.join())
                 .toList();
 
         long totalBalance = audits.stream()
-                .filter(AccountBalanceAudit::includedInBalance)
-                .mapToLong(AccountBalanceAudit::balanceCents)
+                .filter(audit -> audit.includedInBalance())
+                .mapToLong(audit -> audit.balanceCents())
                 .sum();
 
         return new StatusResult(totalBalance, true);
@@ -204,7 +204,7 @@ public class ContaAzulFinancialSummaryService {
                 .toList();
 
         long totalPaidCents = futures.stream()
-                .mapToLong(CompletableFuture::join)
+                .mapToLong(f -> f.join())
                 .sum();
 
         log.info("Soma total de baixas calculada: {}", totalPaidCents);

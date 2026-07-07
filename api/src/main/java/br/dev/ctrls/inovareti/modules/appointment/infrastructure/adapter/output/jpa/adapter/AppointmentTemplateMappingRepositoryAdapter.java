@@ -26,14 +26,14 @@ public class AppointmentTemplateMappingRepositoryAdapter implements AppointmentT
     @Override
     public List<AppointmentTemplateMapping> findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(String name) {
         return springDataRepository.findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(name).stream()
-                .map(AppointmentTemplateMappingEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentTemplateMapping> findByTemplateNameOrderByPlaceholderIndexAsc(String templateName) {
         return springDataRepository.findByTemplateNameOrderByPlaceholderIndexAsc(templateName).stream()
-                .map(AppointmentTemplateMappingEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -55,7 +55,7 @@ public class AppointmentTemplateMappingRepositoryAdapter implements AppointmentT
     @Override
     public List<AppointmentTemplateMapping> findAll() {
         return springDataRepository.findAll().stream()
-                .map(AppointmentTemplateMappingEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 

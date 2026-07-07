@@ -59,7 +59,7 @@ public class NotificationAccumulatorService {
         // 2. Agrupar essas entidades pelo telefone (contact_identity / patient_phone)
         Map<String, List<AppointmentSession>> groupedByPhone = pendingSessions.stream()
                 .filter(s -> s.getPhoneNumber() != null && !s.getPhoneNumber().isBlank())
-                .collect(Collectors.groupingBy(AppointmentSession::getPhoneNumber));
+                .collect(Collectors.groupingBy(s -> s.getPhoneNumber()));
 
         boolean hasSentBefore = false;
         for (Map.Entry<String, List<AppointmentSession>> entry : groupedByPhone.entrySet()) {

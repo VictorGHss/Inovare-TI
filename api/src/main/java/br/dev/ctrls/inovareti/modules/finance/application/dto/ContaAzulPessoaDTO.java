@@ -39,7 +39,7 @@ public record ContaAzulPessoaDTO(
         }
 
         return outrosContatos.stream()
-                .map(OutroContatoDTO::email)
+                .map(outroContato -> outroContato.email())
                 .filter(candidate -> candidate != null && !candidate.isBlank())
                 .findFirst();
     }

@@ -72,7 +72,7 @@ public class ReportService {
                     if (movements != null && !movements.isEmpty()) {
                         cost = movements.stream()
                                 .map(m -> m.getUnitPriceAtTime() != null ? m.getUnitPriceAtTime() : BigDecimal.ZERO)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
                     }
                 } catch (Exception e) {
                     // Custo fica zero

@@ -24,7 +24,7 @@ public class AppointmentVariableLogRepositoryAdapter implements AppointmentVaria
     @Override
     public Optional<AppointmentVariableLog> findFirstBySessionIdAndDictionaryKeyOrderBySentAtDesc(UUID sessionId, String dictionaryKey) {
         return springDataRepository.findFirstBySessionIdAndDictionaryKeyOrderBySentAtDesc(sessionId, dictionaryKey)
-                .map(AppointmentVariableLogEntity::toDomain);
+                .map(entity -> entity.toDomain());
     }
 
     @Override

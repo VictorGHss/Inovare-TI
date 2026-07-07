@@ -27,7 +27,7 @@ public class TemplateVariableMappingRepositoryAdapter implements TemplateVariabl
     @Override
     public List<TemplateVariableMapping> findByConfigCategoryOrderByPlaceholderIndexAsc(AppointmentCategory category) {
         return springDataRepository.findByConfigCategoryOrderByPlaceholderIndexAsc(category).stream()
-                .map(TemplateVariableMappingEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 

@@ -27,61 +27,61 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
 
     @Override
     public Optional<AppointmentSession> findById(UUID id) {
-        return springDataRepository.findById(id).map(AppointmentSessionEntity::toDomain);
+        return springDataRepository.findById(id).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentSession> findByIdLocked(UUID id) {
-        return springDataRepository.findByIdLocked(id).map(AppointmentSessionEntity::toDomain);
+        return springDataRepository.findByIdLocked(id).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentSession> findByFeegowAppointmentId(String feegowAppointmentId) {
-        return springDataRepository.findByFeegowAppointmentId(feegowAppointmentId).map(AppointmentSessionEntity::toDomain);
+        return springDataRepository.findByFeegowAppointmentId(feegowAppointmentId).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentSession> findByFeegowAppointmentIdAndPhoneNumber(String feegowAppointmentId, String phoneNumber) {
-        return springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, phoneNumber).map(AppointmentSessionEntity::toDomain);
+        return springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, phoneNumber).map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentSession> findByIdAndPhoneNumber(UUID id, String phoneNumber) {
-        return springDataRepository.findByIdAndPhoneNumber(id, phoneNumber).map(AppointmentSessionEntity::toDomain);
+        return springDataRepository.findByIdAndPhoneNumber(id, phoneNumber).map(entity -> entity.toDomain());
     }
 
     @Override
     public List<AppointmentSession> findByFeegowAppointmentIdIn(java.util.Collection<String> feegowAppointmentIds) {
         return springDataRepository.findByFeegowAppointmentIdIn(feegowAppointmentIds).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentSession> findByCurrentGroupId(UUID currentGroupId) {
         return springDataRepository.findByCurrentGroupId(currentGroupId).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold) {
         return springDataRepository.findByStatusAndLastInteractionAtBefore(status, threshold).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold) {
         return springDataRepository.findByStatusAndLastNotificationSentAtBefore(status, threshold).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentSession> findActiveByPhoneNumber(String phone) {
         return springDataRepository.findActiveByPhoneNumber(phone).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -91,7 +91,7 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
             return List.of();
         }
         return springDataRepository.findActiveByBlipGuid(blipGuid.trim()).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -101,14 +101,14 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
             return List.of();
         }
         return springDataRepository.findActiveByBsuid(bsuid.trim()).stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<AppointmentSession> findPendingNotifications() {
         return springDataRepository.findPendingNotifications().stream()
-                .map(AppointmentSessionEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 

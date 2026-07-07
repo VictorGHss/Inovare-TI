@@ -54,7 +54,7 @@ public class MicrometerConfig {
     private String findClassName(Observation.Context context) {
         Optional<String> classTag = context.getLowCardinalityKeyValues().stream()
                 .filter(keyValue -> CLASS_KEY.equals(keyValue.getKey()))
-                .map(KeyValue::getValue)
+                .map(keyValue -> keyValue.getValue())
                 .filter(value -> value != null && !value.isBlank())
                 .findFirst();
 

@@ -28,7 +28,6 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentCatego
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
-import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentConfig;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentConfigRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
@@ -130,7 +129,7 @@ public class IngestAppointmentsUseCase {
             log.warn("[FILTRO-PROCEDIMENTO] A lista de IDs de procedimentos elegíveis (ELIGIBLE_PROCEDURE_IDS) está vazia ou nula.");
         } else {
             eligibleProcedureIdsList = java.util.Arrays.stream(eligibleIdsProp.split(","))
-                    .map(String::trim)
+                    .map(id -> id.trim())
                     .filter(id -> !id.isEmpty())
                     .toList();
             log.info("[FILTRO-PROCEDIMENTO] IDs de procedimentos elegíveis configurados: {}", eligibleProcedureIdsList);
@@ -167,10 +166,10 @@ public class IngestAppointmentsUseCase {
                 .collect(Collectors.toSet());
 
         Map<String, AppointmentSession> sessionCache = appointmentSessionRepository.findByFeegowAppointmentIdIn(feegowIds).stream()
-                .collect(Collectors.toMap(AppointmentSession::getFeegowAppointmentId, s -> s, (s1, s2) -> s1));
+                .collect(Collectors.toMap(s -> s.getFeegowAppointmentId(), s -> s, (s1, s2) -> s1));
 
         Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = appointmentDoctorMappingRepository.findAll().stream()
-                .collect(Collectors.toMap(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping::getProfissionalId, m -> m, (m1, m2) -> m1));
+                .collect(Collectors.toMap(m -> m.getProfissionalId(), m -> m, (m1, m2) -> m1));
 
         // FILTRO ESTRUTURAL DE AUDITORIA: Remove agendamentos de médicos não-assinantes ou inativos antes de buscar detalhes dos pacientes
         int totalBeforeDoctorFilter = appointments.size();
@@ -227,7 +226,7 @@ public class IngestAppointmentsUseCase {
                 .collect(Collectors.toList());
 
         java.util.Set<String> patientIds = activeAppointments.stream()
-                .map(FeegowAppointment::patientId)
+                .map(appointment -> appointment.patientId())
                 .collect(Collectors.toSet());
 
         Map<String, FeegowPatient> patientDetailsCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(patientIds);
@@ -252,7 +251,7 @@ public class IngestAppointmentsUseCase {
         // O template não muda durante a execução da ingestão.
         String cachedGroupTemplateName = transactionTemplate.execute(status ->
             appointmentConfigRepository.findByCategory(AppointmentCategory.GROUP_NOTIFICATION)
-                .map(AppointmentConfig::getTemplateId)
+                .map(config -> config.getTemplateId())
                 .orElse(appointmentMotorProperties.getBlipTemplateGroup())
         );
         log.info("[INGESTAO] Template de grupo resolvido antes do loop: '{}'", cachedGroupTemplateName);
@@ -767,7 +766,7 @@ public class IngestAppointmentsUseCase {
             return false;
         }
         java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
-                .map(String::trim)
+                .map(id -> id.trim())
                 .filter(id -> !id.isEmpty())
                 .toList();
         

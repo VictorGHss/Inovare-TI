@@ -270,7 +270,7 @@ public class DiscordInteractionListener extends ListenerAdapter {
             return false;
         }
         return java.util.Arrays.stream(adminIdsRaw.split(","))
-                .map(String::trim)
+                .map(id -> id.trim())
                 .anyMatch(id -> id.equals(discordUserId));
     }
 }

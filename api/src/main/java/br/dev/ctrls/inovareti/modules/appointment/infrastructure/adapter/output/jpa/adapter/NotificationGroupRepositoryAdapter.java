@@ -35,28 +35,28 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
                 .collect(Collectors.toList());
         List<NotificationGroupEntity> saved = springDataRepository.saveAll(entities);
         return saved.stream()
-                .map(NotificationGroupEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<NotificationGroup> findByGroupId(UUID groupId) {
         return springDataRepository.findByGroupId(groupId).stream()
-                .map(NotificationGroupEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<NotificationGroup> findByGroupIdAndPhoneNumber(UUID groupId, String phone) {
         return springDataRepository.findByGroupIdAndPhoneNumber(groupId, phone).stream()
-                .map(NotificationGroupEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<NotificationGroup> findBySessionId(UUID sessionId) {
         return springDataRepository.findBySessionId(sessionId).stream()
-                .map(NotificationGroupEntity::toDomain)
+                .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }
 
@@ -67,7 +67,7 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
         }
         return springDataRepository.findByPhoneOrderByCreatedAtDesc(phone, PageRequest.of(0, 1)).stream()
                 .findFirst()
-                .map(NotificationGroupEntity::toDomain);
+                .map(entity -> entity.toDomain());
     }
 
     @Override

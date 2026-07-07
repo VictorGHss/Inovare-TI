@@ -68,18 +68,18 @@ public class NetworkMetricsCollector {
 
         // Registro de Gauges do Micrometer para acompanhamento instantâneo de latência de ping (MS).
         // Os Gauges observam dinamicamente os valores mantidos em estruturas thread-safe (AtomicLong).
-        Gauge.builder("network_device_ping_latency_ms", this.mikrotikLatencyMs, AtomicLong::get)
+        Gauge.builder("network_device_ping_latency_ms", this.mikrotikLatencyMs, al -> al.get())
                 .description("Latência de ping do MikroTik principal")
                 .tag("device", "mikrotik")
                 .register(this.meterRegistry);
 
-        Gauge.builder("network_device_ping_latency_ms", this.ubiquitiLatencyMs, AtomicLong::get)
+        Gauge.builder("network_device_ping_latency_ms", this.ubiquitiLatencyMs, al -> al.get())
                 .description("Latência de ping do Ubiquiti UniFi Controller")
                 .tag("device", "ubiquiti")
                 .register(this.meterRegistry);
 
         // Registro do Gauge para contagem ativa e instantânea de clientes de Wi-Fi.
-        Gauge.builder("network_active_wifi_clients_total", this.activeWifiClients, AtomicLong::get)
+        Gauge.builder("network_active_wifi_clients_total", this.activeWifiClients, al -> al.get())
                 .description("Número de clientes ativos conectados na rede Wi-Fi UniFi")
                 .register(this.meterRegistry);
     }

@@ -74,7 +74,7 @@ public record TicketResponseDTO(
                 attachments,
                 ticket.getSolutionText(),
                 ticket.getSolutionText(),
-                ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(Ticket::getId).toList() : List.of(),
+                ticket.getRelatedTickets() != null ? ticket.getRelatedTickets().stream().map(t -> t.getId()).toList() : List.of(),
                 ticket.getTags() != null ? ticket.getTags().stream().toList() : List.of(),
                 ticket.getAdditionalUsers() != null ? ticket.getAdditionalUsers().stream().map(u -> u.getId()).toList() : List.of(),
                 ticket.getAsset() != null ? ticket.getAsset().getId() : null,

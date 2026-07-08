@@ -31,11 +31,13 @@ import java.util.UUID;
         @Index(name = "idx_access_credentials_appointment_id", columnList = "appointment_id"),
         @Index(name = "idx_access_credentials_cpf", columnList = "cpf")
     },
-    // Proteção de idempotência: apenas uma credencial por agendamento + tipo de usuário é permitida
+    // Proteção de idempotência: apenas uma credencial por agendamento + nome de pessoa é permitida.
+    // Permite múltiplos acompanhantes com nomes distintos, mas bloqueia inserções duplicadas
+    // do mesmo nome causadas por duplo clique no WhatsApp.
     uniqueConstraints = {
         @UniqueConstraint(
-            name = "uq_access_credentials_appointment_user_type",
-            columnNames = {"appointment_id", "user_type"}
+            name = "uq_access_credentials_appointment_name",
+            columnNames = {"appointment_id", "name"}
         )
     }
 )

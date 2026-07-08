@@ -3,14 +3,24 @@
 -- =============================================================================
 -- Contexto: Pacientes frequentemente clicam duas vezes nos botões de confirmação do
 -- WhatsApp, o que pode disparar webhooks paralelos idênticos. Esta constraint garante
--- que apenas uma credencial por (appointment_id, user_type) seja persistida no banco,
--- evitando duplicações silenciosas e mantendo o fluxo do Blip estável mesmo sob
--- condições de duplo clique ou retentativas.
+-- que apenas uma credencial por (appointment_id, name) seja persistida no banco.
 --
--- A escolha de (appointment_id, user_type) em vez de (appointment_id, cpf) garante
--- que acompanhantes sem CPF também sejam protegidos pela constraint composta.
+-- Regra de Negócio:
+--   - Um mesmo agendamento PODE ter múltiplos acompanhantes (COMPANION) com nomes
+--     diferentes. Ex: "Maria" e "João" podem ser cadastrados no mesmo agendamento.
+--   - O que não pode ocorrer é o mesmo nome sendo inserido duas vezes no mesmo
+--     agendamento — situação causada por duplo clique no WhatsApp.
+--
+-- Por que NÃO usar (appointment_id, user_type)?
+--   Essa combinação limitaria o agendamento a apenas 1 acompanhante. Se um paciente
+--   cadastrasse 2 acompanhantes, o segundo seria descartado silenciosamente pelo
+--   try-catch de idempotência — erro grave de regra de negócio.
+--
+-- Por que (appointment_id, name)?
+--   Permite múltiplos acompanhantes diferentes (nomes distintos), mas bloqueia a
+--   inserção duplicada do mesmo nome gerada por retentativas paralelas do webhook.
 -- =============================================================================
 
 ALTER TABLE access_credentials
-    ADD CONSTRAINT uq_access_credentials_appointment_user_type
-    UNIQUE (appointment_id, user_type);
+    ADD CONSTRAINT uq_access_credentials_appointment_name
+    UNIQUE (appointment_id, name);

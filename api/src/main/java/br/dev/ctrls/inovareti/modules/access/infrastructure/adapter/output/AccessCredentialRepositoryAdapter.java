@@ -48,8 +48,8 @@ public class AccessCredentialRepositoryAdapter implements AccessCredentialReposi
             // Captura idempotente: registro já existe (constraint de unicidade violada).
             // O duplo clique do paciente no WhatsApp disparou um webhook paralelo que
             // chegou primeiro. Engolimos o erro de forma limpa e registramos o aviso.
-            log.warn("[AccessCredential] Inserção duplicada ignorada por idempotência: appointmentId={}, userType={}, causa={}",
-                    entity.getAppointmentId(), entity.getUserType(), ex.getMostSpecificCause().getMessage());
+            log.warn("[AccessCredential] Inserção duplicada ignorada por idempotência: appointmentId={}, name={}, causa={}",
+                    entity.getAppointmentId(), entity.getName(), ex.getMostSpecificCause().getMessage());
             return entity;
         }
     }

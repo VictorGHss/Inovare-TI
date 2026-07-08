@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,21 @@ import java.util.concurrent.Future;
 @Service
 @RequiredArgsConstructor
 public class AccessService {
+
+    /**
+     * Fuso horário local da Clínica Inovare (Ponta Grossa-PR).
+     * Definido explicitamente aqui para blindar o serviço contra divergências de timezone
+     * em servidores de nuvem (UTC por padrão), garantindo que LocalDate.now(), as janelas
+     * de abertura (-2h) e o fechamento fixo (21:00) sempre reflitam a hora local da clínica.
+     */
+    private static final ZoneId CLINIC_ZONE = ZoneId.of("America/Sao_Paulo");
+
+    /**
+     * Formatador de data e hora imutável e thread-safe para integração com a GerAcesso API.
+     * Definido como constante estática para evitar instanciação repetida em alto volume de chamadas.
+     * Formato exigido pela GerAcesso: 'dd/MM/yyyy HH:mm'.
+     */
+    private static final DateTimeFormatter GERACESSO_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final FeegowClientPort feegowClientPort;
     private final AppointmentExternalPort appointmentExternalPort;
@@ -65,8 +81,9 @@ public class AccessService {
         try {
             accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
         } catch (Exception ex) {
-            log.warn("[AccessService] ERP Feegow indisponível ao buscar agendamento {}. Ativando Fallback Seguro. Causa: {}",
-                    appointmentId, ex.getMessage());
+            // Passando 'ex' como terceiro argumento do SLF4J para preservar o stacktrace completo nos logs de produção
+            log.warn("[AccessService] ERP Feegow indisponível ao buscar agendamento {}. Ativando Fallback Seguro.",
+                    appointmentId, ex);
             return new AccessValidationResult(false, null, null, true, "ERP Feegow temporária e indisponível. Solicite o CPF ao paciente.");
         }
         if (accessInfoOpt.isEmpty()) {
@@ -93,9 +110,11 @@ public class AccessService {
             return new AccessValidationResult(false, null, null, true, "CPF ausente. Necessita redirecionar fluxo Blip.");
         }
 
+        // Usa o timezone local explícito da clínica para garantir que LocalDate.now() reflita
+        // a data/hora local mesmo em servidores de nuvem configurados em UTC.
         LocalDate resolvedAppointmentDate = accessInfo.appointmentDate();
         if (resolvedAppointmentDate == null) {
-            resolvedAppointmentDate = LocalDate.now();
+            resolvedAppointmentDate = LocalDate.now(CLINIC_ZONE);
         }
         final LocalDate appointmentDate = resolvedAppointmentDate;
 
@@ -174,9 +193,10 @@ public class AccessService {
             log.info("[AccessService] Reutilizando credencial ativa existente para o CPF {}: {}", finalCpf, token);
         } else {
             // Constrói payload de requisição para registrar o Paciente Titular na GerAcesso
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-            String startVisit = LocalDateTime.of(appointmentDate, openingTime).format(formatter);
-            String endVisit = LocalDateTime.of(appointmentDate, closingTime).format(formatter);
+            // Usa a constante GERACESSO_DATE_FORMATTER (imutável e thread-safe) em vez de
+            // instanciar um novo DateTimeFormatter a cada chamada em alto volume.
+            String startVisit = LocalDateTime.of(appointmentDate, openingTime).format(GERACESSO_DATE_FORMATTER);
+            String endVisit = LocalDateTime.of(appointmentDate, closingTime).format(GERACESSO_DATE_FORMATTER);
 
             GerAcessoRequest titularRequest = GerAcessoRequest.builder()
                 .cpf(finalCpf)
@@ -273,9 +293,11 @@ public class AccessService {
             String appointmentId) {
 
         String companionCpf = companion.cpf() != null ? companion.cpf().replaceAll("\\D", "") : "";
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String startVisit = LocalDateTime.of(date, openingTime).format(formatter);
-        String endVisit = LocalDateTime.of(date, closingTime).format(formatter);
+        // Reutiliza a constante estática imutável GERACESSO_DATE_FORMATTER em vez de instanciar
+        // um novo DateTimeFormatter a cada chamada — evita alocação desnecessária em alto volume
+        // de webhooks concorrentes processados via Virtual Threads.
+        String startVisit = LocalDateTime.of(date, openingTime).format(GERACESSO_DATE_FORMATTER);
+        String endVisit = LocalDateTime.of(date, closingTime).format(GERACESSO_DATE_FORMATTER);
 
         GerAcessoRequest request = GerAcessoRequest.builder()
             .cpf(companionCpf)

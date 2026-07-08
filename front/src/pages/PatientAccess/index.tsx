@@ -107,6 +107,10 @@ export default function PatientAccess() {
 
   // Manipulação dos inputs dos dígitos de desafio com navegação automática entre campos
   const handleDigitChange = (index: number, val: string) => {
+    // Limpa a mensagem de erro imediatamente ao paciente começar a redigitar,
+    // evitando que a mensagem de erro da tentativa anterior fique travada na tela.
+    setChallengeError(null);
+
     const numericVal = val.replace(/\D/g, '');
     if (!numericVal) {
       const newDigits = [...digits];

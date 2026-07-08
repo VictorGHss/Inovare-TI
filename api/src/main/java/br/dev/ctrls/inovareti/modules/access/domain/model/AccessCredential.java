@@ -20,13 +20,15 @@ import java.util.UUID;
 
 /**
  * Entidade JPA para persistência de credenciais de acesso às catracas físicas.
+ * Traduzida para o inglês seguindo as Regras de Nomenclatura Cruciais.
+ * Comentários mantidos em PT-BR.
  */
 @Entity
 @Table(
-    name = "acesso_credencial",
+    name = "access_credentials",
     indexes = {
-        @Index(name = "idx_acesso_credencial_id_agendamento", columnList = "id_agendamento"),
-        @Index(name = "idx_acesso_credencial_cpf", columnList = "cpf")
+        @Index(name = "idx_access_credentials_appointment_id", columnList = "appointment_id"),
+        @Index(name = "idx_access_credentials_cpf", columnList = "cpf")
     }
 )
 @Getter
@@ -34,7 +36,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AcessoCredencial {
+public class AccessCredential {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -42,30 +44,30 @@ public class AcessoCredencial {
     private UUID id;
 
     @NotNull
-    @Column(name = "id_agendamento", nullable = false)
-    private String idAgendamento;
+    @Column(name = "appointment_id", nullable = false)
+    private String appointmentId;
 
     @NotNull
-    @Column(name = "nome", nullable = false)
-    private String nome;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "cpf")
     private String cpf;
 
     @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_usuario", nullable = false)
-    private TipoUsuario tipoUsuario;
+    @Column(name = "user_type", nullable = false)
+    private UserType userType;
 
     @NotNull
-    @Column(name = "credencial_ger_acesso", nullable = false)
-    private String credencialGerAcesso;
+    @Column(name = "access_credential", nullable = false)
+    private String accessCredential;
 
     @NotNull
-    @Column(name = "localizador", nullable = false)
-    private String localizador;
+    @Column(name = "locator", nullable = false)
+    private String locator;
 
     @NotNull
-    @Column(name = "data_criacao", nullable = false)
-    private LocalDateTime dataCriacao;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 }

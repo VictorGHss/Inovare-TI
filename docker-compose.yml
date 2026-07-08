@@ -64,6 +64,7 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SPRING_DATASOURCE_URL=${DB_URL}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - TZ=America/Sao_Paulo
       - JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -Xms1g -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication -Djdk.tracePinnedThreads=short
     expose:

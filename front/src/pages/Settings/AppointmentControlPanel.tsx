@@ -74,12 +74,23 @@ export default function AppointmentControlPanel() {
           {/* Seção de Status do Motor */}
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Status do Motor</h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${modeBadgeClass}`}>
-                {mode === 'TEST' ? 'TEST MODE' : 'PRODUCTION'}
-              </span>
-              {mode === 'TEST' && config?.testDoctorId && (
-                <span className="text-xs text-amber-700">Médico de teste: {config.testDoctorId}</span>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${modeBadgeClass}`}>
+                  {mode === 'TEST' ? 'TEST MODE' : 'PRODUCTION'}
+                </span>
+              </div>
+              {config?.testDoctorIds && config.testDoctorIds.length > 0 && (
+                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <span className="font-semibold text-amber-700 block mb-1">Médicos em Homologação (Teste):</span>
+                  <span className="font-mono">{config.testDoctorIds.join(', ')}</span>
+                </div>
+              )}
+              {config?.activeDoctorIds && config.activeDoctorIds.length > 0 && (
+                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <span className="font-semibold text-emerald-700 block mb-1">Médicos Ativos (Produção):</span>
+                  <span className="font-mono">{config.activeDoctorIds.join(', ')}</span>
+                </div>
               )}
             </div>
           </div>

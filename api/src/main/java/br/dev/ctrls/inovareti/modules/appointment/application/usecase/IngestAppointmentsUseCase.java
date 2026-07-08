@@ -402,25 +402,31 @@ public class IngestAppointmentsUseCase {
             Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache,
             FeegowPatient patientDetails) {
         
-        String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
-        var mapping = doctorMappingCache.get(appointment.doctorId());
-        String mappingQueue = mapping != null ? mapping.getBlipQueueId() : null;
-        String mappingProfessionalName = mapping != null ? mapping.getProfissionalNome() : null;
+        try {
+            AppointmentMotorProperties.setCurrentDoctorId(appointment.doctorId());
+            
+            String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
+            var mapping = doctorMappingCache.get(appointment.doctorId());
+            String mappingQueue = mapping != null ? mapping.getBlipQueueId() : null;
+            String mappingProfessionalName = mapping != null ? mapping.getProfissionalNome() : null;
 
-        String patientPhone = patientDetails != null ? patientDetails.phone() : null;
-        String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
-        if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
-            return false;
+            String patientPhone = patientDetails != null ? patientDetails.phone() : null;
+            String phoneNumber = normalizePhoneNumberForBlip(patientPhone);
+            if (patientPhone == null || patientPhone.isBlank() || phoneNumber.isBlank()) {
+                return false;
+            }
+
+            if (!isDoctorAllowed(appointment.doctorId())) {
+                return false;
+            }
+
+            AppointmentSession saved = saveSingleSession(feegowAppointmentId, appointment, phoneNumber);
+            if (saved == null) return false;
+
+            return dispatchSingleTemplate(saved, appointment, mappingQueue, mappingProfessionalName, phoneNumber, patientDetails);
+        } finally {
+            AppointmentMotorProperties.clearCurrentDoctorId();
         }
-
-        if (appointmentMotorProperties.isTestMode() && !isDoctorAllowedInTestMode(appointment.doctorId())) {
-            return false;
-        }
-
-        AppointmentSession saved = saveSingleSession(feegowAppointmentId, appointment, phoneNumber);
-        if (saved == null) return false;
-
-        return dispatchSingleTemplate(saved, appointment, mappingQueue, mappingProfessionalName, phoneNumber, patientDetails);
     }
 
     private AppointmentSession saveSingleSession(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber) {
@@ -512,142 +518,150 @@ public class IngestAppointmentsUseCase {
         if (normalizedPhone == null || normalizedPhone.isBlank()) {
             return 0;
         }
-        if (appointmentMotorProperties.isTestMode() && !isDoctorAllowedInTestMode(eligibleAppointments.get(0).doctorId())) {
-            return 0;
-        }
+        
+        String doctorId = eligibleAppointments.get(0).doctorId();
+        try {
+            AppointmentMotorProperties.setCurrentDoctorId(doctorId);
 
-        // Gera o groupId antes da transação para já associar nas sessões durante o primeiro save
-        UUID groupId = UUID.randomUUID();
-        String phoneNumber = normalizedPhone;
+            if (!isDoctorAllowed(doctorId)) {
+                return 0;
+            }
 
-        // OTIMIZAÇÃO: toda a persistência do grupo (sessões + NotificationGroup) em UMA transação única.
-        // currentGroupId e lastNotificationSentAt são setados ANTES do save, eliminando os loops
-        // separados de populateCurrentGroupIdOnSessions e updateSessionsNotificationTimestamp.
-        // Isso reduz o número de transações de banco de 9 (para grupo de 3 agendamentos) para 1.
-        GroupPersistenceResult result = transactionTemplate.execute(status -> {
-            List<AppointmentSession> savedSessions = new ArrayList<>();
+            // Gera o groupId antes da transação para já associar nas sessões durante o primeiro save
+            UUID groupId = UUID.randomUUID();
+            String phoneNumber = normalizedPhone;
 
-            for (FeegowAppointment appointment : eligibleAppointments) {
-                String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
-                if (feegowAppointmentId.isBlank()) continue;
-                try {
-                    Optional<AppointmentSession> latestOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
-                    AppointmentSession session = latestOpt.orElseGet(AppointmentSession::new);
+            // OTIMIZAÇÃO: toda a persistência do grupo (sessões + NotificationGroup) em UMA transação única.
+            // currentGroupId e lastNotificationSentAt são setados ANTES do save, eliminando os loops
+            // separados de populateCurrentGroupIdOnSessions e updateSessionsNotificationTimestamp.
+            // Isso reduz o número de transações de banco de 9 (para grupo de 3 agendamentos) para 1.
+            GroupPersistenceResult result = transactionTemplate.execute(status -> {
+                List<AppointmentSession> savedSessions = new ArrayList<>();
 
-                    // Sessões existentes em estado terminal são reutilizadas sem alterar status
-                    if (latestOpt.isPresent()) {
-                        AppointmentSessionStatus st = session.getStatus();
-                        if (st == AppointmentSessionStatus.PENDING || st == AppointmentSessionStatus.NUDGE_1_SENT ||
-                                st == AppointmentSessionStatus.NUDGE_FINAL_SENT || st == AppointmentSessionStatus.CONFIRMED) {
-                            // Atualiza apenas o groupId e o timestamp sem mudar status
-                            session.setCurrentGroupId(groupId);
-                            session.setLastNotificationSentAt(LocalDateTime.now());
-                            savedSessions.add(appointmentSessionRepository.save(session));
-                            continue;
+                for (FeegowAppointment appointment : eligibleAppointments) {
+                    String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
+                    if (feegowAppointmentId.isBlank()) continue;
+                    try {
+                        Optional<AppointmentSession> latestOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
+                        AppointmentSession session = latestOpt.orElseGet(AppointmentSession::new);
+
+                        // Sessões existentes em estado terminal são reutilizadas sem alterar status
+                        if (latestOpt.isPresent()) {
+                            AppointmentSessionStatus st = session.getStatus();
+                            if (st == AppointmentSessionStatus.PENDING || st == AppointmentSessionStatus.NUDGE_1_SENT ||
+                                    st == AppointmentSessionStatus.NUDGE_FINAL_SENT || st == AppointmentSessionStatus.CONFIRMED) {
+                                // Atualiza apenas o groupId e o timestamp sem mudar status
+                                session.setCurrentGroupId(groupId);
+                                session.setLastNotificationSentAt(LocalDateTime.now());
+                                savedSessions.add(appointmentSessionRepository.save(session));
+                                continue;
+                            }
                         }
+
+                        // Configura todos os campos da sessão em memória — apenas um save ao banco
+                        session.setFeegowAppointmentId(feegowAppointmentId);
+                        session.setPatientId(appointment.patientId());
+                        session.setPhoneNumber(phoneNumber);
+                        session.setDoctorProfissionalId(appointment.doctorId());
+                        session.setAppointmentAt(appointment.startAt());
+                        session.setStatus(AppointmentSessionStatus.PENDING);
+                        session.setLastInteractionAt(LocalDateTime.now());
+                        session.setClosedAt(null);
+                        session.setStatusDetails(null);
+                        // Já inclui groupId e timestamp para evitar updates separados posteriormente
+                        session.setCurrentGroupId(groupId);
+                        session.setLastNotificationSentAt(LocalDateTime.now());
+
+                        savedSessions.add(appointmentSessionRepository.save(session));
+                    } catch (RuntimeException ex) {
+                        log.error("[GRUPO] Falha ao persistir sessão para feegowId={}.", feegowAppointmentId, ex);
                     }
-
-                    // Configura todos os campos da sessão em memória — apenas um save ao banco
-                    session.setFeegowAppointmentId(feegowAppointmentId);
-                    session.setPatientId(appointment.patientId());
-                    session.setPhoneNumber(phoneNumber);
-                    session.setDoctorProfissionalId(appointment.doctorId());
-                    session.setAppointmentAt(appointment.startAt());
-                    session.setStatus(AppointmentSessionStatus.PENDING);
-                    session.setLastInteractionAt(LocalDateTime.now());
-                    session.setClosedAt(null);
-                    session.setStatusDetails(null);
-                    // Já inclui groupId e timestamp para evitar updates separados posteriormente
-                    session.setCurrentGroupId(groupId);
-                    session.setLastNotificationSentAt(LocalDateTime.now());
-
-                    savedSessions.add(appointmentSessionRepository.save(session));
-                } catch (RuntimeException ex) {
-                    log.error("[GRUPO] Falha ao persistir sessão para feegowId={}.", feegowAppointmentId, ex);
                 }
+
+                if (savedSessions.size() < 2) {
+                    log.warn("[GRUPO] Menos de 2 sessões válidas para groupId={}. Abortando grupo.", groupId);
+                    status.setRollbackOnly();
+                    return new GroupPersistenceResult(List.of(), null);
+                }
+
+                // Pré-compila o texto da lista de agendamentos para o contexto do Blip
+                String preCompiledText;
+                try {
+                    preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions, patientDetailsCache);
+                } catch (Exception ex) {
+                    log.error("[GRUPO] Erro ao compilar lista detalhada para groupId={}.", groupId, ex);
+                    status.setRollbackOnly();
+                    return new GroupPersistenceResult(List.of(), null);
+                }
+
+                // Persiste os NotificationGroup dentro da mesma transação
+                List<NotificationGroup> groupEntities = savedSessions.stream()
+                    .map(s -> NotificationGroup.builder()
+                        .groupId(groupId)
+                        .sessionId(s.getId())
+                        .phoneNumber(phoneNumber)
+                        .createdAt(LocalDateTime.now())
+                        .preCompiledScheduleText(preCompiledText)
+                        .build())
+                    .toList();
+                try {
+                    notificationGroupRepository.saveAll(groupEntities);
+                    log.info("[GRUPO] Sessões + NotificationGroup persistidos em transação única. groupId={}, qtd={}",
+                        groupId, savedSessions.size());
+                } catch (RuntimeException ex) {
+                    log.error("[GRUPO] Falha ao salvar NotificationGroup para groupId={}.", groupId, ex);
+                    status.setRollbackOnly();
+                    return new GroupPersistenceResult(List.of(), null);
+                }
+
+                return new GroupPersistenceResult(savedSessions, preCompiledText);
+            });
+
+            if (result == null || result.savedSessions().isEmpty()) {
+                return 0;
             }
 
-            if (savedSessions.size() < 2) {
-                log.warn("[GRUPO] Menos de 2 sessões válidas para groupId={}. Abortando grupo.", groupId);
-                status.setRollbackOnly();
-                return new GroupPersistenceResult(List.of(), null);
-            }
+            String finalPatientName = (patientDetails != null && patientDetails.name() != null)
+                ? patientDetails.name().trim() : "Paciente";
 
-            // Pré-compila o texto da lista de agendamentos para o contexto do Blip
-            String preCompiledText;
-            try {
-                preCompiledText = blipAppointmentFormatter.buildListaDetalhada(savedSessions, patientDetailsCache);
-            } catch (Exception ex) {
-                log.error("[GRUPO] Erro ao compilar lista detalhada para groupId={}.", groupId, ex);
-                status.setRollbackOnly();
-                return new GroupPersistenceResult(List.of(), null);
-            }
+            // OTIMIZAÇÃO: contexto do Blip configurado em background (fire-and-forget).
+            // O paciente leva minutos para abrir o WhatsApp — o contexto sempre estará disponível.
+            // O Semaphore garante no máximo 'blipIngestConcurrency' chamadas simultâneas ao Blip.
+            final String preText = result.preCompiledText();
+            CompletableFuture.runAsync(() -> {
+                try {
+                    blipSemaphore.acquire();
+                    try {
+                        setGroupContextDuringIngestion(phoneNumber, groupId, preText);
+                    } finally {
+                        blipSemaphore.release();
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[GRUPO] Interrompido aguardando semáforo para contexto Blip. groupId={}", groupId);
+                }
+            }, applicationTaskExecutor);
 
-            // Persiste os NotificationGroup dentro da mesma transação
-            List<NotificationGroup> groupEntities = savedSessions.stream()
-                .map(s -> NotificationGroup.builder()
-                    .groupId(groupId)
-                    .sessionId(s.getId())
-                    .phoneNumber(phoneNumber)
-                    .createdAt(LocalDateTime.now())
-                    .preCompiledScheduleText(preCompiledText)
-                    .build())
-                .toList();
-            try {
-                notificationGroupRepository.saveAll(groupEntities);
-                log.info("[GRUPO] Sessões + NotificationGroup persistidos em transação única. groupId={}, qtd={}",
-                    groupId, savedSessions.size());
-            } catch (RuntimeException ex) {
-                log.error("[GRUPO] Falha ao salvar NotificationGroup para groupId={}.", groupId, ex);
-                status.setRollbackOnly();
-                return new GroupPersistenceResult(List.of(), null);
-            }
-
-            return new GroupPersistenceResult(savedSessions, preCompiledText);
-        });
-
-        if (result == null || result.savedSessions().isEmpty()) {
-            return 0;
-        }
-
-        String finalPatientName = (patientDetails != null && patientDetails.name() != null)
-            ? patientDetails.name().trim() : "Paciente";
-
-        // OTIMIZAÇÃO: contexto do Blip configurado em background (fire-and-forget).
-        // O paciente leva minutos para abrir o WhatsApp — o contexto sempre estará disponível.
-        // O Semaphore garante no máximo 'blipIngestConcurrency' chamadas simultâneas ao Blip.
-        final String preText = result.preCompiledText();
-        CompletableFuture.runAsync(() -> {
+            // Envia o template imediatamente, sem esperar o contexto subir
             try {
                 blipSemaphore.acquire();
                 try {
-                    setGroupContextDuringIngestion(phoneNumber, groupId, preText);
+                    log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
+                    blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
                 } finally {
                     blipSemaphore.release();
                 }
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
-                log.warn("[GRUPO] Interrompido aguardando semáforo para contexto Blip. groupId={}", groupId);
+                log.warn("[GRUPO] Interrompido aguardando semáforo para envio de template. groupId={}", groupId);
+            } catch (Exception e) {
+                log.error("[ERRO-CRITICO-GRUPO] Falha ao enviar template para {}. groupId={}", phoneNumber, groupId, e);
             }
-        }, applicationTaskExecutor);
 
-        // Envia o template imediatamente, sem esperar o contexto subir
-        try {
-            blipSemaphore.acquire();
-            try {
-                log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
-                blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
-            } finally {
-                blipSemaphore.release();
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            log.warn("[GRUPO] Interrompido aguardando semáforo para envio de template. groupId={}", groupId);
-        } catch (Exception e) {
-            log.error("[ERRO-CRITICO-GRUPO] Falha ao enviar template para {}. groupId={}", phoneNumber, groupId, e);
+            return result.savedSessions().size();
+        } finally {
+            AppointmentMotorProperties.clearCurrentDoctorId();
         }
-
-        return result.savedSessions().size();
     }
 
 
@@ -754,24 +768,16 @@ public class IngestAppointmentsUseCase {
         }
     }
 
-    private boolean isDoctorAllowedInTestMode(String doctorId) {
-        if (!appointmentMotorProperties.isTestMode()) {
+    private boolean isDoctorAllowed(String doctorId) {
+        String docId = doctorId != null ? doctorId.trim() : "";
+        if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {
             return true;
         }
-        String testDoctorId = appointmentMotorProperties.getTestModeDoctorIds();
-        if (testDoctorId == null || testDoctorId.isBlank()) {
-            testDoctorId = appointmentMotorProperties.getTestDoctorId();
+        if (appointmentMotorProperties.getActiveDoctorIds().contains(docId)) {
+            return !appointmentMotorProperties.isGlobalTestMode();
         }
-        if (testDoctorId == null || testDoctorId.isBlank()) {
-            return false;
-        }
-        java.util.List<String> allowedIds = java.util.Arrays.stream(testDoctorId.split(","))
-                .map(id -> id.trim())
-                .filter(id -> !id.isEmpty())
-                .toList();
-        
-        String docId = doctorId != null ? doctorId.trim() : "";
-        return allowedIds.contains(docId);
+        log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste (test-doctor-ids) nem de produção (active-doctor-ids). Ignorando.", doctorId);
+        return false;
     }
 
     private String normalizeFeegowAppointmentId(String feegowAppointmentId) {

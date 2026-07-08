@@ -71,7 +71,9 @@ public class AppointmentMotorController {
         return ResponseEntity.ok(Map.of(
                 "enabled", appointmentMotorProperties.isEnabled(),
                 "testMode", appointmentMotorProperties.isTestMode(),
-                "testDoctorId", appointmentMotorProperties.getTestDoctorId(),
+                "testDoctorId", appointmentMotorProperties.getTestDoctorId() != null ? appointmentMotorProperties.getTestDoctorId() : "",
+                "testDoctorIds", appointmentMotorProperties.getTestDoctorIds() != null ? appointmentMotorProperties.getTestDoctorIds() : java.util.List.of(),
+                "activeDoctorIds", appointmentMotorProperties.getActiveDoctorIds() != null ? appointmentMotorProperties.getActiveDoctorIds() : java.util.List.of(),
                 "mode", mode));
     }
 

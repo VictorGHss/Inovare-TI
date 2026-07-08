@@ -19,6 +19,30 @@ public class AppointmentMotorProperties {
     private boolean testMode;
     private String testDoctorId;
     private String testModeDoctorIds;
+    private java.util.List<String> testDoctorIds = new java.util.ArrayList<>();
+    private java.util.List<String> activeDoctorIds = new java.util.ArrayList<>();
+
+    private static final ThreadLocal<String> CURRENT_DOCTOR_ID = new ThreadLocal<>();
+
+    public static void setCurrentDoctorId(String doctorId) {
+        CURRENT_DOCTOR_ID.set(doctorId);
+    }
+
+    public static void clearCurrentDoctorId() {
+        CURRENT_DOCTOR_ID.remove();
+    }
+
+    public boolean isGlobalTestMode() {
+        return this.testMode;
+    }
+
+    public boolean isTestMode() {
+        String docId = CURRENT_DOCTOR_ID.get();
+        if (docId != null) {
+            return testDoctorIds.contains(docId);
+        }
+        return this.testMode;
+    }
     private String blipTemplateConfirmation;
     private String blipTemplateNudgePending;
     private String blipTemplateGroup;

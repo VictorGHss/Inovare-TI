@@ -133,7 +133,10 @@ app:
 
       monitor-cron: ${APP_APPOINTMENT_MOTOR_MONITOR_CRON:0 0/30 * * * *}
       test-mode: ${APP_APPOINTMENT_MOTOR_TEST_MODE:true}
-      test-doctor-id: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}
+      test-doctor-id: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_IDS}
+      test-mode-doctor-ids: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_IDS}
+      test-doctor-ids: ${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_IDS}
+      active-doctor-ids: ${APP_APPOINTMENT_MOTOR_ACTIVE_DOCTOR_IDS}
       test-phone: ${APP_APPOINTMENT_MOTOR_TEST_PHONE:}
       feegow-startup-probe-enabled: ${APP_APPOINTMENT_FEEGOW_STARTUP_PROBE_ENABLED:true}
       feegow-base-url: ${APP_APPOINTMENT_FEEGOW_BASE_URL:https://api.feegow.com.br}

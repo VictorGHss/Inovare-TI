@@ -5,6 +5,8 @@ export interface AppointmentMotorConfig {
   enabled: boolean;
   testMode: boolean;
   testDoctorId: string;
+  testDoctorIds: string[];
+  activeDoctorIds: string[];
   mode: 'TEST' | 'PROD';
 }
 

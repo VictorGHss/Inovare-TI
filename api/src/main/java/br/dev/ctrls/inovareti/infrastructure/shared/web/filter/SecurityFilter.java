@@ -91,6 +91,11 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.equals("/ws/")
             || requestUri.equals("/api/ws/");
 
+        boolean isAccessPath = requestUri.startsWith("/v1/access/")
+            || requestUri.startsWith("/api/v1/access/")
+            || requestUri.equals("/v1/access")
+            || requestUri.equals("/api/v1/access");
+
         return isAuthPath
             || isContaAzulPath
             || requestUri.equals(BLIP_WEBHOOK_PATH)
@@ -109,7 +114,8 @@ public class SecurityFilter extends OncePerRequestFilter {
             || requestUri.equals(APPOINTMENT_DEBUG_QUEUES_PATH)
             || requestUri.equals("/api" + APPOINTMENT_DEBUG_QUEUES_PATH)
             || isPrometheusPath
-            || isWebSocketPath;
+            || isWebSocketPath
+            || isAccessPath;
     }
 
     @Override

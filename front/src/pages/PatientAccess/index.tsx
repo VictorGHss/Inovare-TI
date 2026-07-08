@@ -4,7 +4,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { 
   Calendar, 
   Clock, 
-  User, 
   ShieldCheck, 
   RefreshCw, 
   ArrowRight,
@@ -16,18 +15,29 @@ import {
   Github,
   Maximize2
 } from 'lucide-react';
+import api from '../../services/api';
+
+/**
+ * Interface representando a credencial física retornada pelo backend.
+ * Todos os campos escritos em inglês conforme as regras de nomenclatura do projeto.
+ */
+interface AccessCredential {
+  name: string;
+  userType: 'PATIENT' | 'COMPANION';
+  locator: string;
+  credentialCode: string;
+}
 
 export default function PatientAccess() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
 
-  useEffect(() => {
-    console.log("[PatientAccess] Carregando acesso para o agendamento ID:", appointmentId);
-  }, [appointmentId]);
-  
-  // Controle de fluxo
-  const [unlocked, setUnlocked] = useState(false);
-  
-  // Digitos de validação secundária
+  // Estados de controle de dados e tela
+  const [credentials, setCredentials] = useState<AccessCredential[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+  const [unlocked, setUnlocked] = useState<boolean>(false);
+
+  // Dígitos de validação secundária (LGPD) - Mock no client side conforme especificação
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const inputRefs = [
     useRef<HTMLInputElement>(null),
@@ -36,19 +46,40 @@ export default function PatientAccess() {
     useRef<HTMLInputElement>(null)
   ];
 
-  // Dados dos QR codes rotativos (Efêmeros)
-  const [secondsLeft, setSecondsLeft] = useState(300);
-  const [uuid1, setUuid1] = useState('ea544b1e-bf09-48b4-2e68-1a0fd2476899');
-  const [uuid2, setUuid2] = useState('b61cf82b-734f-4545-b037-1caa13223c3d');
-
   // Controle de QR Code em tela cheia
-  const [fullscreenCard, setFullscreenCard] = useState<'titular' | 'acompanhante' | null>(null);
+  const [fullscreenCard, setFullscreenCard] = useState<number | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const openFullscreen = (cardType: 'titular' | 'acompanhante') => {
-    setFullscreenCard(cardType);
-    
-    // Tenta usar API do navegador para tela cheia nativa
+  // Controle do carrossel/slide
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Busca as credenciais de acesso para o agendamento informado.
+   * Comentários mantidos em PT-BR pelas Regras de Ouro.
+   */
+  const fetchCredentials = async () => {
+    if (!appointmentId) return;
+    setLoading(true);
+    setError(false);
+    try {
+      console.log("[PatientAccess] Buscando credenciais para o agendamento:", appointmentId);
+      const response = await api.get<AccessCredential[]>(`/v1/access/credentials/${appointmentId}`);
+      setCredentials(response.data || []);
+    } catch (err) {
+      console.error("[PatientAccess] Falha ao carregar credenciais:", err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCredentials();
+  }, [appointmentId]);
+
+  const openFullscreen = (index: number) => {
+    setFullscreenCard(index);
     setTimeout(() => {
       if (modalRef.current && modalRef.current.requestFullscreen) {
         modalRef.current.requestFullscreen().catch(() => {});
@@ -64,11 +95,12 @@ export default function PatientAccess() {
   };
 
   const getFullscreenData = () => {
-    if (fullscreenCard === 'titular') {
-      return { value: uuid1, title: "Acesso do Titular: Victor" };
-    }
-    if (fullscreenCard === 'acompanhante') {
-      return { value: uuid2, title: "Acesso do Acompanhante: Teste" };
+    if (fullscreenCard !== null && credentials[fullscreenCard]) {
+      const cred = credentials[fullscreenCard];
+      return { 
+        value: cred.credentialCode, 
+        title: `Acesso do ${cred.userType === 'PATIENT' ? 'Titular' : 'Acompanhante'}: ${cred.name}` 
+      };
     }
     return null;
   };
@@ -82,44 +114,13 @@ export default function PatientAccess() {
         setFullscreenCard(null);
       }
     };
-
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
 
-  // Controle do carrossel/slide
-  const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Efeito para decrementar o timer do QR Code rotativo
-  useEffect(() => {
-    if (!unlocked) return;
-    
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          // Quando expira, gera novos UUIDs mocks e reinicia o timer
-          setUuid1(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) + '-' + Math.random().toString(36).substring(2, 15));
-          setUuid2(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) + '-' + Math.random().toString(36).substring(2, 15));
-          return 300;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [unlocked]);
-
-  // Formata o timer em MM:SS
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
-  // Manipulação de inputs dos dígitos do telefone
+  // Manipulação de inputs dos dígitos do telefone para LGPD
   const handleDigitChange = (index: number, val: string) => {
     const numericVal = val.replace(/\D/g, '');
     if (!numericVal) {
@@ -132,7 +133,6 @@ export default function PatientAccess() {
     newDigits[index] = numericVal.substring(numericVal.length - 1);
     setDigits(newDigits);
 
-    // Foca no próximo input se preenchido
     if (index < 3) {
       inputRefs[index + 1].current?.focus();
     }
@@ -159,9 +159,8 @@ export default function PatientAccess() {
     const container = e.currentTarget;
     const scrollLeft = container.scrollLeft;
     const width = container.clientWidth;
-    // Calcula o index ativo com base na metade da rolagem do card
     const index = Math.round(scrollLeft / (width * 0.85));
-    setActiveCardIndex(Math.min(Math.max(index, 0), 1));
+    setActiveCardIndex(Math.min(Math.max(index, 0), credentials.length - 1));
   };
 
   const scrollToCard = (index: number) => {
@@ -177,19 +176,53 @@ export default function PatientAccess() {
 
   const isFormComplete = digits.every(d => d !== '');
 
-  // --- PASSO 1: TELA DE VALIDAÇÃO DE SEGURANÇA (LGPD) ---
+  // 1. ESTADO DE CARREGAMENTO (LOADING)
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans antialiased">
+        <div className="w-full max-w-md bg-white border border-brand-secondary/35 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center gap-4 text-center min-h-[300px]">
+          <RefreshCw className="w-10 h-10 animate-spin text-brand-primary" />
+          <h3 className="text-md font-bold text-slate-800">Carregando informações de acesso...</h3>
+          <p className="text-xs text-slate-400">Por favor, aguarde um instante.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. ESTADO DE ERRO (ERROR)
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans antialiased">
+        <div className="w-full max-w-md bg-white border border-brand-secondary/35 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center gap-4 text-center min-h-[300px]">
+          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+            <Info className="w-6 h-6" />
+          </div>
+          <h3 className="text-md font-bold text-slate-800">Falha ao carregar credenciais</h3>
+          <p className="text-xs text-slate-500">
+            Não foi possível recuperar seus dados de acesso neste momento. Por favor, fale com a recepção do edifício Inovare.
+          </p>
+          <button 
+            onClick={fetchCredentials}
+            className="mt-4 px-5 py-2.5 bg-brand-primary text-white hover:bg-brand-primary-dark font-bold rounded-xl text-xs transition-colors cursor-pointer"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. TELA DE VALIDAÇÃO DE SEGURANÇA (LGPD MOCKUP)
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-secondary/35 via-slate-50 to-white flex items-center justify-center p-4 font-sans antialiased">
         <div className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-3xl shadow-xl shadow-brand-primary/5 border border-white/60 p-8 flex flex-col justify-between min-h-[520px] transition-all">
-          {/* Logo da Clínica */}
           <div className="text-center">
             <img 
               src="/Logo.png" 
               alt="Logo Inovare" 
               className="h-14 w-auto mx-auto mb-6 object-contain"
               onError={(e) => {
-                // Fallback caso a imagem falhe ao carregar
                 e.currentTarget.src = 'https://placehold.co/180x60/feb56c/ffffff?text=Inovare+TI';
               }}
             />
@@ -205,7 +238,6 @@ export default function PatientAccess() {
             </p>
           </div>
 
-          {/* Formulário de Código */}
           <form onSubmit={handleValidate} className="mt-8 flex-1 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex justify-center gap-3.5">
@@ -227,7 +259,7 @@ export default function PatientAccess() {
               </div>
               <p className="text-xs text-slate-400 text-center flex items-center justify-center gap-1">
                 <Info className="w-3.5 h-3.5 text-brand-primary" />
-                Regra: digite qualquer valor de 4 dígitos para testar
+                Dica: Digite qualquer combinação de 4 dígitos para testar
               </p>
             </div>
 
@@ -249,10 +281,13 @@ export default function PatientAccess() {
     );
   }
 
-  // --- PASSO 2: EXIBIÇÃO DOS DADOS E CARROSSEL DE QR CODES ---
+  // Identifica a credencial do paciente titular para os detalhes superiores
+  const patientCredential = credentials.find(c => c.userType === 'PATIENT') || credentials[0];
+
+  // 4. TELA PRINCIPAL (CARROSSEL DE CREDENCIAIS / CONTINGÊNCIA ARRAY VAZIO)
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans antialiased">
-      {/* Container Centralizado para Simular Mobile (Mobile-First Mockup) */}
+      {/* Container Centralizado para Simulação Mobile (Mobile-First) */}
       <div className="w-full max-w-md bg-white shadow-2xl shadow-brand-primary/5 border-x border-brand-secondary/35 flex flex-col min-h-screen mx-auto relative">
         
         {/* Header Superior */}
@@ -274,191 +309,163 @@ export default function PatientAccess() {
         {/* Conteúdo Principal */}
         <main className="flex-1 px-5 py-6 space-y-6 overflow-y-auto pb-12 bg-gradient-to-b from-white via-slate-50/50 to-slate-50">
           
-          {/* Saudação Inicial */}
+          {/* Saudação Inicial baseada no Paciente Titular */}
           <div className="space-y-1">
-            <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Olá, Victor!</h1>
-            <p className="text-xs text-slate-400 font-medium">Aqui estão seus cartões para liberação das catracas.</p>
+            <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              Olá{patientCredential ? `, ${patientCredential.name.split(' ')[0]}` : ''}!
+            </h1>
+            <p className="text-xs text-slate-400 font-medium">Aqui estão seus cartões para liberação das catracas físicas.</p>
           </div>
 
-          {/* Card 1: Informações do Agendamento (Feegow Data) */}
-          <div className="bg-gradient-to-br from-white via-brand-secondary/5 to-white border border-brand-primary/35 rounded-3xl p-5 space-y-4 shadow-sm shadow-brand-primary/5">
-            <div className="flex items-center justify-between border-b border-brand-secondary/30 pb-3">
-              <span className="text-xs text-brand-primary-dark font-extrabold tracking-wider uppercase">Detalhes da Consulta</span>
-              <Calendar className="w-4 h-4 text-brand-primary" />
-            </div>
-
-            <div className="space-y-3.5">
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Paciente Principal</span>
-                <span className="text-sm font-extrabold text-slate-700">VICTOR GABRIEL DE OLIVEIRA HASS</span>
+          {/* Cartão de Detalhes da Consulta */}
+          {patientCredential && (
+            <div className="bg-gradient-to-br from-white via-brand-secondary/5 to-white border border-brand-primary/35 rounded-3xl p-5 space-y-4 shadow-sm shadow-brand-primary/5">
+              <div className="flex items-center justify-between border-b border-brand-secondary/30 pb-3">
+                <span className="text-xs text-brand-primary-dark font-extrabold tracking-wider uppercase">Detalhes da Consulta</span>
+                <Calendar className="w-4 h-4 text-brand-primary" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3.5">
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">CPF</span>
-                  <span className="text-xs font-semibold text-slate-600">***.916.171-**</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nascimento</span>
-                  <span className="text-xs font-semibold text-slate-600">26/10/2004</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 border-t border-brand-secondary/30 pt-3">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Data</span>
-                  <span className="text-xs font-bold text-brand-primary-dark bg-brand-secondary/30 px-2 py-0.5 rounded-md inline-block mt-0.5 font-sans">
-                    Hoje
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Horário</span>
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1 mt-1">
-                    <Clock className="w-3.5 h-3.5 text-brand-primary" />
-                    14:00
-                  </span>
-                </div>
-              </div>
-
-              <div className="border-t border-brand-secondary/30 pt-3">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Médico / Especialidade</span>
-                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mt-1">
-                  <User className="w-3.5 h-3.5 text-brand-primary" />
-                  Dr. Antonio Carlos Trevisan
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Carrossel de QR Codes (Rolagem horizontal controlada) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">Cartões de Acesso (Catraca)</h3>
-              <span className="text-[10px] bg-brand-secondary/40 text-brand-primary-dark rounded-full px-2.5 py-0.5 font-bold">
-                Deslize para o lado
-              </span>
-            </div>
-
-            {/* Container do Slide (Com snap) */}
-            <div 
-              ref={scrollRef}
-              onScroll={handleScroll}
-              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none px-1 py-2"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {/* Card 1: Titular */}
-              <div className="w-[88%] shrink-0 snap-center bg-white border border-brand-secondary/20 shadow-lg shadow-brand-primary/5 rounded-3xl p-5 flex flex-col items-center justify-between border-t-4 border-t-brand-primary">
-                <div className="text-center w-full">
-                  <span className="text-[10px] font-bold tracking-wider text-brand-primary uppercase block">Cartão 1</span>
-                  <h4 className="text-sm font-bold text-slate-800 mt-0.5">Acesso do Titular: Victor</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Passe na leitora ao entrar</p>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Paciente Principal</span>
+                  <span className="text-sm font-extrabold text-slate-700">{patientCredential.name}</span>
                 </div>
 
-                {/* QR Code Container */}
-                <div className="my-5 p-5 border border-dashed border-brand-primary/40 rounded-2xl bg-brand-secondary/5 flex items-center justify-center relative">
-                  {/* QR Code com alto contraste para facilitar leitura óptica */}
-                  <QRCodeSVG 
-                    value={uuid1} 
-                    size={160} 
-                    fgColor="#1e293b" // Escuro para facilidade na leitura óptica do leitor da catraca
-                    bgColor="#f8fafc"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center justify-center">
-                    <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-ping"></span>
-                    <span className="absolute w-2.5 h-2.5 rounded-full bg-brand-primary"></span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Localizador Principal</span>
+                    <span className="text-xs font-semibold text-slate-600">{patientCredential.locator}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Data do Acesso</span>
+                    <span className="text-xs font-bold text-brand-primary-dark bg-brand-secondary/30 px-2 py-0.5 rounded-md inline-block mt-0.5 font-sans">
+                      Hoje
+                    </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
 
-                {/* Validade e Rotação */}
-                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-brand-secondary/15 rounded-xl py-2 px-3 border border-brand-primary/10 mb-3">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-primary-dark" style={{ animationDuration: '6s' }} />
-                  <span className="text-[10px] font-medium tracking-wide">
-                    Código expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b>
+          {/* Fluxo Condicional: Carrossel de Credenciais vs Mensagem de Contingência */}
+          {credentials.length === 0 ? (
+            /* cenário de contingência (array vazio: cadastro em segundo plano no servidor) */
+            <div className="bg-brand-secondary/10 border border-brand-primary/20 rounded-3xl p-6 text-center space-y-4 shadow-sm">
+              <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto text-brand-primary animate-pulse">
+                <Clock className="w-8 h-8" />
+              </div>
+              <h3 className="text-md font-bold text-slate-800">Acesso em Processamento</h3>
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Seu acesso prévio está em processamento. 📲 Caso a catraca não libere automaticamente ao chegar, informe seu nome na recepção para liberação imediata!
+              </p>
+            </div>
+          ) : (
+            /* Carrossel de cartões */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800">Cartões de Acesso (Catraca)</h3>
+                {credentials.length > 1 && (
+                  <span className="text-[10px] bg-brand-secondary/40 text-brand-primary-dark rounded-full px-2.5 py-0.5 font-bold">
+                    Deslize para o lado ({activeCardIndex + 1}/{credentials.length})
                   </span>
-                </div>
-
-                {/* Botão de Tela Cheia */}
-                <button 
-                  onClick={() => openFullscreen('titular')}
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-brand-primary" />
-                  Ampliar QR Code
-                </button>
+                )}
               </div>
 
-              {/* Card 2: Acompanhante */}
-              <div className="w-[88%] shrink-0 snap-center bg-white border border-brand-secondary/20 shadow-lg shadow-brand-primary/5 rounded-3xl p-5 flex flex-col items-center justify-between border-t-4 border-t-brand-primary-dark">
-                <div className="text-center w-full">
-                  <span className="text-[10px] font-bold tracking-wider text-brand-primary-dark uppercase block">Cartão 2</span>
-                  <h4 className="text-sm font-bold text-slate-800 mt-0.5">Acesso do Acompanhante: Teste</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Passe na leitora em seguida</p>
-                </div>
+              {/* Slider de rolagem horizontal com snap CSS */}
+              <div 
+                ref={scrollRef}
+                onScroll={handleScroll}
+                className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none px-1 py-2"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {credentials.map((cred, idx) => (
+                  <div 
+                    key={idx}
+                    className={`w-[88%] shrink-0 snap-center bg-white border border-brand-secondary/20 shadow-lg shadow-brand-primary/5 rounded-3xl p-5 flex flex-col items-center justify-between border-t-4 ${
+                      cred.userType === 'PATIENT' ? 'border-t-brand-primary' : 'border-t-brand-primary-dark'
+                    }`}
+                  >
+                    <div className="text-center w-full">
+                      <span className="text-[10px] font-bold tracking-wider text-brand-primary uppercase block">
+                        Cartão {idx + 1}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-800 mt-0.5">{cred.name}</h4>
+                      
+                      {/* Tag do Tipo de Usuário em inglês com estilo premium */}
+                      <span className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full mt-1.5 ${
+                        cred.userType === 'PATIENT' 
+                          ? 'bg-brand-primary/10 text-brand-primary-dark' 
+                          : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                      }`}>
+                        {cred.userType === 'PATIENT' ? 'Paciente' : 'Acompanhante'}
+                      </span>
+                    </div>
 
-                {/* QR Code Container */}
-                <div className="my-5 p-5 border border-dashed border-brand-primary-dark/40 rounded-2xl bg-brand-secondary/5 flex items-center justify-center relative">
-                  <QRCodeSVG 
-                    value={uuid2} 
-                    size={160} 
-                    fgColor="#1e293b"
-                    bgColor="#f8fafc"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center justify-center">
-                    <span className="w-2.5 h-2.5 rounded-full bg-brand-primary-dark animate-ping"></span>
-                    <span className="absolute w-2.5 h-2.5 rounded-full bg-brand-primary-dark"></span>
+                    {/* QR Code Container contendo estritamente o código numérico */}
+                    <div className="my-5 p-5 border border-dashed border-slate-200 rounded-2xl bg-slate-55 flex items-center justify-center relative">
+                      <QRCodeSVG 
+                        value={cred.credentialCode} 
+                        size={160} 
+                        fgColor="#0f172a" 
+                        bgColor="#ffffff"
+                      />
+                      <div className="absolute top-2 right-2 flex items-center justify-center">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span className="absolute w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      </div>
+                    </div>
+
+                    {/* Localizador em texto para suporte administrativo */}
+                    <div className="w-full text-center bg-slate-50 rounded-xl py-2 px-3 border border-slate-100 mb-3">
+                      <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">Localizador Catraca</span>
+                      <span className="text-xs font-bold text-slate-700 font-mono">{cred.locator}</span>
+                    </div>
+
+                    {/* Ações adicionais */}
+                    <button 
+                      onClick={() => openFullscreen(idx)}
+                      className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-brand-primary" />
+                      Ampliar QR Code
+                    </button>
                   </div>
-                </div>
-
-                {/* Validade e Rotação */}
-                <div className="w-full flex items-center justify-center gap-1.5 text-slate-500 bg-brand-secondary/15 rounded-xl py-2 px-3 border border-brand-primary-dark/10 mb-3">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-primary-dark" style={{ animationDuration: '6s' }} />
-                  <span className="text-[10px] font-medium tracking-wide">
-                    Código expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b>
-                  </span>
-                </div>
-
-                {/* Botão de Tela Cheia */}
-                <button 
-                  onClick={() => openFullscreen('acompanhante')}
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-brand-primary" />
-                  Ampliar QR Code
-                </button>
+                ))}
               </div>
-            </div>
 
-            {/* Indicadores de Paginação (Dots) */}
-            <div className="flex justify-center gap-1.5 mt-2">
-              <button 
-                onClick={() => scrollToCard(0)}
-                className={`h-2 rounded-full transition-all duration-300 ${activeCardIndex === 0 ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-200'}`}
-                aria-label="Ir para cartão 1"
-              />
-              <button 
-                onClick={() => scrollToCard(1)}
-                className={`h-2 rounded-full transition-all duration-300 ${activeCardIndex === 1 ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-200'}`}
-                aria-label="Ir para cartão 2"
-              />
+              {/* Bolinhas de Paginação (Indicadores) */}
+              {credentials.length > 1 && (
+                <div className="flex justify-center gap-1.5 mt-2">
+                  {credentials.map((_, idx) => (
+                    <button 
+                      key={idx}
+                      onClick={() => scrollToCard(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        activeCardIndex === idx ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-200'
+                      }`}
+                      aria-label={`Ir para cartão ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Dica da Catraca */}
+          {/* Dica e Instruções */}
           <div className="bg-brand-secondary/15 border-l-4 border-brand-primary rounded-2xl p-4 flex gap-3 text-slate-700 shadow-sm">
             <Info className="w-5 h-5 text-brand-primary-dark shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h5 className="text-xs font-bold text-brand-primary-dark uppercase tracking-wider">Instruções para Acesso</h5>
-              <p className="text-[11px] leading-relaxed text-slate-650">
-                Aproxime o QR Code na leitora da catraca. Se houver acompanhante, passe o primeiro cartão (Titular), aguarde a catraca girar e em seguida deslize para o lado e passe o segundo cartão.
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Aproxime o QR Code na leitora da catraca. Se houver acompanhantes cadastrados, passe primeiro o seu cartão (Titular), aguarde a passagem e, em seguida, deslize o carrossel para passar os cartões dos acompanhantes.
               </p>
             </div>
           </div>
 
         </main>
 
-        {/* Rodapé (SiteFooter Standard com Endereço e Link do Dev) */}
+        {/* Rodapé Padrão */}
         <footer className="mt-auto border-t border-brand-secondary/30 bg-white py-8 px-6 text-center space-y-6">
-          {/* Logo da Clínica no Rodapé */}
           <div className="flex flex-col items-center text-center gap-4">
             <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-brand-secondary/30 p-4 shadow-sm border border-brand-primary/10">
               <img
@@ -471,7 +478,6 @@ export default function PatientAccess() {
               />
             </div>
 
-            {/* Bloco de Endereço da Clínica */}
             <div className="space-y-1.5 max-w-xs sm:max-w-md">
               <p className="text-sm font-extrabold uppercase tracking-wider text-brand-primary-dark">
                 Inovare – Serviços de Saúde
@@ -485,7 +491,6 @@ export default function PatientAccess() {
             </div>
           </div>
 
-          {/* Ações (Maps, WhatsApp, Redes Sociais) */}
           <div className="flex flex-wrap justify-center gap-2">
             <a 
               href="https://maps.app.goo.gl/ivTYbzpgdmX3XhUR7" 
@@ -525,7 +530,6 @@ export default function PatientAccess() {
             </a>
           </div>
 
-          {/* Assinatura de Desenvolvimento com Ícone do Git */}
           <div className="border-t border-slate-100 pt-4 flex flex-col items-center gap-2">
             <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
               Feito por
@@ -544,20 +548,18 @@ export default function PatientAccess() {
 
       </div>
 
-      {/* Modal de Tela Cheia (Background Branco Puro para forçar brilho da tela do celular) */}
+      {/* Modal de Ampliação do QR Code para Tela Cheia */}
       {fullscreenData && (
         <div 
           ref={modalRef}
           className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-between p-8"
         >
-          {/* Header do Modal */}
           <div className="text-center mt-8">
             <span className="text-[10px] font-bold tracking-wider text-brand-primary uppercase block">Catraca de Acesso</span>
             <h4 className="text-lg font-bold text-slate-800 mt-1">{fullscreenData.title}</h4>
             <p className="text-xs text-slate-400 mt-1">Brilho da tela aumentado para leitura na catraca</p>
           </div>
 
-          {/* QR Code centralizado ampliado */}
           <div className="flex flex-col items-center justify-center flex-1 my-6">
             <div className="p-6 bg-white border border-brand-secondary/35 rounded-3xl shadow-xl shadow-brand-primary/5">
               <QRCodeSVG 
@@ -567,15 +569,8 @@ export default function PatientAccess() {
                 bgColor="#ffffff"
               />
             </div>
-
-            {/* Contador de expiração em tempo real */}
-            <div className="flex items-center gap-1.5 text-slate-500 bg-brand-secondary/15 border border-brand-primary/10 rounded-full px-4 py-2 mt-8 text-xs font-semibold">
-              <RefreshCw className="w-4 h-4 animate-spin text-brand-primary-dark" style={{ animationDuration: '6s' }} />
-              <span>Expira em: <b className="font-bold text-slate-700 font-mono">{formatTime(secondsLeft)}</b></span>
-            </div>
           </div>
 
-          {/* Botão de Fechar */}
           <button 
             onClick={closeFullscreen}
             className="w-full max-w-sm py-4 bg-gradient-to-r from-brand-primary to-brand-primary-dark active:scale-[0.98] text-white rounded-2xl font-bold tracking-wide transition-all duration-300 shadow-lg shadow-brand-primary/20 cursor-pointer"

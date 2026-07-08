@@ -351,7 +351,7 @@ public class AccessService {
      * @param appointmentId Identificador do agendamento.
      * @param phoneDigits Os 4 dígitos enviados para validação.
      */
-    public void validatePhoneChallenge(String appointmentId, String phoneDigits) {
+    public FeegowPatientAccessInfo validatePhoneChallenge(String appointmentId, String phoneDigits) {
         log.info("[AccessService] Validando desafio de telefone para o agendamento ID: {}", appointmentId);
         
         Optional<FeegowPatientAccessInfo> accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
@@ -389,6 +389,7 @@ public class AccessService {
         }
         
         log.info("[AccessService] Desafio de segurança validado com sucesso para agendamento {}", appointmentId);
+        return accessInfo;
     }
 
     /**

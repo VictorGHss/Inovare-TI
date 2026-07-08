@@ -11,5 +11,8 @@ public record AccessCredentialResponse(
     String name,
     UserType userType,
     String locator,
-    String credentialCode
+    String credentialCode,
+    String cpf,
+    String doctorName,
+    String appointmentDateTime
 ) {}

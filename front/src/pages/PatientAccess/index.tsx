@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
-  Calendar, 
   Clock, 
   ShieldCheck, 
   RefreshCw, 
@@ -28,7 +27,17 @@ interface AccessCredential {
   userType: 'PATIENT' | 'COMPANION';
   locator: string;
   credentialCode: string;
+  cpf?: string;
+  doctorName?: string;
+  appointmentDateTime?: string;
 }
+
+const formatCpf = (cpf?: string) => {
+  if (!cpf) return '';
+  const clean = cpf.replace(/\D/g, '');
+  if (clean.length !== 11) return cpf;
+  return `${clean.substring(0, 3)}.${clean.substring(3, 6)}.${clean.substring(6, 9)}-${clean.substring(9)}`;
+};
 
 export default function PatientAccess() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -333,36 +342,6 @@ export default function PatientAccess() {
             <p className="text-xs text-slate-400 font-medium">Aqui estão seus cartões para liberação das catracas físicas.</p>
           </div>
 
-          {/* Cartão de Detalhes da Consulta */}
-          {patientCredential && (
-            <div className="bg-gradient-to-br from-white via-brand-secondary/5 to-white border border-brand-primary/35 rounded-3xl p-5 space-y-4 shadow-sm shadow-brand-primary/5">
-              <div className="flex items-center justify-between border-b border-brand-secondary/30 pb-3">
-                <span className="text-xs text-brand-primary-dark font-extrabold tracking-wider uppercase">Detalhes da Consulta</span>
-                <Calendar className="w-4 h-4 text-brand-primary" />
-              </div>
-
-              <div className="space-y-3.5">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Paciente Principal</span>
-                  <span className="text-sm font-extrabold text-slate-700">{patientCredential.name}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Localizador Principal</span>
-                    <span className="text-xs font-semibold text-slate-600">{patientCredential.locator}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Data do Acesso</span>
-                    <span className="text-xs font-bold text-brand-primary-dark bg-brand-secondary/30 px-2 py-0.5 rounded-md inline-block mt-0.5 font-sans">
-                      Hoje
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Fluxo Condicional: Carrossel de Credenciais vs Mensagem de Contingência */}
           {credentials.length === 0 ? (
             /* Cenário de contingência: credenciais ainda não geradas no servidor */
@@ -415,6 +394,28 @@ export default function PatientAccess() {
                       }`}>
                         {cred.userType === 'PATIENT' ? 'Paciente' : 'Acompanhante'}
                       </span>
+                    </div>
+
+                    {/* Dados Cadastrais e Assistenciais Dinâmicos */}
+                    <div className="w-full mt-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3 text-left">
+                      {cred.cpf && (
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">CPF</span>
+                          <span className="text-xs font-semibold text-slate-700">{formatCpf(cred.cpf)}</span>
+                        </div>
+                      )}
+                      {cred.doctorName && (
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Médico</span>
+                          <span className="text-xs font-semibold text-slate-700">{cred.doctorName}</span>
+                        </div>
+                      )}
+                      {cred.appointmentDateTime && (
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Data e Horário da Consulta</span>
+                          <span className="text-xs font-extrabold text-brand-primary-dark">{cred.appointmentDateTime}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* QR Code contendo estritamente o código numérico puro (credentialCode) */}

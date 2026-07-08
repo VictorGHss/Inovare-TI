@@ -135,17 +135,37 @@ public class AccessController {
             @RequestParam("phoneDigits") String phoneDigits) {
         log.info("[AccessControl] Consulta de credenciais para o agendamento ID: {} com validacao de telefone", idAgendamento);
 
-        // Executa a validacao do desafio dos 4 digitos do telefone do paciente cadastrado
-        accessService.validatePhoneChallenge(idAgendamento, phoneDigits);
+        // Executa a validacao do desafio dos 4 digitos do telefone do paciente cadastrado e obtém dados do Feegow
+        br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo accessInfo =
+                accessService.validatePhoneChallenge(idAgendamento, phoneDigits);
 
         java.util.List<AccessCredential> credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
+
+        // Formata data e hora do agendamento
+        String appointmentDateTime = "";
+        if (accessInfo.appointmentDate() != null) {
+            if (accessInfo.appointmentTime() != null) {
+                appointmentDateTime = java.time.LocalDateTime.of(accessInfo.appointmentDate(), accessInfo.appointmentTime())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+            } else {
+                appointmentDateTime = accessInfo.appointmentDate()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        }
+
+        String doctorName = accessInfo.doctorName() != null ? accessInfo.doctorName() : "";
+        final String finalAppointmentDateTime = appointmentDateTime;
+        final String finalDoctorName = doctorName;
 
         java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse> response = credentials.stream()
                 .map(c -> new br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse(
                         c.getName(),
                         c.getUserType(),
                         c.getLocator(),
-                        c.getAccessCredential()
+                        c.getAccessCredential(),
+                        c.getCpf(),
+                        finalDoctorName,
+                        finalAppointmentDateTime
                 ))
                 .toList();
 

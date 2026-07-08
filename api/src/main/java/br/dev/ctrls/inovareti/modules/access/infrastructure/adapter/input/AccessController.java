@@ -4,12 +4,16 @@ import br.dev.ctrls.inovareti.modules.access.domain.model.AccessCredential;
 import br.dev.ctrls.inovareti.modules.access.domain.model.UserType;
 import br.dev.ctrls.inovareti.modules.access.domain.port.output.AccessCredentialRepositoryPort;
 import br.dev.ctrls.inovareti.modules.access.domain.service.AccessService;
+import br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo;
+import br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessValidationRequest;
 import br.dev.ctrls.inovareti.modules.access.infrastructure.config.InovareMotorProperties;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,24 +80,31 @@ public class AccessController {
 
     /**
      * Endpoint de validação de acesso utilizado pelo Blip bot ou front-end.
-     * Consulta prontuários no Feegow, agrupa agendamentos diários e gera a credencial de acesso.
+     * Consulta prontuários no Feegow, agrupa agendamentos diários, cadastra paciente/acompanhantes no GerAcesso
+     * e gera as credenciais unificadas.
      * Trata o caso de CPF ausente retornando 'requiresCpfFallback: true'.
      *
-     * @param appointmentId Identificador do agendamento.
-     * @param cpf CPF opcional do paciente.
+     * @param request Payload contendo dados do agendamento, CPF e acompanhantes.
      * @return ResponseEntity com o resultado da validação de acesso.
      */
     @PostMapping("/validate")
-    public ResponseEntity<?> validateAccess(
-            @RequestParam("appointmentId") String appointmentId,
-            @RequestParam(value = "cpf", required = false) String cpf) {
-        log.info("[AccessControl] Solicitação de validação de acesso: agendamento={}, cpf={}", appointmentId, cpf);
+    public ResponseEntity<?> validateAccess(@RequestBody @Valid AccessValidationRequest request) {
+        log.info("[AccessControl] Solicitação de validação de acesso: agendamento={}, cpf={}", 
+                request.appointmentId(), request.cpf());
 
-        AccessService.AccessValidationResult result = accessService.processAccessRequest(appointmentId, cpf);
+        java.util.List<CompanionAccessInfo> domainCompanions = null;
+        if (request.companions() != null) {
+            domainCompanions = request.companions().stream()
+                    .map(c -> new CompanionAccessInfo(c.name(), c.cpf(), c.phone(), c.email()))
+                    .toList();
+        }
+
+        AccessService.AccessValidationResult result = accessService.processAccessRequest(
+                request.appointmentId(), request.cpf(), domainCompanions);
 
         // Se o CPF estiver ausente, retornamos a flag de fallback conforme os requisitos
         if (result.requiresCpfFallback()) {
-            log.warn("[AccessControl] CPF ausente para agendamento {}. Retornando requerimento de fallback de CPF.", appointmentId);
+            log.warn("[AccessControl] CPF ausente para agendamento {}. Retornando requerimento de fallback de CPF.", request.appointmentId());
             return ResponseEntity.ok(Map.of(
                 "authorized", false,
                 "requiresCpfFallback", true,

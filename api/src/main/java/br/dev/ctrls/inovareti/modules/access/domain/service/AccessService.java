@@ -3,8 +3,12 @@ package br.dev.ctrls.inovareti.modules.access.domain.service;
 import br.dev.ctrls.inovareti.modules.access.domain.model.AccessCredential;
 import br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo;
 import br.dev.ctrls.inovareti.modules.access.domain.model.UserType;
+import br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoRequest;
+import br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoResponse;
 import br.dev.ctrls.inovareti.modules.access.domain.port.output.AccessCredentialRepositoryPort;
 import br.dev.ctrls.inovareti.modules.access.domain.port.output.FeegowClientPort;
+import br.dev.ctrls.inovareti.modules.access.domain.port.output.GerAcessoClientPort;
+import br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
@@ -15,15 +19,18 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Serviço de domínio AccessService.
  * Gerencia a inteligência de agrupamento de agendamentos por CPF/telefone, cálculo de janelas de tempo,
- * unificação de códigos de acesso e contingência de CPF ausente.
+ * cadastro de liberação física de acesso na GerAcesso API e orquestração assíncrona de acompanhantes.
  * Comentários em PT-BR conforme as Regras de Ouro.
  */
 @Slf4j
@@ -35,16 +42,19 @@ public class AccessService {
     private final AppointmentExternalPort appointmentExternalPort;
     private final PatientExternalPort patientExternalPort;
     private final AccessCredentialRepositoryPort accessCredentialRepositoryPort;
+    private final GerAcessoClientPort gerAcessoClientPort;
 
     /**
      * Processa a requisição de acesso para um determinado agendamento. Realiza agrupamento de consultas,
-     * cálculo de janela de abertura de catracas e persistência de credenciais unificadas.
+     * cálculo de janela de abertura de catracas, cadastro do Paciente Titular na GerAcesso, persistência
+     * local e orquestração paralela (Virtual Threads) e resiliente dos acompanhantes.
      *
      * @param appointmentId Identificador do agendamento vindo do Blip ou frontend.
      * @param requestCpf CPF opcional passado pela requisição.
+     * @param companions Lista opcional de acompanhantes contidos no payload.
      * @return AccessValidationResult contendo os dados de liberação e flags de contingência.
      */
-    public AccessValidationResult processAccessRequest(String appointmentId, String requestCpf) {
+    public AccessValidationResult processAccessRequest(String appointmentId, String requestCpf, List<CompanionAccessInfo> companions) {
         log.info("[AccessService] Processando solicitação de acesso físico. Agendamento: {}", appointmentId);
 
         // 1. Busca os dados cadastrais do agendamento no Feegow
@@ -140,7 +150,7 @@ public class AccessService {
         // 7. Unificação de Credencial: verifica se já gerou uma credencial para este paciente/CPF hoje
         List<AccessCredential> existingCredentials = accessCredentialRepositoryPort.findByCpf(finalCpf);
         Optional<AccessCredential> activeCredOpt = existingCredentials.stream()
-            .filter(c -> c.getCreatedAt().toLocalDate().equals(appointmentDate))
+            .filter(c -> c.getCreatedAt().toLocalDate().equals(appointmentDate) && c.getUserType() == UserType.PATIENT)
             .findFirst();
 
         String token;
@@ -153,10 +163,36 @@ public class AccessService {
             locator = existing.getLocator();
             log.info("[AccessService] Reutilizando credencial ativa existente para o CPF {}: {}", finalCpf, token);
         } else {
-            // Gera um novo código único e localizador
-            token = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            locator = "LOC-" + System.currentTimeMillis();
-            log.info("[AccessService] Gerada nova credencial de acesso unificada: {}", token);
+            // Constrói payload de requisição para registrar o Paciente Titular na GerAcesso
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            String startVisit = LocalDateTime.of(appointmentDate, openingTime).format(formatter);
+            String endVisit = LocalDateTime.of(appointmentDate, closingTime).format(formatter);
+
+            GerAcessoRequest titularRequest = GerAcessoRequest.builder()
+                .cpf(finalCpf)
+                .status(1)
+                .name(accessInfo.name())
+                .phone(targetPhone != null ? targetPhone : "")
+                .email("")
+                .visitType(1) // 1 = PACIENTE / TITULAR
+                .startVisit(startVisit)
+                .endVisit(endVisit)
+                .build();
+
+            // Dispara chamada de cadastro do paciente titular na API física da GerAcesso
+            log.info("[AccessService] Enviando cadastro do paciente titular {} para a GerAcesso local...", accessInfo.name());
+            Optional<GerAcessoResponse> responseOpt = gerAcessoClientPort.registerAccess(titularRequest);
+
+            if (responseOpt.isPresent() && responseOpt.get().credential() != null) {
+                token = responseOpt.get().credential();
+                locator = responseOpt.get().locator();
+                log.info("[AccessService] Cadastro concluído na GerAcesso. Token={}, Locator={}", token, locator);
+            } else {
+                // Fallback: se falhar a conexão local, gera credencial interna para contingência e recepção manual
+                token = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                locator = "LOC-" + System.currentTimeMillis();
+                log.warn("[AccessService] Falha na GerAcesso. Utilizando credencial local de contingência.");
+            }
         }
 
         // 8. Salva o registro no banco mapeando para cada ID de agendamento envolvido
@@ -179,7 +215,100 @@ public class AccessService {
             }
         }
 
+        // 9. Orquestração de Acompanhantes: loop paralelo via Java 21 Virtual Threads
+        if (companions != null && !companions.isEmpty()) {
+            log.info("[AccessService] Iniciando cadastro paralelo de {} acompanhante(s) via Virtual Threads...", companions.size());
+            final String finalToken = token;
+            final String finalLocator = locator;
+
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<Future<Void>> futures = companions.stream()
+                    .map(companion -> executor.submit(() -> {
+                        // Isolamento e resiliência (Fail-Safe) por tarefa
+                        try {
+                            registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId());
+                        } catch (Exception ex) {
+                            log.error("[AccessService] Erro fatal no processamento assíncrono do acompanhante '{}': {}", 
+                                    companion.name(), ex.getMessage(), ex);
+                        }
+                        return (Void) null;
+                    }))
+                    .toList();
+
+                // Aguarda a execução de todas as tarefas de cadastro
+                for (Future<Void> future : futures) {
+                    try {
+                        future.get();
+                    } catch (Exception e) {
+                        log.error("[AccessService] Falha ao recuperar resultado da Virtual Thread do acompanhante", e);
+                    }
+                }
+            }
+            log.info("[AccessService] Processamento assíncrono de acompanhantes finalizado.");
+        }
+
         return new AccessValidationResult(true, accessInfo.name(), token, false, "Credencial resolvida com sucesso.");
+    }
+
+    /**
+     * Efetua o cadastro individual e isolado (fail-safe) do acompanhante na GerAcesso e no banco local.
+     */
+    private void registerCompanionAccess(
+            CompanionAccessInfo companion,
+            LocalDate date,
+            LocalTime openingTime,
+            LocalTime closingTime,
+            String patientToken,
+            String patientLocator,
+            String appointmentId) {
+
+        String companionCpf = companion.cpf() != null ? companion.cpf().replaceAll("\\D", "") : "";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String startVisit = LocalDateTime.of(date, openingTime).format(formatter);
+        String endVisit = LocalDateTime.of(date, closingTime).format(formatter);
+
+        GerAcessoRequest request = GerAcessoRequest.builder()
+            .cpf(companionCpf)
+            .status(1)
+            .name(companion.name())
+            .phone(companion.phone() != null ? companion.phone() : "")
+            .email(companion.email() != null ? companion.email() : "")
+            .visitType(2) // 2 = ACOMPANHANTE / COMPANION
+            .startVisit(startVisit)
+            .endVisit(endVisit)
+            .build();
+
+        log.info("[AccessService] Cadastrando acompanhante {} na GerAcesso...", companion.name());
+        Optional<GerAcessoResponse> responseOpt = gerAcessoClientPort.registerAccess(request);
+
+        String companionToken;
+        String companionLocator;
+
+        if (responseOpt.isPresent() && responseOpt.get().credential() != null) {
+            companionToken = responseOpt.get().credential();
+            companionLocator = responseOpt.get().locator();
+            log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial: {}", companion.name(), companionToken);
+        } else {
+            // Fallback: gera credencial local para contingência e evita travar fluxo
+            companionToken = "CRED-COMP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            companionLocator = "LOC-COMP-" + System.currentTimeMillis();
+            log.warn("[AccessService] Falha no cadastro do acompanhante {} na GerAcesso. Gerada credencial local de contingência.", companion.name());
+        }
+
+        // Persiste a credencial individual e separada no banco local
+        AccessCredential credential = AccessCredential.builder()
+            .id(UUID.randomUUID())
+            .appointmentId(appointmentId)
+            .name(companion.name())
+            .cpf(companionCpf.isEmpty() ? null : companionCpf)
+            .userType(UserType.COMPANION)
+            .accessCredential(companionToken)
+            .locator(companionLocator)
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        accessCredentialRepositoryPort.save(credential);
+        log.info("[AccessService] Credencial do acompanhante {} salva no banco local com sucesso.", companion.name());
     }
 
     /**

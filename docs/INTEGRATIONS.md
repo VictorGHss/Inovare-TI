@@ -189,10 +189,31 @@ Quando a passagem física do paciente é concluída, a controladora confirma o e
   2. **Notificação ao Médico no Discord:** O `DiscordWebhookService` resolve o médico associado àquela consulta e envia uma mensagem direta (DM) ou um alerta rico em embed no canal de texto privado do consultório (ex: `"Seu paciente [Nome] acabou de passar pela catraca e está aguardando na recepção"`).
   3. **Comunicação no WhatsApp via Blip:** O backend aciona a API de mensagens do Blip, enviando ao WhatsApp do paciente uma mensagem de recepção baseada em template (ex: `"Olá! Registramos sua entrada. Aguarde na recepção do 2º andar. O médico já foi notificado!"`).
 
-* **`inovare.motor.test-doctor-ids`**: Lista estrita de IDs de médicos (valores: `1, 70`) reservados exclusivamente para testes manuais.
+### 4.4 Módulo de Controle de Acesso (Access Control)
 
-#### Rota de Validação e Teste Manual (`POST /api/v1/access/test`)
+O módulo de controle de acesso físico das catracas está implementado em inglês no pacote `modules.access` segundo a arquitetura hexagonal (Ports & Adapters).
 
-A rota `/api/v1/access/test` permite simular disparos e validações manuais de acesso originados pelo painel do front-end. O endpoint atua de forma blindada para evitar adulterações em produção:
-* **Validação de `doctorId`**: O endpoint aceita a requisição contendo o parâmetro `doctorId`. Caso o ID enviado seja diferente de `1` ou `70` (ou se o ID não estiver contido na lista configurada), o backend retorna `403 Forbidden` imediatamente.
-* **Persistência de Credenciais**: Se o `doctorId` for válido (`1` ou `70`), o sistema persiste um registro de simulação na entidade `AcessoCredencial` (tabela `acesso_credencial`) e retorna `200 OK`.
+#### 4.4.1 Configurações e Segregação (`application.properties`)
+* `inovare.motor.test-mode`: Ativa modo de teste do motor de acesso.
+* `inovare.motor.prod-doctor-ids`: Lista de IDs de médicos em produção.
+* `inovare.motor.test-doctor-ids`: IDs estritos de médicos de teste (1 e 70) para `/test`.
+* `inovare.geracesso.url`: Endpoint local do GerAcesso (`http://172.25.100.106:8082/AgendamentoVisita`).
+* `inovare.geracesso.token`: Bearer Token de autorização.
+
+#### 4.4.2 Rota de Teste Manual (`POST /api/v1/access/test`)
+Exclusiva para validação manual. Aceita apenas `doctorId` igual a `1` ou `70`. Qualquer outro valor resulta em `403 Forbidden` imediato.
+
+#### 4.4.3 Rota de Validação Real e Orquestração (`POST /api/v1/access/validate`)
+Aceita um payload JSON (`AccessValidationRequest`) com `appointmentId`, `cpf` opcional e a lista de `companions` (acompanhantes).
+
+1. **Integração Feegow (`FeegowClientPort`)**:
+   * O sistema busca o agendamento correspondente no Feegow. Se o CPF estiver ausente, retorna a flag de contingência `"requiresCpfFallback": true`.
+
+2. **Lógica de Janela de Acesso (`AccessService`)**:
+   * Agrupa consultas do mesmo dia por CPF ou telefone (mesmo grupo familiar).
+   * Identifica a primeira consulta do dia. Calcula a janela física: abertura exatamente **2 horas antes** e fechamento fixo às **21:00** daquele dia.
+
+3. **Integração com a API da GerAcesso (`GerAcessoClientPort`)**:
+   * Cadastra o Paciente Titular via POST e obtém a credencial/localizador para persistência.
+   * **Orquestração de Acompanhantes em Paralelo**: Para cada acompanhante no payload, o backend dispara requisições POST individuais separadas para a GerAcesso. Devido à natureza I/O bloqueante da rede local, o envio é processado em paralelo de forma eficiente usando **Java 21 Virtual Threads** (`Executors.newVirtualThreadPerTaskExecutor()`).
+   * **Comportamento Resiliente (Fail-Safe)**: O cadastro de cada acompanhante ocorre em blocos isolados com try-catch. Se a API GerAcesso falhar para algum acompanhante, um log do erro é gerado, mas o fluxo principal continua. O paciente titular e outros acompanhantes válidos são liberados e salvos normalmente.

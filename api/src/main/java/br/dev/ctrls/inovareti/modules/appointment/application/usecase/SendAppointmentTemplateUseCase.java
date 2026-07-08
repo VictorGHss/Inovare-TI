@@ -54,6 +54,9 @@ public class SendAppointmentTemplateUseCase {
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final BlipProperties blipProperties;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
 
     /**
      * Executa o envio a partir de um contexto de despacho resolvido previamente.
@@ -108,6 +111,21 @@ public class SendAppointmentTemplateUseCase {
                 saveWithRetry(session, null);
             }
 
+            String cpf = "";
+            try {
+                var patient = patientExternalPort.patientInfo(ctx.patientId());
+                if (patient != null && patient.cpf() != null) {
+                    cpf = patient.cpf();
+                }
+            } catch (Exception ex) {
+                log.warn("[SendAppointmentTemplateUseCase] Falha ao consultar CPF para o paciente ID: {}", ctx.patientId(), ex);
+            }
+            boolean syncSuccess = blipContactClientPort.syncContact(ctx.phoneNumber(), ctx.patientName(), cpf, ctx.queueName());
+            if (!syncSuccess) {
+                log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template.", ctx.phoneNumber());
+                return false;
+            }
+
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);
 
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
@@ -152,6 +170,29 @@ public class SendAppointmentTemplateUseCase {
             session.setLastNotificationSentAt(LocalDateTime.now());
             saveWithRetry(session, null);
 
+            String cpf = "";
+            try {
+                var patient = patientExternalPort.patientInfo(session.getPatientId());
+                if (patient != null && patient.cpf() != null) {
+                    cpf = patient.cpf();
+                }
+            } catch (Exception ex) {
+                log.warn("[SendAppointmentTemplateUseCase] Falha ao consultar CPF para o paciente ID: {}", session.getPatientId(), ex);
+            }
+            String resolvedQueue = "Recepção Central / Suporte";
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+            if (mappingOpt.isPresent()) {
+                String queueId = mappingOpt.get().getBlipQueueId();
+                if (queueId != null && !queueId.isBlank() && !"null".equalsIgnoreCase(queueId.trim())) {
+                    resolvedQueue = blipContextService.resolveQueueName(queueId.trim());
+                }
+            }
+            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue);
+            if (!syncSuccess) {
+                log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template.", session.getPhoneNumber());
+                return false;
+            }
+
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
@@ -178,6 +219,29 @@ public class SendAppointmentTemplateUseCase {
                 session.setClosedAt(LocalDateTime.now());
             }
             saveWithRetry(session, null);
+
+            String cpf = "";
+            try {
+                var patient = patientExternalPort.patientInfo(session.getPatientId());
+                if (patient != null && patient.cpf() != null) {
+                    cpf = patient.cpf();
+                }
+            } catch (Exception ex) {
+                log.warn("[SendAppointmentTemplateUseCase] Falha ao consultar CPF para o paciente ID: {}", session.getPatientId(), ex);
+            }
+            String resolvedQueue = "Recepção Central / Suporte";
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+            if (mappingOpt.isPresent()) {
+                String queueId = mappingOpt.get().getBlipQueueId();
+                if (queueId != null && !queueId.isBlank() && !"null".equalsIgnoreCase(queueId.trim())) {
+                    resolvedQueue = blipContextService.resolveQueueName(queueId.trim());
+                }
+            }
+            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue);
+            if (!syncSuccess) {
+                log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template simples.", session.getPhoneNumber());
+                return false;
+            }
 
             blipNotificationService.sendSimpleTemplateMessage(session.getPhoneNumber(), templateName, templateData);
             log.info("[MENSAGERIA] Template simples '{}' disparado.", templateName);

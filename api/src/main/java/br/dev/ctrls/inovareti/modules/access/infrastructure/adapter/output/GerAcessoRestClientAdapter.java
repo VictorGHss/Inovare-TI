@@ -3,9 +3,10 @@ package br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output;
 import br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoRequest;
 import br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoResponse;
 import br.dev.ctrls.inovareti.modules.access.domain.port.output.GerAcessoClientPort;
+import br.dev.ctrls.inovareti.modules.access.infrastructure.config.GerAcessoProperties;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -19,19 +20,15 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class GerAcessoRestClientAdapter implements GerAcessoClientPort {
 
-    @Value("${inovare.geracesso.url}")
-    private String url;
-
-    @Value("${inovare.geracesso.token}")
-    private String token;
-
+    private final GerAcessoProperties gerAcessoProperties;
     private RestClient restClient;
 
     @PostConstruct
     public void init() {
-        log.info("[GerAcesso-Adapter] Inicializando cliente RestClient apontando para: {}", url);
+        log.info("[GerAcesso-Adapter] Inicializando cliente RestClient apontando para: {}", gerAcessoProperties.getUrl());
         
         java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(10))
@@ -42,7 +39,7 @@ public class GerAcessoRestClientAdapter implements GerAcessoClientPort {
         factory.setReadTimeout(java.time.Duration.ofSeconds(10));
 
         this.restClient = RestClient.builder()
-                .baseUrl(url)
+                .baseUrl(gerAcessoProperties.getUrl())
                 .requestFactory(factory)
                 .build();
     }
@@ -51,9 +48,15 @@ public class GerAcessoRestClientAdapter implements GerAcessoClientPort {
     public Optional<GerAcessoResponse> registerAccess(GerAcessoRequest request) {
         log.info("[GerAcesso-Adapter] Realizando requisição POST para cadastrar visitante CPF: {}", request.cpf());
         try {
+            String token = gerAcessoProperties.getToken();
+            // Garante o formato 'Bearer ' caso já não tenha sido inserido na variável
+            String authHeader = (token != null && token.trim().startsWith("Bearer ")) 
+                    ? token.trim() 
+                    : "Bearer " + (token != null ? token.trim() : "");
+
             ResponseEntity<GerAcessoResponse> response = restClient.post()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Authorization", "Bearer " + token.trim())
+                    .header("Authorization", authHeader)
                     .body(request)
                     .retrieve()
                     .toEntity(GerAcessoResponse.class);

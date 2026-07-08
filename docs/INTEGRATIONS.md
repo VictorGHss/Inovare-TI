@@ -193,12 +193,15 @@ Quando a passagem física do paciente é concluída, a controladora confirma o e
 
 O módulo de controle de acesso físico das catracas está implementado em inglês no pacote `modules.access` segundo a arquitetura hexagonal (Ports & Adapters).
 
-#### 4.4.1 Configurações e Segregação (`application.properties`)
-* `inovare.motor.test-mode`: Ativa modo de teste do motor de acesso.
-* `inovare.motor.prod-doctor-ids`: Lista de IDs de médicos em produção.
-* `inovare.motor.test-doctor-ids`: IDs estritos de médicos de teste (1 e 70) para `/test`.
-* `inovare.geracesso.url`: Endpoint local do GerAcesso (`http://172.25.100.106:8082/AgendamentoVisita`).
-* `inovare.geracesso.token`: Bearer Token de autorização.
+#### 4.4.1 Configurações e Segurança (.env / application.properties)
+Todas as credenciais sensíveis e configurações foram migradas para variáveis de ambiente locais (arquivos `.env` e `.env.servidor`), sendo mapeadas no `application.properties` por meio de placeholders:
+* `INOVARE_GERACESSO_URL`: URL base local do GerAcesso. Mapeado para `inovare.geracesso.url`.
+* `INOVARE_GERACESSO_TOKEN`: Bearer token de autorização. Mapeado para `inovare.geracesso.token`.
+* `INOVARE_MOTOR_TEST_MODE`: Flag boolean. Mapeado para `inovare.motor.test-mode`.
+* `INOVARE_MOTOR_TEST_DOCTOR_IDS`: IDs de médicos de testes (1 e 70). Mapeado para `inovare.motor.test-doctor-ids`.
+* `INOVARE_MOTOR_PROD_DOCTOR_IDS`: IDs de médicos de produção. Mapeado para `inovare.motor.prod-doctor-ids`.
+
+Uma classe `GerAcessoProperties` mapeia o prefixo `inovare.geracesso` para extinguir os alertas de propriedades desconhecidas da IDE.
 
 #### 4.4.2 Rota de Teste Manual (`POST /api/v1/access/test`)
 Exclusiva para validação manual. Aceita apenas `doctorId` igual a `1` ou `70`. Qualquer outro valor resulta em `403 Forbidden` imediato.
@@ -217,3 +220,12 @@ Aceita um payload JSON (`AccessValidationRequest`) com `appointmentId`, `cpf` op
    * Cadastra o Paciente Titular via POST e obtém a credencial/localizador para persistência.
    * **Orquestração de Acompanhantes em Paralelo**: Para cada acompanhante no payload, o backend dispara requisições POST individuais separadas para a GerAcesso. Devido à natureza I/O bloqueante da rede local, o envio é processado em paralelo de forma eficiente usando **Java 21 Virtual Threads** (`Executors.newVirtualThreadPerTaskExecutor()`).
    * **Comportamento Resiliente (Fail-Safe)**: O cadastro de cada acompanhante ocorre em blocos isolados com try-catch. Se a API GerAcesso falhar para algum acompanhante, um log do erro é gerado, mas o fluxo principal continua. O paciente titular e outros acompanhantes válidos são liberados e salvos normalmente.
+
+#### 4.4.4 Webhook do Blip (`POST /api/v1/access/blip/confirmation`)
+Endpoint exclusivo para receber a confirmação de agendamentos pelo fluxo do chatbot do Blip.
+* **Validação de Ação**: Filtra apenas a ação `"Finalizar_Agendamento"`.
+* **Tratamento de Fallback Síncrono**: Caso o CPF esteja ausente (tanto no payload quanto no prontuário do Feegow), responde imediatamente de forma síncrona com `"requiresCpfFallback": true` para direcionar o chatbot à coleta de CPF.
+* **Processamento Assíncrono (Java 21 Virtual Threads)**: Se o CPF estiver presente, delega todo o processamento de liberação física de catracas e cadastro de acompanhantes em segundo plano e retorna imediatamente um `200 OK` com `"authorized": true` para evitar timeouts no chatbot do paciente.
+
+#### 4.4.5 Sincronização Ativa de Contatos (`BlipContactClientPort`)
+Para sanar problemas de sincronização tardia de dados na nuvem do Blip, o backend efetua uma chamada de comando ativa (`POST /commands` mapeada para a URI `/contacts`) atualizando o Nome do paciente, CPF (campo `taxDocument` e extras) e a Fila de triagem resolvida do consultório do médico antes de disparar qualquer fluxo ativo de mensagem do motor. O fluxo principal fica bloqueado aguardando o retorno de sucesso do Blip.

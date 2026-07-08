@@ -229,3 +229,29 @@ Endpoint exclusivo para receber a confirmação de agendamentos pelo fluxo do ch
 
 #### 4.4.5 Sincronização Ativa de Contatos (`BlipContactClientPort`)
 Para sanar problemas de sincronização tardia de dados na nuvem do Blip, o backend efetua uma chamada de comando ativa (`POST /commands` mapeada para a URI `/contacts`) atualizando o Nome do paciente, CPF (campo `taxDocument` e extras) e a Fila de triagem resolvida do consultório do médico antes de disparar qualquer fluxo ativo de mensagem do motor. O fluxo principal fica bloqueado aguardando o retorno de sucesso do Blip.
+
+#### 4.4.6 Consulta de Credenciais para o Portal React (`GET /api/v1/access/credentials/{idAgendamento}`)
+Endpoint exposto para consumo da rota dinâmica do front-end em React para renderizar os cartões e QR Codes de liberação física.
+* **URL**: `/api/v1/access/credentials/{idAgendamento}` (onde `{idAgendamento}` é o ID do Feegow).
+* **Método**: `GET`
+* **Retorno em caso de Sucesso (200 OK)**:
+  Retorna uma lista de objetos contendo os dados do titular e seus acompanhantes (se cadastrados). Exemplo:
+  ```json
+  [
+    {
+      "name": "VICTOR HUGO HASS",
+      "userType": "PATIENT",
+      "locator": "LOC12938129",
+      "credentialCode": "5501832049"
+    },
+    {
+      "name": "MARIA SILVA",
+      "userType": "COMPANION",
+      "locator": "LOC12938130",
+      "credentialCode": "5501832050"
+    }
+  ]
+  ```
+* **Retorno em caso de processamento pendente ou inexistente (200 OK)**:
+  Se o agendamento ainda não tiver credenciais geradas ou não existir, o endpoint responde amigavelmente com uma lista vazia (`[]`). Isso permite que o portal React exiba a tela de contingência apropriada (ex: *"Seu acesso prévio está em processamento..."*).
+

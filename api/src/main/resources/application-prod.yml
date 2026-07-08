@@ -213,3 +213,11 @@ discord:
 logging:
   level:
     "[br.dev.ctrls.inovareti.config.RawBodyLoggingFilter]": WARN
+
+# Segregação do Motor de Agendamentos (Controle de Acesso)
+inovare:
+  motor:
+    test-mode: ${INOVARE_MOTOR_TEST_MODE:false}
+    prod-doctor-ids: ${INOVARE_MOTOR_PROD_DOCTOR_IDS:8,6,7,13,14,12,10,39,40,42,43,83,44,45,18,61,74,21,19,20,17,64,58}
+    test-doctor-ids: ${INOVARE_MOTOR_TEST_DOCTOR_IDS:1,70}
+

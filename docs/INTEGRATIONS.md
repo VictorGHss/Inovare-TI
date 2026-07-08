@@ -189,3 +189,15 @@ Quando a passagem física do paciente é concluída, a controladora confirma o e
   2. **Notificação ao Médico no Discord:** O `DiscordWebhookService` resolve o médico associado àquela consulta e envia uma mensagem direta (DM) ou um alerta rico em embed no canal de texto privado do consultório (ex: `"Seu paciente [Nome] acabou de passar pela catraca e está aguardando na recepção"`).
   3. **Comunicação no WhatsApp via Blip:** O backend aciona a API de mensagens do Blip, enviando ao WhatsApp do paciente uma mensagem de recepção baseada em template (ex: `"Olá! Registramos sua entrada. Aguarde na recepção do 2º andar. O médico já foi notificado!"`).
 
+### 4.4 Segregação e Testes Manuais do Controle de Acesso
+
+Para fins de teste e segurança, o motor de controle de acesso foi segregado utilizando flags específicas em `application.yml`/`application.properties`:
+* **`inovare.motor.test-mode`**: Flag booleana que sinaliza se o motor de acesso está rodando em modo de teste (`true`) ou em produção (`false`).
+* **`inovare.motor.prod-doctor-ids`**: Lista de IDs de médicos elegíveis para processamento em ambiente produtivo.
+* **`inovare.motor.test-doctor-ids`**: Lista estrita de IDs de médicos (valores: `1, 70`) reservados exclusivamente para testes manuais.
+
+#### Rota de Validação e Teste Manual (`POST /api/v1/access/test`)
+
+A rota `/api/v1/access/test` permite simular disparos e validações manuais de acesso originados pelo painel do front-end. O endpoint atua de forma blindada para evitar adulterações em produção:
+* **Validação de `doctorId`**: O endpoint aceita a requisição contendo o parâmetro `doctorId`. Caso o ID enviado seja diferente de `1` ou `70` (ou se o ID não estiver contido na lista configurada), o backend retorna `403 Forbidden` imediatamente.
+* **Persistência de Credenciais**: Se o `doctorId` for válido (`1` ou `70`), o sistema persiste um registro de simulação na entidade `AcessoCredencial` (tabela `acesso_credencial`) e retorna `200 OK`.

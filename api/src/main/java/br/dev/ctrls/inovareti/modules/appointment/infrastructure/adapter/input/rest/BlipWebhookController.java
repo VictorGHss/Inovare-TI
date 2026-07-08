@@ -214,6 +214,11 @@ public class BlipWebhookController {
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
+        if ("Verificar_Acompanhante".equalsIgnoreCase(action)) {
+            log.info("Tratando requisição de verificação de acompanhante de forma segura. De: {} | ID: {}", from, messageId);
+            return ResponseEntity.ok(Map.of());
+        }
+
         // 1. Blindagem Anti-Loop (Ignora mensagens originadas do próprio robô/outbound)
         if (parsed.isOutbound() || (from != null && (from.contains("roteadorprincipal57@msging.net") || from.toLowerCase().startsWith("roteadorprincipal")))) {
             log.debug("[ANTI-LOOP] Ignorando mensagem outbound/robô: {}", from);
@@ -287,6 +292,7 @@ public class BlipWebhookController {
                 action.startsWith("ver_agenda_") ||
                 action.startsWith("group_view_") ||
                 "group_view_fallback".equalsIgnoreCase(action) ||
+                "Verificar_Acompanhante".equalsIgnoreCase(action) ||
                 isPrepararAtendimento ||
                 isExibirAgenda
             );

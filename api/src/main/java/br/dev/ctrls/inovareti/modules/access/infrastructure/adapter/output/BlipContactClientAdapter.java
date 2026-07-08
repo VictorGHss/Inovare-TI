@@ -48,16 +48,16 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
     }
 
     @Override
-    public boolean syncContact(String phoneNumber, String name, String cpf, String queueName) {
+    public boolean syncContact(String phoneNumber, String name, String cpf, String queueName, String doctorId) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
             log.warn("[BlipContact-Adapter] Telefone do contato nulo ou vazio. Cancelando sincronização.");
             return false;
         }
 
         String normalizedIdentity = normalizeIdentity(phoneNumber);
-        if (properties.isTestMode()) {
-            log.info("[BlipContact-Adapter] [TEST-MODE] Simulando sincronização com sucesso para {}: Nome={}, CPF={}, Fila={}",
-                    normalizedIdentity, name, cpf, queueName);
+        if (properties.isTestMode(doctorId)) {
+            log.info("[BlipContact-Adapter] [TEST-MODE] Simulando sincronização com sucesso para {}: Nome={}, CPF={}, Fila={}, DoctorId={}",
+                    normalizedIdentity, name, cpf, queueName, doctorId);
             return true;
         }
 

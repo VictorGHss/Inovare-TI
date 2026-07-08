@@ -93,68 +93,62 @@ public class BlipNotificationService {
             doctorId = appointmentData.doctorId();
         }
         
-        try {
-            AppointmentMotorProperties.setCurrentDoctorId(doctorId);
-
-            if (!isDoctorAllowed(doctorId)) {
-                log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
-                    doctorId != null ? doctorId : "null",
-                    destination,
-                    templateName);
-                return;
-            }
-
-            List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
-            String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
-
-            log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", normalizedDestination, templateName, parameters);
-
-            if (parameters.isEmpty()) {
-                log.error("[ABORT] Parâmetros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteúdo. destination={}",
-                    templateName, normalizedDestination);
-                return;
-            }
-            Map<String, Object> confirmButton = Map.of(
-                "type", "button", "sub_type", "quick_reply", "index", 0,
-                "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
-            );
-
-            Map<String, Object> alterButton = Map.of(
-                "type", "button", "sub_type", "quick_reply", "index", 1,
-                "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
-            );
-
-            List<Map<String, Object>> components = new ArrayList<>();
-            components.add(Map.of("type", "body", "parameters", parameters));
-            components.add(confirmButton);
-            components.add(alterButton);
-
-            Map<String, Object> content = Map.of(
-                "type", "template",
-                "template", Map.of(
-                    "name", templateName,
-                    "namespace", resolveWabaNamespace(),
-                    "language", Map.of("code", "pt_BR", "policy", "deterministic"),
-                    "components", components
-                )
-            );
-
-            Map<String, Object> payload = Map.of(
-                "id", UUID.randomUUID().toString(),
-                "to", normalizedDestination,
-                "from", "roteadorprincipal57@msging.net",
-                "type", "application/json",
-                "content", content,
-                "metadata", Map.of("appointmentId", appointmentId)
-            );
-
-            var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-            // Verifica o status customizado no Map de fallback ou a presença da resposta
-            Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-            log.info("Template enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
-        } finally {
-            AppointmentMotorProperties.clearCurrentDoctorId();
+        if (!isDoctorAllowed(doctorId)) {
+            log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
+                doctorId != null ? doctorId : "null",
+                destination,
+                templateName);
+            return;
         }
+
+        List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
+        String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
+
+        log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", normalizedDestination, templateName, parameters);
+
+        if (parameters.isEmpty()) {
+            log.error("[ABORT] Parâmetros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteúdo. destination={}",
+                templateName, normalizedDestination);
+            return;
+        }
+        Map<String, Object> confirmButton = Map.of(
+            "type", "button", "sub_type", "quick_reply", "index", 0,
+            "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
+        );
+
+        Map<String, Object> alterButton = Map.of(
+            "type", "button", "sub_type", "quick_reply", "index", 1,
+            "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
+        );
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        components.add(Map.of("type", "body", "parameters", parameters));
+        components.add(confirmButton);
+        components.add(alterButton);
+
+        Map<String, Object> content = Map.of(
+            "type", "template",
+            "template", Map.of(
+                "name", templateName,
+                "namespace", resolveWabaNamespace(),
+                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
+                "components", components
+            )
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
+            "type", "application/json",
+            "content", content,
+            "metadata", Map.of("appointmentId", appointmentId)
+        );
+
+        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+        // Verifica o status customizado no Map de fallback ou a presença da resposta
+        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
+        log.info("Template enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {
@@ -290,50 +284,44 @@ public class BlipNotificationService {
             doctorId = appointmentData.doctorId();
         }
         
-        try {
-            AppointmentMotorProperties.setCurrentDoctorId(doctorId);
-
-            if (!isDoctorAllowed(doctorId)) {
-                log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
-                    doctorId != null ? doctorId : "null",
-                    destination,
-                    templateName);
-                return;
-            }
-
-            List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
-            String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
-
-            List<Map<String, Object>> components = new ArrayList<>();
-            if (!parameters.isEmpty()) {
-                components.add(Map.of("type", "body", "parameters", parameters));
-            }
-
-            Map<String, Object> content = Map.of(
-                "type", "template",
-                "template", Map.of(
-                    "name", templateName,
-                    "namespace", resolveWabaNamespace(),
-                    "language", Map.of("code", "pt_BR", "policy", "deterministic"),
-                    "components", components
-                )
-            );
-
-            Map<String, Object> payload = Map.of(
-                "id", UUID.randomUUID().toString(),
-                "to", normalizedDestination,
-                "from", "roteadorprincipal57@msging.net",
-                "type", "application/json",
-                "content", content,
-                "metadata", Map.of("appointmentId", appointmentId)
-            );
-
-            var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-            Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-            log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
-        } finally {
-            AppointmentMotorProperties.clearCurrentDoctorId();
+        if (!isDoctorAllowed(doctorId)) {
+            log.warn("[SANDBOX] Disparo bloqueado. Dr ID: {}, destination={}, template={}",
+                doctorId != null ? doctorId : "null",
+                destination,
+                templateName);
+            return;
         }
+
+        List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
+        String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
+
+        List<Map<String, Object>> components = new ArrayList<>();
+        if (!parameters.isEmpty()) {
+            components.add(Map.of("type", "body", "parameters", parameters));
+        }
+
+        Map<String, Object> content = Map.of(
+            "type", "template",
+            "template", Map.of(
+                "name", templateName,
+                "namespace", resolveWabaNamespace(),
+                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
+                "components", components
+            )
+        );
+
+        Map<String, Object> payload = Map.of(
+            "id", UUID.randomUUID().toString(),
+            "to", normalizedDestination,
+            "from", "roteadorprincipal57@msging.net",
+            "type", "application/json",
+            "content", content,
+            "metadata", Map.of("appointmentId", appointmentId)
+        );
+
+        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
+        log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
     }
 
     /**

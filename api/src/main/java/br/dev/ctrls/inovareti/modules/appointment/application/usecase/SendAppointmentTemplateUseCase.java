@@ -120,7 +120,7 @@ public class SendAppointmentTemplateUseCase {
             } catch (Exception ex) {
                 log.warn("[SendAppointmentTemplateUseCase] Falha ao consultar CPF para o paciente ID: {}", ctx.patientId(), ex);
             }
-            boolean syncSuccess = blipContactClientPort.syncContact(ctx.phoneNumber(), ctx.patientName(), cpf, ctx.queueName());
+            boolean syncSuccess = blipContactClientPort.syncContact(ctx.phoneNumber(), ctx.patientName(), cpf, ctx.queueName(), ctx.doctorProfissionalId());
             if (!syncSuccess) {
                 log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template.", ctx.phoneNumber());
                 return false;
@@ -187,7 +187,7 @@ public class SendAppointmentTemplateUseCase {
                     resolvedQueue = blipContextService.resolveQueueName(queueId.trim());
                 }
             }
-            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue);
+            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue, session.getDoctorProfissionalId());
             if (!syncSuccess) {
                 log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template.", session.getPhoneNumber());
                 return false;
@@ -237,7 +237,7 @@ public class SendAppointmentTemplateUseCase {
                     resolvedQueue = blipContextService.resolveQueueName(queueId.trim());
                 }
             }
-            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue);
+            boolean syncSuccess = blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), cpf, resolvedQueue, session.getDoctorProfissionalId());
             if (!syncSuccess) {
                 log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template simples.", session.getPhoneNumber());
                 return false;

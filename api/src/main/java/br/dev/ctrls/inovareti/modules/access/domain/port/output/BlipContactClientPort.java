@@ -15,5 +15,5 @@ public interface BlipContactClientPort {
      * @param queueName Fila de triagem correta resolvida para o médico/agendamento.
      * @return true se o Blip retornou sucesso no recebimento do contato atualizado.
      */
-    boolean syncContact(String phoneNumber, String name, String cpf, String queueName);
+    boolean syncContact(String phoneNumber, String name, String cpf, String queueName, String doctorId);
 }

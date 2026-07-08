@@ -58,8 +58,17 @@ public class AccessService {
     public AccessValidationResult processAccessRequest(String appointmentId, String requestCpf, List<CompanionAccessInfo> companions) {
         log.info("[AccessService] Processando solicitação de acesso físico. Agendamento: {}", appointmentId);
 
-        // 1. Busca os dados cadastrais do agendamento no Feegow
-        Optional<FeegowPatientAccessInfo> accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
+        // 1. Busca os dados cadastrais do agendamento no Feegow.
+        // Resiliência: caso o ERP Feegow oscile (5xx, timeout, IOException), retornamos o Fallback
+        // Seguro imediatamente (requiresCpfFallback = true) em vez de propagar a exceção ao Blip.
+        Optional<FeegowPatientAccessInfo> accessInfoOpt;
+        try {
+            accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
+        } catch (Exception ex) {
+            log.warn("[AccessService] ERP Feegow indisponível ao buscar agendamento {}. Ativando Fallback Seguro. Causa: {}",
+                    appointmentId, ex.getMessage());
+            return new AccessValidationResult(false, null, null, true, "ERP Feegow temporária e indisponível. Solicite o CPF ao paciente.");
+        }
         if (accessInfoOpt.isEmpty()) {
             log.warn("[AccessService] Não foi possível obter dados do agendamento {} na API Feegow.", appointmentId);
             return new AccessValidationResult(false, null, null, false, "Agendamento não encontrado.");

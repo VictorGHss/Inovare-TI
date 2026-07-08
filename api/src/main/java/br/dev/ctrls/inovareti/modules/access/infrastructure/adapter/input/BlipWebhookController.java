@@ -19,8 +19,17 @@ import java.util.Map;
 /**
  * Adaptador de entrada REST para integração com o Webhook do Blip.
  * Expõe o endpoint POST /v1/access/blip/confirmation.
- * Processamento assíncrono via Java 21 Virtual Threads e retorno imediato para evitar timeouts.
- * Comentários em PT-BR pelas Regras de Ouro.
+ *
+ * <p>Resiliência de Disponibilidade: toda chamada síncrona ao ERP Feegow é envolvida
+ * em um try-catch. Em caso de oscilação ou timeout (5xx/IOException), o bot NÃO recebe
+ * um Erro 500. Em vez disso, o controller ativa imediatamente o Fallback Seguro,
+ * retornando {@code requiresCpfFallback: true} para que o Blip solicite o CPF manualmente
+ * ao paciente, mantendo o fluxo de confirmação vivo mesmo com o ERP indisponível.</p>
+ *
+ * <p>Processamento assíncrono via Java 21 Virtual Threads e retorno imediato para
+ * evitar timeouts no chatbot.</p>
+ *
+ * <p>Comentários em PT-BR pelas Regras de Ouro.</p>
  */
 @Slf4j
 @RestController("accessBlipWebhookController")
@@ -33,12 +42,21 @@ public class BlipWebhookController {
 
     /**
      * Recebe a confirmação de agendamento do Blip.
-     * Se CPF estiver ausente no Blip e no Feegow, retorna metadados de fallback síncronos.
-     * Caso contrário, delega o processamento da liberação física para uma Virtual Thread e retorna 200 OK imediatamente.
+     *
+     * <p>Fluxo principal:
+     * <ol>
+     *   <li>Valida a ação do payload — somente "Finalizar_Agendamento" é aceito.</li>
+     *   <li>Tenta resolver o CPF no Feegow de forma síncrona com fallback imediato
+     *       caso o ERP esteja indisponível.</li>
+     *   <li>Se o CPF continua ausente, retorna {@code requiresCpfFallback: true}.</li>
+     *   <li>Caso contrário, delega o processamento físico para uma Virtual Thread e
+     *       retorna {@code 200 OK} imediatamente para o Blip.</li>
+     * </ol>
+     * </p>
      */
     @PostMapping("/confirmation")
     public ResponseEntity<?> receiveConfirmation(@RequestBody @Valid BlipWebhookPayload payload) {
-        log.info("[BlipWebhookController] Recebida notificação do Blip: action={}, appointmentId={}", 
+        log.info("[BlipWebhookController] Recebida notificação do Blip: action={}, appointmentId={}",
                 payload.action(), payload.appointmentId());
 
         if (!"Finalizar_Agendamento".equalsIgnoreCase(payload.action())) {
@@ -46,7 +64,10 @@ public class BlipWebhookController {
             return ResponseEntity.badRequest().body(Map.of("message", "Ação inválida. Esperado 'Finalizar_Agendamento'."));
         }
 
-        // Resolvendo o CPF para validação síncrona rápida de fallback
+        // --- Resolução do CPF com Fallback Seguro de Indisponibilidade do ERP Feegow ---
+        // A chamada síncrona ao Feegow está isolada em try-catch. Caso o ERP esteja fora
+        // do ar (5xx, timeout, IOException), ativamos o fallback imediatamente em vez de
+        // propagar o erro para o Blip, mantendo o fluxo do WhatsApp vivo e resiliente.
         String cpf = payload.cpf();
         if (cpf == null || cpf.trim().isEmpty()) {
             try {
@@ -55,13 +76,22 @@ public class BlipWebhookController {
                     cpf = infoOpt.get().cpf();
                 }
             } catch (Exception ex) {
-                log.warn("[BlipWebhookController] Erro ao buscar CPF no Feegow para o agendamento: {}", payload.appointmentId(), ex);
+                // Oscilação do ERP detectada: registra o incidente e ativa o Fallback Seguro.
+                // O bot solicitará o CPF manualmente ao paciente, mantendo a esteira viva.
+                log.warn("[BlipWebhookController] ERP Feegow indisponível durante resolução do CPF para o agendamento {}. " +
+                         "Ativando Fallback Seguro. Causa: {}", payload.appointmentId(), ex.getMessage());
+                return ResponseEntity.ok(Map.of(
+                    "authorized", false,
+                    "requiresCpfFallback", true,
+                    "message", "ERP temporariamente indisponível. Por favor, informe seu CPF para continuar."
+                ));
             }
         }
 
-        // Se CPF continua ausente, aciona o fallback no bot do Blip imediatamente
+        // Se CPF permanece ausente após a tentativa no Feegow (prontuário sem CPF cadastrado)
         if (cpf == null || cpf.trim().replaceAll("\\D", "").isEmpty()) {
-            log.warn("[BlipWebhookController] CPF ausente para o agendamento {}. Retornando requerimento de fallback de CPF.", payload.appointmentId());
+            log.warn("[BlipWebhookController] CPF ausente para o agendamento {}. Retornando requerimento de fallback de CPF.",
+                    payload.appointmentId());
             return ResponseEntity.ok(Map.of(
                 "authorized", false,
                 "requiresCpfFallback", true,
@@ -80,14 +110,18 @@ public class BlipWebhookController {
         final String finalCpf = cpf;
         final List<CompanionAccessInfo> finalCompanions = domainCompanions;
 
-        // Dispara o processamento pesado na rede local de forma totalmente assíncrona usando Java 21 Virtual Threads
+        // Dispara o processamento pesado (GerAcesso local + banco) de forma totalmente assíncrona
+        // usando Java 21 Virtual Threads. Retorna imediatamente ao Blip para evitar timeout.
         Thread.startVirtualThread(() -> {
-            log.info("[BlipWebhookController] Iniciando processamento de acesso físico em Virtual Thread para agendamento {}", payload.appointmentId());
+            log.info("[BlipWebhookController] Iniciando processamento de acesso físico em Virtual Thread para agendamento {}",
+                    payload.appointmentId());
             try {
                 accessService.processAccessRequest(payload.appointmentId(), finalCpf, finalCompanions);
-                log.info("[BlipWebhookController] Processamento concluído com sucesso em segundo plano para o agendamento {}", payload.appointmentId());
+                log.info("[BlipWebhookController] Processamento concluído com sucesso em segundo plano para o agendamento {}",
+                        payload.appointmentId());
             } catch (Exception ex) {
-                log.error("[BlipWebhookController] Falha fatal no processamento em segundo plano para o agendamento {}", payload.appointmentId(), ex);
+                log.error("[BlipWebhookController] Falha fatal no processamento em segundo plano para o agendamento {}",
+                        payload.appointmentId(), ex);
             }
         });
 
@@ -101,6 +135,8 @@ public class BlipWebhookController {
 
     /**
      * Payload JSON estruturado do webhook do Blip.
+     * Todos os campos usam as chaves camelCase puras conforme o parser do bot.
+     * Chaves: 'idAgendamentoFeegow', 'listaAcompanhantes', 'requiresCpfFallback'.
      */
     public record BlipWebhookPayload(
         @JsonProperty("action") String action,
@@ -109,6 +145,7 @@ public class BlipWebhookController {
         @JsonProperty("nome") String name,
         @JsonProperty("telefone") String phone,
         @JsonProperty("email") String email,
-        @JsonProperty("listaAcompanhantes") List<CompanionRequest> companions
+        @JsonProperty("listaAcompanhantes") List<CompanionRequest> companions,
+        @JsonProperty("requiresCpfFallback") Boolean requiresCpfFallback
     ) {}
 }

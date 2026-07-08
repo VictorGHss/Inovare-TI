@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,6 +30,13 @@ import java.util.UUID;
     indexes = {
         @Index(name = "idx_access_credentials_appointment_id", columnList = "appointment_id"),
         @Index(name = "idx_access_credentials_cpf", columnList = "cpf")
+    },
+    // Proteção de idempotência: apenas uma credencial por agendamento + tipo de usuário é permitida
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uq_access_credentials_appointment_user_type",
+            columnNames = {"appointment_id", "user_type"}
+        )
     }
 )
 @Getter

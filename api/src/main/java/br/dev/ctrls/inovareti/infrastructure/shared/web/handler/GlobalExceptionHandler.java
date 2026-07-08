@@ -22,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.ConflictException;
+import br.dev.ctrls.inovareti.modules.access.domain.model.InvalidChallengeException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.FileSizeLimitExceededException;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.finance.domain.model.ContaAzulHttpException;
@@ -73,6 +74,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("[VALIDAÇÃO] Requisição inválida (400): {} | URI: {}", ex.getMessage(), resolveRequestUrl(request));
         ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         problem.setTitle("Requisição inválida");
+        problem.setDetail(ex.getMessage());
+        problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
+        attachTraceId(problem);
+        return problem;
+    }
+
+    /**
+     * Trata erros de validação do desafio de segurança de telefone do paciente (401 Unauthorized).
+     * Comentários em PT-BR pelas Regras de Ouro.
+     */
+    @ExceptionHandler(InvalidChallengeException.class)
+    public ProblemDetail handleInvalidChallenge(InvalidChallengeException ex, HttpServletRequest request) {
+        log.warn("[SEGURANÇA] Falha no desafio de telefone (401): {} | URI: {}", ex.getMessage(), resolveRequestUrl(request));
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        problem.setTitle("Desafio de Identidade Inválido");
         problem.setDetail(ex.getMessage());
         problem.setInstance(java.net.URI.create(resolveRequestUrl(request)));
         attachTraceId(problem);

@@ -8,12 +8,14 @@ import {
   RefreshCw, 
   ArrowRight,
   Info,
+  AlertTriangle,
   MapPin,
   Facebook,
   Instagram,
   MessageCircle,
   Github,
-  Maximize2
+  Maximize2,
+  Lock
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -31,13 +33,11 @@ interface AccessCredential {
 export default function PatientAccess() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
 
-  // Estados de controle de dados e tela
-  const [credentials, setCredentials] = useState<AccessCredential[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<boolean>(false);
-  const [unlocked, setUnlocked] = useState<boolean>(false);
+  // --- Estados de controle do desafio de identidade (2FA por telefone) ---
+  // isVerified controla se o desafio foi concluído com sucesso
+  const [isVerified, setIsVerified] = useState<boolean>(false);
 
-  // Dígitos de validação secundária (LGPD) - Mock no client side conforme especificação
+  // Dígitos de entrada do desafio — 4 campos separados para UX otimizada mobile
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const inputRefs = [
     useRef<HTMLInputElement>(null),
@@ -46,37 +46,22 @@ export default function PatientAccess() {
     useRef<HTMLInputElement>(null)
   ];
 
+  // Estado de carregamento da requisição de validação do desafio
+  const [challengeLoading, setChallengeLoading] = useState<boolean>(false);
+
+  // Mensagem de erro do desafio exibida caso os dígitos estejam incorretos
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+
+  // --- Estados de controle das credenciais retornadas após o desafio ---
+  const [credentials, setCredentials] = useState<AccessCredential[]>([]);
+
   // Controle de QR Code em tela cheia
   const [fullscreenCard, setFullscreenCard] = useState<number | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Controle do carrossel/slide
+  // Controle do carrossel/slide horizontal
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  /**
-   * Busca as credenciais de acesso para o agendamento informado.
-   * Comentários mantidos em PT-BR pelas Regras de Ouro.
-   */
-  const fetchCredentials = async () => {
-    if (!appointmentId) return;
-    setLoading(true);
-    setError(false);
-    try {
-      console.log("[PatientAccess] Buscando credenciais para o agendamento:", appointmentId);
-      const response = await api.get<AccessCredential[]>(`/v1/access/credentials/${appointmentId}`);
-      setCredentials(response.data || []);
-    } catch (err) {
-      console.error("[PatientAccess] Falha ao carregar credenciais:", err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCredentials();
-  }, [appointmentId]);
 
   const openFullscreen = (index: number) => {
     setFullscreenCard(index);
@@ -120,7 +105,7 @@ export default function PatientAccess() {
     };
   }, []);
 
-  // Manipulação de inputs dos dígitos do telefone para LGPD
+  // Manipulação dos inputs dos dígitos de desafio com navegação automática entre campos
   const handleDigitChange = (index: number, val: string) => {
     const numericVal = val.replace(/\D/g, '');
     if (!numericVal) {
@@ -133,6 +118,7 @@ export default function PatientAccess() {
     newDigits[index] = numericVal.substring(numericVal.length - 1);
     setDigits(newDigits);
 
+    // Avança automaticamente o foco para o próximo campo ao preencher
     if (index < 3) {
       inputRefs[index + 1].current?.focus();
     }
@@ -147,10 +133,35 @@ export default function PatientAccess() {
     }
   };
 
-  const handleValidate = (e: React.FormEvent) => {
+  /**
+   * Envia os 4 dígitos para a API de credenciais com validação do desafio.
+   * Em caso de sucesso: marca isVerified = true e armazena as credenciais retornadas.
+   * Em caso de erro (400/401): exibe a mensagem de erro e limpa os campos.
+   */
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (digits.every(d => d !== '')) {
-      setUnlocked(true);
+    if (!appointmentId || digits.some(d => d === '')) return;
+
+    const phoneDigits = digits.join('');
+    setChallengeLoading(true);
+    setChallengeError(null);
+
+    try {
+      console.log('[PatientAccess] Enviando desafio de 4 dígitos para o agendamento:', appointmentId);
+      const response = await api.get<AccessCredential[]>(
+        `/v1/access/credentials/${appointmentId}?phoneDigits=${phoneDigits}`
+      );
+      // Desafio validado com sucesso: libera o carrossel
+      setCredentials(response.data || []);
+      setIsVerified(true);
+    } catch (err: unknown) {
+      console.error('[PatientAccess] Falha no desafio de segurança:', err);
+      // Exibe mensagem de erro e limpa os campos para nova tentativa
+      setChallengeError('Os dígitos informados estão incorretos. Por favor, tente novamente.');
+      setDigits(['', '', '', '']);
+      setTimeout(() => inputRefs[0].current?.focus(), 50);
+    } finally {
+      setChallengeLoading(false);
     }
   };
 
@@ -176,47 +187,14 @@ export default function PatientAccess() {
 
   const isFormComplete = digits.every(d => d !== '');
 
-  // 1. ESTADO DE CARREGAMENTO (LOADING)
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans antialiased">
-        <div className="w-full max-w-md bg-white border border-brand-secondary/35 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center gap-4 text-center min-h-[300px]">
-          <RefreshCw className="w-10 h-10 animate-spin text-brand-primary" />
-          <h3 className="text-md font-bold text-slate-800">Carregando informações de acesso...</h3>
-          <p className="text-xs text-slate-400">Por favor, aguarde um instante.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. ESTADO DE ERRO (ERROR)
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans antialiased">
-        <div className="w-full max-w-md bg-white border border-brand-secondary/35 rounded-3xl shadow-xl p-8 flex flex-col items-center justify-center gap-4 text-center min-h-[300px]">
-          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <Info className="w-6 h-6" />
-          </div>
-          <h3 className="text-md font-bold text-slate-800">Falha ao carregar credenciais</h3>
-          <p className="text-xs text-slate-500">
-            Não foi possível recuperar seus dados de acesso neste momento. Por favor, fale com a recepção do edifício Inovare.
-          </p>
-          <button 
-            onClick={fetchCredentials}
-            className="mt-4 px-5 py-2.5 bg-brand-primary text-white hover:bg-brand-primary-dark font-bold rounded-xl text-xs transition-colors cursor-pointer"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. TELA DE VALIDAÇÃO DE SEGURANÇA (LGPD MOCKUP)
-  if (!unlocked) {
+  // === TELA DE DESAFIO DE IDENTIDADE (2FA) ===
+  // Exibida antes que o usuário desbloqueie os QR Codes com os 4 dígitos do telefone
+  if (!isVerified) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-secondary/35 via-slate-50 to-white flex items-center justify-center p-4 font-sans antialiased">
-        <div className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-3xl shadow-xl shadow-brand-primary/5 border border-white/60 p-8 flex flex-col justify-between min-h-[520px] transition-all">
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-3xl shadow-xl shadow-brand-primary/5 border border-white/60 p-8 flex flex-col justify-between min-h-[580px] transition-all">
+          
+          {/* Logo da Clínica */}
           <div className="text-center">
             <img 
               src="/Logo.png" 
@@ -227,24 +205,32 @@ export default function PatientAccess() {
               }}
             />
             
+            {/* Badge de Segurança */}
             <div className="inline-flex items-center gap-1.5 bg-brand-secondary/30 border border-brand-primary/10 rounded-full px-3 py-1 mb-4">
               <ShieldCheck className="w-4 h-4 text-brand-primary-dark" />
-              <span className="text-xs text-brand-primary-dark font-semibold">Ambiente Seguro LGPD</span>
+              <span className="text-xs text-brand-primary-dark font-semibold">Verificação de Identidade</span>
             </div>
 
-            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Validação de Acesso</h2>
+            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Desbloquear Acesso</h2>
+            
+            {/* Mensagem do desafio conforme especificado */}
             <p className="text-sm text-slate-500 mt-2.5 leading-relaxed max-w-[320px] mx-auto">
-              Para sua privacidade e segurança, digite os <b>4 últimos dígitos</b> do número de telefone celular que recebeu este link.
+              Para sua segurança e desbloqueio dos seus QR Codes de entrada, informe os{' '}
+              <b>4 últimos dígitos</b> do número de telefone que recebeu a mensagem de confirmação.
             </p>
           </div>
 
-          <form onSubmit={handleValidate} className="mt-8 flex-1 flex flex-col justify-between">
+          {/* Formulário de Desafio */}
+          <form onSubmit={handleUnlock} className="mt-8 flex-1 flex flex-col justify-between">
             <div className="space-y-4">
+              
+              {/* Inputs dos 4 dígitos separados para otimização mobile */}
               <div className="flex justify-center gap-3.5">
                 {digits.map((digit, index) => (
                   <input
                     key={index}
                     ref={inputRefs[index]}
+                    id={`digit-input-${index}`}
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
@@ -253,27 +239,53 @@ export default function PatientAccess() {
                     onChange={(e) => handleDigitChange(index, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(index, e)}
                     placeholder="•"
-                    className="w-14 h-16 text-center text-2xl font-extrabold text-slate-800 border-2 border-slate-200 rounded-2xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 bg-slate-50/50 transition-all font-mono placeholder:text-slate-300"
+                    disabled={challengeLoading}
+                    className={`w-14 h-16 text-center text-2xl font-extrabold text-slate-800 border-2 rounded-2xl focus:ring-4 bg-slate-50/50 transition-all font-mono placeholder:text-slate-300 disabled:opacity-50 disabled:cursor-wait ${
+                      challengeError
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-brand-primary focus:ring-brand-primary/10'
+                    }`}
                   />
                 ))}
               </div>
-              <p className="text-xs text-slate-400 text-center flex items-center justify-center gap-1">
-                <Info className="w-3.5 h-3.5 text-brand-primary" />
-                Dica: Digite qualquer combinação de 4 dígitos para testar
+
+              {/* Mensagem de erro do desafio */}
+              {challengeError && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-red-700">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs font-semibold leading-relaxed">{challengeError}</p>
+                </div>
+              )}
+
+              {/* Ícone de cadeado + texto de orientação */}
+              <p className="text-xs text-slate-400 text-center flex items-center justify-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-brand-primary" />
+                Os QR Codes são exibidos somente após a verificação
               </p>
             </div>
 
+            {/* Botão de Desbloqueio */}
             <button
               type="submit"
-              disabled={!isFormComplete}
+              id="unlock-access-button"
+              disabled={!isFormComplete || challengeLoading}
               className={`w-full py-4 px-6 rounded-2xl font-bold tracking-wide transition-all duration-300 mt-10 shadow-lg flex items-center justify-center gap-2 ${
-                isFormComplete 
+                isFormComplete && !challengeLoading
                   ? 'bg-gradient-to-r from-brand-primary to-brand-primary-dark hover:from-brand-primary hover:to-brand-primary-dark shadow-brand-primary/25 cursor-pointer active:scale-[0.98] text-white' 
                   : 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed'
               }`}
             >
-              Confirmar Identidade
-              <ArrowRight className="w-4 h-4" />
+              {challengeLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  Desbloquear Acesso
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -284,7 +296,7 @@ export default function PatientAccess() {
   // Identifica a credencial do paciente titular para os detalhes superiores
   const patientCredential = credentials.find(c => c.userType === 'PATIENT') || credentials[0];
 
-  // 4. TELA PRINCIPAL (CARROSSEL DE CREDENCIAIS / CONTINGÊNCIA ARRAY VAZIO)
+  // === TELA PRINCIPAL (CARROSSEL DE CREDENCIAIS / CONTINGÊNCIA ARRAY VAZIO) ===
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans antialiased">
       {/* Container Centralizado para Simulação Mobile (Mobile-First) */}
@@ -349,18 +361,18 @@ export default function PatientAccess() {
 
           {/* Fluxo Condicional: Carrossel de Credenciais vs Mensagem de Contingência */}
           {credentials.length === 0 ? (
-            /* cenário de contingência (array vazio: cadastro em segundo plano no servidor) */
+            /* Cenário de contingência: credenciais ainda não geradas no servidor */
             <div className="bg-brand-secondary/10 border border-brand-primary/20 rounded-3xl p-6 text-center space-y-4 shadow-sm">
               <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto text-brand-primary animate-pulse">
                 <Clock className="w-8 h-8" />
               </div>
               <h3 className="text-md font-bold text-slate-800">Acesso em Processamento</h3>
-              <p className="text-xs text-slate-650 leading-relaxed">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 Seu acesso prévio está em processamento. 📲 Caso a catraca não libere automaticamente ao chegar, informe seu nome na recepção para liberação imediata!
               </p>
             </div>
           ) : (
-            /* Carrossel de cartões */
+            /* Carrossel de cartões de credenciais */
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">Cartões de Acesso (Catraca)</h3>
@@ -391,7 +403,7 @@ export default function PatientAccess() {
                       </span>
                       <h4 className="text-sm font-bold text-slate-800 mt-0.5">{cred.name}</h4>
                       
-                      {/* Tag do Tipo de Usuário em inglês com estilo premium */}
+                      {/* Tag de tipo de usuário */}
                       <span className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full mt-1.5 ${
                         cred.userType === 'PATIENT' 
                           ? 'bg-brand-primary/10 text-brand-primary-dark' 
@@ -401,12 +413,12 @@ export default function PatientAccess() {
                       </span>
                     </div>
 
-                    {/* QR Code Container contendo estritamente o código numérico */}
-                    <div className="my-5 p-5 border border-dashed border-slate-200 rounded-2xl bg-slate-55 flex items-center justify-center relative">
+                    {/* QR Code contendo estritamente o código numérico puro (credentialCode) */}
+                    <div className="my-5 p-5 border border-dashed border-slate-200 rounded-2xl bg-slate-50 flex items-center justify-center relative">
                       <QRCodeSVG 
-                        value={cred.credentialCode} 
+                        value={cred.credentialCode}
                         size={160} 
-                        fgColor="#0f172a" 
+                        fgColor="#0f172a"
                         bgColor="#ffffff"
                       />
                       <div className="absolute top-2 right-2 flex items-center justify-center">
@@ -415,13 +427,13 @@ export default function PatientAccess() {
                       </div>
                     </div>
 
-                    {/* Localizador em texto para suporte administrativo */}
+                    {/* Localizador da catraca */}
                     <div className="w-full text-center bg-slate-50 rounded-xl py-2 px-3 border border-slate-100 mb-3">
                       <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">Localizador Catraca</span>
                       <span className="text-xs font-bold text-slate-700 font-mono">{cred.locator}</span>
                     </div>
 
-                    {/* Ações adicionais */}
+                    {/* Botão Ampliar QR Code para tela cheia */}
                     <button 
                       onClick={() => openFullscreen(idx)}
                       className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
@@ -433,7 +445,7 @@ export default function PatientAccess() {
                 ))}
               </div>
 
-              {/* Bolinhas de Paginação (Indicadores) */}
+              {/* Bolinhas de Paginação do carrossel */}
               {credentials.length > 1 && (
                 <div className="flex justify-center gap-1.5 mt-2">
                   {credentials.map((_, idx) => (
@@ -451,7 +463,7 @@ export default function PatientAccess() {
             </div>
           )}
 
-          {/* Dica e Instruções */}
+          {/* Dica de Instruções de Uso */}
           <div className="bg-brand-secondary/15 border-l-4 border-brand-primary rounded-2xl p-4 flex gap-3 text-slate-700 shadow-sm">
             <Info className="w-5 h-5 text-brand-primary-dark shrink-0 mt-0.5" />
             <div className="space-y-1">
@@ -562,6 +574,7 @@ export default function PatientAccess() {
 
           <div className="flex flex-col items-center justify-center flex-1 my-6">
             <div className="p-6 bg-white border border-brand-secondary/35 rounded-3xl shadow-xl shadow-brand-primary/5">
+              {/* QR Code ampliado com apenas o credentialCode puro */}
               <QRCodeSVG 
                 value={fullscreenData.value} 
                 size={260} 

@@ -255,3 +255,72 @@ Endpoint exposto para consumo da rota dinâmica do front-end em React para rende
 * **Retorno em caso de processamento pendente ou inexistente (200 OK)**:
   Se o agendamento ainda não tiver credenciais geradas ou não existir, o endpoint responde amigavelmente com uma lista vazia (`[]`). Isso permite que o portal React exiba a tela de contingência apropriada (ex: *"Seu acesso prévio está em processamento..."*).
 
+---
+
+## 6. Desafio de Segurança 2FA — Validação dos 4 Dígitos do Telefone
+
+O endpoint de consulta de credenciais exige a validação prévia do desafio dos 4 últimos dígitos do número de telefone do paciente, protegendo o link público de acesso contra visualizações não autorizadas.
+
+### 6.1 Fluxo do Desafio Web (React → Java → Feegow)
+
+```mermaid
+sequenceDiagram
+    participant P as Portal React (Paciente)
+    participant A as AccessController (Spring)
+    participant S as AccessService
+    participant F as Feegow ERP
+
+    P->>P: Paciente digita 4 últimos dígitos do telefone
+    P->>A: GET /v1/access/credentials/{idAgendamento}?phoneDigits=XXXX
+    A->>S: validatePhoneChallenge(appointmentId, phoneDigits)
+    S->>F: fetchPatientAccessInfo + patientInfo (prontuário)
+    F-->>S: Telefone do paciente (ex: "(42) 99161-7187")
+    S->>S: Limpa máscara → "42991617187" → 4 últimos: "7187"
+    alt Dígitos corretos
+        S-->>A: Retorna normalmente
+        A->>A: Busca credenciais no banco local
+        A-->>P: 200 OK — Lista de AccessCredentialResponse
+        P->>P: isVerified = true → Exibe carrossel de QR Codes
+    else Dígitos incorretos
+        S--xA: Lança InvalidChallengeException
+        A-->>P: 401 Unauthorized — ProblemDetail (mensagem de erro)
+        P->>P: Exibe erro e limpa campos para nova tentativa
+    end
+```
+
+### 6.2 Parâmetros do Endpoint
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `idAgendamento` | Path Variable | Sim | Identificador do agendamento Feegow |
+| `phoneDigits` | Query String | Sim | 4 últimos dígitos do telefone do paciente |
+
+### 6.3 Códigos HTTP de Resposta
+
+| Situação | Código HTTP | Descrição |
+|---|---|---|
+| Dígitos corretos, credenciais encontradas | `200 OK` | Lista de `AccessCredentialResponse` no corpo |
+| Dígitos corretos, sem credenciais ainda | `200 OK` | Array vazio `[]` |
+| Dígitos incorretos | `401 Unauthorized` | RFC7807 Problem Detail com `title: "Desafio de Identidade Inválido"` |
+| Agendamento não encontrado no Feegow | `404 Not Found` | RFC7807 Problem Detail com `title: "Not Found"` |
+
+### 6.4 Robustez de Strings de Telefone (Java)
+
+O sistema aplica sanitização obrigatória no telefone obtido do prontuário antes de comparar:
+
+```java
+// Remove toda formatação: "(42) 99161-7187" → "42991617187"
+String cleanPhone = phone.replaceAll("\\D", "");
+String lastFourDigits = cleanPhone.substring(cleanPhone.length() - 4);
+```
+
+### 6.5 Alinhamento de Payload do Webhook Blip (camelCase)
+
+O payload enviado pelo Blip após a correção do parser usa variáveis em camelCase puro. O DTO `BlipWebhookPayload` no módulo `access` foi alinhado:
+
+| Variável Blip (camelCase) | Campo Java | Comentário |
+|---|---|---|
+| `idAgendamentoFeegow` | `appointmentId` | Identificador do agendamento Feegow |
+| `listaAcompanhantes` | `companions` | Lista de acompanhantes a cadastrar |
+
+

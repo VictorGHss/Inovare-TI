@@ -104,7 +104,7 @@ public class BlipWebhookController {
      */
     public record BlipWebhookPayload(
         @JsonProperty("action") String action,
-        @JsonProperty("id_agendamento") String appointmentId,
+        @JsonProperty("idAgendamentoFeegow") String appointmentId,
         @JsonProperty("cpf") String cpf,
         @JsonProperty("nome") String name,
         @JsonProperty("telefone") String phone,

@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.modules.access.domain.service;
 
+import br.dev.ctrls.inovareti.modules.access.domain.model.InvalidChallengeException;
 import br.dev.ctrls.inovareti.modules.access.domain.model.AccessCredential;
 import br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo;
 import br.dev.ctrls.inovareti.modules.access.domain.model.UserType;
@@ -309,6 +310,54 @@ public class AccessService {
 
         accessCredentialRepositoryPort.save(credential);
         log.info("[AccessService] Credencial do acompanhante {} salva no banco local com sucesso.", companion.name());
+    }
+
+    /**
+     * Valida o desafio dos 4 últimos dígitos do telefone do paciente cadastrado no prontuário.
+     * Caso os dígitos não batam, lança InvalidChallengeException.
+     * Comentários em PT-BR pelas Regras de Ouro.
+     *
+     * @param appointmentId Identificador do agendamento.
+     * @param phoneDigits Os 4 dígitos enviados para validação.
+     */
+    public void validatePhoneChallenge(String appointmentId, String phoneDigits) {
+        log.info("[AccessService] Validando desafio de telefone para o agendamento ID: {}", appointmentId);
+        
+        Optional<FeegowPatientAccessInfo> accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
+        if (accessInfoOpt.isEmpty()) {
+            log.warn("[AccessService] Agendamento {} não encontrado para validação do desafio.", appointmentId);
+            throw new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Agendamento não encontrado.");
+        }
+
+        FeegowPatientAccessInfo accessInfo = accessInfoOpt.get();
+        FeegowPatient mainPatient = patientExternalPort.patientInfo(accessInfo.patientId());
+        
+        String phone = mainPatient != null ? mainPatient.phone() : null;
+        if (phone == null || phone.isBlank()) {
+            log.warn("[AccessService] Paciente ID {} não possui telefone cadastrado no prontuário.", accessInfo.patientId());
+            throw new InvalidChallengeException("Não há telefone cadastrado no prontuário do paciente.");
+        }
+
+        // Robustez: Mantém apenas números puros do telefone cadastrado
+        String cleanPhone = phone.replaceAll("\\D", "");
+        if (cleanPhone.length() < 4) {
+            log.warn("[AccessService] Telefone cadastrado '{}' (limpo: '{}') possui menos de 4 dígitos.", phone, cleanPhone);
+            throw new InvalidChallengeException("Telefone inválido cadastrado no prontuário.");
+        }
+
+        // Extrai os 4 últimos dígitos do telefone limpo
+        String lastFourDigits = cleanPhone.substring(cleanPhone.length() - 4);
+        
+        // Limpa os dígitos enviados pelo usuário para comparação
+        String cleanInputDigits = phoneDigits != null ? phoneDigits.replaceAll("\\D", "") : "";
+
+        if (!lastFourDigits.equals(cleanInputDigits)) {
+            log.warn("[AccessService] Falha no desafio de segurança para agendamento {}. Esperado: {}, Recebido: {}", 
+                    appointmentId, lastFourDigits, cleanInputDigits);
+            throw new InvalidChallengeException("Os dígitos informados estão incorretos. Por favor, tente novamente.");
+        }
+        
+        log.info("[AccessService] Desafio de segurança validado com sucesso para agendamento {}", appointmentId);
     }
 
     /**

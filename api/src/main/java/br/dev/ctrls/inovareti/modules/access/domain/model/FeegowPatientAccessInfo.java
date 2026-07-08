@@ -15,5 +15,6 @@ public record FeegowPatientAccessInfo(
     LocalDate appointmentDate,
     LocalTime appointmentTime,
     String doctorId,
-    String doctorName
+    String doctorName,
+    String phone
 ) {}

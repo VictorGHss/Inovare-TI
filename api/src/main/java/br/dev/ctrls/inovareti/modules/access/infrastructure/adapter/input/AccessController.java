@@ -131,8 +131,12 @@ public class AccessController {
      */
     @GetMapping("/credentials/{idAgendamento}")
     public ResponseEntity<java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse>> getCredentials(
-            @PathVariable("idAgendamento") String idAgendamento) {
-        log.info("[AccessControl] Consulta de credenciais para o agendamento ID: {}", idAgendamento);
+            @PathVariable("idAgendamento") String idAgendamento,
+            @RequestParam("phoneDigits") String phoneDigits) {
+        log.info("[AccessControl] Consulta de credenciais para o agendamento ID: {} com validacao de telefone", idAgendamento);
+
+        // Executa a validacao do desafio dos 4 digitos do telefone do paciente cadastrado
+        accessService.validatePhoneChallenge(idAgendamento, phoneDigits);
 
         java.util.List<AccessCredential> credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
 

@@ -104,7 +104,8 @@ public class FeegowRestClientAdapter implements FeegowClientPort {
                 date,
                 time,
                 doctorId,
-                doctorName
+                doctorName,
+                patient.phone()
             );
 
             return Optional.of(info);

@@ -74,6 +74,23 @@ public class AccessService {
     public AccessValidationResult processAccessRequest(String appointmentId, String requestCpf, List<CompanionAccessInfo> companions) {
         log.info("[AccessService] Processando solicitação de acesso físico. Agendamento: {}", appointmentId);
 
+        // 0. Verificação de Existência (Idempotência) antes de criar/salvar novas credenciais.
+        // Se já existem credenciais para este agendamento, retornamos imediatamente para evitar conflitos de concorrência e Optimistic Locking.
+        List<AccessCredential> existingList = accessCredentialRepositoryPort.findByAppointmentId(appointmentId);
+        if (existingList != null && !existingList.isEmpty()) {
+            log.info("[AccessService] Credenciais já existentes encontradas no banco para o agendamento ID: {}. Ignorando processamento redundante.", appointmentId);
+            Optional<AccessCredential> patientCredOpt = existingList.stream()
+                .filter(c -> c.getUserType() == UserType.PATIENT)
+                .findFirst();
+            if (patientCredOpt.isPresent()) {
+                AccessCredential patientCred = patientCredOpt.get();
+                return new AccessValidationResult(true, patientCred.getName(), patientCred.getAccessCredential(), false, "Credencial resolvida com sucesso (recuperada do banco).");
+            } else {
+                AccessCredential firstCred = existingList.get(0);
+                return new AccessValidationResult(true, firstCred.getName(), firstCred.getAccessCredential(), false, "Credencial resolvida com sucesso (recuperada do banco).");
+            }
+        }
+
         // 1. Busca os dados cadastrais do agendamento no Feegow.
         // Resiliência: caso o ERP Feegow oscile (5xx, timeout, IOException), retornamos o Fallback
         // Seguro imediatamente (requiresCpfFallback = true) em vez de propagar a exceção ao Blip.

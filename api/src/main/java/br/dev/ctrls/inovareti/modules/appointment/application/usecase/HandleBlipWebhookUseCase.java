@@ -67,6 +67,7 @@ public class HandleBlipWebhookUseCase {
     private final BlipNotificationMetrics blipNotificationMetrics;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient blipLimeClient;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -233,6 +234,28 @@ public class HandleBlipWebhookUseCase {
         }
 
         action = resolveTextIntentions(normalizedAction, action, payload);
+
+        switch (action) {
+            case "Integrar_GerAcesso":
+                String resolvedAppId = resolveActiveAppointmentId(payload);
+                log.info("Tratando requisição de integração física GerAcesso de forma segura. De: {} | ID: {} | AppId: {}", fromPhone, payload.messageId(), resolvedAppId);
+                if (resolvedAppId != null && !resolvedAppId.isBlank()) {
+                    try {
+                        accessService.processAccessRequest(resolvedAppId, null, null);
+                        log.info("Integração física GerAcesso concluída com sucesso para o agendamento {}", resolvedAppId);
+                    } catch (Exception ex) {
+                        log.error("Falha fatal na integração GerAcesso para o agendamento {}", resolvedAppId, ex);
+                    }
+                } else {
+                    log.warn("Não foi possível resolver o appointmentId para Integrar_GerAcesso para {}", fromPhone);
+                }
+                return new WebhookResult("", "", resolvedAppId != null ? resolvedAppId : "", "", "Integrar_GerAcesso", "");
+
+            case "Não":
+                String resolvedAppIdNo = resolveActiveAppointmentId(payload);
+                log.info("Paciente informou que não trará acompanhantes. De: {} | ID: {} | AppId: {}", fromPhone, payload.messageId(), resolvedAppIdNo);
+                return new WebhookResult("", "", resolvedAppIdNo != null ? resolvedAppIdNo : "", "", "Não", "");
+        }
 
         WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());
         if (groupResult != null) {

@@ -293,6 +293,8 @@ public class BlipWebhookController {
                 action.startsWith("group_view_") ||
                 "group_view_fallback".equalsIgnoreCase(action) ||
                 "Verificar_Acompanhante".equalsIgnoreCase(action) ||
+                "Integrar_GerAcesso".equalsIgnoreCase(action) ||
+                "Não".equalsIgnoreCase(action) ||
                 isPrepararAtendimento ||
                 isExibirAgenda
             );
@@ -381,6 +383,14 @@ public class BlipWebhookController {
 
         if (result == null) {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));
+        }
+
+        if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Não".equalsIgnoreCase(result.action())) {
+            String resolvedId = result.patientCPF() != null ? result.patientCPF() : "";
+            if (resolvedId.isEmpty()) {
+                resolvedId = appointmentId != null ? appointmentId : "";
+            }
+            return ResponseEntity.ok(Map.of("appointmentId", resolvedId));
         }
 
         return ResponseEntity.ok(new WebhookResponse(

@@ -121,18 +121,33 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
                 userPhone = session.getPhoneNumber();
                 
-                // Configurar variável de contexto da fila no Blip
+                // Configurar variável de contexto da fila e ID no Blip
+                try {
+                    if (!listaSessoes.isEmpty()) {
+                        String firstFeegowId = listaSessoes.get(0).getFeegowAppointmentId();
+                        blipContextService.setUserContextForUser(userPhone, "appointmentId", firstFeegowId);
+                        blipContextService.setUserContextForUser(userPhone, "idAgendamento", firstFeegowId);
+                        if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                            blipContextService.setUserContextForUser(fromIdentity, "appointmentId", firstFeegowId);
+                            blipContextService.setUserContextForUser(fromIdentity, "idAgendamento", firstFeegowId);
+                        }
+                        log.info("[CONFIRM-BATCH] IDs salvos no contexto do Blip: {}", firstFeegowId);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[CONFIRM-BATCH] Falha ao salvar ID no contexto: {}", ex.getMessage());
+                }
+
                 blipContextService.setQueueRedirect(userPhone, targetQueue);
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setQueueRedirect(fromIdentity, targetQueue);
                 }
-
+ 
                 // Recupera dinamicamente a propriedade do bloco de sucesso
                 String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
                 if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
                     confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
                 }
-
+ 
                 String targetBot = "desk@msging.net";
                 if (!"644d54dd-aefd-478b-93eb-10081acdd387".equals(confirmSuccessBlockId)) {
                     String builderBotId = appointmentMotorProperties.getBlipBuilderBotId();
@@ -140,13 +155,13 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         targetBot = builderBotId;
                     }
                 }
-
+ 
                 // Enviar redirecionamento de estado (Change State) para o bloco correspondente
                 blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
                 }
-
+ 
                 // Redirecionamento de estado nas identidades de túnel (deterministica e reconciliadas)
                 try {
                     if (userPhone != null && !userPhone.isBlank()) {
@@ -159,7 +174,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                 subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
                             }
                         }
-
+ 
                         String phoneDigits = userPhone.trim();
                         if (phoneDigits.contains("@")) {
                             phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
@@ -168,17 +183,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
                             phoneDigits = "55" + phoneDigits;
                         }
-
+ 
                         if (subbotLocalPart != null) {
                             String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
                             tunnelIdentities.add(deterministicTunnel);
                         }
-
+ 
                         List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
                         reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
                         String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
                         reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
-
+ 
                         for (var rec : reconciliations) {
                             if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
                                 String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
@@ -187,11 +202,19 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                 }
                             }
                         }
-
+ 
                         for (String tunnelId : tunnelIdentities) {
                             if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
                                 blipContextService.setQueueRedirect(tunnelId, targetQueue);
                                 blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
+                                try {
+                                    if (!listaSessoes.isEmpty()) {
+                                        blipContextService.setUserContextForUser(tunnelId, "appointmentId", listaSessoes.get(0).getFeegowAppointmentId());
+                                        blipContextService.setUserContextForUser(tunnelId, "idAgendamento", listaSessoes.get(0).getFeegowAppointmentId());
+                                    }
+                                } catch (Exception ex) {
+                                    log.warn("[CONFIRM-BATCH] Falha ao salvar ID no túnel: {}", ex.getMessage());
+                                }
                                 log.info("[CONFIRM-BATCH] Aplicado redirecionamento e Builder Master-State na identidade de túnel: {}", tunnelId);
                             }
                         }
@@ -199,7 +222,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 } catch (Exception ex) {
                     log.warn("[CONFIRM-BATCH] Falha ao aplicar redirecionamento retroativo em túneis: {}", ex.getMessage());
                 }
-
+ 
                 log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",
                         userPhone, fromIdentity, targetQueue, targetBot, confirmSuccessBlockId);
 
@@ -272,17 +295,31 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
 
             String userPhone = session.getPhoneNumber();
+            
+            // Salva o ID do agendamento no contexto do Blip para persistência
+            try {
+                blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
+                blipContextService.setUserContextForUser(userPhone, "idAgendamento", session.getFeegowAppointmentId());
+                if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                    blipContextService.setUserContextForUser(fromIdentity, "appointmentId", session.getFeegowAppointmentId());
+                    blipContextService.setUserContextForUser(fromIdentity, "idAgendamento", session.getFeegowAppointmentId());
+                }
+                log.info("[CONFIRM] ID do agendamento salvo no contexto do Blip: {}", session.getFeegowAppointmentId());
+            } catch (Exception ex) {
+                log.warn("[CONFIRM] Falha ao salvar ID do agendamento no contexto: {}", ex.getMessage());
+            }
+
             blipContextService.setQueueRedirect(userPhone, targetQueue);
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                 blipContextService.setQueueRedirect(fromIdentity, targetQueue);
             }
-
+ 
             // Recupera dinamicamente a propriedade do bloco de sucesso
             String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
             if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
                 confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
             }
-
+ 
             String targetBot = "desk@msging.net";
             if (!"644d54dd-aefd-478b-93eb-10081acdd387".equals(confirmSuccessBlockId)) {
                 String builderBotId = appointmentMotorProperties.getBlipBuilderBotId();
@@ -290,12 +327,12 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     targetBot = builderBotId;
                 }
             }
-
+ 
             blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                 blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
             }
-
+ 
             // Redirecionamento de estado nas identidades de túnel (deterministica e reconciliadas)
             try {
                 if (userPhone != null && !userPhone.isBlank()) {
@@ -308,7 +345,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
                         }
                     }
-
+ 
                     String phoneDigits = userPhone.trim();
                     if (phoneDigits.contains("@")) {
                         phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
@@ -317,17 +354,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
                         phoneDigits = "55" + phoneDigits;
                     }
-
+ 
                     if (subbotLocalPart != null) {
                         String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
                         tunnelIdentities.add(deterministicTunnel);
                     }
-
+ 
                     List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
                     reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
                     String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
                     reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
-
+ 
                     for (var rec : reconciliations) {
                         if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
                             String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
@@ -336,19 +373,25 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             }
                         }
                     }
-
+ 
                     for (String tunnelId : tunnelIdentities) {
                         if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
                             blipContextService.setQueueRedirect(tunnelId, targetQueue);
                             blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
-                            log.info("[CONFIRM] Aplicado redirecionamento e Builder Master-State na identidade de túnel: {}", tunnelId);
+                            try {
+                                blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
+                                blipContextService.setUserContextForUser(tunnelId, "idAgendamento", session.getFeegowAppointmentId());
+                            } catch (Exception ex) {
+                                log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
+                            }
+                            log.info("[CONFIRM] Aplicado redirecionamento, Builder Master-State e ID no túnel: {}", tunnelId);
                         }
                     }
                 }
             } catch (Exception ex) {
                 log.warn("[CONFIRM] Falha ao aplicar redirecionamento retroativo em túneis: {}", ex.getMessage());
             }
-
+ 
             log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",
                     userPhone, fromIdentity, targetQueue, targetBot, confirmSuccessBlockId);
         }

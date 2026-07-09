@@ -159,22 +159,27 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 // Enviar redirecionamento de estado (Change State) para o bloco correspondente
                 blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
                 
-                // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID no fluxo batch
+                // Atualiza também o Master-State com as identidades baseadas nos GUIDs das sessões do lote
                 try {
-                    List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
-                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
-                    String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
-                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
-                    
-                    for (var rec : reconciliations) {
-                        if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
-                            String guidIdentity = rec.getBlipGuid().trim() + "@wa.gw.msging.net";
-                            blipContextService.setMasterState(guidIdentity, targetBot, confirmSuccessBlockId);
-                            log.info("[CONFIRM-BATCH] Master-State atualizado também para a identidade GUID: {}", guidIdentity);
+                    for (AppointmentSession groupSession : listaSessoes) {
+                        String guid = groupSession.getBlipGuid();
+                        if (guid == null || guid.isBlank()) {
+                            guid = groupSession.getBsuid();
+                        }
+                        if (guid != null && !guid.isBlank()) {
+                            if (guid.contains("@")) {
+                                guid = guid.substring(0, guid.indexOf("@"));
+                            }
+                            guid = guid.trim();
+                            if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                                String tunnelIdentity = guid + "@tunnel.msging.net";
+                                blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
+                                log.info("[CONFIRM-BATCH] Master-State atualizado também para a identidade GUID do túnel no lote: {}", tunnelIdentity);
+                            }
                         }
                     }
                 } catch (Exception ex) {
-                    log.warn("[CONFIRM-BATCH] Falha ao atualizar Master-State para GUID reconciliado: {}", ex.getMessage());
+                    log.warn("[CONFIRM-BATCH] Falha ao atualizar Master-State para GUID do túnel no lote: {}", ex.getMessage());
                 }
 
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
@@ -349,22 +354,38 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
  
             blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
             
-            // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID
+            // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID do túnel
             try {
-                List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
-                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
-                String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
-                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
-                
-                for (var rec : reconciliations) {
-                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
-                        String guidIdentity = rec.getBlipGuid().trim() + "@wa.gw.msging.net";
-                        blipContextService.setMasterState(guidIdentity, targetBot, confirmSuccessBlockId);
-                        log.info("[CONFIRM] Master-State atualizado também para a identidade GUID: {}", guidIdentity);
+                String guid = null;
+                var dbSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(session.getFeegowAppointmentId());
+                if (dbSessionOpt.isPresent()) {
+                    guid = dbSessionOpt.get().getBlipGuid();
+                    if (guid == null || guid.isBlank()) {
+                        guid = dbSessionOpt.get().getBsuid();
+                    }
+                }
+                if (guid == null || guid.isBlank()) {
+                    guid = session.getBlipGuid();
+                }
+                if (guid == null || guid.isBlank()) {
+                    guid = session.getBsuid();
+                }
+
+                if (guid != null && !guid.isBlank()) {
+                    if (guid.contains("@")) {
+                        guid = guid.substring(0, guid.indexOf("@"));
+                    }
+                    guid = guid.trim();
+                    if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                        String tunnelIdentity = guid + "@tunnel.msging.net";
+                        blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
+                        log.info("[CONFIRM] Master-State atualizado também para a identidade GUID do túnel: {}", tunnelIdentity);
+                    } else {
+                        log.debug("[CONFIRM] O guid '{}' não é um UUID/GUID válido.", guid);
                     }
                 }
             } catch (Exception ex) {
-                log.warn("[CONFIRM] Falha ao atualizar Master-State para GUID reconciliado: {}", ex.getMessage());
+                log.warn("[CONFIRM] Falha ao atualizar Master-State para GUID do túnel: {}", ex.getMessage());
             }
 
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {

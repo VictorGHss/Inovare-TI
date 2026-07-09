@@ -199,6 +199,10 @@ public class HandleBlipWebhookUseCase {
 
         String fromPhone = payload.from();
         String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, payload.bsuid());
+        dbPhone = purifyPhoneNumberForSearch(dbPhone);
+        if (dbPhone.isEmpty()) {
+            dbPhone = purifyPhoneNumberForSearch(fromPhone);
+        }
         String action = payload.action() != null ? payload.action().trim() : "";
 
         if (action.isBlank()) {
@@ -560,14 +564,39 @@ public class HandleBlipWebhookUseCase {
         return action;
     }
 
+    private String purifyPhoneNumberForSearch(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return "";
+        }
+        String clean = rawPhone.trim();
+        if (clean.contains("@")) {
+            clean = clean.substring(0, clean.indexOf('@')).trim();
+        }
+        if (clean.contains(".")) {
+            clean = clean.substring(0, clean.indexOf('.')).trim();
+        }
+        clean = clean.replaceAll("\\D", "");
+        if (clean.startsWith("55") && clean.length() > 10) {
+            clean = clean.substring(2);
+        }
+        return clean;
+    }
+
     private String resolveActiveAppointmentId(BlipWebhookPayload payload) {
         String resolvedId = payload.appointmentId();
         if (resolvedId == null || resolvedId.isBlank()) {
             String fromPhone = payload.from();
             if (fromPhone != null && !fromPhone.isBlank()) {
                 String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, payload.bsuid());
+                
+                String cleanPhone = purifyPhoneNumberForSearch(dbPhone);
+                if (cleanPhone.isEmpty()) {
+                    cleanPhone = purifyPhoneNumberForSearch(fromPhone);
+                }
+                
+                final String finalPhone = cleanPhone;
                 List<AppointmentSession> activeSessions = transactionTemplate.execute(status -> 
-                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
+                    appointmentSessionRepository.findActiveByPhoneNumber(finalPhone)
                 );
                 if (activeSessions != null && !activeSessions.isEmpty()) {
                     resolvedId = activeSessions.get(0).getFeegowAppointmentId();

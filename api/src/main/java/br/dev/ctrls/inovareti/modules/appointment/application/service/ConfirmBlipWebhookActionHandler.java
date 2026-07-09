@@ -125,11 +125,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 try {
                     if (!listaSessoes.isEmpty()) {
                         String firstFeegowId = listaSessoes.get(0).getFeegowAppointmentId();
+                        blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", firstFeegowId);
                         blipContextService.setUserContextForUser(userPhone, "appointmentId", firstFeegowId);
-                        blipContextService.setUserContextForUser(userPhone, "idAgendamento", firstFeegowId);
                         if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                            blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", firstFeegowId);
                             blipContextService.setUserContextForUser(fromIdentity, "appointmentId", firstFeegowId);
-                            blipContextService.setUserContextForUser(fromIdentity, "idAgendamento", firstFeegowId);
                         }
                         log.info("[CONFIRM-BATCH] IDs salvos no contexto do Blip: {}", firstFeegowId);
                     }
@@ -209,8 +209,8 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                 blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
                                 try {
                                     if (!listaSessoes.isEmpty()) {
+                                        blipContextService.setUserContextForUser(tunnelId, "idAgendamentoFeegow", listaSessoes.get(0).getFeegowAppointmentId());
                                         blipContextService.setUserContextForUser(tunnelId, "appointmentId", listaSessoes.get(0).getFeegowAppointmentId());
-                                        blipContextService.setUserContextForUser(tunnelId, "idAgendamento", listaSessoes.get(0).getFeegowAppointmentId());
                                     }
                                 } catch (Exception ex) {
                                     log.warn("[CONFIRM-BATCH] Falha ao salvar ID no túnel: {}", ex.getMessage());
@@ -298,11 +298,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             
             // Salva o ID do agendamento no contexto do Blip para persistência
             try {
+                blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                 blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
-                blipContextService.setUserContextForUser(userPhone, "idAgendamento", session.getFeegowAppointmentId());
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                    blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                     blipContextService.setUserContextForUser(fromIdentity, "appointmentId", session.getFeegowAppointmentId());
-                    blipContextService.setUserContextForUser(fromIdentity, "idAgendamento", session.getFeegowAppointmentId());
                 }
                 log.info("[CONFIRM] ID do agendamento salvo no contexto do Blip: {}", session.getFeegowAppointmentId());
             } catch (Exception ex) {
@@ -379,8 +379,8 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             blipContextService.setQueueRedirect(tunnelId, targetQueue);
                             blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
                             try {
+                                blipContextService.setUserContextForUser(tunnelId, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                                 blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
-                                blipContextService.setUserContextForUser(tunnelId, "idAgendamento", session.getFeegowAppointmentId());
                             } catch (Exception ex) {
                                 log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
                             }

@@ -269,7 +269,6 @@ public class AccessService {
             List<AccessCredential> savedList = accessCredentialRepositoryPort.findByAppointmentId(app.id());
             if (savedList.isEmpty()) {
                 AccessCredential credential = AccessCredential.builder()
-                    .id(UUID.randomUUID())
                     .appointmentId(app.id())
                     .name(accessInfo.name())
                     .cpf(finalCpf)
@@ -368,7 +367,6 @@ public class AccessService {
 
         // Persiste a credencial individual e separada no banco local
         AccessCredential credential = AccessCredential.builder()
-            .id(UUID.randomUUID())
             .appointmentId(appointmentId)
             .name(companion.name())
             .cpf(companionCpf.isEmpty() ? null : companionCpf)

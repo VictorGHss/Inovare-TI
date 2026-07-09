@@ -20,6 +20,8 @@ import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentEnrichmentService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookInboundService;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
@@ -79,8 +81,30 @@ public class AppointmentMotorController {
 
     @PostMapping("/trigger-manual")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> triggerManual() {
-        IngestAppointmentsUseCase.IngestionSummary summary = ingestAppointmentsUseCase.execute();
+    public ResponseEntity<Map<String, Object>> triggerManual(
+            @RequestParam(value = "production", required = false) Boolean production,
+            @RequestParam(value = "exclude", required = false) String excludeRaw) {
+        
+        IngestAppointmentsUseCase.IngestionSummary summary;
+        if (Boolean.TRUE.equals(production)) {
+            java.util.List<String> activeDoctorIds = new java.util.ArrayList<>(appointmentMotorProperties.getActiveDoctorIds());
+            
+            if (excludeRaw != null && !excludeRaw.isBlank()) {
+                java.util.List<String> excludeList = java.util.Arrays.stream(excludeRaw.split(","))
+                        .map(id -> id != null ? id.trim() : "")
+                        .filter(id -> !id.isEmpty())
+                        .toList();
+                
+                log.info("[MANUAL-PROD] Executando motor para médicos ativos. Excluindo por demanda os IDs: {}", excludeList);
+                activeDoctorIds.removeAll(excludeList);
+            }
+            
+            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {}", activeDoctorIds);
+            summary = ingestAppointmentsUseCase.execute(activeDoctorIds);
+        } else {
+            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais).");
+            summary = ingestAppointmentsUseCase.execute();
+        }
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",

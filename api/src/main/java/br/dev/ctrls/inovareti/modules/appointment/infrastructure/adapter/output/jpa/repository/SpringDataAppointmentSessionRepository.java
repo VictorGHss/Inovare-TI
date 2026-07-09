@@ -52,20 +52,20 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
      * Busca a sessao mais recente e ativa para um numero de telefone.
      * Usada quando o usuario envia texto livre (ex: 'Solicitar Alteracao') sem payload de botao.
      */
-    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.phoneNumber = :phone " +
-           "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
-           "ORDER BY a.lastInteractionAt DESC")
-    List<AppointmentSessionEntity> findActiveByPhoneNumber(@Param("phone") String phone);
-
-    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.blipGuid = :blipGuid " +
-           "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
-           "ORDER BY a.lastInteractionAt DESC")
-    List<AppointmentSessionEntity> findActiveByBlipGuid(@Param("blipGuid") String blipGuid);
-
-    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.bsuid = :bsuid " +
-           "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
-           "ORDER BY a.lastInteractionAt DESC")
-    List<AppointmentSessionEntity> findActiveByBsuid(@Param("bsuid") String bsuid);
+     @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.phoneNumber = :phone " +
+            "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
+            "ORDER BY a.createdAt DESC, a.id DESC")
+     List<AppointmentSessionEntity> findActiveByPhoneNumber(@Param("phone") String phone);
+ 
+     @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.blipGuid = :blipGuid " +
+            "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
+            "ORDER BY a.createdAt DESC, a.id DESC")
+     List<AppointmentSessionEntity> findActiveByBlipGuid(@Param("blipGuid") String blipGuid);
+ 
+     @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.bsuid = :bsuid " +
+            "AND a.status NOT IN ('CONFIRMED', 'CANCELLED', 'EXPIRED') " +
+            "ORDER BY a.createdAt DESC, a.id DESC")
+     List<AppointmentSessionEntity> findActiveByBsuid(@Param("bsuid") String bsuid);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

@@ -386,7 +386,11 @@ public class BlipWebhookController {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));
         }
 
-        if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Não".equalsIgnoreCase(result.action()) || "Finalizar_Agendamento".equalsIgnoreCase(result.action())) {
+        if ("Não".equalsIgnoreCase(result.action())) {
+            return ResponseEntity.ok(Map.of());
+        }
+
+        if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Finalizar_Agendamento".equalsIgnoreCase(result.action())) {
             String resolvedId = result.patientCPF() != null ? result.patientCPF() : "";
             if (resolvedId.isEmpty()) {
                 resolvedId = appointmentId != null ? appointmentId : "";

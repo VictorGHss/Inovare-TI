@@ -122,7 +122,16 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
         if (list.isEmpty()) {
             list = springDataRepository.findActiveByPhoneNumber(without55);
         }
-        return list.stream().map(entity -> entity.toDomain()).collect(Collectors.toList());
+        return list.stream()
+                .map(entity -> entity.toDomain())
+                .sorted((s1, s2) -> {
+                    LocalDateTime t1 = s1.getCreatedAt() != null ? s1.getCreatedAt() : LocalDateTime.MIN;
+                    LocalDateTime t2 = s2.getCreatedAt() != null ? s2.getCreatedAt() : LocalDateTime.MIN;
+                    return t2.compareTo(t1);
+                })
+                .findFirst()
+                .map(List::of)
+                .orElse(java.util.Collections.emptyList());
     }
 
     @Override

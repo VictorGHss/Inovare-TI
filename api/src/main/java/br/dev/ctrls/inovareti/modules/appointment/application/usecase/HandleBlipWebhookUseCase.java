@@ -256,9 +256,8 @@ public class HandleBlipWebhookUseCase {
                 return new WebhookResult("", "", resolvedAppId != null ? resolvedAppId : "", "", "Integrar_GerAcesso", "");
 
             case "Não":
-                String resolvedAppIdNo = resolveActiveAppointmentId(payload);
-                log.info("Paciente informou que não trará acompanhantes. De: {} | ID: {} | AppId: {}", fromPhone, payload.messageId(), resolvedAppIdNo);
-                return new WebhookResult("", "", resolvedAppIdNo != null ? resolvedAppIdNo : "", "", "Não", "");
+                log.info("Paciente informou que não trará acompanhantes.");
+                return new WebhookResult("", "", "", "", "Não", "");
 
             case "Finalizar_Agendamento":
                 log.info("[WEBHOOK] Recebida ação Finalizar_Agendamento. De: {} | ID: {}", fromPhone, payload.messageId());

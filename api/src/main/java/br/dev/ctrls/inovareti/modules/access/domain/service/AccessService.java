@@ -165,31 +165,16 @@ public class AccessService {
         log.info("[AccessService] Buscando pauta do dia {} no Feegow para agrupamento de consultas...", appointmentDate);
         List<FeegowAppointment> dailyAppointments = appointmentExternalPort.searchAppointments(appointmentDate, 1);
 
-        LocalTime appTime = accessInfo.appointmentTime() != null ? accessInfo.appointmentTime() : LocalTime.of(12, 0);
         List<FeegowAppointment> matchingAppointments = new ArrayList<>();
         String finalCpf = resolvedCpf;
 
-        // Lógica de Agrupamento: Mesmo CPF ou mesmo grupo familiar mapeado pelo telefone.
-        // Otimização: Filtramos agendamentos para analisar apenas aqueles dentro de uma janela de 3 horas (180 min)
-        // do horário da consulta do paciente atual. Evita N+1 chamadas serializadas ao Feegow para o dia inteiro.
+        // Lógica de Agrupamento: Agrupamos agendamentos do mesmo paciente (mesmo patientId) para a data.
+        // Familiares que compartilham CPF ou telefone obterão a mesma credencial de forma independente
+        // quando suas solicitações forem processadas, devido à unificação por CPF no Passo 7.
+        // Isso evita chamadas síncronas N+1 de prontuários ao Feegow, garantindo carregamento instantâneo.
         for (FeegowAppointment app : dailyAppointments) {
             if (app.patientId().equals(accessInfo.patientId())) {
                 matchingAppointments.add(app);
-            } else {
-                LocalTime otherTime = app.startAt().toLocalTime();
-                long diffMinutes = java.time.Duration.between(appTime, otherTime).abs().toMinutes();
-                if (diffMinutes <= 180) {
-                    FeegowPatient otherPatient = getPatientInfoWithCache(app.patientId());
-                    if (otherPatient != null) {
-                        String otherCpf = otherPatient.cpf() != null ? otherPatient.cpf().replaceAll("\\D", "") : "";
-                        boolean cpfMatch = !finalCpf.isBlank() && finalCpf.equals(otherCpf);
-                        boolean phoneMatch = targetPhone != null && !targetPhone.isBlank() && targetPhone.equals(otherPatient.phone());
-                        
-                        if (cpfMatch || phoneMatch) {
-                            matchingAppointments.add(app);
-                        }
-                    }
-                }
             }
         }
 

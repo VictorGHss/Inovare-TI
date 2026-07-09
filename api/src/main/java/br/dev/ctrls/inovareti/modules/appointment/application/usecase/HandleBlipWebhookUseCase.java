@@ -259,6 +259,64 @@ public class HandleBlipWebhookUseCase {
                 String resolvedAppIdNo = resolveActiveAppointmentId(payload);
                 log.info("Paciente informou que não trará acompanhantes. De: {} | ID: {} | AppId: {}", fromPhone, payload.messageId(), resolvedAppIdNo);
                 return new WebhookResult("", "", resolvedAppIdNo != null ? resolvedAppIdNo : "", "", "Não", "");
+
+            case "Finalizar_Agendamento":
+                log.info("[WEBHOOK] Recebida ação Finalizar_Agendamento. De: {} | ID: {}", fromPhone, payload.messageId());
+                String targetAppId = null;
+                String patientCpf = null;
+                List<br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo> companionsList = new java.util.ArrayList<>();
+
+                if (payload.content() instanceof java.util.Map<?, ?> contentMap) {
+                    Object appVal = contentMap.get("idAgendamentoFeegow");
+                    if (appVal == null) {
+                        appVal = contentMap.get("appointmentId");
+                    }
+                    if (appVal != null) {
+                        targetAppId = appVal.toString().trim();
+                    }
+
+                    Object cpfVal = contentMap.get("cpf");
+                    if (cpfVal != null) {
+                        patientCpf = cpfVal.toString().trim();
+                    }
+
+                    Object companionsVal = contentMap.get("listaAcompanhantes");
+                    if (companionsVal instanceof java.util.List<?> rawList) {
+                        for (Object item : rawList) {
+                            if (item instanceof java.util.Map<?, ?> companionMap) {
+                                String name = companionMap.get("nome") != null ? companionMap.get("nome").toString() : "";
+                                if (name.isEmpty()) {
+                                    name = companionMap.get("name") != null ? companionMap.get("name").toString() : "";
+                                }
+                                String cCpf = companionMap.get("cpf") != null ? companionMap.get("cpf").toString() : "";
+                                String phone = companionMap.get("telefone") != null ? companionMap.get("telefone").toString() : "";
+                                if (phone.isEmpty()) {
+                                    phone = companionMap.get("phone") != null ? companionMap.get("phone").toString() : "";
+                                }
+                                String email = companionMap.get("email") != null ? companionMap.get("email").toString() : "";
+                                
+                                companionsList.add(new br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo(name, cCpf, phone, email));
+                            }
+                        }
+                    }
+                }
+
+                if (targetAppId == null || targetAppId.isBlank()) {
+                    targetAppId = resolveActiveAppointmentId(payload);
+                }
+
+                if (targetAppId != null && !targetAppId.isBlank()) {
+                    try {
+                        log.info("[WEBHOOK] Persistindo credenciais finais GerAcesso para agendamento ID: {} com {} acompanhante(s).", targetAppId, companionsList.size());
+                        accessService.processAccessRequest(targetAppId, patientCpf, companionsList);
+                    } catch (Exception ex) {
+                        log.error("[WEBHOOK] Erro ao processar integração física GerAcesso na finalização para agendamento ID: {}", targetAppId, ex);
+                    }
+                } else {
+                    log.warn("[WEBHOOK] Ação Finalizar_Agendamento recebida, mas nenhum appointmentId pôde ser resolvido para {}", fromPhone);
+                }
+
+                return new WebhookResult("", "", targetAppId != null ? targetAppId : "", "", "Finalizar_Agendamento", "");
         }
 
         WebhookResult groupResult = blipGroupActionHandler.handleGroupAction(action, fromPhone, payload.bsuid(), payload.metadata());

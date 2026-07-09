@@ -295,6 +295,7 @@ public class BlipWebhookController {
                 "Verificar_Acompanhante".equalsIgnoreCase(action) ||
                 "Integrar_GerAcesso".equalsIgnoreCase(action) ||
                 "Não".equalsIgnoreCase(action) ||
+                "Finalizar_Agendamento".equalsIgnoreCase(action) ||
                 isPrepararAtendimento ||
                 isExibirAgenda
             );
@@ -385,7 +386,7 @@ public class BlipWebhookController {
             return ResponseEntity.ok(Map.of("status", "processed", "queue", ""));
         }
 
-        if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Não".equalsIgnoreCase(result.action())) {
+        if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Não".equalsIgnoreCase(result.action()) || "Finalizar_Agendamento".equalsIgnoreCase(result.action())) {
             String resolvedId = result.patientCPF() != null ? result.patientCPF() : "";
             if (resolvedId.isEmpty()) {
                 resolvedId = appointmentId != null ? appointmentId : "";

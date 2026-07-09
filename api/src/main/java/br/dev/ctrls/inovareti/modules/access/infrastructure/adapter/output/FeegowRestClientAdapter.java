@@ -31,7 +31,7 @@ import java.util.Optional;
 public class FeegowRestClientAdapter implements FeegowClientPort {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm[:ss]");
 
     private final FeegowAppointmentClient appointmentClient;
     private final PatientExternalPort patientExternalPort;

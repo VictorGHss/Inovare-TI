@@ -241,19 +241,8 @@ public class HandleBlipWebhookUseCase {
 
         switch (action) {
             case "Integrar_GerAcesso":
-                String resolvedAppId = resolveActiveAppointmentId(payload);
-                log.info("Tratando requisição de integração física GerAcesso de forma segura. De: {} | ID: {} | AppId: {}", fromPhone, payload.messageId(), resolvedAppId);
-                if (resolvedAppId != null && !resolvedAppId.isBlank()) {
-                    try {
-                        accessService.processAccessRequest(resolvedAppId, null, null);
-                        log.info("Integração física GerAcesso concluída com sucesso para o agendamento {}", resolvedAppId);
-                    } catch (Exception ex) {
-                        log.error("Falha fatal na integração GerAcesso para o agendamento {}", resolvedAppId, ex);
-                    }
-                } else {
-                    log.warn("Não foi possível resolver o appointmentId para Integrar_GerAcesso para {}", fromPhone);
-                }
-                return new WebhookResult("", "", resolvedAppId != null ? resolvedAppId : "", "", "Integrar_GerAcesso", "");
+                log.info("[WEBHOOK] Ignorando evento de entrada de bloco Integrar_GerAcesso de forma passiva. De: {} | ID: {}", fromPhone, payload.messageId());
+                return new WebhookResult("", "", "", "", "Integrar_GerAcesso", "");
 
             case "Não":
                 log.info("Paciente informou que não trará acompanhantes.");
@@ -300,10 +289,6 @@ public class HandleBlipWebhookUseCase {
                     }
                 }
 
-                if (targetAppId == null || targetAppId.isBlank()) {
-                    targetAppId = resolveActiveAppointmentId(payload);
-                }
-
                 if (targetAppId != null && !targetAppId.isBlank()) {
                     try {
                         log.info("[WEBHOOK] Persistindo credenciais finais GerAcesso para agendamento ID: {} com {} acompanhante(s).", targetAppId, companionsList.size());
@@ -312,7 +297,7 @@ public class HandleBlipWebhookUseCase {
                         log.error("[WEBHOOK] Erro ao processar integração física GerAcesso na finalização para agendamento ID: {}", targetAppId, ex);
                     }
                 } else {
-                    log.warn("[WEBHOOK] Ação Finalizar_Agendamento recebida, mas nenhum appointmentId pôde ser resolvido para {}", fromPhone);
+                    log.warn("[WEBHOOK] Ação Finalizar_Agendamento recebida, mas nenhum appointmentId pôde ser extraído do payload de {}", fromPhone);
                 }
 
                 return new WebhookResult("", "", targetAppId != null ? targetAppId : "", "", "Finalizar_Agendamento", "");

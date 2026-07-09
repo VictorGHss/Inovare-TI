@@ -158,6 +158,25 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
  
                 // Enviar redirecionamento de estado (Change State) para o bloco correspondente
                 blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
+                
+                // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID no fluxo batch
+                try {
+                    List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
+                    String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
+                    reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+                    
+                    for (var rec : reconciliations) {
+                        if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                            String guidIdentity = rec.getBlipGuid().trim() + "@wa.gw.msging.net";
+                            blipContextService.setMasterState(guidIdentity, targetBot, confirmSuccessBlockId);
+                            log.info("[CONFIRM-BATCH] Master-State atualizado também para a identidade GUID: {}", guidIdentity);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[CONFIRM-BATCH] Falha ao atualizar Master-State para GUID reconciliado: {}", ex.getMessage());
+                }
+
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
                 }
@@ -329,6 +348,25 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
  
             blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
+            
+            // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID
+            try {
+                List<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation> reconciliations = new ArrayList<>();
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(userPhone.trim()));
+                String altPhone = userPhone.trim().startsWith("55") ? userPhone.trim().substring(2) : "55" + userPhone.trim();
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+                
+                for (var rec : reconciliations) {
+                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                        String guidIdentity = rec.getBlipGuid().trim() + "@wa.gw.msging.net";
+                        blipContextService.setMasterState(guidIdentity, targetBot, confirmSuccessBlockId);
+                        log.info("[CONFIRM] Master-State atualizado também para a identidade GUID: {}", guidIdentity);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[CONFIRM] Falha ao atualizar Master-State para GUID reconciliado: {}", ex.getMessage());
+            }
+
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                 blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
             }

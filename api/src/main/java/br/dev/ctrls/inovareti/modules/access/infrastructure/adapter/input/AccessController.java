@@ -140,6 +140,17 @@ public class AccessController {
                 accessService.validatePhoneChallenge(idAgendamento, phoneDigits);
 
         java.util.List<AccessCredential> credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
+        
+        if (credentials.isEmpty()) {
+            log.info("[AccessControl] Credenciais não encontradas no banco para o agendamento ID: {}. Tentando gerar em tempo real...", idAgendamento);
+            br.dev.ctrls.inovareti.modules.access.domain.service.AccessService.AccessValidationResult result =
+                    accessService.processAccessRequest(idAgendamento, null, null);
+            if (result.authorized()) {
+                credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
+            } else {
+                log.warn("[AccessControl] Acesso negado pelo processAccessRequest para o agendamento ID: {}. Causa: {}", idAgendamento, result.message());
+            }
+        }
 
         // Formata data e hora do agendamento
         String appointmentDateTime = "";

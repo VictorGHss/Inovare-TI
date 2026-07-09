@@ -169,10 +169,18 @@ public class AccessService {
             .min(java.util.Comparator.naturalOrder())
             .orElse(accessInfo.appointmentTime() != null ? accessInfo.appointmentTime() : LocalTime.of(12, 0));
 
-        // 6. Janela de Abertura: exatamente 2 horas antes da primeira consulta
-        LocalTime openingTime = earliestTime.minusHours(2);
+        // 6. Janela de Abertura: exatamente 120 minutos (2 horas) antes da primeira consulta
+        LocalTime openingTime = earliestTime.minusMinutes(120);
         // Janela de Fechamento: fixo rigidamente às 21:00 do mesmo dia
         LocalTime closingTime = LocalTime.of(21, 0);
+
+        LocalTime now = LocalTime.now(CLINIC_ZONE);
+        log.info("[ACCESS-WINDOW] Validando janela. Horário atual: {}, Horário consulta: {}, Limite antecedência: 120 min", now, earliestTime);
+
+        if (now.isBefore(openingTime) || now.isAfter(closingTime)) {
+            log.warn("[AccessService] Solicitação de acesso recusada. Fora da janela de antecedência (abertura às {}, fechamento às {}).", openingTime, closingTime);
+            return new AccessValidationResult(false, accessInfo.name(), null, false, "Fora da janela de acesso permitida.");
+        }
 
         log.info("[AccessService] Primeira consulta do dia agendada para: {}. Abertura da catraca: {}. Fechamento: {}.", earliestTime, openingTime, closingTime);
 

@@ -61,6 +61,28 @@ public class AccessService {
     private final AccessCredentialRepositoryPort accessCredentialRepositoryPort;
     private final GerAcessoClientPort gerAcessoClientPort;
 
+    private final java.util.concurrent.ConcurrentMap<String, FeegowPatient> patientCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private FeegowPatient getPatientInfoWithCache(String patientId) {
+        if (patientId == null) {
+            return null;
+        }
+        FeegowPatient cached = patientCache.get(patientId);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            FeegowPatient patient = patientExternalPort.patientInfo(patientId);
+            if (patient != null) {
+                patientCache.put(patientId, patient);
+            }
+            return patient;
+        } catch (Exception ex) {
+            log.warn("[AccessService] Erro ao buscar prontuário do paciente ID: {} para cache. Causa: {}", patientId, ex.getMessage());
+            return null;
+        }
+    }
+
     /**
      * Processa a requisição de acesso para um determinado agendamento. Realiza agrupamento de consultas,
      * cálculo de janela de abertura de catracas, cadastro do Paciente Titular na GerAcesso, persistência
@@ -136,29 +158,36 @@ public class AccessService {
         final LocalDate appointmentDate = resolvedAppointmentDate;
 
         // Busca prontuário para recuperar o telefone e suportar agrupamentos familiares
-        FeegowPatient mainPatient = patientExternalPort.patientInfo(accessInfo.patientId());
+        FeegowPatient mainPatient = getPatientInfoWithCache(accessInfo.patientId());
         String targetPhone = mainPatient != null ? mainPatient.phone() : null;
 
         // 4. Busca todos os agendamentos marcados daquela data para agrupamento
         log.info("[AccessService] Buscando pauta do dia {} no Feegow para agrupamento de consultas...", appointmentDate);
         List<FeegowAppointment> dailyAppointments = appointmentExternalPort.searchAppointments(appointmentDate, 1);
 
+        LocalTime appTime = accessInfo.appointmentTime() != null ? accessInfo.appointmentTime() : LocalTime.of(12, 0);
         List<FeegowAppointment> matchingAppointments = new ArrayList<>();
         String finalCpf = resolvedCpf;
 
-        // Lógica de Agrupamento: Mesmo CPF ou mesmo grupo familiar mapeado pelo telefone
+        // Lógica de Agrupamento: Mesmo CPF ou mesmo grupo familiar mapeado pelo telefone.
+        // Otimização: Filtramos agendamentos para analisar apenas aqueles dentro de uma janela de 3 horas (180 min)
+        // do horário da consulta do paciente atual. Evita N+1 chamadas serializadas ao Feegow para o dia inteiro.
         for (FeegowAppointment app : dailyAppointments) {
             if (app.patientId().equals(accessInfo.patientId())) {
                 matchingAppointments.add(app);
             } else {
-                FeegowPatient otherPatient = patientExternalPort.patientInfo(app.patientId());
-                if (otherPatient != null) {
-                    String otherCpf = otherPatient.cpf() != null ? otherPatient.cpf().replaceAll("\\D", "") : "";
-                    boolean cpfMatch = !finalCpf.isBlank() && finalCpf.equals(otherCpf);
-                    boolean phoneMatch = targetPhone != null && !targetPhone.isBlank() && targetPhone.equals(otherPatient.phone());
-                    
-                    if (cpfMatch || phoneMatch) {
-                        matchingAppointments.add(app);
+                LocalTime otherTime = app.startAt().toLocalTime();
+                long diffMinutes = java.time.Duration.between(appTime, otherTime).abs().toMinutes();
+                if (diffMinutes <= 180) {
+                    FeegowPatient otherPatient = getPatientInfoWithCache(app.patientId());
+                    if (otherPatient != null) {
+                        String otherCpf = otherPatient.cpf() != null ? otherPatient.cpf().replaceAll("\\D", "") : "";
+                        boolean cpfMatch = !finalCpf.isBlank() && finalCpf.equals(otherCpf);
+                        boolean phoneMatch = targetPhone != null && !targetPhone.isBlank() && targetPhone.equals(otherPatient.phone());
+                        
+                        if (cpfMatch || phoneMatch) {
+                            matchingAppointments.add(app);
+                        }
                     }
                 }
             }
@@ -386,7 +415,7 @@ public class AccessService {
         }
 
         FeegowPatientAccessInfo accessInfo = accessInfoOpt.get();
-        FeegowPatient mainPatient = patientExternalPort.patientInfo(accessInfo.patientId());
+        FeegowPatient mainPatient = getPatientInfoWithCache(accessInfo.patientId());
         
         String phone = mainPatient != null ? mainPatient.phone() : null;
         if (phone == null || phone.isBlank()) {

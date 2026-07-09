@@ -46,6 +46,31 @@ public class FeegowAppointmentSearcher {
         );
     }
 
+    /**
+     * Consulta e consolida os agendamentos da Feegow em lote paralelo para os médicos fornecidos.
+     */
+    public List<FeegowAppointment> searchAppointments(LocalDate targetDate, List<String> doctorIds) {
+        if (doctorIds == null || doctorIds.isEmpty()) {
+            return searchAppointments(targetDate);
+        }
+
+        log.info("[FEEGOW-SEARCH] Buscando agendamentos em lote paralelo para os médicos: {}", doctorIds);
+
+        List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (String docId : doctorIds) {
+                String trimmedDocId = docId.trim();
+                if (!trimmedDocId.isEmpty() && trimmedDocId.matches("\\d+")) {
+                    futures.add(runAsyncSearch(LocalDate.now(), trimmedDocId, threadSafeAppointments, executor));
+                    futures.add(runAsyncSearch(targetDate, trimmedDocId, threadSafeAppointments, executor));
+                }
+            }
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        }
+        return new ArrayList<>(threadSafeAppointments);
+    }
+
     private List<FeegowAppointment> searchTestModeAppointments(LocalDate targetDate) {
         String testDoctorIds = appointmentMotorProperties.getTestModeDoctorIds();
         

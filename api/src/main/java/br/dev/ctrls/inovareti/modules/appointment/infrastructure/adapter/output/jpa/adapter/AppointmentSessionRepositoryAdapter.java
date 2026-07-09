@@ -42,12 +42,40 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
 
     @Override
     public Optional<AppointmentSession> findByFeegowAppointmentIdAndPhoneNumber(String feegowAppointmentId, String phoneNumber) {
-        return springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, phoneNumber).map(entity -> entity.toDomain());
+        if (phoneNumber == null) {
+            return Optional.empty();
+        }
+        String clean = phoneNumber.trim().replaceAll("\\D", "");
+        String with55 = clean.startsWith("55") ? clean : "55" + clean;
+        String without55 = clean.startsWith("55") ? clean.substring(2) : clean;
+
+        Optional<AppointmentSessionEntity> opt = springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, clean);
+        if (opt.isEmpty()) {
+            opt = springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, with55);
+        }
+        if (opt.isEmpty()) {
+            opt = springDataRepository.findByFeegowAppointmentIdAndPhoneNumber(feegowAppointmentId, without55);
+        }
+        return opt.map(entity -> entity.toDomain());
     }
 
     @Override
     public Optional<AppointmentSession> findByIdAndPhoneNumber(UUID id, String phoneNumber) {
-        return springDataRepository.findByIdAndPhoneNumber(id, phoneNumber).map(entity -> entity.toDomain());
+        if (phoneNumber == null) {
+            return Optional.empty();
+        }
+        String clean = phoneNumber.trim().replaceAll("\\D", "");
+        String with55 = clean.startsWith("55") ? clean : "55" + clean;
+        String without55 = clean.startsWith("55") ? clean.substring(2) : clean;
+
+        Optional<AppointmentSessionEntity> opt = springDataRepository.findByIdAndPhoneNumber(id, clean);
+        if (opt.isEmpty()) {
+            opt = springDataRepository.findByIdAndPhoneNumber(id, with55);
+        }
+        if (opt.isEmpty()) {
+            opt = springDataRepository.findByIdAndPhoneNumber(id, without55);
+        }
+        return opt.map(entity -> entity.toDomain());
     }
 
     @Override
@@ -80,9 +108,21 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
 
     @Override
     public List<AppointmentSession> findActiveByPhoneNumber(String phone) {
-        return springDataRepository.findActiveByPhoneNumber(phone).stream()
-                .map(entity -> entity.toDomain())
-                .collect(Collectors.toList());
+        if (phone == null) {
+            return List.of();
+        }
+        String clean = phone.trim().replaceAll("\\D", "");
+        String with55 = clean.startsWith("55") ? clean : "55" + clean;
+        String without55 = clean.startsWith("55") ? clean.substring(2) : clean;
+
+        List<AppointmentSessionEntity> list = springDataRepository.findActiveByPhoneNumber(clean);
+        if (list.isEmpty()) {
+            list = springDataRepository.findActiveByPhoneNumber(with55);
+        }
+        if (list.isEmpty()) {
+            list = springDataRepository.findActiveByPhoneNumber(without55);
+        }
+        return list.stream().map(entity -> entity.toDomain()).collect(Collectors.toList());
     }
 
     @Override

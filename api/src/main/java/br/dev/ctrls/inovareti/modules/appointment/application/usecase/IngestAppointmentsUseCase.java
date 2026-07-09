@@ -96,6 +96,10 @@ public class IngestAppointmentsUseCase {
     private record GroupPersistenceResult(List<AppointmentSession> savedSessions, String preCompiledText) {}
 
     public IngestionSummary execute() {
+        return execute(null);
+    }
+
+    public IngestionSummary execute(List<String> doctorIds) {
         java.time.DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
         LocalDate targetDate;
         if (dayOfWeek == java.time.DayOfWeek.FRIDAY) {
@@ -105,7 +109,7 @@ public class IngestAppointmentsUseCase {
         }
         log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
 
-        List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate);
+        List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
         int total = appointments.size();
 
         // Filtro de Encaixe: ignora agendamentos que possuem a flag encaixe ativa
@@ -762,7 +766,7 @@ public class IngestAppointmentsUseCase {
             return true;
         }
         if (appointmentMotorProperties.getActiveDoctorIds().contains(docId)) {
-            return !appointmentMotorProperties.isGlobalTestMode();
+            return true;
         }
         log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste (test-doctor-ids) nem de produção (active-doctor-ids). Ignorando.", doctorId);
         return false;

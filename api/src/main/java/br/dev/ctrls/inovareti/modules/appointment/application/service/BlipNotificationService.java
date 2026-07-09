@@ -433,7 +433,7 @@ public class BlipNotificationService {
             return true;
         }
         if (motorProperties.getActiveDoctorIds().contains(docId)) {
-            return !motorProperties.isGlobalTestMode();
+            return true;
         }
         log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste (test-doctor-ids) nem de produção (active-doctor-ids). Ignorando.", doctorId);
         return false;

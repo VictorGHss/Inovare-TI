@@ -28,7 +28,22 @@ public class AppointmentMotorScheduler {
         }
 
         log.info("Scheduler de ingestão de agendamentos iniciado");
-        ingestAppointmentsUseCase.execute();
+
+        java.util.List<String> targetDoctorIds = new java.util.ArrayList<>();
+        if (properties.getActiveDoctorIds() != null && !properties.getActiveDoctorIds().isEmpty()) {
+            targetDoctorIds.addAll(properties.getActiveDoctorIds());
+        }
+        if (properties.getTestDoctorIds() != null && !properties.getTestDoctorIds().isEmpty()) {
+            targetDoctorIds.addAll(properties.getTestDoctorIds());
+        }
+
+        if (!targetDoctorIds.isEmpty()) {
+            log.info("Scheduler direcionando ingestão para os médicos selecionados: {}", targetDoctorIds);
+            ingestAppointmentsUseCase.execute(targetDoctorIds);
+        } else {
+            log.info("Nenhum médico configurado especificamente. Iniciando ingestão genérica.");
+            ingestAppointmentsUseCase.execute();
+        }
     }
 
     @Scheduled(cron = "${app.appointment.motor.monitor-cron}")

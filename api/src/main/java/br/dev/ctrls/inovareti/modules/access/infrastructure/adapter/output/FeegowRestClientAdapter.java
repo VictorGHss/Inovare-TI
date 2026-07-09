@@ -5,6 +5,7 @@ import br.dev.ctrls.inovareti.modules.access.domain.port.output.FeegowClientPort
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.FeegowSearchResponseDto;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.ProfessionalExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.FeegowAppointmentClient;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.FeegowProperties;
@@ -35,6 +36,7 @@ public class FeegowRestClientAdapter implements FeegowClientPort {
 
     private final FeegowAppointmentClient appointmentClient;
     private final PatientExternalPort patientExternalPort;
+    private final ProfessionalExternalPort professionalExternalPort;
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final FeegowProperties feegowProperties;
     private final ObjectMapper objectMapper;
@@ -94,7 +96,10 @@ public class FeegowRestClientAdapter implements FeegowClientPort {
             }
 
             String doctorId = appDto.doctorId();
-            String doctorName = appDto.doctorName();
+            String doctorName = "";
+            if (doctorId != null && !doctorId.isBlank()) {
+                doctorName = professionalExternalPort.getProfessionalName(doctorId);
+            }
 
             FeegowPatientAccessInfo info = new FeegowPatientAccessInfo(
                 appointmentId,

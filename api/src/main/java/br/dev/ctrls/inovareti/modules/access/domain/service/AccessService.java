@@ -132,10 +132,18 @@ public class AccessService {
 
         FeegowPatientAccessInfo accessInfo = accessInfoOpt.get();
 
-        // 2. Resolve o CPF (priorizando Feegow, com fallback para o parâmetro recebido)
+        // 2. Resolve o CPF (priorizando o CPF do prontuário local/Feegow, com fallback para o do webhook apenas se for válido com 11 dígitos)
         String resolvedCpf = accessInfo.cpf();
+
+        String cleanRequestCpf = "";
+        if (requestCpf != null && !requestCpf.isBlank() && !requestCpf.contains("{{") && !requestCpf.equalsIgnoreCase("null")) {
+            cleanRequestCpf = requestCpf.replaceAll("\\D", "");
+        }
+
         if (resolvedCpf == null || resolvedCpf.isBlank()) {
-            resolvedCpf = requestCpf;
+            if (cleanRequestCpf.length() == 11) {
+                resolvedCpf = cleanRequestCpf;
+            }
         }
 
         // Limpa formatação do CPF para padronizar

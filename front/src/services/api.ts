@@ -39,7 +39,10 @@ api.interceptors.response.use(
       const status = error.response.status;
       const data = error.response.data as ProblemDetail | undefined;
 
-      if (status === 401) {
+      const skipInterceptor = error.config?.headers?.['X-Skip-Interceptor'] === 'true' || 
+                              error.config?.headers?.['x-skip-interceptor'] === 'true';
+
+      if ((status === 401 || status === 403) && !skipInterceptor) {
         localStorage.removeItem('@InovareTI:token');
         localStorage.removeItem('@InovareTI:user');
         window.location.href = '/login';

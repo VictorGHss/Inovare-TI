@@ -162,7 +162,12 @@ export default function PatientAccess() {
     try {
       console.log('[PatientAccess] Enviando desafio de 4 dígitos para o agendamento:', appointmentId);
       const response = await api.get<AccessCredential[]>(
-        `/v1/access/credentials/${appointmentId}?phoneDigits=${phoneDigits}`
+        `/v1/access/credentials/${appointmentId}?phoneDigits=${phoneDigits}`,
+        {
+          headers: {
+            'X-Skip-Interceptor': 'true'
+          }
+        }
       );
       // Desafio validado com sucesso: libera o carrossel
       setCredentials(response.data || []);
@@ -170,7 +175,7 @@ export default function PatientAccess() {
     } catch (err: unknown) {
       console.error('[PatientAccess] Falha no desafio de segurança:', err);
       // Exibe mensagem de erro e limpa os campos para nova tentativa
-      setChallengeError('Os dígitos informados estão incorretos. Por favor, tente novamente.');
+      setChallengeError('Código inválido. Tente novamente.');
       setDigits(['', '', '', '']);
       setTimeout(() => inputRefs[0].current?.focus(), 50);
     } finally {

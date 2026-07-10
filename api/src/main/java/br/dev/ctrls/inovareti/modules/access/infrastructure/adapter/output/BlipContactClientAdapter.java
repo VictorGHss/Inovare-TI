@@ -69,6 +69,21 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             authKey = "Key " + authKey;
         }
 
+        String cleanCpf = "";
+        if (cpf != null && !cpf.isBlank() && !cpf.equalsIgnoreCase("null")) {
+            cleanCpf = cpf.replaceAll("\\D", "");
+        }
+
+        String cleanQueue = "";
+        if (queueName != null && !queueName.isBlank() && !queueName.equalsIgnoreCase("null")) {
+            cleanQueue = queueName.trim();
+        }
+
+        String cleanName = "";
+        if (name != null && !name.isBlank() && !name.equalsIgnoreCase("null")) {
+            cleanName = name.trim();
+        }
+
         // Montagem do payload de comando da API LIME do Blip
         Map<String, Object> command = Map.of(
             "id", "sync-contact-" + UUID.randomUUID().toString(),
@@ -78,11 +93,11 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             "type", "application/vnd.lime.contact+json",
             "resource", Map.of(
                 "identity", normalizedIdentity,
-                "name", name != null ? name.trim() : "",
+                "name", cleanName,
                 "extras", Map.of(
-                    "cpf", cpf != null ? cpf.replaceAll("\\D", "") : "",
-                    "fila", queueName != null ? queueName.trim() : "",
-                    "deskFila", queueName != null ? queueName.trim() : ""
+                    "cpf", cleanCpf,
+                    "fila", cleanQueue,
+                    "deskFila", cleanQueue
                 )
             )
         );

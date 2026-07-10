@@ -198,6 +198,40 @@ public class HandleBlipWebhookUseCase {
         }
 
         String fromPhone = payload.from();
+        
+        // Anti-Ghost: Filtra respostas de ausência comercial antes de processar qualquer texto livre
+        if ("text/plain".equalsIgnoreCase(payload.type()) && (payload.action() == null || payload.action().isBlank())) {
+            String messageText = "";
+            if (payload.content() instanceof String text) {
+                messageText = text;
+            } else if (payload.content() instanceof Map<?, ?> map) {
+                Object textObj = map.get("text");
+                if (textObj != null) {
+                    messageText = textObj.toString();
+                }
+            }
+            
+            String lowerText = messageText.toLowerCase();
+            boolean isInteractive = lowerText.contains("confirm_") 
+                || lowerText.contains("alter_") 
+                || lowerText.contains("cancel_")
+                || lowerText.contains("ver_agenda_") 
+                || lowerText.contains("group_view_") 
+                || lowerText.contains("finalizar_agendamento");
+                
+            if (!isInteractive) {
+                if ((lowerText.contains("agradece") && lowerText.contains("contato"))
+                    || lowerText.contains("como podemos ajudar") 
+                    || lowerText.contains("estamos ausentes")
+                    || lowerText.contains("mensagem automática")
+                    || lowerText.contains("mensagem automatica")) {
+                    
+                    log.info("[ANTI-GHOST] Resposta automática comercial interceptada e descartada para o telefone: {}. Ignorando criação de ticket.", fromPhone);
+                    return new WebhookResult("", "", "", "", "processed", "");
+                }
+            }
+        }
+
         String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, payload.bsuid());
         dbPhone = purifyPhoneNumberForSearch(dbPhone);
         if (dbPhone.isEmpty()) {

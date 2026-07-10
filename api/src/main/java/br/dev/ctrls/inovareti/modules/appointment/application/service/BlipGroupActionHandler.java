@@ -9,10 +9,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.HandleBlipWebhookUseCase;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
+import br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort;
 import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +34,8 @@ public class BlipGroupActionHandler {
     private final TransactionTemplate transactionTemplate;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
     private final BlipIdentityReconciler blipIdentityReconciler;
+    private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
+    private final BlipContactClientPort blipContactClientPort;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -147,7 +152,33 @@ public class BlipGroupActionHandler {
         }
         
         if (groups == null || groups.isEmpty()) {
-            log.debug("[WEBHOOK] Falha ao processar ação: Grupo não encontrado e nenhuma sessão ativa pôde recuperar o groupId={}.", groupId);
+            log.info("[WEBHOOK] Grupo não encontrado no banco para groupId={}. Executando fallback por telefone para {}.", groupId, fromPhone);
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                try {
+                    String purifiedPhone = purifyPhoneNumberForSearch(dbPhone);
+                    if (purifiedPhone.isEmpty()) {
+                        purifiedPhone = purifyPhoneNumberForSearch(fromPhone);
+                    }
+                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        AppointmentSession session = activeSessions.get(0);
+                        String doctorId = session.getDoctorProfissionalId();
+                        if (doctorId != null && !doctorId.isBlank()) {
+                            Optional<AppointmentDoctorMapping> doctorMappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(doctorId);
+                            if (doctorMappingOpt.isPresent()) {
+                                AppointmentDoctorMapping mapping = doctorMappingOpt.get();
+                                String blipQueueId = mapping.getBlipQueueId();
+                                if (blipQueueId != null && !blipQueueId.isBlank()) {
+                                    log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueId, fromPhone);
+                                    blipContactClientPort.syncContact(fromPhone, "", "", blipQueueId, doctorId);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.error("[WEBHOOK-FALLBACK] Erro ao executar fallback de fila por telefone para {}: {}", fromPhone, ex.getMessage(), ex);
+                }
+            }
             return null;
         }
         
@@ -299,5 +330,23 @@ public class BlipGroupActionHandler {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private String purifyPhoneNumberForSearch(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return "";
+        }
+        String clean = rawPhone.trim();
+        if (clean.contains("@")) {
+            clean = clean.substring(0, clean.indexOf('@')).trim();
+        }
+        if (clean.contains(".")) {
+            clean = clean.substring(0, clean.indexOf('.')).trim();
+        }
+        clean = clean.replaceAll("\\D", "");
+        if (clean.startsWith("55") && clean.length() > 10) {
+            clean = clean.substring(2);
+        }
+        return clean;
     }
 }

@@ -22,12 +22,31 @@ export function buildApiUrl(path: string): string {
   return `${apiBaseUrl}${path}`;
 }
 
+const getHeaderValue = (headers: any, name: string): any => {
+  if (!headers) return undefined;
+  const lowerName = name.toLowerCase();
+  if (typeof headers.get === 'function') {
+    return headers.get(name) || headers.get(lowerName);
+  }
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lowerName) {
+      return headers[key];
+    }
+  }
+  return undefined;
+};
+
 const api = axios.create({ baseURL: apiBaseUrl });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('@InovareTI:token');
+  const token = localStorage.getItem('@InovareTI:token') || sessionStorage.getItem('@InovareTI:token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -35,16 +54,27 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Busca o cabeçalho X-Skip-Interceptor de forma defensiva e tipada
+    const skipInterceptorVal = error.config?.headers ? getHeaderValue(error.config.headers, 'X-Skip-Interceptor') : undefined;
+    const skipInterceptor = skipInterceptorVal === true || 
+                            skipInterceptorVal === 'true' || 
+                            String(skipInterceptorVal).toLowerCase() === 'true';
+
+    // SE o header 'X-Skip-Interceptor' estiver presente e for true, APENAS rejeite o erro localmente
+    if (skipInterceptor) {
+      return Promise.reject(error);
+    }
+
     if (error.response) {
       const status = error.response.status;
       const data = error.response.data as ProblemDetail | undefined;
 
-      const skipInterceptor = error.config?.headers?.['X-Skip-Interceptor'] === 'true' || 
-                              error.config?.headers?.['x-skip-interceptor'] === 'true';
-
-      if ((status === 401 || status === 403) && !skipInterceptor) {
+      // CASO CONTRÁRIO (fluxo padrão do painel admin), se o erro for 401 ou 403, aí sim execute a limpeza e redirecione
+      if (status === 401 || status === 403) {
         localStorage.removeItem('@InovareTI:token');
         localStorage.removeItem('@InovareTI:user');
+        sessionStorage.removeItem('@InovareTI:token');
+        sessionStorage.removeItem('@InovareTI:user');
         window.location.href = '/login';
       }
 

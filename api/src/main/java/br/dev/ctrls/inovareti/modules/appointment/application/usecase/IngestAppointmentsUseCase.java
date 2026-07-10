@@ -466,9 +466,17 @@ public class IngestAppointmentsUseCase {
         java.time.format.DateTimeFormatter dtfShort = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
         java.time.format.DateTimeFormatter dtfTime = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
 
-        String finalDate = saved.getAppointmentAt() != null ? saved.getAppointmentAt().toLocalDate().format(dtfDate) : "";
-        String finalDateShort = saved.getAppointmentAt() != null ? saved.getAppointmentAt().toLocalDate().format(dtfShort) : "";
-        String finalTime = saved.getAppointmentAt() != null ? saved.getAppointmentAt().toLocalTime().format(dtfTime) : "";
+        LocalDateTime appointmentDateTime = saved.getAppointmentAt();
+        if ("28".equals(appointment.doctorId()) && appointmentDateTime != null) {
+            LocalDateTime modifiedDateTime = appointmentDateTime.minusMinutes(10);
+            log.info("[TIME-SHIFT] Aplicada antecedência de 10 minutos para o Dr. Eduardo Mattos. Horário original: {}, Horário modificado para o envio: {}",
+                    appointmentDateTime.toLocalTime().format(dtfTime), modifiedDateTime.toLocalTime().format(dtfTime));
+            appointmentDateTime = modifiedDateTime;
+        }
+
+        String finalDate = appointmentDateTime != null ? appointmentDateTime.toLocalDate().format(dtfDate) : "";
+        String finalDateShort = appointmentDateTime != null ? appointmentDateTime.toLocalDate().format(dtfShort) : "";
+        String finalTime = appointmentDateTime != null ? appointmentDateTime.toLocalTime().format(dtfTime) : "";
 
         AppointmentDispatchContext ctx = new AppointmentDispatchContext(
             saved.getId(), saved.getFeegowAppointmentId(), finalPatientName, finalPatientPhone,

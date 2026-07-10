@@ -154,19 +154,26 @@ public class AccessController {
 
         // Formata data e hora do agendamento
         String appointmentDateTime = "";
+        String opensAt = "";
+        String closesAt = "21:00";
         if (accessInfo.appointmentDate() != null) {
             if (accessInfo.appointmentTime() != null) {
                 appointmentDateTime = java.time.LocalDateTime.of(accessInfo.appointmentDate(), accessInfo.appointmentTime())
                         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                java.time.LocalTime openingTime = accessInfo.appointmentTime().minusMinutes(120);
+                opensAt = openingTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
             } else {
                 appointmentDateTime = accessInfo.appointmentDate()
                         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                opensAt = "08:00";
             }
         }
 
         String doctorName = accessInfo.doctorName() != null ? accessInfo.doctorName() : "";
         final String finalAppointmentDateTime = appointmentDateTime;
         final String finalDoctorName = doctorName;
+        final String finalOpensAt = opensAt;
+        final String finalClosesAt = closesAt;
 
         java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse> response = credentials.stream()
                 .map(c -> new br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse(
@@ -176,7 +183,9 @@ public class AccessController {
                         c.getAccessCredential(),
                         c.getCpf(),
                         finalDoctorName,
-                        finalAppointmentDateTime
+                        finalAppointmentDateTime,
+                        finalOpensAt,
+                        finalClosesAt
                 ))
                 .toList();
 

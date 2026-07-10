@@ -45,6 +45,16 @@ public class BlipGroupActionHandler {
             return null;
         }
         
+        // Sanitização de identidade LIME
+        if (fromPhone != null) {
+            if (fromPhone.contains("@desk.msging.net")) {
+                fromPhone = fromPhone.replace("@desk.msging.net", "");
+            }
+            if (fromPhone.contains("%40")) {
+                fromPhone = fromPhone.replace("%40", "@");
+            }
+        }
+        
         String lowerAction = action.toLowerCase();
 
         // Filtro de relevância: ignora de imediato mensagens de fluxo técnico ou agradecimentos

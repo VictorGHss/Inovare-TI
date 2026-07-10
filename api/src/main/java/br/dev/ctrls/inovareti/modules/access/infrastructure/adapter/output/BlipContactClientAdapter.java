@@ -138,7 +138,16 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
     }
 
     private String normalizeIdentity(String phone) {
+        if (phone == null) {
+            return "";
+        }
         String sanitized = phone.trim();
+        if (sanitized.contains("@desk.msging.net")) {
+            sanitized = sanitized.replace("@desk.msging.net", "");
+        }
+        if (sanitized.contains("%40")) {
+            sanitized = sanitized.replace("%40", "@");
+        }
         if (sanitized.contains("@")) {
             return sanitized;
         }

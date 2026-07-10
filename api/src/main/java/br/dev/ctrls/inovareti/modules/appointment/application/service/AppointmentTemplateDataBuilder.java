@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
 import io.micrometer.observation.annotation.Observed;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -44,12 +45,20 @@ public class AppointmentTemplateDataBuilder {
         FeegowPatient patient = fetchPatient(session.getPatientId());
         String doctorName = resolveDoctorName(session.getDoctorProfissionalId(), appointment.doctorName());
 
-        String appointmentDate = appointment.startAt() != null
-            ? appointment.startAt().toLocalDate().format(BRAZILIAN_DATE) : DEFAULT_TEMPLATE_VALUE;
-        String appointmentDateShort = appointment.startAt() != null
-            ? appointment.startAt().toLocalDate().format(SHORT_BRAZILIAN_DATE) : DEFAULT_TEMPLATE_VALUE;
-        String appointmentTime = appointment.startAt() != null
-            ? appointment.startAt().toLocalTime().format(BRAZILIAN_TIME) : DEFAULT_TEMPLATE_VALUE;
+        LocalDateTime startAt = appointment.startAt();
+        if ("28".equals(session.getDoctorProfissionalId()) && startAt != null) {
+            LocalDateTime modified = startAt.minusMinutes(10);
+            log.info("[TIME-SHIFT] [TEMPLATE-BUILDER] Aplicada antecedência de 10 minutos para o Dr. Eduardo Mattos. Horário original: {}, Horário modificado para o envio: {}",
+                    startAt.toLocalTime().format(BRAZILIAN_TIME), modified.toLocalTime().format(BRAZILIAN_TIME));
+            startAt = modified;
+        }
+
+        String appointmentDate = startAt != null
+            ? startAt.toLocalDate().format(BRAZILIAN_DATE) : DEFAULT_TEMPLATE_VALUE;
+        String appointmentDateShort = startAt != null
+            ? startAt.toLocalDate().format(SHORT_BRAZILIAN_DATE) : DEFAULT_TEMPLATE_VALUE;
+        String appointmentTime = startAt != null
+            ? startAt.toLocalTime().format(BRAZILIAN_TIME) : DEFAULT_TEMPLATE_VALUE;
 
         return new AppointmentTemplateData(
             fallbackValue(appointment.id()),

@@ -14,7 +14,9 @@ import {
   MessageCircle,
   Github,
   Maximize2,
-  Lock
+  Lock,
+  User,
+  Calendar
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -30,6 +32,8 @@ interface AccessCredential {
   cpf?: string;
   doctorName?: string;
   appointmentDateTime?: string;
+  opensAt?: string;
+  closesAt?: string;
 }
 
 const formatCpf = (cpf?: string) => {
@@ -71,6 +75,53 @@ export default function PatientAccess() {
   // Controle do carrossel/slide horizontal
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Estado para armazenar o horário atual do celular do paciente (atualizado a cada minuto)
+  const [currentTime, setCurrentTime] = useState<string>('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      setCurrentTime(`${hh}:${mm}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Screen Wake Lock API: impede que o ecrã do telemóvel apague enquanto o QR Code está em ecrã inteiro
+  useEffect(() => {
+    let activeLock: any = null;
+
+    const acquireLock = async () => {
+      if (fullscreenCard !== null && 'wakeLock' in navigator) {
+        try {
+          activeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('[WakeLock] Trava de brilho/tela ativada para leitura do QR Code.');
+        } catch (err) {
+          console.warn('[WakeLock] Erro ao solicitar trava de tela:', err);
+        }
+      }
+    };
+
+    acquireLock();
+
+    return () => {
+      if (activeLock) {
+        activeLock.release()
+          .then(() => console.log('[WakeLock] Trava de tela liberada com sucesso.'))
+          .catch((err: any) => console.warn('[WakeLock] Erro ao liberar trava de tela:', err));
+      }
+    };
+  }, [fullscreenCard]);
+
+  const toMinutes = (timeStr?: string) => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':');
+    return parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0');
+  };
 
   const openFullscreen = (index: number) => {
     setFullscreenCard(index);
@@ -314,6 +365,82 @@ export default function PatientAccess() {
   // Identifica a credencial do paciente titular para os detalhes superiores
   const patientCredential = credentials.find(c => c.userType === 'PATIENT') || credentials[0];
 
+  const opensAt = patientCredential?.opensAt || '08:00';
+  const closesAt = patientCredential?.closesAt || '21:00';
+
+  const renderHeaderBadge = () => {
+    const nowMin = toMinutes(currentTime);
+    const openMin = toMinutes(opensAt);
+    const closeMin = toMinutes(closesAt);
+
+    if (nowMin < openMin) {
+      return (
+        <div className="flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1 text-[10px] font-bold">
+          <Clock className="w-3 h-3 text-amber-500" />
+          <span>Acesso às {opensAt}</span>
+        </div>
+      );
+    } else if (nowMin > closeMin) {
+      return (
+        <div className="flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 rounded-full px-2.5 py-1 text-[10px] font-bold">
+          <AlertTriangle className="w-3 h-3 text-red-500" />
+          <span>Expirado</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-2.5 py-1 text-[10px] font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Liberado</span>
+        </div>
+      );
+    }
+  };
+
+  const renderStatusBanner = () => {
+    const nowMin = toMinutes(currentTime);
+    const openMin = toMinutes(opensAt);
+    const closeMin = toMinutes(closesAt);
+
+    if (nowMin < openMin) {
+      return (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800 shadow-sm">
+          <div className="text-lg shrink-0">⏳</div>
+          <div className="space-y-1">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-amber-905">Acesso Agendado</h5>
+            <p className="text-[11px] leading-relaxed text-amber-700 font-semibold">
+              Seu acesso ao prédio será liberado às {opensAt}.
+            </p>
+          </div>
+        </div>
+      );
+    } else if (nowMin > closeMin) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800 shadow-sm">
+          <div className="text-lg shrink-0">❌</div>
+          <div className="space-y-1">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-red-905">Acesso Expirado</h5>
+            <p className="text-[11px] leading-relaxed text-red-700 font-semibold">
+              Sua janela de acesso expirou às {closesAt}. Por favor, fale com a recepção.
+            </p>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3 text-emerald-800 shadow-sm animate-pulse">
+          <div className="text-lg shrink-0">✅</div>
+          <div className="space-y-1">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-905">Acesso Liberado</h5>
+            <p className="text-[11px] leading-relaxed text-emerald-700 font-semibold">
+              Acesso liberado! Aproxime o QR Code do leitor da catraca.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  };
+
   // === TELA PRINCIPAL (CARROSSEL DE CREDENCIAIS / CONTINGÊNCIA ARRAY VAZIO) ===
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans antialiased">
@@ -330,10 +457,7 @@ export default function PatientAccess() {
               e.currentTarget.src = 'https://placehold.co/120x40/feb56c/ffffff?text=Inovare+TI';
             }}
           />
-          <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full px-3 py-1 text-xs font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Acesso Liberado
-          </div>
+          {renderHeaderBadge()}
         </header>
 
         {/* Conteúdo Principal */}
@@ -346,6 +470,8 @@ export default function PatientAccess() {
             </h1>
             <p className="text-xs text-slate-400 font-medium">Aqui estão seus cartões para liberação das catracas físicas.</p>
           </div>
+
+          {renderStatusBanner()}
 
           {/* Fluxo Condicional: Carrossel de Credenciais vs Mensagem de Contingência */}
           {credentials.length === 0 ? (
@@ -402,25 +528,53 @@ export default function PatientAccess() {
                     </div>
 
                     {/* Dados Cadastrais e Assistenciais Dinâmicos */}
-                    <div className="w-full mt-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3 text-left">
+                    <div className="w-full mt-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3.5 text-left shadow-sm">
+                      <div className="flex items-start gap-2.5 pb-2.5 border-b border-slate-200/60">
+                        <User className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Nome</span>
+                          <span className="text-xs font-bold text-slate-700">{cred.name}</span>
+                        </div>
+                      </div>
+                      
                       {cred.cpf && (
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">CPF</span>
-                          <span className="text-xs font-semibold text-slate-700">{formatCpf(cred.cpf)}</span>
+                        <div className="flex items-start gap-2.5 pb-2.5 border-b border-slate-200/60">
+                          <ShieldCheck className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">CPF</span>
+                            <span className="text-xs font-semibold text-slate-700">{formatCpf(cred.cpf)}</span>
+                          </div>
                         </div>
                       )}
+                      
                       {cred.doctorName && (
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Médico</span>
-                          <span className="text-xs font-semibold text-slate-700">{cred.doctorName}</span>
+                        <div className="flex items-start gap-2.5 pb-2.5 border-b border-slate-200/60">
+                          <User className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Médico</span>
+                            <span className="text-xs font-semibold text-slate-700">{cred.doctorName}</span>
+                          </div>
                         </div>
                       )}
+                      
                       {cred.appointmentDateTime && (
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Data e Horário da Consulta</span>
-                          <span className="text-xs font-extrabold text-brand-primary-dark">{cred.appointmentDateTime}</span>
+                        <div className="flex items-start gap-2.5 pb-2.5 border-b border-slate-200/60">
+                          <Calendar className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Data e Horário da Consulta</span>
+                            <span className="text-xs font-extrabold text-brand-primary-dark">{cred.appointmentDateTime}</span>
+                          </div>
                         </div>
                       )}
+
+                      {/* Seção de Documentos Obrigatórios (RG/CPF) */}
+                      <div className="flex items-start gap-2.5 bg-amber-50/75 border border-amber-100 rounded-xl p-2.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[9px] text-amber-800 font-extrabold uppercase tracking-wider block">Documento Obrigatório (RG/CPF)</span>
+                          <span className="text-[10px] text-amber-700 font-medium">Apresente documento original com foto na portaria.</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* QR Code contendo estritamente o código numérico puro (credentialCode) */}
@@ -574,7 +728,8 @@ export default function PatientAccess() {
       {fullscreenData && (
         <div 
           ref={modalRef}
-          className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-between p-8"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-between p-8"
+          style={{ backgroundColor: '#ffffff' }}
         >
           <div className="text-center mt-8">
             <span className="text-[10px] font-bold tracking-wider text-brand-primary uppercase block">Catraca de Acesso</span>

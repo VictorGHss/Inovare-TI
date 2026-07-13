@@ -16,8 +16,9 @@ export async function getMacroTelemetry(): Promise<TelemetryData> {
   try {
     const { data } = await api.get('/actuator/prometheus', {
       responseType: 'text',
-      // Remove o prefixo da URL base do Axios se necessário, acessando diretamente o actuator exposto
-      baseURL: api.defaults.baseURL?.replace('/v1', '')?.replace('/api', '') || '',
+      headers: {
+        'X-Skip-Interceptor': 'true'
+      }
     });
 
     const parsed = parsePrometheusMetrics(data);

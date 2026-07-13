@@ -461,8 +461,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         String tunnelIdentity = guid + "@tunnel.msging.net";
                         blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
                         blipContextService.setContactExtra(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
-                        blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
-                        log.info("[CONFIRM] Master-State e requiresCpfFallback atualizados também para a identidade GUID do túnel: {}", tunnelIdentity);
+                        log.info("[CONFIRM] requiresCpfFallback atualizado também para a identidade GUID do túnel: {}", tunnelIdentity);
                     } else {
                         log.debug("[CONFIRM] O guid '{}' não é um UUID/GUID válido.", guid);
                     }
@@ -527,8 +526,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             } catch (Exception ex) {
                                 log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
                             }
-                            blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
-                            log.info("[CONFIRM] Aplicado redirecionamento, Builder Master-State, ID e CPF no túnel: {}", tunnelId);
+                            log.info("[CONFIRM] Salvo ID e CPF no túnel: {}", tunnelId);
                         }
                     }
                 }

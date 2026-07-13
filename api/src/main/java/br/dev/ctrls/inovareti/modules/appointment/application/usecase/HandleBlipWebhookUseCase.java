@@ -279,8 +279,37 @@ public class HandleBlipWebhookUseCase {
                 return new WebhookResult("", "", "", "", "Integrar_GerAcesso", "");
 
             case "Não":
-                log.info("Paciente informou que não trará acompanhantes.");
-                return new WebhookResult("", "", "", "", "Não", "");
+                log.info("Paciente informou que não trará acompanhantes. Processando acesso GerAcesso...");
+                String appId = null;
+                String cpf = null;
+                if (payload.content() instanceof java.util.Map<?, ?> contentMap) {
+                    Object appVal = contentMap.get("idAgendamentoFeegow");
+                    if (appVal == null) {
+                        appVal = contentMap.get("appointmentId");
+                    }
+                    if (appVal != null) {
+                        appId = appVal.toString().trim();
+                    }
+                    Object cpfVal = contentMap.get("cpf");
+                    if (cpfVal != null) {
+                        cpf = cpfVal.toString().trim();
+                    }
+                }
+                if (appId == null || appId.isBlank()) {
+                    appId = blipContextService.getUserContext(fromPhone, "appointmentId");
+                }
+                if (cpf == null || cpf.isBlank()) {
+                    cpf = blipContextService.getUserContext(fromPhone, "cpf");
+                }
+                if (appId != null && !appId.isBlank()) {
+                    try {
+                        log.info("[WEBHOOK] Persistindo credenciais finais GerAcesso para agendamento ID: {} (sem acompanhantes). CPF: {}", appId, cpf);
+                        accessService.processAccessRequest(appId, cpf, java.util.List.of());
+                    } catch (Exception ex) {
+                        log.error("[WEBHOOK] Erro ao processar integração física GerAcesso no caso 'Não' para agendamento ID: {}", appId, ex);
+                    }
+                }
+                return new WebhookResult("", "", appId != null ? appId : "", "", "Não", "");
 
             case "Finalizar_Agendamento":
                 log.info("[WEBHOOK] Recebida ação Finalizar_Agendamento. De: {} | ID: {}", fromPhone, payload.messageId());
@@ -323,9 +352,16 @@ public class HandleBlipWebhookUseCase {
                     }
                 }
 
+                if (targetAppId == null || targetAppId.isBlank()) {
+                    targetAppId = blipContextService.getUserContext(fromPhone, "appointmentId");
+                }
+                if (patientCpf == null || patientCpf.isBlank()) {
+                    patientCpf = blipContextService.getUserContext(fromPhone, "cpf");
+                }
+
                 if (targetAppId != null && !targetAppId.isBlank()) {
                     try {
-                        log.info("[WEBHOOK] Persistindo credenciais finais GerAcesso para agendamento ID: {} com {} acompanhante(s).", targetAppId, companionsList.size());
+                        log.info("[WEBHOOK] Persistindo credenciais finais GerAcesso para agendamento ID: {} com {} acompanhante(s). CPF: {}", targetAppId, companionsList.size(), patientCpf);
                         accessService.processAccessRequest(targetAppId, patientCpf, companionsList);
                     } catch (Exception ex) {
                         log.error("[WEBHOOK] Erro ao processar integração física GerAcesso na finalização para agendamento ID: {}", targetAppId, ex);

@@ -151,9 +151,9 @@ public class BlipLIMEClient implements BlipClientPort {
         if (phoneNumber == null || phoneNumber.isBlank() || extras == null || extras.isEmpty()) return;
         String normalizedIdentity = normalizeUserIdentity(phoneNumber);
         Map<String, Object> command = Map.of(
-            "id", UUID.randomUUID().toString(),
-            "to", "postmaster@contacts.msging.net",
-            "method", "merge",
+            "id", "merge-extras-" + UUID.randomUUID().toString(),
+            "to", "postmaster@msging.net",
+            "method", "set",
             "uri", "/contacts",
             "type", "application/vnd.lime.contact+json",
             "resource", Map.of(
@@ -162,8 +162,8 @@ public class BlipLIMEClient implements BlipClientPort {
             )
         );
         try {
-            executeCommand(command, AuthorizationScope.ROUTER);
-            log.debug("Contact extras atualizados no Blip para {}", normalizedIdentity);
+            Map<String, Object> response = executeCommand(command, AuthorizationScope.ROUTER);
+            log.info("[LIME-CONTACT] Extras do contato atualizados no Blip para {}. Resposta: {}", normalizedIdentity, response);
         } catch (RestClientException ex) {
             log.warn("Falha ao atualizar extras do contato no Blip para {}: {}", normalizedIdentity, ex.getMessage());
         }

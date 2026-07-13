@@ -149,6 +149,19 @@ public class AccessController {
                 credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
             } else {
                 log.warn("[AccessControl] Acesso negado pelo processAccessRequest para o agendamento ID: {}. Causa: {}", idAgendamento, result.message());
+                if (result.requiresCpfFallback()) {
+                    AccessCredential ghost = AccessCredential.builder()
+                            .id(UUID.randomUUID())
+                            .appointmentId(idAgendamento)
+                            .name(accessInfo.name())
+                            .cpf("")
+                            .userType(UserType.PATIENT)
+                            .accessCredential("CPF_MISSING")
+                            .locator("CPF_MISSING")
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    credentials = java.util.List.of(ghost);
+                }
             }
         }
 

@@ -459,9 +459,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     guid = guid.trim();
                     if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
                         String tunnelIdentity = guid + "@tunnel.msging.net";
-                        blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
                         blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
                         blipContextService.setContactExtra(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
+                        blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
                         log.info("[CONFIRM] Master-State e requiresCpfFallback atualizados também para a identidade GUID do túnel: {}", tunnelIdentity);
                     } else {
                         log.debug("[CONFIRM] O guid '{}' não é um UUID/GUID válido.", guid);
@@ -519,7 +519,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     for (String tunnelId : tunnelIdentities) {
                         if (!tunnelId.equalsIgnoreCase(userPhone) && !tunnelId.equalsIgnoreCase(fromIdentity)) {
                             blipContextService.setQueueRedirect(tunnelId, targetQueue);
-                            blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
                             try {
                                 blipContextService.setUserContextForUser(tunnelId, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                                 blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
@@ -528,6 +527,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             } catch (Exception ex) {
                                 log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
                             }
+                            blipContextService.setBuilderMasterState(tunnelId, confirmSuccessBlockId);
                             log.info("[CONFIRM] Aplicado redirecionamento, Builder Master-State, ID e CPF no túnel: {}", tunnelId);
                         }
                     }

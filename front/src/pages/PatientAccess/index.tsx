@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { 
   Clock, 
   ShieldCheck, 
+  ShieldAlert,
   RefreshCw, 
   ArrowRight,
   AlertTriangle,
@@ -77,6 +78,12 @@ export default function PatientAccess() {
 
   // Estado para armazenar o horário atual do celular do paciente (atualizado a cada minuto)
   const [currentTime, setCurrentTime] = useState<string>('');
+
+  // Estados para o fallback de CPF na própria página do portal
+  const [verifiedPhoneDigits, setVerifiedPhoneDigits] = useState<string>('');
+  const [cpfInput, setCpfInput] = useState<string>('');
+  const [cpfSubmitLoading, setCpfSubmitLoading] = useState<boolean>(false);
+  const [cpfSubmitError, setCpfSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -222,6 +229,7 @@ export default function PatientAccess() {
       // Desafio validado com sucesso: libera o carrossel
       setCredentials(response.data || []);
       setIsVerified(true);
+      setVerifiedPhoneDigits(phoneDigits);
     } catch (err: unknown) {
       console.error('[PatientAccess] Falha no desafio de segurança:', err);
       // Exibe mensagem de erro e limpa os campos para nova tentativa
@@ -230,6 +238,53 @@ export default function PatientAccess() {
       setTimeout(() => inputRefs[0].current?.focus(), 50);
     } finally {
       setChallengeLoading(false);
+    }
+  };
+
+  const handleCpfSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointmentId || !cpfInput) return;
+
+    const cleanCpf = cpfInput.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setCpfSubmitError('CPF inválido. Deve conter 11 dígitos.');
+      return;
+    }
+
+    setCpfSubmitLoading(true);
+    setCpfSubmitError(null);
+
+    try {
+      console.log('[PatientAccess] Enviando CPF para validação:', cleanCpf);
+      // Chama o endpoint de validação enviando o CPF preenchido pelo paciente
+      await api.post(
+        '/v1/access/validate',
+        {
+          appointmentId,
+          cpf: cleanCpf
+        },
+        {
+          headers: {
+            'X-Skip-Interceptor': 'true'
+          }
+        }
+      );
+
+      // Se der certo, recarrega as credenciais usando o telefone que foi verificado antes
+      const response = await api.get<AccessCredential[]>(
+        `/v1/access/credentials/${appointmentId}?phoneDigits=${verifiedPhoneDigits}`,
+        {
+          headers: {
+            'X-Skip-Interceptor': 'true'
+          }
+        }
+      );
+      setCredentials(response.data || []);
+    } catch (err: any) {
+      console.error('[PatientAccess] Falha ao enviar CPF:', err);
+      setCpfSubmitError('Ocorreu um erro ao salvar o CPF. Tente novamente.');
+    } finally {
+      setCpfSubmitLoading(false);
     }
   };
 
@@ -370,6 +425,20 @@ export default function PatientAccess() {
 
 
   const renderStatusBanner = () => {
+    if (credentials.some(c => c.locator === 'CPF_MISSING')) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800 shadow-sm animate-pulse">
+          <div className="text-lg shrink-0">🚨</div>
+          <div className="space-y-1">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-red-905">Cadastro Incompleto</h5>
+            <p className="text-[11px] leading-relaxed text-red-700 font-semibold">
+              Seu CPF é obrigatório para liberação do acesso. Cadastre abaixo para liberar seu QR Code.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     const nowMin = toMinutes(currentTime);
     const openMin = toMinutes(opensAt);
     const closeMin = toMinutes(closesAt);
@@ -444,8 +513,73 @@ export default function PatientAccess() {
 
           {renderStatusBanner()}
 
-          {/* Fluxo Condicional: Carrossel de Credenciais vs Mensagem de Contingência */}
-          {credentials.length === 0 ? (
+          {/* Fluxo Condicional: Carrossel de Credenciais vs Falta de CPF vs Mensagem de Contingência */}
+          {credentials.some(c => c.locator === 'CPF_MISSING') ? (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-sm text-center">
+              <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-md font-bold text-slate-800">Informe seu CPF</h3>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-[280px] mx-auto">
+                  Para validar sua identidade e liberar sua entrada nas catracas físicas da clínica, por favor informe seu CPF abaixo:
+                </p>
+              </div>
+
+              <form onSubmit={handleCpfSubmit} className="space-y-4">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  value={cpfInput}
+                  onChange={(e) => {
+                    setCpfSubmitError(null);
+                    // Aplica máscara de CPF
+                    const digits = e.target.value.replace(/\D/g, '').substring(0, 11);
+                    let masked = digits;
+                    if (digits.length > 9) {
+                      masked = `${digits.substring(0, 3)}.${digits.substring(3, 6)}.${digits.substring(6, 9)}-${digits.substring(9)}`;
+                    } else if (digits.length > 6) {
+                      masked = `${digits.substring(0, 3)}.${digits.substring(3, 6)}.${digits.substring(6)}`;
+                    } else if (digits.length > 3) {
+                      masked = `${digits.substring(0, 3)}.${digits.substring(3)}`;
+                    }
+                    setCpfInput(masked);
+                  }}
+                  disabled={cpfSubmitLoading}
+                  className="w-full text-center py-3.5 px-4 font-bold text-slate-700 border border-slate-200 rounded-2xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all font-mono"
+                />
+
+                {cpfSubmitError && (
+                  <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl py-2 px-3 flex items-center gap-1.5 justify-center">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {cpfSubmitError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={cpfSubmitLoading || cpfInput.replace(/\D/g, '').length !== 11}
+                  className={`w-full py-3.5 px-5 rounded-2xl font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
+                    cpfInput.replace(/\D/g, '').length === 11 && !cpfSubmitLoading
+                      ? 'bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  {cpfSubmitLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      Salvar e Liberar Acesso
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          ) : credentials.length === 0 ? (
             /* Cenário de contingência: credenciais ainda não geradas no servidor */
             <div className="bg-brand-secondary/10 border border-brand-primary/20 rounded-3xl p-6 text-center space-y-4 shadow-sm">
               <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center mx-auto text-brand-primary animate-pulse">

@@ -166,7 +166,26 @@ public class BlipGroupActionHandler {
             log.info("[WEBHOOK] Grupo não encontrado no banco para groupId={}. Executando fallback por telefone para {}.", groupId, fromPhone);
             if (fromPhone != null && !fromPhone.isBlank()) {
                 try {
-                    String purifiedPhone = purifyPhoneNumberForSearch(dbPhone);
+                    String purifiedPhone = "";
+                    String reconciliationInput = fromPhone.trim();
+                    boolean isTunnel = reconciliationInput.contains("@tunnel.msging.net");
+                    String localPart = reconciliationInput;
+                    if (reconciliationInput.contains("@")) {
+                        localPart = reconciliationInput.substring(0, reconciliationInput.indexOf("@"));
+                    }
+                    boolean startsWithNumeric = localPart.matches("^\\d+.*$");
+                    
+                    if (isTunnel || !startsWithNumeric) {
+                        log.info("[WEBHOOK-FALLBACK] Identidade '{}' sinaliza ser GUID de túnel. Invocando BlipIdentityReconciler...", reconciliationInput);
+                        String resolvedPhone = blipIdentityReconciler.resolveAndReconcileIdentity(reconciliationInput, bsuid);
+                        if (resolvedPhone != null && !resolvedPhone.isBlank()) {
+                            purifiedPhone = purifyPhoneNumberForSearch(resolvedPhone);
+                        }
+                    }
+                    
+                    if (purifiedPhone.isEmpty()) {
+                        purifiedPhone = purifyPhoneNumberForSearch(dbPhone);
+                    }
                     if (purifiedPhone.isEmpty()) {
                         purifiedPhone = purifyPhoneNumberForSearch(fromPhone);
                     }

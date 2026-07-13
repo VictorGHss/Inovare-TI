@@ -187,7 +187,27 @@ public class BlipGroupActionHandler {
                                         log.info("[WEBHOOK-FALLBACK] Fila UUID {} traduzida com sucesso para o nome descritivo '{}' antes do push de sincronização.", blipQueueId, blipQueueName);
                                     }
                                     log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueName, fromPhone);
-                                    blipContactClientPort.syncContact(fromPhone, "", "", blipQueueName, doctorId);
+                                    boolean syncOk = blipContactClientPort.syncContact(fromPhone, "", "", blipQueueName, doctorId);
+                                    if (syncOk) {
+                                        log.info("[WEBHOOK-FALLBACK] Forçando redirecionamento de Master-State do usuário {} para o bloco de destino humano de pauta.", fromPhone);
+                                        String targetBot = "fluxov1@msging.net";
+                                        String stateId = "b3461299-9500-46b1-b423-12ffef3e1aba";
+                                        blipContextService.setMasterState(fromPhone, targetBot, stateId);
+
+                                        if (bsuid != null && !bsuid.isBlank()) {
+                                            String cleanBsuid = bsuid.trim();
+                                            if (cleanBsuid.contains("@")) {
+                                                cleanBsuid = cleanBsuid.substring(0, cleanBsuid.indexOf("@"));
+                                            }
+                                            cleanBsuid = cleanBsuid.trim();
+                                            if (cleanBsuid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                                                String tunnelId = cleanBsuid + "@tunnel.msging.net";
+                                                if (!tunnelId.equalsIgnoreCase(fromPhone)) {
+                                                    blipContextService.setMasterState(tunnelId, targetBot, stateId);
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

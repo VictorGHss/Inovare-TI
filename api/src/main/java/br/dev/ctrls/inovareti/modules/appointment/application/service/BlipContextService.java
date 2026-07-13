@@ -457,5 +457,9 @@ public class BlipContextService {
         cleaned = cleaned.trim();
         return cleaned;
     }
+
+    public void setVariable(String userIdentity, String key, String value) {
+        setUserContextForUser(userIdentity, key, value);
+    }
 }
 

@@ -11,6 +11,8 @@ import org.springframework.web.client.RestClientException;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
@@ -40,6 +42,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final BlipProperties blipProperties;
+    private final PatientExternalPort patientExternalPort;
 
     @Override
     public boolean supports(String actionType) {
@@ -121,10 +124,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
                 userPhone = session.getPhoneNumber();
                 
-                // Configurar variável de contexto da fila e ID no Blip
+                // Configurar variável de contexto da fila, ID e CPF no Blip
                 try {
                     if (!listaSessoes.isEmpty()) {
-                        String firstFeegowId = listaSessoes.get(0).getFeegowAppointmentId();
+                        AppointmentSession firstSession = listaSessoes.get(0);
+                        String firstFeegowId = firstSession.getFeegowAppointmentId();
                         blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", firstFeegowId);
                         blipContextService.setUserContextForUser(userPhone, "appointmentId", firstFeegowId);
                         if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
@@ -132,9 +136,54 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             blipContextService.setUserContextForUser(fromIdentity, "appointmentId", firstFeegowId);
                         }
                         log.info("[CONFIRM-BATCH] IDs salvos no contexto do Blip: {}", firstFeegowId);
+
+                        // Avaliar presença de CPF do paciente Feegow para requiresCpfFallback
+                        FeegowPatient patient = patientExternalPort.patientInfo(firstSession.getPatientId());
+                        String cpf = (patient != null) ? patient.cpf() : null;
+                        boolean hasValidCpf = false;
+                        if (cpf != null && !cpf.isBlank()) {
+                            String cleanCpf = cpf.replaceAll("\\D", "");
+                            if (cleanCpf.length() == 11) {
+                                hasValidCpf = true;
+                            }
+                        }
+                        String requiresCpfFallback = hasValidCpf ? "false" : "true";
+
+                        blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
+                        if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                            blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
+                        }
+
+                        // Atualiza também a variável para as identidades de túnel no lote
+                        try {
+                            for (AppointmentSession groupSession : listaSessoes) {
+                                String guid = groupSession.getBlipGuid();
+                                if (guid == null || guid.isBlank()) {
+                                    guid = groupSession.getBsuid();
+                                }
+                                if (guid != null && !guid.isBlank()) {
+                                    if (guid.contains("@")) {
+                                        guid = guid.substring(0, guid.indexOf("@"));
+                                    }
+                                    guid = guid.trim();
+                                    if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                                        String tunnelIdentity = guid + "@tunnel.msging.net";
+                                        blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
+                                    }
+                                }
+                            }
+                        } catch (Exception tunnelEx) {
+                            log.warn("[CONFIRM-BATCH] Falha ao atualizar requiresCpfFallback para identidades de túnel no lote: {}", tunnelEx.getMessage());
+                        }
+
+                        if (!hasValidCpf) {
+                            log.info("[CONTEST-CPF] Paciente sem CPF no prontuário Feegow. requiresCpfFallback definido como true para a identidade {}.", userPhone);
+                        } else {
+                            log.info("[CONTEST-CPF] Paciente possui CPF válido. requiresCpfFallback definido como false.");
+                        }
                     }
                 } catch (Exception ex) {
-                    log.warn("[CONFIRM-BATCH] Falha ao salvar ID no contexto: {}", ex.getMessage());
+                    log.warn("[CONFIRM-BATCH] Falha ao salvar ID ou verificar CPF no contexto: {}", ex.getMessage());
                 }
 
                 blipContextService.setQueueRedirect(userPhone, targetQueue);
@@ -303,6 +352,31 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
             confirmationStateMachineService.markConfirmed(session);
 
+            // Avaliar presença de CPF do paciente Feegow para requiresCpfFallback
+            String requiresCpfFallbackVal = "true";
+            try {
+                FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
+                String cpf = (patient != null) ? patient.cpf() : null;
+                boolean hasValidCpf = false;
+                if (cpf != null && !cpf.isBlank()) {
+                    String cleanCpf = cpf.replaceAll("\\D", "");
+                    if (cleanCpf.length() == 11) {
+                        hasValidCpf = true;
+                    }
+                }
+                requiresCpfFallbackVal = hasValidCpf ? "false" : "true";
+
+                if (!hasValidCpf) {
+                    log.info("[CONTEST-CPF] Paciente sem CPF no prontuário Feegow. requiresCpfFallback definido como true para a identidade {}.", session.getPhoneNumber());
+                } else {
+                    log.info("[CONTEST-CPF] Paciente possui CPF válido. requiresCpfFallback definido como false.");
+                }
+            } catch (Exception ex) {
+                log.error("[CONTEST-CPF] Falha ao verificar CPF do paciente no Feegow: {}", ex.getMessage());
+            }
+
+            final String requiresCpfFallback = requiresCpfFallbackVal;
+
             // --- REDIRECIONAMENTO OFICIAL E OBRIGATÓRIO PARA O BLIP DESK ---
             String targetQueue = null;
             var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
@@ -320,17 +394,19 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
             String userPhone = session.getPhoneNumber();
             
-            // Salva o ID do agendamento no contexto do Blip para persistência
+            // Salva o ID do agendamento e CPF no contexto do Blip para persistência
             try {
                 blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                 blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
+                blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                     blipContextService.setUserContextForUser(fromIdentity, "appointmentId", session.getFeegowAppointmentId());
+                    blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
                 }
-                log.info("[CONFIRM] ID do agendamento salvo no contexto do Blip: {}", session.getFeegowAppointmentId());
+                log.info("[CONFIRM] ID do agendamento e requiresCpfFallback salvos no contexto do Blip: {}", session.getFeegowAppointmentId());
             } catch (Exception ex) {
-                log.warn("[CONFIRM] Falha ao salvar ID do agendamento no contexto: {}", ex.getMessage());
+                log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou CPF no contexto: {}", ex.getMessage());
             }
 
             blipContextService.setQueueRedirect(userPhone, targetQueue);
@@ -379,13 +455,14 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                     if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
                         String tunnelIdentity = guid + "@tunnel.msging.net";
                         blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
-                        log.info("[CONFIRM] Master-State atualizado também para a identidade GUID do túnel: {}", tunnelIdentity);
+                        blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
+                        log.info("[CONFIRM] Master-State e requiresCpfFallback atualizados também para a identidade GUID do túnel: {}", tunnelIdentity);
                     } else {
                         log.debug("[CONFIRM] O guid '{}' não é um UUID/GUID válido.", guid);
                     }
                 }
             } catch (Exception ex) {
-                log.warn("[CONFIRM] Falha ao atualizar Master-State para GUID do túnel: {}", ex.getMessage());
+                log.warn("[CONFIRM] Falha ao atualizar Master-State ou requiresCpfFallback para GUID do túnel: {}", ex.getMessage());
             }
 
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
@@ -440,10 +517,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             try {
                                 blipContextService.setUserContextForUser(tunnelId, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                                 blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
+                                blipContextService.setVariable(tunnelId, "requiresCpfFallback", requiresCpfFallback);
                             } catch (Exception ex) {
                                 log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
                             }
-                            log.info("[CONFIRM] Aplicado redirecionamento, Builder Master-State e ID no túnel: {}", tunnelId);
+                            log.info("[CONFIRM] Aplicado redirecionamento, Builder Master-State, ID e CPF no túnel: {}", tunnelId);
                         }
                     }
                 }

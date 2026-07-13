@@ -461,5 +461,14 @@ public class BlipContextService {
     public void setVariable(String userIdentity, String key, String value) {
         setUserContextForUser(userIdentity, key, value);
     }
+
+    public void setContactExtra(String userIdentity, String key, String value) {
+        if (userIdentity == null || userIdentity.isBlank()) return;
+        try {
+            limeClient.mergeContactExtras(userIdentity, Map.of(key, value));
+        } catch (Exception ex) {
+            log.warn("Falha ao definir extras do contato no Blip. identity={}, key={}, value={}", userIdentity, key, value, ex);
+        }
+    }
 }
 

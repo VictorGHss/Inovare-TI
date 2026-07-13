@@ -150,8 +150,10 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         String requiresCpfFallback = hasValidCpf ? "false" : "true";
 
                         blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
+                        blipContextService.setContactExtra(userPhone, "requiresCpfFallback", requiresCpfFallback);
                         if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                             blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
+                            blipContextService.setContactExtra(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
                         }
 
                         // Atualiza também a variável para as identidades de túnel no lote
@@ -169,6 +171,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                     if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
                                         String tunnelIdentity = guid + "@tunnel.msging.net";
                                         blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
+                                        blipContextService.setContactExtra(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
                                     }
                                 }
                             }
@@ -399,10 +402,12 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                 blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
                 blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
+                blipContextService.setContactExtra(userPhone, "requiresCpfFallback", requiresCpfFallback);
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                     blipContextService.setUserContextForUser(fromIdentity, "appointmentId", session.getFeegowAppointmentId());
                     blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
+                    blipContextService.setContactExtra(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
                 }
                 log.info("[CONFIRM] ID do agendamento e requiresCpfFallback salvos no contexto do Blip: {}", session.getFeegowAppointmentId());
             } catch (Exception ex) {
@@ -456,6 +461,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         String tunnelIdentity = guid + "@tunnel.msging.net";
                         blipContextService.setMasterState(tunnelIdentity, targetBot, confirmSuccessBlockId);
                         blipContextService.setVariable(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
+                        blipContextService.setContactExtra(tunnelIdentity, "requiresCpfFallback", requiresCpfFallback);
                         log.info("[CONFIRM] Master-State e requiresCpfFallback atualizados também para a identidade GUID do túnel: {}", tunnelIdentity);
                     } else {
                         log.debug("[CONFIRM] O guid '{}' não é um UUID/GUID válido.", guid);
@@ -518,6 +524,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                 blipContextService.setUserContextForUser(tunnelId, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                                 blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
                                 blipContextService.setVariable(tunnelId, "requiresCpfFallback", requiresCpfFallback);
+                                blipContextService.setContactExtra(tunnelId, "requiresCpfFallback", requiresCpfFallback);
                             } catch (Exception ex) {
                                 log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
                             }

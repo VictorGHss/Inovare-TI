@@ -143,6 +143,12 @@ public class AccessService {
         if (resolvedCpf == null || resolvedCpf.isBlank()) {
             if (cleanRequestCpf.length() == 11) {
                 resolvedCpf = cleanRequestCpf;
+                try {
+                    log.info("[AccessService] Sincronizando CPF de volta com a Feegow para o paciente ID: {}", accessInfo.patientId());
+                    patientExternalPort.updatePatientCpf(accessInfo.patientId(), resolvedCpf);
+                } catch (Exception e) {
+                    log.error("[AccessService] Falha ao sincronizar CPF com a Feegow: {}", e.getMessage());
+                }
             }
         }
 

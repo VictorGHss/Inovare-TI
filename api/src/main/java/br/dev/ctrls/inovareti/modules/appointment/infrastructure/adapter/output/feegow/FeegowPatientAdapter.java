@@ -298,4 +298,30 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         }
         return normalized.substring(0, maxLength) + "...";
     }
+
+    @Override
+    public void updatePatientCpf(String patientId, String cpf) {
+        if (patientId == null || patientId.isBlank() || cpf == null || cpf.isBlank()) {
+            return;
+        }
+
+        URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path("/v1/api/patient/save")
+                .build()
+                .toUri();
+
+        Map<String, Object> payload = Map.of(
+            "paciente_id", patientId,
+            "cpf", cpf.replaceAll("\\D", "")
+        );
+
+        log.info("[FEEGOW] [PATIENT-ADAPTER] Sincronizando CPF do paciente ID: {} para: {} na URL: {}", patientId, cpf, uri);
+
+        try {
+            ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());
+            log.info("[FEEGOW] Resposta do patient/save: status={}, body={}", response.getStatusCode(), response.getBody());
+        } catch (Exception ex) {
+            log.error("Erro ao atualizar CPF do paciente ID {} na Feegow: {}", patientId, ex.getMessage());
+        }
+    }
 }

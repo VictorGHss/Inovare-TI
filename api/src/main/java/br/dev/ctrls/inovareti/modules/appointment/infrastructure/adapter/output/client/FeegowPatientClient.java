@@ -24,4 +24,10 @@ public interface FeegowPatientClient {
     ResponseEntity<String> getPatientDetails(
             URI uri,
             @RequestHeader("x-access-token") String accessToken);
+
+    @org.springframework.web.service.annotation.PostExchange
+    ResponseEntity<String> savePatient(
+            URI uri,
+            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body,
+            @RequestHeader("x-access-token") String accessToken);
 }

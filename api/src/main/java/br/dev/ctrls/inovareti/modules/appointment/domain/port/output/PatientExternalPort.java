@@ -13,4 +13,12 @@ public interface PatientExternalPort {
      * @return detalhes do paciente
      */
     FeegowPatient patientInfo(String patientId);
+
+    /**
+     * Atualiza o CPF de um paciente na Feegow a partir do seu identificador.
+     *
+     * @param patientId ID do paciente
+     * @param cpf CPF a ser gravado (apenas números)
+     */
+    void updatePatientCpf(String patientId, String cpf);
 }

@@ -36,6 +36,7 @@ public class BlipGroupActionHandler {
     private final BlipIdentityReconciler blipIdentityReconciler;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipContactClientPort blipContactClientPort;
+    private final BlipContextService blipContextService;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -179,8 +180,14 @@ public class BlipGroupActionHandler {
                                 AppointmentDoctorMapping mapping = doctorMappingOpt.get();
                                 String blipQueueId = mapping.getBlipQueueId();
                                 if (blipQueueId != null && !blipQueueId.isBlank()) {
-                                    log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueId, fromPhone);
-                                    blipContactClientPort.syncContact(fromPhone, "", "", blipQueueId, doctorId);
+                                    String blipQueueName = blipContextService.resolveQueueName(blipQueueId);
+                                    if (blipQueueName == null || blipQueueName.isBlank() || "Recepção Central / Suporte".equalsIgnoreCase(blipQueueName)) {
+                                        blipQueueName = blipQueueId;
+                                    } else {
+                                        log.info("[WEBHOOK-FALLBACK] Fila UUID {} traduzida com sucesso para o nome descritivo '{}' antes do push de sincronização.", blipQueueId, blipQueueName);
+                                    }
+                                    log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueName, fromPhone);
+                                    blipContactClientPort.syncContact(fromPhone, "", "", blipQueueName, doctorId);
                                 }
                             }
                         }

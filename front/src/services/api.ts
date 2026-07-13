@@ -65,18 +65,17 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      localStorage.removeItem('@InovareTI:token');
+      localStorage.removeItem('@InovareTI:user');
+      sessionStorage.removeItem('@InovareTI:token');
+      sessionStorage.removeItem('@InovareTI:user');
+      window.location.href = '/login';
+    }
+
     if (error.response) {
       const status = error.response.status;
       const data = error.response.data as ProblemDetail | undefined;
-
-      // CASO CONTRÁRIO (fluxo padrão do painel admin), se o erro for 401 ou 403, aí sim execute a limpeza e redirecione
-      if (status === 401 || status === 403) {
-        localStorage.removeItem('@InovareTI:token');
-        localStorage.removeItem('@InovareTI:user');
-        sessionStorage.removeItem('@InovareTI:token');
-        sessionStorage.removeItem('@InovareTI:user');
-        window.location.href = '/login';
-      }
 
       // Verifica se existem erros de validação granulares associados a campos específicos do formulário
       const temErrosGranulares = Array.isArray(data?.invalidParams) && data.invalidParams.length > 0;

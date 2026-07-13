@@ -40,12 +40,12 @@ const api = axios.create({ baseURL: apiBaseUrl });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('@InovareTI:token') || sessionStorage.getItem('@InovareTI:token');
-  if (token) {
+  if (token && token !== 'null' && token !== 'undefined') {
     if (config.headers && typeof config.headers.set === 'function') {
       config.headers.set('Authorization', `Bearer ${token}`);
     } else {
       config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
   }
   return config;

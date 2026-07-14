@@ -15,10 +15,14 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.retry.annotation.EnableRetry;
 
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
+import org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode;
+
 @SpringBootApplication
 @EnableCaching
 @EnableScheduling
 @EnableRetry
+@EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
 public class InovareTiApplication {
 
     public static void main(String[] args) {

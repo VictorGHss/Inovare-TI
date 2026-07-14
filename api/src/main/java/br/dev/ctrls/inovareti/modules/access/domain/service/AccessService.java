@@ -372,7 +372,7 @@ public class AccessService {
             .name(companion.name())
             .phone(companion.phone() != null ? companion.phone() : "")
             .email(companion.email() != null ? companion.email() : "")
-            .visitType(2) // 2 = ACOMPANHANTE / COMPANION
+            .visitType(1) // 1 = PACIENTE / TITULAR / ACOMPANHANTE
             .startVisit(startVisit)
             .endVisit(endVisit)
             .build();

@@ -76,9 +76,6 @@ export default function PatientAccess() {
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Estado para armazenar o horário atual do celular do paciente (atualizado a cada minuto)
-  const [currentTime, setCurrentTime] = useState<string>('');
-
   // Estados para o fallback de CPF na própria página do portal
   const [verifiedPhoneDigits, setVerifiedPhoneDigits] = useState<string>('');
   const [cpfInput, setCpfInput] = useState<string>('');
@@ -92,18 +89,6 @@ export default function PatientAccess() {
   const [companionBirthDate, setCompanionBirthDate] = useState<string>('');
   const [companionSubmitLoading, setCompanionSubmitLoading] = useState<boolean>(false);
   const [companionSubmitError, setCompanionSubmitError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const updateTime = () => {
-      const d = new Date();
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      setCurrentTime(`${hh}:${mm}`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 60000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Screen Wake Lock API: impede que o ecrã do telemóvel apague enquanto o QR Code está em ecrã inteiro
   useEffect(() => {
@@ -130,12 +115,6 @@ export default function PatientAccess() {
       }
     };
   }, [fullscreenCard]);
-
-  const toMinutes = (timeStr?: string) => {
-    if (!timeStr) return 0;
-    const parts = timeStr.split(':');
-    return parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0');
-  };
 
   const openFullscreen = (index: number) => {
     setFullscreenCard(index);
@@ -496,68 +475,7 @@ export default function PatientAccess() {
   // Identifica a credencial do paciente titular para os detalhes superiores
   const patientCredential = credentials.find(c => c.userType === 'PATIENT') || credentials[0];
 
-  const opensAt = patientCredential?.opensAt || '08:00';
-  const closesAt = patientCredential?.closesAt || '21:00';
 
-
-
-  const renderStatusBanner = () => {
-    if (credentials.some(c => c.locator === 'CPF_MISSING')) {
-      return (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800 shadow-sm animate-pulse">
-          <div className="text-lg shrink-0">🚨</div>
-          <div className="space-y-1">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-red-905">Cadastro Incompleto</h5>
-            <p className="text-[11px] leading-relaxed text-red-700 font-semibold">
-              Seu CPF é obrigatório para liberação do acesso. Cadastre abaixo para liberar seu QR Code.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    const nowMin = toMinutes(currentTime);
-    const openMin = toMinutes(opensAt);
-    const closeMin = toMinutes(closesAt);
-
-    if (nowMin < openMin) {
-      return (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800 shadow-sm">
-          <div className="text-lg shrink-0">⏳</div>
-          <div className="space-y-1">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-amber-905">Acesso Agendado</h5>
-            <p className="text-[11px] leading-relaxed text-amber-700 font-semibold">
-              Seu acesso ao prédio será liberado às {opensAt}.
-            </p>
-          </div>
-        </div>
-      );
-    } else if (nowMin > closeMin) {
-      return (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800 shadow-sm">
-          <div className="text-lg shrink-0">❌</div>
-          <div className="space-y-1">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-red-905">Acesso Expirado</h5>
-            <p className="text-[11px] leading-relaxed text-red-700 font-semibold">
-              Sua janela de acesso expirou às {closesAt}. Por favor, fale com a recepção.
-            </p>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3 text-emerald-800 shadow-sm animate-pulse">
-          <div className="text-lg shrink-0">✅</div>
-          <div className="space-y-1">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-905">Acesso Liberado</h5>
-            <p className="text-[11px] leading-relaxed text-emerald-700 font-semibold">
-              Acesso liberado! Aproxime o QR Code do leitor da catraca.
-            </p>
-          </div>
-        </div>
-      );
-    }
-  };
 
   // === TELA PRINCIPAL (CARROSSEL DE CREDENCIAIS / CONTINGÊNCIA ARRAY VAZIO) ===
   return (
@@ -587,8 +505,6 @@ export default function PatientAccess() {
             </h1>
             <p className="text-xs text-slate-400 font-medium">Aqui estão seus cartões para liberação das catracas físicas.</p>
           </div>
-
-          {renderStatusBanner()}
 
           {/* Fluxo Condicional: Carrossel de Credenciais vs Falta de CPF vs Mensagem de Contingência */}
           {credentials.some(c => c.locator === 'CPF_MISSING') ? (
@@ -769,9 +685,9 @@ export default function PatientAccess() {
                     {/* Botão Ampliar QR Code para tela cheia */}
                     <button 
                       onClick={() => openFullscreen(idx)}
-                      className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer mt-auto"
+                      className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-primary-dark hover:opacity-95 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer mt-auto"
                     >
-                      <Maximize2 className="w-3.5 h-3.5 text-brand-primary" />
+                      <Maximize2 className="w-3.5 h-3.5 text-white" />
                       Ampliar QR Code
                     </button>
                   </div>
@@ -933,12 +849,12 @@ export default function PatientAccess() {
             <p className="text-xs text-slate-400 mt-1">Brilho da tela aumentado para leitura na catraca</p>
           </div>
 
-          <div className="flex flex-col items-center justify-center flex-1 my-6">
-            <div className="p-6 bg-white border border-brand-secondary/35 rounded-3xl shadow-xl shadow-brand-primary/5">
+          <div className="flex flex-col items-center justify-center flex-1 my-6 w-full max-w-sm">
+            <div className="p-4 bg-white border-2 border-brand-primary/30 rounded-3xl shadow-xl flex items-center justify-center">
               {/* QR Code ampliado com apenas o credentialCode puro */}
               <QRCodeSVG 
                 value={fullscreenData.value} 
-                size={260} 
+                size={320} 
                 fgColor="#0f172a" 
                 bgColor="#ffffff"
               />

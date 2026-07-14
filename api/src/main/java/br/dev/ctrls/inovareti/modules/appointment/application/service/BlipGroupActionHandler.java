@@ -160,69 +160,73 @@ public class BlipGroupActionHandler {
                     log.debug("[WEBHOOK] Erro defensivo durante a recuperação de grupo/sessão para o telefone {}: {}", dbPhone, e.getMessage());
                 }
             }
-        }
-        
-        if (groups == null || groups.isEmpty()) {
-            log.info("[WEBHOOK] Grupo não encontrado no banco para groupId={}. Executando fallback por telefone para {}.", groupId, fromPhone);
-            if (fromPhone != null && !fromPhone.isBlank()) {
-                try {
-                    String purifiedPhone = "";
-                    String reconciliationInput = fromPhone.trim();
-                    boolean isTunnel = reconciliationInput.contains("@tunnel.msging.net");
-                    String localPart = reconciliationInput;
-                    if (reconciliationInput.contains("@")) {
-                        localPart = reconciliationInput.substring(0, reconciliationInput.indexOf("@"));
-                    }
-                    boolean startsWithNumeric = localPart.matches("^\\d+.*$");
-                    
-                    if (isTunnel || !startsWithNumeric) {
-                        log.info("[WEBHOOK-FALLBACK] Identidade '{}' sinaliza ser GUID de túnel. Invocando BlipIdentityReconciler...", reconciliationInput);
-                        String resolvedPhone = blipIdentityReconciler.resolveAndReconcileIdentity(reconciliationInput, bsuid);
-                        if (resolvedPhone != null && !resolvedPhone.isBlank()) {
-                            purifiedPhone = purifyPhoneNumberForSearch(resolvedPhone);
+            if (groups == null || groups.isEmpty()) {
+                log.info("[WEBHOOK] Grupo não encontrado no banco para groupId={} (actionType={}).", groupId, actionType);
+                
+                boolean shouldForceHumanDesk = "confirm_group".equalsIgnoreCase(actionType) || "alter_group".equalsIgnoreCase(actionType);
+                if (shouldForceHumanDesk && fromPhone != null && !fromPhone.isBlank()) {
+                    log.info("[WEBHOOK] Executando fallback por telefone para {} devido a falha na confirmação/alteração do grupo.", fromPhone);
+                    try {
+                        String purifiedPhone = "";
+                        String reconciliationInput = fromPhone.trim();
+                        boolean isTunnel = reconciliationInput.contains("@tunnel.msging.net");
+                        String localPart = reconciliationInput;
+                        if (reconciliationInput.contains("@")) {
+                            localPart = reconciliationInput.substring(0, reconciliationInput.indexOf("@"));
                         }
-                    }
-                    
-                    if (purifiedPhone.isEmpty()) {
-                        purifiedPhone = purifyPhoneNumberForSearch(dbPhone);
-                    }
-                    if (purifiedPhone.isEmpty()) {
-                        purifiedPhone = purifyPhoneNumberForSearch(fromPhone);
-                    }
-                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
-                    if (activeSessions != null && !activeSessions.isEmpty()) {
-                        AppointmentSession session = activeSessions.get(0);
-                        String doctorId = session.getDoctorProfissionalId();
-                        if (doctorId != null && !doctorId.isBlank()) {
-                            Optional<AppointmentDoctorMapping> doctorMappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(doctorId);
-                            if (doctorMappingOpt.isPresent()) {
-                                AppointmentDoctorMapping mapping = doctorMappingOpt.get();
-                                String blipQueueId = mapping.getBlipQueueId();
-                                if (blipQueueId != null && !blipQueueId.isBlank()) {
-                                    String blipQueueName = blipContextService.resolveQueueName(blipQueueId);
-                                    if (blipQueueName == null || blipQueueName.isBlank() || "Recepção Central / Suporte".equalsIgnoreCase(blipQueueName)) {
-                                        blipQueueName = blipQueueId;
-                                    } else {
-                                        log.info("[WEBHOOK-FALLBACK] Fila UUID {} traduzida com sucesso para o nome descritivo '{}' antes do push de sincronização.", blipQueueId, blipQueueName);
-                                    }
-                                    log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueName, fromPhone);
-                                    boolean syncOk = blipContactClientPort.syncContact(fromPhone, "", "", blipQueueName, doctorId);
-                                    if (syncOk) {
-                                        log.info("[WEBHOOK-FALLBACK] Forçando redirecionamento de Master-State do usuário {} para o bloco de destino humano de pauta.", fromPhone);
-                                        String targetBot = "fluxov1@msging.net";
-                                        String stateId = "b3461299-9500-46b1-b423-12ffef3e1aba";
-                                        blipContextService.setMasterState(fromPhone, targetBot, stateId);
+                        boolean startsWithNumeric = localPart.matches("^\\d+.*$");
+                        
+                        if (isTunnel || !startsWithNumeric) {
+                            log.info("[WEBHOOK-FALLBACK] Identidade '{}' sinaliza ser GUID de túnel. Invocando BlipIdentityReconciler...", reconciliationInput);
+                            String resolvedPhone = blipIdentityReconciler.resolveAndReconcileIdentity(reconciliationInput, bsuid);
+                            if (resolvedPhone != null && !resolvedPhone.isBlank()) {
+                                purifiedPhone = purifyPhoneNumberForSearch(resolvedPhone);
+                            }
+                        }
+                        
+                        if (purifiedPhone.isEmpty()) {
+                            purifiedPhone = purifyPhoneNumberForSearch(dbPhone);
+                        }
+                        if (purifiedPhone.isEmpty()) {
+                            purifiedPhone = purifyPhoneNumberForSearch(fromPhone);
+                        }
+                        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
+                        if (activeSessions != null && !activeSessions.isEmpty()) {
+                            AppointmentSession session = activeSessions.get(0);
+                            String doctorId = session.getDoctorProfissionalId();
+                            if (doctorId != null && !doctorId.isBlank()) {
+                                Optional<AppointmentDoctorMapping> doctorMappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(doctorId);
+                                if (doctorMappingOpt.isPresent()) {
+                                    AppointmentDoctorMapping mapping = doctorMappingOpt.get();
+                                    String blipQueueId = mapping.getBlipQueueId();
+                                    if (blipQueueId != null && !blipQueueId.isBlank()) {
+                                        String blipQueueName = blipContextService.resolveQueueName(blipQueueId);
+                                        if (blipQueueName == null || blipQueueName.isBlank() || "Recepção Central / Suporte".equalsIgnoreCase(blipQueueName)) {
+                                            blipQueueName = blipQueueId;
+                                        } else {
+                                            log.info("[WEBHOOK-FALLBACK] Fila UUID {} traduzida com sucesso para o nome descritivo '{}' antes do push de sincronização.", blipQueueId, blipQueueName);
+                                        }
+                                        log.info("[WEBHOOK-FALLBACK] Forçando push da fila '{}' para o contato {} no Blip Router.", blipQueueName, fromPhone);
+                                        boolean syncOk = blipContactClientPort.syncContact(fromPhone, "", "", blipQueueName, doctorId);
+                                        if (syncOk) {
+                                            blipContextService.setQueueRedirect(fromPhone, blipQueueName);
+                                            log.info("[WEBHOOK-FALLBACK] Forçando redirecionamento de Master-State do usuário {} para o bloco de destino humano de pauta.", fromPhone);
+                                            String targetBot = "fluxov1@msging.net";
+                                            String stateId = "b3461299-9500-46b1-b423-12ffef3e1aba";
+                                            blipContextService.setMasterState(fromPhone, targetBot, stateId);
 
-                                        if (bsuid != null && !bsuid.isBlank()) {
-                                            String cleanBsuid = bsuid.trim();
-                                            if (cleanBsuid.contains("@")) {
-                                                cleanBsuid = cleanBsuid.substring(0, cleanBsuid.indexOf("@"));
-                                            }
-                                            cleanBsuid = cleanBsuid.trim();
-                                            if (cleanBsuid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
-                                                String tunnelId = cleanBsuid + "@tunnel.msging.net";
-                                                if (!tunnelId.equalsIgnoreCase(fromPhone)) {
-                                                    blipContextService.setMasterState(tunnelId, targetBot, stateId);
+                                            if (bsuid != null && !bsuid.isBlank()) {
+                                                String cleanBsuid = bsuid.trim();
+                                                if (cleanBsuid.contains("@")) {
+                                                    cleanBsuid = cleanBsuid.substring(0, cleanBsuid.indexOf("@"));
+                                                }
+                                                cleanBsuid = cleanBsuid.trim();
+                                                if (cleanBsuid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                                                    String tunnelId = cleanBsuid + "@tunnel.msging.net";
+                                                    if (!tunnelId.equalsIgnoreCase(fromPhone)) {
+                                                        blipContextService.setQueueRedirect(tunnelId, blipQueueName);
+                                                        blipContextService.setMasterState(tunnelId, targetBot, stateId);
+                                                    }
                                                 }
                                             }
                                         }
@@ -230,12 +234,14 @@ public class BlipGroupActionHandler {
                                 }
                             }
                         }
+                    } catch (Exception ex) {
+                        log.error("[WEBHOOK-FALLBACK] Erro ao executar fallback de fila por telefone para {}: {}", fromPhone, ex.getMessage(), ex);
                     }
-                } catch (Exception ex) {
-                    log.error("[WEBHOOK-FALLBACK] Erro ao executar fallback de fila por telefone para {}: {}", fromPhone, ex.getMessage(), ex);
+                } else {
+                    log.info("[WEBHOOK] Ignorando fallback para atendimento humano para actionType={}.", actionType);
                 }
+                return null;
             }
-            return null;
         }
         
         if (actionType == null) {

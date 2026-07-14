@@ -469,10 +469,11 @@ public class HandleBlipWebhookUseCase {
 
                 String listaDetalhada = null;
                 try {
-                    List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
+                    List<AppointmentSession> activeSessionsResult = transactionTemplate.execute(status ->
                         appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
                     );
-                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                    if (activeSessionsResult != null && !activeSessionsResult.isEmpty()) {
+                        List<AppointmentSession> activeSessions = new java.util.ArrayList<>(activeSessionsResult);
                         activeSessions.sort((s1, s2) -> {
                             if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
                             if (s1.getAppointmentAt() == null) return 1;

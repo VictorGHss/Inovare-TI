@@ -76,6 +76,31 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 
                 log.info("[CONFIRM-BATCH] Processando confirmação em lote para o grupo: {} / telefone: {}. Total de agendamentos: {}", groupId, userPhone, listaSessoes.size());
                 
+                // --- RESOLUÇÃO E CONFIGURAÇÃO IMEDIATA DA FILA DE REDIRECIONAMENTO (ANTI-CORRIDA) ---
+                String targetQueue = null;
+                for (AppointmentSession groupSession : listaSessoes) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(groupSession.getDoctorProfissionalId());
+                    if (mappingOpt.isPresent()) {
+                        String queue = mappingOpt.get().getBlipQueueId();
+                        if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                            targetQueue = queue.trim();
+                            break;
+                        }
+                    }
+                }
+
+                if (targetQueue == null || targetQueue.isBlank()) {
+                    targetQueue = "Recepção Central / Suporte";
+                } else {
+                    targetQueue = blipContextService.resolveQueueName(targetQueue);
+                }
+
+                blipContextService.setQueueRedirect(userPhone, targetQueue);
+                if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                    blipContextService.setQueueRedirect(fromIdentity, targetQueue);
+                }
+                // -----------------------------------------------------------------------------------
+
                 // --- ATUALIZAÇÃO IMEDIATA DO STATUS LOCAL (FIM DO LEMBRETE FANTASMA) ---
                 for (AppointmentSession groupSession : listaSessoes) {
                     confirmationStateMachineService.markConfirmed(groupSession);
@@ -101,25 +126,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             ex.getMessage(),
                             ex);
                     }
-                }
-
-                // Estratégia de desempate determinista: extrair a primeira fila válida dos médicos associados ao grupo
-                String targetQueue = null;
-                for (AppointmentSession groupSession : listaSessoes) {
-                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(groupSession.getDoctorProfissionalId());
-                    if (mappingOpt.isPresent()) {
-                        String queue = mappingOpt.get().getBlipQueueId();
-                        if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
-                            targetQueue = queue.trim();
-                            break;
-                        }
-                    }
-                }
-
-                if (targetQueue == null || targetQueue.isBlank()) {
-                    targetQueue = "Recepção Central / Suporte";
-                } else {
-                    targetQueue = blipContextService.resolveQueueName(targetQueue);
                 }
 
                 userPhone = session.getPhoneNumber();
@@ -342,6 +348,28 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.error("[CONFIRM-BATCH] Erro ao atualizar estados do grupo de sessões no banco local. grupo={}", groupIdStr, e);
             }
         } else {
+            // --- RESOLUÇÃO E CONFIGURAÇÃO IMEDIATA DA FILA DE REDIRECIONAMENTO (ANTI-CORRIDA) ---
+            String targetQueue = null;
+            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+            if (mappingOpt.isPresent()) {
+                String queue = mappingOpt.get().getBlipQueueId();
+                if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
+                    targetQueue = queue.trim();
+                }
+            }
+            if (targetQueue == null || targetQueue.isBlank()) {
+                targetQueue = "Recepção Central / Suporte";
+            } else {
+                targetQueue = blipContextService.resolveQueueName(targetQueue);
+            }
+
+            String userPhone = session.getPhoneNumber();
+            blipContextService.setQueueRedirect(userPhone, targetQueue);
+            if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                blipContextService.setQueueRedirect(fromIdentity, targetQueue);
+            }
+            // -----------------------------------------------------------------------------------
+
             String confirmedStatusId = resolveConfirmedStatusId();
             log.info("Enviando confirmação para Feegow: {}", session.getFeegowAppointmentId());
             try {
@@ -380,23 +408,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
             final String requiresCpfFallback = requiresCpfFallbackVal;
 
-            // --- REDIRECIONAMENTO OFICIAL E OBRIGATÓRIO PARA O BLIP DESK ---
-            String targetQueue = null;
-            var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
-            if (mappingOpt.isPresent()) {
-                String queue = mappingOpt.get().getBlipQueueId();
-                if (queue != null && !queue.isBlank() && !"null".equalsIgnoreCase(queue.trim())) {
-                    targetQueue = queue.trim();
-                }
-            }
-            if (targetQueue == null || targetQueue.isBlank()) {
-                targetQueue = "Recepção Central / Suporte";
-            } else {
-                targetQueue = blipContextService.resolveQueueName(targetQueue);
-            }
-
-            String userPhone = session.getPhoneNumber();
-            
             // Salva o ID do agendamento e CPF no contexto do Blip para persistência
             try {
                 blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
@@ -412,11 +423,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.info("[CONFIRM] ID do agendamento e requiresCpfFallback salvos no contexto do Blip: {}", session.getFeegowAppointmentId());
             } catch (Exception ex) {
                 log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou CPF no contexto: {}", ex.getMessage());
-            }
-
-            blipContextService.setQueueRedirect(userPhone, targetQueue);
-            if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
-                blipContextService.setQueueRedirect(fromIdentity, targetQueue);
             }
  
             // Recupera dinamicamente a propriedade do bloco de sucesso

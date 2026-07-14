@@ -299,6 +299,28 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         return normalized.substring(0, maxLength) + "...";
     }
 
+    private String formatBirthdateForFeegow(String birthdate) {
+        if (birthdate == null || birthdate.isBlank()) {
+            return null;
+        }
+        String clean = birthdate.trim();
+        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
+            return clean;
+        }
+        if (clean.matches("\\d{2}-\\d{2}-\\d{4}")) {
+            return clean.replace("-", "/");
+        }
+        if (clean.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            String[] parts = clean.split("-");
+            return parts[2] + "/" + parts[1] + "/" + parts[0];
+        }
+        if (clean.matches("\\d{4}/\\d{2}/\\d{2}")) {
+            String[] parts = clean.split("/");
+            return parts[2] + "/" + parts[1] + "/" + parts[0];
+        }
+        return clean;
+    }
+
     @Override
     public void updatePatientCpf(String patientId, String cpf) {
         if (patientId == null || patientId.isBlank() || cpf == null || cpf.isBlank()) {
@@ -319,6 +341,7 @@ public class FeegowPatientAdapter implements PatientExternalPort {
 
         java.util.Map<String, Object> payload = new java.util.HashMap<>();
         payload.put("paciente_id", patientId);
+        payload.put("id", patientId);
         payload.put("cpf", cpf.replaceAll("\\D", ""));
         
         if (details != null) {
@@ -326,7 +349,9 @@ public class FeegowPatientAdapter implements PatientExternalPort {
                 payload.put("nome", details.getNome());
             }
             if (details.getNascimento() != null && !details.getNascimento().isBlank()) {
-                payload.put("nascimento", details.getNascimento());
+                String formattedDob = formatBirthdateForFeegow(details.getNascimento());
+                payload.put("nascimento", formattedDob);
+                payload.put("data_nascimento", formattedDob);
             }
         }
 
@@ -335,6 +360,9 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         try {
             ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());
             log.info("[FEEGOW] Resposta do patient/save: status={}, body={}", response.getStatusCode(), response.getBody());
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            log.error("Erro ao atualizar CPF do paciente ID {} na Feegow (Status {}): {}. Response body: {}", 
+                    patientId, ex.getStatusCode(), ex.getMessage(), ex.getResponseBodyAsString());
         } catch (Exception ex) {
             log.error("Erro ao atualizar CPF do paciente ID {} na Feegow: {}", patientId, ex.getMessage());
         }

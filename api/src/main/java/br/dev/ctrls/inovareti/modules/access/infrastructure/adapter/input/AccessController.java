@@ -192,6 +192,20 @@ public class AccessController {
             credentials.addAll(appCreds);
         }
 
+        // Ordena para que o paciente principal do link acessado venha sempre em primeiro lugar,
+        // seguido por outros pacientes do grupo e, finalmente, acompanhantes.
+        credentials.sort((c1, c2) -> {
+            boolean isC1MainPatient = c1.getUserType() == UserType.PATIENT && c1.getAppointmentId().equalsIgnoreCase(idAgendamento);
+            boolean isC2MainPatient = c2.getUserType() == UserType.PATIENT && c2.getAppointmentId().equalsIgnoreCase(idAgendamento);
+            if (isC1MainPatient && !isC2MainPatient) return -1;
+            if (!isC1MainPatient && isC2MainPatient) return 1;
+
+            if (c1.getUserType() == UserType.PATIENT && c2.getUserType() != UserType.PATIENT) return -1;
+            if (c1.getUserType() != UserType.PATIENT && c2.getUserType() == UserType.PATIENT) return 1;
+
+            return 0;
+        });
+
         // Formata data e hora do agendamento
         String appointmentDateTime = "";
         String opensAt = "";

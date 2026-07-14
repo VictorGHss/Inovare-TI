@@ -489,10 +489,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                                 blipContextService.setUserContextForUser(tunnelId, "appointmentId", session.getFeegowAppointmentId());
                                 blipContextService.setVariable(tunnelId, "requiresCpfFallback", requiresCpfFallback);
                                 blipContextService.setContactExtra(tunnelId, "requiresCpfFallback", requiresCpfFallback);
+                                blipContextService.setMasterState(tunnelId, targetBot, confirmSuccessBlockId);
                             } catch (Exception ex) {
-                                log.warn("[CONFIRM] Falha ao salvar ID no túnel: {}", ex.getMessage());
+                                log.warn("[CONFIRM] Falha ao salvar ID ou redirecionar no túnel: {}", ex.getMessage());
                             }
-                            log.info("[CONFIRM] Salvo ID e CPF no túnel: {}", tunnelId);
+                            log.info("[CONFIRM] Salvo ID, CPF e redirecionado Master-State no túnel: {}", tunnelId);
                         }
                     }
                 }

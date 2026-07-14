@@ -14,5 +14,8 @@ public record CompanionRequest(
     
     String phone,
     
-    String email
+    String email,
+    
+    @com.fasterxml.jackson.annotation.JsonProperty("birthDate")
+    String birthDate
 ) {}

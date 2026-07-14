@@ -103,7 +103,7 @@ public class BlipWebhookController {
         List<CompanionAccessInfo> domainCompanions = null;
         if (payload.companions() != null) {
             domainCompanions = payload.companions().stream()
-                    .map(c -> new CompanionAccessInfo(c.name(), c.cpf(), c.phone(), c.email()))
+                    .map(c -> new CompanionAccessInfo(c.name(), c.cpf(), c.phone(), c.email(), c.birthDate()))
                     .toList();
         }
 

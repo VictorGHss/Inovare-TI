@@ -345,8 +345,12 @@ public class HandleBlipWebhookUseCase {
                                     phone = companionMap.get("phone") != null ? companionMap.get("phone").toString() : "";
                                 }
                                 String email = companionMap.get("email") != null ? companionMap.get("email").toString() : "";
+                                String birthDate = companionMap.get("birthDate") != null ? companionMap.get("birthDate").toString() : "";
+                                if (birthDate.isEmpty()) {
+                                    birthDate = companionMap.get("data_nascimento") != null ? companionMap.get("data_nascimento").toString() : "";
+                                }
                                 
-                                companionsList.add(new br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo(name, cCpf, phone, email));
+                                companionsList.add(new br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo(name, cCpf, phone, email, birthDate));
                             }
                         }
                     }

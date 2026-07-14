@@ -11,8 +11,6 @@ import org.springframework.web.client.RestClientException;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
@@ -42,7 +40,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final BlipProperties blipProperties;
-    private final PatientExternalPort patientExternalPort;
 
     @Override
     public boolean supports(String actionType) {

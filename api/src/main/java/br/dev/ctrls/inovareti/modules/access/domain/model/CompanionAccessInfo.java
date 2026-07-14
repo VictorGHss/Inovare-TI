@@ -9,5 +9,6 @@ public record CompanionAccessInfo(
     String name,
     String cpf,
     String phone,
-    String email
+    String email,
+    String birthDate
 ) {}

@@ -85,6 +85,14 @@ export default function PatientAccess() {
   const [cpfSubmitLoading, setCpfSubmitLoading] = useState<boolean>(false);
   const [cpfSubmitError, setCpfSubmitError] = useState<string | null>(null);
 
+  // Controle do modal de cadastrar acompanhantes
+  const [isCompanionModalOpen, setIsCompanionModalOpen] = useState<boolean>(false);
+  const [companionName, setCompanionName] = useState<string>('');
+  const [companionCpf, setCompanionCpf] = useState<string>('');
+  const [companionBirthDate, setCompanionBirthDate] = useState<string>('');
+  const [companionSubmitLoading, setCompanionSubmitLoading] = useState<boolean>(false);
+  const [companionSubmitError, setCompanionSubmitError] = useState<string | null>(null);
+
   useEffect(() => {
     const updateTime = () => {
       const d = new Date();
@@ -285,6 +293,75 @@ export default function PatientAccess() {
       setCpfSubmitError('Ocorreu um erro ao salvar o CPF. Tente novamente.');
     } finally {
       setCpfSubmitLoading(false);
+    }
+  };
+
+  const handleCompanionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointmentId || !companionName || !companionCpf) return;
+
+    const cleanCpf = companionCpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setCompanionSubmitError('CPF do acompanhante inválido. Deve conter 11 dígitos.');
+      return;
+    }
+
+    setCompanionSubmitLoading(true);
+    setCompanionSubmitError(null);
+
+    try {
+      const patientCpf = patientCredential?.cpf?.replace(/\D/g, '') || '';
+      console.log('[PatientAccess] Cadastrando acompanhante:', companionName);
+      
+      await api.post(
+        '/v1/access/validate',
+        {
+          appointmentId,
+          cpf: patientCpf,
+          companions: [
+            {
+              name: companionName,
+              cpf: cleanCpf,
+              birthDate: companionBirthDate
+            }
+          ]
+        },
+        {
+          headers: {
+            'X-Skip-Interceptor': 'true'
+          }
+        }
+      );
+
+      // Recarrega as credenciais usando o telefone verificado
+      const response = await api.get<AccessCredential[]>(
+        `/v1/access/credentials/${appointmentId}?phoneDigits=${verifiedPhoneDigits}`,
+        {
+          headers: {
+            'X-Skip-Interceptor': 'true'
+          }
+        }
+      );
+      const newCreds = response.data || [];
+      setCredentials(newCreds);
+      
+      // Fecha modal e limpa form
+      setIsCompanionModalOpen(false);
+      setCompanionName('');
+      setCompanionCpf('');
+      setCompanionBirthDate('');
+
+      // Foca no novo acompanhante (último card do carrossel)
+      if (newCreds.length > 0) {
+        setTimeout(() => {
+          scrollToCard(newCreds.length - 1);
+        }, 150);
+      }
+    } catch (err: any) {
+      console.error('[PatientAccess] Falha ao cadastrar acompanhante:', err);
+      setCompanionSubmitError('Erro ao cadastrar acompanhante nas catracas. Tente novamente.');
+    } finally {
+      setCompanionSubmitLoading(false);
     }
   };
 
@@ -716,6 +793,37 @@ export default function PatientAccess() {
                   ))}
                 </div>
               )}
+
+              {/* Botão de Cadastrar Acompanhante */}
+              <div className="pt-5 flex justify-center">
+                <button
+                  onClick={() => setIsCompanionModalOpen(true)}
+                  className="w-full py-3 px-4 bg-white border border-brand-primary hover:border-brand-primary-dark text-brand-primary-dark hover:text-brand-primary rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 hover:bg-brand-secondary/10 active:scale-[0.98] shadow-sm cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-brand-primary" />
+                  Cadastrar Acompanhante
+                </button>
+              </div>
+
+              {/* Card de Localização / Como Chegar */}
+              <div className="mt-4 bg-slate-50/50 backdrop-blur-sm border border-slate-200/50 shadow-md rounded-2xl p-5 flex flex-col space-y-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-brand-primary" />
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Localização da Clínica</h4>
+                </div>
+                <p className="text-xs font-semibold text-slate-600 leading-relaxed">
+                  R. Carlos Osternack, 111 - Estrela, Ponta Grossa - PR, 84040-120
+                </p>
+                <a 
+                  href="https://maps.google.com/maps/search/R.%20Carlos%20Osternack%2C%20111%20-%20Estrela%2C%20Ponta%20Grossa%20-%20PR%2C%2084040-120/@-25.102480313054,-50.15943172848,17z?hl=pt-BR" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-primary-dark active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:opacity-95"
+                >
+                  <MapPin className="w-4 h-4 text-white" />
+                  Abrir no Google Maps
+                </a>
+              </div>
             </div>
           )}
 
@@ -843,6 +951,123 @@ export default function PatientAccess() {
           >
             Fechar Tela Cheia
           </button>
+        </div>
+      )}
+
+      {/* Modal de Cadastro de Acompanhante */}
+      {isCompanionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-1.5 bg-brand-secondary/30 border border-brand-primary/10 rounded-full px-3 py-1 mb-2">
+                <User className="w-4 h-4 text-brand-primary-dark" />
+                <span className="text-xs text-brand-primary-dark font-semibold">Novo Acompanhante</span>
+              </div>
+              <h3 className="text-md font-bold text-slate-800">Cadastrar Acompanhante</h3>
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[280px] mx-auto mt-1">
+                Informe os dados para cadastrar o acompanhante nas catracas físicas de acesso.
+              </p>
+            </div>
+
+            <form onSubmit={handleCompanionSubmit} className="space-y-4 pt-2">
+              <div className="space-y-3">
+                {/* Nome Completo */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nome do acompanhante"
+                    value={companionName}
+                    onChange={(e) => setCompanionName(e.target.value)}
+                    disabled={companionSubmitLoading}
+                    className="w-full py-3 px-4 border border-slate-200 rounded-xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-xs font-semibold text-slate-700"
+                  />
+                </div>
+
+                {/* Data de Nascimento */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Data de Nascimento</label>
+                  <input
+                    type="date"
+                    required
+                    value={companionBirthDate}
+                    onChange={(e) => setCompanionBirthDate(e.target.value)}
+                    disabled={companionSubmitLoading}
+                    className="w-full py-3 px-4 border border-slate-200 rounded-xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-xs font-semibold text-slate-700 font-sans"
+                  />
+                </div>
+
+                {/* CPF */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">CPF</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    placeholder="000.000.000-00"
+                    value={companionCpf}
+                    onChange={(e) => {
+                      setCompanionSubmitError(null);
+                      const digits = e.target.value.replace(/\D/g, '').substring(0, 11);
+                      let masked = digits;
+                      if (digits.length > 9) {
+                        masked = `${digits.substring(0, 3)}.${digits.substring(3, 6)}.${digits.substring(6, 9)}-${digits.substring(9)}`;
+                      } else if (digits.length > 6) {
+                        masked = `${digits.substring(0, 3)}.${digits.substring(3, 6)}.${digits.substring(6)}`;
+                      } else if (digits.length > 3) {
+                        masked = `${digits.substring(0, 3)}.${digits.substring(3)}`;
+                      }
+                      setCompanionCpf(masked);
+                    }}
+                    disabled={companionSubmitLoading}
+                    className="w-full py-3 px-4 border border-slate-200 rounded-xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-xs font-mono font-semibold text-slate-700"
+                  />
+                </div>
+              </div>
+
+              {companionSubmitError && (
+                <div className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl py-2 px-3 flex items-center gap-1.5 justify-center">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {companionSubmitError}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCompanionModalOpen(false);
+                    setCompanionName('');
+                    setCompanionCpf('');
+                    setCompanionBirthDate('');
+                  }}
+                  disabled={companionSubmitLoading}
+                  className="flex-1 py-3 border border-slate-200 text-slate-500 rounded-xl text-xs font-bold transition-all hover:bg-slate-50 active:scale-[0.98] cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={companionSubmitLoading || !companionName || companionCpf.replace(/\D/g, '').length !== 11}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
+                    companionName && companionCpf.replace(/\D/g, '').length === 11 && !companionSubmitLoading
+                      ? 'bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  {companionSubmitLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Cadastrando...
+                    </>
+                  ) : (
+                    'Cadastrar'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -302,13 +302,20 @@ public class AccessService {
             log.info("[AccessService] Iniciando cadastro paralelo de {} acompanhante(s) via Virtual Threads...", companions.size());
             final String finalToken = token;
             final String finalLocator = locator;
+            final List<AccessCredential> existingAppCreds = accessCredentialRepositoryPort.findByAppointmentId(accessInfo.appointmentId());
 
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 List<Future<Void>> futures = companions.stream()
                     .map(companion -> executor.submit(() -> {
                         // Isolamento e resiliência (Fail-Safe) por tarefa
                         try {
-                            registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId());
+                            boolean alreadyRegistered = existingAppCreds.stream()
+                                .anyMatch(c -> c.getName().equalsIgnoreCase(companion.name().trim()) && c.getUserType() == UserType.COMPANION);
+                            if (alreadyRegistered) {
+                                log.info("[AccessService] Acompanhante '{}' já possui credencial cadastrada para o agendamento {}. Ignorando duplicata.", companion.name(), accessInfo.appointmentId());
+                            } else {
+                                registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId());
+                            }
                         } catch (Exception ex) {
                             log.error("[AccessService] Erro fatal no processamento assíncrono do acompanhante '{}': {}", 
                                     companion.name(), ex.getMessage(), ex);

@@ -7,6 +7,7 @@ import br.dev.ctrls.inovareti.modules.access.domain.service.AccessService;
 import br.dev.ctrls.inovareti.modules.access.domain.model.CompanionAccessInfo;
 import br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessValidationRequest;
 import br.dev.ctrls.inovareti.modules.access.infrastructure.config.InovareMotorProperties;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class AccessController {
     private final InovareMotorProperties inovareMotorProperties;
     private final AccessCredentialRepositoryPort accessCredentialRepositoryPort;
     private final AccessService accessService;
+    private final AppointmentSessionRepositoryPort appointmentSessionRepository;
 
     /**
      * Endpoint de teste manual para validação de acesso das catracas.
@@ -97,7 +99,7 @@ public class AccessController {
         java.util.List<CompanionAccessInfo> domainCompanions = null;
         if (request.companions() != null) {
             domainCompanions = request.companions().stream()
-                    .map(c -> new CompanionAccessInfo(c.name(), c.cpf(), c.phone(), c.email()))
+                    .map(c -> new CompanionAccessInfo(c.name(), c.cpf(), c.phone(), c.email(), c.birthDate()))
                     .toList();
         }
 
@@ -139,30 +141,55 @@ public class AccessController {
         br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo accessInfo =
                 accessService.validatePhoneChallenge(idAgendamento, phoneDigits);
 
-        java.util.List<AccessCredential> credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
-        
-        if (credentials.isEmpty()) {
-            log.info("[AccessControl] Credenciais não encontradas no banco para o agendamento ID: {}. Tentando gerar em tempo real...", idAgendamento);
-            br.dev.ctrls.inovareti.modules.access.domain.service.AccessService.AccessValidationResult result =
-                    accessService.processAccessRequest(idAgendamento, null, null);
-            if (result.authorized()) {
-                credentials = accessCredentialRepositoryPort.findByAppointmentId(idAgendamento);
-            } else {
-                log.warn("[AccessControl] Acesso negado pelo processAccessRequest para o agendamento ID: {}. Causa: {}", idAgendamento, result.message());
-                if (result.requiresCpfFallback()) {
-                    AccessCredential ghost = AccessCredential.builder()
-                            .id(UUID.randomUUID())
-                            .appointmentId(idAgendamento)
-                            .name(accessInfo.name())
-                            .cpf("")
-                            .userType(UserType.PATIENT)
-                            .accessCredential("CPF_MISSING")
-                            .locator("CPF_MISSING")
-                            .createdAt(LocalDateTime.now())
-                            .build();
-                    credentials = java.util.List.of(ghost);
+        // Resolve todos os IDs de agendamento que pertencem ao mesmo grupo
+        java.util.List<String> appointmentIds = new java.util.ArrayList<>();
+        appointmentIds.add(idAgendamento);
+
+        try {
+            var mainSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(idAgendamento);
+            if (mainSessionOpt.isPresent() && mainSessionOpt.get().getCurrentGroupId() != null) {
+                var groupSessions = appointmentSessionRepository.findByCurrentGroupId(mainSessionOpt.get().getCurrentGroupId());
+                for (var s : groupSessions) {
+                    if (s.getFeegowAppointmentId() != null && !s.getFeegowAppointmentId().equalsIgnoreCase(idAgendamento)) {
+                        appointmentIds.add(s.getFeegowAppointmentId());
+                    }
+                }
+                log.info("[AccessControl] Encontrado grupo com {} agendamentos: {}", appointmentIds.size(), appointmentIds);
+            }
+        } catch (Exception ex) {
+            log.warn("[AccessControl] Erro ao buscar grupo de sessões para o agendamento {}: {}", idAgendamento, ex.getMessage());
+        }
+
+        java.util.List<AccessCredential> credentials = new java.util.ArrayList<>();
+
+        for (String id : appointmentIds) {
+            java.util.List<AccessCredential> appCreds = accessCredentialRepositoryPort.findByAppointmentId(id);
+            if (appCreds.isEmpty()) {
+                log.info("[AccessControl] Credenciais não encontradas no banco para o agendamento ID: {}. Tentando gerar em tempo real...", id);
+                try {
+                    br.dev.ctrls.inovareti.modules.access.domain.service.AccessService.AccessValidationResult result =
+                            accessService.processAccessRequest(id, null, null);
+                    if (result.authorized()) {
+                        appCreds = accessCredentialRepositoryPort.findByAppointmentId(id);
+                    } else if (result.requiresCpfFallback()) {
+                        var specificInfo = accessService.validatePhoneChallenge(id, phoneDigits);
+                        AccessCredential ghost = AccessCredential.builder()
+                                .id(UUID.randomUUID())
+                                .appointmentId(id)
+                                .name(specificInfo.name())
+                                .cpf("")
+                                .userType(UserType.PATIENT)
+                                .accessCredential("CPF_MISSING")
+                                .locator("CPF_MISSING")
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                        appCreds = java.util.List.of(ghost);
+                    }
+                } catch (Exception ex) {
+                    log.error("[AccessControl] Falha ao processar acesso em tempo real para o agendamento ID {}: {}", id, ex.getMessage());
                 }
             }
+            credentials.addAll(appCreds);
         }
 
         // Formata data e hora do agendamento
@@ -188,19 +215,49 @@ public class AccessController {
         final String finalOpensAt = opensAt;
         final String finalClosesAt = closesAt;
 
-        java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse> response = credentials.stream()
-                .map(c -> new br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse(
-                        c.getName(),
-                        c.getUserType(),
-                        c.getLocator(),
-                        c.getAccessCredential(),
-                        c.getCpf(),
-                        finalDoctorName,
-                        finalAppointmentDateTime,
-                        finalOpensAt,
-                        finalClosesAt
-                ))
-                .toList();
+        java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse> response = new java.util.ArrayList<>();
+        for (AccessCredential c : credentials) {
+            String itemAppointmentDateTime = finalAppointmentDateTime;
+            String itemDoctorName = finalDoctorName;
+            String itemOpensAt = finalOpensAt;
+            String itemClosesAt = finalClosesAt;
+
+            // Se for um agendamento diferente do principal, busca as informações específicas de data/hora/médico
+            if (!c.getAppointmentId().equalsIgnoreCase(idAgendamento) && !c.getAccessCredential().equals("CPF_MISSING")) {
+                try {
+                    var specificInfo = accessService.validatePhoneChallenge(c.getAppointmentId(), phoneDigits);
+                    if (specificInfo.appointmentDate() != null) {
+                        if (specificInfo.appointmentTime() != null) {
+                            itemAppointmentDateTime = java.time.LocalDateTime.of(specificInfo.appointmentDate(), specificInfo.appointmentTime())
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                            java.time.LocalTime openingTime = specificInfo.appointmentTime().minusMinutes(120);
+                            itemOpensAt = openingTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                        } else {
+                            itemAppointmentDateTime = specificInfo.appointmentDate()
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                            itemOpensAt = "08:00";
+                        }
+                    }
+                    if (specificInfo.doctorName() != null) {
+                        itemDoctorName = specificInfo.doctorName();
+                    }
+                } catch (Exception ex) {
+                    log.warn("[AccessControl] Nao foi possivel obter detalhes especificos para o agendamento do grupo {}: {}", c.getAppointmentId(), ex.getMessage());
+                }
+            }
+
+            response.add(new br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse(
+                    c.getName(),
+                    c.getUserType(),
+                    c.getLocator(),
+                    c.getAccessCredential(),
+                    c.getCpf(),
+                    itemDoctorName,
+                    itemAppointmentDateTime,
+                    itemOpensAt,
+                    itemClosesAt
+            ));
+        }
 
         log.info("[AccessControl] Retornando {} credencial(ais) para o agendamento ID: {}", response.size(), idAgendamento);
         return ResponseEntity.ok(response);

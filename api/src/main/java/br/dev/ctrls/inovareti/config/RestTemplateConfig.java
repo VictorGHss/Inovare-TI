@@ -2,7 +2,6 @@ package br.dev.ctrls.inovareti.config;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -100,11 +99,13 @@ public class RestTemplateConfig {
     }
 
     private static void drainFeegowErrorWithoutThrowing(HttpRequest request, ClientHttpResponse response) throws IOException {
+        byte[] bodyBytes;
         try (InputStream in = response.getBody()) {
-            in.transferTo(OutputStream.nullOutputStream());
+            bodyBytes = in.readAllBytes();
         }
-        log.warn("Feegow resposta HTTP {} em {} — corpo drenado (handler defaultStatusHandler, sem exceção automática)",
-                response.getStatusCode(), request.getURI());
+        String errorBody = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
+        log.warn("Feegow resposta HTTP {} em {} — Corpo do erro: {}",
+                response.getStatusCode(), request.getURI(), errorBody);
     }
 
     private static final class ContaAzulPathSanitizerInterceptor implements ClientHttpRequestInterceptor {

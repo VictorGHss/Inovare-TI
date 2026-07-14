@@ -223,6 +223,52 @@ public class FeegowBulkIntegrationHandler {
 
             // 3. Configura o redirecionamento no Blip em background
             if (fromPhone != null && !fromPhone.isBlank()) {
+                // Sincroniza o ID do agendamento do grupo no contexto do Blip
+                if (!sessionList.isEmpty()) {
+                    String firstFeegowId = sessionList.get(0).getFeegowAppointmentId();
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "idAgendamentoFeegow", firstFeegowId);
+                    blipContextService.setUserContextForUser(fromPhone.trim(), "appointmentId", firstFeegowId);
+                    log.info("[ASYNC-BATCH] idAgendamentoFeegow={} e appointmentId={} configurados no contexto para {}", 
+                        firstFeegowId, firstFeegowId, fromPhone);
+                    
+                    // Também atualiza no telefone real reconciliado se for diferente
+                    if (dbPhone != null && !dbPhone.isBlank() && !dbPhone.equalsIgnoreCase(fromPhone)) {
+                        String formattedDbPhone = dbPhone.trim();
+                        if (!formattedDbPhone.contains("@")) {
+                            formattedDbPhone = formattedDbPhone + "@wa.gw.msging.net";
+                        }
+                        blipContextService.setUserContextForUser(formattedDbPhone, "idAgendamentoFeegow", firstFeegowId);
+                        blipContextService.setUserContextForUser(formattedDbPhone, "appointmentId", firstFeegowId);
+                        log.info("[ASYNC-BATCH] idAgendamentoFeegow configurado também no telefone reconciliado: {}", formattedDbPhone);
+                    }
+
+                    // Sincroniza também para as identidades de túnel das sessões do lote
+                    try {
+                        for (AppointmentSession groupSession : sessionList) {
+                            String guid = groupSession.getBlipGuid();
+                            if (guid == null || guid.isBlank()) {
+                                guid = groupSession.getBsuid();
+                            }
+                            if (guid != null && !guid.isBlank()) {
+                                if (guid.contains("@")) {
+                                    guid = guid.substring(0, guid.indexOf("@"));
+                                }
+                                guid = guid.trim();
+                                if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                                    String tunnelIdentity = guid + "@tunnel.msging.net";
+                                    if (!tunnelIdentity.equalsIgnoreCase(fromPhone)) {
+                                        blipContextService.setUserContextForUser(tunnelIdentity, "idAgendamentoFeegow", firstFeegowId);
+                                        blipContextService.setUserContextForUser(tunnelIdentity, "appointmentId", firstFeegowId);
+                                        log.info("[ASYNC-BATCH] idAgendamentoFeegow configurado também para a identidade de túnel do lote: {}", tunnelIdentity);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception tunnelEx) {
+                        log.warn("[ASYNC-BATCH] Falha ao atualizar contexto de ID de agendamento nas identidades de túnel: {}", tunnelEx.getMessage());
+                    }
+                }
+
                 blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);

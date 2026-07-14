@@ -811,11 +811,11 @@ export default function PatientAccess() {
                   <MapPin className="w-5 h-5 text-brand-primary" />
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Localização da Clínica</h4>
                 </div>
-                <p className="text-xs font-semibold text-slate-600 leading-relaxed">
+                <p className="text-xs font-semibold text-slate-655 leading-relaxed">
                   R. Carlos Osternack, 111 - Estrela, Ponta Grossa - PR, 84040-120
                 </p>
                 <a 
-                  href="https://maps.google.com/maps/search/R.%20Carlos%20Osternack%2C%20111%20-%20Estrela%2C%20Ponta%20Grossa%20-%20PR%2C%2084040-120/@-25.102480313054,-50.15943172848,17z?hl=pt-BR" 
+                  href="https://maps.app.goo.gl/S2BaxmJFgr4YAjRT7" 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-primary-dark active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:opacity-95"
@@ -865,10 +865,10 @@ export default function PatientAccess() {
 
           <div className="flex flex-wrap justify-center gap-2">
             <a 
-              href="https://maps.app.goo.gl/ivTYbzpgdmX3XhUR7" 
+              href="https://maps.app.goo.gl/S2BaxmJFgr4YAjRT7" 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-brand-secondary/20 hover:text-brand-primary-dark border border-brand-primary/10 rounded-xl text-xs font-bold text-slate-650 transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-brand-secondary/20 hover:text-brand-primary-dark border border-brand-primary/10 rounded-xl text-xs font-bold text-slate-655 transition-all shadow-sm"
             >
               <MapPin className="w-4 h-4 text-brand-primary" />
               Ver no Maps
@@ -989,12 +989,24 @@ export default function PatientAccess() {
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Data de Nascimento</label>
                   <input
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
                     required
+                    placeholder="DD/MM/AAAA"
                     value={companionBirthDate}
-                    onChange={(e) => setCompanionBirthDate(e.target.value)}
+                    onChange={(e) => {
+                      setCompanionSubmitError(null);
+                      const digits = e.target.value.replace(/\D/g, '').substring(0, 8);
+                      let masked = digits;
+                      if (digits.length > 4) {
+                        masked = `${digits.substring(0, 2)}/${digits.substring(2, 4)}/${digits.substring(4)}`;
+                      } else if (digits.length > 2) {
+                        masked = `${digits.substring(0, 2)}/${digits.substring(2)}`;
+                      }
+                      setCompanionBirthDate(masked);
+                    }}
                     disabled={companionSubmitLoading}
-                    className="w-full py-3 px-4 border border-slate-200 rounded-xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-xs font-semibold text-slate-700 font-sans"
+                    className="w-full py-3 px-4 border border-slate-200 rounded-xl focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all text-xs font-semibold text-slate-700"
                   />
                 </div>
 
@@ -1049,9 +1061,9 @@ export default function PatientAccess() {
                 </button>
                 <button
                   type="submit"
-                  disabled={companionSubmitLoading || !companionName || companionCpf.replace(/\D/g, '').length !== 11}
+                  disabled={companionSubmitLoading || !companionName || companionCpf.replace(/\D/g, '').length !== 11 || companionBirthDate.replace(/\D/g, '').length !== 8}
                   className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 ${
-                    companionName && companionCpf.replace(/\D/g, '').length === 11 && !companionSubmitLoading
+                    companionName && companionCpf.replace(/\D/g, '').length === 11 && companionBirthDate.replace(/\D/g, '').length === 8 && !companionSubmitLoading
                       ? 'bg-gradient-to-r from-brand-primary to-brand-primary-dark text-white hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                   }`}

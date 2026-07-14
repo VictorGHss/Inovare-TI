@@ -99,7 +99,7 @@ public class AccessService {
         // 0. Verificação de Existência (Idempotência) antes de criar/salvar novas credenciais.
         // Se já existem credenciais para este agendamento, retornamos imediatamente para evitar conflitos de concorrência e Optimistic Locking.
         List<AccessCredential> existingList = accessCredentialRepositoryPort.findByAppointmentId(appointmentId);
-        if (existingList != null && !existingList.isEmpty()) {
+        if (existingList != null && !existingList.isEmpty() && (companions == null || companions.isEmpty())) {
             log.info("[AccessService] Credenciais já existentes encontradas no banco para o agendamento ID: {}. Ignorando processamento redundante.", appointmentId);
             Optional<AccessCredential> patientCredOpt = existingList.stream()
                 .filter(c -> c.getUserType() == UserType.PATIENT)

@@ -56,6 +56,24 @@ public class BlipWebhookActionExecutor {
             String queue,
             String dispatchIdentity
     ) {
+        // --- CONFIGURAÇÃO IMEDIATA DA FILA DE REDIRECIONAMENTO (ANTI-CORRIDA) ---
+        if (queue != null && !queue.isBlank()) {
+            try {
+                String resolvedQueue = blipContextService.resolveQueueName(queue);
+                String userPhone = session.getPhoneNumber();
+                
+                if (userPhone != null && !userPhone.isBlank()) {
+                    blipContextService.setQueueRedirect(userPhone, resolvedQueue);
+                }
+                if (dispatchIdentity != null && !dispatchIdentity.isBlank() && !dispatchIdentity.equalsIgnoreCase(userPhone)) {
+                    blipContextService.setQueueRedirect(dispatchIdentity, resolvedQueue);
+                }
+            } catch (Exception ex) {
+                log.warn("[WEBHOOK-EXEC] Falha ao configurar fila de redirecionamento preventivo: {}", ex.getMessage());
+            }
+        }
+        // -----------------------------------------------------------------------
+
         BlipWebhookActionHandler handler = handlers.stream()
                 .filter(h -> h.supports(actionType))
                 .findFirst()

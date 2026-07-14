@@ -132,8 +132,18 @@ public class AccessService {
 
         FeegowPatientAccessInfo accessInfo = accessInfoOpt.get();
 
+        // Busca prontuário para recuperar o telefone e suportar agrupamentos familiares
+        FeegowPatient mainPatient = getPatientInfoWithCache(accessInfo.patientId());
+        String patientName = mainPatient != null ? mainPatient.name() : null;
+        String patientBirthdate = mainPatient != null ? mainPatient.birthdate() : null;
+
         // 2. Resolve o CPF (priorizando o CPF do prontuário local/Feegow, com fallback para o do webhook apenas se for válido com 11 dígitos)
         String resolvedCpf = accessInfo.cpf();
+        if (resolvedCpf == null || resolvedCpf.isBlank()) {
+            if (mainPatient != null && mainPatient.cpf() != null && !mainPatient.cpf().isBlank()) {
+                resolvedCpf = mainPatient.cpf();
+            }
+        }
 
         String cleanRequestCpf = "";
         if (requestCpf != null && !requestCpf.isBlank() && !requestCpf.contains("{{") && !requestCpf.equalsIgnoreCase("null")) {
@@ -145,7 +155,7 @@ public class AccessService {
                 resolvedCpf = cleanRequestCpf;
                 try {
                     log.info("[AccessService] Sincronizando CPF de volta com a Feegow para o paciente ID: {}", accessInfo.patientId());
-                    patientExternalPort.updatePatientCpf(accessInfo.patientId(), resolvedCpf);
+                    patientExternalPort.updatePatientCpf(accessInfo.patientId(), resolvedCpf, patientName, patientBirthdate);
                 } catch (Exception e) {
                     log.error("[AccessService] Falha ao sincronizar CPF com a Feegow: {}", e.getMessage());
                 }
@@ -171,8 +181,6 @@ public class AccessService {
         }
         final LocalDate appointmentDate = resolvedAppointmentDate;
 
-        // Busca prontuário para recuperar o telefone e suportar agrupamentos familiares
-        FeegowPatient mainPatient = getPatientInfoWithCache(accessInfo.patientId());
         String targetPhone = mainPatient != null ? mainPatient.phone() : null;
 
         // 4. Busca todos os agendamentos marcados daquela data para agrupamento

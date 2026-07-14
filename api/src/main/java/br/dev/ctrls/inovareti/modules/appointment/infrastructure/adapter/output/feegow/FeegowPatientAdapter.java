@@ -319,16 +319,9 @@ public class FeegowPatientAdapter implements PatientExternalPort {
     }
 
     @Override
-    public void updatePatientCpf(String patientId, String cpf) {
+    public void updatePatientCpf(String patientId, String cpf, String name, String birthdate) {
         if (patientId == null || patientId.isBlank() || cpf == null || cpf.isBlank()) {
             return;
-        }
-
-        FeegowPatientDetailsDto.PatientItem details = null;
-        try {
-            details = getPatientDetails(patientId);
-        } catch (Exception ex) {
-            log.warn("Erro ao buscar detalhes do paciente {} antes de atualizar o CPF: {}", patientId, ex.getMessage());
         }
 
         URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
@@ -345,15 +338,13 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         
         payload.put("cpf", cpf.replaceAll("\\D", ""));
         
-        if (details != null) {
-            if (details.getNome() != null && !details.getNome().isBlank()) {
-                payload.put("nome_completo", details.getNome());
-            }
-            if (details.getNascimento() != null && !details.getNascimento().isBlank()) {
-                String isoDate = formatBirthdateToIso(details.getNascimento());
-                if (isoDate != null) {
-                    payload.put("data_nascimento", isoDate);
-                }
+        if (name != null && !name.isBlank()) {
+            payload.put("nome_completo", name);
+        }
+        if (birthdate != null && !birthdate.isBlank()) {
+            String isoDate = formatBirthdateToIso(birthdate);
+            if (isoDate != null) {
+                payload.put("data_nascimento", isoDate);
             }
         }
 

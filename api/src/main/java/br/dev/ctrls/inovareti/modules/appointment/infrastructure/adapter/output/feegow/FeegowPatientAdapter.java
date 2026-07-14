@@ -299,26 +299,23 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         return normalized.substring(0, maxLength) + "...";
     }
 
-    private String formatBirthdateForFeegow(String birthdate) {
+    private String formatBirthdateToIso(String birthdate) {
         if (birthdate == null || birthdate.isBlank()) {
             return null;
         }
         String clean = birthdate.trim();
-        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
+        if (clean.matches("\\d{4}-\\d{2}-\\d{2}")) {
             return clean;
         }
-        if (clean.matches("\\d{2}-\\d{2}-\\d{4}")) {
-            return clean.replace("-", "/");
-        }
-        if (clean.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            String[] parts = clean.split("-");
-            return parts[2] + "/" + parts[1] + "/" + parts[0];
-        }
-        if (clean.matches("\\d{4}/\\d{2}/\\d{2}")) {
+        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
             String[] parts = clean.split("/");
-            return parts[2] + "/" + parts[1] + "/" + parts[0];
+            return parts[2] + "-" + parts[1] + "-" + parts[0];
         }
-        return clean;
+        if (clean.matches("\\d{2}-\\d{2}-\\d{4}")) {
+            String[] parts = clean.split("-");
+            return parts[2] + "-" + parts[1] + "-" + parts[0];
+        }
+        return null;
     }
 
     @Override
@@ -335,23 +332,28 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         }
 
         URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
-                .path("/v1/api/patient/save")
+                .path("/v1/api/patient/edit")
                 .build()
                 .toUri();
 
         java.util.Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("paciente_id", patientId);
-        payload.put("id", patientId);
+        try {
+            payload.put("paciente_id", Integer.valueOf(patientId.trim()));
+        } catch (NumberFormatException e) {
+            payload.put("paciente_id", patientId);
+        }
+        
         payload.put("cpf", cpf.replaceAll("\\D", ""));
         
         if (details != null) {
             if (details.getNome() != null && !details.getNome().isBlank()) {
-                payload.put("nome", details.getNome());
+                payload.put("nome_completo", details.getNome());
             }
             if (details.getNascimento() != null && !details.getNascimento().isBlank()) {
-                String formattedDob = formatBirthdateForFeegow(details.getNascimento());
-                payload.put("nascimento", formattedDob);
-                payload.put("data_nascimento", formattedDob);
+                String isoDate = formatBirthdateToIso(details.getNascimento());
+                if (isoDate != null) {
+                    payload.put("data_nascimento", isoDate);
+                }
             }
         }
 
@@ -359,7 +361,7 @@ public class FeegowPatientAdapter implements PatientExternalPort {
 
         try {
             ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());
-            log.info("[FEEGOW] Resposta do patient/save: status={}, body={}", response.getStatusCode(), response.getBody());
+            log.info("[FEEGOW] Resposta do patient/edit: status={}, body={}", response.getStatusCode(), response.getBody());
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             log.error("Erro ao atualizar CPF do paciente ID {} na Feegow (Status {}): {}. Response body: {}", 
                     patientId, ex.getStatusCode(), ex.getMessage(), ex.getResponseBodyAsString());

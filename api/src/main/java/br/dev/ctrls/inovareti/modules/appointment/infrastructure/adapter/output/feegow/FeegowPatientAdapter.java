@@ -305,17 +305,32 @@ public class FeegowPatientAdapter implements PatientExternalPort {
             return;
         }
 
+        FeegowPatientDetailsDto.PatientItem details = null;
+        try {
+            details = getPatientDetails(patientId);
+        } catch (Exception ex) {
+            log.warn("Erro ao buscar detalhes do paciente {} antes de atualizar o CPF: {}", patientId, ex.getMessage());
+        }
+
         URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                 .path("/v1/api/patient/save")
                 .build()
                 .toUri();
 
-        Map<String, Object> payload = Map.of(
-            "paciente_id", patientId,
-            "cpf", cpf.replaceAll("\\D", "")
-        );
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("paciente_id", patientId);
+        payload.put("cpf", cpf.replaceAll("\\D", ""));
+        
+        if (details != null) {
+            if (details.getNome() != null && !details.getNome().isBlank()) {
+                payload.put("nome", details.getNome());
+            }
+            if (details.getNascimento() != null && !details.getNascimento().isBlank()) {
+                payload.put("nascimento", details.getNascimento());
+            }
+        }
 
-        log.info("[FEEGOW] [PATIENT-ADAPTER] Sincronizando CPF do paciente ID: {} para: {} na URL: {}", patientId, cpf, uri);
+        log.info("[FEEGOW] [PATIENT-ADAPTER] Sincronizando CPF do paciente ID: {} para: {} na URL: {}. Payload: {}", patientId, cpf, uri, payload);
 
         try {
             ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());

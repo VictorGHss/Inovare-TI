@@ -76,26 +76,26 @@ public class BlipWebhookController {
                     cpf = infoOpt.get().cpf();
                 }
             } catch (Exception ex) {
-                // Oscilação do ERP detectada: registra o incidente e ativa o Fallback Seguro.
-                // O bot solicitará o CPF manualmente ao paciente, mantendo a esteira viva.
-                log.warn("[BlipWebhookController] ERP Feegow indisponível durante resolução do CPF para o agendamento {}. " +
-                         "Ativando Fallback Seguro. Causa: {}", payload.appointmentId(), ex.getMessage());
+                // Oscilação do ERP detectada: registra o incidente.
+                // Não solicitamos CPF no Blip, apenas deixamos seguir.
+                log.warn("[BlipWebhookController] ERP Feegow indisponível durante resolução do CPF para o agendamento {}. Causa: {}", 
+                         payload.appointmentId(), ex.getMessage());
                 return ResponseEntity.ok(Map.of(
-                    "authorized", false,
-                    "requiresCpfFallback", true,
-                    "message", "ERP temporariamente indisponível. Por favor, informe seu CPF para continuar."
+                    "authorized", true,
+                    "requiresCpfFallback", false,
+                    "message", "ERP temporariamente indisponível. Continuando sem CPF."
                 ));
             }
         }
 
         // Se CPF permanece ausente após a tentativa no Feegow (prontuário sem CPF cadastrado)
         if (cpf == null || cpf.trim().replaceAll("\\D", "").isEmpty()) {
-            log.warn("[BlipWebhookController] CPF ausente para o agendamento {}. Retornando requerimento de fallback de CPF.",
+            log.warn("[BlipWebhookController] CPF ausente para o agendamento {}. Continuando sem CPF.",
                     payload.appointmentId());
             return ResponseEntity.ok(Map.of(
-                "authorized", false,
-                "requiresCpfFallback", true,
-                "message", "CPF ausente no Blip e no Feegow. Redirecionando para coleta de CPF."
+                "authorized", true,
+                "requiresCpfFallback", false,
+                "message", "CPF ausente no Blip e no Feegow. Continuando sem CPF."
             ));
         }
 

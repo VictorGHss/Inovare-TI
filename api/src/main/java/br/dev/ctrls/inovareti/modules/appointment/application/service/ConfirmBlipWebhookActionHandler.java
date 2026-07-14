@@ -143,17 +143,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         }
                         log.info("[CONFIRM-BATCH] IDs salvos no contexto do Blip: {}", firstFeegowId);
 
-                        // Avaliar presença de CPF do paciente Feegow para requiresCpfFallback
-                        FeegowPatient patient = patientExternalPort.patientInfo(firstSession.getPatientId());
-                        String cpf = (patient != null) ? patient.cpf() : null;
-                        boolean hasValidCpf = false;
-                        if (cpf != null && !cpf.isBlank()) {
-                            String cleanCpf = cpf.replaceAll("\\D", "");
-                            if (cleanCpf.length() == 11) {
-                                hasValidCpf = true;
-                            }
-                        }
-                        String requiresCpfFallback = hasValidCpf ? "false" : "true";
+                        String requiresCpfFallback = "false";
 
                         blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
                         blipContextService.setContactExtra(userPhone, "requiresCpfFallback", requiresCpfFallback);
@@ -185,11 +175,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             log.warn("[CONFIRM-BATCH] Falha ao atualizar requiresCpfFallback para identidades de túnel no lote: {}", tunnelEx.getMessage());
                         }
 
-                        if (!hasValidCpf) {
-                            log.info("[CONTEST-CPF] Paciente sem CPF no prontuário Feegow. requiresCpfFallback definido como true para a identidade {}.", userPhone);
-                        } else {
-                            log.info("[CONTEST-CPF] Paciente possui CPF válido. requiresCpfFallback definido como false.");
-                        }
+
                     }
                 } catch (Exception ex) {
                     log.warn("[CONFIRM-BATCH] Falha ao salvar ID ou verificar CPF no contexto: {}", ex.getMessage());
@@ -383,30 +369,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
             confirmationStateMachineService.markConfirmed(session);
 
-            // Avaliar presença de CPF do paciente Feegow para requiresCpfFallback
-            String requiresCpfFallbackVal = "true";
-            try {
-                FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
-                String cpf = (patient != null) ? patient.cpf() : null;
-                boolean hasValidCpf = false;
-                if (cpf != null && !cpf.isBlank()) {
-                    String cleanCpf = cpf.replaceAll("\\D", "");
-                    if (cleanCpf.length() == 11) {
-                        hasValidCpf = true;
-                    }
-                }
-                requiresCpfFallbackVal = hasValidCpf ? "false" : "true";
-
-                if (!hasValidCpf) {
-                    log.info("[CONTEST-CPF] Paciente sem CPF no prontuário Feegow. requiresCpfFallback definido como true para a identidade {}.", session.getPhoneNumber());
-                } else {
-                    log.info("[CONTEST-CPF] Paciente possui CPF válido. requiresCpfFallback definido como false.");
-                }
-            } catch (Exception ex) {
-                log.error("[CONTEST-CPF] Falha ao verificar CPF do paciente no Feegow: {}", ex.getMessage());
-            }
-
-            final String requiresCpfFallback = requiresCpfFallbackVal;
+            final String requiresCpfFallback = "false";
 
             // Salva o ID do agendamento e CPF no contexto do Blip para persistência
             try {

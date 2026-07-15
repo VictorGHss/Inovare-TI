@@ -1,0 +1,7 @@
+# Exclude local build directories and dependency caches
+**/target/
+**/node_modules/
+**/dist/
+.git/
+.idea/
+.vscode/

@@ -203,6 +203,69 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
         }
     }
 
+    @Override
+    public void syncTicketChannelPermissions(Ticket ticket) {
+        log.info("[DISCORD-TICKET] Sincronizando permissões do canal para chamado #{}.", ticket.getNumber());
+
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("[DISCORD-TICKET] JDA indisponível. Sincronização de permissões do canal para chamado #{} ignorada.", ticket.getNumber());
+            return;
+        }
+
+        Guild guild = resolveGuild(jda);
+        if (guild == null) {
+            log.warn("[DISCORD-TICKET] Guilda não encontrada. Sincronização de permissões do canal para chamado #{} abortada.", ticket.getNumber());
+            return;
+        }
+
+        String targetChannelName = "ticket-" + ticket.getNumber().toLowerCase();
+        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+
+        if (channels.isEmpty()) {
+            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o nome '{}' para o chamado #{}.",
+                    targetChannelName, ticket.getNumber());
+            return;
+        }
+
+        List<br.dev.ctrls.inovareti.modules.user.domain.model.User> candidates = new java.util.ArrayList<>();
+        if (ticket.getRequester() != null) {
+            candidates.add(ticket.getRequester());
+        }
+        if (ticket.getAssignedTo() != null) {
+            candidates.add(ticket.getAssignedTo());
+        }
+        if (ticket.getAdditionalUsers() != null) {
+            candidates.addAll(ticket.getAdditionalUsers());
+        }
+
+        List<Member> membersToPermit = new java.util.ArrayList<>();
+        for (br.dev.ctrls.inovareti.modules.user.domain.model.User u : candidates) {
+            if (u != null && u.getDiscordUserId() != null && !u.getDiscordUserId().isBlank()) {
+                try {
+                    Member m = guild.retrieveMemberById(java.util.Objects.requireNonNull(u.getDiscordUserId().trim())).complete();
+                    if (m != null) {
+                        membersToPermit.add(m);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[DISCORD-TICKET] Não foi possível carregar membro {} ({}) no Discord para sincronização de permissões.",
+                            u.getName(), u.getDiscordUserId(), ex);
+                }
+            }
+        }
+
+        for (TextChannel channel : channels) {
+            for (Member m : membersToPermit) {
+                channel.upsertPermissionOverride(java.util.Objects.requireNonNull(m))
+                        .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND, Permission.MESSAGE_HISTORY)
+                        .queue(
+                                v -> log.info("[DISCORD-TICKET] Permissões concedidas para {} no canal #{}", m.getUser().getAsTag(), channel.getName()),
+                                err -> log.error("[DISCORD-TICKET] Falha ao upsert permissões para {} no canal #{}", m.getUser().getAsTag(), channel.getName(), err)
+                        );
+            }
+        }
+    }
+
     private Guild resolveGuild(JDA jda) {
         Guild guild = null;
         if (discordGuildId != null && !discordGuildId.isBlank()) {

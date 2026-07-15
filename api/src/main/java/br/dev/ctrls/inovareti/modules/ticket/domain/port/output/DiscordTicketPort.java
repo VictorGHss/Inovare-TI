@@ -28,4 +28,11 @@ public interface DiscordTicketPort {
      * Publishes a merge notification to the Discord channel of the child ticket.
      */
     void notifyMerged(Ticket childTicket, Ticket parentTicket);
+
+    /**
+     * Synchronizes permissions for the given ticket channel.
+     *
+     * @param ticket the ticket to sync permissions for
+     */
+    void syncTicketChannelPermissions(Ticket ticket);
 }

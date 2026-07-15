@@ -28,6 +28,7 @@ public class AddAdditionalUserUseCase {
 
     private final TicketRepositoryPort ticketRepository;
     private final UserRepositoryPort userRepository;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UUID userId) {
@@ -42,6 +43,8 @@ public class AddAdditionalUserUseCase {
 
         log.info("[TICKET] Usuário adicional '{}' ({}) vinculado ao chamado {}",
                 user.getName(), userId, ticketId);
+
+        eventPublisher.publishEvent(new br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketPermissionsChangedEvent(saved));
 
         return TicketResponseDTO.from(saved);
     }

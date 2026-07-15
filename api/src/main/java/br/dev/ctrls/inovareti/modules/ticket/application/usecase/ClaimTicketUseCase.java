@@ -29,6 +29,7 @@ public class ClaimTicketUseCase {
     private final UserRepositoryPort userRepository;
     private final DiscordDirectMessageService discordDirectMessageService;
     private final AuditLogService auditLogService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId) {
@@ -56,6 +57,8 @@ public class ClaimTicketUseCase {
         String dmDescription = "Seu chamado #" + shortId
             + " foi assumido pelo técnico **" + currentUser.getName() + "**.";
         discordDirectMessageService.sendTicketUpdateDM(savedTicket, dmTitle, dmDescription);
+
+        eventPublisher.publishEvent(new br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketPermissionsChangedEvent(savedTicket));
 
         log.info("Chamado {} assumido pelo usuário {} ({})", savedTicket.getId(), currentUser.getName(), currentUser.getEmail());
 

@@ -28,6 +28,7 @@ public class TransferTicketUseCase {
     private final UserRepositoryPort userRepository;
     private final CreateNotificationService createNotificationService;
     private final AuditLogService auditLogService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UUID newUserId) {
@@ -58,6 +59,7 @@ public class TransferTicketUseCase {
                 "/tickets/" + savedTicket.getId()
         );
 
+        eventPublisher.publishEvent(new br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketPermissionsChangedEvent(savedTicket));
         
         log.info("Chamado {} transferido para o usuário {} ({})", savedTicket.getId(), newAssignee.getName(), newAssignee.getEmail());
 

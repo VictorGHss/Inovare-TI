@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketCreatedEvent;
 import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketResolvedEvent;
+import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketPermissionsChangedEvent;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.DiscordTicketPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,17 @@ public class DiscordTicketEventListener {
             discordTicketPort.archiveTicketChannel(event.ticket());
         } catch (Exception ex) {
             log.error("[DISCORD-TICKET] Falha ao processar TicketResolvedEvent para o chamado #{}", event.ticket().getNumber(), ex);
+        }
+    }
+
+    @Async
+    @EventListener
+    public void onTicketPermissionsChanged(TicketPermissionsChangedEvent event) {
+        log.info("[DISCORD-TICKET] Evento TicketPermissionsChangedEvent recebido para o chamado #{}.", event.ticket().getNumber());
+        try {
+            discordTicketPort.syncTicketChannelPermissions(event.ticket());
+        } catch (Exception ex) {
+            log.error("[DISCORD-TICKET] Falha ao processar TicketPermissionsChangedEvent para o chamado #{}", event.ticket().getNumber(), ex);
         }
     }
 }

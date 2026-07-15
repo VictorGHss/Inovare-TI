@@ -148,8 +148,28 @@ public class Ticket {
     )
     private Set<br.dev.ctrls.inovareti.modules.user.domain.model.User> additionalUsers = new HashSet<>();
 
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "ticket_assignments",
+        joinColumns = @JoinColumn(name = "ticket_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<br.dev.ctrls.inovareti.modules.user.domain.model.User> assignedUsers = new HashSet<>();
+
     /** Ativo (CMDB) associado a este chamado, se aplicável. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asset_id")
     private br.dev.ctrls.inovareti.modules.asset.domain.model.Asset asset;
+
+    @Column(name = "parent_ticket_id")
+    private UUID parentTicketId;
+
+    /**
+     * Returns a short unique representation of the ticket ID to be used as a number/reference.
+     */
+    public String getNumber() {
+        if (id == null) return "";
+        return id.toString().substring(0, 8).toUpperCase();
+    }
 }

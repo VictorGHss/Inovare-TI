@@ -29,9 +29,11 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTagExtractor;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketCategoryRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketCreatedEvent;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,6 +61,7 @@ public class CreateTicketUseCase {
     private final AssetRepositoryPort assetRepository;
     private final TicketTagRepositoryPort ticketTagRepository;
     private final DiscordDirectMessageService discordDirectMessageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Abre um chamado com os dados fornecidos.
@@ -171,6 +174,13 @@ public class CreateTicketUseCase {
         ticket.setRequestedItems(reqItems);
 
         Ticket savedTicket = ticketRepository.save(ticket);
+        
+        java.util.List<User> assignedUsers = new java.util.ArrayList<>();
+        if (assignedTo != null) {
+            assignedUsers.add(assignedTo);
+        }
+        eventPublisher.publishEvent(new TicketCreatedEvent(savedTicket, assignedUsers));
+
         auditLogService.publish(AuditEvent.of(AuditAction.TICKET_OPEN)
             .userId(requester.getId())
             .resourceType("Ticket")

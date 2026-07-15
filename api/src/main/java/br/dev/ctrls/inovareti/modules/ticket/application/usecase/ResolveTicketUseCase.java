@@ -29,9 +29,11 @@ import br.dev.ctrls.inovareti.modules.inventory.application.usecase.AllocateCons
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketResolvedEvent;
 import br.dev.ctrls.inovareti.modules.user.domain.model.User;
 import br.dev.ctrls.inovareti.modules.user.domain.model.UserRole;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,6 +62,7 @@ public class ResolveTicketUseCase {
         private final UserRepositoryPort userRepository;
         private final AuditLogService auditLogService;
         private final AllocateConsumableUseCase allocateConsumableUseCase;
+        private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Resolve um chamado e, opcionalmente, entrega equipamentos ou itens.
@@ -153,6 +156,39 @@ public class ResolveTicketUseCase {
 
                 financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
             }
+        } else if (ticket.getRequestedItem() != null) {
+            java.util.UUID recipient = request.recipientUserId() != null ? request.recipientUserId() : ticket.getRequester().getId();
+            int qty = ticket.getRequestedQuantity() != null ? ticket.getRequestedQuantity() : 1;
+            java.math.BigDecimal totalDeduction;
+
+            if (request.targetAssetId() != null) {
+                totalDeduction = allocateConsumableUseCase.execute(
+                        null,
+                        request.targetAssetId(),
+                        ticket.getRequestedItem().getId(),
+                        qty,
+                        ticketId
+                );
+                log.info("[ALOCAÇÃO] Insumo solicitado legado alocado ao ativo físico no fechamento. Chamado: {}, Item: {}, Ativo: {}, Qtd: {}, Custo: {}",
+                        ticketId, ticket.getRequestedItem().getId(), request.targetAssetId(), qty, totalDeduction);
+            } else {
+                String reference = "TICKET:" + ticketId;
+                totalDeduction = stockDeductionService.deductWithFifo(
+                        ticket.getRequestedItem().getId(),
+                        qty,
+                        reference,
+                        recipient
+                );
+                log.info("[ESTOQUE] Baixa automatica de stock legado realizada no fechamento. Chamado: {}, Item: {}, Qtd: {}, Recebedor: {}, Custo: {}",
+                        ticketId, ticket.getRequestedItem().getId(), qty, recipient, totalDeduction);
+            }
+            financialService.recordDebitForTicket(ticket, "INVENTORY", totalDeduction);
+        }
+
+        if (request.targetAssetId() != null) {
+            Asset targetAsset = assetRepository.findById(request.targetAssetId())
+                    .orElseThrow(() -> new NotFoundException("Ativo não encontrado com id: " + request.targetAssetId()));
+            ticket.setAsset(targetAsset);
         }
 
         if (request.assetIdToDeliver() != null && request.newAssetToDeliver() != null) {
@@ -274,6 +310,7 @@ public class ResolveTicketUseCase {
         ticket.setSolutionText(request.resolutionNotes() != null ? request.resolutionNotes().trim() : null);
 
         Ticket resolvedTicket = ticketRepository.save(ticket);
+        eventPublisher.publishEvent(new TicketResolvedEvent(resolvedTicket));
         auditLogService.publish(AuditEvent.of(AuditAction.TICKET_RESOLVE)
                 .userId(authenticatedUserId)
                 .resourceType("Ticket")

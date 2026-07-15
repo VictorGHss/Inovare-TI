@@ -12,6 +12,8 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
+import br.dev.ctrls.inovareti.modules.notification.infrastructure.listener.DiscordMessageListener;
+
 /**
  * Configuração do bot Discord usando JDA (Java Discord API).
  * Inicializa o JDABuilder com o token do bot e registra os listeners de eventos.
@@ -29,6 +31,7 @@ public class DiscordBotConfig {
 
     private final DiscordEventListener eventListener;
     private final DiscordInteractionListener interactionListener;
+    private final DiscordMessageListener messageListener;
 
     @Bean(name = "discordExecutor")
     public java.util.concurrent.Executor discordExecutor() {
@@ -77,7 +80,7 @@ public class DiscordBotConfig {
                             // Deixamos o JDA gerenciar seus pools nativos e usamos o executor de Virtual Threads
                             // apenas na execução assíncrona das nossas regras de negócio/UseCases.
                             // Registra os listeners de eventos
-                            .addEventListeners(eventListener, interactionListener)
+                            .addEventListeners(eventListener, interactionListener, messageListener)
                             // Constrói sem bloquear infinitamente
                             .build();
                 } catch (IllegalArgumentException | IllegalStateException ex) {

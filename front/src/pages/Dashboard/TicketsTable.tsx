@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import type { Ticket } from '../../types/models';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SlaBadge from '@/components/ui/SlaBadge';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TicketsTableProps {
   tickets: Ticket[];
@@ -40,6 +41,7 @@ function formatDate(iso: string | null | undefined): string {
 
 export default function TicketsTable({ tickets }: TicketsTableProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -94,14 +96,33 @@ export default function TicketsTable({ tickets }: TicketsTableProps) {
               className="hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <td className="px-4 py-3 font-medium text-slate-800">
-                <div className="flex items-center gap-2">
-                  <span>{String(ticket.title ?? '-')}</span>
-                  {ticket.isFromDiscord && (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span>{String(ticket.title ?? '-')}</span>
+                    {ticket.isFromDiscord && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-brand-secondary px-2 py-0.5 text-xs font-medium text-brand-primary-dark">
-                      <Bot size={12} />
-                      Discord
-                    </span>
-                  )}
+                        <Bot size={12} />
+                        Discord
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                    {user?.id === ticket.requesterId && (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 border border-blue-100">
+                        👤 Autor
+                      </span>
+                    )}
+                    {user?.id === ticket.assignedToId && (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 border border-emerald-100">
+                        🛠️ Responsável
+                      </span>
+                    )}
+                    {ticket.assignedUserIds?.includes(user?.id ?? '') && user?.id !== ticket.assignedToId && (
+                      <span className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 border border-violet-100">
+                        🔔 Coparticipante
+                      </span>
+                    )}
+                  </div>
                 </div>
               </td>
               <td className="px-4 py-3 text-slate-600">

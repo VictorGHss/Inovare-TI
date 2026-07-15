@@ -39,9 +39,16 @@ public class TicketSpecification {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Garante o isolamento: se for um utilizador comum, só vê os seus próprios chamados
+            // Garante o isolamento: se for um utilizador comum, vê chamados onde é criador, responsável ou co-envolvido
             if (requesterId != null) {
-                predicates.add(cb.equal(root.get("requester").get("id"), requesterId));
+                query.distinct(true);
+                var assignedUsersJoin = root.join("assignedUsers", jakarta.persistence.criteria.JoinType.LEFT);
+                
+                Predicate isRequester = cb.equal(root.get("requester").get("id"), requesterId);
+                Predicate isAssignedTo = cb.equal(root.get("assignedTo").get("id"), requesterId);
+                Predicate isCoInvolved = cb.equal(assignedUsersJoin.get("id"), requesterId);
+                
+                predicates.add(cb.or(isRequester, isAssignedTo, isCoInvolved));
             }
 
             // Filtro por etiquetas/tags usando subquery para manter paginação correta no banco

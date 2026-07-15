@@ -220,27 +220,7 @@ export function useResolveTicket({
     void loadAllAssets();
   }, [isOpen]);
 
-  // Filtra ativos pertencentes ao setor do chamado (do solicitante)
-  const sectorAssets = useMemo(() => {
-    if (!ticket || !users || users.length === 0) return [];
-    
-    // Acha o setor do solicitante do chamado
-    const requester = users.find((u) => u.id === ticket.requesterId);
-    const sectorId = requester?.sectorId;
-    if (!sectorId) return [];
 
-    // Filtra ativos cujos usuários pertençam ao mesmo setor do chamado
-    return allAssets.filter((asset) => {
-      if (asset.userIds && asset.userIds.length > 0) {
-        return asset.userIds.some((uid) => {
-          const u = users.find((user) => user.id === uid);
-          return u?.sectorId === sectorId;
-        });
-      }
-      // Se não tiver usuários, é um ativo disponível globalmente/em estoque que pode ser vinculado
-      return true;
-    });
-  }, [allAssets, ticket, users]);
 
   // Carrega os usuários associados ao ativo do chamado
   useEffect(() => {
@@ -513,7 +493,6 @@ export function useResolveTicket({
     setLinkInsumosToAsset,
     targetAssetId,
     setTargetAssetId,
-    sectorAssets,
     loadingAllAssets,
     // Estados de registro de manutenção
     registerMaintenance,

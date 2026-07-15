@@ -47,6 +47,7 @@ export interface Ticket {
   tags?: TicketTag[] | null;
   relatedTicketIds?: string[] | null;
   additionalUserIds?: string[] | null;
+  assignedUserIds?: string[] | null;
   solutionText?: string | null;
   assetId?: string | null;
   assetName?: string | null;

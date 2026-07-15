@@ -69,7 +69,6 @@ export default function ResolveTicketModal({
     setLinkInsumosToAsset,
     targetAssetId,
     setTargetAssetId,
-    sectorAssets,
     loadingAllAssets,
     // Novos campos desestruturados para manutenção
     registerMaintenance,
@@ -390,23 +389,23 @@ export default function ResolveTicketModal({
 
               {linkInsumosToAsset && (
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-slate-700">Equipamento de Destino (CMDB) *</label>
+                  <label className="text-sm font-medium text-slate-700">Ativo / Equipamento do Inventário *</label>
                   {loadingAllAssets ? (
-                    <div className="text-sm text-slate-500">Carregando equipamentos do setor...</div>
-                  ) : sectorAssets.length === 0 ? (
+                    <div className="text-sm text-slate-500">Carregando equipamentos do inventário...</div>
+                  ) : allAssets.length === 0 ? (
                     <div className="text-sm text-amber-600 flex items-center gap-1.5">
                       <AlertCircle size={14} />
-                      Nenhum equipamento físico encontrado para o setor deste chamado.
+                      Nenhum equipamento físico encontrado no módulo de inventário.
                     </div>
                   ) : (
                     <SearchableDropdown
-                      options={sectorAssets.map((asset) => ({
+                      options={allAssets.map((asset) => ({
                         id: asset.id,
                         name: `${asset.name} (${asset.patrimonyCode})`,
                       }))}
                       value={targetAssetId}
                       onChange={(val) => setTargetAssetId(val)}
-                      placeholder="Selecione o equipamento físico..."
+                      placeholder="Selecione o equipamento do inventário..."
                       disabled={isSubmitting}
                     />
                   )}

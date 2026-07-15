@@ -27,6 +27,9 @@ import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentReques
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketCommentResponseDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketRequestDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.LinkTicketUseCase;
+import jakarta.validation.Valid;
+
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateSolutionTextDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.UpdateTicketItemsDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.AddAdditionalUserUseCase;
@@ -48,7 +51,6 @@ import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketAttachment
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
 import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort;
 import io.micrometer.observation.annotation.Observed;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -82,6 +84,7 @@ public class TicketController {
     private final AddAdditionalUserUseCase addAdditionalUserUseCase;
     private final FetchTicketsByItemUseCase fetchTicketsByItemUseCase;
     private final UpdateTicketItemsUseCase updateTicketItemsUseCase;
+    private final LinkTicketUseCase linkTicketUseCase;
 
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -439,6 +442,28 @@ public class TicketController {
         checkTicketOwnershipOrStaff(id);
         return ResponseEntity.ok(updateTicketItemsUseCase.execute(id, request));
     }
+
+    /**
+     * Vincula um chamado filho a um chamado pai/mestre.
+     *
+     * @param id O identificador único do chamado filho (UUID)
+     * @param request O DTO contendo o ID do chamado pai
+     * @return ResponseEntity indicando sucesso
+     */
+    @PostMapping("/{id}/link")
+    public ResponseEntity<Void> linkTicket(
+            @PathVariable UUID id,
+            @Valid @RequestBody LinkTicketRequest request) {
+        // Valida se o utilizador atual possui permissão no chamado correspondente
+        checkTicketOwnershipOrStaff(id);
+        linkTicketUseCase.execute(id, request.parentTicketId());
+        return ResponseEntity.ok().build();
+    }
+
+    public record LinkTicketRequest(
+        @jakarta.validation.constraints.NotNull(message = "O ID do chamado pai é obrigatório")
+        UUID parentTicketId
+    ) {}
 }
 
 

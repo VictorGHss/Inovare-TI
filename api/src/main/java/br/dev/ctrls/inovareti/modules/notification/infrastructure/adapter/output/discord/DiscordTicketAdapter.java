@@ -1,0 +1,218 @@
+package br.dev.ctrls.inovareti.modules.notification.infrastructure.adapter.output.discord;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.EnumSet;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.DiscordTicketPort;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.PermissionOverride;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+
+/**
+ * Adapter that implements DiscordTicketPort using JDA.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class DiscordTicketAdapter implements DiscordTicketPort {
+
+    private final ObjectProvider<JDA> jdaProvider;
+
+    @Value("${discord.bot.guild-id:}")
+    private String discordGuildId;
+
+    private static final String ACTIVE_CATEGORY_ID = "1526959210863001751";
+    private static final String ARCHIVED_CATEGORY_ID = "1526959741585063957";
+
+    @Override
+    public void createTicketChannel(Ticket ticket, List<String> discordUserIds) {
+        log.info("[DISCORD-TICKET] Iniciando criação de canal para chamado #{} com {} usuários designados.",
+                ticket.getNumber(), discordUserIds.size());
+
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("[DISCORD-TICKET] JDA indisponível. Criação do canal para chamado #{} ignorada.", ticket.getNumber());
+            return;
+        }
+
+        Guild guild = resolveGuild(jda);
+        if (guild == null) {
+            log.warn("[DISCORD-TICKET] Guilda não encontrada. Criação do canal para chamado #{} abortada.", ticket.getNumber());
+            return;
+        }
+
+        Category activeCategory = guild.getCategoryById(ACTIVE_CATEGORY_ID);
+        if (activeCategory == null) {
+            log.warn("[DISCORD-TICKET] Categoria de chamados ativos ({}) não encontrada.", ACTIVE_CATEGORY_ID);
+            return;
+        }
+         // Resolve membros a serem permitidos no canal
+        Member requesterMember = null;
+        br.dev.ctrls.inovareti.modules.user.domain.model.User requester = ticket.getRequester();
+        if (requester != null) {
+            String requesterDiscordId = requester.getDiscordUserId();
+            if (requesterDiscordId != null && !requesterDiscordId.isBlank()) {
+                try {
+                    requesterMember = guild.retrieveMemberById(java.util.Objects.requireNonNull(requesterDiscordId.trim())).complete();
+                } catch (Exception ex) {
+                    log.warn("[DISCORD-TICKET] Não foi possível carregar criador do chamado no Discord: {}", requesterDiscordId, ex);
+                }
+            }
+        }
+
+        List<Member> allowedMembers = new ArrayList<>();
+        for (String discordId : discordUserIds) {
+            if (discordId != null && !discordId.isBlank()) {
+                try {
+                    Member m = guild.retrieveMemberById(java.util.Objects.requireNonNull(discordId.trim())).complete();
+                    if (m != null) {
+                        allowedMembers.add(m);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[DISCORD-TICKET] Não foi possível carregar membro designado no Discord: {}", discordId, ex);
+                }
+            }
+        }
+
+        String channelName = "ticket-" + ticket.getNumber().toLowerCase();
+
+        // Configura ações de override de permissão
+        var channelAction = activeCategory.createTextChannel(channelName)
+                .addPermissionOverride(guild.getPublicRole(), null, EnumSet.of(Permission.VIEW_CHANNEL));
+
+        if (requesterMember != null) {
+            channelAction = channelAction.addPermissionOverride(java.util.Objects.requireNonNull(requesterMember),
+                    EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND, Permission.MESSAGE_HISTORY), null);
+        }
+
+        for (Member member : allowedMembers) {
+            channelAction = channelAction.addPermissionOverride(java.util.Objects.requireNonNull(member),
+                    EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND, Permission.MESSAGE_HISTORY), null);
+        }
+
+        channelAction.queue(
+                channel -> log.info("[DISCORD-TICKET] Canal privado criado com sucesso: #{} (ID: {}) para chamado #{}",
+                        channel.getName(), channel.getId(), ticket.getNumber()),
+                error -> log.error("[DISCORD-TICKET] Falha ao criar canal privado para chamado #{}", ticket.getNumber(), error)
+        );
+    }
+
+    @Override
+    public void archiveTicketChannel(Ticket ticket) {
+        log.info("[DISCORD-TICKET] Iniciando arquivamento de canal para chamado #{}.", ticket.getNumber());
+
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("[DISCORD-TICKET] JDA indisponível. Arquivamento do canal para chamado #{} ignorado.", ticket.getNumber());
+            return;
+        }
+
+        Guild guild = resolveGuild(jda);
+        if (guild == null) {
+            log.warn("[DISCORD-TICKET] Guilda não encontrada. Arquivamento do canal para chamado #{} abortada.", ticket.getNumber());
+            return;
+        }
+
+        Category archivedCategory = guild.getCategoryById(ARCHIVED_CATEGORY_ID);
+        if (archivedCategory == null) {
+            log.warn("[DISCORD-TICKET] Categoria de chamados arquivados ({}) não encontrada.", ARCHIVED_CATEGORY_ID);
+            return;
+        }
+
+        String targetChannelName = "ticket-" + ticket.getNumber().toLowerCase();
+        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+
+        if (channels.isEmpty()) {
+            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o nome '{}' para o chamado #{}.",
+                    targetChannelName, ticket.getNumber());
+            return;
+        }
+
+        for (TextChannel channel : channels) {
+            // Envia embed de ticket resolvido
+            net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+            eb.setTitle("Ticket Resolvido");
+            eb.setColor(0x00FF00); // Verde
+            if (ticket.getAsset() != null) {
+                eb.setDescription("Ativo baixado: Patrimônio " + ticket.getAsset().getPatrimonyCode());
+            } else {
+                eb.setDescription("Chamado resolvido com sucesso.");
+            }
+            channel.sendMessageEmbeds(eb.build()).queue(
+                    v -> log.info("[DISCORD-TICKET] Embed de resolução enviado para canal #{}", channel.getName()),
+                    err -> log.error("[DISCORD-TICKET] Falha ao enviar embed de resolução para canal #{}", channel.getName(), err)
+            );
+
+            // Remove permissão de escrita de todos os membros humanos vinculados
+            for (PermissionOverride override : channel.getMemberPermissionOverrides()) {
+                Member member = override.getMember();
+                if (member != null && !member.getUser().isBot()) {
+                    channel.getManager().putMemberPermissionOverride(
+                            member.getIdLong(),
+                            EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY),
+                            EnumSet.of(Permission.MESSAGE_SEND)
+                    ).queue();
+                }
+            }
+
+            // Move para a categoria de arquivados
+            channel.getManager().setParent(archivedCategory).queue(
+                    v -> log.info("[DISCORD-TICKET] Canal #{} movido com sucesso para a categoria de arquivados ({}).",
+                            channel.getName(), archivedCategory.getName()),
+                    error -> log.error("[DISCORD-TICKET] Falha ao mover canal #{} para arquivados.", channel.getName(), error)
+            );
+        }
+    }
+
+    @Override
+    public void notifyMerged(Ticket childTicket, Ticket parentTicket) {
+        log.info("[DISCORD-TICKET] Enviando notificação de unificação para canal do chamado filho #{}.", childTicket.getNumber());
+
+        JDA jda = jdaProvider.getIfAvailable();
+        if (jda == null) {
+            log.warn("[DISCORD-TICKET] JDA indisponível para notificar unificação.");
+            return;
+        }
+
+        Guild guild = resolveGuild(jda);
+        if (guild == null) {
+            log.warn("[DISCORD-TICKET] Guilda não encontrada para notificar unificação.");
+            return;
+        }
+
+        String targetChannelName = "ticket-" + childTicket.getNumber().toLowerCase();
+        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+
+        for (TextChannel channel : channels) {
+            channel.sendMessage("🚨 Este chamado foi unificado ao Chamado Mestre #" + parentTicket.getNumber()).queue(
+                    v -> log.info("[DISCORD-TICKET] Notificação de unificação enviada no canal #{}", targetChannelName),
+                    err -> log.error("[DISCORD-TICKET] Erro ao enviar notificação de unificação no canal #{}", targetChannelName, err)
+            );
+        }
+    }
+
+    private Guild resolveGuild(JDA jda) {
+        Guild guild = null;
+        if (discordGuildId != null && !discordGuildId.isBlank()) {
+            try {
+                guild = jda.getGuildById(java.util.Objects.requireNonNull(discordGuildId.trim()));
+            } catch (Exception ignored) {}
+        }
+        if (guild == null) {
+            guild = jda.getGuilds().stream().findFirst().orElse(null);
+        }
+        return guild;
+    }
+}

@@ -72,6 +72,7 @@ application-local.yml
 # Dumps de Banco de Dados e Backups
 # ========================
 *.sql
+!**/src/main/resources/db/migration/*.sql
 *.sql.gz
 *.backup
 *.dump

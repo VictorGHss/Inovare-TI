@@ -12,6 +12,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
@@ -39,6 +40,7 @@ public class FeegowBulkIntegrationHandler {
     private final BlipProperties blipProperties;
     // Responsável por resolver identidades de túnel, aliases e UUIDs do Blip para o telefone real do banco
     private final BlipIdentityReconciler blipIdentityReconciler;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
 
     /**
      * Executa a confirmação em lote de todos os agendamentos pertencentes ao grupo
@@ -269,11 +271,8 @@ public class FeegowBulkIntegrationHandler {
                     }
                 }
 
-                blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
-                blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
-                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para a fila '{}', bloco desk: '{}'",
-                    fromPhone, targetQueue, deskBlockId);
+                redirectAllIdentities(fromPhone, dbPhone, targetQueue, deskBlockId, sessionList);
             }
         } catch (Exception e) {
             log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de confirmação do grupo: " + groupId, e);
@@ -290,14 +289,152 @@ public class FeegowBulkIntegrationHandler {
             String targetQueue = resolveAlterGroupQueue(groupId);
 
             if (fromPhone != null && !fromPhone.isBlank()) {
-                blipContextService.setQueueRedirect(fromPhone.trim(), targetQueue);
+                String dbPhone = fromPhone != null
+                    ? blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, null)
+                    : null;
+
+                List<AppointmentSession> sessionList = new ArrayList<>();
+                try {
+                    List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupId);
+                    if (groups != null) {
+                        for (NotificationGroup g : groups) {
+                            appointmentSessionRepository.findById(g.getSessionId()).ifPresent(sessionList::add);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[ASYNC-BATCH] Falha ao recuperar sessões do grupo para o redirecionamento de alteração: {}", ex.getMessage());
+                }
+
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
-                blipContextService.setMasterState(fromPhone.trim(), "desk@msging.net", deskBlockId);
-                log.info("[ASYNC-BATCH] Paciente {} redirecionado com sucesso para alteração na fila '{}', bloco desk: '{}'",
-                    fromPhone, targetQueue, deskBlockId);
+                redirectAllIdentities(fromPhone, dbPhone, targetQueue, deskBlockId, sessionList);
             }
         } catch (Exception e) {
             log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de alteração do grupo: " + groupId, e);
+        }
+    }
+
+    /**
+     * Redireciona de forma robusta todas as identidades conhecidas do paciente no Blip
+     * (identidade original do webhook, telefone real reconciliado, túnel determinístico e túneis salvos no banco).
+     */
+    private void redirectAllIdentities(String fromPhone, String dbPhone, String targetQueue, String deskBlockId, List<AppointmentSession> sessionList) {
+        if (fromPhone == null || fromPhone.isBlank()) {
+            return;
+        }
+
+        // Traduz a fila se for um UUID
+        String resolvedQueue = blipContextService.resolveQueueName(targetQueue);
+
+        List<String> identitiesToRedirect = new ArrayList<>();
+        identitiesToRedirect.add(fromPhone.trim());
+
+        if (dbPhone != null && !dbPhone.isBlank() && !dbPhone.equalsIgnoreCase(fromPhone)) {
+            String formattedDbPhone = dbPhone.trim();
+            if (!formattedDbPhone.contains("@")) {
+                formattedDbPhone = formattedDbPhone + "@wa.gw.msging.net";
+            }
+            if (!identitiesToRedirect.contains(formattedDbPhone)) {
+                identitiesToRedirect.add(formattedDbPhone);
+            }
+        }
+
+        // Túnel determinístico subbot
+        try {
+            String subbotId = blipProperties.getSubbotId();
+            String subbotLocalPart = null;
+            if (subbotId != null && !subbotId.isBlank()) {
+                subbotLocalPart = subbotId.trim();
+                if (subbotLocalPart.contains("@")) {
+                    subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                }
+            }
+
+            String phoneDigits = dbPhone != null ? dbPhone.trim() : fromPhone.trim();
+            if (phoneDigits.contains("@")) {
+                phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+            }
+            phoneDigits = phoneDigits.replaceAll("\\D", "");
+            if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                phoneDigits = "55" + phoneDigits;
+            }
+
+            if (subbotLocalPart != null && !phoneDigits.isEmpty()) {
+                String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                if (!identitiesToRedirect.contains(deterministicTunnel)) {
+                    identitiesToRedirect.add(deterministicTunnel);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[ASYNC-BATCH] Falha ao resolver túnel determinístico para redirecionamento: {}", ex.getMessage());
+        }
+
+        // Túneis reconciliados do banco de dados
+        try {
+            String searchPhone = dbPhone != null ? dbPhone.trim() : fromPhone.trim();
+            if (searchPhone.contains("@")) {
+                searchPhone = searchPhone.substring(0, searchPhone.indexOf('@'));
+            }
+            searchPhone = searchPhone.replaceAll("\\D", "");
+            if (!searchPhone.isEmpty()) {
+                if (!searchPhone.startsWith("55")) {
+                    searchPhone = "55" + searchPhone;
+                }
+                var reconciliations = new ArrayList<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation>();
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(searchPhone));
+                String altPhone = searchPhone.startsWith("55") ? searchPhone.substring(2) : "55" + searchPhone;
+                reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+
+                for (var rec : reconciliations) {
+                    if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                        String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                        if (!identitiesToRedirect.contains(tunnelId)) {
+                            identitiesToRedirect.add(tunnelId);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[ASYNC-BATCH] Falha ao buscar reconciliações de identidade do banco: {}", ex.getMessage());
+        }
+
+        // Túneis baseados nos GUIDs/BSUIDs das sessões do lote
+        if (sessionList != null) {
+            try {
+                for (AppointmentSession groupSession : sessionList) {
+                    String guid = groupSession.getBlipGuid();
+                    if (guid == null || guid.isBlank()) {
+                        guid = groupSession.getBsuid();
+                    }
+                    if (guid != null && !guid.isBlank()) {
+                        if (guid.contains("@")) {
+                            guid = guid.substring(0, guid.indexOf("@"));
+                        }
+                        guid = guid.trim();
+                        if (guid.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                            String tunnelIdentity = guid + "@tunnel.msging.net";
+                            if (!identitiesToRedirect.contains(tunnelIdentity)) {
+                                identitiesToRedirect.add(tunnelIdentity);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[ASYNC-BATCH] Falha ao resolver identidades de túnel das sessões do lote: {}", ex.getMessage());
+            }
+        }
+
+        String targetBot = "desk@msging.net";
+        String builderBotId = appointmentMotorProperties.getBlipBuilderBotId();
+        if (builderBotId != null && !builderBotId.isBlank()) {
+            targetBot = builderBotId;
+        }
+
+        // Aplica o redirecionamento
+        for (String identity : identitiesToRedirect) {
+            blipContextService.setQueueRedirect(identity, resolvedQueue);
+            blipContextService.setMasterState(identity, targetBot, deskBlockId);
+            log.info("[ASYNC-BATCH] Identidade {} redirecionada com sucesso para a fila '{}' (resolvida: '{}'), bot: '{}', bloco: '{}'",
+                identity, targetQueue, resolvedQueue, targetBot, deskBlockId);
         }
     }
 }

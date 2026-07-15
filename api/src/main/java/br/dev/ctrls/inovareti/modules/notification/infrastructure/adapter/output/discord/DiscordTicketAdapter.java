@@ -179,10 +179,10 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
 
             // Remove permissão de escrita de todos os membros humanos vinculados
             for (PermissionOverride override : channel.getMemberPermissionOverrides()) {
-                Member member = override.getMember();
-                if (member != null && !member.getUser().isBot()) {
+                long targetId = override.getIdLong();
+                if (targetId != jda.getSelfUser().getIdLong()) {
                     channel.getManager().putMemberPermissionOverride(
-                            member.getIdLong(),
+                            targetId,
                             EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY),
                             EnumSet.of(Permission.MESSAGE_SEND)
                     ).queue();

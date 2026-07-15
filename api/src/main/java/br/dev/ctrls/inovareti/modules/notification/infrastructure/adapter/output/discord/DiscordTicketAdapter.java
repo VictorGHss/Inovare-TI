@@ -86,7 +86,24 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             }
         }
 
-        String channelName = "ticket-" + ticket.getNumber().toLowerCase();
+        String suffix = "";
+        if (ticket.getTitle() != null && !ticket.getTitle().isBlank()) {
+            String normalized = java.text.Normalizer.normalize(ticket.getTitle(), java.text.Normalizer.Form.NFD)
+                    .replaceAll("\\p{M}", "")
+                    .toLowerCase()
+                    .replaceAll("[^a-z0-9\\s-]", "")
+                    .replaceAll("\\s+", "-")
+                    .replaceAll("-+", "-")
+                    .trim();
+            if (normalized.length() > 50) {
+                normalized = normalized.substring(0, 50);
+            }
+            if (!normalized.isEmpty()) {
+                suffix = "-" + normalized;
+            }
+        }
+
+        String channelName = "ticket-" + ticket.getNumber().toLowerCase() + suffix;
 
         // Configura ações de override de permissão
         var channelAction = activeCategory.createTextChannel(channelName)
@@ -131,12 +148,17 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             return;
         }
 
-        String targetChannelName = "ticket-" + ticket.getNumber().toLowerCase();
-        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+        String prefix = "ticket-" + ticket.getNumber().toLowerCase();
+        List<TextChannel> channels = new java.util.ArrayList<>();
+        for (TextChannel tc : guild.getTextChannels()) {
+            if (tc.getName().startsWith(prefix)) {
+                channels.add(tc);
+            }
+        }
 
         if (channels.isEmpty()) {
-            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o nome '{}' para o chamado #{}.",
-                    targetChannelName, ticket.getNumber());
+            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o prefixo '{}' para o chamado #{}.",
+                    prefix, ticket.getNumber());
             return;
         }
 
@@ -192,13 +214,18 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             return;
         }
 
-        String targetChannelName = "ticket-" + childTicket.getNumber().toLowerCase();
-        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+        String prefix = "ticket-" + childTicket.getNumber().toLowerCase();
+        List<TextChannel> channels = new java.util.ArrayList<>();
+        for (TextChannel tc : guild.getTextChannels()) {
+            if (tc.getName().startsWith(prefix)) {
+                channels.add(tc);
+            }
+        }
 
         for (TextChannel channel : channels) {
             channel.sendMessage("🚨 Este chamado foi unificado ao Chamado Mestre #" + parentTicket.getNumber()).queue(
-                    v -> log.info("[DISCORD-TICKET] Notificação de unificação enviada no canal #{}", targetChannelName),
-                    err -> log.error("[DISCORD-TICKET] Erro ao enviar notificação de unificação no canal #{}", targetChannelName, err)
+                    v -> log.info("[DISCORD-TICKET] Notificação de unificação enviada no canal #{}", channel.getName()),
+                    err -> log.error("[DISCORD-TICKET] Erro ao enviar notificação de unificação no canal #{}", channel.getName(), err)
             );
         }
     }
@@ -219,12 +246,17 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             return;
         }
 
-        String targetChannelName = "ticket-" + ticket.getNumber().toLowerCase();
-        List<TextChannel> channels = guild.getTextChannelsByName(targetChannelName, true);
+        String prefix = "ticket-" + ticket.getNumber().toLowerCase();
+        List<TextChannel> channels = new java.util.ArrayList<>();
+        for (TextChannel tc : guild.getTextChannels()) {
+            if (tc.getName().startsWith(prefix)) {
+                channels.add(tc);
+            }
+        }
 
         if (channels.isEmpty()) {
-            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o nome '{}' para o chamado #{}.",
-                    targetChannelName, ticket.getNumber());
+            log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o prefixo '{}' para o chamado #{}.",
+                    prefix, ticket.getNumber());
             return;
         }
 

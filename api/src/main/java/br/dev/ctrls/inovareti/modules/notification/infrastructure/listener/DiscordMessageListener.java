@@ -62,6 +62,9 @@ public class DiscordMessageListener extends ListenerAdapter {
         log.info("[DISCORD-TICKET] Nova mensagem recebida no canal {}: {}", channelName, event.getMessage().getContentDisplay());
 
         String shortId = channelName.substring("ticket-".length());
+        if (shortId.length() >= 8) {
+            shortId = shortId.substring(0, 8);
+        }
         Ticket ticket = ticketRepository.findByShortIdStartingWith(shortId)
                 .stream()
                 .findFirst()

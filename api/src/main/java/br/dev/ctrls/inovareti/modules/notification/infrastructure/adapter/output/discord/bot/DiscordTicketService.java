@@ -31,6 +31,7 @@ public class DiscordTicketService {
     private final br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository;
     private final br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketTagRepositoryPort ticketTagRepository;
     private final br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketTagExtractor ticketTagExtractor;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public String createTicketFromDiscord(String discordUserId, String description, String priorityRaw, String patrimonioOption) {
@@ -103,6 +104,8 @@ public class DiscordTicketService {
         Ticket savedTicket = ticketRepository.save(ticket);
         initializeWebhookRelations(savedTicket);
         discordWebhookService.sendNewTicketAlert(savedTicket);
+
+        eventPublisher.publishEvent(new br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketCreatedEvent(savedTicket, new java.util.ArrayList<>()));
 
         String ticketIdShort = savedTicket.getId().toString().substring(0, 8).toUpperCase();
 

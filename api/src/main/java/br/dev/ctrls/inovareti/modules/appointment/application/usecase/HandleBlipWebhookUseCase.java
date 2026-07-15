@@ -14,6 +14,7 @@ import br.dev.ctrls.inovareti.core.shared.domain.port.output.AuditPort;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipAppointmentFormatter;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipGroupActionHandler;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.FeegowBulkIntegrationHandler;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdentityReconciler;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNudgeResponseHandler;
@@ -68,6 +69,7 @@ public class HandleBlipWebhookUseCase {
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client.BlipLIMEClient blipLimeClient;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
+    private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -274,6 +276,22 @@ public class HandleBlipWebhookUseCase {
         action = resolveTextIntentions(normalizedAction, action, payload);
 
         switch (action) {
+            case "Sucesso_Confirmacao":
+                log.info("[WEBHOOK] Recebida ação Sucesso_Confirmacao. De: {} | ID: {}", fromPhone, payload.messageId());
+                try {
+                    String isGroupStr = blipContextService.getUserContext(fromPhone, "isGroupFlow");
+                    String groupIdStr = blipContextService.getUserContext(fromPhone, "groupId");
+                    
+                    if ("true".equalsIgnoreCase(isGroupStr) && groupIdStr != null && !groupIdStr.isBlank()) {
+                        UUID groupId = UUID.fromString(groupIdStr.trim());
+                        log.info("[WEBHOOK] Detectado fluxo de grupo em Sucesso_Confirmacao. Disparando confirmGroupAsync para groupId={}", groupId);
+                        feegowBulkIntegrationHandler.confirmGroupAsync(groupId, fromPhone);
+                    }
+                } catch (Exception ex) {
+                    log.error("[WEBHOOK] Erro ao tratar fluxo de grupo em Sucesso_Confirmacao para {}: {}", fromPhone, ex.getMessage(), ex);
+                }
+                return new WebhookResult("", "", "", "", "Sucesso_Confirmacao", "");
+
             case "Integrar_GerAcesso":
                 log.info("[WEBHOOK] Ignorando evento de entrada de bloco Integrar_GerAcesso de forma passiva. De: {} | ID: {}", fromPhone, payload.messageId());
                 return new WebhookResult("", "", "", "", "Integrar_GerAcesso", "");

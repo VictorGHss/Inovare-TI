@@ -188,7 +188,7 @@ public class LocalFileStorageService {
             }
             case ".png" -> {
                 // PNG: 89 50 4E 47 0D 0A 1A 0A
-                if (headerBytes[0] != (byte) 0x89 || headerBytes[1] != 0x50 || headerBytes[2] != 0x44 || headerBytes[3] != 0x47) {
+                if (headerBytes[0] != (byte) 0x89 || headerBytes[1] != 0x50 || headerBytes[2] != 0x4E || headerBytes[3] != 0x47) {
                     throw new IllegalArgumentException("Assinatura de arquivo (Magic Bytes) inválida para PNG.");
                 }
             }

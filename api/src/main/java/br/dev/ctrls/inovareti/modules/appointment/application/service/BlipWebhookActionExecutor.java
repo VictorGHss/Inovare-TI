@@ -15,6 +15,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessio
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort;
+import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,6 +36,8 @@ public class BlipWebhookActionExecutor {
     private final BlipContextService blipContextService;
     private final BlipIdempotencyService blipIdempotencyService;
     private final TransactionTemplate transactionTemplate;
+    private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final BlipProperties blipProperties;
 
     /**
      * Executa a pipeline completa da ação correspondente (confirm ou alter).
@@ -62,11 +66,83 @@ public class BlipWebhookActionExecutor {
                 String resolvedQueue = blipContextService.resolveQueueName(queue);
                 String userPhone = session.getPhoneNumber();
                 
+                // Coleta todas as identidades a serem atualizadas
+                java.util.List<String> identitiesToRedirect = new java.util.ArrayList<>();
+                
                 if (userPhone != null && !userPhone.isBlank()) {
-                    blipContextService.setQueueRedirect(userPhone, resolvedQueue);
+                    identitiesToRedirect.add(userPhone.trim());
                 }
                 if (dispatchIdentity != null && !dispatchIdentity.isBlank() && !dispatchIdentity.equalsIgnoreCase(userPhone)) {
-                    blipContextService.setQueueRedirect(dispatchIdentity, resolvedQueue);
+                    identitiesToRedirect.add(dispatchIdentity.trim());
+                }
+                
+                // Túnel determinístico subbot
+                try {
+                    String subbotId = blipProperties.getSubbotId();
+                    String subbotLocalPart = null;
+                    if (subbotId != null && !subbotId.isBlank()) {
+                        subbotLocalPart = subbotId.trim();
+                        if (subbotLocalPart.contains("@")) {
+                            subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                        }
+                    }
+                    
+                    String phoneDigits = userPhone != null ? userPhone.trim() : (dispatchIdentity != null ? dispatchIdentity.trim() : null);
+                    if (phoneDigits != null) {
+                        if (phoneDigits.contains("@")) {
+                            phoneDigits = phoneDigits.substring(0, phoneDigits.indexOf('@'));
+                        }
+                        phoneDigits = phoneDigits.replaceAll("\\D", "");
+                        if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                            phoneDigits = "55" + phoneDigits;
+                        }
+                        
+                        if (subbotLocalPart != null && !phoneDigits.isEmpty()) {
+                            String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                            if (!identitiesToRedirect.contains(deterministicTunnel)) {
+                                identitiesToRedirect.add(deterministicTunnel);
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[WEBHOOK-EXEC] Falha ao resolver túnel determinístico preventivo: {}", ex.getMessage());
+                }
+                
+                // Túneis reconciliados do banco de dados
+                try {
+                    String searchPhone = userPhone != null ? userPhone.trim() : (dispatchIdentity != null ? dispatchIdentity.trim() : null);
+                    if (searchPhone != null) {
+                        if (searchPhone.contains("@")) {
+                            searchPhone = searchPhone.substring(0, searchPhone.indexOf('@'));
+                        }
+                        searchPhone = searchPhone.replaceAll("\\D", "");
+                        if (!searchPhone.isEmpty()) {
+                            if (!searchPhone.startsWith("55")) {
+                                searchPhone = "55" + searchPhone;
+                            }
+                            var reconciliations = new java.util.ArrayList<br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipUserIdentityReconciliation>();
+                            reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(searchPhone));
+                            String altPhone = searchPhone.startsWith("55") ? searchPhone.substring(2) : "55" + searchPhone;
+                            reconciliations.addAll(blipUserIdentityReconciliationRepository.findByPhoneNumber(altPhone));
+                            
+                            for (var rec : reconciliations) {
+                                if (rec.getBlipGuid() != null && !rec.getBlipGuid().isBlank()) {
+                                    String tunnelId = rec.getBlipGuid().trim() + "@tunnel.msging.net";
+                                    if (!identitiesToRedirect.contains(tunnelId)) {
+                                        identitiesToRedirect.add(tunnelId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[WEBHOOK-EXEC] Falha ao buscar reconciliações preventivas do banco: {}", ex.getMessage());
+                }
+                
+                // Aplica setQueueRedirect para todas as identidades
+                for (String identity : identitiesToRedirect) {
+                    blipContextService.setQueueRedirect(identity, resolvedQueue);
+                    log.info("[WEBHOOK-EXEC] Fila de redirecionamento configurada preventivamente para identity={}, fila={}", identity, resolvedQueue);
                 }
             } catch (Exception ex) {
                 log.warn("[WEBHOOK-EXEC] Falha ao configurar fila de redirecionamento preventivo: {}", ex.getMessage());

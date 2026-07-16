@@ -39,7 +39,6 @@ public class DiscordDirectMessageService {
     private final ObjectProvider<JDA> jdaProvider;
     private final SystemAlertRepository systemAlertRepository;
 
-    @Async
     public void sendTicketUpdateDM(Ticket ticket, String title, String description) {
         /**
          * Envia uma DM para o solicitante do chamado com um resumo da atualizaíÂ§íÂ£o.

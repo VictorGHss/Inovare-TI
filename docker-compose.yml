@@ -76,6 +76,7 @@ services:
     volumes:
       - /mnt/data/uploads:/app/uploads
       - /mnt/data/backups:/app/backups
+      - /mnt/data/logs:/app/logs
     deploy:
       resources:
         limits:

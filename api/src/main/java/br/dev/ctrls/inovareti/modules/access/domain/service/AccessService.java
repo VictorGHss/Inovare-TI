@@ -40,6 +40,13 @@ import java.util.concurrent.Future;
 @RequiredArgsConstructor
 public class AccessService {
 
+    public record DoctorAccessData(String matricula, String cpf) {}
+
+    private static final java.util.Map<String, DoctorAccessData> DOCTOR_MAP = java.util.Map.of(
+        "1", new DoctorAccessData("10001", "11111111111"),
+        "28", new DoctorAccessData("10028", "22222222222")
+    );
+
     /**
      * Fuso horário local da Clínica Inovare (Ponta Grossa-PR).
      * Definido explicitamente aqui para blindar o serviço contra divergências de timezone
@@ -259,6 +266,19 @@ public class AccessService {
             String startVisit = LocalDateTime.of(appointmentDate, openingTime).format(GERACESSO_DATE_FORMATTER);
             String endVisit = LocalDateTime.of(appointmentDate, closingTime).format(GERACESSO_DATE_FORMATTER);
 
+            // Resolve os dados do médico para injeção de visitado
+            String docId = accessInfo.doctorId();
+            String matricula = "";
+            String doctorCpf = "";
+            if (docId != null && !docId.isBlank()) {
+                DoctorAccessData docData = DOCTOR_MAP.get(docId.trim());
+                if (docData != null) {
+                    matricula = docData.matricula();
+                    doctorCpf = docData.cpf();
+                    log.info("[CATRACA-MÉDICO] Injetando dados do visitado para o profissional ID: {}", docId);
+                }
+            }
+
             GerAcessoRequest titularRequest = GerAcessoRequest.builder()
                 .cpf(finalCpf)
                 .status(1)
@@ -268,6 +288,8 @@ public class AccessService {
                 .visitType(1) // 1 = PACIENTE / TITULAR
                 .startVisit(startVisit)
                 .endVisit(endVisit)
+                .visitedRegistration(matricula)
+                .visitedCpf(doctorCpf)
                 .build();
 
             // Dispara chamada de cadastro do paciente titular na API física da GerAcesso
@@ -322,7 +344,7 @@ public class AccessService {
                             if (alreadyRegistered) {
                                 log.info("[AccessService] Acompanhante '{}' já possui credencial cadastrada para o agendamento {}. Ignorando duplicata.", companion.name(), accessInfo.appointmentId());
                             } else {
-                                registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId());
+                                registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId(), accessInfo.doctorId());
                             }
                         } catch (Exception ex) {
                             log.error("[AccessService] Erro fatal no processamento assíncrono do acompanhante '{}': {}", 
@@ -357,7 +379,8 @@ public class AccessService {
             LocalTime closingTime,
             String patientToken,
             String patientLocator,
-            String appointmentId) {
+            String appointmentId,
+            String docId) {
 
         String companionCpf = companion.cpf() != null ? companion.cpf().replaceAll("\\D", "") : "";
         // Reutiliza a constante estática imutável GERACESSO_DATE_FORMATTER em vez de instanciar
@@ -365,6 +388,18 @@ public class AccessService {
         // de webhooks concorrentes processados via Virtual Threads.
         String startVisit = LocalDateTime.of(date, openingTime).format(GERACESSO_DATE_FORMATTER);
         String endVisit = LocalDateTime.of(date, closingTime).format(GERACESSO_DATE_FORMATTER);
+
+        // Resolve os dados do médico para injeção de visitado
+        String matricula = "";
+        String doctorCpf = "";
+        if (docId != null && !docId.isBlank()) {
+            DoctorAccessData docData = DOCTOR_MAP.get(docId.trim());
+            if (docData != null) {
+                matricula = docData.matricula();
+                doctorCpf = docData.cpf();
+                log.info("[CATRACA-MÉDICO] Injetando dados do visitado para o profissional ID: {}", docId);
+            }
+        }
 
         GerAcessoRequest request = GerAcessoRequest.builder()
             .cpf(companionCpf)
@@ -375,6 +410,8 @@ public class AccessService {
             .visitType(1) // 1 = PACIENTE / TITULAR / ACOMPANHANTE
             .startVisit(startVisit)
             .endVisit(endVisit)
+            .visitedRegistration(matricula)
+            .visitedCpf(doctorCpf)
             .build();
 
         log.info("[AccessService] Cadastrando acompanhante {} na GerAcesso...", companion.name());
@@ -388,10 +425,8 @@ public class AccessService {
             companionLocator = responseOpt.get().locator();
             log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial: {}", companion.name(), companionToken);
         } else {
-            // Fallback: gera credencial local para contingência e evita travar fluxo
-            companionToken = "CRED-COMP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            companionLocator = "LOC-COMP-" + System.currentTimeMillis();
-            log.warn("[AccessService] Falha no cadastro do acompanhante {} na GerAcesso. Gerada credencial local de contingência.", companion.name());
+            log.error("[AccessService] Falha no cadastro do acompanhante {} na GerAcesso física. Nenhuma credencial gerada.", companion.name());
+            throw new RuntimeException("Falha ao registrar acesso físico para o acompanhante: " + companion.name());
         }
 
         // Persiste a credencial individual e separada no banco local

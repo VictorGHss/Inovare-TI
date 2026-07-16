@@ -173,6 +173,7 @@ public class IngestAppointmentsE2ETest {
 
         // Mock das buscas da Feegow e chamadas do Blip
         when(feegowAppointmentSearcher.searchAppointments(any())).thenReturn(appointments);
+        when(feegowAppointmentSearcher.searchAppointments(any(), any())).thenReturn(appointments);
         when(feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(any())).thenReturn(patients);
         when(blipLIMEClient.executeMessage(any(), any())).thenReturn(Map.of("status", "success"));
         when(blipLIMEClient.executeCommand(any(), any())).thenReturn(Map.of("status", "success"));

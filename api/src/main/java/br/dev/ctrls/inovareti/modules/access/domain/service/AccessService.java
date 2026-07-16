@@ -186,6 +186,10 @@ public class AccessService {
         if (resolvedAppointmentDate == null) {
             resolvedAppointmentDate = LocalDate.now(CLINIC_ZONE);
         }
+        if (resolvedAppointmentDate.isBefore(LocalDate.now(CLINIC_ZONE))) {
+            log.info("[AccessService] Data do agendamento ({}) em atraso. Ajustando data de visita para hoje ({}) para compatibilidade com a catraca.", resolvedAppointmentDate, LocalDate.now(CLINIC_ZONE));
+            resolvedAppointmentDate = LocalDate.now(CLINIC_ZONE);
+        }
         final LocalDate appointmentDate = resolvedAppointmentDate;
 
         String targetPhone = mainPatient != null ? mainPatient.phone() : null;

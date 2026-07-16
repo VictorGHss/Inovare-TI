@@ -160,6 +160,23 @@ public class AccessController {
             log.warn("[AccessControl] Erro ao buscar grupo de sessões para o agendamento {}: {}", idAgendamento, ex.getMessage());
         }
 
+        // AUTO-DETECÇÃO DE SESSÃO ATIVA HOJE: se o paciente possui sessões criadas hoje,
+        // mas o link acessado era de um agendamento do passado, incluímos a sessão de hoje para geração e exibição.
+        try {
+            java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
+            var patientSessions = appointmentSessionRepository.findByPatientId(accessInfo.patientId());
+            for (var s : patientSessions) {
+                if (s.getCreatedAt() != null && s.getCreatedAt().toLocalDate().equals(today)) {
+                    if (s.getFeegowAppointmentId() != null && !appointmentIds.contains(s.getFeegowAppointmentId())) {
+                        appointmentIds.add(s.getFeegowAppointmentId());
+                        log.info("[AccessControl] Auto-detectado agendamento de hoje ({}) para o paciente ID: {}. Adicionado ao escopo de credenciamento.", s.getFeegowAppointmentId(), accessInfo.patientId());
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[AccessControl] Erro ao auto-detectar sessões de hoje para o paciente: {}", ex.getMessage());
+        }
+
         java.util.List<AccessCredential> credentials = new java.util.ArrayList<>();
 
         for (String id : appointmentIds) {
@@ -190,6 +207,22 @@ public class AccessController {
                 }
             }
             credentials.addAll(appCreds);
+        }
+
+        // FILTRO DE HOJE: se o paciente possui credenciais geradas hoje sob o mesmo CPF,
+        // mas o link acessado era de um agendamento do passado, filtramos para exibir apenas as de hoje.
+        try {
+            java.time.LocalDate todayDate = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
+            boolean hasTodayCredentials = credentials.stream()
+                    .anyMatch(c -> c.getCreatedAt() != null && c.getCreatedAt().toLocalDate().equals(todayDate));
+            if (hasTodayCredentials) {
+                credentials = credentials.stream()
+                        .filter(c -> c.getCreatedAt() != null && c.getCreatedAt().toLocalDate().equals(todayDate))
+                        .collect(java.util.stream.Collectors.toList());
+                log.info("[AccessControl] Filtro de hoje aplicado. Retornando apenas as credenciais geradas hoje.");
+            }
+        } catch (Exception ex) {
+            log.warn("[AccessControl] Erro ao aplicar filtro de hoje nas credenciais: {}", ex.getMessage());
         }
 
         // Ordena para que o paciente principal do link acessado venha sempre em primeiro lugar,
@@ -229,6 +262,7 @@ public class AccessController {
         final String finalOpensAt = opensAt;
         final String finalClosesAt = closesAt;
 
+        java.util.Map<String, br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo> challengeCache = new java.util.HashMap<>();
         java.util.List<br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse> response = new java.util.ArrayList<>();
         for (AccessCredential c : credentials) {
             String itemAppointmentDateTime = finalAppointmentDateTime;
@@ -239,7 +273,13 @@ public class AccessController {
             // Se for um agendamento diferente do principal, busca as informações específicas de data/hora/médico
             if (!c.getAppointmentId().equalsIgnoreCase(idAgendamento) && !c.getAccessCredential().equals("CPF_MISSING")) {
                 try {
-                    var specificInfo = accessService.validatePhoneChallenge(c.getAppointmentId(), phoneDigits);
+                    br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo specificInfo;
+                    if (challengeCache.containsKey(c.getAppointmentId())) {
+                        specificInfo = challengeCache.get(c.getAppointmentId());
+                    } else {
+                        specificInfo = accessService.validatePhoneChallenge(c.getAppointmentId(), phoneDigits);
+                        challengeCache.put(c.getAppointmentId(), specificInfo);
+                    }
                     if (specificInfo.appointmentDate() != null) {
                         if (specificInfo.appointmentTime() != null) {
                             itemAppointmentDateTime = java.time.LocalDateTime.of(specificInfo.appointmentDate(), specificInfo.appointmentTime())

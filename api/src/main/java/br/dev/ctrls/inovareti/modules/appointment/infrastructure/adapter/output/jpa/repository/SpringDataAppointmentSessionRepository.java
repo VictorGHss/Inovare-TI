@@ -73,4 +73,6 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
     long deleteByStatusInAndCreatedAtBefore(@Param("statuses") java.util.Collection<br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus> statuses, @Param("threshold") LocalDateTime threshold);
 
     boolean existsByPhoneNumber(String phoneNumber);
+
+    List<AppointmentSessionEntity> findByPatientId(String patientId);
 }

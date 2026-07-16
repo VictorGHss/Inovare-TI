@@ -180,4 +180,15 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
         }
         return springDataRepository.existsByPhoneNumber(phoneNumber.trim());
     }
+
+    @Override
+    public List<AppointmentSession> findByPatientId(String patientId) {
+        if (patientId == null || patientId.isBlank()) {
+            return List.of();
+        }
+        return springDataRepository.findByPatientId(patientId.trim()).stream()
+                .filter(entity -> entity != null)
+                .map(entity -> entity.toDomain())
+                .toList();
+    }
 }

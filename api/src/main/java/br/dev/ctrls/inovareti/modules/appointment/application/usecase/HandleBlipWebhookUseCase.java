@@ -71,6 +71,9 @@ public class HandleBlipWebhookUseCase {
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
     private final FeegowBulkIntegrationHandler feegowBulkIntegrationHandler;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
+    private final br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output.GerAcessoCatracaAdapter gerAcessoCatracaAdapter;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -294,8 +297,93 @@ public class HandleBlipWebhookUseCase {
                 return new WebhookResult("", "", "", "", "Sucesso_Confirmacao", "");
 
             case "Integrar_GerAcesso":
-                log.info("[WEBHOOK] Ignorando evento de entrada de bloco Integrar_GerAcesso de forma passiva. De: {} | ID: {}", fromPhone, payload.messageId());
-                return new WebhookResult("", "", "", "", "Integrar_GerAcesso", "");
+                log.info("[WEBHOOK] Recebida ação Integrar_GerAcesso. De: {} | ID: {}", fromPhone, payload.messageId());
+                String catracaAppId = null;
+                String catracaCpf = null;
+                if (payload.content() instanceof java.util.Map<?, ?> contentMap) {
+                    Object appVal = contentMap.get("idAgendamentoFeegow");
+                    if (appVal == null) {
+                        appVal = contentMap.get("appointmentId");
+                    }
+                    if (appVal != null) {
+                        catracaAppId = appVal.toString().trim();
+                    }
+                    Object cpfVal = contentMap.get("cpf");
+                    if (cpfVal != null) {
+                        catracaCpf = cpfVal.toString().trim();
+                    }
+                }
+                if (catracaAppId == null || catracaAppId.isBlank()) {
+                    catracaAppId = blipContextService.getUserContext(fromPhone, "appointmentId");
+                }
+                if (catracaCpf == null || catracaCpf.isBlank()) {
+                    catracaCpf = blipContextService.getUserContext(fromPhone, "cpf");
+                }
+
+                if (catracaAppId != null && !catracaAppId.isBlank()) {
+                    AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(catracaAppId).orElse(null);
+                    if (session == null) {
+                        log.warn("[CATRACA-ALERTA] Sessão não encontrada para o agendamento ID: {}", catracaAppId);
+                        return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
+                    }
+
+                    Long feegowProfissionalId = null;
+                    try {
+                        feegowProfissionalId = Long.parseLong(session.getDoctorProfissionalId());
+                    } catch (Exception ex) {
+                        log.warn("[CATRACA-ALERTA] Falha ao converter profissionalId {} para Long", session.getDoctorProfissionalId());
+                    }
+
+                    if (feegowProfissionalId == null) {
+                        log.warn("[CATRACA-ALERTA] Profissional ID é nulo ou inválido para o agendamento ID: {}", catracaAppId);
+                        return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
+                    }
+
+                    var doctorConfigOpt = doctorConfigurationRepository.findById(feegowProfissionalId);
+                    if (doctorConfigOpt.isEmpty()) {
+                        log.warn("[CATRACA-ALERTA] Agendamento confirmado para o profissional ID={}, mas ele não possui metadados GerAcesso configurados no painel. Ignorando sincronização da catraca.", feegowProfissionalId);
+                        return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
+                    }
+
+                    var doctorConfig = doctorConfigOpt.get();
+
+                    try {
+                        br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient patient = 
+                            patientExternalPort.patientInfo(session.getPatientId());
+                        String patientName = (patient != null && patient.name() != null) ? patient.name().trim() : "Paciente";
+                        String patientPhone = (patient != null && patient.phone() != null) ? patient.phone() : session.getPhoneNumber();
+                        String patientEmail = "";
+                        String patientCpf = (patient != null && patient.cpf() != null) 
+                            ? patient.cpf().replaceAll("\\D", "") 
+                            : (catracaCpf != null ? catracaCpf.replaceAll("\\D", "") : "");
+
+                        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        String dateStr = session.getAppointmentAt().format(dtf);
+                        String inicioVisita = dateStr + " 06:00";
+                        String fimVisita = dateStr + " 23:59";
+
+                        br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest visitorRequest = 
+                            br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest.builder()
+                                .cpf(patientCpf)
+                                .status(1)
+                                .nome(patientName)
+                                .telefone(patientPhone)
+                                .email(patientEmail)
+                                .tipovisista(1)
+                                .matricula_visitado(doctorConfig.getGerAcessoMatricula())
+                                .cpf_visitado(doctorConfig.getGerAcessoCpf())
+                                .inicio_visita(inicioVisita)
+                                .fim_visita(fimVisita)
+                                .build();
+
+                        gerAcessoCatracaAdapter.sendVisitorRequest(visitorRequest);
+                    } catch (Exception ex) {
+                        log.error("[WEBHOOK] Erro ao integrar catraca GerAcesso para o agendamento ID: {}", catracaAppId, ex);
+                    }
+                } else {
+                    log.warn("[WEBHOOK] Ação Integrar_GerAcesso recebida, mas nenhum appointmentId pôde ser extraído.");
+                }
+                return new WebhookResult("", "", catracaAppId != null ? catracaAppId : "", "", "Integrar_GerAcesso", "");
 
             case "Não":
                 log.info("Paciente informou que não trará acompanhantes. Processando acesso GerAcesso...");

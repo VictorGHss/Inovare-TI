@@ -33,6 +33,14 @@ interface MergedDoctorMapping extends DoctorMapping {
   gerAcessoCpf?: string;
 }
 
+function formatCPF(value: string) {
+  const digits = (value || '').replace(/\D/g, '');
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+}
+
 export default function ProfessionalMappingPanel() {
   const [professionals, setProfessionals] = useState<FeegowProfessional[]>([]);
   const [mappings, setMappings] = useState<MergedDoctorMapping[]>([]);
@@ -319,10 +327,10 @@ export default function ProfessionalMappingPanel() {
                     <td className="px-4 py-3 align-middle w-36">
                       <input
                         type="text"
-                        maxLength={11}
-                        placeholder="CPF (só dígitos)"
-                        value={row.gerAcessoCpf || ''}
-                        onChange={(e) => updateField(row.profissionalId, 'gerAcessoCpf', e.target.value.replace(/\D/g, ''))}
+                        maxLength={14}
+                        placeholder="CPF"
+                        value={formatCPF(row.gerAcessoCpf || '')}
+                        onChange={(e) => updateField(row.profissionalId, 'gerAcessoCpf', e.target.value.replace(/\D/g, '').slice(0, 11))}
                         className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
                       />
                     </td>

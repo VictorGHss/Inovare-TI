@@ -21,6 +21,7 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotifi
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -38,6 +39,7 @@ public class MonitorAppointmentNudgesUseCase {
     private final BlipNotificationService blipNotificationService;
     private final TransactionTemplate transactionTemplate;
 
+    @Transactional
     public void execute() {
         // --- 1. RESOLVER CONFIGURAÇÕES E TIMINGS ---
         // Individual Timings

@@ -14,6 +14,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIde
 
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.NotificationGroupRepositoryPort;
@@ -40,6 +42,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final BlipProperties blipProperties;
+    private final PatientExternalPort patientExternalPort;
 
     @Override
     public boolean supports(String actionType) {
@@ -109,25 +112,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
                 // -----------------------------------------------------------------------
 
-                String confirmedStatusId = resolveConfirmedStatusId();
-                for (AppointmentSession groupSession : listaSessoes) {
-                    try {
-                        log.info("Enviando confirmação para Feegow: {}", groupSession.getFeegowAppointmentId());
-                        appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
-                        log.info("Resposta do Feegow: SUCCESS");
-                    } catch (RestClientException | IllegalStateException ex) {
-                        log.error("Resposta do Feegow: ERROR");
-                        log.error(
-                            "[CONFIRM-BATCH] Falha ao atualizar status na Feegow. appointmentId={}, erro={}",
-                            groupSession.getFeegowAppointmentId(),
-                            ex.getMessage(),
-                            ex);
-                    }
-                }
-
                 userPhone = session.getPhoneNumber();
-                
-                // Configurar variável de contexto da fila, ID e CPF no Blip
+
+                // Configurar variável de contexto da fila, ID e CPF no Blip preventivamente
                 try {
                     if (!listaSessoes.isEmpty()) {
                         AppointmentSession firstSession = listaSessoes.get(0);
@@ -171,8 +158,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         } catch (Exception tunnelEx) {
                             log.warn("[CONFIRM-BATCH] Falha ao atualizar requiresCpfFallback para identidades de túnel no lote: {}", tunnelEx.getMessage());
                         }
-
-
                     }
                 } catch (Exception ex) {
                     log.warn("[CONFIRM-BATCH] Falha ao salvar ID ou verificar CPF no contexto: {}", ex.getMessage());
@@ -291,6 +276,60 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.info("[CONFIRM-BATCH] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",
                         userPhone, fromIdentity, targetQueue, targetBot, confirmSuccessBlockId);
 
+                // Push de extras preventivo
+                try {
+                    if (!listaSessoes.isEmpty()) {
+                        AppointmentSession firstSession = listaSessoes.get(0);
+                        FeegowPatient patient = patientExternalPort.patientInfo(firstSession.getPatientId());
+                        String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
+                        String formattedBirthdate = formatBirthdate(patient.birthdate());
+                        
+                        String resolvedDoctorName = "Clínica Inovare";
+                        var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(firstSession.getDoctorProfissionalId());
+                        if (mappingOpt.isPresent()) {
+                            String mappingName = mappingOpt.get().getProfissionalNome();
+                            if (mappingName != null && !mappingName.isBlank() && !"null".equalsIgnoreCase(mappingName.trim())) {
+                                resolvedDoctorName = mappingName.trim();
+                            }
+                        }
+                        
+                        br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload appointmentPayload = 
+                            br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload.builder()
+                                .action("confirm")
+                                .doctorName(resolvedDoctorName)
+                                .queue(targetQueue)
+                                .patientName(patientName)
+                                .patientCPF(patient.cpf())
+                                .patientBirthdate(formattedBirthdate)
+                                .build();
+                                
+                        blipContextService.processAppointmentPush(fromIdentity != null ? fromIdentity : userPhone, "confirm", appointmentPayload);
+                        log.info("[CONFIRM-BATCH] Push de extras de contato enviado preventivamente para a Blip.");
+                    }
+                } catch (Exception ex) {
+                    log.warn("[CONFIRM-BATCH] Falha ao enviar processAppointmentPush preventivo: {}", ex.getMessage());
+                }
+
+                // Log informativo de rastreio de ordem preventivo
+                log.info("[WEBHOOK-FLOW] Blip carimbado preventivamente antes da chamada síncrona do ERP Feegow.");
+
+                // Executa a chamada para a Feegow
+                String confirmedStatusId = resolveConfirmedStatusId();
+                for (AppointmentSession groupSession : listaSessoes) {
+                    try {
+                        log.info("Enviando confirmação para Feegow: {}", groupSession.getFeegowAppointmentId());
+                        appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
+                        log.info("Resposta do Feegow: SUCCESS");
+                    } catch (RestClientException | IllegalStateException ex) {
+                        log.error("Resposta do Feegow: ERROR");
+                        log.error(
+                            "[CONFIRM-BATCH] Falha ao atualizar status na Feegow. appointmentId={}, erro={}",
+                            groupSession.getFeegowAppointmentId(),
+                            ex.getMessage(),
+                            ex);
+                    }
+                }
+
             } catch (Exception e) {
                 log.error("[CONFIRM-BATCH] Erro no processamento em lote da Feegow para ação: " + action, e);
             }
@@ -353,22 +392,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
             // -----------------------------------------------------------------------------------
 
-            String confirmedStatusId = resolveConfirmedStatusId();
-            log.info("Enviando confirmação para Feegow: {}", session.getFeegowAppointmentId());
-            try {
-                appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
-                log.info("Resposta do Feegow: SUCCESS");
-            } catch (Exception ex) {
-                log.error("Resposta do Feegow: ERROR");
-                log.error("[CONFIRM] Falha ao atualizar status na Feegow para ID: {}. Detalhes: {}", 
-                    session.getFeegowAppointmentId(), ex.getMessage());
-                throw new RuntimeException("Falha na atualização do Feegow para o agendamento " + session.getFeegowAppointmentId() + ". Cancelando confirmação local (rollback).", ex);
-            }
-            confirmationStateMachineService.markConfirmed(session);
-
             final String requiresCpfFallback = "false";
 
-            // Salva o ID do agendamento e CPF no contexto do Blip para persistência
+            // Salva o ID do agendamento e CPF no contexto do Blip para persistência preventivamente
             try {
                 blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                 blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
@@ -503,7 +529,79 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
  
             log.info("[CONFIRM] Redirecionamento de estado enviado para a Blip para o usuário {} (identidade webhook: {}). Fila: '{}', Bloco de destino dinâmico: '{}:{}'",
                     userPhone, fromIdentity, targetQueue, targetBot, confirmSuccessBlockId);
+
+            // Push de extras preventivo
+            try {
+                FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
+                String patientName = (patient.name() == null || patient.name().isBlank()) ? "Paciente" : patient.name();
+                String formattedBirthdate = formatBirthdate(patient.birthdate());
+                
+                String resolvedDoctorName = "Clínica Inovare";
+                var pushMappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
+                if (pushMappingOpt.isPresent()) {
+                    String mappingName = pushMappingOpt.get().getProfissionalNome();
+                    if (mappingName != null && !mappingName.isBlank() && !"null".equalsIgnoreCase(mappingName.trim())) {
+                        resolvedDoctorName = mappingName.trim();
+                    }
+                }
+                
+                br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload appointmentPayload = 
+                    br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentPayload.builder()
+                        .action("confirm")
+                        .doctorName(resolvedDoctorName)
+                        .queue(targetQueue)
+                        .patientName(patientName)
+                        .patientCPF(patient.cpf())
+                        .patientBirthdate(formattedBirthdate)
+                        .build();
+                        
+                blipContextService.processAppointmentPush(fromIdentity != null ? fromIdentity : userPhone, "confirm", appointmentPayload);
+                log.info("[CONFIRM] Push de extras de contato enviado preventivamente para a Blip.");
+            } catch (Exception ex) {
+                log.warn("[CONFIRM] Falha ao enviar processAppointmentPush preventivo: {}", ex.getMessage());
+            }
+
+            // Log informativo de rastreio de ordem preventivo
+            log.info("[WEBHOOK-FLOW] Blip carimbado preventivamente antes da chamada síncrona do ERP Feegow.");
+
+            // Chamada Feegow pós-carimbo do Blip
+            String confirmedStatusId = resolveConfirmedStatusId();
+            log.info("Enviando confirmação para Feegow: {}", session.getFeegowAppointmentId());
+            try {
+                appointmentExternalPort.updateAppointmentStatus(session.getFeegowAppointmentId(), confirmedStatusId);
+                log.info("Resposta do Feegow: SUCCESS");
+            } catch (Exception ex) {
+                log.error("Resposta do Feegow: ERROR");
+                log.error("[CONFIRM] Falha ao atualizar status na Feegow para ID: {}. Detalhes: {}", 
+                    session.getFeegowAppointmentId(), ex.getMessage());
+                throw new RuntimeException("Falha na atualização do Feegow para o agendamento " + session.getFeegowAppointmentId() + ". Cancelando confirmação local (rollback).", ex);
+            }
+            confirmationStateMachineService.markConfirmed(session);
         }
+    }
+
+    private String formatBirthdate(String birthdate) {
+        if (birthdate == null || birthdate.isBlank()) {
+            return "";
+        }
+        String clean = birthdate.trim();
+        if (clean.matches("\\d{2}/\\d{2}/\\d{4}")) {
+            return clean;
+        }
+        try {
+            java.time.LocalDate date;
+            if (clean.contains("-")) {
+                if (clean.indexOf('-') == 4) { // AAAA-MM-DD
+                    date = java.time.LocalDate.parse(clean);
+                } else { // DD-MM-AAAA
+                    date = java.time.LocalDate.parse(clean, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                }
+                return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        } catch (Exception e) {
+            log.warn("[FORMAT] Falha ao formatar data de nascimento: {}", birthdate);
+        }
+        return clean;
     }
 
     private String resolveConfirmedStatusId() {

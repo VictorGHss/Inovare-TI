@@ -249,13 +249,26 @@ public class IngestAppointmentsUseCase {
                 })
                 .collect(Collectors.toList());
 
-        java.util.Set<String> patientIds = activeAppointments.stream()
+        // De-duplicação baseada no ID do agendamento (feegowAppointmentId) antes do agrupamento
+        java.util.Set<String> idsProcessados = new java.util.HashSet<>();
+        List<FeegowAppointment> uniqueActiveAppointments = activeAppointments.stream()
+                .filter(a -> {
+                    String normId = normalizeFeegowAppointmentId(a.id());
+                    boolean isNew = idsProcessados.add(normId);
+                    if (!isNew) {
+                        log.info("[DE-DUPLICAÇÃO] Agendamento duplicado ID={} descartado da ingestão.", normId);
+                    }
+                    return isNew;
+                })
+                .collect(Collectors.toList());
+
+        java.util.Set<String> patientIds = uniqueActiveAppointments.stream()
                 .map(appointment -> appointment.patientId())
                 .collect(Collectors.toSet());
 
         Map<String, FeegowPatient> patientDetailsCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(patientIds);
 
-        Map<String, List<FeegowAppointment>> grouped = activeAppointments.stream()
+        Map<String, List<FeegowAppointment>> grouped = uniqueActiveAppointments.stream()
                 .collect(Collectors.groupingBy(appointment -> {
                     FeegowPatient patient = patientDetailsCache.get(appointment.patientId());
                     String phone = patient != null ? patient.phone() : null;

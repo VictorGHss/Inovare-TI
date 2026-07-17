@@ -357,10 +357,9 @@ public class HandleBlipWebhookUseCase {
                             ? patient.cpf().replaceAll("\\D", "") 
                             : (catracaCpf != null ? catracaCpf.replaceAll("\\D", "") : "");
 
-                        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                        String dateStr = session.getAppointmentAt().format(dtf);
-                        String inicioVisita = dateStr + " 06:00";
-                        String fimVisita = dateStr + " 23:59";
+                        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+                        String inicioVisita = session.getAppointmentAt().minusHours(2).format(dtf);
+                        String fimVisita = session.getAppointmentAt().toLocalDate().atTime(21, 0).format(dtf);
 
                         br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest visitorRequest = 
                             br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest.builder()

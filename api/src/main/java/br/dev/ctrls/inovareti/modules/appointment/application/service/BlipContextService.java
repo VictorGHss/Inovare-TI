@@ -355,9 +355,21 @@ public class BlipContextService {
             if (resourceNode instanceof Map<?, ?> resourceMap) {
                 Object itemsNode = resourceMap.get("items");
                 if (itemsNode instanceof java.util.Collection<?> itemsList) {
-                    boolean hasActive = !itemsList.isEmpty();
+                    boolean hasActive = false;
+                    for (Object itemObj : itemsList) {
+                        if (itemObj instanceof Map<?, ?> itemMap) {
+                            Object statusVal = itemMap.get("status");
+                            if (statusVal != null) {
+                                String status = statusVal.toString().trim();
+                                if ("Open".equalsIgnoreCase(status) || "Waiting".equalsIgnoreCase(status)) {
+                                    hasActive = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     if (hasActive) {
-                        log.info("[ATTENDANCE-GUARD] Contato {} possui {} tickets de live chat ativos no Desk.", normalizedIdentity, itemsList.size());
+                        log.info("[ATTENDANCE-GUARD] Contato {} possui tickets de live chat ativos no Desk (status Open/Waiting).", normalizedIdentity);
                     }
                     return hasActive;
                 }

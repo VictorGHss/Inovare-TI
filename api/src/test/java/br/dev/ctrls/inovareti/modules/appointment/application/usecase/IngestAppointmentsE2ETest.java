@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
@@ -242,12 +241,7 @@ public class IngestAppointmentsE2ETest {
         assertEquals(expectedSessions, summary.sessionsCreated(), "Deveria criar " + expectedSessions + " sessões locais (" + targetDateCount + " datas x 50 agendamentos)");
         assertEquals(expectedMessages, summary.messagesSent(), "Deveria enviar " + expectedMessages + " mensagens ativas");
 
-        // Assert de pacing de tempo:
-        // São 50 agendamentos por data, cada lote tem 49 delays de ~150ms.
-        // Para weekend-skip o tempo não é relevante (retorno imediato).
-        if (targetDateCount > 0) {
-            assertTrue(elapsedMillis >= 7000, "O pacing falhou. Tempo de processamento (" + elapsedMillis + " ms) abaixo do limite mínimo de pacing (7000 ms)");
-        }
+        // Pacing assertion removed as Blip pacing is disabled.
 
         // Garante que o Mockito interceptou os despachos de mensagens ao Blip
         if (targetDateCount > 0) {

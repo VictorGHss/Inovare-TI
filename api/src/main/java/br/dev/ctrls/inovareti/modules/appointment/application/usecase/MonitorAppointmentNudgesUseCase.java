@@ -391,14 +391,7 @@ public class MonitorAppointmentNudgesUseCase {
     }
 
     private void aplicarPacingDelay() {
-        long delayMillis = java.util.concurrent.ThreadLocalRandom.current().nextLong(150, 301);
-        log.info("[PACING-LOG] Aplicando espaçamento temporal controlado de {} milissegundos nas notificações de nudges/cancelamento para respeitar o Rate Limit do Blip.", delayMillis);
-        try {
-            Thread.sleep(delayMillis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("[PACING-LOG] O delay de espaçamento de nudges foi interrompido: {}", e.getMessage());
-        }
+        // No-op: Blip rate limits are not an issue for notifications/nudges
     }
 
     private LocalDateTime resolvePendingThreshold(int xHours) {

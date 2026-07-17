@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle, ArrowLeft, Settings2, Database, Tag, FileText, Share2, HelpCircle } from 'lucide-react';
+import { Save, Globe, User as UserIcon, Clock3, MessageSquare, DollarSign, Activity, MessageCircle, ArrowLeft, Settings2, Database, Tag, FileText, Share2, HelpCircle, Stethoscope } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,9 +17,10 @@ import CategoriesSection from './CategoriesSection';
 import BackupsSection from './BackupsSection';
 import TagsSection from './TagsSection';
 import FaqManagement from '../FaqManagement';
+import DoctorConfigPanel from './DoctorConfigPanel';
 
 type TabType = 'system' | 'profile';
-type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups' | 'faq';
+type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups' | 'faq' | 'doctor-config';
 
 const inputClassName =
   'w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#feb56c]/60 focus:border-[#feb56c] transition-all';
@@ -255,6 +256,13 @@ export default function Settings() {
         icon: Database,
         color: 'bg-[#feb56c]/10 text-[#feb56c]',
       },
+      {
+        id: 'doctor-config' as SubSectionType,
+        title: 'Configurações de Médicos',
+        desc: 'Gerencie credenciais de catraca (GerAcesso) e filas Blip por profissional.',
+        icon: Stethoscope,
+        color: 'bg-[#feb56c]/10 text-[#feb56c]',
+      },
     ] : []),
     ...(isSystemVisible ? [
       {
@@ -278,6 +286,7 @@ export default function Settings() {
     tags: 'Tags e Macros Contextuais',
     backups: 'Backups do Sistema',
     faq: 'FAQ da TI',
+    'doctor-config': 'Configurações de Médicos',
   };
 
   const subSectionDescriptions: Record<SubSectionType, string> = {
@@ -291,6 +300,7 @@ export default function Settings() {
     tags: 'Configure tags visuais com cores e macros para resoluções de um clique.',
     backups: 'Gere backups de banco de dados, baixe snapshots de segurança ou delete antigos.',
     faq: 'Configure as palavras-chave (gatilhos do Discord), perguntas e respostas automáticas que o bot usa no comando /ajuda.',
+    'doctor-config': 'Gerencie credenciais de catraca (GerAcesso) e filas do Blip associadas a cada médico da clínica.',
   };
 
   const renderBackHeader = () => (
@@ -739,6 +749,19 @@ export default function Settings() {
                 >
                   {renderBackHeader()}
                   <FaqManagement />
+                </motion.div>
+              )}
+
+              {activeSubSection === 'doctor-config' && (
+                <motion.div
+                  key="doctor-config"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderBackHeader()}
+                  <DoctorConfigPanel />
                 </motion.div>
               )}
             </AnimatePresence>

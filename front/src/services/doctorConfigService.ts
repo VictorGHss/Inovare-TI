@@ -1,6 +1,6 @@
 import api, { buildApiUrl } from './api';
 
-const BASE_URL = buildApiUrl('/api/v1/doctors/configurations');
+const BASE_URL = buildApiUrl('/v1/doctors/configurations');
 
 /**
  * Represents the configuration for a doctor, including credentials for

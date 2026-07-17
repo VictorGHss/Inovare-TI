@@ -17,7 +17,6 @@ import CategoriesSection from './CategoriesSection';
 import BackupsSection from './BackupsSection';
 import TagsSection from './TagsSection';
 import FaqManagement from '../FaqManagement';
-import DoctorConfigPanel from './DoctorConfigPanel';
 
 type TabType = 'system' | 'profile';
 type SubSectionType = 'menu' | 'integrations' | 'system-params' | 'sla' | 'reports' | 'feegow' | 'categories' | 'tags' | 'backups' | 'faq';
@@ -681,7 +680,6 @@ export default function Settings() {
                   {renderBackHeader()}
                   <AppointmentControlPanel />
                   <ProfessionalMappingPanel />
-                  <DoctorConfigPanel />
                   <BlipDeliveryFailuresPanel />
                 </motion.div>
               )}

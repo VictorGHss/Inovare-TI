@@ -70,8 +70,8 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
     ) {
         String queryApptId = (appointmentId != null && !appointmentId.isBlank()) ? appointmentId.trim() : null;
 
-        java.util.List<Integer> errorCodes = null;
-        java.util.List<Integer> notInErrorCodes = null;
+        java.util.List<Integer> errorCodes = java.util.Collections.singletonList(-999);
+        java.util.List<Integer> notInErrorCodes = java.util.Collections.singletonList(-999);
         boolean filterByCodes = false;
         boolean filterByNotInCodes = false;
 
@@ -82,8 +82,9 @@ public class BlipDeliveryFailureRepositoryAdapter implements BlipDeliveryFailure
                 filterByNotInCodes = true;
             } else {
                 // Busca os códigos correspondentes à categoria fornecida
-                errorCodes = BlipErrorClassifier.getErrorCodesByCategory(category.trim());
-                if (errorCodes != null && !errorCodes.isEmpty()) {
+                java.util.List<Integer> codes = BlipErrorClassifier.getErrorCodesByCategory(category.trim());
+                if (codes != null && !codes.isEmpty()) {
+                    errorCodes = codes;
                     filterByCodes = true;
                 }
             }

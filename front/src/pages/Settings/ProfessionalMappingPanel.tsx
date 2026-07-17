@@ -13,8 +13,13 @@ import {
   type DoctorMapping,
   type BlipQueue,
 } from '../../services/doctorMappingService';
+import {
+  getAll as getAllConfigs,
+  save as saveConfig,
+  type DoctorConfiguration,
+} from '../../services/doctorConfigService';
 
-interface LegacyDoctorMapping extends DoctorMapping {
+interface MergedDoctorMapping extends DoctorMapping {
   blip_queue_id?: string;
   itsm_user_id?: string;
   discord_webhook_url?: string;
@@ -22,13 +27,15 @@ interface LegacyDoctorMapping extends DoctorMapping {
   profissional_nome?: string;
   is_external?: boolean;
   ignore_auto_schedule?: boolean;
+  
+  // Consolidated GerAcesso fields
+  gerAcessoMatricula?: string;
+  gerAcessoCpf?: string;
 }
-
-
 
 export default function ProfessionalMappingPanel() {
   const [professionals, setProfessionals] = useState<FeegowProfessional[]>([]);
-  const [mappings, setMappings] = useState<DoctorMapping[]>([]);
+  const [mappings, setMappings] = useState<MergedDoctorMapping[]>([]);
   const [blipQueues, setBlipQueues] = useState<BlipQueue[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,123 +68,74 @@ export default function ProfessionalMappingPanel() {
 
   const hasBlipQueues = blipQueues.length > 0;
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const [pros, dbMappings, queues] = await Promise.all([
-          getFeegowProfessionals(),
-          getMappings(),
-          getBlipQueuesList(),
-        ]);
-
-        setProfessionals(Array.isArray(pros) ? pros : []);
-        const queueList = Array.isArray(queues) ? queues : [];
-        setBlipQueues(queueList);
-
-        const mappingById = new Map<string, DoctorMapping>();
-        if (Array.isArray(dbMappings)) {
-          (dbMappings as DoctorMapping[]).forEach((m) => mappingById.set(String(m.profissionalId), m));
-        }
-
-        // 1. Mapeamento a partir dos profissionais ativos retornados da API Feegow
-        const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
-          const existing = mappingById.get(String(p.id));
-          return {
-            id: existing?.id,
-            profissionalId: String(p.id ?? ''),
-            blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
-            itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
-            discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
-            profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
-            ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
-          } as DoctorMapping;
-        });
-
-        // 2. Mesclagem bidirecional: inclui todos os mapeamentos cadastrados no banco de dados
-        // que não estão na lista de profissionais ativos da Feegow (evita dados em branco/ocultação)
-        const proIds = new Set((Array.isArray(pros) ? pros : []).map((p) => String(p.id)));
-        if (Array.isArray(dbMappings)) {
-          dbMappings.forEach((m) => {
-            const mappedId = String(m.profissionalId);
-            if (mappedId && !proIds.has(mappedId)) {
-              merged.push({
-                id: m.id,
-                profissionalId: mappedId,
-                blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
-                itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
-                discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
-                profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
-                ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
-              } as DoctorMapping);
-            }
-          });
-        }
-
-        setMappings(merged);
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, 'Falha ao carregar profissionais ou mapeamentos.'));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void load();
-  }, []);
-
-  async function handleSyncData() {
+  async function loadData() {
     try {
-      setSyncingData(true);
-      const [pros, queues, dbMappings] = await Promise.all([
+      setLoading(true);
+      const [pros, dbMappings, dbConfigs, queues] = await Promise.all([
         getFeegowProfessionals(),
-        getBlipQueuesList(),
         getMappings(),
+        getAllConfigs(),
+        getBlipQueuesList(),
       ]);
 
       setProfessionals(Array.isArray(pros) ? pros : []);
       const queueList = Array.isArray(queues) ? queues : [];
       setBlipQueues(queueList);
 
-      const mappingById = new Map<string, DoctorMapping>();
+      const mappingById = new Map<string, MergedDoctorMapping>();
       if (Array.isArray(dbMappings)) {
-        (dbMappings as DoctorMapping[]).forEach((m) => mappingById.set(String(m.profissionalId), m));
+        (dbMappings as MergedDoctorMapping[]).forEach((m) => mappingById.set(String(m.profissionalId), m));
       }
 
-      // 1. Mapeamento a partir dos profissionais ativos retornados da API Feegow
-      const merged: DoctorMapping[] = (Array.isArray(pros) ? pros : []).map((p) => {
-        const existing = mappingById.get(String(p.id));
+      const configById = new Map<string, DoctorConfiguration>();
+      if (Array.isArray(dbConfigs)) {
+        dbConfigs.forEach((c) => configById.set(String(c.feegowProfissionalId), c));
+      }
+
+      // Collect all unique IDs from Feegow, mappings and configs
+      const allProIds = new Set<string>();
+      (Array.isArray(pros) ? pros : []).forEach((p) => allProIds.add(String(p.id)));
+      if (Array.isArray(dbMappings)) {
+        dbMappings.forEach((m) => { if (m.profissionalId) allProIds.add(String(m.profissionalId)); });
+      }
+      if (Array.isArray(dbConfigs)) {
+        dbConfigs.forEach((c) => { if (c.feegowProfissionalId) allProIds.add(String(c.feegowProfissionalId)); });
+      }
+
+      const merged: MergedDoctorMapping[] = Array.from(allProIds).map((proId) => {
+        const p = professionalsById.get(proId) || (Array.isArray(pros) ? (pros as FeegowProfessional[]).find(pr => String(pr.id) === proId) : undefined);
+        const m = mappingById.get(proId);
+        const c = configById.get(proId);
+
         return {
-          id: existing?.id,
-          profissionalId: String(p.id ?? ''),
-          blipQueueId: existing?.blipQueueId || (existing as LegacyDoctorMapping)?.blip_queue_id || '',
-          itsmUserId: existing?.itsmUserId || (existing as LegacyDoctorMapping)?.itsm_user_id || '',
-          discordWebhookUrl: existing?.discordWebhookUrl || (existing as LegacyDoctorMapping)?.discord_webhook_url || '',
-          profissionalNome: existing?.profissionalNome || (existing as LegacyDoctorMapping)?.profissional_nome || p.name || '',
-          ignoreAutoSchedule: existing?.ignoreAutoSchedule ?? (existing as LegacyDoctorMapping)?.ignore_auto_schedule ?? false,
-        } as DoctorMapping;
+          id: m?.id,
+          profissionalId: proId,
+          blipQueueId: m?.blipQueueId || m?.blip_queue_id || c?.blipQueueId || '',
+          itsmUserId: m?.itsmUserId || m?.itsm_user_id || '',
+          discordWebhookUrl: m?.discordWebhookUrl || m?.discord_webhook_url || '',
+          profissionalNome: m?.profissionalNome || m?.profissional_nome || c?.doctorName || p?.name || `Sem nome (ID ${proId})`,
+          ignoreAutoSchedule: m?.ignoreAutoSchedule ?? m?.ignore_auto_schedule ?? false,
+          gerAcessoMatricula: c?.gerAcessoMatricula || '',
+          gerAcessoCpf: c?.gerAcessoCpf || '',
+        } as MergedDoctorMapping;
       });
 
-      // 2. Mesclagem bidirecional: inclui todos os mapeamentos cadastrados no banco de dados
-      // que não estão na lista de profissionais ativos da Feegow (evita dados em branco/ocultação)
-      const proIds = new Set((Array.isArray(pros) ? pros : []).map((p) => String(p.id)));
-      if (Array.isArray(dbMappings)) {
-        dbMappings.forEach((m) => {
-          const mappedId = String(m.profissionalId);
-          if (mappedId && !proIds.has(mappedId)) {
-            merged.push({
-              id: m.id,
-              profissionalId: mappedId,
-              blipQueueId: m.blipQueueId || (m as LegacyDoctorMapping).blip_queue_id || '',
-              itsmUserId: m.itsmUserId || (m as LegacyDoctorMapping).itsm_user_id || '',
-              discordWebhookUrl: m.discordWebhookUrl || (m as LegacyDoctorMapping).discord_webhook_url || '',
-              profissionalNome: m.profissionalNome || (m as LegacyDoctorMapping).profissional_nome || `Sem nome (ID ${mappedId})`,
-              ignoreAutoSchedule: m.ignoreAutoSchedule ?? (m as LegacyDoctorMapping).ignore_auto_schedule ?? false,
-            } as DoctorMapping);
-          }
-        });
-      }
-
       setMappings(merged);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Falha ao carregar profissionais ou mapeamentos.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  async function handleSyncData() {
+    try {
+      setSyncingData(true);
+      await loadData();
       toast.success('Dados sincronizados com sucesso.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Falha ao sincronizar dados.'));
@@ -186,16 +144,22 @@ export default function ProfessionalMappingPanel() {
     }
   }
 
-  const hasChanges = useMemo(() => true, []); // allow save for simplicity
+  const hasChanges = useMemo(() => true, []);
 
-  function updateField(profissionalId: string, field: keyof DoctorMapping, value: string | boolean) {
-    setMappings((current) => current.map((m) => (String(m.profissionalId) === String(profissionalId) ? { ...m, [field]: value } : m)));
+  function updateField(profissionalId: string, field: keyof MergedDoctorMapping, value: string | boolean) {
+    setMappings((current) =>
+      current.map((m) =>
+        String(m.profissionalId) === String(profissionalId) ? { ...m, [field]: value } : m
+      )
+    );
   }
 
   async function handleSave() {
     try {
       setSaving(true);
-      const payload = mappings.map((m) => ({
+
+      // 1. Save appointment doctor mappings
+      const mappingPayload = mappings.map((m) => ({
         profissionalId: String(m.profissionalId),
         blipQueueId: String(m.blipQueueId ?? '').trim(),
         itsmUserId: String(m.itsmUserId ?? '').trim(),
@@ -203,21 +167,36 @@ export default function ProfessionalMappingPanel() {
         profissionalNome: String(m.profissionalNome ?? '').trim(),
         ignoreAutoSchedule: Boolean(m.ignoreAutoSchedule),
       }));
-      try {
-        const resp = await syncMappings(payload);
-        const status = resp?.status ?? 0;
-        if (status >= 200 && status < 300) {
-          toast.success('Mapeamentos salvos com sucesso.');
-        } else {
-          const fakeError = { response: { data: resp?.data } } as unknown;
-          const reason = getApiErrorMessage(fakeError, resp?.data?.reason ?? resp?.statusText ?? `HTTP ${status}`);
-          toast.error(reason);
-        }
-      } catch (err) {
-        toast.error(getApiErrorMessage(err, 'Falha ao salvar mapeamentos.'));
+
+      // 2. Save doctor configs (GerAcesso credentials)
+      const configPayloads = mappings
+        .filter((m) => m.profissionalId && !isNaN(Number(m.profissionalId)))
+        .map((m) => ({
+          feegowProfissionalId: Number(m.profissionalId),
+          doctorName: String(m.profissionalNome ?? '').trim(),
+          gerAcessoMatricula: String(m.gerAcessoMatricula ?? '').trim(),
+          gerAcessoCpf: String(m.gerAcessoCpf ?? '').replaceAll(/\D/g, '').trim(),
+          blipQueueId: String(m.blipQueueId ?? '').trim(),
+          blipQueueName: blipQueues.find((q) => q.id === m.blipQueueId)?.name || '',
+        }));
+
+      // Fire both save calls
+      const [mappingResp] = await Promise.all([
+        syncMappings(mappingPayload),
+        ...configPayloads.map((cfg) => saveConfig(cfg)),
+      ]);
+
+      const status = mappingResp?.status ?? 0;
+      if (status >= 200 && status < 300) {
+        toast.success('Mapeamentos e credenciais salvos com sucesso.');
+        void loadData(); // Reload from DB to confirm values
+      } else {
+        const fakeError = { response: { data: mappingResp?.data } } as unknown;
+        const reason = getApiErrorMessage(fakeError, mappingResp?.data?.reason ?? mappingResp?.statusText ?? `HTTP ${status}`);
+        toast.error(reason);
       }
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Falha ao salvar mapeamentos.'));
+      toast.error(getApiErrorMessage(error, 'Falha ao salvar mapeamentos e credenciais de médicos.'));
     } finally {
       setSaving(false);
     }
@@ -229,7 +208,7 @@ export default function ProfessionalMappingPanel() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900">Mapeamento de Profissionais (Feegow)</h2>
-            <p className="mt-0.5 text-xs text-slate-500">Edite exibição, fila e rota por profissional.</p>
+            <p className="mt-0.5 text-xs text-slate-500">Edite fila, credenciais de catraca (GerAcesso) e configuracoes do profissional.</p>
           </div>
 
           <div className="flex gap-2">
@@ -261,30 +240,30 @@ export default function ProfessionalMappingPanel() {
       </header>
 
       <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600 gap-4">
-          <div className="space-y-1">
-            {missingIdCount > 0 ? (
-              <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
-            ) : null}
-            {!hasBlipQueues ? (
-              <p>Filas do Blip indisponíveis no momento. Verifique a integração do Blip.</p>
-            ) : null}
-          </div>
-          <label className="inline-flex items-center gap-2 cursor-pointer font-semibold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-all hover:bg-slate-50">
-            <input
-              type="checkbox"
-              className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-            />
-            Mostrar profissionais inativos / duplicados
-          </label>
+        <div className="space-y-1">
+          {missingIdCount > 0 ? (
+            <p>Há {missingIdCount} profissional(is) sem ID da Feegow. Essas linhas serão ignoradas ao salvar.</p>
+          ) : null}
+          {!hasBlipQueues ? (
+            <p>Filas do Blip indisponíveis no momento. Verifique a integração do Blip.</p>
+          ) : null}
         </div>
+        <label className="inline-flex items-center gap-2 cursor-pointer font-semibold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-all hover:bg-slate-50">
+          <input
+            type="checkbox"
+            className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+          />
+          Mostrar profissionais inativos / duplicados
+        </label>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Display Name', 'Fila Blip', 'Ignorar auto', 'Ações'].map((col) => (
+              {['ID', 'Nome Feegow', 'Fila Blip', 'CPF Catraca', 'Matrícula Catraca', 'Ignorar auto', 'Ações'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -293,11 +272,11 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : filteredMappings.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
               filteredMappings.map((row, idx) => {
@@ -320,61 +299,79 @@ export default function ProfessionalMappingPanel() {
 
                 return (
                   <tr key={`${row.profissionalId}-${idx}`} className={`hover:bg-slate-50/80 transition-colors ${isInactiveRow ? 'bg-slate-100/50 opacity-70' : ''}`}>
-                    <td className={`px-4 py-3 align-middle ${isMissingId ? 'text-rose-600' : ''}`}>
+                    <td className={`px-4 py-3 align-middle font-mono text-xs ${isMissingId ? 'text-rose-600' : 'text-slate-650'}`}>
                       {isMissingId ? 'ID ausente' : profissionalId}
                     </td>
-                    <td className="px-4 py-3 align-middle font-medium text-slate-700">{resolvedFeegowName}</td>
-                  <td className="px-4 py-3 align-middle">
-                    <span className="font-medium text-slate-800">{row.profissionalNome || resolvedFeegowName}</span>
-                  </td>
+                    <td className="px-4 py-3 align-middle">
+                      <span className="font-semibold text-slate-800">{row.profissionalNome || resolvedFeegowName}</span>
+                    </td>
 
-                  <td className="px-4 py-3 align-middle">
-                    <SearchableDropdown
-                      options={rowOptions}
-                      value={row.blipQueueId || ''}
-                      onChange={(val) => updateField(row.profissionalId, 'blipQueueId', val)}
-                      placeholder="Selecionar fila do Blip"
-                      disabled={!hasBlipQueues}
-                    />
-                  </td>
+                    <td className="px-4 py-3 align-middle min-w-[200px]">
+                      <SearchableDropdown
+                        options={rowOptions}
+                        value={row.blipQueueId || ''}
+                        onChange={(val) => updateField(row.profissionalId, 'blipQueueId', val)}
+                        placeholder="Selecionar fila do Blip"
+                        disabled={!hasBlipQueues}
+                      />
+                    </td>
 
-                  <td className="px-4 py-3 align-middle">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-                      checked={Boolean(row.ignoreAutoSchedule)}
-                      onChange={(e) => updateField(row.profissionalId, 'ignoreAutoSchedule', e.target.checked)}
-                    />
-                  </td>
+                    <td className="px-4 py-3 align-middle w-36">
+                      <input
+                        type="text"
+                        maxLength={11}
+                        placeholder="CPF (só dígitos)"
+                        value={row.gerAcessoCpf || ''}
+                        onChange={(e) => updateField(row.profissionalId, 'gerAcessoCpf', e.target.value.replace(/\D/g, ''))}
+                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
+                      />
+                    </td>
 
+                    <td className="px-4 py-3 align-middle w-32">
+                      <input
+                        type="text"
+                        placeholder="Matrícula"
+                        value={row.gerAcessoMatricula || ''}
+                        onChange={(e) => updateField(row.profissionalId, 'gerAcessoMatricula', e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
+                      />
+                    </td>
 
+                    <td className="px-4 py-3 align-middle text-center">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                        checked={Boolean(row.ignoreAutoSchedule)}
+                        onChange={(e) => updateField(row.profissionalId, 'ignoreAutoSchedule', e.target.checked)}
+                      />
+                    </td>
 
-                  <td className="px-4 py-3 align-middle">
-                    {isInactiveRow ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateField(row.profissionalId, 'blipQueueId', '');
-                          toast.info('Restaurado. Clique em "Salvar Mapeamentos" para gravar.');
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
-                      >
-                        Restaurar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateField(row.profissionalId, 'blipQueueId', 'inactive');
-                          toast.info('Marcado como Inativo. Clique em "Salvar Mapeamentos" para gravar.');
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-sm"
-                      >
-                        <Trash2 size={14} />
-                        Inativar
-                      </button>
-                    )}
-                  </td>
+                    <td className="px-4 py-3 align-middle">
+                      {isInactiveRow ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateField(row.profissionalId, 'blipQueueId', '');
+                            toast.info('Restaurado. Clique em "Salvar Mapeamentos" para gravar.');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+                        >
+                          Restaurar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateField(row.profissionalId, 'blipQueueId', 'inactive');
+                            toast.info('Marcado como Inativo. Clique em "Salvar Mapeamentos" para gravar.');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-sm"
+                        >
+                          <Trash2 size={13} />
+                          Inativar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })

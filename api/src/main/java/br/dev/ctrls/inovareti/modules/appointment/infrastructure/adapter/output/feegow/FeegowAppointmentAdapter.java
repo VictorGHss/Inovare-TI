@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
@@ -55,6 +56,14 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
     private final ObjectMapper objectMapper;
     private final FeegowAppointmentClient appointmentClient;
 
+    /**
+     * Limits the number of concurrent outbound HTTP/2 streams to the Feegow API.
+     * Without this guard, Virtual Threads would saturate the HTTP/2 stream limit
+     * (typically 100 per connection) within the same millisecond during batch ingestion,
+     * causing "too many concurrent streams" errors.
+     */
+    private final Semaphore feegowConcurrencySemaphore = new Semaphore(4);
+
     @Override
     public List<FeegowAppointment> searchAppointments(LocalDate date, int statusId) {
         return searchAppointments(date, statusId, null);
@@ -89,6 +98,15 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
         log.info("[FEEGOW] [APPOINTMENT-ADAPTER] Buscando agendamentos na URL: {}", uri);
 
         try {
+            log.debug("[FEEGOW] [SEMÁFORO] Aguardando permissão para buscar agendamentos. Permissões disponíveis: {}", feegowConcurrencySemaphore.availablePermits());
+            feegowConcurrencySemaphore.acquire();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            log.warn("[FEEGOW] [APPOINTMENT-ADAPTER] Thread interrompida enquanto aguardava o semáforo de concorrência. Abortando busca para URL: {}", uri);
+            return List.of();
+        }
+
+        try {
             ResponseEntity<String> response = appointmentClient.searchAppointments(uri, getAccessToken());
             List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> searchItems = extractSearchItems(response.getBody());
             if (searchItems.isEmpty()) {
@@ -116,6 +134,9 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
         } catch (Exception ex) {
             log.warn("Falha ao buscar agendamentos na Feegow: {}", ex.getMessage());
             throw ex;
+        } finally {
+            feegowConcurrencySemaphore.release();
+            log.debug("[FEEGOW] [SEMÁFORO] Permissão liberada após busca de agendamentos. Permissões disponíveis: {}", feegowConcurrencySemaphore.availablePermits());
         }
     }
 

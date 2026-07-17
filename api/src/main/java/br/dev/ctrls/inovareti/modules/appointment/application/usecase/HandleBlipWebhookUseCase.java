@@ -23,6 +23,7 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSa
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.BlipDeliveryFailure;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.NotificationGroup;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort;
@@ -888,6 +889,22 @@ public class HandleBlipWebhookUseCase {
                     .build();
 
             blipDeliveryFailureRepository.save(domainModel);
+
+            // Busca a sessão do agendamento correspondente e atualiza para ERROR_DELIVERY
+            if (failureCommand.appointmentId() != null && !failureCommand.appointmentId().isBlank()) {
+                log.error("[MOTOR-MENSAGERIA] Falha crítica de entrega notificada pela Blip. Atualizando agendamento ID: {} para ERROR_DELIVERY. Motivo: {}",
+                        failureCommand.appointmentId(), failureCommand.errorMessage());
+                Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(failureCommand.appointmentId());
+                if (sessionOpt.isPresent()) {
+                    AppointmentSession session = sessionOpt.get();
+                    session.setStatus(AppointmentSessionStatus.ERROR_DELIVERY);
+                    session.setStatusDetails(String.format("Erro de entrega Blip: %s - %s",
+                            failureCommand.errorCode(), failureCommand.errorMessage()));
+                    appointmentSessionRepository.save(session);
+                } else {
+                    log.warn("[MOTOR-MENSAGERIA] Sessão não encontrada para atualizar status de falha de entrega. Agendamento ID: {}", failureCommand.appointmentId());
+                }
+            }
 
             // Registra o evento no histórico de auditoria
             auditPort.record(

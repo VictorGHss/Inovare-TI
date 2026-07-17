@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -100,16 +101,35 @@ public class IngestAppointmentsUseCase {
     }
 
     public IngestionSummary execute(List<String> doctorIds) {
-        java.time.DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
-        LocalDate targetDate;
-        if (dayOfWeek == java.time.DayOfWeek.FRIDAY) {
-            targetDate = LocalDate.now().plusDays(3);
-        } else {
-            targetDate = LocalDate.now().plusDays(1);
-        }
-        log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
+        LocalDate today = LocalDate.now();
+        DayOfWeek dayOfWeek = today.getDayOfWeek();
 
-        List<FeegowAppointment> appointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
+        // Guard: motor must not process anything on weekends
+        if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+            log.info("[MOTOR-INGESTÃO] Dia da semana detectado: {}. Motor não opera aos finais de semana. Encerrando sem processar.", dayOfWeek);
+            return new IngestionSummary(0, 0, 0, 0, "WEEKEND_SKIP");
+        }
+
+        // Resolve the list of target dates based on the current day of the week
+        List<LocalDate> targetDates;
+        if (dayOfWeek == DayOfWeek.FRIDAY) {
+            // Friday: fetch today (Fri), tomorrow (Sat) and Monday (T+3) preventively
+            targetDates = List.of(today, today.plusDays(1), today.plusDays(3));
+        } else {
+            // Monday–Thursday: standard window — today (T) and tomorrow (T+1)
+            targetDates = List.of(today, today.plusDays(1));
+        }
+
+        log.info("[MOTOR-INGESTÃO] Dia da semana detectado: {}. Alocando pipeline de busca para as datas: {}", dayOfWeek, targetDates);
+
+        // Aggregate appointments from every target date into a single deduplicated list
+        List<FeegowAppointment> appointments = new ArrayList<>();
+        for (LocalDate targetDate : targetDates) {
+            log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
+            List<FeegowAppointment> dailyAppointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
+            appointments.addAll(dailyAppointments);
+        }
+
         int total = appointments.size();
 
         // Filtro de Encaixe: ignora agendamentos que possuem a flag encaixe ativa

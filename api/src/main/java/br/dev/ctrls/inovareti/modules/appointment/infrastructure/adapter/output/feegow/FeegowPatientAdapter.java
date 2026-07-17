@@ -3,6 +3,7 @@ package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -40,6 +41,14 @@ public class FeegowPatientAdapter implements PatientExternalPort {
     private final ObjectMapper objectMapper;
     private final FeegowPatientClient patientClient;
 
+    /**
+     * Limits the number of concurrent outbound HTTP/2 streams to the Feegow API.
+     * Without this guard, Virtual Threads would saturate the HTTP/2 stream limit
+     * (typically 100 per connection) within the same millisecond during batch patient lookups,
+     * causing "too many concurrent streams" errors.
+     */
+    private final Semaphore feegowConcurrencySemaphore = new Semaphore(4);
+
     @Override
     public FeegowPatient patientInfo(String patientId) {
         FeegowPatientDetailsDto.PatientItem patientDetails = getPatientDetails(patientId);
@@ -76,11 +85,23 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         log.info("[FEEGOW] [PATIENT-ADAPTER] Buscando detalhes do paciente ID: {} na URL: {}", patientId, uri);
 
         try {
+            log.debug("[FEEGOW] [SEMÁFORO] Aguardando permissão para buscar detalhes do paciente {}. Permissões disponíveis: {}", patientId, feegowConcurrencySemaphore.availablePermits());
+            feegowConcurrencySemaphore.acquire();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            log.warn("[FEEGOW] [PATIENT-ADAPTER] Thread interrompida enquanto aguardava o semáforo de concorrência para o paciente {}. Abortando busca.", patientId);
+            return null;
+        }
+
+        try {
             ResponseEntity<String> response = patientClient.getPatientDetails(uri, getAccessToken());
             return extractPatientDetails(response.getBody());
         } catch (Exception ex) {
             log.warn("Erro ao buscar detalhes do paciente id={} na Feegow: {}", patientId, ex.getMessage());
             throw ex;
+        } finally {
+            feegowConcurrencySemaphore.release();
+            log.debug("[FEEGOW] [SEMÁFORO] Permissão liberada após busca do paciente {}. Permissões disponíveis: {}", patientId, feegowConcurrencySemaphore.availablePermits());
         }
     }
 

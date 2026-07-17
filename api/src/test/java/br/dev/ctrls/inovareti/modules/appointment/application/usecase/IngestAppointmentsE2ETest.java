@@ -1,5 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -172,8 +174,32 @@ public class IngestAppointmentsE2ETest {
         }
 
         // Mock das buscas da Feegow e chamadas do Blip
-        when(feegowAppointmentSearcher.searchAppointments(any())).thenReturn(appointments);
-        when(feegowAppointmentSearcher.searchAppointments(any(), any())).thenReturn(appointments);
+        when(feegowAppointmentSearcher.searchAppointments(any(LocalDate.class))).thenAnswer(invocation -> {
+            LocalDate targetDate = invocation.getArgument(0);
+            List<FeegowAppointment> list = new ArrayList<>();
+            int dayOffset = targetDate.getDayOfMonth() * 100000;
+            for (FeegowAppointment a : appointments) {
+                int uniqueId = Integer.parseInt(a.id()) + dayOffset;
+                list.add(new FeegowAppointment(
+                    String.valueOf(uniqueId), a.patientId(), a.doctorId(), a.doctorName(), a.unitName(),
+                    targetDate.atTime(8, 0), a.statusId(), a.procedureName(), a.procedureId(), a.encaixe()
+                ));
+            }
+            return list;
+        });
+        when(feegowAppointmentSearcher.searchAppointments(any(LocalDate.class), any())).thenAnswer(invocation -> {
+            LocalDate targetDate = invocation.getArgument(0);
+            List<FeegowAppointment> list = new ArrayList<>();
+            int dayOffset = targetDate.getDayOfMonth() * 100000;
+            for (FeegowAppointment a : appointments) {
+                int uniqueId = Integer.parseInt(a.id()) + dayOffset;
+                list.add(new FeegowAppointment(
+                    String.valueOf(uniqueId), a.patientId(), a.doctorId(), a.doctorName(), a.unitName(),
+                    targetDate.atTime(8, 0), a.statusId(), a.procedureName(), a.procedureId(), a.encaixe()
+                ));
+            }
+            return list;
+        });
         when(feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(any())).thenReturn(patients);
         when(blipLIMEClient.executeMessage(any(), any())).thenReturn(Map.of("status", "success"));
         when(blipLIMEClient.executeCommand(any(), any())).thenReturn(Map.of("status", "success"));
@@ -192,20 +218,40 @@ public class IngestAppointmentsE2ETest {
         long elapsedMillis = stopWatch.getTotalTimeMillis();
 
         // COMENTÁRIO EM PORTUGUÊS (PT-BR):
-        // São 50 agendamentos. A lógica de delay controlado é aplicada a partir da segunda iteração.
-        // Portanto, teremos exatamente 49 delays.
-        // O delay mínimo teórico é de 49 * 150ms = 7350ms (7.35 segundos).
-        // Validamos que o tempo de execução total foi de pelo menos 7 segundos.
+        // O mock retorna os mesmos 50 agendamentos para cada data consultada.
+        // A quantidade de datas consultadas depende do dia da semana em que o teste roda:
+        //   - Sexta-feira: 3 datas (Sexta + Sábado + Segunda) → 150 sessões
+        //   - Segunda a Quinta: 2 datas (hoje + amanhã) → 100 sessões
+        //   - Sábado / Domingo: 0 datas (motor não opera) → 0 sessões
+        DayOfWeek today = LocalDate.now().getDayOfWeek();
+        int targetDateCount;
+        if (today == DayOfWeek.FRIDAY) {
+            targetDateCount = 3;
+        } else if (today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY) {
+            targetDateCount = 0;
+        } else {
+            targetDateCount = 2;
+        }
+        int expectedSessions = 50 * targetDateCount;
+        int expectedMessages = 50 * targetDateCount;
+
+        System.out.println("Dia da semana detectado no teste: " + today + ". Datas alvo esperadas: " + targetDateCount);
         System.out.println("Tempo total de execução do lote (E2E): " + elapsedMillis + " ms");
-        
+
         // Verifica se todas as sessões e mensagens foram criadas e despachadas
-        assertEquals(50, summary.sessionsCreated(), "Deveria criar 50 sessões locais");
-        assertEquals(50, summary.messagesSent(), "Deveria enviar 50 mensagens ativas");
-        
-        // Assert de pacing de tempo (utilizando 7 segundos como margem aceitável e segura)
-        assertTrue(elapsedMillis >= 7000, "O pacing falhou. Tempo de processamento (" + elapsedMillis + " ms) abaixo do limite mínimo de pacing (7000 ms)");
-        
+        assertEquals(expectedSessions, summary.sessionsCreated(), "Deveria criar " + expectedSessions + " sessões locais (" + targetDateCount + " datas x 50 agendamentos)");
+        assertEquals(expectedMessages, summary.messagesSent(), "Deveria enviar " + expectedMessages + " mensagens ativas");
+
+        // Assert de pacing de tempo:
+        // São 50 agendamentos por data, cada lote tem 49 delays de ~150ms.
+        // Para weekend-skip o tempo não é relevante (retorno imediato).
+        if (targetDateCount > 0) {
+            assertTrue(elapsedMillis >= 7000, "O pacing falhou. Tempo de processamento (" + elapsedMillis + " ms) abaixo do limite mínimo de pacing (7000 ms)");
+        }
+
         // Garante que o Mockito interceptou os despachos de mensagens ao Blip
-        verify(blipLIMEClient, atLeastOnce()).executeMessage(any(), any());
+        if (targetDateCount > 0) {
+            verify(blipLIMEClient, atLeastOnce()).executeMessage(any(), any());
+        }
     }
 }

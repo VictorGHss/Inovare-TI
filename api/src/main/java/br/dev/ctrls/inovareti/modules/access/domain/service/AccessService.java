@@ -14,6 +14,7 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowPatient;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,10 +43,7 @@ public class AccessService {
 
     public record DoctorAccessData(String matricula, String cpf) {}
 
-    private static final java.util.Map<String, DoctorAccessData> DOCTOR_MAP = java.util.Map.of(
-        "1", new DoctorAccessData("10001", "11111111111"),
-        "28", new DoctorAccessData("10028", "22222222222")
-    );
+
 
     /**
      * Fuso horário local da Clínica Inovare (Ponta Grossa-PR).
@@ -67,6 +65,7 @@ public class AccessService {
     private final PatientExternalPort patientExternalPort;
     private final AccessCredentialRepositoryPort accessCredentialRepositoryPort;
     private final GerAcessoClientPort gerAcessoClientPort;
+    private final DoctorConfigurationRepository doctorConfigurationRepository;
 
     private final java.util.concurrent.ConcurrentMap<String, FeegowPatient> patientCache = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -275,12 +274,9 @@ public class AccessService {
             String matricula = "";
             String doctorCpf = "";
             if (docId != null && !docId.isBlank()) {
-                DoctorAccessData docData = DOCTOR_MAP.get(docId.trim());
-                if (docData != null) {
-                    matricula = docData.matricula();
-                    doctorCpf = docData.cpf();
-                    log.info("[CATRACA-MÉDICO] Injetando dados do visitado para o profissional ID: {}", docId);
-                }
+                DoctorAccessData docData = resolveDoctorAccessData(docId);
+                matricula = docData.matricula();
+                doctorCpf = docData.cpf();
             }
 
             GerAcessoRequest titularRequest = GerAcessoRequest.builder()
@@ -397,12 +393,9 @@ public class AccessService {
         String matricula = "";
         String doctorCpf = "";
         if (docId != null && !docId.isBlank()) {
-            DoctorAccessData docData = DOCTOR_MAP.get(docId.trim());
-            if (docData != null) {
-                matricula = docData.matricula();
-                doctorCpf = docData.cpf();
-                log.info("[CATRACA-MÉDICO] Injetando dados do visitado para o profissional ID: {}", docId);
-            }
+            DoctorAccessData docData = resolveDoctorAccessData(docId);
+            matricula = docData.matricula();
+            doctorCpf = docData.cpf();
         }
 
         GerAcessoRequest request = GerAcessoRequest.builder()
@@ -495,6 +488,29 @@ public class AccessService {
         
         log.info("[AccessService] Desafio de segurança validado com sucesso para agendamento {}", appointmentId);
         return accessInfo;
+    }
+
+    private DoctorAccessData resolveDoctorAccessData(String docId) {
+        if (docId == null || docId.isBlank()) {
+            return new DoctorAccessData("", "");
+        }
+        try {
+            Long docProfId = Long.parseLong(docId.trim());
+            return doctorConfigurationRepository.findById(docProfId)
+                .map(config -> {
+                    String mat = config.getGerAcessoMatricula() != null ? config.getGerAcessoMatricula().trim() : "";
+                    String cpf = config.getGerAcessoCpf() != null ? config.getGerAcessoCpf().trim() : "";
+                    log.info("[CATRACA-MÉDICO] Injetando dados do visitado para o profissional ID: {} (Matricula: {}, CPF: {})", docId, mat, cpf);
+                    return new DoctorAccessData(mat, cpf);
+                })
+                .orElseGet(() -> {
+                    log.warn("[CATRACA-MÉDICO] Profissional ID: {} não possui metadados GerAcesso configurados na tabela doctor_configurations.", docId);
+                    return new DoctorAccessData("", "");
+                });
+        } catch (Exception ex) {
+            log.warn("[CATRACA-MÉDICO] Falha ao buscar credenciais do visitado para o profissional ID: {} - {}", docId, ex.getMessage());
+            return new DoctorAccessData("", "");
+        }
     }
 
     /**

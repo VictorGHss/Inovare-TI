@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/doctors/configurations")
+@RequestMapping("/v1/doctors/configurations")
 @RequiredArgsConstructor
 public class DoctorConfigurationController {
 

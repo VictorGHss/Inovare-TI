@@ -300,11 +300,54 @@ public class AccessController {
                 }
             }
 
+            // Validação de janela de tempo para liberação de exibição do QR Code no frontend
+            java.time.LocalDate todayDate = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
+            java.time.LocalTime nowTime = java.time.LocalTime.now(java.time.ZoneId.of("America/Sao_Paulo"));
+            
+            java.time.LocalDate itemDate = null;
+            java.time.LocalTime itemTime = null;
+            
+            if (c.getAppointmentId().equalsIgnoreCase(idAgendamento)) {
+                itemDate = accessInfo.appointmentDate();
+                itemTime = accessInfo.appointmentTime();
+            } else {
+                try {
+                    br.dev.ctrls.inovareti.modules.access.domain.model.FeegowPatientAccessInfo specificInfo = challengeCache.get(c.getAppointmentId());
+                    if (specificInfo != null) {
+                        itemDate = specificInfo.appointmentDate();
+                        itemTime = specificInfo.appointmentTime();
+                    }
+                } catch (Exception ignored) {}
+            }
+            
+            if (itemDate == null) {
+                itemDate = accessInfo.appointmentDate();
+                itemTime = accessInfo.appointmentTime();
+            }
+            
+            boolean isItemToday = itemDate != null && todayDate.equals(itemDate);
+            boolean isItemTimeOpen = false;
+            if (isItemToday) {
+                if (itemTime != null) {
+                    java.time.LocalTime openingTime = itemTime.minusMinutes(120);
+                    java.time.LocalTime closingTime = java.time.LocalTime.of(21, 0);
+                    isItemTimeOpen = !nowTime.isBefore(openingTime) && !nowTime.isAfter(closingTime);
+                } else {
+                    isItemTimeOpen = true;
+                }
+            }
+            
+            boolean isItemReleased = isItemToday && isItemTimeOpen;
+            String credentialCodeToReturn = c.getAccessCredential();
+            if (!"CPF_MISSING".equals(credentialCodeToReturn)) {
+                credentialCodeToReturn = isItemReleased ? c.getAccessCredential() : "BLOCKED_OUTSIDE_WINDOW";
+            }
+
             response.add(new br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.input.dto.AccessCredentialResponse(
                     c.getName(),
                     c.getUserType(),
                     c.getLocator(),
-                    c.getAccessCredential(),
+                    credentialCodeToReturn,
                     c.getCpf(),
                     itemDoctorName,
                     itemAppointmentDateTime,

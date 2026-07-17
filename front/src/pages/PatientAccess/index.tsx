@@ -117,6 +117,7 @@ export default function PatientAccess() {
   }, [fullscreenCard]);
 
   const openFullscreen = (index: number) => {
+    if (credentials[index]?.credentialCode === 'BLOCKED_OUTSIDE_WINDOW') return;
     setFullscreenCard(index);
     setTimeout(() => {
       if (modalRef.current && modalRef.current.requestFullscreen) {
@@ -619,17 +620,29 @@ export default function PatientAccess() {
                       </span>
 
                       {/* Bloco do QR Code */}
-                      <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center relative">
-                        <QRCodeSVG 
-                          value={cred.credentialCode}
-                          size={150} 
-                          fgColor="#0f172a"
-                          bgColor="#ffffff"
-                        />
-                        <div className="absolute top-2 right-2 flex items-center justify-center">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                          <span className="absolute w-2 h-2 rounded-full bg-emerald-500"></span>
-                        </div>
+                      <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center relative min-h-[184px] w-[184px]">
+                        {cred.credentialCode === 'BLOCKED_OUTSIDE_WINDOW' ? (
+                          <div className="flex flex-col items-center justify-center text-center p-2 space-y-2 select-none">
+                            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                              <Lock className="w-5 h-5" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Acesso Bloqueado</span>
+                            <span className="text-[9.5px] text-slate-400 font-bold leading-snug block">Liberado a partir das {cred.opensAt} no dia da consulta</span>
+                          </div>
+                        ) : (
+                          <>
+                            <QRCodeSVG 
+                              value={cred.credentialCode}
+                              size={150} 
+                              fgColor="#0f172a"
+                              bgColor="#ffffff"
+                            />
+                            <div className="absolute top-2 right-2 flex items-center justify-center">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                              <span className="absolute w-2 h-2 rounded-full bg-emerald-500"></span>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Localizador Catraca Discreto */}
@@ -685,9 +698,14 @@ export default function PatientAccess() {
                     {/* Botão Ampliar QR Code para tela cheia */}
                     <button 
                       onClick={() => openFullscreen(idx)}
-                      className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-primary-dark hover:opacity-95 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer mt-auto"
+                      disabled={cred.credentialCode === 'BLOCKED_OUTSIDE_WINDOW'}
+                      className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm mt-auto ${
+                        cred.credentialCode === 'BLOCKED_OUTSIDE_WINDOW'
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                          : 'bg-gradient-to-r from-brand-primary to-brand-primary-dark hover:opacity-95 active:scale-[0.98] text-white cursor-pointer'
+                      }`}
                     >
-                      <Maximize2 className="w-3.5 h-3.5 text-white" />
+                      <Maximize2 className="w-3.5 h-3.5" />
                       Ampliar QR Code
                     </button>
                   </div>

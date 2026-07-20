@@ -100,8 +100,8 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
-    public List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold) {
-        return springDataRepository.findByStatusAndLastNotificationSentAtBefore(status, threshold).stream()
+    public List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold, LocalDateTime minAppointmentAt) {
+        return springDataRepository.findByStatusAndLastNotificationSentAtBefore(status, threshold, minAppointmentAt).stream()
                 .map(entity -> entity.toDomain())
                 .collect(Collectors.toList());
     }

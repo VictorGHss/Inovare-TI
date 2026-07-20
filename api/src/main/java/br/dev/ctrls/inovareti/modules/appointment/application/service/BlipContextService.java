@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.service;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -338,6 +339,14 @@ public class BlipContextService {
      * Útil como barreira de segurança para pausar/abortar nudges automáticos durante atendimento humano.
      */
     public boolean hasActiveTicket(String userIdentity) {
+        return hasActiveTicket(userIdentity, null);
+    }
+
+    /**
+     * Verifica se o contato possui um ticket de atendimento humano ativo/aberto recente no Desk (live chat) do Blip.
+     * Considera ativo apenas se criado/atualizado nas últimas 12 horas ou após a última notificação enviada.
+     */
+    public boolean hasActiveTicket(String userIdentity, LocalDateTime lastNotificationSentAt) {
         if (userIdentity == null || userIdentity.isBlank()) return false;
         String normalizedIdentity = limeClient.normalizeUserIdentity(userIdentity);
 
@@ -356,20 +365,36 @@ public class BlipContextService {
                 Object itemsNode = resourceMap.get("items");
                 if (itemsNode instanceof java.util.Collection<?> itemsList) {
                     boolean hasActive = false;
+                    LocalDateTime twelveHoursAgo = LocalDateTime.now().minusHours(12);
+
                     for (Object itemObj : itemsList) {
                         if (itemObj instanceof Map<?, ?> itemMap) {
                             Object statusVal = itemMap.get("status");
                             if (statusVal != null) {
                                 String status = statusVal.toString().trim();
                                 if ("Open".equalsIgnoreCase(status) || "Waiting".equalsIgnoreCase(status)) {
-                                    hasActive = true;
-                                    break;
+                                    LocalDateTime ticketTime = parseTicketTimestamp(itemMap);
+                                    if (ticketTime == null) {
+                                        hasActive = true;
+                                        log.info("[ATTENDANCE-GUARD] Contato {} possui ticket sem data legível. Considerando ativo por segurança.", normalizedIdentity);
+                                        break;
+                                    }
+                                    boolean isWithin12Hours = ticketTime.isAfter(twelveHoursAgo);
+                                    boolean isAfterLastNotification = lastNotificationSentAt != null && ticketTime.isAfter(lastNotificationSentAt);
+
+                                    if (isWithin12Hours || isAfterLastNotification) {
+                                        hasActive = true;
+                                        log.info("[ATTENDANCE-GUARD] Ticket ativo recente encontrado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
+                                        break;
+                                    } else {
+                                        log.info("[ATTENDANCE-GUARD] Ticket antigo em aberto ignorado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
+                                    }
                                 }
                             }
                         }
                     }
                     if (hasActive) {
-                        log.info("[ATTENDANCE-GUARD] Contato {} possui tickets de live chat ativos no Desk (status Open/Waiting).", normalizedIdentity);
+                        log.info("[ATTENDANCE-GUARD] Contato {} possui tickets de live chat ativos e recentes no Desk.", normalizedIdentity);
                     }
                     return hasActive;
                 }
@@ -378,6 +403,33 @@ public class BlipContextService {
         } catch (Exception ex) {
             log.warn("[ATTENDANCE-GUARD] Falha ao verificar ticket ativo no Desk para {}: {}", normalizedIdentity, ex.getMessage());
             return false; // Fail-open para não travar os nudges normais em caso de falha de rede/autorização
+        }
+    }
+
+    private LocalDateTime parseTicketTimestamp(Map<?, ?> itemMap) {
+        Object val = itemMap.get("statusDate");
+        if (val == null) val = itemMap.get("storageDate");
+        if (val == null) val = itemMap.get("openDate");
+        if (val == null) val = itemMap.get("updatedAt");
+        if (val == null) val = itemMap.get("createdAt");
+
+        if (val == null) return null;
+        String str = val.toString().trim();
+        if (str.isEmpty()) return null;
+
+        try {
+            return java.time.OffsetDateTime.parse(str).toLocalDateTime();
+        } catch (Exception e1) {
+            try {
+                return java.time.LocalDateTime.parse(str);
+            } catch (Exception e2) {
+                try {
+                    return java.time.LocalDateTime.parse(str.replace(" ", "T"));
+                } catch (Exception e3) {
+                    log.debug("Não foi possível converter data do ticket Blip: {}", str);
+                    return null;
+                }
+            }
         }
     }
 

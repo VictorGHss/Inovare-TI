@@ -28,7 +28,7 @@ public interface AppointmentSessionRepositoryPort {
 
     List<AppointmentSession> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
-    List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
+    List<AppointmentSession> findByStatusAndLastNotificationSentAtBefore(AppointmentSessionStatus status, LocalDateTime threshold, LocalDateTime minAppointmentAt);
 
     List<AppointmentSession> findActiveByPhoneNumber(String phone);
 

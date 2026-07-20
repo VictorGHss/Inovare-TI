@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.DiscordTicketPort;
+import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.TicketRepositoryPort;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -29,6 +31,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 public class DiscordTicketAdapter implements DiscordTicketPort {
 
     private final ObjectProvider<JDA> jdaProvider;
+    private final TicketRepositoryPort ticketRepository;
 
     @Value("${discord.bot.guild-id:}")
     private String discordGuildId;
@@ -37,7 +40,9 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
     private static final String ARCHIVED_CATEGORY_ID = "1526959741585063957";
 
     @Override
-    public void createTicketChannel(Ticket ticket, List<String> discordUserIds) {
+    @Transactional(readOnly = true)
+    public void createTicketChannel(Ticket ticketParam, List<String> discordUserIds) {
+        final Ticket ticket = ticketRepository.findById(ticketParam.getId()).orElse(ticketParam);
         log.info("[DISCORD-TICKET] Iniciando criação de canal para chamado #{} com {} usuários designados.",
                 ticket.getNumber(), discordUserIds.size());
 
@@ -127,7 +132,9 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public void archiveTicketChannel(Ticket ticket) {
+        ticket = ticketRepository.findById(ticket.getId()).orElse(ticket);
         log.info("[DISCORD-TICKET] Iniciando arquivamento de canal para chamado #{}.", ticket.getNumber());
 
         JDA jda = jdaProvider.getIfAvailable();
@@ -199,7 +206,10 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public void notifyMerged(Ticket childTicket, Ticket parentTicket) {
+        childTicket = ticketRepository.findById(childTicket.getId()).orElse(childTicket);
+        parentTicket = ticketRepository.findById(parentTicket.getId()).orElse(parentTicket);
         log.info("[DISCORD-TICKET] Enviando notificação de unificação para canal do chamado filho #{}.", childTicket.getNumber());
 
         JDA jda = jdaProvider.getIfAvailable();
@@ -231,7 +241,9 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public void syncTicketChannelPermissions(Ticket ticket) {
+        ticket = ticketRepository.findById(ticket.getId()).orElse(ticket);
         log.info("[DISCORD-TICKET] Sincronizando permissões do canal para chamado #{}.", ticket.getNumber());
 
         JDA jda = jdaProvider.getIfAvailable();

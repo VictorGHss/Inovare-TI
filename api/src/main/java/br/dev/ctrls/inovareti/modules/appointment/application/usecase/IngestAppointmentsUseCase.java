@@ -229,6 +229,29 @@ public class IngestAppointmentsUseCase {
                         return true;
                     }
                     
+                    if (!"1".equals(statusId)) {
+                        String normId = normalizeFeegowAppointmentId(appointment.id());
+                        sessionCache.computeIfPresent(normId, (id, session) -> {
+                            if (session.getStatus() == AppointmentSessionStatus.PENDING ||
+                                session.getStatus() == AppointmentSessionStatus.NUDGE_1_SENT ||
+                                session.getStatus() == AppointmentSessionStatus.NUDGE_FINAL_SENT) {
+                                
+                                if ("2".equals(statusId) || "7".equals(statusId)) {
+                                    log.info("[RECONCILIAÇÃO-FEEGOW] Agendamento ID={} confirmado no Feegow (statusId={}). Atualizando BD local para CONFIRMED.", normId, statusId);
+                                    session.setStatus(AppointmentSessionStatus.CONFIRMED);
+                                    session.setClosedAt(LocalDateTime.now());
+                                    appointmentSessionRepository.save(session);
+                                } else if ("6".equals(statusId) || "11".equals(statusId)) {
+                                    log.info("[RECONCILIAÇÃO-FEEGOW] Agendamento ID={} cancelado/falta no Feegow (statusId={}). Atualizando BD local para CANCELED.", normId, statusId);
+                                    session.setStatus(AppointmentSessionStatus.CANCELED);
+                                    session.setClosedAt(LocalDateTime.now());
+                                    appointmentSessionRepository.save(session);
+                                }
+                            }
+                            return session;
+                        });
+                    }
+
                     String statusDescription = switch (statusId != null ? statusId.trim() : "") {
                         case "2" -> "Confirmado";
                         case "3" -> "Triagem";
@@ -570,9 +593,8 @@ public class IngestAppointmentsUseCase {
                         AppointmentSessionStatus st = session.getStatus();
                         if (st == AppointmentSessionStatus.PENDING || st == AppointmentSessionStatus.NUDGE_1_SENT ||
                                 st == AppointmentSessionStatus.NUDGE_FINAL_SENT || st == AppointmentSessionStatus.CONFIRMED) {
-                            // Atualiza apenas o groupId e o timestamp sem mudar status
+                            // Atualiza apenas o groupId sem alterar status ou sobrescrever lastNotificationSentAt
                             session.setCurrentGroupId(groupId);
-                            session.setLastNotificationSentAt(LocalDateTime.now());
                             savedSessions.add(appointmentSessionRepository.save(session));
                             continue;
                         }
@@ -588,9 +610,9 @@ public class IngestAppointmentsUseCase {
                     session.setLastInteractionAt(LocalDateTime.now());
                     session.setClosedAt(null);
                     session.setStatusDetails(null);
-                    // Já inclui groupId e timestamp para evitar updates separados posteriormente
+                    // Já inclui groupId; lastNotificationSentAt permanece nulo até o primeiro envio real de notificação
                     session.setCurrentGroupId(groupId);
-                    session.setLastNotificationSentAt(LocalDateTime.now());
+                    session.setLastNotificationSentAt(null);
 
                     savedSessions.add(appointmentSessionRepository.save(session));
                 } catch (RuntimeException ex) {

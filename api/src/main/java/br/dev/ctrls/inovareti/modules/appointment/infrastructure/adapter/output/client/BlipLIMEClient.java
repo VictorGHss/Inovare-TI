@@ -148,24 +148,29 @@ public class BlipLIMEClient implements BlipClientPort {
 
     @Override
     public void mergeContactExtras(String phoneNumber, Map<String, String> extras) {
-        if (phoneNumber == null || phoneNumber.isBlank() || extras == null || extras.isEmpty()) return;
-        String normalizedIdentity = normalizeUserIdentity(phoneNumber);
+        mergeContactExtras(phoneNumber, extras, AuthorizationScope.ROUTER);
+    }
+
+    public void mergeContactExtras(String identity, Map<String, String> extras, AuthorizationScope scope) {
+        if (identity == null || identity.isBlank() || extras == null || extras.isEmpty()) return;
+        String targetIdentity = identity.contains("@") ? identity.trim() : normalizeUserIdentity(identity);
+        String toDestination = scope == AuthorizationScope.DESK ? "postmaster@desk.msging.net" : "postmaster@msging.net";
         Map<String, Object> command = Map.of(
             "id", "merge-extras-" + UUID.randomUUID().toString(),
-            "to", "postmaster@msging.net",
+            "to", toDestination,
             "method", "set",
             "uri", "/contacts",
             "type", "application/vnd.lime.contact+json",
             "resource", Map.of(
-                "identity", normalizedIdentity,
+                "identity", targetIdentity,
                 "extras", extras
             )
         );
         try {
-            Map<String, Object> response = executeCommand(command, AuthorizationScope.ROUTER);
-            log.info("[LIME-CONTACT] Extras do contato atualizados no Blip para {}. Resposta: {}", normalizedIdentity, response);
+            Map<String, Object> response = executeCommand(command, scope);
+            log.info("[LIME-CONTACT] Extras do contato atualizados no Blip ({}) para {}. Resposta: {}", scope, targetIdentity, response);
         } catch (RestClientException ex) {
-            log.warn("Falha ao atualizar extras do contato no Blip para {}: {}", normalizedIdentity, ex.getMessage());
+            log.warn("Falha ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
         }
     }
 

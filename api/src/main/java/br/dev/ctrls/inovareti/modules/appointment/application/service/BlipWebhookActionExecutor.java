@@ -139,10 +139,11 @@ public class BlipWebhookActionExecutor {
                     log.warn("[WEBHOOK-EXEC] Falha ao buscar reconciliações preventivas do banco: {}", ex.getMessage());
                 }
                 
-                // Aplica setQueueRedirect para todas as identidades
+                // Aplica setQueueRedirect e updateContactExtras para todas as identidades
                 for (String identity : identitiesToRedirect) {
                     blipContextService.setQueueRedirect(identity, resolvedQueue);
-                    log.info("[WEBHOOK-EXEC] Fila de redirecionamento configurada preventivamente para identity={}, fila={}", identity, resolvedQueue);
+                    blipContextService.updateContactExtras(identity, resolvedQueue, queue);
+                    log.info("[WEBHOOK-EXEC] Fila de redirecionamento e extras do contato configurados preventivamente em escopo dual para identity={}, fila={}", identity, resolvedQueue);
                 }
             } catch (Exception ex) {
                 log.warn("[WEBHOOK-EXEC] Falha ao configurar fila de redirecionamento preventivo: {}", ex.getMessage());

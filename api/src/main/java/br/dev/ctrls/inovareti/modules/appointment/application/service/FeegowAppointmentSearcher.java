@@ -8,6 +8,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
@@ -17,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Componente responsável por consultar agendamentos marcados na API do Feegow,
- * gerenciando o paralelismo via Virtual Threads quando em modo de testes.
+ * gerenciando o paralelismo controlado via Virtual Threads e controle de taxa por Semaphore.
  */
 @Slf4j
 @Component
@@ -29,6 +32,21 @@ public class FeegowAppointmentSearcher {
 
     private final AppointmentMotorProperties appointmentMotorProperties;
     private final AppointmentExternalPort appointmentExternalPort;
+
+    @Value("${APP_APPOINTMENT_FEEGOW_SEARCH_CONCURRENCY:5}")
+    private int feegowSearchConcurrency;
+
+    @Value("${APP_APPOINTMENT_FEEGOW_PACE_DELAY_MS:50}")
+    private long feegowPacingDelayMs;
+
+    private Semaphore feegowSemaphore;
+
+    @PostConstruct
+    public void init() {
+        this.feegowSemaphore = new Semaphore(feegowSearchConcurrency, true);
+        log.info("[FEEGOW-RATE-LIMIT] Inicializado controle de requisições da Feegow: concorrência máxima={}, pacingDelay={}ms",
+                feegowSearchConcurrency, feegowPacingDelayMs);
+    }
 
     /**
      * Consulta e consolida os agendamentos da Feegow para o dia alvo.
@@ -47,14 +65,15 @@ public class FeegowAppointmentSearcher {
     }
 
     /**
-     * Consulta e consolida os agendamentos da Feegow em lote paralelo para os médicos fornecidos.
+     * Consulta e consolida os agendamentos da Feegow em lote controlado para os médicos fornecidos.
      */
     public List<FeegowAppointment> searchAppointments(LocalDate targetDate, List<String> doctorIds) {
         if (doctorIds == null || doctorIds.isEmpty()) {
             return searchAppointments(targetDate);
         }
 
-        log.info("[FEEGOW-SEARCH] Buscando agendamentos em lote paralelo para os médicos: {}", doctorIds);
+        log.info("[FEEGOW-SEARCH] Buscando agendamentos em lote controlado (concorrência max={}) para {} médico(s)",
+                feegowSearchConcurrency, doctorIds.size());
 
         List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -74,9 +93,6 @@ public class FeegowAppointmentSearcher {
     private List<FeegowAppointment> searchTestModeAppointments(LocalDate targetDate) {
         String testDoctorIds = appointmentMotorProperties.getTestModeDoctorIds();
         
-        // HIGIENIZAÇÃO / VALIDAÇÃO DE PLACEHOLDER VAZADO:
-        // Caso a propriedade de configuração venha com a sintaxe de placeholder cru do Spring (ex. "${APP_APPOINTMENT_MOTOR_TEST_DOCTOR_ID}"),
-        // trata-se o valor como nulo para forçar o aborto seguro da execução da rotina.
         if (testDoctorIds != null && (testDoctorIds.contains("${") || testDoctorIds.contains("}"))) {
             log.warn("[FEEGOW-SEARCH] Detectada sintaxe de placeholder cru de ambiente na configuração: '{}'. Nenhuma pauta médica configurada.", testDoctorIds);
             testDoctorIds = null;
@@ -101,7 +117,6 @@ public class FeegowAppointmentSearcher {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String docId : doctorIds) {
                     String trimmedDocId = docId.trim();
-                    // Valida se o ID do médico contém apenas dígitos numéricos para barrar injeções de texto inválidas
                     if (!trimmedDocId.isEmpty() && trimmedDocId.matches("\\d+")) {
                         futures.add(runAsyncSearch(LocalDate.now(), trimmedDocId, threadSafeAppointments, executor));
                         futures.add(runAsyncSearch(targetDate, trimmedDocId, threadSafeAppointments, executor));
@@ -118,16 +133,27 @@ public class FeegowAppointmentSearcher {
     private CompletableFuture<Void> runAsyncSearch(LocalDate date, String docId, List<FeegowAppointment> list, java.util.concurrent.Executor executor) {
         return CompletableFuture.runAsync(() -> {
             try {
-                List<FeegowAppointment> res = appointmentExternalPort.searchAppointments(
-                    date,
-                    FEEGOW_STATUS_AGENDADO,
-                    docId
-                );
-                if (res != null) {
-                    list.addAll(res);
+                feegowSemaphore.acquire();
+                try {
+                    if (feegowPacingDelayMs > 0) {
+                        Thread.sleep(feegowPacingDelayMs);
+                    }
+                    List<FeegowAppointment> res = appointmentExternalPort.searchAppointments(
+                        date,
+                        FEEGOW_STATUS_AGENDADO,
+                        docId
+                    );
+                    if (res != null) {
+                        list.addAll(res);
+                    }
+                } finally {
+                    feegowSemaphore.release();
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("[FEEGOW-SEARCH] Busca interrompida para data {}, médico ID: {}", date, docId);
             } catch (Exception e) {
-                log.error("[VIRTUAL-THREADS] Erro ao buscar consultas para {}, médico ID: {}", date, docId, e);
+                log.error("[FEEGOW-SEARCH] Erro ao buscar consultas na Feegow para {}, médico ID: {}", date, docId, e);
             }
         }, executor);
     }

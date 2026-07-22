@@ -10,11 +10,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record GerAcessoResponse(
-    @JsonProperty("status") Integer status,
+    @JsonProperty("status") String status,
     @JsonProperty("mensagem") String message,
-    @JsonProperty("agendamento") String appointment,
+    @JsonProperty("agendamento") Long appointment,
     @JsonProperty("tipo") String type,
-    @JsonProperty("pessoa") String person,
+    @JsonProperty("pessoa") Long person,
     @JsonProperty("localizador") String locator,
     @JsonProperty("credencial") String credential
 ) {}

@@ -296,10 +296,10 @@ public class AccessService {
             log.info("[AccessService] Enviando cadastro do paciente titular {} para a GerAcesso local...", accessInfo.name());
             Optional<GerAcessoResponse> responseOpt = gerAcessoClientPort.registerAccess(titularRequest);
 
-            if (responseOpt.isPresent() && responseOpt.get().credential() != null) {
-                token = responseOpt.get().credential();
-                locator = responseOpt.get().locator();
-                log.info("[AccessService] Cadastro concluído na GerAcesso. Token={}, Locator={}", token, locator);
+            if (responseOpt.isPresent() && responseOpt.get().credential() != null && !responseOpt.get().credential().isBlank()) {
+                token = responseOpt.get().credential().trim();
+                locator = responseOpt.get().locator() != null ? responseOpt.get().locator().trim() : "";
+                log.info("[AccessService] Cadastro concluído na GerAcesso. Credencial (QR Code)={}, Locator={}", token, locator);
             } else {
                 // Fallback: se falhar a conexão local, gera credencial interna para contingência e recepção manual
                 token = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -417,10 +417,10 @@ public class AccessService {
         String companionToken;
         String companionLocator;
 
-        if (responseOpt.isPresent() && responseOpt.get().credential() != null) {
-            companionToken = responseOpt.get().credential();
-            companionLocator = responseOpt.get().locator();
-            log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial: {}", companion.name(), companionToken);
+        if (responseOpt.isPresent() && responseOpt.get().credential() != null && !responseOpt.get().credential().isBlank()) {
+            companionToken = responseOpt.get().credential().trim();
+            companionLocator = responseOpt.get().locator() != null ? responseOpt.get().locator().trim() : "";
+            log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial (QR Code): {}, Localizador: {}", companion.name(), companionToken, companionLocator);
         } else {
             log.error("[AccessService] Falha no cadastro do acompanhante {} na GerAcesso física. Nenhuma credencial gerada.", companion.name());
             throw new RuntimeException("Falha ao registrar acesso físico para o acompanhante: " + companion.name());

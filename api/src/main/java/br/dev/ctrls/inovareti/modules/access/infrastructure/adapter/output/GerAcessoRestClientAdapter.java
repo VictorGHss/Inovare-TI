@@ -62,8 +62,8 @@ public class GerAcessoRestClientAdapter implements GerAcessoClientPort {
                     .toEntity(GerAcessoResponse.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                log.info("[GerAcesso-Adapter] Cadastro concluído. Resposta: status={}, mensagem={}", 
-                        response.getBody().status(), response.getBody().message());
+                log.info("[GerAcesso-Adapter] Cadastro concluído. Resposta: status={}, mensagem={}, credencial={}, localizador={}", 
+                        response.getBody().status(), response.getBody().message(), response.getBody().credential(), response.getBody().locator());
                 return Optional.of(response.getBody());
             }
 

@@ -17,8 +17,8 @@ public record GerAcessoRequest(
     @JsonProperty("telefone") String phone,
     @JsonProperty("email") String email,
     @JsonProperty("tipovisista") Integer visitType,
-    @JsonProperty("inicio_visita") String startVisit,
-    @JsonProperty("fim_visita") String endVisit,
     @JsonProperty("matricula_visitado") String visitedRegistration,
-    @JsonProperty("cpf_visitado") String visitedCpf
+    @JsonProperty("cpf_visitado") String visitedCpf,
+    @JsonProperty("inicio_visita") String startVisit,
+    @JsonProperty("fim_visita") String endVisit
 ) {}

@@ -76,6 +76,7 @@ public class IngestAppointmentsUseCase {
     private final BlipContextService blipContextService;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
     private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
 
     /**
@@ -111,13 +112,13 @@ public class IngestAppointmentsUseCase {
         }
 
         // Resolve the list of target dates based on the current day of the week
-        List<LocalDate> targetDates;
+        List<LocalDate> targetDates = new ArrayList<>();
         if (dayOfWeek == DayOfWeek.FRIDAY) {
             // Friday: fetch today (Fri), tomorrow (Sat) and Monday (T+3) preventively
-            targetDates = List.of(today, today.plusDays(1), today.plusDays(3));
+            targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(3)));
         } else {
             // Monday–Thursday: standard window — today (T) and tomorrow (T+1)
-            targetDates = List.of(today, today.plusDays(1));
+            targetDates.addAll(List.of(today, today.plusDays(1)));
         }
 
         log.info("[MOTOR-INGESTÃO] Dia da semana detectado: {}. Alocando pipeline de busca para as datas: {}", dayOfWeek, targetDates);
@@ -128,6 +129,32 @@ public class IngestAppointmentsUseCase {
             log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
             List<FeegowAppointment> dailyAppointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
             appointments.addAll(dailyAppointments);
+        }
+
+        // Verifica configurações específicas de antecedência de médicos (ex: Dr. Giuliano ID 27 com advanceNoticeDays = 2)
+        try {
+            List<br.dev.ctrls.inovareti.modules.appointment.domain.model.DoctorConfiguration> customAdvanceDoctors = doctorConfigurationRepository.findAll().stream()
+                    .filter(c -> c.getResolvedAdvanceNoticeDays() > 1)
+                    .toList();
+
+            for (var docConfig : customAdvanceDoctors) {
+                int advanceDays = docConfig.getResolvedAdvanceNoticeDays();
+                LocalDate advanceDate = today.plusDays(advanceDays);
+                String docIdStr = String.valueOf(docConfig.getFeegowProfissionalId());
+
+                if (doctorIds != null && !doctorIds.isEmpty() && !doctorIds.contains(docIdStr)) {
+                    continue;
+                }
+
+                if (!targetDates.contains(advanceDate)) {
+                    log.info("[MOTOR-INGESTÃO] Configurada antecedência personalizada de {} dias para o médico {} (ID {}). Buscando agendamentos para a data: {}",
+                            advanceDays, docConfig.getDoctorName(), docConfig.getFeegowProfissionalId(), advanceDate);
+                    List<FeegowAppointment> advanceAppointments = feegowAppointmentSearcher.searchAppointments(advanceDate, List.of(docIdStr));
+                    appointments.addAll(advanceAppointments);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[MOTOR-INGESTÃO] Falha ao verificar antecedência personalizada de médicos: {}", ex.getMessage());
         }
 
         int total = appointments.size();

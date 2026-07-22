@@ -31,6 +31,10 @@ interface MergedDoctorMapping extends DoctorMapping {
   // Consolidated GerAcesso fields
   gerAcessoMatricula?: string;
   gerAcessoCpf?: string;
+
+  // Custom scheduling rules
+  displayTimeOffsetMinutes?: number;
+  advanceNoticeDays?: number;
 }
 
 function formatCPF(value: string) {
@@ -125,6 +129,8 @@ export default function ProfessionalMappingPanel() {
           ignoreAutoSchedule: m?.ignoreAutoSchedule ?? m?.ignore_auto_schedule ?? false,
           gerAcessoMatricula: c?.gerAcessoMatricula || '',
           gerAcessoCpf: c?.gerAcessoCpf || '',
+          displayTimeOffsetMinutes: c?.displayTimeOffsetMinutes ?? 0,
+          advanceNoticeDays: c?.advanceNoticeDays ?? 1,
         } as MergedDoctorMapping;
       });
 
@@ -154,7 +160,7 @@ export default function ProfessionalMappingPanel() {
 
   const hasChanges = useMemo(() => true, []);
 
-  function updateField(profissionalId: string, field: keyof MergedDoctorMapping, value: string | boolean) {
+  function updateField(profissionalId: string, field: keyof MergedDoctorMapping, value: string | boolean | number) {
     setMappings((current) =>
       current.map((m) =>
         String(m.profissionalId) === String(profissionalId) ? { ...m, [field]: value } : m
@@ -176,7 +182,7 @@ export default function ProfessionalMappingPanel() {
         ignoreAutoSchedule: Boolean(m.ignoreAutoSchedule),
       }));
 
-      // 2. Save doctor configs (GerAcesso credentials)
+      // 2. Save doctor configs (GerAcesso credentials + Custom Scheduling Rules)
       const configPayloads = mappings
         .filter((m) => m.profissionalId && !isNaN(Number(m.profissionalId)))
         .map((m) => ({
@@ -186,6 +192,8 @@ export default function ProfessionalMappingPanel() {
           gerAcessoCpf: String(m.gerAcessoCpf ?? '').replaceAll(/\D/g, '').trim(),
           blipQueueId: String(m.blipQueueId ?? '').trim(),
           blipQueueName: blipQueues.find((q) => q.id === m.blipQueueId)?.name || '',
+          displayTimeOffsetMinutes: Number(m.displayTimeOffsetMinutes ?? 0),
+          advanceNoticeDays: Number(m.advanceNoticeDays ?? 1),
         }));
 
       // Fire both save calls
@@ -196,7 +204,7 @@ export default function ProfessionalMappingPanel() {
 
       const status = mappingResp?.status ?? 0;
       if (status >= 200 && status < 300) {
-        toast.success('Mapeamentos e credenciais salvos com sucesso.');
+        toast.success('Mapeamentos e regras de agenda salvos com sucesso.');
         void loadData(); // Reload from DB to confirm values
       } else {
         const fakeError = { response: { data: mappingResp?.data } } as unknown;
@@ -215,8 +223,8 @@ export default function ProfessionalMappingPanel() {
       <header className="border-b border-slate-100 px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900">Mapeamento de Profissionais (Feegow)</h2>
-            <p className="mt-0.5 text-xs text-slate-500">Edite fila, credenciais de catraca (GerAcesso) e configuracoes do profissional.</p>
+            <h2 className="text-base font-bold text-slate-900">Mapeamento de Profissionais (Feegow / Blip / Regras Especiais)</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Edite fila, credenciais de catraca (GerAcesso), ajuste de horários exibidos e antecedência de confirmação do profissional.</p>
           </div>
 
           <div className="flex gap-2">
@@ -271,7 +279,7 @@ export default function ProfessionalMappingPanel() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Fila Blip', 'CPF Catraca', 'Matrícula Catraca', 'Ignorar auto', 'Ações'].map((col) => (
+              {['ID', 'Nome Feegow', 'Fila Blip', 'CPF Catraca', 'Matrícula Catraca', 'Ajuste Horário (min)', 'Antecedência (dias)', 'Ignorar auto', 'Ações'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -280,11 +288,11 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : filteredMappings.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
               filteredMappings.map((row, idx) => {
@@ -343,6 +351,32 @@ export default function ProfessionalMappingPanel() {
                         onChange={(e) => updateField(row.profissionalId, 'gerAcessoMatricula', e.target.value)}
                         className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
                       />
+                    </td>
+
+                    <td className="px-4 py-3 align-middle w-32">
+                      <input
+                        type="number"
+                        step={5}
+                        placeholder="0 min"
+                        title="Deslocamento em minutos para a mensagem. Ex: -10 envia o horário 10 min antes."
+                        value={row.displayTimeOffsetMinutes ?? 0}
+                        onChange={(e) => updateField(row.profissionalId, 'displayTimeOffsetMinutes', Number(e.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
+                      />
+                    </td>
+
+                    <td className="px-4 py-3 align-middle w-36">
+                      <select
+                        title="Antecedência de busca/envio em dias. Ex: 2 dias para confirmar procedimentos de sexta na quarta."
+                        value={row.advanceNoticeDays ?? 1}
+                        onChange={(e) => updateField(row.profissionalId, 'advanceNoticeDays', Number(e.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
+                      >
+                        <option value={1}>1 dia (Padrão)</option>
+                        <option value={2}>2 dias (Quarta ➔ Sexta)</option>
+                        <option value={3}>3 dias</option>
+                        <option value={4}>4 dias</option>
+                      </select>
                     </td>
 
                     <td className="px-4 py-3 align-middle text-center">

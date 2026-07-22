@@ -15,6 +15,8 @@ export interface DoctorConfiguration {
   gerAcessoCpf: string;
   blipQueueId: string;
   blipQueueName: string;
+  displayTimeOffsetMinutes?: number;
+  advanceNoticeDays?: number;
 }
 
 /**

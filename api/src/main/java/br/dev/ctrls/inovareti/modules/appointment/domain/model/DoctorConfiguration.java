@@ -22,4 +22,16 @@ public class DoctorConfiguration {
     private String gerAcessoCpf;
     private String blipQueueId;
     private String blipQueueName;
+    @Builder.Default
+    private Integer displayTimeOffsetMinutes = 0;
+    @Builder.Default
+    private Integer advanceNoticeDays = 1;
+
+    public int getResolvedDisplayTimeOffsetMinutes() {
+        return displayTimeOffsetMinutes != null ? displayTimeOffsetMinutes : 0;
+    }
+
+    public int getResolvedAdvanceNoticeDays() {
+        return (advanceNoticeDays != null && advanceNoticeDays > 0) ? advanceNoticeDays : 1;
+    }
 }

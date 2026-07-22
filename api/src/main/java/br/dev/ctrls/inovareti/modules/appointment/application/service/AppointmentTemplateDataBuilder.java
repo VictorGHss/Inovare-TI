@@ -35,6 +35,7 @@ public class AppointmentTemplateDataBuilder {
     private final PatientExternalPort patientExternalPort;
     private final AppointmentExternalPort appointmentExternalPort;
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
     private final TransactionTemplate transactionTemplate;
 
     /**
@@ -46,11 +47,26 @@ public class AppointmentTemplateDataBuilder {
         String doctorName = resolveDoctorName(session.getDoctorProfissionalId(), appointment.doctorName());
 
         LocalDateTime startAt = appointment.startAt();
-        if ("28".equals(session.getDoctorProfissionalId()) && startAt != null) {
-            LocalDateTime modified = startAt.minusMinutes(10);
-            log.info("[TIME-SHIFT] [TEMPLATE-BUILDER] Aplicada antecedência de 10 minutos para o Dr. Eduardo Mattos. Horário original: {}, Horário modificado para o envio: {}",
-                    startAt.toLocalTime().format(BRAZILIAN_TIME), modified.toLocalTime().format(BRAZILIAN_TIME));
-            startAt = modified;
+        if (startAt != null && session.getDoctorProfissionalId() != null) {
+            try {
+                Long docProfId = Long.parseLong(session.getDoctorProfissionalId());
+                var doctorConfigOpt = doctorConfigurationRepository.findById(docProfId);
+                if (doctorConfigOpt.isPresent()) {
+                    int offset = doctorConfigOpt.get().getResolvedDisplayTimeOffsetMinutes();
+                    if (offset != 0) {
+                        LocalDateTime modified = startAt.plusMinutes(offset);
+                        log.info("[TIME-SHIFT] [TEMPLATE-BUILDER] Aplicado deslocamento de {} minutos para o médico {} (ID {}). Horário original: {}, Horário modificado para o envio: {}",
+                                offset, doctorConfigOpt.get().getDoctorName(), docProfId,
+                                startAt.toLocalTime().format(BRAZILIAN_TIME), modified.toLocalTime().format(BRAZILIAN_TIME));
+                        startAt = modified;
+                    }
+                } else if ("28".equals(session.getDoctorProfissionalId())) {
+                    LocalDateTime modified = startAt.minusMinutes(10);
+                    startAt = modified;
+                }
+            } catch (Exception ex) {
+                log.warn("[TIME-SHIFT] Falha ao verificar deslocamento de horário para profissionalId={}: {}", session.getDoctorProfissionalId(), ex.getMessage());
+            }
         }
 
         String appointmentDate = startAt != null

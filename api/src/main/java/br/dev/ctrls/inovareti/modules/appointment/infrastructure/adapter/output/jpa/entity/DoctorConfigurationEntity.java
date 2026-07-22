@@ -42,6 +42,12 @@ public class DoctorConfigurationEntity {
     @Column(name = "blip_queue_name")
     private String blipQueueName;
 
+    @Column(name = "display_time_offset_minutes")
+    private Integer displayTimeOffsetMinutes;
+
+    @Column(name = "advance_notice_days")
+    private Integer advanceNoticeDays;
+
     public DoctorConfiguration toDomain() {
         return DoctorConfiguration.builder()
                 .feegowProfissionalId(this.feegowProfissionalId)
@@ -50,6 +56,8 @@ public class DoctorConfigurationEntity {
                 .gerAcessoCpf(this.gerAcessoCpf)
                 .blipQueueId(this.blipQueueId)
                 .blipQueueName(this.blipQueueName)
+                .displayTimeOffsetMinutes(this.displayTimeOffsetMinutes != null ? this.displayTimeOffsetMinutes : 0)
+                .advanceNoticeDays(this.advanceNoticeDays != null ? this.advanceNoticeDays : 1)
                 .build();
     }
 
@@ -62,6 +70,8 @@ public class DoctorConfigurationEntity {
                 .gerAcessoCpf(domain.getGerAcessoCpf())
                 .blipQueueId(domain.getBlipQueueId())
                 .blipQueueName(domain.getBlipQueueName())
+                .displayTimeOffsetMinutes(domain.getDisplayTimeOffsetMinutes())
+                .advanceNoticeDays(domain.getAdvanceNoticeDays())
                 .build();
     }
 }

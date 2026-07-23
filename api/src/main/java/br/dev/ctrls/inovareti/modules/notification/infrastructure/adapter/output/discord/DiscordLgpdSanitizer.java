@@ -22,18 +22,15 @@ public class DiscordLgpdSanitizer {
     // Regex para Valores Financeiros (ex: R$ 1.500,00 ou R$ 150)
     private static final Pattern MONEY_PATTERN = Pattern.compile("(?i)R\\$\\s?\\d+(?:\\.\\d{3})*(?:,\\d{2})?");
 
-    // Regex para identificar menção de "paciente" seguida por um possível nome (duas ou três palavras iniciadas com maiúsculas)
-    // Ex: "paciente João da Silva" ou "paciente: Maria Antônia"
+    // Regex para identificar menção estrita a nome de paciente por rótulo explícito (ex: "paciente: João da Silva" ou "nome do paciente: Maria")
     private static final Pattern PATIENT_NAME_PATTERN = Pattern.compile(
-            "(?i)(?:paciente|prontuário\\s+(?:de|do|da)|nome\\s+do\\s+paciente)[:\\s]+([A-ZÀ-ÿ][a-zÀ-ÿ]+(?:\\s+(?:de|do|da|dos|das|e)\\s+)?(?:[A-ZÀ-ÿ][a-zÀ-ÿ]+){1,3})"
+            "(?i)(?:paciente|prontuário|nome\\s+do\\s+paciente)\\s*:\\s*([A-ZÀ-ÿ][a-zÀ-ÿ]+(?:\\s+(?:de|do|da|dos|das|e)\\s+)?(?:[A-ZÀ-ÿ][a-zÀ-ÿ]+){1,3})"
     );
 
-    // Lista de palavras sensíveis de diagnósticos de anamneses / dados clínicos
+    // Lista de palavras estritamente sensíveis de diagnósticos clínicos e doenças graves
     private static final String[] HEALTH_WORDS = {
             "câncer", "cisto", "cardiopatia", "hipertensão", "infarto", "diabetes", "hiv", "depressão",
-            "síndrome", "doença", "anamnese", "sintomas", "cirurgia", "prontuário", "exame", "diagnóstico",
-            "consulta", "laudo", "receita", "medicamento", "terapia", "oncologia", "psiquiatria",
-            "tumor", "patologia", "sintoma"
+            "síndrome", "oncologia", "psiquiatria", "tumor", "patologia"
     };
 
     /**

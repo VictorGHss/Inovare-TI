@@ -125,10 +125,79 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
         }
 
         channelAction.queue(
-                channel -> log.info("[DISCORD-TICKET] Canal privado criado com sucesso: #{} (ID: {}) para chamado #{}",
-                        channel.getName(), channel.getId(), ticket.getNumber()),
+                channel -> {
+                    log.info("[DISCORD-TICKET] Canal privado criado com sucesso: #{} (ID: {}) para chamado #{}",
+                            channel.getName(), channel.getId(), ticket.getNumber());
+                    sendAndPinInitialTicketMessage(channel, ticket);
+                },
                 error -> log.error("[DISCORD-TICKET] Falha ao criar canal privado para chamado #{}", ticket.getNumber(), error)
         );
+    }
+
+    @SuppressWarnings("null")
+    private void sendAndPinInitialTicketMessage(TextChannel channel, Ticket ticket) {
+        try {
+            net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+            String ticketNum = ticket.getNumber() != null ? ticket.getNumber() : "-";
+            String ticketTitle = ticket.getTitle() != null ? ticket.getTitle() : "Sem título";
+            eb.setTitle("🎫 Chamado #" + ticketNum + " - " + DiscordLgpdSanitizer.sanitize(ticketTitle));
+            eb.setColor(0xFF9900); // Laranja operacoes
+
+            String rawDescription = ticket.getDescription();
+            if (rawDescription == null || rawDescription.isBlank()) {
+                rawDescription = ticket.getTitle();
+            }
+            String sanitizedDescription = DiscordLgpdSanitizer.sanitize(rawDescription);
+            eb.setDescription("**Descrição do Problema:**\n" + (sanitizedDescription != null ? sanitizedDescription : "-"));
+
+            String requesterName = java.util.Objects.requireNonNullElse(
+                    ticket.getRequester() != null ? DiscordLgpdSanitizer.sanitize(ticket.getRequester().getName()) : "-", "-");
+            String requesterSector = java.util.Objects.requireNonNullElse(
+                    ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-", "-");
+            String categoryName = java.util.Objects.requireNonNullElse(
+                    ticket.getCategory() != null ? ticket.getCategory().getName() : "-", "-");
+            String priority = java.util.Objects.requireNonNullElse(
+                    ticket.getPriority() != null ? ticket.getPriority().toString() : "-", "-");
+            String status = java.util.Objects.requireNonNullElse(
+                    ticket.getStatus() != null ? ticket.getStatus().toString() : "OPEN", "OPEN");
+
+            eb.addField("Solicitante", requesterName, true);
+            eb.addField("Setor", requesterSector, true);
+            eb.addField("Categoria", categoryName, true);
+            eb.addField("Prioridade", priority, true);
+            eb.addField("Status", status, true);
+
+            if (ticket.getSlaDeadline() != null) {
+                String formattedSla = java.util.Objects.requireNonNullElse(
+                        ticket.getSlaDeadline().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), "-");
+                eb.addField("Prazo SLA", formattedSla, true);
+            }
+
+            if (ticket.getRelatedTickets() != null && !ticket.getRelatedTickets().isEmpty()) {
+                String linkedSummary = ticket.getRelatedTickets().stream()
+                        .map(t -> "#" + (t.getNumber() != null ? t.getNumber() : "-") + " - " + DiscordLgpdSanitizer.sanitize(t.getTitle()))
+                        .collect(java.util.stream.Collectors.joining("\n"));
+                if (!linkedSummary.isBlank()) {
+                    eb.addField("🔗 Chamados Vinculados", linkedSummary, false);
+                }
+            }
+
+            String openedAt = ticket.getCreatedAt() != null
+                    ? ticket.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    : "-";
+            eb.setFooter("Inovare TI • Chamado aberto em: " + openedAt);
+            eb.setTimestamp(java.time.Instant.now());
+
+            channel.sendMessageEmbeds(eb.build()).queue(
+                    message -> message.pin().queue(
+                            v -> log.info("[DISCORD-TICKET] Mensagem inicial de detalhes fixada no canal #{}", channel.getName()),
+                            pinErr -> log.warn("[DISCORD-TICKET] Falha ao fixar mensagem inicial no canal #{}: {}", channel.getName(), pinErr.getMessage())
+                    ),
+                    sendErr -> log.error("[DISCORD-TICKET] Falha ao enviar embed inicial para o canal #{}: {}", channel.getName(), sendErr.getMessage())
+            );
+        } catch (Exception ex) {
+            log.error("[DISCORD-TICKET] Erro ao montar ou enviar mensagem inicial fixada no canal #{}", channel.getName(), ex);
+        }
     }
 
     @Override

@@ -67,7 +67,7 @@ public class TicketSpecification {
                 String pattern = "%" + cleanSearch.toLowerCase() + "%";
                 Predicate titlePredicate = cb.like(cb.lower(root.get("title")), pattern);
                 Predicate descriptionPredicate = cb.like(cb.lower(root.get("description")), pattern);
-                Predicate idPredicate = cb.like(cb.lower(root.get("id").as(String.class)), pattern);
+                Predicate idPredicate = cb.like(root.get("id").as(String.class), pattern);
                 predicates.add(cb.or(titlePredicate, descriptionPredicate, idPredicate));
             }
 

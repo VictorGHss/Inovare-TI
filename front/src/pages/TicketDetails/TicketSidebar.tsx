@@ -20,7 +20,7 @@ import { toast } from 'react-toastify';
 
 import SlaBadge from '@/components/ui/SlaBadge';
 import SearchableDropdown from '@/components/common/SearchableDropdown';
-import { getTickets, relateTicket, getSimilarTickets } from '../../services/ticketService';
+import { getTickets, relateTicket, linkTicket, getSimilarTickets } from '../../services/ticketService';
 import type { Asset, Ticket, TicketCategory, User } from '../../types/models';
 
 interface TicketSidebarProps {
@@ -73,7 +73,6 @@ export default function TicketSidebar({
   onApplyMacro,
 }: TicketSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [suggestions, setSuggestions] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [associatingId, setAssociatingId] = useState<string | null>(null);
@@ -142,48 +141,42 @@ export default function TicketSidebar({
     });
   }, [availableUsers, sectorFilter, normalizedAdditionalQuery]);
 
-  // Carrega a lista de chamados ao montar o componente
-  useEffect(() => {
-    async function loadAllTickets() {
-      try {
-        setLoadingTickets(true);
-        const data = await getTickets();
-        setAllTickets(Array.isArray(data) ? data : []);
-      } catch {
-        console.error('Erro ao carregar chamados para vinculacao.');
-      } finally {
-        setLoadingTickets(false);
-      }
-    }
-    void loadAllTickets();
-  }, []);
 
-  const relatedTicketIdsSerialized = (ticket.relatedTicketIds ?? []).join(',');
 
-  // Filtra as sugestões conforme digita (depende do join(',') primitivo dos arrays para evitar loops por referência)
+  // Pesquisa dinamicamente os chamados conforme digita (debounced)
   useEffect(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim().replaceAll(/^#/g, '').toLowerCase();
     if (!query) {
       setSuggestions([]);
       return;
     }
 
-    const ids = relatedTicketIdsSerialized.split(',').filter(Boolean);
+    const timer = setTimeout(async () => {
+      try {
+        setLoadingTickets(true);
+        const data = await getTickets(undefined, 0, query);
+        const items = Array.isArray(data) ? data : (data?.content ?? []);
 
-    const filtered = allTickets.filter((t) => {
-      // Não pode vincular o próprio chamado
-      if (t.id === ticket.id) return false;
-      // Não pode vincular se já estiver associado
-      if (ids.includes(t.id)) return false;
+        const linkedIds = (ticket.linkedTickets ?? []).map((lt) => lt.id);
+        const relatedIds = ticket.relatedTicketIds ?? [];
+        const existingIds = new Set([...linkedIds, ...relatedIds]);
 
-      const matchesId = t.id.toLowerCase().includes(query);
-      const matchesTitle = t.title.toLowerCase().includes(query);
-      
-      return matchesId || matchesTitle;
-    });
+        const filtered = items.filter((t) => {
+          if (t.id === ticket.id) return false;
+          if (existingIds.has(t.id)) return false;
+          return true;
+        });
 
-    setSuggestions(filtered.slice(0, 5)); // limita a 5 sugestões
-  }, [searchQuery, allTickets, ticket.id, relatedTicketIdsSerialized]);
+        setSuggestions(filtered.slice(0, 5));
+      } catch (err) {
+        console.error('Erro ao pesquisar chamados para associação:', err);
+      } finally {
+        setLoadingTickets(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, ticket.id, ticket.relatedTicketIds, ticket.linkedTickets]);
 
   useEffect(() => {
     if (!selectedAdditionalUserId) return;
@@ -193,16 +186,23 @@ export default function TicketSidebar({
     }
   }, [filteredAvailableUsers, selectedAdditionalUserId]);
 
-  const handleAssociate = async (relatedId: string) => {
+  const handleAssociate = async (targetId: string) => {
     try {
-      setAssociatingId(relatedId);
-      await relateTicket(ticket.id, relatedId);
+      setAssociatingId(targetId);
+      try {
+        await linkTicket(ticket.id, targetId);
+      } catch {
+        await relateTicket(ticket.id, targetId);
+      }
       toast.success('Chamado associado com sucesso!');
       setSearchQuery('');
       setSuggestions([]);
-      if (onRefresh) onRefresh();
-    } catch {
-      toast.error('Erro ao associar os chamados.');
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Erro ao associar chamado:', err);
+      toast.error('Não foi possível associar o chamado.');
     } finally {
       setAssociatingId(null);
     }
@@ -579,20 +579,40 @@ export default function TicketSidebar({
         </div>
       </section>
 
-      {ticket.relatedTicketIds && ticket.relatedTicketIds.length > 0 && (
+      {((ticket.linkedTickets && ticket.linkedTickets.length > 0) || (ticket.relatedTicketIds && ticket.relatedTicketIds.length > 0)) && (
         <section className="rounded-2xl border border-[#feb56c]/35 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">Chamados Relacionados</h3>
+          <h3 className="mb-4 text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+            <Link2 size={16} className="text-brand-primary" />
+            Chamados Vinculados
+          </h3>
           <ul className="flex flex-col gap-2">
-            {ticket.relatedTicketIds.map((relId) => (
-              <li key={relId}>
-                <Link
-                  to={`/tickets/${relId}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors break-all bg-brand-secondary/20 hover:bg-brand-secondary/40 px-3 py-2 rounded-xl border border-brand-primary/10 w-full"
-                >
-                  Chamado #{relId.slice(0, 8).toUpperCase()}
-                </Link>
-              </li>
-            ))}
+            {ticket.linkedTickets && ticket.linkedTickets.length > 0 ? (
+              ticket.linkedTickets.map((linked) => (
+                <li key={linked.id}>
+                  <Link
+                    to={`/tickets/${linked.id}`}
+                    className="flex flex-col gap-0.5 text-xs font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors bg-brand-secondary/20 hover:bg-brand-secondary/40 px-3 py-2 rounded-xl border border-brand-primary/10 w-full"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span>Chamado #{linked.number || linked.id.slice(0, 8).toUpperCase()}</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-500">{linked.status}</span>
+                    </span>
+                    <span className="text-slate-700 font-normal truncate">{linked.title}</span>
+                  </Link>
+                </li>
+              ))
+            ) : (
+              ticket.relatedTicketIds?.map((relId) => (
+                <li key={relId}>
+                  <Link
+                    to={`/tickets/${relId}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors break-all bg-brand-secondary/20 hover:bg-brand-secondary/40 px-3 py-2 rounded-xl border border-brand-primary/10 w-full"
+                  >
+                    Chamado #{relId.slice(0, 8).toUpperCase()}
+                  </Link>
+                </li>
+              ))
+            )}
           </ul>
         </section>
       )}

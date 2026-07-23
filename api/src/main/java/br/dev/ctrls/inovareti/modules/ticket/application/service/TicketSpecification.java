@@ -61,12 +61,14 @@ public class TicketSpecification {
                 predicates.add(root.get("id").in(subquery));
             }
 
-            // Pesquisa global no título ou descrição
+            // Pesquisa global no título, descrição ou ID
             if (search != null && !search.trim().isEmpty()) {
-                String pattern = "%" + search.trim().toLowerCase() + "%";
+                String cleanSearch = search.trim().replaceAll("^#", "");
+                String pattern = "%" + cleanSearch.toLowerCase() + "%";
                 Predicate titlePredicate = cb.like(cb.lower(root.get("title")), pattern);
                 Predicate descriptionPredicate = cb.like(cb.lower(root.get("description")), pattern);
-                predicates.add(cb.or(titlePredicate, descriptionPredicate));
+                Predicate idPredicate = cb.like(cb.lower(root.get("id").as(String.class)), pattern);
+                predicates.add(cb.or(titlePredicate, descriptionPredicate, idPredicate));
             }
 
             // Filtro dinâmico por status

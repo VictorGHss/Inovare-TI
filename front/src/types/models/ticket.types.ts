@@ -19,6 +19,13 @@ export interface TicketItemRequest {
   quantity: number;
 }
 
+export interface LinkedTicket {
+  id: string;
+  title: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  number?: string;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -52,6 +59,8 @@ export interface Ticket {
   assetId?: string | null;
   assetName?: string | null;
   isAssetCritical?: boolean;
+  parentTicketId?: string | null;
+  linkedTickets?: LinkedTicket[] | null;
 }
 
 export interface TicketCategory {

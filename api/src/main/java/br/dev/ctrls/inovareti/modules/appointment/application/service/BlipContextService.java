@@ -455,21 +455,34 @@ public class BlipContextService {
                             if (statusVal != null) {
                                 String status = statusVal.toString().trim();
                                 if ("Open".equalsIgnoreCase(status) || "Waiting".equalsIgnoreCase(status)) {
+                                    Object agentVal = itemMap.get("agentIdentity");
+                                    if (agentVal == null) agentVal = itemMap.get("agentEmail");
+                                    boolean hasAssignedAgent = agentVal != null && !agentVal.toString().isBlank();
+
+                                    // Se não há atendente humano atribuído e o ticket está em fila (Waiting), permite o envio do nudge automático
+                                    if (!hasAssignedAgent && "Waiting".equalsIgnoreCase(status)) {
+                                        log.info("[ATTENDANCE-GUARD] Ticket do contato {} em status '{}' sem atendente humano atribuído. Nudge permitido.", normalizedIdentity, status);
+                                        continue;
+                                    }
+
                                     LocalDateTime ticketTime = parseTicketTimestamp(itemMap);
                                     if (ticketTime == null) {
-                                        hasActive = true;
-                                        log.info("[ATTENDANCE-GUARD] Contato {} possui ticket sem data legível. Considerando ativo por segurança.", normalizedIdentity);
-                                        break;
+                                        if (hasAssignedAgent) {
+                                            hasActive = true;
+                                            log.info("[ATTENDANCE-GUARD] Contato {} possui ticket com atendente humano ativo. Considerando ativo por segurança.", normalizedIdentity);
+                                            break;
+                                        }
+                                        continue;
                                     }
                                     boolean isWithin2Hours = ticketTime.isAfter(twoHoursAgo);
                                     boolean isAfterLastNotification = lastNotificationSentAt != null && ticketTime.isAfter(lastNotificationSentAt);
 
-                                    if (isWithin2Hours || isAfterLastNotification) {
+                                    if (hasAssignedAgent && (isWithin2Hours || isAfterLastNotification)) {
                                         hasActive = true;
-                                        log.info("[ATTENDANCE-GUARD] Ticket ativo recente encontrado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
+                                        log.info("[ATTENDANCE-GUARD] Ticket com atendente humano ({}) ativo recente encontrado para {}. Data do ticket: {}", agentVal, normalizedIdentity, ticketTime);
                                         break;
                                     } else {
-                                        log.info("[ATTENDANCE-GUARD] Ticket antigo em aberto ignorado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
+                                        log.info("[ATTENDANCE-GUARD] Ticket sem atendente humano ou antigo ignorado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
                                     }
                                 }
                             }

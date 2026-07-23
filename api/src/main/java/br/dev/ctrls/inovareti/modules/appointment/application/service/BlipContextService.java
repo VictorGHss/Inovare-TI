@@ -447,7 +447,7 @@ public class BlipContextService {
                 Object itemsNode = resourceMap.get("items");
                 if (itemsNode instanceof java.util.Collection<?> itemsList) {
                     boolean hasActive = false;
-                    LocalDateTime twelveHoursAgo = LocalDateTime.now().minusHours(12);
+                    LocalDateTime twoHoursAgo = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")).minusHours(2);
 
                     for (Object itemObj : itemsList) {
                         if (itemObj instanceof Map<?, ?> itemMap) {
@@ -461,10 +461,10 @@ public class BlipContextService {
                                         log.info("[ATTENDANCE-GUARD] Contato {} possui ticket sem data legível. Considerando ativo por segurança.", normalizedIdentity);
                                         break;
                                     }
-                                    boolean isWithin12Hours = ticketTime.isAfter(twelveHoursAgo);
+                                    boolean isWithin2Hours = ticketTime.isAfter(twoHoursAgo);
                                     boolean isAfterLastNotification = lastNotificationSentAt != null && ticketTime.isAfter(lastNotificationSentAt);
 
-                                    if (isWithin12Hours || isAfterLastNotification) {
+                                    if (isWithin2Hours || isAfterLastNotification) {
                                         hasActive = true;
                                         log.info("[ATTENDANCE-GUARD] Ticket ativo recente encontrado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
                                         break;
@@ -500,7 +500,9 @@ public class BlipContextService {
         if (str.isEmpty()) return null;
 
         try {
-            return java.time.OffsetDateTime.parse(str).toLocalDateTime();
+            return java.time.OffsetDateTime.parse(str)
+                    .atZoneSameInstant(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .toLocalDateTime();
         } catch (Exception e1) {
             try {
                 return java.time.LocalDateTime.parse(str);

@@ -212,7 +212,7 @@ public class MonitorAppointmentNudgesUseCase {
 
     private LocalDateTime resolvePendingThreshold(int xHours) {
         if (!appointmentMotorProperties.isTestMode()) {
-            return LocalDateTime.now(SAO_PAULO_ZONE).minusHours(xHours);
+            return LocalDateTime.now(SAO_PAULO_ZONE).minusHours(xHours).plusMinutes(2);
         }
 
         LocalDateTime immediateThreshold = LocalDateTime.now(SAO_PAULO_ZONE).plusMinutes(1);

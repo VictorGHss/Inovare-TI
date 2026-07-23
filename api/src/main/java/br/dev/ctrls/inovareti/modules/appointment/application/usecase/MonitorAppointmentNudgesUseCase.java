@@ -2,6 +2,7 @@ package br.dev.ctrls.inovareti.modules.appointment.application.usecase;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MonitorAppointmentNudgesUseCase {
 
+    private static final ZoneId SAO_PAULO_ZONE = ZoneId.of("America/Sao_Paulo");
+
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final AppointmentConfigRepositoryPort appointmentConfigRepository;
     private final AppointmentMotorProperties appointmentMotorProperties;
@@ -44,7 +47,7 @@ public class MonitorAppointmentNudgesUseCase {
                 .orElse(appointmentMotorProperties.getNudge1WaitHours());
 
         LocalDateTime pendingThreshold = resolvePendingThreshold(nudgeHours);
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayStart = LocalDate.now(SAO_PAULO_ZONE).atStartOfDay();
 
         // --- 2. BUSCAR SESSÕES PENDENTES ELEGÍVEIS (appointmentAt >= TODAY e lastNotificationSentAt < 2h) ---
         List<AppointmentSession> pendingSessions = appointmentSessionRepository
@@ -58,6 +61,8 @@ public class MonitorAppointmentNudgesUseCase {
         candidateSessions.addAll(pendingSessions);
         candidateSessions.addAll(nudge1Sessions);
         candidateSessions.addAll(finalSessions);
+
+        log.info("[NUDGE-MONITOR] Encontradas {} sessões PENDING elegíveis para reenvio.", candidateSessions.size());
 
         boolean hasSentBefore = false;
         Set<UUID> processedGroups = new HashSet<>();
@@ -108,16 +113,16 @@ public class MonitorAppointmentNudgesUseCase {
             if (lockedSession != null && isStatusEligibleForNudge(lockedSession.getStatus())) {
                 if (blipContextService.hasActiveTicket(lockedSession.getPhoneNumber(), lockedSession.getLastNotificationSentAt())) {
                     log.info("[ATTENDANCE-GUARD] Abortando/pausando nudge recorrente para {} devido a ticket de live chat ativo no Blip.", lockedSession.getPhoneNumber());
-                    lockedSession.setLastNotificationSentAt(LocalDateTime.now());
-                    lockedSession.setLastInteractionAt(LocalDateTime.now());
+                    lockedSession.setLastNotificationSentAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                    lockedSession.setLastInteractionAt(LocalDateTime.now(SAO_PAULO_ZONE));
                     appointmentSessionRepository.save(lockedSession);
                     return false;
                 }
 
                 // Mantém o status como PENDING e apenas atualiza a data/hora do envio
                 lockedSession.setStatus(AppointmentSessionStatus.PENDING);
-                lockedSession.setLastNotificationSentAt(LocalDateTime.now());
-                lockedSession.setLastInteractionAt(LocalDateTime.now());
+                lockedSession.setLastNotificationSentAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                lockedSession.setLastInteractionAt(LocalDateTime.now(SAO_PAULO_ZONE));
                 appointmentSessionRepository.save(lockedSession);
                 return true;
             }
@@ -156,8 +161,8 @@ public class MonitorAppointmentNudgesUseCase {
                 log.info("[ATTENDANCE-GUARD] Abortando/pausando nudge recorrente de grupo para {} devido a ticket de live chat ativo no Blip.", phoneNumber);
                 for (AppointmentSession s : groupSessions) {
                     AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
-                    locked.setLastNotificationSentAt(LocalDateTime.now());
-                    locked.setLastInteractionAt(LocalDateTime.now());
+                    locked.setLastNotificationSentAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                    locked.setLastInteractionAt(LocalDateTime.now(SAO_PAULO_ZONE));
                     appointmentSessionRepository.save(locked);
                 }
                 return false;
@@ -166,8 +171,8 @@ public class MonitorAppointmentNudgesUseCase {
             for (AppointmentSession s : groupSessions) {
                 AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
                 locked.setStatus(AppointmentSessionStatus.PENDING);
-                locked.setLastNotificationSentAt(LocalDateTime.now());
-                locked.setLastInteractionAt(LocalDateTime.now());
+                locked.setLastNotificationSentAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                locked.setLastInteractionAt(LocalDateTime.now(SAO_PAULO_ZONE));
                 appointmentSessionRepository.save(locked);
             }
             return true;
@@ -207,10 +212,10 @@ public class MonitorAppointmentNudgesUseCase {
 
     private LocalDateTime resolvePendingThreshold(int xHours) {
         if (!appointmentMotorProperties.isTestMode()) {
-            return LocalDateTime.now().minusHours(xHours);
+            return LocalDateTime.now(SAO_PAULO_ZONE).minusHours(xHours);
         }
 
-        LocalDateTime immediateThreshold = LocalDateTime.now().plusMinutes(1);
+        LocalDateTime immediateThreshold = LocalDateTime.now(SAO_PAULO_ZONE).plusMinutes(1);
         log.warn("[TEST MODE ACTIVE] NUDGE recorrente liberado imediatamente. pendingThreshold={}", immediateThreshold);
         return immediateThreshold;
     }

@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketResponseDTO;
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.modules.ticket.domain.model.Ticket;
 import br.dev.ctrls.inovareti.modules.ticket.domain.port.output.DiscordTicketPort;
@@ -24,7 +25,7 @@ public class LinkTicketUseCase {
     private final DiscordTicketPort discordTicketPort;
 
     @Transactional
-    public void execute(UUID childId, UUID parentTicketId) {
+    public TicketResponseDTO execute(UUID childId, UUID parentTicketId) {
         Ticket childTicket = ticketRepository.findById(childId)
                 .orElseThrow(() -> new NotFoundException("Chamado filho não encontrado com id: " + childId));
 
@@ -32,16 +33,30 @@ public class LinkTicketUseCase {
                 .orElseThrow(() -> new NotFoundException("Chamado pai não encontrado com id: " + parentTicketId));
 
         childTicket.setParentTicketId(parentTicketId);
-        ticketRepository.save(childTicket);
+
+        if (childTicket.getRelatedTickets() == null) {
+            childTicket.setRelatedTickets(new java.util.HashSet<>());
+        }
+        if (parentTicket.getRelatedTickets() == null) {
+            parentTicket.setRelatedTickets(new java.util.HashSet<>());
+        }
+
+        childTicket.getRelatedTickets().add(parentTicket);
+        parentTicket.getRelatedTickets().add(childTicket);
+
+        Ticket savedChild = ticketRepository.save(childTicket);
+        ticketRepository.save(parentTicket);
 
         log.info("[LINK-TICKET] Chamado #{} (filho) unificado ao Chamado Mestre #{} (pai)",
-                childTicket.getNumber(), parentTicket.getNumber());
+                savedChild.getNumber(), parentTicket.getNumber());
 
         // Publica notificação no Discord
         try {
-            discordTicketPort.notifyMerged(childTicket, parentTicket);
+            discordTicketPort.notifyMerged(savedChild, parentTicket);
         } catch (Exception ex) {
-            log.error("[LINK-TICKET] Falha ao notificar unificação no Discord para o chamado #{}", childTicket.getNumber(), ex);
+            log.error("[LINK-TICKET] Falha ao notificar unificação no Discord para o chamado #{}", savedChild.getNumber(), ex);
         }
+
+        return TicketResponseDTO.from(savedChild);
     }
 }

@@ -74,6 +74,16 @@ public class DiscordEmbedBuilder {
         fields.add(Map.of("name", "Solicitante", "value", requester, "inline", true));
         fields.add(Map.of("name", "Setor", "value", sector, "inline", true));
         fields.add(Map.of("name", "Prioridade", "value", priority, "inline", true));
+
+        if (ticket != null && ticket.getRelatedTickets() != null && !ticket.getRelatedTickets().isEmpty()) {
+            String linkedSummary = ticket.getRelatedTickets().stream()
+                    .map(t -> "#" + (t.getNumber() != null ? t.getNumber() : "-") + " - " + DiscordLgpdSanitizer.sanitize(t.getTitle()))
+                    .collect(java.util.stream.Collectors.joining(", "));
+            if (StringUtils.hasText(linkedSummary)) {
+                fields.add(Map.of("name", "🔗 Chamados Vinculados", "value", linkedSummary, "inline", false));
+            }
+        }
+
         embed.put("fields", fields);
 
         if (StringUtils.hasText(thumbnailUrl)) {

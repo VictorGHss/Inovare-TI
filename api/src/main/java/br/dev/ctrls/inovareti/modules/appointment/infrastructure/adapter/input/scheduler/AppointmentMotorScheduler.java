@@ -46,13 +46,15 @@ public class AppointmentMotorScheduler {
         }
     }
 
-    @Scheduled(cron = "${app.appointment.motor.monitor-cron}")
+    @Scheduled(cron = "${app.appointment.motor.monitor-cron:0 0 9,11,13,15,17 * * MON-FRI}")
     public void monitorNudges() {
+        log.info("[NUDGE-SCHEDULER] Iniciando ciclo de monitoramento de nudges às {}...",
+                java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")));
+
         if (!properties.isEnabled()) {
             return;
         }
 
-        log.info("Scheduler de monitoramento de nudge iniciado");
         monitorAppointmentNudgesUseCase.execute();
     }
 }

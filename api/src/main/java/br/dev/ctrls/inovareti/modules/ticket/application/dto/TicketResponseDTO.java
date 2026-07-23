@@ -43,7 +43,9 @@ public record TicketResponseDTO(
         UUID assetId,
         String assetName,
         boolean isAssetCritical,
-        List<TicketItemRequestResponseDTO> requestedItems
+        List<TicketItemRequestResponseDTO> requestedItems,
+        UUID parentTicketId,
+        List<LinkedTicketDTO> linkedTickets
 ) {
     /** Converte uma entidade {@link Ticket} para este DTO. */
     public static TicketResponseDTO from(Ticket ticket) {
@@ -51,6 +53,10 @@ public record TicketResponseDTO(
     }
 
     public static TicketResponseDTO from(Ticket ticket, List<AttachmentResponseDTO> attachments) {
+        List<LinkedTicketDTO> linkedTickets = ticket.getRelatedTickets() != null
+                ? ticket.getRelatedTickets().stream().map(LinkedTicketDTO::from).toList()
+                : List.of();
+
         return new TicketResponseDTO(
                 ticket.getId(),
                 ticket.getTitle(),
@@ -87,7 +93,9 @@ public record TicketResponseDTO(
                                 ri.getItem().getId(),
                                 ri.getItem().getName(),
                                 ri.getQuantity()
-                        )).toList() : List.of()
+                        )).toList() : List.of(),
+                ticket.getParentTicketId(),
+                linkedTickets
         );
     }
 
@@ -101,4 +109,20 @@ public record TicketResponseDTO(
             String itemName,
             Integer quantity
     ) {}
+
+    public record LinkedTicketDTO(
+            UUID id,
+            String title,
+            TicketStatus status,
+            String number
+    ) {
+        public static LinkedTicketDTO from(Ticket t) {
+            return new LinkedTicketDTO(
+                    t.getId(),
+                    t.getTitle(),
+                    t.getStatus(),
+                    t.getNumber()
+            );
+        }
+    }
 }

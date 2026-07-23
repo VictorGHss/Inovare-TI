@@ -451,13 +451,12 @@ public class TicketController {
      * @return ResponseEntity indicando sucesso
      */
     @PostMapping("/{id}/link")
-    public ResponseEntity<Void> linkTicket(
+    public ResponseEntity<TicketResponseDTO> linkTicket(
             @PathVariable UUID id,
             @Valid @RequestBody LinkTicketRequest request) {
         // Valida se o utilizador atual possui permissão no chamado correspondente
         checkTicketOwnershipOrStaff(id);
-        linkTicketUseCase.execute(id, request.parentTicketId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(linkTicketUseCase.execute(id, request.parentTicketId()));
     }
 
     public record LinkTicketRequest(

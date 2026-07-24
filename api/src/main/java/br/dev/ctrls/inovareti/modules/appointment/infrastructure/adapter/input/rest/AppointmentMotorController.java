@@ -83,7 +83,8 @@ public class AppointmentMotorController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> triggerManual(
             @RequestParam(value = "production", required = false) Boolean production,
-            @RequestParam(value = "exclude", required = false) String excludeRaw) {
+            @RequestParam(value = "exclude", required = false) String excludeRaw,
+            @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend) {
         
         IngestAppointmentsUseCase.IngestionSummary summary;
         if (Boolean.TRUE.equals(production)) {
@@ -95,15 +96,15 @@ public class AppointmentMotorController {
                         .filter(id -> !id.isEmpty())
                         .toList();
                 
-                log.info("[MANUAL-PROD] Executando motor para médicos ativos. Excluindo por demanda os IDs: {}", excludeList);
+                log.info("[MANUAL-PROD] Executando motor para médicos ativos (forceSend={}). Excluindo por demanda os IDs: {}", forceSend, excludeList);
                 activeDoctorIds.removeAll(excludeList);
             }
             
-            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {}", activeDoctorIds);
-            summary = ingestAppointmentsUseCase.execute(activeDoctorIds);
+            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {} (forceSend={})", activeDoctorIds, forceSend);
+            summary = ingestAppointmentsUseCase.execute(activeDoctorIds, forceSend);
         } else {
-            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais).");
-            summary = ingestAppointmentsUseCase.execute();
+            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais, forceSend={}).", forceSend);
+            summary = ingestAppointmentsUseCase.execute(null, forceSend);
         }
 
         return ResponseEntity.ok(Map.of(

@@ -137,15 +137,33 @@ public class SendAppointmentTemplateUseCase {
                     ctx.queueName()
             );
 
+            // Transmite a mensagem para a API do Blip (pode lançar exceção se falhar)
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);
 
-            log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
+            // Persiste o estado e timestamp no banco SOMENTE APÓS O SUCESSO EXPLÍCITO DO DISPARO
+            if (session != null) {
+                switch (category) {
+                    case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                    case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                    case NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                    case GROUP_NOTIFICATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                    case GROUP_NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                    case GROUP_NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                }
+                session.setLastInteractionAt(LocalDateTime.now());
+                session.setLastNotificationSentAt(LocalDateTime.now());
+                saveWithRetry(session, null);
+            }
+
+            log.info("[MENSAGERIA] Template ativo disparado com sucesso no Blip para o agendamento ID {}. Sessão local salva no banco.", ctx.feegowAppointmentId());
             return true;
-        } catch (RestClientResponseException ex) {
-            handleRestClientException(session, ex);
-            return false;
-        } catch (RuntimeException ex) {
-            handleGenericException(session, ex);
+        } catch (Exception ex) {
+            log.error("[ERRO-DISPARO] Falha ao enviar template no Blip para o agendamento ID {}. O registro não será marcado como notificado para permitir nova tentativa.", ctx.feegowAppointmentId());
+            if (ex instanceof RestClientResponseException rcre) {
+                handleRestClientException(session, rcre);
+            } else if (ex instanceof RuntimeException re) {
+                handleGenericException(session, re);
+            }
             return false;
         }
     }
@@ -168,18 +186,6 @@ public class SendAppointmentTemplateUseCase {
 
             // Limpa contexto de grupo e redireciona para Preparar_Atendimento de forma assíncrona
             cleanGroupContextAndRedirectToPrepararAtendimentoAsync(session.getPhoneNumber());
-
-            switch (category) {
-                case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
-                case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
-                case NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
-                case GROUP_NOTIFICATION -> session.setStatus(AppointmentSessionStatus.PENDING);
-                case GROUP_NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
-                case GROUP_NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
-            }
-            session.setLastInteractionAt(LocalDateTime.now());
-            session.setLastNotificationSentAt(LocalDateTime.now());
-            saveWithRetry(session, null);
 
             String cpf = "";
             try {
@@ -215,15 +221,31 @@ public class SendAppointmentTemplateUseCase {
                     resolvedQueue
             );
 
+            // Transmite a mensagem para a API do Blip (pode lançar exceção se falhar)
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
+
+            // Persiste o estado e timestamp no banco SOMENTE APÓS O SUCESSO EXPLÍCITO DO DISPARO
+            switch (category) {
+                case CONFIRMATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                case NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                case NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+                case GROUP_NOTIFICATION -> session.setStatus(AppointmentSessionStatus.PENDING);
+                case GROUP_NUDGE_1 -> session.setStatus(AppointmentSessionStatus.NUDGE_1_SENT);
+                case GROUP_NUDGE_FINAL -> session.setStatus(AppointmentSessionStatus.NUDGE_FINAL_SENT);
+            }
+            session.setLastInteractionAt(LocalDateTime.now());
+            session.setLastNotificationSentAt(LocalDateTime.now());
+            saveWithRetry(session, null);
             
-            log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
+            log.info("[MENSAGERIA] Template ativo disparado com sucesso no Blip para o agendamento ID {}. Sessão local salva no banco.", session.getFeegowAppointmentId());
             return true;
-        } catch (RestClientResponseException ex) {
-            handleRestClientException(session, ex);
-            return false;
-        } catch (RuntimeException ex) {
-            handleGenericException(session, ex);
+        } catch (Exception ex) {
+            log.error("[ERRO-DISPARO] Falha ao enviar template no Blip para o agendamento ID {}. O registro não será marcado como notificado para permitir nova tentativa.", session.getFeegowAppointmentId());
+            if (ex instanceof RestClientResponseException rcre) {
+                handleRestClientException(session, rcre);
+            } else if (ex instanceof RuntimeException re) {
+                handleGenericException(session, re);
+            }
             return false;
         }
     }

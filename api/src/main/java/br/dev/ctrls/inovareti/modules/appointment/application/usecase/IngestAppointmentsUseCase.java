@@ -98,10 +98,14 @@ public class IngestAppointmentsUseCase {
     private record GroupPersistenceResult(List<AppointmentSession> savedSessions, String preCompiledText) {}
 
     public IngestionSummary execute() {
-        return execute(null);
+        return execute(null, false);
     }
 
     public IngestionSummary execute(List<String> doctorIds) {
+        return execute(doctorIds, false);
+    }
+
+    public IngestionSummary execute(List<String> doctorIds, boolean forceSend) {
         LocalDate today = LocalDate.now();
         DayOfWeek dayOfWeek = today.getDayOfWeek();
 
@@ -338,12 +342,12 @@ public class IngestAppointmentsUseCase {
                     return normalized + "#" + date;
                 }));
 
-        return processIngestionGroups(grouped, sessionCache, doctorMappingCache, patientDetailsCache, totalReceived);
+        return processIngestionGroups(grouped, sessionCache, doctorMappingCache, patientDetailsCache, totalReceived, forceSend);
     }
 
     private IngestionSummary processIngestionGroups(Map<String, List<FeegowAppointment>> grouped, Map<String, AppointmentSession> sessionCache,
             Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache,
-            Map<String, FeegowPatient> patientDetailsCache, int totalReceived) {
+            Map<String, FeegowPatient> patientDetailsCache, int totalReceived, boolean forceSend) {
 
         // Cache do nome do template buscado UMA vez antes do loop para evitar N queries idênticas ao banco.
         // O template não muda durante a execução da ingestão.
@@ -352,16 +356,13 @@ public class IngestAppointmentsUseCase {
                 .map(config -> config.getTemplateId())
                 .orElse(appointmentMotorProperties.getBlipTemplateGroup())
         );
-        log.info("[INGESTAO] Template de grupo resolvido antes do loop: '{}'", cachedGroupTemplateName);
+        log.info("[INGESTAO] Template de grupo resolvido antes do loop: '{}' (forceSend={})", cachedGroupTemplateName, forceSend);
 
         AtomicInteger created = new AtomicInteger(0);
         AtomicInteger messagesSent = new AtomicInteger(0);
         AtomicInteger filteredReceived = new AtomicInteger(0);
 
         // Processa todos os grupos em paralelo usando Virtual Threads.
-        // Cada grupo (paciente com múltiplos agendamentos) roda em sua própria thread virtual,
-        // o que reduz o tempo total de ingestão de O(N) sequencial para O(1) paralelo
-        // limitado pela latência do serviço mais lento (Blip ou banco de dados).
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -380,7 +381,7 @@ public class IngestAppointmentsUseCase {
                         patientName, appointmentTime, rawPhone, purifiedPhone);
                 }
 
-                List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache);
+                List<FeegowAppointment> eligibleAppointments = filterEligibleAppointments(groupAppointments, sessionCache, doctorMappingCache, forceSend);
                 if (eligibleAppointments.isEmpty()) continue;
 
                 filteredReceived.addAndGet(eligibleAppointments.size());
@@ -394,7 +395,7 @@ public class IngestAppointmentsUseCase {
                     final FeegowAppointment appt = eligibleAppointments.get(0);
                     final FeegowPatient patientDetails = patientDetailsCache.get(appt.patientId());
                     futures.add(CompletableFuture.runAsync(() -> {
-                        if (processSingleFlow(appt, doctorMappingCache, patientDetails)) {
+                        if (processSingleFlow(appt, doctorMappingCache, patientDetails, forceSend)) {
                             created.incrementAndGet();
                             messagesSent.incrementAndGet();
                         }
@@ -418,14 +419,14 @@ public class IngestAppointmentsUseCase {
         }
 
         String mode = appointmentMotorProperties.isTestMode() ? "TEST" : "PROD";
-        log.info("Ingestão executada. totalRecebido={}, totalAposFiltro={}, sessoesCriadas={}, mensagensEnviadas={}, modo={}",
-                totalReceived, filteredReceived.get(), created.get(), messagesSent.get(), mode);
+        log.info("Ingestão executada. totalRecebido={}, totalAposFiltro={}, sessoesCriadas={}, mensagensEnviadas={}, modo={}, forceSend={}",
+                totalReceived, filteredReceived.get(), created.get(), messagesSent.get(), mode, forceSend);
 
         return new IngestionSummary(totalReceived, filteredReceived.get(), created.get(), messagesSent.get(), mode);
     }
 
     private List<FeegowAppointment> filterEligibleAppointments(List<FeegowAppointment> group, Map<String, AppointmentSession> sessionCache,
-            Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache) {
+            Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache, boolean forceSend) {
         
         List<FeegowAppointment> eligible = new ArrayList<>();
         for (FeegowAppointment appointment : group) {
@@ -461,19 +462,27 @@ public class IngestAppointmentsUseCase {
                 continue;
             }
 
-            if (existingSessionOpt.isPresent()) {
-                AppointmentSessionStatus status = existingSessionOpt.get().getStatus();
-                if (status == AppointmentSessionStatus.PENDING || status == AppointmentSessionStatus.NUDGE_1_SENT ||
-                    status == AppointmentSessionStatus.NUDGE_FINAL_SENT || status == AppointmentSessionStatus.CONFIRMED) {
-                    log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Mensagem já enviada anteriormente.", feegowAppointmentId);
-                    continue;
+            if (existing != null) {
+                if (!forceSend) {
+                    if (existing.getLastNotificationSentAt() != null) {
+                        log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Notificação já enviada em {}.", feegowAppointmentId, existing.getLastNotificationSentAt());
+                        continue;
+                    }
+                    AppointmentSessionStatus status = existing.getStatus();
+                    if (status == AppointmentSessionStatus.PENDING || status == AppointmentSessionStatus.NUDGE_1_SENT ||
+                        status == AppointmentSessionStatus.NUDGE_FINAL_SENT || status == AppointmentSessionStatus.CONFIRMED) {
+                        log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Status atual: {}.", feegowAppointmentId, status);
+                        continue;
+                    }
+                } else {
+                    log.info("[FORCE-SEND] Bypassing filtro de idempotência para o agendamento ID={}.", feegowAppointmentId);
                 }
             }
 
             boolean canSend = appointmentSendIdempotencyService.map(s -> s.registerIfFirstSend(feegowAppointmentId))
                     .orElseGet(() -> noopAppointmentSendIdempotencyService.map(s -> s.registerIfFirstSend(feegowAppointmentId)).orElse(true));
 
-            if (canSend) {
+            if (canSend || forceSend) {
                 eligible.add(appointment);
             }
         }
@@ -482,7 +491,7 @@ public class IngestAppointmentsUseCase {
 
     private boolean processSingleFlow(FeegowAppointment appointment,
             Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache,
-            FeegowPatient patientDetails) {
+            FeegowPatient patientDetails, boolean forceSend) {
         
         String feegowAppointmentId = normalizeFeegowAppointmentId(appointment.id());
         var mapping = doctorMappingCache.get(appointment.doctorId());
@@ -499,20 +508,28 @@ public class IngestAppointmentsUseCase {
             return false;
         }
 
-        AppointmentSession saved = saveSingleSession(feegowAppointmentId, appointment, phoneNumber);
+        AppointmentSession saved = saveSingleSession(feegowAppointmentId, appointment, phoneNumber, forceSend);
         if (saved == null) return false;
 
         return dispatchSingleTemplate(saved, appointment, mappingQueue, mappingProfessionalName, phoneNumber, patientDetails);
     }
 
-    private AppointmentSession saveSingleSession(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber) {
+    private AppointmentSession saveSingleSession(String feegowAppointmentId, FeegowAppointment appointment, String phoneNumber, boolean forceSend) {
         return transactionTemplate.execute(status -> {
             Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
             if (latestSessionOpt.isPresent()) {
-                AppointmentSessionStatus currentStatus = latestSessionOpt.get().getStatus();
-                if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
-                    currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
-                    return null;
+                AppointmentSession existing = latestSessionOpt.get();
+                if (!forceSend) {
+                    if (existing.getLastNotificationSentAt() != null) {
+                        return null;
+                    }
+                    AppointmentSessionStatus currentStatus = existing.getStatus();
+                    if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
+                        currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
+                        return null;
+                    }
+                } else {
+                    log.info("[FORCE-SEND] Reutilizando sessão e forçando reenvio de template para o agendamento ID: {}", feegowAppointmentId);
                 }
             }
             AppointmentSession session = latestSessionOpt.orElseGet(AppointmentSession::new);

@@ -202,6 +202,7 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public void archiveTicketChannel(Ticket ticket) {
         ticket = ticketRepository.findById(ticket.getId()).orElse(ticket);
         log.info("[DISCORD-TICKET] Iniciando arquivamento de canal para chamado #{}.", ticket.getNumber());
@@ -239,18 +240,44 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
         }
 
         for (TextChannel channel : channels) {
-            // Envia embed de ticket resolvido
+            // Envia e fixa embed de solução do chamado
             net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
-            eb.setTitle("Ticket Resolvido");
-            eb.setColor(0x00FF00); // Verde
-            if (ticket.getAsset() != null) {
-                eb.setDescription("Ativo baixado: Patrimônio " + ticket.getAsset().getPatrimonyCode());
-            } else {
-                eb.setDescription("Chamado resolvido com sucesso.");
+            String ticketNum = ticket.getNumber() != null ? ticket.getNumber() : "-";
+            eb.setTitle("✅ Chamado #" + ticketNum + " - Solução do Chamado");
+            eb.setColor(0x2ECC71); // Verde Sucesso
+
+            String rawSolution = ticket.getSolutionText();
+            if (rawSolution == null || rawSolution.isBlank()) {
+                if (ticket.getAsset() != null) {
+                    rawSolution = "Ativo baixado: Patrimônio " + ticket.getAsset().getPatrimonyCode();
+                } else {
+                    rawSolution = "Chamado resolvido com sucesso.";
+                }
             }
+            String sanitizedSolution = DiscordLgpdSanitizer.sanitize(rawSolution);
+            eb.setDescription("**Solução Registrada:**\n" + (sanitizedSolution != null ? sanitizedSolution : "-"));
+
+            String assignedName = java.util.Objects.requireNonNullElse(
+                    ticket.getAssignedTo() != null ? DiscordLgpdSanitizer.sanitize(ticket.getAssignedTo().getName()) : "Equipe Inovare TI",
+                    "Equipe Inovare TI");
+            eb.addField("Atendido por", java.util.Objects.requireNonNullElse(assignedName, "Equipe Inovare TI"), true);
+
+            if (ticket.getAsset() != null && ticket.getSolutionText() != null && !ticket.getSolutionText().isBlank()) {
+                eb.addField("Ativo Baixado", "Patrimônio " + ticket.getAsset().getPatrimonyCode(), true);
+            }
+
+            String closedAtStr = ticket.getClosedAt() != null
+                    ? ticket.getClosedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    : java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+            eb.setFooter("Inovare TI • Chamado resolvido em: " + closedAtStr);
+            eb.setTimestamp(java.time.Instant.now());
+
             channel.sendMessageEmbeds(eb.build()).queue(
-                    v -> log.info("[DISCORD-TICKET] Embed de resolução enviado para canal #{}", channel.getName()),
-                    err -> log.error("[DISCORD-TICKET] Falha ao enviar embed de resolução para canal #{}", channel.getName(), err)
+                    message -> message.pin().queue(
+                            v -> log.info("[DISCORD-TICKET] Embed de solução do chamado #{} enviado e fixado no canal #{}", ticketNum, channel.getName()),
+                            pinErr -> log.warn("[DISCORD-TICKET] Embed de solução enviado, mas falhou ao fixar no canal #{}: {}", channel.getName(), pinErr.getMessage())
+                    ),
+                    err -> log.error("[DISCORD-TICKET] Falha ao enviar embed de resolução para canal #{}: {}", channel.getName(), err.getMessage())
             );
 
             // Remove permissão de escrita de todos os membros humanos vinculados

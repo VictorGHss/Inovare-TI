@@ -19,6 +19,10 @@ import br.dev.ctrls.inovareti.modules.user.domain.port.output.UserRepositoryPort
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.context.ApplicationEventPublisher;
+import br.dev.ctrls.inovareti.modules.ticket.domain.event.TicketResolvedEvent;
+import br.dev.ctrls.inovareti.modules.ticket.domain.model.TicketStatus;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -27,6 +31,7 @@ public class UpdateSolutionTextUseCase {
     private final TicketRepositoryPort ticketRepository;
     private final UserRepositoryPort userRepository;
     private final AuditLogService auditLogService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponseDTO execute(UUID ticketId, UpdateSolutionTextDTO request) {
@@ -41,6 +46,10 @@ public class UpdateSolutionTextUseCase {
         ticket.setSolutionText(request.solutionText() != null ? request.solutionText().trim() : null);
 
         Ticket savedTicket = ticketRepository.save(ticket);
+
+        if (savedTicket.getStatus() == TicketStatus.RESOLVED) {
+            eventPublisher.publishEvent(new TicketResolvedEvent(savedTicket));
+        }
         
         auditLogService.publish(AuditEvent.of(AuditAction.TICKET_RESOLVE)
             .userId(currentUser.getId())

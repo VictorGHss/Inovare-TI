@@ -67,8 +67,18 @@ public class TicketSpecification {
                 String pattern = "%" + cleanSearch.toLowerCase() + "%";
                 Predicate titlePredicate = cb.like(cb.lower(root.get("title")), pattern);
                 Predicate descriptionPredicate = cb.like(cb.lower(root.get("description")), pattern);
-                Predicate idPredicate = cb.like(root.get("id").as(String.class), pattern);
-                predicates.add(cb.or(titlePredicate, descriptionPredicate, idPredicate));
+                
+                // Concatena o UUID com String vazia para conversão segura a texto no PostgreSQL/H2 (evita erro "operator does not exist: uuid ~~ text")
+                var idAsString = cb.function("concat", String.class, root.get("id"), cb.literal(""));
+                Predicate idPredicate = cb.like(cb.lower(idAsString), pattern);
+
+                try {
+                    UUID searchUuid = UUID.fromString(cleanSearch);
+                    Predicate exactUuidPredicate = cb.equal(root.get("id"), searchUuid);
+                    predicates.add(cb.or(titlePredicate, descriptionPredicate, idPredicate, exactUuidPredicate));
+                } catch (IllegalArgumentException e) {
+                    predicates.add(cb.or(titlePredicate, descriptionPredicate, idPredicate));
+                }
             }
 
             // Filtro dinâmico por status

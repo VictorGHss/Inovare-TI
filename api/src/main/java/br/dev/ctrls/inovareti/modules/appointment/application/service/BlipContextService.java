@@ -641,14 +641,18 @@ public class BlipContextService {
     public void updateContactExtras(String userIdentity, Map<String, String> extras) {
         if (userIdentity == null || userIdentity.isBlank() || extras == null || extras.isEmpty()) return;
 
-        String masterIdentity = resolveMasterIdentity(userIdentity);
-        String tunnelIdentity = resolveTunnelIdentity(userIdentity);
+        try {
+            String masterIdentity = resolveMasterIdentity(userIdentity);
+            String tunnelIdentity = resolveTunnelIdentity(userIdentity);
 
-        if (masterIdentity != null && !masterIdentity.isBlank()) {
-            limeClient.mergeContactExtras(masterIdentity, extras, BlipLIMEClient.AuthorizationScope.ROUTER);
-        }
-        if (tunnelIdentity != null && !tunnelIdentity.isBlank()) {
-            limeClient.mergeContactExtras(tunnelIdentity, extras, BlipLIMEClient.AuthorizationScope.DESK);
+            if (masterIdentity != null && !masterIdentity.isBlank()) {
+                limeClient.mergeContactExtras(masterIdentity, extras, BlipLIMEClient.AuthorizationScope.ROUTER);
+            }
+            if (tunnelIdentity != null && !tunnelIdentity.isBlank()) {
+                limeClient.mergeContactExtras(tunnelIdentity, extras, BlipLIMEClient.AuthorizationScope.DESK);
+            }
+        } catch (Exception ex) {
+            log.warn("[BLIP-CONTEXT] Falha ao atualizar extras do contato em escopo duplo para {}: {}", userIdentity, ex.getMessage());
         }
     }
 }

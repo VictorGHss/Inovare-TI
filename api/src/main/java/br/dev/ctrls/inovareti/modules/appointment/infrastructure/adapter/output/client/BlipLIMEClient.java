@@ -170,7 +170,9 @@ public class BlipLIMEClient implements BlipClientPort {
             Map<String, Object> response = executeCommand(command, scope);
             log.info("[LIME-CONTACT] Extras do contato atualizados no Blip ({}) para {}. Resposta: {}", scope, targetIdentity, response);
         } catch (RestClientException ex) {
-            log.warn("Falha ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
+            log.warn("[LIME-CONTACT] Falha de comunicação ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
+        } catch (Exception ex) {
+            log.warn("[LIME-CONTACT] Erro inesperado ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
         }
     }
 

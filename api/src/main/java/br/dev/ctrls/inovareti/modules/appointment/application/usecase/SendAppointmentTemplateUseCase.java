@@ -126,6 +126,17 @@ public class SendAppointmentTemplateUseCase {
                 return false;
             }
 
+            // Injeção preventiva de metadados no Blip antes da transmissão do template
+            injectPreventiveMetadata(
+                    ctx.phoneNumber(),
+                    ctx.patientName(),
+                    ctx.doctorName(),
+                    ctx.feegowAppointmentId(),
+                    ctx.sessionId() != null ? ctx.sessionId().toString() : null,
+                    ctx.doctorProfissionalId(),
+                    ctx.queueName()
+            );
+
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);
 
             log.info("[MENSAGERIA] Template ativo disparado. Sessão local salva no banco.");
@@ -192,6 +203,17 @@ public class SendAppointmentTemplateUseCase {
                 log.error("[SendAppointmentTemplateUseCase] Sincronização obrigatória de contato falhou para {}. Abortando envio de template.", session.getPhoneNumber());
                 return false;
             }
+
+            // Injeção preventiva de metadados no Blip antes da transmissão do template
+            injectPreventiveMetadata(
+                    session.getPhoneNumber(),
+                    templateData.patientName(),
+                    templateData.doctorName(),
+                    session.getFeegowAppointmentId(),
+                    session.getId() != null ? session.getId().toString() : null,
+                    session.getDoctorProfissionalId(),
+                    resolvedQueue
+            );
 
             blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), templateId, templateData);
             
@@ -458,5 +480,82 @@ public class SendAppointmentTemplateUseCase {
                 log.warn("[SOLO-CTX] Falha no fluxo de limpeza e redirecionamento solo para {}: {}", soloPhone, e.getMessage());
             }
         });
+    }
+
+    private void injectPreventiveMetadata(
+            String phoneNumber,
+            String patientName,
+            String doctorName,
+            String feegowAppointmentId,
+            String sessionId,
+            String doctorProfissionalId,
+            String rawQueueNameOrId
+    ) {
+        if (phoneNumber == null || phoneNumber.isBlank()) return;
+        try {
+            String blipQueueId = null;
+            String resolvedQueueName = "Recepção Central / Suporte";
+
+            if (doctorProfissionalId != null && !doctorProfissionalId.isBlank()) {
+                var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(doctorProfissionalId.trim());
+                if (mappingOpt.isPresent()) {
+                    String qId = mappingOpt.get().getBlipQueueId();
+                    if (qId != null && !qId.isBlank() && !"null".equalsIgnoreCase(qId.trim())) {
+                        blipQueueId = qId.trim();
+                    }
+                }
+            }
+
+            if (blipQueueId == null && rawQueueNameOrId != null && rawQueueNameOrId.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+                blipQueueId = rawQueueNameOrId.trim();
+            }
+
+            if (blipQueueId != null) {
+                resolvedQueueName = blipContextService.resolveQueueName(blipQueueId);
+            } else if (rawQueueNameOrId != null && !rawQueueNameOrId.isBlank()) {
+                resolvedQueueName = blipContextService.resolveQueueName(rawQueueNameOrId);
+            }
+
+            java.util.Map<String, String> extras = new java.util.HashMap<>();
+            if (patientName != null && !patientName.isBlank() && !"Informação não disponível".equalsIgnoreCase(patientName.trim())) {
+                extras.put("name", patientName.trim());
+            }
+            if (doctorName != null && !doctorName.isBlank() && !"Profissional".equalsIgnoreCase(doctorName.trim())) {
+                extras.put("Medico", doctorName.trim());
+            }
+            if (feegowAppointmentId != null && !feegowAppointmentId.isBlank()) {
+                extras.put("idAgendamentoFeegow", feegowAppointmentId.trim());
+            }
+            if (sessionId != null && !sessionId.isBlank()) {
+                extras.put("appointmentId", sessionId.trim());
+            }
+            if (resolvedQueueName != null && !resolvedQueueName.isBlank()) {
+                extras.put("fila", resolvedQueueName.trim());
+                extras.put("deskFila", resolvedQueueName.trim());
+            }
+            if (blipQueueId != null && !blipQueueId.isBlank()) {
+                extras.put("blipQueueId", blipQueueId.trim());
+            }
+
+            // 1. Grava extras em escopo duplo (Roteador @wa.gw.msging.net e Túnel do Subbot .fluxov1@tunnel.msging.net)
+            blipContextService.updateContactExtras(phoneNumber, extras);
+
+            // 2. Grava variáveis no contexto do usuário (Roteador e Túnel do Subbot)
+            if (resolvedQueueName != null && !resolvedQueueName.isBlank()) {
+                blipContextService.setVariable(phoneNumber, "attendanceQueueToRedirect", resolvedQueueName);
+                blipContextService.setVariable(phoneNumber, "fila", resolvedQueueName);
+            }
+            if (doctorName != null && !doctorName.isBlank()) {
+                blipContextService.setVariable(phoneNumber, "Medico", doctorName);
+            }
+            if (feegowAppointmentId != null && !feegowAppointmentId.isBlank()) {
+                blipContextService.setVariable(phoneNumber, "idAgendamentoFeegow", feegowAppointmentId);
+            }
+
+            log.info("[INJEÇÃO-PREVENTIVA] Extras e contexto do contato injetados com sucesso em escopo duplo para phone={}, paciente='{}', médico='{}', fila='{}'",
+                    phoneNumber, patientName, doctorName, resolvedQueueName);
+        } catch (Exception ex) {
+            log.warn("[INJEÇÃO-PREVENTIVA] Falha não impeditiva ao injetar metadados preventivos no Blip para phone={}: {}", phoneNumber, ex.getMessage());
+        }
     }
 }

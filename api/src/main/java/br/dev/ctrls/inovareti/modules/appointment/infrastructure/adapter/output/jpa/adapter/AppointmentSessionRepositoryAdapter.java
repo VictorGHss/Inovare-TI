@@ -191,4 +191,15 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
                 .map(entity -> entity.toDomain())
                 .toList();
     }
+
+    @Override
+    public List<AppointmentSession> findConfirmedSessionsInWindow(LocalDateTime startWindow, LocalDateTime endWindow) {
+        if (startWindow == null || endWindow == null) {
+            return List.of();
+        }
+        return springDataRepository.findConfirmedSessionsInWindow(startWindow, endWindow).stream()
+                .filter(entity -> entity != null)
+                .map(entity -> entity.toDomain())
+                .toList();
+    }
 }

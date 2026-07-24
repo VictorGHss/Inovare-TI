@@ -45,4 +45,6 @@ public interface AppointmentSessionRepositoryPort {
     boolean existsByPhoneNumber(String phoneNumber);
 
     List<AppointmentSession> findByPatientId(String patientId);
+
+    List<AppointmentSession> findConfirmedSessionsInWindow(LocalDateTime startWindow, LocalDateTime endWindow);
 }

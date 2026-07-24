@@ -39,7 +39,7 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
     List<AppointmentSessionEntity> findByStatusAndLastInteractionAtBefore(AppointmentSessionStatus status, LocalDateTime threshold);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.status = :status AND (a.lastNotificationSentAt IS NULL OR a.lastNotificationSentAt < :threshold) AND a.appointmentAt >= :minAppointmentAt")
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.status = :status AND a.lastNotificationSentAt IS NOT NULL AND a.lastNotificationSentAt < :threshold AND a.appointmentAt >= :minAppointmentAt")
     List<AppointmentSessionEntity> findByStatusAndLastNotificationSentAtBefore(
         @Param("status") AppointmentSessionStatus status,
         @Param("threshold") LocalDateTime threshold,
@@ -80,4 +80,10 @@ public interface SpringDataAppointmentSessionRepository extends JpaRepository<Ap
     boolean existsByPhoneNumber(String phoneNumber);
 
     List<AppointmentSessionEntity> findByPatientId(String patientId);
+
+    @Query("SELECT a FROM AppointmentSessionEntity a WHERE a.status = 'CONFIRMED' AND a.appointmentAt BETWEEN :startWindow AND :endWindow AND (a.statusDetails IS NULL OR a.statusDetails NOT LIKE '%PRE_NOTICE_SENT%')")
+    List<AppointmentSessionEntity> findConfirmedSessionsInWindow(
+        @Param("startWindow") LocalDateTime startWindow,
+        @Param("endWindow") LocalDateTime endWindow
+    );
 }

@@ -20,6 +20,7 @@ public class AppointmentMotorScheduler {
     private final AppointmentMotorProperties properties;
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final MonitorAppointmentNudgesUseCase monitorAppointmentNudgesUseCase;
+    private final br.dev.ctrls.inovareti.modules.appointment.application.usecase.SendPreAppointmentNoticeUseCase sendPreAppointmentNoticeUseCase;
 
     @Scheduled(cron = "${app.appointment.motor.ingestion-cron}")
     public void ingestDPlusOneAppointments() {
@@ -46,16 +47,28 @@ public class AppointmentMotorScheduler {
         }
     }
 
-    @Scheduled(cron = "${app.appointment.motor.monitor-cron:0 0 9,11,13,15,17 * * MON-FRI}")
+    @Scheduled(cron = "${app.appointment.motor.monitor-cron:0 0 9,11,13,15,17 * * MON-FRI}", zone = "America/Sao_Paulo")
     public void monitorNudges() {
-        log.info("[NUDGE-SCHEDULER] Iniciando ciclo de monitoramento de nudges às {}...",
-                java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")));
+        int currentHour = java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")).getHour();
+        log.info("[NUDGE-SCHEDULER] Disparando ciclo de monitoramento de nudges das {}h...", currentHour);
 
         if (!properties.isEnabled()) {
             return;
         }
 
         monitorAppointmentNudgesUseCase.execute();
+    }
+
+    @Scheduled(cron = "${app.appointment.motor.pre-consultation-cron:0 */5 7-19 * * MON-SAT}")
+    public void monitorPreConsultationReminders() {
+        log.info("[LEMBRETE-SCHEDULER] Iniciando monitoramento de lembretes de 10 min às {}...",
+                java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")));
+
+        if (!properties.isEnabled()) {
+            return;
+        }
+
+        sendPreAppointmentNoticeUseCase.execute();
     }
 }
 

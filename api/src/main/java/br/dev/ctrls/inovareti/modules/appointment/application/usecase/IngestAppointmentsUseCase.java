@@ -111,22 +111,33 @@ public class IngestAppointmentsUseCase {
             return new IngestionSummary(0, 0, 0, 0, "WEEKEND_SKIP");
         }
 
-        // Resolve the list of target dates based on the current day of the week
+        // Calcula as datas-alvo para ingestão antecipada D+2 com tratamento de final de semana
         List<LocalDate> targetDates = new ArrayList<>();
-        if (dayOfWeek == DayOfWeek.FRIDAY) {
-            // Friday: fetch today (Fri), tomorrow (Sat) and Monday (T+3) preventively
-            targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(3)));
-        } else {
-            // Monday–Thursday: standard window — today (T) and tomorrow (T+1)
-            targetDates.addAll(List.of(today, today.plusDays(1)));
+        LocalDate dPlusTwo = today.plusDays(2);
+
+        switch (dayOfWeek) {
+            case FRIDAY -> {
+                // Sexta (D): Sexta (D), Sábado (D+1) e Segunda-feira (D+3 / D+2 útil)
+                targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(3)));
+            }
+            case THURSDAY -> {
+                // Quinta (D): Quinta (D), Sexta (D+1) e Segunda-feira (D+4 / D+2 útil)
+                targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(4)));
+            }
+            default -> {
+                // Segunda–Quarta: Hoje (D), Amanhã (D+1) e D+2 (D+2 útil)
+                targetDates.addAll(List.of(today, today.plusDays(1), dPlusTwo));
+            }
         }
 
-        log.info("[MOTOR-INGESTÃO] Dia da semana detectado: {}. Alocando pipeline de busca para as datas: {}", dayOfWeek, targetDates);
+        log.info("[MOTOR-INGESTÃO D+2] Dia da semana detectado: {}. Alocando pipeline de busca para a data-alvo D+2 e janela estendida: {}", dayOfWeek, targetDates);
 
-        // Aggregate appointments from every target date into a single deduplicated list
+        // Busca agendamentos para cada data-alvo com log explícito em PT-BR
         List<FeegowAppointment> appointments = new ArrayList<>();
         for (LocalDate targetDate : targetDates) {
-            log.info("Iniciando ingestão de agendamentos para a data alvo: {} (Dia da semana atual: {})", targetDate, dayOfWeek);
+            long offsetDays = java.time.temporal.ChronoUnit.DAYS.between(today, targetDate);
+            log.info("[INGESTÃO-D+2] Buscando consultas no Feegow para a data-alvo: {} (D+{} - Dia da semana: {})...",
+                    targetDate, offsetDays, targetDate.getDayOfWeek());
             List<FeegowAppointment> dailyAppointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
             appointments.addAll(dailyAppointments);
         }

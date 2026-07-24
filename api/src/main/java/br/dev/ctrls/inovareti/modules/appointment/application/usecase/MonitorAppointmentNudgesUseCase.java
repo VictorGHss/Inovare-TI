@@ -62,7 +62,8 @@ public class MonitorAppointmentNudgesUseCase {
         candidateSessions.addAll(nudge1Sessions);
         candidateSessions.addAll(finalSessions);
 
-        log.info("[NUDGE-MONITOR] Encontradas {} sessões PENDING elegíveis para reenvio.", candidateSessions.size());
+        int currentHour = LocalDateTime.now(SAO_PAULO_ZONE).getHour();
+        log.info("[NUDGE-MONITOR] Janela das {}h: Encontrados {} pacientes PENDING sem resposta elegíveis para cobrança.", currentHour, candidateSessions.size());
 
         boolean hasSentBefore = false;
         Set<UUID> processedGroups = new HashSet<>();
@@ -134,6 +135,8 @@ public class MonitorAppointmentNudgesUseCase {
                 appointmentSessionRepository.findById(session.getId()).orElse(null)
             );
             if (activeSession != null) {
+                log.info("[NUDGE-SEND] Enviando nudge recorrente para paciente ID {} (Último envio: {}).",
+                        activeSession.getId(), activeSession.getLastNotificationSentAt());
                 boolean sent = sendAppointmentTemplateUseCase.execute(activeSession, AppointmentCategory.NUDGE_1);
                 if (!sent) {
                     log.warn("Template de nudge recorrente não enviado. Sessão mantida em PENDING para próxima tentativa. sessionId={}", activeSession.getId());
@@ -191,6 +194,8 @@ public class MonitorAppointmentNudgesUseCase {
                 );
 
                 try {
+                    log.info("[NUDGE-SEND] Enviando nudge recorrente de grupo para paciente ID {} (Último envio: {}).",
+                            activeSessions.get(0).getId(), activeSessions.get(0).getLastNotificationSentAt());
                     log.info("[GRUPO-NUDGE] Enviando template de nudge recorrente '{}' para {}. groupId={}", templateId, phoneNumber, groupId);
                     blipNotificationService.sendGroupTemplateMessage(phoneNumber, templateId, groupId, null);
                 } catch (Exception e) {
@@ -212,7 +217,7 @@ public class MonitorAppointmentNudgesUseCase {
 
     private LocalDateTime resolvePendingThreshold(int xHours) {
         if (!appointmentMotorProperties.isTestMode()) {
-            return LocalDateTime.now(SAO_PAULO_ZONE).minusHours(xHours).plusMinutes(2);
+            return LocalDateTime.now(SAO_PAULO_ZONE).minusMinutes(105);
         }
 
         LocalDateTime immediateThreshold = LocalDateTime.now(SAO_PAULO_ZONE).plusMinutes(1);

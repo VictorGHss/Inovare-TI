@@ -111,20 +111,24 @@ public class BlipNotificationService {
                 templateName, normalizedDestination);
             return;
         }
-        Map<String, Object> confirmButton = Map.of(
-            "type", "button", "sub_type", "quick_reply", "index", 0,
-            "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
-        );
-
-        Map<String, Object> alterButton = Map.of(
-            "type", "button", "sub_type", "quick_reply", "index", 1,
-            "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
-        );
-
         List<Map<String, Object>> components = new ArrayList<>();
         components.add(Map.of("type", "body", "parameters", parameters));
-        components.add(confirmButton);
-        components.add(alterButton);
+
+        // Adiciona botões com payload apenas se for o template padrão de confirmação com botões de payload dinâmico
+        if (templateName != null && !templateName.toLowerCase().contains("lembrete_ativo") && appointmentId != null && !appointmentId.isBlank()) {
+            Map<String, Object> confirmButton = Map.of(
+                "type", "button", "sub_type", "quick_reply", "index", 0,
+                "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
+            );
+
+            Map<String, Object> alterButton = Map.of(
+                "type", "button", "sub_type", "quick_reply", "index", 1,
+                "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
+            );
+
+            components.add(confirmButton);
+            components.add(alterButton);
+        }
 
         Map<String, Object> content = Map.of(
             "type", "template",
@@ -156,8 +160,20 @@ public class BlipNotificationService {
             .findByTemplateNameIgnoreCaseOrderByPlaceholderIndexAsc(templateName);
 
         if (mappings.isEmpty()) {
-            log.warn("[TEMPLATE MAPPING] Nenhum mapeamento encontrado para o template: '{}'. Verifique a tabela appointment_template_mapping.", templateName);
-            return List.of();
+            log.info("[TEMPLATE MAPPING] Nenhum mapeamento no banco para '{}'. Aplicando fallback automático (paciente, médico, horário).", templateName);
+            String pName = appointmentData != null ? appointmentData.patientName() : "Paciente";
+            String dName = appointmentData != null ? appointmentData.doctorName() : "Clínica Inovare";
+            String aTime = appointmentData != null ? appointmentData.appointmentTime() : "horário agendado";
+
+            pName = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(pName != null && !pName.isBlank() ? pName : "Paciente");
+            dName = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(dName != null && !dName.isBlank() ? dName : "Clínica Inovare");
+            aTime = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(aTime != null && !aTime.isBlank() ? aTime : "horário agendado");
+
+            List<Map<String, String>> fallbackParams = new ArrayList<>();
+            fallbackParams.add(Map.of("type", "text", "text", pName));
+            fallbackParams.add(Map.of("type", "text", "text", dName));
+            fallbackParams.add(Map.of("type", "text", "text", aTime));
+            return fallbackParams;
         }
 
         List<Map<String, String>> parameters = new ArrayList<>();

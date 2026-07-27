@@ -345,6 +345,8 @@ public class IngestAppointmentsUseCase {
         return processIngestionGroups(grouped, sessionCache, doctorMappingCache, patientDetailsCache, totalReceived, forceSend);
     }
 
+    private static final java.util.concurrent.Semaphore BLIP_DISPATCH_SEMAPHORE = new java.util.concurrent.Semaphore(3);
+
     private IngestionSummary processIngestionGroups(Map<String, List<FeegowAppointment>> grouped, Map<String, AppointmentSession> sessionCache,
             Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache,
             Map<String, FeegowPatient> patientDetailsCache, int totalReceived, boolean forceSend) {
@@ -362,7 +364,7 @@ public class IngestAppointmentsUseCase {
         AtomicInteger messagesSent = new AtomicInteger(0);
         AtomicInteger filteredReceived = new AtomicInteger(0);
 
-        // Processa todos os grupos em paralelo usando Virtual Threads.
+        // Processa todos os grupos com controle de cadência suave (Semaphore max=3 concorrência)
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -391,25 +393,41 @@ public class IngestAppointmentsUseCase {
                 if (normalizedPhone.isBlank()) continue;
 
                 if (eligibleAppointments.size() == 1) {
-                    // Agendamento individual: processa em paralelo também
+                    // Agendamento individual: processa com Semaphore (max 3 paralelas) e pausa de 100ms
                     final FeegowAppointment appt = eligibleAppointments.get(0);
                     final FeegowPatient patientDetails = patientDetailsCache.get(appt.patientId());
                     futures.add(CompletableFuture.runAsync(() -> {
-                        if (processSingleFlow(appt, doctorMappingCache, patientDetails, forceSend)) {
-                            created.incrementAndGet();
-                            messagesSent.incrementAndGet();
+                        try {
+                            BLIP_DISPATCH_SEMAPHORE.acquire();
+                            if (processSingleFlow(appt, doctorMappingCache, patientDetails, forceSend)) {
+                                created.incrementAndGet();
+                                messagesSent.incrementAndGet();
+                            }
+                            Thread.sleep(100);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            BLIP_DISPATCH_SEMAPHORE.release();
                         }
                     }, executor));
                 } else {
-                    // Grupo: processa em paralelo com controle de concorrência no Blip via Semaphore
+                    // Grupo: processa com Semaphore (max 3 paralelas) e pausa de 100ms
                     final FeegowAppointment firstAppt = eligibleAppointments.get(0);
                     final FeegowPatient patientDetails = patientDetailsCache.get(firstAppt.patientId());
                     final String blipPhone = "55" + normalizedPhone;
                     final String templateName = cachedGroupTemplateName;
                     futures.add(CompletableFuture.runAsync(() -> {
-                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName, patientDetailsCache, doctorMappingCache);
-                        created.addAndGet(sent);
-                        if (sent > 0) messagesSent.incrementAndGet();
+                        try {
+                            BLIP_DISPATCH_SEMAPHORE.acquire();
+                            int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName, patientDetailsCache, doctorMappingCache);
+                            created.addAndGet(sent);
+                            if (sent > 0) messagesSent.incrementAndGet();
+                            Thread.sleep(100);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            BLIP_DISPATCH_SEMAPHORE.release();
+                        }
                     }, executor));
                 }
             }

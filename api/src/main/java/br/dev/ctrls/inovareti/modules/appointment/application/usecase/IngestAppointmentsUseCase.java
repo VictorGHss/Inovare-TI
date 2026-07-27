@@ -18,6 +18,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashMap;
+import br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping;
 import br.dev.ctrls.inovareti.modules.appointment.application.dto.AppointmentDispatchContext;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentSendIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipAppointmentFormatter;
@@ -74,6 +77,7 @@ public class IngestAppointmentsUseCase {
     private final FeegowAppointmentSearcher feegowAppointmentSearcher;
     private final FeegowPatientDetailsFetcher feegowPatientDetailsFetcher;
     private final BlipContextService blipContextService;
+    private final BlipContactClientPort blipContactClientPort;
     private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
@@ -115,32 +119,28 @@ public class IngestAppointmentsUseCase {
             return new IngestionSummary(0, 0, 0, 0, "WEEKEND_SKIP");
         }
 
-        // Calcula as datas-alvo para ingestão antecipada D+2 com tratamento de final de semana
+        // Calcula as datas-alvo padrão da ingestão matinal (D+0 e D+1; Sexta inclui Segunda D+3)
         List<LocalDate> targetDates = new ArrayList<>();
-        LocalDate dPlusTwo = today.plusDays(2);
 
         switch (dayOfWeek) {
             case FRIDAY -> {
-                // Sexta (D): Sexta (D), Sábado (D+1) e Segunda-feira (D+3 / D+2 útil)
+                // Sexta (D): Sexta (D), Sábado (D+1) e Segunda-feira (D+3)
                 targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(3)));
             }
-            case THURSDAY -> {
-                // Quinta (D): Quinta (D), Sexta (D+1) e Segunda-feira (D+4 / D+2 útil)
-                targetDates.addAll(List.of(today, today.plusDays(1), today.plusDays(4)));
-            }
             default -> {
-                // Segunda–Quarta: Hoje (D), Amanhã (D+1) e D+2 (D+2 útil)
-                targetDates.addAll(List.of(today, today.plusDays(1), dPlusTwo));
+                // Segunda–Quinta: Hoje (D+0) e Amanhã (D+1). D+2 é exclusivo para médicos com configuração de antecedência
+                targetDates.addAll(List.of(today, today.plusDays(1)));
             }
         }
 
-        log.info("[MOTOR-INGESTÃO D+2] Dia da semana detectado: {}. Alocando pipeline de busca para a data-alvo D+2 e janela estendida: {}", dayOfWeek, targetDates);
+        log.info("[INGESTÃO-DATAS-ALVO] Ingestão matinal iniciada. Dia da semana: {}. Datas-alvo globais (D+0/D+1): {}. Médicos com antecedência personalizada (>1 dia) serão consultados separadamente.",
+                dayOfWeek, targetDates);
 
-        // Busca agendamentos para cada data-alvo com log explícito em PT-BR
+        // Busca agendamentos para cada data-alvo padrão com log explícito em PT-BR
         List<FeegowAppointment> appointments = new ArrayList<>();
         for (LocalDate targetDate : targetDates) {
             long offsetDays = java.time.temporal.ChronoUnit.DAYS.between(today, targetDate);
-            log.info("[INGESTÃO-D+2] Buscando consultas no Feegow para a data-alvo: {} (D+{} - Dia da semana: {})...",
+            log.info("[INGESTÃO-GERAL] Buscando consultas no Feegow para a data-alvo: {} (D+{} - Dia da semana: {})...",
                     targetDate, offsetDays, targetDate.getDayOfWeek());
             List<FeegowAppointment> dailyAppointments = feegowAppointmentSearcher.searchAppointments(targetDate, doctorIds);
             appointments.addAll(dailyAppointments);
@@ -162,8 +162,8 @@ public class IngestAppointmentsUseCase {
                 }
 
                 if (!targetDates.contains(advanceDate)) {
-                    log.info("[MOTOR-INGESTÃO] Configurada antecedência personalizada de {} dias para o médico {} (ID {}). Buscando agendamentos para a data: {}",
-                            advanceDays, docConfig.getDoctorName(), docConfig.getFeegowProfissionalId(), advanceDate);
+                    log.info("[INGESTÃO-ANTECEDÊNCIA] Médico {} (ID {}) possui antecedência configurada de {} dias. Buscando agendamentos especificamente para a data-alvo D+{}: {}",
+                            docConfig.getDoctorName(), docConfig.getFeegowProfissionalId(), advanceDays, advanceDays, advanceDate);
                     List<FeegowAppointment> advanceAppointments = feegowAppointmentSearcher.searchAppointments(advanceDate, List.of(docIdStr));
                     appointments.addAll(advanceAppointments);
                 }
@@ -407,7 +407,7 @@ public class IngestAppointmentsUseCase {
                     final String blipPhone = "55" + normalizedPhone;
                     final String templateName = cachedGroupTemplateName;
                     futures.add(CompletableFuture.runAsync(() -> {
-                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName, patientDetailsCache);
+                        int sent = processGroupFlow(eligibleAppointments, patientDetails, blipPhone, templateName, patientDetailsCache, doctorMappingCache);
                         created.addAndGet(sent);
                         if (sent > 0) messagesSent.incrementAndGet();
                     }, executor));
@@ -615,7 +615,8 @@ public class IngestAppointmentsUseCase {
      * @return quantidade de sessões salvas (0 se o grupo foi descartado)
      */
     private int processGroupFlow(List<FeegowAppointment> eligibleAppointments, FeegowPatient patientDetails,
-            String normalizedPhone, String groupTemplateName, Map<String, FeegowPatient> patientDetailsCache) {
+            String normalizedPhone, String groupTemplateName, Map<String, FeegowPatient> patientDetailsCache,
+            Map<String, AppointmentDoctorMapping> doctorMappingCache) {
         if (normalizedPhone == null || normalizedPhone.isBlank()) {
             return 0;
         }
@@ -721,15 +722,43 @@ public class IngestAppointmentsUseCase {
         String finalPatientName = (patientDetails != null && patientDetails.name() != null)
             ? patientDetails.name().trim() : "Paciente";
 
-        // OTIMIZAÇÃO: contexto do Blip configurado em background (fire-and-forget).
-        // O paciente leva minutos para abrir o WhatsApp — o contexto sempre estará disponível.
-        // O Semaphore garante no máximo 'blipIngestConcurrency' chamadas simultâneas ao Blip.
+        FeegowAppointment firstAppt = eligibleAppointments.get(0);
+        String firstApptId = normalizeFeegowAppointmentId(firstAppt.id());
+        var dominantMapping = doctorMappingCache.get(firstAppt.doctorId());
+        String mappingQueue = dominantMapping != null ? dominantMapping.getBlipQueueId() : null;
+        String mappingProfessionalName = dominantMapping != null ? dominantMapping.getProfissionalNome() : null;
+
+        String doctorName = resolveDoctorName(firstAppt.doctorId(), mappingProfessionalName, firstAppt.doctorName());
+        String resolvedQueue = "Recepção Central / Suporte";
+        if (mappingQueue != null && !mappingQueue.isBlank() && !"null".equalsIgnoreCase(mappingQueue.trim())) {
+            resolvedQueue = blipContextService.resolveQueueName(mappingQueue.trim());
+        }
+
+        // Sincronização obrigatória de contato no Blip com a pauta do profissional dominante do grupo
+        String cpf = "";
+        if (patientDetails != null && patientDetails.cpf() != null) {
+            cpf = patientDetails.cpf();
+        }
+        try {
+            blipContactClientPort.syncContact(phoneNumber, finalPatientName, cpf, resolvedQueue, firstAppt.doctorId());
+            log.info("[GRUPO-CONTATO] Sincronização de contato no Blip concluída para grupo. Telefone={}, Paciente={}, Fila={}, Médico={}",
+                    phoneNumber, finalPatientName, resolvedQueue, doctorName);
+        } catch (Exception ex) {
+            log.warn("[GRUPO-CONTATO] Falha ao sincronizar contato para grupo: {}", ex.getMessage());
+        }
+
         final String preText = result.preCompiledText();
+        final String fApptId = firstApptId;
+        final String fDocName = doctorName;
+        final String fResQueue = resolvedQueue;
+        final String fMapQueue = mappingQueue;
+        final String fDocId = firstAppt.doctorId();
+
         CompletableFuture.runAsync(() -> {
             try {
                 blipSemaphore.acquire();
                 try {
-                    setGroupContextDuringIngestion(phoneNumber, groupId, preText);
+                    setGroupContextDuringIngestion(phoneNumber, groupId, preText, fApptId, fDocName, fResQueue, fMapQueue, finalPatientName, fDocId);
                 } finally {
                     blipSemaphore.release();
                 }
@@ -763,19 +792,37 @@ public class IngestAppointmentsUseCase {
      * Configura as variáveis de contexto no Blip para o fluxo de grupo.
      * É chamado em fire-and-forget a partir de processGroupFlow.
      *
-     * Define: lista_detalhada, groupId e isConfirmingAgenda.
-     * O master-state NÃO é configurado — o roteamento é nativo do Blip Builder.
+     * Injeta: lista_detalhada, groupId, isConfirmingAgenda, blipQueueId, fila, Medico, name e idAgendamentoFeegow.
      */
-    private void setGroupContextDuringIngestion(String phoneNumber, UUID groupId, String preCompiledText) {
+    private void setGroupContextDuringIngestion(
+            String phoneNumber,
+            UUID groupId,
+            String preCompiledText,
+            String feegowAppointmentId,
+            String doctorName,
+            String resolvedQueue,
+            String mappingQueue,
+            String patientName,
+            String doctorProfissionalId) {
         if (phoneNumber == null || phoneNumber.isBlank()) return;
         try {
-            Map<String, String> fields = Map.of(
-                "lista_detalhada", preCompiledText,
-                "listaDetalhada", preCompiledText,
-                "groupId", groupId.toString(),
-                "isConfirmingAgenda", "true"
-            );
-            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}", phoneNumber.trim(), groupId);
+            String safeMappingQueue = mappingQueue != null ? mappingQueue.trim() : "";
+            Map<String, String> fields = new HashMap<>();
+            fields.put("lista_detalhada", preCompiledText);
+            fields.put("listaDetalhada", preCompiledText);
+            fields.put("groupId", groupId.toString());
+            fields.put("isConfirmingAgenda", "true");
+            fields.put("blipQueueId", safeMappingQueue);
+            fields.put("fila", resolvedQueue != null ? resolvedQueue : "Recepção Central / Suporte");
+            fields.put("Medico", doctorName != null ? doctorName : "Clínica Inovare");
+            fields.put("name", patientName != null ? patientName : "Paciente");
+            fields.put("idAgendamentoFeegow", feegowAppointmentId != null ? feegowAppointmentId : "");
+            fields.put("idAgendamento", feegowAppointmentId != null ? feegowAppointmentId : "");
+            if (doctorProfissionalId != null && !doctorProfissionalId.isBlank()) {
+                fields.put("profissionalId", doctorProfissionalId.trim());
+            }
+            log.info("[INGESTAO-GRUPO-CONTEXTO] Configurando contexto Blip para {}. groupId={}, fila={}, médico={}",
+                    phoneNumber.trim(), groupId, resolvedQueue, doctorName);
 
             String cleanPhone = phoneNumber.trim();
             String phoneDigits = cleanPhone;

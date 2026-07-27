@@ -13,7 +13,7 @@ public class BlipPayloadBuilder {
      * Constrói o mapa de dados que representa o payload JSON para envio do template 
      * aviso_agendamento_grupo com botões interativos dinâmicos.
      */
-    public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId) {
+    public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName) {
         String messageId = UUID.randomUUID().toString();
         
         // Parâmetro do botão de resposta rápida contendo o ID do grupo para o webhook capturar o clique
@@ -29,9 +29,13 @@ public class BlipPayloadBuilder {
                 "parameters", List.of(buttonParameter)
         );
 
+        String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
+                ? patientName.trim()
+                : "Paciente";
+
         Map<String, Object> bodyComponent = Map.of(
                 "type", "body",
-                "parameters", List.of() // Caso o corpo do template possua variáveis, preencher aqui
+                "parameters", List.of(Map.of("type", "text", "text", safePatientName))
         );
 
         Map<String, Object> templateDetails = Map.of(
@@ -41,9 +45,11 @@ public class BlipPayloadBuilder {
                 "components", List.of(bodyComponent, quickReplyComponent)
         );
 
+        String destinationAddress = toPhone.contains("@") ? toPhone : toPhone + "@wa.gw.msging.net";
+
         return Map.of(
                 "id", messageId,
-                "to", toPhone + "@wa.gw.msging.net",
+                "to", destinationAddress,
                 "type", "application/json",
                 "content", Map.of(
                         "type", "template",

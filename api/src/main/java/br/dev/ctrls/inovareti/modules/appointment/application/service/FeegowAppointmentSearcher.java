@@ -81,7 +81,6 @@ public class FeegowAppointmentSearcher {
             for (String docId : doctorIds) {
                 String trimmedDocId = docId.trim();
                 if (!trimmedDocId.isEmpty() && trimmedDocId.matches("\\d+")) {
-                    futures.add(runAsyncSearch(LocalDate.now(), trimmedDocId, threadSafeAppointments, executor));
                     futures.add(runAsyncSearch(targetDate, trimmedDocId, threadSafeAppointments, executor));
                 }
             }

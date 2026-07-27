@@ -7,28 +7,28 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import br.dev.ctrls.inovareti.modules.appointment.application.service.AppointmentTemplateDataBuilder;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository;
-import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Caso de Uso dedicado para envio de Lembretes de Proximidade de Consulta (10 minutos antes).
- * Busca consultas ativas e confirmadas (CONFIRMED) no dia atual na janela de 10 a 15 minutos no futuro,
- * respeitando as preferências de cada médico e enviando notificações ativas pelo Blip.
+ * Caso de Uso dedicado para envio do Lembrete Ativo de Proximidade (1 hora antes da consulta).
+ * Utiliza o template ativo do WhatsApp 'lembrete_ativo_itsm_v1' para garantir a entrega
+ * mesmo fora da janela de 24h, aplicando antecedência de horário e idempotência no banco de dados.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class SendPreAppointmentNoticeUseCase {
 
+    private static final String TEMPLATE_NAME = "lembrete_ativo_itsm_v1";
+
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
-    private final DoctorConfigurationRepository doctorConfigurationRepository;
-    private final PatientExternalPort patientExternalPort;
+    private final AppointmentTemplateDataBuilder appointmentTemplateDataBuilder;
     private final BlipNotificationService blipNotificationService;
     private final AppointmentMotorProperties appointmentMotorProperties;
 
@@ -38,21 +38,18 @@ public class SendPreAppointmentNoticeUseCase {
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
-        LocalDateTime windowStart = now.plusMinutes(10);
-        LocalDateTime windowEnd = now.plusMinutes(15);
-
-        log.info("[LEMBRETE-10MIN] Iniciando varredura de consultas confirmadas na janela de 10 a 15 minutos no futuro (de {} até {})...",
-                windowStart.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                windowEnd.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        // Janela de 1h antes (de 45 a 75 minutos no futuro)
+        LocalDateTime windowStart = now.plusMinutes(45);
+        LocalDateTime windowEnd = now.plusMinutes(75);
 
         List<AppointmentSession> candidateSessions = appointmentSessionRepository.findConfirmedSessionsInWindow(windowStart, windowEnd);
 
         if (candidateSessions == null || candidateSessions.isEmpty()) {
-            log.info("[LEMBRETE-10MIN] Nenhuma consulta confirmada encontrada na janela de 10-15 minutos.");
             return;
         }
 
-        log.info("[LEMBRETE-10MIN] Encontradas {} consulta(s) confirmada(s) elegíveis para lembrete de proximidade.", candidateSessions.size());
+        log.info("[LEMBRETE-1H] Encontradas {} consulta(s) confirmada(s) elegíveis para o template '{}' 1h antes.",
+                candidateSessions.size(), TEMPLATE_NAME);
 
         for (AppointmentSession session : candidateSessions) {
             try {
@@ -60,49 +57,23 @@ public class SendPreAppointmentNoticeUseCase {
                     continue;
                 }
 
-                // Respeita flags e dados do médico via DoctorConfiguration, se disponível
-                String docProfId = session.getDoctorProfissionalId();
-                String doctorName = "Profissional";
-                if (docProfId != null && !docProfId.isBlank()) {
-                    try {
-                        Long pId = Long.valueOf(docProfId.trim());
-                        var docConfigOpt = doctorConfigurationRepository.findById(pId);
-                        if (docConfigOpt.isPresent() && docConfigOpt.get().getDoctorName() != null && !docConfigOpt.get().getDoctorName().isBlank()) {
-                            doctorName = docConfigOpt.get().getDoctorName().trim();
-                        }
-                    } catch (Exception ignored) {}
-                }
+                // Reconstrói dados do template aplicando regras de nome, médico e offset de horário (-10 min)
+                var templateData = appointmentTemplateDataBuilder.build(session);
 
-                String patientName = "Paciente";
-                try {
-                    var patient = patientExternalPort.patientInfo(session.getPatientId());
-                    if (patient != null && patient.name() != null && !patient.name().isBlank()) {
-                        patientName = patient.name().trim();
-                    }
-                } catch (Exception ex) {
-                    log.warn("[LEMBRETE-10MIN] Falha ao consultar nome do paciente ID: {}", session.getPatientId());
-                }
+                log.info("[LEMBRETE-1H] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}'",
+                        TEMPLATE_NAME, templateData.patientName(), templateData.doctorName(),
+                        templateData.appointmentTime(), session.getPhoneNumber());
 
-                String timeFormatted = session.getAppointmentAt() != null
-                        ? session.getAppointmentAt().format(DateTimeFormatter.ofPattern("HH:mm"))
-                        : "breve";
+                blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), TEMPLATE_NAME, templateData);
 
-                String noticeMessage = String.format(
-                        "⏰ *Lembrete de Consulta Inovare*: Olá, %s! Lembramos que sua consulta com %s está agendada para daqui a pouco, às %s. Por favor, dirija-se à recepção da clínica.",
-                        patientName, doctorName, timeFormatted
-                );
-
-                blipNotificationService.sendPlainTextMessage(session.getPhoneNumber(), noticeMessage);
-
-                // Marca idempotência para não reenviar
+                // Marca idempotência no banco para não reenviar no próximo ciclo
                 session.setStatusDetails("PRE_NOTICE_SENT_" + now.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
                 session.setLastNotificationSentAt(now);
                 appointmentSessionRepository.save(session);
 
-                log.info("[LEMBRETE-10MIN] Lembrete de proximidade disparado com sucesso para paciente='{}', médico='{}', horário='{}', telefone='{}'",
-                        patientName, doctorName, timeFormatted, session.getPhoneNumber());
             } catch (Exception ex) {
-                log.error("[LEMBRETE-10MIN] Falha ao processar lembrete de 10 min para sessão ID={}: {}", session.getId(), ex.getMessage(), ex);
+                log.error("[LEMBRETE-1H] Falha ao disparar template '{}' para sessão ID={}: {}",
+                        TEMPLATE_NAME, session.getId(), ex.getMessage(), ex);
             }
         }
     }

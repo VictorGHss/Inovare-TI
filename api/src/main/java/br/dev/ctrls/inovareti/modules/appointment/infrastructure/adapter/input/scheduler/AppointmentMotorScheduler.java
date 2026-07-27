@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.IngestAppointmentsUseCase;
 import br.dev.ctrls.inovareti.modules.appointment.application.usecase.MonitorAppointmentNudgesUseCase;
+import br.dev.ctrls.inovareti.modules.appointment.application.usecase.SendPreAppointmentNoticeUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -20,7 +21,6 @@ public class AppointmentMotorScheduler {
     private final AppointmentMotorProperties properties;
     private final IngestAppointmentsUseCase ingestAppointmentsUseCase;
     private final MonitorAppointmentNudgesUseCase monitorAppointmentNudgesUseCase;
-    private final br.dev.ctrls.inovareti.modules.appointment.application.usecase.SendPreAppointmentNoticeUseCase sendPreAppointmentNoticeUseCase;
 
     @Scheduled(cron = "${app.appointment.motor.ingestion-cron}")
     public void ingestDPlusOneAppointments() {
@@ -59,11 +59,10 @@ public class AppointmentMotorScheduler {
         monitorAppointmentNudgesUseCase.execute();
     }
 
-    @Scheduled(cron = "${app.appointment.motor.pre-consultation-cron:0 */5 7-19 * * MON-SAT}")
-    public void monitorPreConsultationReminders() {
-        log.info("[LEMBRETE-SCHEDULER] Iniciando monitoramento de lembretes de 10 min às {}...",
-                java.time.LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")));
+    private final SendPreAppointmentNoticeUseCase sendPreAppointmentNoticeUseCase;
 
+    @Scheduled(cron = "${app.appointment.motor.pre-consultation-cron:0 */15 7-19 * * MON-SAT}", zone = "America/Sao_Paulo")
+    public void monitorPreConsultationReminders() {
         if (!properties.isEnabled()) {
             return;
         }

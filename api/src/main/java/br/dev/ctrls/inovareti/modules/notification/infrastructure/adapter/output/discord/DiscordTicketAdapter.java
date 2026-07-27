@@ -38,6 +38,7 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
 
     private static final String ACTIVE_CATEGORY_ID = "1526959210863001751";
     private static final String ARCHIVED_CATEGORY_ID = "1526959741585063957";
+    private static final int CLINIC_BRAND_COLOR = 0xF97316; // Cor Laranja de Destaque Inovare TI (#F97316)
 
     @Override
     @Transactional(readOnly = true)
@@ -141,7 +142,7 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             String ticketNum = ticket.getNumber() != null ? ticket.getNumber() : "-";
             String ticketTitle = ticket.getTitle() != null ? ticket.getTitle() : "Sem título";
             eb.setTitle("🎫 Chamado #" + ticketNum + " - " + DiscordLgpdSanitizer.sanitize(ticketTitle));
-            eb.setColor(0xFF9900); // Laranja operacoes
+            eb.setColor(CLINIC_BRAND_COLOR);
 
             String rawDescription = ticket.getDescription();
             if (rawDescription == null || rawDescription.isBlank()) {
@@ -203,19 +204,19 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("null")
-    public void archiveTicketChannel(Ticket ticket) {
-        ticket = ticketRepository.findById(ticket.getId()).orElse(ticket);
-        log.info("[DISCORD-TICKET] Iniciando arquivamento de canal para chamado #{}.", ticket.getNumber());
+    public void archiveTicketChannel(Ticket ticketParam) {
+        Ticket dbTicket = ticketRepository.findById(ticketParam.getId()).orElse(ticketParam);
+        log.info("[DISCORD-TICKET] Iniciando arquivamento de canal para chamado #{}.", dbTicket.getNumber());
 
         JDA jda = jdaProvider.getIfAvailable();
         if (jda == null) {
-            log.warn("[DISCORD-TICKET] JDA indisponível. Arquivamento do canal para chamado #{} ignorado.", ticket.getNumber());
+            log.warn("[DISCORD-TICKET] JDA indisponível. Arquivamento do canal para chamado #{} ignorado.", dbTicket.getNumber());
             return;
         }
 
         Guild guild = resolveGuild(jda);
         if (guild == null) {
-            log.warn("[DISCORD-TICKET] Guilda não encontrada. Arquivamento do canal para chamado #{} abortada.", ticket.getNumber());
+            log.warn("[DISCORD-TICKET] Guilda não encontrada. Arquivamento do canal para chamado #{} abortada.", dbTicket.getNumber());
             return;
         }
 
@@ -225,7 +226,7 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             return;
         }
 
-        String prefix = "ticket-" + ticket.getNumber().toLowerCase();
+        String prefix = "ticket-" + dbTicket.getNumber().toLowerCase();
         List<TextChannel> channels = new java.util.ArrayList<>();
         for (TextChannel tc : guild.getTextChannels()) {
             if (tc.getName().startsWith(prefix)) {
@@ -235,39 +236,49 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
 
         if (channels.isEmpty()) {
             log.warn("[DISCORD-TICKET] Nenhum canal encontrado com o prefixo '{}' para o chamado #{}.",
-                    prefix, ticket.getNumber());
+                    prefix, dbTicket.getNumber());
             return;
+        }
+
+        // Recupera o texto de solução preferencialmente da memória do evento (ticketParam) ou do banco (dbTicket)
+        String rawSolution = ticketParam.getSolutionText();
+        if (rawSolution == null || rawSolution.isBlank()) {
+            rawSolution = dbTicket.getSolutionText();
+        }
+        if (rawSolution == null || rawSolution.isBlank()) {
+            if (dbTicket.getAsset() != null) {
+                rawSolution = "Ativo baixado: Patrimônio " + dbTicket.getAsset().getPatrimonyCode();
+            } else if (ticketParam.getAsset() != null) {
+                rawSolution = "Ativo baixado: Patrimônio " + ticketParam.getAsset().getPatrimonyCode();
+            } else {
+                rawSolution = "Chamado resolvido com sucesso.";
+            }
         }
 
         for (TextChannel channel : channels) {
             // Envia e fixa embed de solução do chamado
             net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
-            String ticketNum = ticket.getNumber() != null ? ticket.getNumber() : "-";
+            String ticketNum = dbTicket.getNumber() != null ? dbTicket.getNumber() : "-";
             eb.setTitle("✅ Chamado #" + ticketNum + " - Solução do Chamado");
-            eb.setColor(0x2ECC71); // Verde Sucesso
+            eb.setColor(CLINIC_BRAND_COLOR);
 
-            String rawSolution = ticket.getSolutionText();
-            if (rawSolution == null || rawSolution.isBlank()) {
-                if (ticket.getAsset() != null) {
-                    rawSolution = "Ativo baixado: Patrimônio " + ticket.getAsset().getPatrimonyCode();
-                } else {
-                    rawSolution = "Chamado resolvido com sucesso.";
-                }
-            }
             String sanitizedSolution = DiscordLgpdSanitizer.sanitize(rawSolution);
             eb.setDescription("**Solução Registrada:**\n" + (sanitizedSolution != null ? sanitizedSolution : "-"));
 
+            br.dev.ctrls.inovareti.modules.user.domain.model.User assignedUser = dbTicket.getAssignedTo() != null ? dbTicket.getAssignedTo() : ticketParam.getAssignedTo();
             String assignedName = java.util.Objects.requireNonNullElse(
-                    ticket.getAssignedTo() != null ? DiscordLgpdSanitizer.sanitize(ticket.getAssignedTo().getName()) : "Equipe Inovare TI",
+                    assignedUser != null ? DiscordLgpdSanitizer.sanitize(assignedUser.getName()) : "Equipe Inovare TI",
                     "Equipe Inovare TI");
             eb.addField("Atendido por", java.util.Objects.requireNonNullElse(assignedName, "Equipe Inovare TI"), true);
 
-            if (ticket.getAsset() != null && ticket.getSolutionText() != null && !ticket.getSolutionText().isBlank()) {
-                eb.addField("Ativo Baixado", "Patrimônio " + ticket.getAsset().getPatrimonyCode(), true);
+            var assetObj = dbTicket.getAsset() != null ? dbTicket.getAsset() : ticketParam.getAsset();
+            if (assetObj != null) {
+                eb.addField("Ativo Baixado", "Patrimônio " + assetObj.getPatrimonyCode(), true);
             }
 
-            String closedAtStr = ticket.getClosedAt() != null
-                    ? ticket.getClosedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+            java.time.LocalDateTime closedAt = dbTicket.getClosedAt() != null ? dbTicket.getClosedAt() : ticketParam.getClosedAt();
+            String closedAtStr = closedAt != null
+                    ? closedAt.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
                     : java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
             eb.setFooter("Inovare TI • Chamado resolvido em: " + closedAtStr);
             eb.setTimestamp(java.time.Instant.now());

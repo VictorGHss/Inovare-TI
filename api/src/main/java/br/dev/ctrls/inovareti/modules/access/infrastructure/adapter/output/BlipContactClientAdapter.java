@@ -108,30 +108,50 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
                 path = "/commands";
             }
 
-            @SuppressWarnings("rawtypes")
-            ResponseEntity<Map> response = restClient.post()
-                    .uri(path)
-                    .header("Authorization", authKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(command)
-                    .retrieve()
-                    .toEntity(Map.class);
+            int maxRetries = 3;
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    @SuppressWarnings("rawtypes")
+                    ResponseEntity<Map> response = restClient.post()
+                            .uri(path)
+                            .header("Authorization", authKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(command)
+                            .retrieve()
+                            .toEntity(Map.class);
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Object status = response.getBody().get("status");
-                if ("success".equalsIgnoreCase(String.valueOf(status))) {
-                    log.info("[BlipContact-Adapter] Sincronização concluída com sucesso no Blip para {}", normalizedIdentity);
-                    return true;
-                } else {
-                    log.warn("[BlipContact-Adapter] Blip retornou status de falha no comando: {}. Body={}", status, response.getBody());
+                    if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                        Object status = response.getBody().get("status");
+                        if ("success".equalsIgnoreCase(String.valueOf(status))) {
+                            log.info("[BlipContact-Adapter] Sincronização concluída com sucesso no Blip para {}", normalizedIdentity);
+                            return true;
+                        } else {
+                            log.warn("[BlipContact-Adapter] Blip retornou status de falha no comando: {}. Body={}", status, response.getBody());
+                        }
+                    } else {
+                        log.warn("[BlipContact-Adapter] Blip respondeu com HTTP status: {}", response.getStatusCode());
+                    }
+                    break;
+                } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests ex) {
+                    log.warn("[BlipContact-Adapter] [HTTP 429] Rate limit (Cloudflare Error 1015) atingido no Blip (tentativa {}/{}). Aguardando {}ms para retry em {}",
+                            attempt, maxRetries, 300L * attempt, normalizedIdentity);
+                    if (attempt < maxRetries) {
+                        try {
+                            Thread.sleep(300L * attempt);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.error("[BlipContact-Adapter] Falha de comunicação com o Blip para a identidade {}: {}",
+                            normalizedIdentity, ex.getMessage());
+                    break;
                 }
-            } else {
-                log.warn("[BlipContact-Adapter] Blip respondeu com HTTP status: {}", response.getStatusCode());
             }
-
         } catch (Exception ex) {
-            log.error("[BlipContact-Adapter] Falha de comunicação/rede com o Blip para a identidade {}. Erro: {}",
-                    normalizedIdentity, ex.getMessage(), ex);
+            log.error("[BlipContact-Adapter] Erro ao preparar sincronização com o Blip para a identidade {}: {}",
+                    normalizedIdentity, ex.getMessage());
         }
 
         return false;

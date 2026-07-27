@@ -28,14 +28,17 @@ public class BlipNotificationService {
     private final BlipLIMEClient limeClient;
     private final AppointmentTemplateMappingRepositoryPort templateMappingRepository;
     private final AppointmentMotorProperties motorProperties;
+    private final BlipPayloadBuilder blipPayloadBuilder;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
             AppointmentTemplateMappingRepositoryPort templateMappingRepository,
-            AppointmentMotorProperties motorProperties) {
+            AppointmentMotorProperties motorProperties,
+            BlipPayloadBuilder blipPayloadBuilder) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
         this.motorProperties = motorProperties;
+        this.blipPayloadBuilder = blipPayloadBuilder;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
@@ -86,7 +89,7 @@ public class BlipNotificationService {
     }
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
-        String normalizedDestination = ensureWabaIdentity(destination);
+        String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
 
         String doctorId = null;
         if (appointmentData != null) {
@@ -104,55 +107,37 @@ public class BlipNotificationService {
         List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
         String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
 
-        log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", normalizedDestination, templateName, parameters);
+        log.info("[PARAMS TEMPLATE] destination={}, template={}, params={}", recipientE164, templateName, parameters);
 
         if (parameters.isEmpty()) {
             log.error("[ABORT] Parâmetros vazios para o template '{}'. Envio cancelado para evitar mensagem sem conteúdo. destination={}",
-                templateName, normalizedDestination);
+                templateName, recipientE164);
             return;
         }
-        List<Map<String, Object>> components = new ArrayList<>();
-        components.add(Map.of("type", "body", "parameters", parameters));
 
-        // Adiciona botões com payload apenas se for o template padrão de confirmação com botões de payload dinâmico
-        if (templateName != null && !templateName.toLowerCase().contains("lembrete_ativo") && appointmentId != null && !appointmentId.isBlank()) {
-            Map<String, Object> confirmButton = Map.of(
-                "type", "button", "sub_type", "quick_reply", "index", 0,
-                "parameters", List.of(Map.of("type", "payload", "payload", "confirm_" + appointmentId))
-            );
+        Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
+        List<String> messageParamKeys = new ArrayList<>();
 
-            Map<String, Object> alterButton = Map.of(
-                "type", "button", "sub_type", "quick_reply", "index", 1,
-                "parameters", List.of(Map.of("type", "payload", "payload", "alter_" + appointmentId))
-            );
-
-            components.add(confirmButton);
-            components.add(alterButton);
+        for (int i = 0; i < parameters.size(); i++) {
+            String key = String.valueOf(i + 1);
+            String val = parameters.get(i).getOrDefault("text", "");
+            messageParamValues.put(key, val);
+            messageParamKeys.add(key);
         }
 
-        Map<String, Object> content = Map.of(
-            "type", "template",
-            "template", Map.of(
-                "name", templateName,
-                "namespace", resolveWabaNamespace(),
-                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
-                "components", components
-            )
+        String campaignName = "Confirmacao Consulta - " + (appointmentId.isBlank() ? UUID.randomUUID().toString() : appointmentId);
+
+        Map<String, Object> commandPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+            campaignName,
+            recipientE164,
+            templateName,
+            messageParamValues,
+            messageParamKeys
         );
 
-        Map<String, Object> payload = Map.of(
-            "id", UUID.randomUUID().toString(),
-            "to", normalizedDestination,
-            "from", "roteadorprincipal57@msging.net",
-            "type", "application/json",
-            "content", content,
-            "metadata", Map.of("appointmentId", appointmentId)
-        );
-
-        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        // Verifica o status customizado no Map de fallback ou a presença da resposta
+        var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
         Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-        log.info("Template enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
+        log.info("Template enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, status);
     }
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {
@@ -242,62 +227,28 @@ public class BlipNotificationService {
     }
 
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
-        String normalizedDestination = ensureWabaIdentity(destination);
+        String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
 
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
                 ? patientName.trim()
                 : "Paciente";
 
-        List<Map<String, String>> parameters = List.of(Map.of("type", "text", "text", safePatientName));
-
-        Map<String, Object> viewButton = Map.of(
-            "type", "button", "sub_type", "quick_reply", "index", 0,
-            "parameters", List.of(Map.of("type", "payload", "payload", "ver_agenda_" + groupId.toString()))
+        Map<String, Object> commandPayload = blipPayloadBuilder.buildGroupTemplatePayload(
+                recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName
         );
 
-        List<Map<String, Object>> components = new ArrayList<>();
-        components.add(Map.of("type", "body", "parameters", parameters));
-        components.add(viewButton);
-
-        Map<String, Object> content = Map.of(
-            "type", "template",
-            "template", Map.of(
-                "name", templateName,
-                "namespace", resolveWabaNamespace(),
-                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
-                "components", components
-            )
-        );
-
-        Map<String, Object> payload = Map.of(
-            "id", java.util.UUID.randomUUID().toString(),
-            "to", normalizedDestination,
-            "from", "roteadorprincipal57@msging.net",
-            "type", "application/json",
-            "content", content,
-            "metadata", Map.of("groupId", groupId.toString())
-        );
-
+        log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", recipientE164, groupId);
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String jsonPayload = mapper.writeValueAsString(payload);
-            log.info("[GRUPO PAYLOAD JSON] payload={}", jsonPayload);
-        } catch (JsonProcessingException ex) {
-            log.warn("Erro ao serializar payload de grupo para log: {}", ex.getMessage());
-        }
-
-        log.info("[MENSAGERIA-GRUPO] Tentando transmitir template de grupo para o telefone={} com o groupId={}", destination, groupId);
-        try {
-            limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
-            log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso para o telefone={}", destination);
+            limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso via Active Campaign para o telefone={}", recipientE164);
         } catch (Exception e) {
-            log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo para o telefone={} com o groupId={}", destination, groupId, e);
+            log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo para o telefone={} com o groupId={}", recipientE164, groupId, e);
             throw e;
         }
     }
 
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
-        String normalizedDestination = ensureWabaIdentity(destination);
+        String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
 
         String doctorId = null;
         if (appointmentData != null) {
@@ -315,33 +266,29 @@ public class BlipNotificationService {
         List<Map<String, String>> parameters = buildDynamicParameters(templateName, appointmentData);
         String appointmentId = appointmentData == null ? "" : Objects.toString(appointmentData.appointmentId(), "");
 
-        List<Map<String, Object>> components = new ArrayList<>();
-        if (!parameters.isEmpty()) {
-            components.add(Map.of("type", "body", "parameters", parameters));
+        Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
+        List<String> messageParamKeys = new ArrayList<>();
+
+        for (int i = 0; i < parameters.size(); i++) {
+            String key = String.valueOf(i + 1);
+            String val = parameters.get(i).getOrDefault("text", "");
+            messageParamValues.put(key, val);
+            messageParamKeys.add(key);
         }
 
-        Map<String, Object> content = Map.of(
-            "type", "template",
-            "template", Map.of(
-                "name", templateName,
-                "namespace", resolveWabaNamespace(),
-                "language", Map.of("code", "pt_BR", "policy", "deterministic"),
-                "components", components
-            )
+        String campaignName = "Notificacao Consulta - " + (appointmentId.isBlank() ? UUID.randomUUID().toString() : appointmentId);
+
+        Map<String, Object> commandPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+            campaignName,
+            recipientE164,
+            templateName,
+            messageParamValues,
+            messageParamKeys
         );
 
-        Map<String, Object> payload = Map.of(
-            "id", UUID.randomUUID().toString(),
-            "to", normalizedDestination,
-            "from", "roteadorprincipal57@msging.net",
-            "type", "application/json",
-            "content", content,
-            "metadata", Map.of("appointmentId", appointmentId)
-        );
-
-        var response = limeClient.executeMessage(payload, BlipLIMEClient.AuthorizationScope.ROUTER);
+        var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
         Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-        log.info("Template simples enviado. destination={}, template={}, status={}", normalizedDestination, templateName, status);
+        log.info("Template simples enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, status);
     }
 
     /**

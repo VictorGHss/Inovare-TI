@@ -204,6 +204,9 @@ public class BlipLIMEClient implements BlipClientPort {
                 } else if (uri.contains("/attendance-queues")) {
                     finalPayload.put("uri", "/attendance-queues");
                 }
+            } else if (uri.contains("/campaign")) {
+                finalPayload.put("to", "postmaster@activecampaign.msging.net");
+                actualScope = AuthorizationScope.ROUTER;
             } else if (uri.contains("/message-templates")) {
                 finalPayload.put("to", "postmaster@wa.gw.msging.net");
                 finalPayload.put("uri", "/message-templates");

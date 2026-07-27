@@ -243,9 +243,9 @@ public class IngestAppointmentsE2ETest {
 
         // Pacing assertion removed as Blip pacing is disabled.
 
-        // Garante que o Mockito interceptou os despachos de mensagens ao Blip
+        // Garante que o Mockito interceptou os despachos de comandos LIME (/campaign/full) ao Blip
         if (targetDateCount > 0) {
-            verify(blipLIMEClient, atLeastOnce()).executeMessage(any(), any());
+            verify(blipLIMEClient, atLeastOnce()).executeCommand(any(), any());
         }
     }
 }

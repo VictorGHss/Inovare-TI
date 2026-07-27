@@ -132,7 +132,10 @@ public class BlipNotificationService {
             recipientE164,
             templateName,
             messageParamValues,
-            messageParamKeys
+            messageParamKeys,
+            resolveMasterState(),
+            resolveStateId(),
+            resolveFlowId()
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
@@ -234,7 +237,8 @@ public class BlipNotificationService {
                 : "Paciente";
 
         Map<String, Object> commandPayload = blipPayloadBuilder.buildGroupTemplatePayload(
-                recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName
+                recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName,
+                resolveMasterState(), resolveStateId(), resolveFlowId()
         );
 
         log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", recipientE164, groupId);
@@ -283,12 +287,47 @@ public class BlipNotificationService {
             recipientE164,
             templateName,
             messageParamValues,
-            messageParamKeys
+            messageParamKeys,
+            resolveMasterState(),
+            resolveStateId(),
+            resolveFlowId()
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
         Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
         log.info("Template simples enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, status);
+    }
+
+    private String resolveMasterState() {
+        return "fluxov1@msging.net";
+    }
+
+    private String resolveStateId() {
+        if (motorProperties != null && motorProperties.getState() != null) {
+            String stateId = motorProperties.getState().getBlipLandingConfirmacaoItsmStateId();
+            if (stateId != null && !stateId.isBlank() && !"null".equalsIgnoreCase(stateId.trim())) {
+                return stateId.trim();
+            }
+            String landingBlock = motorProperties.getState().getBlipLandingBlockId();
+            if (landingBlock != null && !landingBlock.isBlank() && !"null".equalsIgnoreCase(landingBlock.trim())) {
+                return landingBlock.trim();
+            }
+        }
+        return "a0776d9c-6486-42f3-8a4f-2706f0185908";
+    }
+
+    private String resolveFlowId() {
+        if (motorProperties != null && motorProperties.getState() != null) {
+            String flowId = motorProperties.getState().getBlipFluxov1FlowId();
+            if (flowId != null && !flowId.isBlank() && !"null".equalsIgnoreCase(flowId.trim())) {
+                return flowId.trim();
+            }
+            String itsmFlowId = motorProperties.getState().getBlipItsmFlowId();
+            if (itsmFlowId != null && !itsmFlowId.isBlank() && !"null".equalsIgnoreCase(itsmFlowId.trim())) {
+                return itsmFlowId.trim();
+            }
+        }
+        return null;
     }
 
     /**

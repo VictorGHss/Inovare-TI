@@ -52,6 +52,8 @@ class BlipActiveCampaignMigrationTest {
         assertEquals("Individual", campaign.get("campaignType"));
         assertEquals("WhatsApp", campaign.get("channelType"));
         assertEquals("Inovare-ITSM", campaign.get("sourceApplication"));
+        assertEquals("fluxov1@msging.net", campaign.get("masterState"));
+        assertEquals("a0776d9c-6486-42f3-8a4f-2706f0185908", campaign.get("stateId"));
 
         @SuppressWarnings("unchecked")
         Map<String, Object> audience = (Map<String, Object>) resource.get("audience");

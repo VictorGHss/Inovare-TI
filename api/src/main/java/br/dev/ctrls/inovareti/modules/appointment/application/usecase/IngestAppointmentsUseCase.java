@@ -148,12 +148,20 @@ public class IngestAppointmentsUseCase {
 
         // Verifica configurações específicas de antecedência de médicos (ex: Dr. Giuliano ID 27 com advanceNoticeDays = 2)
         try {
-            List<br.dev.ctrls.inovareti.modules.appointment.domain.model.DoctorConfiguration> customAdvanceDoctors = doctorConfigurationRepository.findAll().stream()
+            List<br.dev.ctrls.inovareti.modules.appointment.domain.model.DoctorConfiguration> customAdvanceDoctors = doctorConfigurationRepository.findByIsActiveTrue().stream()
                     .filter(c -> c.getResolvedAdvanceNoticeDays() > 1)
                     .toList();
 
             for (var docConfig : customAdvanceDoctors) {
                 int advanceDays = docConfig.getResolvedAdvanceNoticeDays();
+
+                // Regra 2A: Trava D+2 - Se advanceDays == 2, SÓ executa se HOJE for QUARTA-FEIRA (DayOfWeek.WEDNESDAY)
+                if (advanceDays == 2 && today.getDayOfWeek() != java.time.DayOfWeek.WEDNESDAY) {
+                    log.info("[INGESTÃO-ANTECEDÊNCIA] Ignorando busca D+2 para o médico {} (ID {}) pois hoje é {} (D+2 é executado exclusivamente nas quartas-feiras).",
+                            docConfig.getDoctorName(), docConfig.getFeegowProfissionalId(), today.getDayOfWeek());
+                    continue;
+                }
+
                 LocalDate advanceDate = today.plusDays(advanceDays);
                 String docIdStr = String.valueOf(docConfig.getFeegowProfissionalId());
 
@@ -578,11 +586,23 @@ public class IngestAppointmentsUseCase {
         java.time.format.DateTimeFormatter dtfTime = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
 
         LocalDateTime appointmentDateTime = saved.getAppointmentAt();
-        if ("28".equals(appointment.doctorId()) && appointmentDateTime != null) {
-            LocalDateTime modifiedDateTime = appointmentDateTime.minusMinutes(10);
-            log.info("[TIME-SHIFT] Aplicada antecedência de 10 minutos para o Dr. Eduardo Mattos. Horário original: {}, Horário modificado para o envio: {}",
-                    appointmentDateTime.toLocalTime().format(dtfTime), modifiedDateTime.toLocalTime().format(dtfTime));
-            appointmentDateTime = modifiedDateTime;
+        if (appointmentDateTime != null && appointment.doctorId() != null) {
+            try {
+                Long docId = Long.parseLong(appointment.doctorId().trim());
+                var docConfigOpt = doctorConfigurationRepository.findById(docId);
+                if (docConfigOpt.isPresent()) {
+                    int offset = docConfigOpt.get().getResolvedDisplayTimeOffsetMinutes();
+                    if (offset != 0) {
+                        LocalDateTime modifiedDateTime = appointmentDateTime.plusMinutes(offset);
+                        log.info("[TIME-SHIFT] Aplicado deslocamento de {} minutos para o médico {} (ID {}). Horário original: {}, Horário modificado para envio: {}",
+                                offset, docConfigOpt.get().getDoctorName(), docId,
+                                appointmentDateTime.toLocalTime().format(dtfTime), modifiedDateTime.toLocalTime().format(dtfTime));
+                        appointmentDateTime = modifiedDateTime;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[TIME-SHIFT] Falha ao verificar deslocamento de horário para doctorId={}: {}", appointment.doctorId(), ex.getMessage());
+            }
         }
 
         String finalDate = appointmentDateTime != null ? appointmentDateTime.toLocalDate().format(dtfDate) : "";

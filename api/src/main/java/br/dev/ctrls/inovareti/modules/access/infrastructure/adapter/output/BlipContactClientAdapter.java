@@ -81,7 +81,14 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
 
         String cleanName = "";
         if (name != null && !name.isBlank() && !name.equalsIgnoreCase("null")) {
-            cleanName = name.trim();
+            String trimmed = name.trim();
+            boolean isGuidOrTunnel = trimmed.contains("@msging.net")
+                    || trimmed.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+            if (!isGuidOrTunnel) {
+                cleanName = trimmed;
+            } else {
+                log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é uma identidade de túnel ou GUID. Omitindo para preservar nome real no Blip.", trimmed);
+            }
         }
 
         // Montagem do payload de comando da API LIME do Blip

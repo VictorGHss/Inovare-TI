@@ -125,7 +125,8 @@ public class BlipNotificationService {
             messageParamKeys.add(key);
         }
 
-        String campaignName = "Confirmacao Consulta - " + (appointmentId.isBlank() ? UUID.randomUUID().toString() : appointmentId);
+        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+        String campaignName = "Confirmacao Consulta - " + (appointmentId.isBlank() ? uniqueSuffix : appointmentId + " - " + uniqueSuffix);
 
         Map<String, Object> commandPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
             campaignName,
@@ -281,7 +282,8 @@ public class BlipNotificationService {
             messageParamKeys.add(key);
         }
 
-        String campaignName = "Notificacao Consulta - " + (appointmentId.isBlank() ? UUID.randomUUID().toString() : appointmentId);
+        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+        String campaignName = "Notificacao Consulta - " + (appointmentId.isBlank() ? uniqueSuffix : appointmentId + " - " + uniqueSuffix);
 
         Map<String, Object> commandPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
             campaignName,

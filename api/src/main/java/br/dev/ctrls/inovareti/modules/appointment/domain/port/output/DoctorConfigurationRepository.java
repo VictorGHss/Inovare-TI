@@ -14,6 +14,8 @@ public interface DoctorConfigurationRepository {
 
     List<DoctorConfiguration> findAll();
 
+    List<DoctorConfiguration> findByIsActiveTrue();
+
     DoctorConfiguration save(DoctorConfiguration config);
 
     void delete(DoctorConfiguration config);

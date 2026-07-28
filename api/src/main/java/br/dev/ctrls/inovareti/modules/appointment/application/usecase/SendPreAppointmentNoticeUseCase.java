@@ -31,6 +31,9 @@ public class SendPreAppointmentNoticeUseCase {
     private final AppointmentTemplateDataBuilder appointmentTemplateDataBuilder;
     private final BlipNotificationService blipNotificationService;
     private final AppointmentMotorProperties appointmentMotorProperties;
+    private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService blipContextService;
 
     public void execute() {
         if (!appointmentMotorProperties.isEnabled()) {
@@ -60,9 +63,23 @@ public class SendPreAppointmentNoticeUseCase {
                 // Reconstrói dados do template aplicando regras de nome, médico e offset de horário (-10 min)
                 var templateData = appointmentTemplateDataBuilder.build(session);
 
-                log.info("[LEMBRETE-1H] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}'",
+                String resolvedQueue = "Recepção Central / Suporte";
+                if (session.getDoctorProfissionalId() != null && !session.getDoctorProfissionalId().isBlank()) {
+                    var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId().trim());
+                    if (mappingOpt.isPresent()) {
+                        String queueId = mappingOpt.get().getBlipQueueId();
+                        if (queueId != null && !queueId.isBlank() && !"null".equalsIgnoreCase(queueId.trim())) {
+                            resolvedQueue = blipContextService.resolveQueueName(queueId.trim());
+                        }
+                    }
+                }
+
+                // Sincroniza o contato no Blip com a fila exata do médico
+                blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), "", resolvedQueue, session.getDoctorProfissionalId());
+
+                log.info("[LEMBRETE-1H] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}', fila='{}'",
                         TEMPLATE_NAME, templateData.patientName(), templateData.doctorName(),
-                        templateData.appointmentTime(), session.getPhoneNumber());
+                        templateData.appointmentTime(), session.getPhoneNumber(), resolvedQueue);
 
                 blipNotificationService.sendTemplateMessage(session.getPhoneNumber(), TEMPLATE_NAME, templateData);
 

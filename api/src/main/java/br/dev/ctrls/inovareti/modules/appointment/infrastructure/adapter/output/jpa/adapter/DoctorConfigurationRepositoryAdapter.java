@@ -32,6 +32,13 @@ public class DoctorConfigurationRepositoryAdapter implements DoctorConfiguration
     }
 
     @Override
+    public List<DoctorConfiguration> findByIsActiveTrue() {
+        return springDataRepository.findByIsActiveTrueOrIsActiveIsNull().stream()
+                .map(entity -> entity.toDomain())
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public DoctorConfiguration save(DoctorConfiguration config) {
         DoctorConfigurationEntity entity = DoctorConfigurationEntity.fromDomain(config);
         DoctorConfigurationEntity saved = springDataRepository.save(entity);

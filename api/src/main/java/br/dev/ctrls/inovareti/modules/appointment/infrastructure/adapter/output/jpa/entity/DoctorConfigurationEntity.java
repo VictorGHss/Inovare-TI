@@ -48,6 +48,9 @@ public class DoctorConfigurationEntity {
     @Column(name = "advance_notice_days")
     private Integer advanceNoticeDays;
 
+    @Column(name = "is_active")
+    private Boolean isActive;
+
     public DoctorConfiguration toDomain() {
         return DoctorConfiguration.builder()
                 .feegowProfissionalId(this.feegowProfissionalId)
@@ -58,6 +61,7 @@ public class DoctorConfigurationEntity {
                 .blipQueueName(this.blipQueueName)
                 .displayTimeOffsetMinutes(this.displayTimeOffsetMinutes != null ? this.displayTimeOffsetMinutes : 0)
                 .advanceNoticeDays(this.advanceNoticeDays != null ? this.advanceNoticeDays : 1)
+                .isActive(this.isActive != null ? this.isActive : true)
                 .build();
     }
 
@@ -72,6 +76,7 @@ public class DoctorConfigurationEntity {
                 .blipQueueName(domain.getBlipQueueName())
                 .displayTimeOffsetMinutes(domain.getDisplayTimeOffsetMinutes())
                 .advanceNoticeDays(domain.getAdvanceNoticeDays())
+                .isActive(domain.getIsActive() != null ? domain.getIsActive() : true)
                 .build();
     }
 }

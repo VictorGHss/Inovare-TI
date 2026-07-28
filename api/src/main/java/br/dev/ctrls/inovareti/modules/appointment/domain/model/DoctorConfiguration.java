@@ -26,6 +26,12 @@ public class DoctorConfiguration {
     private Integer displayTimeOffsetMinutes = 0;
     @Builder.Default
     private Integer advanceNoticeDays = 1;
+    @Builder.Default
+    private Boolean isActive = true;
+
+    public boolean isConfigActive() {
+        return isActive == null || isActive;
+    }
 
     public int getResolvedDisplayTimeOffsetMinutes() {
         return displayTimeOffsetMinutes != null ? displayTimeOffsetMinutes : 0;

@@ -139,8 +139,8 @@ public class BlipNotificationService {
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-        log.info("Template enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, status);
+        validateBlipResponse(response, templateName, recipientE164);
+        log.info("Template enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, response != null ? response.get("status") : "success");
     }
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {
@@ -243,7 +243,8 @@ public class BlipNotificationService {
 
         log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", recipientE164, groupId);
         try {
-            limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            validateBlipResponse(response, templateName, recipientE164);
             log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso via Active Campaign para o telefone={}", recipientE164);
         } catch (Exception e) {
             log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo para o telefone={} com o groupId={}", recipientE164, groupId, e);
@@ -294,8 +295,44 @@ public class BlipNotificationService {
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        Object status = response != null ? response.getOrDefault("status", "unknown") : "unknown";
-        log.info("Template simples enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, status);
+        validateBlipResponse(response, templateName, recipientE164);
+        log.info("Template simples enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, response != null ? response.get("status") : "success");
+    }
+
+    private void validateBlipResponse(Map<String, Object> response, String templateName, String recipient) {
+        if (response == null || response.isEmpty()) {
+            log.error("[LIME-FAILURE] Resposta nula ou vazia do Blip para o template '{}' (destinatário={}).", templateName, recipient);
+            throw new br.dev.ctrls.inovareti.modules.appointment.domain.exception.BlipNotificationException(
+                "Resposta nula ou vazia do servidor Blip ao enviar template " + templateName
+            );
+        }
+
+        String status = String.valueOf(response.getOrDefault("status", "unknown"));
+
+        if ("failure".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status) || "offline-queued".equalsIgnoreCase(status) || "timeout".equalsIgnoreCase(status)) {
+            Object reasonObj = response.get("reason");
+            String reasonStr = reasonObj != null ? reasonObj.toString() : "desconhecida";
+            log.error("[LIME-FAILURE] Disparo de template '{}' rejeitado pelo Blip (destinatário={}). Status: {}, Motivo: {}",
+                templateName, recipient, status, reasonStr);
+            throw new br.dev.ctrls.inovareti.modules.appointment.domain.exception.BlipNotificationException(
+                "Envio de template '" + templateName + "' falhou no Blip. Status: " + status + ", Motivo: " + reasonStr
+            );
+        }
+
+        if (response.containsKey("reason")) {
+            Object reasonObj = response.get("reason");
+            if (reasonObj instanceof Map<?, ?> reasonMap) {
+                Object codeObj = reasonMap.get("code");
+                Object descObj = reasonMap.get("description");
+                if (codeObj != null) {
+                    log.error("[LIME-FAILURE] Comando LIME retornou código de erro {} ({}) para o template '{}' (destinatário={}).",
+                        codeObj, descObj, templateName, recipient);
+                    throw new br.dev.ctrls.inovareti.modules.appointment.domain.exception.BlipNotificationException(
+                        "Falha na API do Blip ao enviar template '" + templateName + "'. Código de Erro: " + codeObj + " - " + descObj
+                    );
+                }
+            }
+        }
     }
 
     private String resolveMasterState() {
@@ -313,7 +350,7 @@ public class BlipNotificationService {
                 return landingBlock.trim();
             }
         }
-        return "a0776d9c-6486-42f3-8a4f-2706f0185908";
+        return null;
     }
 
     private String resolveFlowId() {

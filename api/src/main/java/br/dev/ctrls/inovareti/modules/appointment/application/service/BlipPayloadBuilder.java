@@ -24,9 +24,8 @@ public class BlipPayloadBuilder {
     }
 
     /**
-     * Constrói o comando LIME para o endpoint Active Campaign Growth API (/campaign/full)
-     * incluindo obrigatoriamente masterState e stateId para roteamento de respostas pelo bot Roteador,
-     * e opcionalmente flowId.
+     * Constrói o comando LIME para o endpoint Active Campaign Growth API (/campaign/full).
+     * Inclui masterState, e inclui stateId/flowId no nó 'campaign' APENAS se forem strings válidas e não-vazias.
      */
     public Map<String, Object> buildActiveCampaignCommandPayload(
             String campaignName,
@@ -40,16 +39,22 @@ public class BlipPayloadBuilder {
     ) {
         String recipientE164 = formatE164Recipient(recipientPhone);
 
-        String safeMasterState = (masterState != null && !masterState.isBlank()) ? masterState.trim() : "fluxov1@msging.net";
-        String safeStateId = (stateId != null && !stateId.isBlank()) ? stateId.trim() : "a0776d9c-6486-42f3-8a4f-2706f0185908";
-
         Map<String, Object> campaign = new java.util.LinkedHashMap<>();
         campaign.put("name", campaignName != null && !campaignName.isBlank() ? campaignName : "Notificacao - " + UUID.randomUUID());
         campaign.put("campaignType", "Individual");
         campaign.put("channelType", "WhatsApp");
         campaign.put("sourceApplication", "Inovare-ITSM");
-        campaign.put("masterState", safeMasterState);
-        campaign.put("stateId", safeStateId);
+
+        if (masterState != null && !masterState.isBlank()) {
+            campaign.put("masterState", masterState.trim());
+        } else {
+            campaign.put("masterState", "fluxov1@msging.net");
+        }
+
+        if (stateId != null && !stateId.isBlank()) {
+            campaign.put("stateId", stateId.trim());
+        }
+
         if (flowId != null && !flowId.isBlank()) {
             campaign.put("flowId", flowId.trim());
         }
@@ -106,13 +111,13 @@ public class BlipPayloadBuilder {
     ) {
         return buildActiveCampaignCommandPayload(
                 campaignName, recipientPhone, templateName, messageParamValues, messageParamKeys,
-                "fluxov1@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908", null
+                "fluxov1@msging.net", null, null
         );
     }
 
     /**
      * Constrói o mapa de dados para envio do template de grupo (ex: aviso_agendamento_grupo)
-     * utilizando a Active Campaign Growth API (/campaign/full) com masterState, stateId e flowId.
+     * utilizando a Active Campaign Growth API (/campaign/full) omitindo stateId/flowId se não informados.
      */
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName, String masterState, String stateId, String flowId) {
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
@@ -131,6 +136,6 @@ public class BlipPayloadBuilder {
     }
 
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName) {
-        return buildGroupTemplatePayload(toPhone, templateName, namespace, groupId, patientName, "fluxov1@msging.net", "a0776d9c-6486-42f3-8a4f-2706f0185908", null);
+        return buildGroupTemplatePayload(toPhone, templateName, namespace, groupId, patientName, "fluxov1@msging.net", null, null);
     }
 }

@@ -487,9 +487,8 @@ public class IngestAppointmentsUseCase {
                         continue;
                     }
                     AppointmentSessionStatus status = existing.getStatus();
-                    if (status == AppointmentSessionStatus.PENDING || status == AppointmentSessionStatus.NUDGE_1_SENT ||
-                        status == AppointmentSessionStatus.NUDGE_FINAL_SENT || status == AppointmentSessionStatus.CONFIRMED) {
-                        log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Status atual: {}.", feegowAppointmentId, status);
+                    if (status == AppointmentSessionStatus.CONFIRMED || status == AppointmentSessionStatus.CANCELED) {
+                        log.info("[IDEMPOTENCIA] Disparo abortado para o agendamento ID={}. Status final: {}.", feegowAppointmentId, status);
                         continue;
                     }
                 } else {
@@ -542,8 +541,7 @@ public class IngestAppointmentsUseCase {
                         return null;
                     }
                     AppointmentSessionStatus currentStatus = existing.getStatus();
-                    if (currentStatus == AppointmentSessionStatus.PENDING || currentStatus == AppointmentSessionStatus.NUDGE_1_SENT ||
-                        currentStatus == AppointmentSessionStatus.NUDGE_FINAL_SENT || currentStatus == AppointmentSessionStatus.CONFIRMED) {
+                    if (currentStatus == AppointmentSessionStatus.CONFIRMED || currentStatus == AppointmentSessionStatus.CANCELED) {
                         return null;
                     }
                 } else {

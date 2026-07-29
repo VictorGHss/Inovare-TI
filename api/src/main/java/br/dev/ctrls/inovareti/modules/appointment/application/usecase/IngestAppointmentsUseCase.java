@@ -947,13 +947,24 @@ public class IngestAppointmentsUseCase {
 
     private boolean isDoctorAllowed(String doctorId) {
         String docId = doctorId != null ? doctorId.trim() : "";
+        if (docId.isBlank()) {
+            return false;
+        }
         if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {
             return true;
         }
         if (appointmentMotorProperties.getActiveDoctorIds().contains(docId)) {
             return true;
         }
-        log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste (test-doctor-ids) nem de produção (active-doctor-ids). Ignorando.", doctorId);
+        try {
+            Long id = Long.parseLong(docId);
+            var configOpt = doctorConfigurationRepository.findById(id);
+            if (configOpt.isPresent() && configOpt.get().isConfigActive()) {
+                return true;
+            }
+        } catch (NumberFormatException ignored) {}
+
+        log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste nem de produção (active-doctor-ids) nem doctor_configurations. Ignorando.", doctorId);
         return false;
     }
 

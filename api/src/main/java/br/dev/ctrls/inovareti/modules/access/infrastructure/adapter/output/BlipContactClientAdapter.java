@@ -47,6 +47,20 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
                 .build();
     }
 
+    public static boolean isInvalidName(String name) {
+        if (name == null || name.isBlank() || "null".equalsIgnoreCase(name.trim())) {
+            return true;
+        }
+        String trimmed = name.trim();
+        if (trimmed.contains("@") || trimmed.contains("msging.net")) {
+            return true;
+        }
+        if (trimmed.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public boolean syncContact(String phoneNumber, String name, String cpf, String queueName, String doctorId) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
@@ -80,15 +94,10 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
         }
 
         String cleanName = "";
-        if (name != null && !name.isBlank() && !name.equalsIgnoreCase("null")) {
-            String trimmed = name.trim();
-            boolean isGuidOrTunnel = trimmed.contains("@msging.net")
-                    || trimmed.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
-            if (!isGuidOrTunnel) {
-                cleanName = trimmed;
-            } else {
-                log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é uma identidade de túnel ou GUID. Omitindo para preservar nome real no Blip.", trimmed);
-            }
+        if (!isInvalidName(name)) {
+            cleanName = name.trim();
+        } else if (name != null && !name.isBlank()) {
+            log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é inválido (GUID/identidade de túnel). Omitindo para preservar nome real no Blip.", name);
         }
 
         // Montagem do payload de comando da API LIME do Blip

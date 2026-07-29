@@ -106,6 +106,15 @@ public class DoctorBusinessRulesTest {
 
         BlipContactClientAdapter adapter = new BlipContactClientAdapter(props);
 
+        // Test static isInvalidName logic
+        assertTrue(BlipContactClientAdapter.isInvalidName("5542999999999.fluxov1@tunnel.msging.net"), "Identidade de túnel deve ser considerada inválida");
+        assertTrue(BlipContactClientAdapter.isInvalidName("97e71399-86c0-4358-a274-6bd588bd8b1e"), "GUID de sessão deve ser considerado inválido");
+        assertTrue(BlipContactClientAdapter.isInvalidName(""), "String em branco deve ser considerada inválida");
+        assertTrue(BlipContactClientAdapter.isInvalidName(null), "Null deve ser considerado inválido");
+
+        assertFalse(BlipContactClientAdapter.isInvalidName("Kathe Cristine Bonugli"), "Nome real limpo deve ser considerado válido");
+        assertFalse(BlipContactClientAdapter.isInvalidName("SANDRA ANTUNES VICENTE"), "Nome real limpo de paciente deve ser considerado válido");
+
         // Pass tunnel identity string as name -> should be sanitized
         boolean resultTunnel = adapter.syncContact("5542999999999", "5542999999999.fluxov1@tunnel.msging.net", "12345678900", "Fila Teste", "27");
         assertTrue(resultTunnel);

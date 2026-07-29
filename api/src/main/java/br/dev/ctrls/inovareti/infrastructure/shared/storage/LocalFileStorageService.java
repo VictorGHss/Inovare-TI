@@ -159,14 +159,15 @@ public class LocalFileStorageService {
             throw new IllegalArgumentException("Tipo de arquivo não permitido. Apenas PDF, PNG e JPG são aceitos.");
         }
 
-        // Valida o Content-Type associado
-        if (normalizedExtension.equals(".pdf") && !contentType.equalsIgnoreCase("application/pdf")) {
+        // Valida o Content-Type associado (suporta parâmetros adicionais como charset ou octet-stream fallback)
+        String lowerCt = contentType != null ? contentType.toLowerCase() : "";
+        if (normalizedExtension.equals(".pdf") && !lowerCt.contains("pdf") && !lowerCt.contains("octet-stream")) {
             throw new IllegalArgumentException("Content-Type inválido para arquivo PDF.");
         }
-        if ((normalizedExtension.equals(".jpg") || normalizedExtension.equals(".jpeg")) && !contentType.equalsIgnoreCase("image/jpeg")) {
+        if ((normalizedExtension.equals(".jpg") || normalizedExtension.equals(".jpeg")) && !lowerCt.contains("jpeg") && !lowerCt.contains("jpg") && !lowerCt.contains("octet-stream")) {
             throw new IllegalArgumentException("Content-Type inválido para imagem JPEG.");
         }
-        if (normalizedExtension.equals(".png") && !contentType.equalsIgnoreCase("image/png")) {
+        if (normalizedExtension.equals(".png") && !lowerCt.contains("png") && !lowerCt.contains("octet-stream")) {
             throw new IllegalArgumentException("Content-Type inválido para imagem PNG.");
         }
 

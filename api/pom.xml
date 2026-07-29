@@ -295,7 +295,7 @@
                 <version>${hibernate.version}</version>
                 <executions>
                     <execution>
-                        <?m2e execute onConfiguration,onIncremental?>
+                        <?m2e ignore?>
                         <id>enhance</id>
                         <goals>
                             <goal>enhance</goal>

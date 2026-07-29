@@ -1,6 +1,7 @@
 package br.dev.ctrls.inovareti.modules.appointment.infrastructure.adapter.output.client;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,6 +48,9 @@ public class BlipLIMEClient implements BlipClientPort {
     private final RestTemplate injectedRestTemplate;
     private final AppointmentMotorProperties properties;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
+    private final AtomicLong lastQueuesFetchAt = new AtomicLong(0L);
+    private volatile List<BlipQueue> cachedQueuesList = null;
+    private static final long QUEUES_CACHE_TTL_MS = 30 * 60 * 1000L; // 30 minutos
 
     private RestTemplate blipRestTemplate;
 
@@ -116,34 +120,53 @@ public class BlipLIMEClient implements BlipClientPort {
 
     @Override
     public List<BlipQueue> listBlipQueues() {
-        Map<String, Object> response = getBlipQueues();
-        if (response == null || !response.containsKey("resource")) return List.of();
-        
-        Object resourceObj = response.get("resource");
-        if (resourceObj instanceof Map<?, ?> resourceMap) {
-            Object itemsObj = resourceMap.get("items");
-            if (itemsObj instanceof List<?> items) {
-                List<BlipQueue> queues = new ArrayList<>();
-                for (Object item : items) {
-                    if (item instanceof Map<?, ?> itemMap) {
-                        Object identityObj = itemMap.get("identity");
-                        if (identityObj == null) {
-                            identityObj = itemMap.get("id");
-                        }
-                        if (identityObj == null) {
-                            identityObj = itemMap.get("name");
-                        }
-                        String id = identityObj != null ? String.valueOf(identityObj) : "";
-                        String name = itemMap.get("name") != null ? String.valueOf(itemMap.get("name")) : "";
-                        if (!id.isBlank()) {
-                            queues.add(new BlipQueue(id, name));
+        long now = System.currentTimeMillis();
+        if (cachedQueuesList != null && (now - lastQueuesFetchAt.get() < QUEUES_CACHE_TTL_MS)) {
+            return cachedQueuesList;
+        }
+
+        synchronized (this) {
+            now = System.currentTimeMillis();
+            if (cachedQueuesList != null && (now - lastQueuesFetchAt.get() < QUEUES_CACHE_TTL_MS)) {
+                return cachedQueuesList;
+            }
+
+            Map<String, Object> response = getBlipQueues();
+            if (response == null || !response.containsKey("resource")) {
+                return cachedQueuesList != null ? cachedQueuesList : List.of();
+            }
+            
+            Object resourceObj = response.get("resource");
+            if (resourceObj instanceof Map<?, ?> resourceMap) {
+                Object itemsObj = resourceMap.get("items");
+                if (itemsObj instanceof List<?> items) {
+                    List<BlipQueue> queues = new ArrayList<>();
+                    for (Object item : items) {
+                        if (item instanceof Map<?, ?> itemMap) {
+                            Object identityObj = itemMap.get("identity");
+                            if (identityObj == null) {
+                                identityObj = itemMap.get("id");
+                            }
+                            if (identityObj == null) {
+                                identityObj = itemMap.get("name");
+                            }
+                            String id = identityObj != null ? String.valueOf(identityObj) : "";
+                            String name = itemMap.get("name") != null ? String.valueOf(itemMap.get("name")) : "";
+                            if (!id.isBlank()) {
+                                queues.add(new BlipQueue(id, name));
+                            }
                         }
                     }
+                    if (!queues.isEmpty()) {
+                        this.cachedQueuesList = Collections.unmodifiableList(queues);
+                        this.lastQueuesFetchAt.set(now);
+                        log.info("[BLIP-CACHE] Lista oficial de filas atualizada no cache ({} filas).", queues.size());
+                    }
+                    return queues;
                 }
-                return queues;
             }
+            return cachedQueuesList != null ? cachedQueuesList : List.of();
         }
-        return List.of();
     }
 
     @Override

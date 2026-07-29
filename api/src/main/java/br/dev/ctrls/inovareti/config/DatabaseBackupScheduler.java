@@ -153,7 +153,7 @@ public class DatabaseBackupScheduler {
             // 4. Utilizar JavaMailSender para enviar por e-mail
             try {
                 sendBackupEmail(zipFile, timestamp);
-            } catch (MessagingException emailEx) {
+            } catch (Exception emailEx) {
                 log.warn("Falha ao enviar backup por e-mail, mas o arquivo físico foi preservado: {}", emailEx.getMessage());
             }
 

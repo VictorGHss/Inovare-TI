@@ -59,10 +59,22 @@ public class BlipPayloadBuilder {
             campaign.put("flowId", flowId.trim());
         }
 
-        Map<String, Object> audience = Map.of(
-            "recipient", recipientE164,
-            "messageParams", messageParamValues != null ? messageParamValues : Map.of()
-        );
+        String rawPhone = recipientPhone != null ? recipientPhone.replaceAll("\\D", "") : "";
+        String plainPhone = (rawPhone.startsWith("55") && rawPhone.length() > 11) ? rawPhone.substring(2) : rawPhone;
+
+        Map<String, String> contextVars = new java.util.HashMap<>();
+        if (!plainPhone.isBlank()) {
+            contextVars.put("phoneNumber", plainPhone);
+            contextVars.put("contact.phoneNumber", plainPhone);
+            contextVars.put("telefone", plainPhone);
+        }
+
+        Map<String, Object> audience = new java.util.LinkedHashMap<>();
+        audience.put("recipient", recipientE164);
+        audience.put("messageParams", messageParamValues != null ? messageParamValues : Map.of());
+        if (!contextVars.isEmpty()) {
+            audience.put("contextVariables", contextVars);
+        }
 
         Map<String, Object> message = Map.of(
             "messageTemplate", templateName,

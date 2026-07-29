@@ -100,6 +100,28 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é inválido (GUID/identidade de túnel). Usando fallback 'Paciente Não Identificado' para forçar sobrescrita no Blip.", name);
         }
 
+        String rawPhone = normalizedIdentity.contains("@") 
+            ? normalizedIdentity.substring(0, normalizedIdentity.indexOf('@')) 
+            : normalizedIdentity;
+        String digitsOnly = rawPhone.replaceAll("\\D", "");
+        String formattedPhone = digitsOnly.startsWith("55") ? "+" + digitsOnly : "+55" + digitsOnly;
+        String plainPhone = (digitsOnly.startsWith("55") && digitsOnly.length() > 11) ? digitsOnly.substring(2) : digitsOnly;
+
+        Map<String, Object> contactResource = new java.util.LinkedHashMap<>();
+        contactResource.put("identity", normalizedIdentity);
+        contactResource.put("name", cleanName);
+        if (!digitsOnly.isBlank()) {
+            contactResource.put("phoneNumber", formattedPhone);
+            contactResource.put("cellPhoneNumber", formattedPhone);
+        }
+        contactResource.put("extras", Map.of(
+            "cpf", cleanCpf,
+            "fila", cleanQueue,
+            "deskFila", cleanQueue,
+            "phoneNumber", plainPhone,
+            "telefone", plainPhone
+        ));
+
         // Montagem do payload de comando da API LIME do Blip
         Map<String, Object> command = Map.of(
             "id", "sync-contact-" + UUID.randomUUID().toString(),
@@ -107,15 +129,7 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             "method", "set",
             "uri", "/contacts",
             "type", "application/vnd.lime.contact+json",
-            "resource", Map.of(
-                "identity", normalizedIdentity,
-                "name", cleanName,
-                "extras", Map.of(
-                    "cpf", cleanCpf,
-                    "fila", cleanQueue,
-                    "deskFila", cleanQueue
-                )
-            )
+            "resource", contactResource
         );
 
         try {

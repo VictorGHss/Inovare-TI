@@ -43,6 +43,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final BlipProperties blipProperties;
     private final PatientExternalPort patientExternalPort;
+    private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
 
     @Override
     public boolean supports(String actionType) {
@@ -409,6 +410,17 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.info("[CONFIRM] ID do agendamento e requiresCpfFallback salvos no contexto do Blip: {}", session.getFeegowAppointmentId());
             } catch (Exception ex) {
                 log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou CPF no contexto: {}", ex.getMessage());
+            }
+
+            // Gerar e persistir credencial física GerAcesso na tabela access_credentials no exato momento da confirmação
+            try {
+                String feegowAppId = session.getFeegowAppointmentId();
+                FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
+                String patientCpf = (patient != null && patient.cpf() != null) ? patient.cpf() : "";
+                log.info("[CONFIRM-GERACESSO] Pré-gerando credencial física GerAcesso em access_credentials para o agendamento ID: {} | CPF: {}", feegowAppId, patientCpf);
+                accessService.processAccessRequest(feegowAppId, patientCpf, java.util.List.of());
+            } catch (Exception ex) {
+                log.warn("[CONFIRM-GERACESSO] Aviso ao pré-gerar credencial GerAcesso na confirmação: {}", ex.getMessage());
             }
  
             // Recupera dinamicamente a propriedade do bloco de sucesso

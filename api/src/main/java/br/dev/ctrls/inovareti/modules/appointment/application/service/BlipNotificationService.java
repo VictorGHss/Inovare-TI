@@ -134,9 +134,9 @@ public class BlipNotificationService {
             templateName,
             messageParamValues,
             messageParamKeys,
-            resolveMasterState(),
-            resolveStateId(),
-            resolveFlowId()
+            null,
+            null,
+            null
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
@@ -239,7 +239,7 @@ public class BlipNotificationService {
 
         Map<String, Object> commandPayload = blipPayloadBuilder.buildGroupTemplatePayload(
                 recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName,
-                resolveMasterState(), resolveStateId(), resolveFlowId()
+                null, null, null
         );
 
         log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", recipientE164, groupId);
@@ -291,9 +291,9 @@ public class BlipNotificationService {
             templateName,
             messageParamValues,
             messageParamKeys,
-            resolveMasterState(),
-            resolveStateId(),
-            resolveFlowId()
+            null,
+            null,
+            null
         );
 
         var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
@@ -337,37 +337,7 @@ public class BlipNotificationService {
         }
     }
 
-    private String resolveMasterState() {
-        return "fluxov1@msging.net";
-    }
 
-    private String resolveStateId() {
-        if (motorProperties != null && motorProperties.getState() != null) {
-            String stateId = motorProperties.getState().getBlipLandingConfirmacaoItsmStateId();
-            if (stateId != null && !stateId.isBlank() && !"null".equalsIgnoreCase(stateId.trim())) {
-                return stateId.trim();
-            }
-            String landingBlock = motorProperties.getState().getBlipLandingBlockId();
-            if (landingBlock != null && !landingBlock.isBlank() && !"null".equalsIgnoreCase(landingBlock.trim())) {
-                return landingBlock.trim();
-            }
-        }
-        return null;
-    }
-
-    private String resolveFlowId() {
-        if (motorProperties != null && motorProperties.getState() != null) {
-            String flowId = motorProperties.getState().getBlipFluxov1FlowId();
-            if (flowId != null && !flowId.isBlank() && !"null".equalsIgnoreCase(flowId.trim())) {
-                return flowId.trim();
-            }
-            String itsmFlowId = motorProperties.getState().getBlipItsmFlowId();
-            if (itsmFlowId != null && !itsmFlowId.isBlank() && !"null".equalsIgnoreCase(itsmFlowId.trim())) {
-                return itsmFlowId.trim();
-            }
-        }
-        return null;
-    }
 
     /**
      * Envia uma mensagem de texto simples (text/plain) diretamente para o WhatsApp do destinatário

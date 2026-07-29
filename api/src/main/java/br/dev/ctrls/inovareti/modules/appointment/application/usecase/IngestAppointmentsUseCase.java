@@ -67,8 +67,10 @@ public class IngestAppointmentsUseCase {
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
-    private final Optional<AppointmentSendIdempotencyService> appointmentSendIdempotencyService;
-    private final Optional<NoopAppointmentSendIdempotencyService> noopAppointmentSendIdempotencyService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AppointmentSendIdempotencyService appointmentSendIdempotencyService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NoopAppointmentSendIdempotencyService noopAppointmentSendIdempotencyService;
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final BlipNotificationService blipNotificationService;
@@ -241,9 +243,9 @@ public class IngestAppointmentsUseCase {
         int filtrados = appointments.size();
         log.info("Filtrando agendamentos antigos. Total antes: {}, Total depois: {}", aposProcedimentos, filtrados);
 
-        if (overridePhone != null && appointments.size() > 2) {
-            log.info("[BLINDAGEM-TESTE] Limitando agendamentos de teste para no máximo 2 agendamentos (total encontrado: {}).", appointments.size());
-            appointments = appointments.subList(0, 2);
+        if (overridePhone != null && appointments.size() > 3) {
+            log.info("[BLINDAGEM-TESTE] Limitando agendamentos de teste para no máximo 3 agendamentos (total encontrado: {}).", appointments.size());
+            appointments = appointments.subList(0, 3);
             filtrados = appointments.size();
         }
 
@@ -354,7 +356,29 @@ public class IngestAppointmentsUseCase {
                 .map(appointment -> appointment.patientId())
                 .collect(Collectors.toSet());
 
-        Map<String, FeegowPatient> patientDetailsCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(patientIds);
+        Map<String, FeegowPatient> rawPatientCache = feegowPatientDetailsFetcher.fetchPatientDetailsInParallel(patientIds);
+        Map<String, FeegowPatient> patientDetailsCacheMap = rawPatientCache;
+
+        if (overridePhone != null && !overridePhone.isBlank()) {
+            Map<String, FeegowPatient> overriddenCache = new java.util.HashMap<>();
+            for (Map.Entry<String, FeegowPatient> entry : rawPatientCache.entrySet()) {
+                FeegowPatient original = entry.getValue();
+                if (original != null) {
+                    FeegowPatient updated = new FeegowPatient(
+                        original.id(),
+                        original.name(),
+                        overridePhone,
+                        original.cpf(),
+                        original.birthdate()
+                    );
+                    overriddenCache.put(entry.getKey(), updated);
+                }
+            }
+            patientDetailsCacheMap = overriddenCache;
+            log.info("[BLINDAGEM-TESTE] 100% dos telefones dos pacientes em memória foram sobrescritos para {}", overridePhone);
+        }
+
+        final Map<String, FeegowPatient> patientDetailsCache = patientDetailsCacheMap;
 
         Map<String, List<FeegowAppointment>> grouped = uniqueActiveAppointments.stream()
                 .collect(Collectors.groupingBy(appointment -> {
@@ -519,8 +543,11 @@ public class IngestAppointmentsUseCase {
                 }
             }
 
-            boolean canSend = appointmentSendIdempotencyService.map(s -> s.registerIfFirstSend(feegowAppointmentId))
-                    .orElseGet(() -> noopAppointmentSendIdempotencyService.map(s -> s.registerIfFirstSend(feegowAppointmentId)).orElse(true));
+            boolean canSend = (appointmentSendIdempotencyService != null) 
+                    ? appointmentSendIdempotencyService.registerIfFirstSend(feegowAppointmentId)
+                    : ((noopAppointmentSendIdempotencyService != null) 
+                        ? noopAppointmentSendIdempotencyService.registerIfFirstSend(feegowAppointmentId) 
+                        : true);
 
             if (canSend || forceSend) {
                 eligible.add(appointment);

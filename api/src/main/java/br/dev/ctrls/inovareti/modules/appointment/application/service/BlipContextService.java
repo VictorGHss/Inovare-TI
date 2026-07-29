@@ -451,6 +451,25 @@ public class BlipContextService {
 
                     for (Object itemObj : itemsList) {
                         if (itemObj instanceof Map<?, ?> itemMap) {
+                            Object customerVal = itemMap.get("customerIdentity");
+                            if (customerVal == null) customerVal = itemMap.get("customerInput");
+                            if (customerVal == null) customerVal = itemMap.get("identity");
+
+                            if (customerVal != null && !customerVal.toString().isBlank()) {
+                                String ticketCustomer = limeClient.normalizeUserIdentity(customerVal.toString().trim());
+                                String reqUserDigits = normalizedIdentity.contains("@") 
+                                    ? normalizedIdentity.substring(0, normalizedIdentity.indexOf('@')).replaceAll("\\D", "") 
+                                    : normalizedIdentity.replaceAll("\\D", "");
+                                String ticketUserDigits = ticketCustomer.contains("@") 
+                                    ? ticketCustomer.substring(0, ticketCustomer.indexOf('@')).replaceAll("\\D", "") 
+                                    : ticketCustomer.replaceAll("\\D", "");
+
+                                if (!reqUserDigits.isEmpty() && !ticketUserDigits.isEmpty() && !reqUserDigits.equals(ticketUserDigits)) {
+                                    // O ticket pertence a outro paciente retornado pela API do Desk. Ignora.
+                                    continue;
+                                }
+                            }
+
                             Object statusVal = itemMap.get("status");
                             if (statusVal != null) {
                                 String status = statusVal.toString().trim();

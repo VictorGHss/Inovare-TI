@@ -93,11 +93,11 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             cleanQueue = queueName.trim();
         }
 
-        String cleanName = "";
+        String cleanName = "Paciente Não Identificado";
         if (!isInvalidName(name)) {
             cleanName = name.trim();
         } else if (name != null && !name.isBlank()) {
-            log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é inválido (GUID/identidade de túnel). Omitindo para preservar nome real no Blip.", name);
+            log.warn("[BlipContact-Adapter] Nome fornecido ('{}') é inválido (GUID/identidade de túnel). Usando fallback 'Paciente Não Identificado' para forçar sobrescrita no Blip.", name);
         }
 
         // Montagem do payload de comando da API LIME do Blip

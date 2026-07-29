@@ -102,14 +102,23 @@ public class IngestAppointmentsUseCase {
     private record GroupPersistenceResult(List<AppointmentSession> savedSessions, String preCompiledText) {}
 
     public IngestionSummary execute() {
-        return execute(null, false);
+        return execute(null, false, null);
     }
 
     public IngestionSummary execute(List<String> doctorIds) {
-        return execute(doctorIds, false);
+        return execute(doctorIds, false, null);
     }
 
     public IngestionSummary execute(List<String> doctorIds, boolean forceSend) {
+        return execute(doctorIds, forceSend, null);
+    }
+
+    public IngestionSummary execute(List<String> doctorIds, boolean forceSend, String testPhone) {
+        final String overridePhone = (testPhone != null && !testPhone.isBlank()) ? testPhone.trim().replaceAll("\\D", "") : null;
+        if (overridePhone != null) {
+            log.info("[BLINDAGEM-TESTE] Modo de teste ativado (testPhone={}). Limitando a no máximo 2 agendamentos e redirecionando 100% dos disparos para o telefone {}.", testPhone, overridePhone);
+        }
+
         LocalDate today = LocalDate.now();
         DayOfWeek dayOfWeek = today.getDayOfWeek();
 
@@ -231,6 +240,12 @@ public class IngestAppointmentsUseCase {
                 .collect(Collectors.toList());
         int filtrados = appointments.size();
         log.info("Filtrando agendamentos antigos. Total antes: {}, Total depois: {}", aposProcedimentos, filtrados);
+
+        if (overridePhone != null && appointments.size() > 2) {
+            log.info("[BLINDAGEM-TESTE] Limitando agendamentos de teste para no máximo 2 agendamentos (total encontrado: {}).", appointments.size());
+            appointments = appointments.subList(0, 2);
+            filtrados = appointments.size();
+        }
 
         int totalReceived = filtrados;
 
@@ -964,7 +979,6 @@ public class IngestAppointmentsUseCase {
             }
         } catch (NumberFormatException ignored) {}
 
-        log.warn("[MODO-EXECUCAO] Médico ID {} não pertence à lista de teste nem de produção (active-doctor-ids) nem doctor_configurations. Ignorando.", doctorId);
         return false;
     }
 

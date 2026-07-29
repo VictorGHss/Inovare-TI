@@ -84,7 +84,8 @@ public class AppointmentMotorController {
     public ResponseEntity<Map<String, Object>> triggerManual(
             @RequestParam(value = "production", required = false) Boolean production,
             @RequestParam(value = "exclude", required = false) String excludeRaw,
-            @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend) {
+            @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend,
+            @RequestParam(value = "testPhone", required = false) String testPhone) {
         
         IngestAppointmentsUseCase.IngestionSummary summary;
         if (Boolean.TRUE.equals(production)) {
@@ -96,21 +97,31 @@ public class AppointmentMotorController {
                         .filter(id -> !id.isEmpty())
                         .toList();
                 
-                log.info("[MANUAL-PROD] Executando motor para médicos ativos (forceSend={}). Excluindo por demanda os IDs: {}", forceSend, excludeList);
+                log.info("[MANUAL-PROD] Executando motor para médicos ativos (forceSend={}, testPhone={}). Excluindo por demanda os IDs: {}", forceSend, testPhone, excludeList);
                 activeDoctorIds.removeAll(excludeList);
             }
             
-            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {} (forceSend={})", activeDoctorIds, forceSend);
-            summary = ingestAppointmentsUseCase.execute(activeDoctorIds, forceSend);
+            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {} (forceSend={}, testPhone={})", activeDoctorIds, forceSend, testPhone);
+            summary = ingestAppointmentsUseCase.execute(activeDoctorIds, forceSend, testPhone);
         } else {
-            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais, forceSend={}).", forceSend);
-            summary = ingestAppointmentsUseCase.execute(null, forceSend);
+            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais, forceSend={}, testPhone={}).", forceSend, testPhone);
+            summary = ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
         }
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "messages_sent", summary.messagesSent(),
                 "mode", summary.mode()));
+    }
+
+    @PostMapping("/motor/trigger")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<IngestAppointmentsUseCase.IngestionSummary> triggerMotor(
+            @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend,
+            @RequestParam(value = "testPhone", required = false) String testPhone) {
+        log.info("[MOTOR-TRIGGER] Disparo manual acionado via /motor/trigger (forceSend={}, testPhone={})", forceSend, testPhone);
+        IngestAppointmentsUseCase.IngestionSummary summary = ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
+        return ResponseEntity.ok(summary);
     }
 
     @GetMapping("/admin/mappings")

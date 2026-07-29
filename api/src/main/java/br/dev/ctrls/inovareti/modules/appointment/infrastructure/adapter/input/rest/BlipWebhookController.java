@@ -286,11 +286,12 @@ public class BlipWebhookController {
             boolean isExibirAgenda = "exibir_agenda".equalsIgnoreCase(actionValue)
                 || (exibirUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(exibirUuid.toLowerCase()) + "\\b").matcher(rawActionTextLower).find());
 
-            boolean isButtonClick = action != null && (
-                action.startsWith("confirm_") ||
-                action.startsWith("alter_") ||
-                action.startsWith("ver_agenda_") ||
-                action.startsWith("group_view_") ||
+            boolean isNullOrEmpty = action == null || action.isBlank() || "null".equalsIgnoreCase(action.trim());
+            boolean isButtonClick = isNullOrEmpty || (action != null && (
+                action.toLowerCase().startsWith("confirm_") ||
+                action.toLowerCase().startsWith("alter_") ||
+                action.toLowerCase().startsWith("group_") ||
+                action.toLowerCase().startsWith("ver_agenda_") ||
                 "group_view_fallback".equalsIgnoreCase(action) ||
                 "Verificar_Acompanhante".equalsIgnoreCase(action) ||
                 "Integrar_GerAcesso".equalsIgnoreCase(action) ||
@@ -298,7 +299,7 @@ public class BlipWebhookController {
                 "Finalizar_Agendamento".equalsIgnoreCase(action) ||
                 isPrepararAtendimento ||
                 isExibirAgenda
-            );
+            ));
 
             if (!isButtonClick) {
                 long now = System.currentTimeMillis();

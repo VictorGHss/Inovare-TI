@@ -424,6 +424,26 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou telefone no contexto: {}", ex.getMessage());
             }
 
+            // Recupera dinamicamente a propriedade do bloco de sucesso e aplica Master-State imediatamente
+            String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
+            if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
+                confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
+            }
+
+            String targetBot = "desk@msging.net";
+            if (!"644d54dd-aefd-478b-93eb-10081acdd387".equals(confirmSuccessBlockId)) {
+                String builderBotId = appointmentMotorProperties.getBlipBuilderBotId();
+                if (builderBotId != null && !builderBotId.isBlank()) {
+                    targetBot = builderBotId;
+                }
+            }
+
+            // Dispara setMasterState IMEDIATAMENTE antes das chamadas pesadas de REST (GerAcesso, Feegow, túneis)
+            blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
+            if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
+                blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
+            }
+
             // Gerar e persistir credencial física GerAcesso na tabela access_credentials no exato momento da confirmação
             try {
                 String feegowAppId = session.getFeegowAppointmentId();
@@ -434,22 +454,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             } catch (Exception ex) {
                 log.warn("[CONFIRM-GERACESSO] Aviso ao pré-gerar credencial GerAcesso na confirmação: {}", ex.getMessage());
             }
- 
-            // Recupera dinamicamente a propriedade do bloco de sucesso
-            String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
-            if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
-                confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
-            }
- 
-            String targetBot = "desk@msging.net";
-            if (!"644d54dd-aefd-478b-93eb-10081acdd387".equals(confirmSuccessBlockId)) {
-                String builderBotId = appointmentMotorProperties.getBlipBuilderBotId();
-                if (builderBotId != null && !builderBotId.isBlank()) {
-                    targetBot = builderBotId;
-                }
-            }
- 
-            blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
             
             // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID do túnel
             try {

@@ -232,20 +232,13 @@ public class AccessService {
             .min(java.util.Comparator.naturalOrder())
             .orElse(accessInfo.appointmentTime() != null ? accessInfo.appointmentTime() : LocalTime.of(12, 0));
 
-        // 6. Janela de Abertura: exatamente 120 minutos (2 horas) antes da primeira consulta
+        // 6. Janela de Abertura: exatamente 120 minutos (2 horas) antes da consulta agendada
         LocalTime openingTime = earliestTime.minusMinutes(120);
-        // Janela de Fechamento: fixo rigidamente às 21:00 do mesmo dia
-        LocalTime closingTime = LocalTime.of(21, 0);
+        // Janela de Fechamento: fixo rigidamente às 23:00 da data do agendamento
+        LocalTime closingTime = LocalTime.of(23, 0);
 
-        LocalTime now = LocalTime.now(CLINIC_ZONE);
-        log.info("[ACCESS-WINDOW] Validando janela. Horário atual: {}, Horário consulta: {}, Limite antecedência: 120 min", now, earliestTime);
-
-        if (now.isBefore(openingTime) || now.isAfter(closingTime)) {
-            log.warn("[AccessService] Solicitação de acesso recusada. Fora da janela de antecedência (abertura às {}, fechamento às {}).", openingTime, closingTime);
-            return new AccessValidationResult(false, accessInfo.name(), null, false, "Fora da janela de acesso permitida.");
-        }
-
-        log.info("[AccessService] Primeira consulta do dia agendada para: {}. Abertura da catraca: {}. Fechamento: {}.", earliestTime, openingTime, closingTime);
+        log.info("[ACCESS-WINDOW] Janela GerAcesso calculada com base na data/hora do agendamento (não da resposta). Data consulta: {}, Horário consulta: {}, inicio_visita (2h antes): {}, fim_visita: {}.",
+            appointmentDate, earliestTime, openingTime, closingTime);
 
         // 7. Unificação de Credencial: verifica se já gerou uma credencial para este paciente/CPF hoje
         List<AccessCredential> existingCredentials = accessCredentialRepositoryPort.findByCpf(finalCpf);

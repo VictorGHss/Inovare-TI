@@ -359,7 +359,7 @@ public class HandleBlipWebhookUseCase {
 
                         java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
                         String inicioVisita = session.getAppointmentAt().minusHours(2).format(dtf);
-                        String fimVisita = session.getAppointmentAt().toLocalDate().atTime(21, 0).format(dtf);
+                        String fimVisita = session.getAppointmentAt().toLocalDate().atTime(23, 0).format(dtf);
 
                         br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest visitorRequest = 
                             br.dev.ctrls.inovareti.modules.access.domain.model.GerAcessoVisitorRequest.builder()

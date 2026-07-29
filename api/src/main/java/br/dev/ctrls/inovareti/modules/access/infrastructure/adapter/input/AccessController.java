@@ -242,7 +242,7 @@ public class AccessController {
         // Formata data e hora do agendamento
         String appointmentDateTime = "";
         String opensAt = "";
-        String closesAt = "21:00";
+        String closesAt = "23:00";
         if (accessInfo.appointmentDate() != null) {
             if (accessInfo.appointmentTime() != null) {
                 appointmentDateTime = java.time.LocalDateTime.of(accessInfo.appointmentDate(), accessInfo.appointmentTime())
@@ -330,7 +330,7 @@ public class AccessController {
             if (isItemToday) {
                 if (itemTime != null) {
                     java.time.LocalTime openingTime = itemTime.minusMinutes(120);
-                    java.time.LocalTime closingTime = java.time.LocalTime.of(21, 0);
+                    java.time.LocalTime closingTime = java.time.LocalTime.of(23, 0);
                     isItemTimeOpen = !nowTime.isBefore(openingTime) && !nowTime.isAfter(closingTime);
                 } else {
                     isItemTimeOpen = true;

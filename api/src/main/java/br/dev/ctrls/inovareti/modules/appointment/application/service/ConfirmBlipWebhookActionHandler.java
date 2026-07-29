@@ -395,21 +395,33 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
             final String requiresCpfFallback = "false";
 
-            // Salva o ID do agendamento e CPF no contexto do Blip para persistência preventivamente
+            // Salva o ID do agendamento, CPF e telefone no contexto do Blip para persistência e transição de blocos
             try {
+                String rawPhoneDigits = userPhone != null ? userPhone.replaceAll("\\D", "") : "";
+                String plainPhone = (rawPhoneDigits.startsWith("55") && rawPhoneDigits.length() > 11) ? rawPhoneDigits.substring(2) : rawPhoneDigits;
+
                 blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                 blipContextService.setUserContextForUser(userPhone, "appointmentId", session.getFeegowAppointmentId());
+                blipContextService.setUserContextForUser(userPhone, "contact.phoneNumber", plainPhone);
+                blipContextService.setUserContextForUser(userPhone, "phoneNumber", plainPhone);
                 blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
                 blipContextService.setContactExtra(userPhone, "requiresCpfFallback", requiresCpfFallback);
+                blipContextService.setContactExtra(userPhone, "phoneNumber", plainPhone);
+                blipContextService.setContactExtra(userPhone, "telefone", plainPhone);
+
                 if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                     blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", session.getFeegowAppointmentId());
                     blipContextService.setUserContextForUser(fromIdentity, "appointmentId", session.getFeegowAppointmentId());
+                    blipContextService.setUserContextForUser(fromIdentity, "contact.phoneNumber", plainPhone);
+                    blipContextService.setUserContextForUser(fromIdentity, "phoneNumber", plainPhone);
                     blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
                     blipContextService.setContactExtra(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
+                    blipContextService.setContactExtra(fromIdentity, "phoneNumber", plainPhone);
+                    blipContextService.setContactExtra(fromIdentity, "telefone", plainPhone);
                 }
-                log.info("[CONFIRM] ID do agendamento e requiresCpfFallback salvos no contexto do Blip: {}", session.getFeegowAppointmentId());
+                log.info("[CONFIRM] ID do agendamento ({}), contact.phoneNumber ({}) e contexto salvos no Blip com sucesso.", session.getFeegowAppointmentId(), plainPhone);
             } catch (Exception ex) {
-                log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou CPF no contexto: {}", ex.getMessage());
+                log.warn("[CONFIRM] Falha ao salvar ID do agendamento ou telefone no contexto: {}", ex.getMessage());
             }
 
             // Gerar e persistir credencial física GerAcesso na tabela access_credentials no exato momento da confirmação

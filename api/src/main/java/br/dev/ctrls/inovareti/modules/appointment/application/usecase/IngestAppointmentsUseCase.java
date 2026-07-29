@@ -755,9 +755,9 @@ public class IngestAppointmentsUseCase {
             }
 
             if (savedSessions.size() < 2) {
-                log.warn("[GRUPO] Menos de 2 sessões válidas para groupId={}. Abortando grupo.", groupId);
+                log.info("[GRUPO->INDIVIDUAL] Menos de 2 sessões válidas salvas para grupo (qtd={}). Abortando transação de grupo.", savedSessions.size());
                 status.setRollbackOnly();
-                return new GroupPersistenceResult(List.of(), null);
+                return new GroupPersistenceResult(savedSessions, null);
             }
 
             // Pré-compila o texto da lista de agendamentos para o contexto do Blip
@@ -795,6 +795,13 @@ public class IngestAppointmentsUseCase {
 
         if (result == null || result.savedSessions().isEmpty()) {
             return 0;
+        }
+
+        if (result.savedSessions().size() == 1) {
+            log.info("[GRUPO->INDIVIDUAL] Apenas 1 agendamento elegível salvo para o paciente/grupo. Redirecionando para notificação individual.");
+            FeegowAppointment singleAppt = eligibleAppointments.get(0);
+            boolean sent = processSingleFlow(singleAppt, doctorMappingCache, patientDetails, true);
+            return sent ? 1 : 0;
         }
 
         String finalPatientName = (patientDetails != null && patientDetails.name() != null)

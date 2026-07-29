@@ -41,7 +41,7 @@ class BlipActiveCampaignMigrationTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> campaign = (Map<String, Object>) resource.get("campaign");
 
-        assertEquals("fluxov1@msging.net", campaign.get("masterState"));
+        assertFalse(campaign.containsKey("masterState"), "masterState deveria ser omitido se nulo/em branco");
         assertFalse(campaign.containsKey("stateId"), "stateId deveria ser omitido se nulo/em branco para evitar erro Code 61 no Blip");
         assertFalse(campaign.containsKey("flowId"), "flowId deveria ser omitido se nulo/em branco");
     }

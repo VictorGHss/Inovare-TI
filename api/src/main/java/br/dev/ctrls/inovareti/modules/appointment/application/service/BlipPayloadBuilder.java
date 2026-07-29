@@ -47,8 +47,6 @@ public class BlipPayloadBuilder {
 
         if (masterState != null && !masterState.isBlank()) {
             campaign.put("masterState", masterState.trim());
-        } else {
-            campaign.put("masterState", "fluxov1@msging.net");
         }
 
         if (stateId != null && !stateId.isBlank()) {
@@ -136,7 +134,8 @@ public class BlipPayloadBuilder {
                 ? patientName.trim()
                 : "Paciente";
 
-        String campaignName = "Aviso Grupo - " + (groupId != null ? groupId.toString() : UUID.randomUUID().toString());
+        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+        String campaignName = "Aviso Grupo - " + (groupId != null ? groupId.toString() : uniqueSuffix) + " - " + uniqueSuffix;
         Map<String, String> paramValues = Map.of("1", safePatientName);
         List<String> paramKeys = List.of("1");
 
@@ -148,6 +147,6 @@ public class BlipPayloadBuilder {
     }
 
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName) {
-        return buildGroupTemplatePayload(toPhone, templateName, namespace, groupId, patientName, "fluxov1@msging.net", null, null);
+        return buildGroupTemplatePayload(toPhone, templateName, namespace, groupId, patientName, null, null, null);
     }
 }

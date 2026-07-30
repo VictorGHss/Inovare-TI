@@ -90,6 +90,11 @@ public class BlipNotificationService {
 
     public void sendTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
+        if (recipientE164 == null || recipientE164.length() < 14) {
+            log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD (E.164 resultante: {}).",
+                    templateName, destination, recipientE164);
+            return;
+        }
 
         String doctorId = null;
         if (appointmentData != null) {
@@ -232,6 +237,11 @@ public class BlipNotificationService {
 
     public void sendGroupTemplateMessage(String destination, String templateName, java.util.UUID groupId, String patientName) {
         String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
+        if (recipientE164 == null || recipientE164.length() < 14) {
+            log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template de grupo '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD (E.164 resultante: {}).",
+                    templateName, destination, recipientE164);
+            return;
+        }
 
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
                 ? patientName.trim()
@@ -255,6 +265,11 @@ public class BlipNotificationService {
 
     public void sendSimpleTemplateMessage(String destination, String templateName, AppointmentTemplateData appointmentData) {
         String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
+        if (recipientE164 == null || recipientE164.length() < 14) {
+            log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template simples '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD (E.164 resultante: {}).",
+                    templateName, destination, recipientE164);
+            return;
+        }
 
         String doctorId = null;
         if (appointmentData != null) {

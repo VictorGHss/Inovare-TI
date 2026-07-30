@@ -185,92 +185,31 @@ public class FeegowPatientAdapter implements PatientExternalPort {
             return null;
         }
 
-        // COMENTÁRIO BR: Prioriza a busca por um número de celular válido do PR (iniciando com 419, 429, 439, 449, 459 ou 469)
+        // 1. Inversão de prioridade: SEMPRE valida o campo 'celulares' primeiro
         if (patientDetails.getCelulares() != null) {
             for (String cel : patientDetails.getCelulares()) {
-                if (cel != null && !cel.isBlank()) {
-                    String cleaned = cleanPhoneString(cel);
-                    if (isPrCellPhone(cleaned)) {
-                        return formatWithCountryCode(cleaned);
-                    }
+                String e164 = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.formatE164(cel);
+                if (e164 != null) {
+                    log.debug("[FEEGOW-PATIENT] Celular móvel válido selecionado para o paciente ID {}: {}", patientDetails.getId(), e164);
+                    return e164;
                 }
             }
         }
 
-        // COMENTÁRIO BR: Fallback 1: Caso não encontre celular do PR válido, aplica fallback buscando nos telefones fixos
+        // 2. Fallback: Se o campo 'celulares' for ausente ou inválido, utiliza o campo 'telefones'
         if (patientDetails.getTelefones() != null) {
             for (String tel : patientDetails.getTelefones()) {
-                if (tel != null && !tel.isBlank()) {
-                    String cleaned = cleanPhoneString(tel);
-                    if (!cleaned.isEmpty()) {
-                        return formatWithCountryCode(cleaned);
-                    }
+                String e164 = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.formatE164(tel);
+                if (e164 != null) {
+                    log.info("[FEEGOW-PATIENT] Telefone móvel válido selecionado via fallback para o paciente ID {}: {}", patientDetails.getId(), e164);
+                    return e164;
                 }
             }
         }
 
-        // COMENTÁRIO BR: Fallback 2: Se não houver telefone fixo, retorna o primeiro celular encontrado (mesmo de outro estado)
-        if (patientDetails.getCelulares() != null) {
-            for (String cel : patientDetails.getCelulares()) {
-                if (cel != null && !cel.isBlank()) {
-                    String cleaned = cleanPhoneString(cel);
-                    if (!cleaned.isEmpty()) {
-                        return formatWithCountryCode(cleaned);
-                    }
-                }
-            }
-        }
-
+        log.warn("[TELEFONE-INVÁLIDO] Paciente ID {} não possui número móvel válido com DDD (Celular: {}, Telefone: {}). Abortando disparo.",
+                patientDetails.getId(), patientDetails.getCelulares(), patientDetails.getTelefones());
         return null;
-    }
-
-    private String cleanPhoneString(String phone) {
-        if (phone == null) {
-            return "";
-        }
-        // COMENTÁRIO BR: Limpa a string de telefone removendo parênteses, hífens e espaços em branco
-        return phone.replaceAll("[()\\s-]", "");
-    }
-
-    private boolean isPrCellPhone(String cleanedNumber) {
-        if (cleanedNumber == null || cleanedNumber.isBlank()) {
-            return false;
-        }
-        String digits = cleanedNumber;
-        if (digits.startsWith("+")) {
-            digits = digits.substring(1);
-        }
-        if (digits.startsWith("55")) {
-            digits = digits.substring(2);
-        }
-        if (digits.startsWith("0")) {
-            digits = digits.substring(1);
-        }
-        // COMENTÁRIO BR: Valida se possui o formato de celular válido do PR (DDD 41 a 46 seguido do dígito 9 e mais 8 dígitos)
-        if (digits.length() == 11) {
-            String prefix = digits.substring(0, 3);
-            return "419".equals(prefix) || "429".equals(prefix) || "439".equals(prefix)
-                || "449".equals(prefix) || "459".equals(prefix) || "469".equals(prefix);
-        }
-        return false;
-    }
-
-    private String formatWithCountryCode(String cleanedNumber) {
-        if (cleanedNumber == null || cleanedNumber.isBlank()) {
-            return "";
-        }
-        String number = cleanedNumber;
-        if (number.startsWith("+")) {
-            number = number.substring(1);
-        }
-        if (number.startsWith("55")) {
-            return number;
-        }
-        if (number.startsWith("0")) {
-            number = number.substring(1);
-        }
-        // COMENTÁRIO BR: Garante o retorno do número purificado com o prefixo do país (55)
-        return "55" + number;
     }
 
     private String sanitizeCpf(String cpf) {

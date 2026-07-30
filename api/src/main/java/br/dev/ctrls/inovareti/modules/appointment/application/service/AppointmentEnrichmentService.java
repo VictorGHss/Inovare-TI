@@ -302,6 +302,29 @@ public class AppointmentEnrichmentService {
         }
         return sb.toString().trim();
     }
+
+    /**
+     * Resolve o telefone do paciente aplicando a inversão estrita de prioridade (celular primeiro, telefone em fallback).
+     */
+    public String resolvePatientPhone(List<String> celulares, List<String> telefones) {
+        if (celulares != null) {
+            for (String cel : celulares) {
+                String e164 = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.formatE164(cel);
+                if (e164 != null) {
+                    return e164;
+                }
+            }
+        }
+        if (telefones != null) {
+            for (String tel : telefones) {
+                String e164 = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.formatE164(tel);
+                if (e164 != null) {
+                    return e164;
+                }
+            }
+        }
+        return null;
+    }
 }
 
 

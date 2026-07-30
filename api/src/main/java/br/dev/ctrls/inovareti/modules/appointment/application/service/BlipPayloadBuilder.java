@@ -11,16 +11,15 @@ public class BlipPayloadBuilder {
 
     /**
      * Formata um telefone de destinatário no formato E.164 estrito com o sinal '+' (ex: "+5542999999999").
+     * Exige um destino válido com no mínimo 14 caracteres (+55 + 11 dígitos).
      */
     public static String formatE164Recipient(String rawPhone) {
-        if (rawPhone == null || rawPhone.isBlank()) return "+5500000000000";
-        String phone = rawPhone.trim();
-        if (phone.contains("@")) {
-            phone = phone.substring(0, phone.indexOf('@')).trim();
+        if (rawPhone == null || rawPhone.isBlank()) return null;
+        String e164 = br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.formatE164(rawPhone);
+        if (e164 != null && e164.length() >= 14) {
+            return e164;
         }
-        String digitsOnly = phone.replaceAll("\\D", "");
-        if (digitsOnly.isBlank()) return "+5500000000000";
-        return "+" + digitsOnly;
+        return null;
     }
 
     /**

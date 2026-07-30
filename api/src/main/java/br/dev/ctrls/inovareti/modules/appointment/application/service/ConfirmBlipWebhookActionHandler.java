@@ -44,6 +44,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final BlipProperties blipProperties;
     private final PatientExternalPort patientExternalPort;
     private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
 
     @Override
     public boolean supports(String actionType) {
@@ -317,6 +318,11 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 // Executa a chamada para a Feegow
                 String confirmedStatusId = resolveConfirmedStatusId();
                 for (AppointmentSession groupSession : listaSessoes) {
+                    if (!isDoctorAllowed(groupSession.getDoctorProfissionalId())) {
+                        log.warn("[WEBHOOK-BLOQUEIO] Ação 'confirm' ignorada no Feegow para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                                groupSession.getFeegowAppointmentId(), groupSession.getDoctorProfissionalId());
+                        continue;
+                    }
                     try {
                         log.info("Enviando confirmação para Feegow: {}", groupSession.getFeegowAppointmentId());
                         appointmentExternalPort.updateAppointmentStatus(groupSession.getFeegowAppointmentId(), confirmedStatusId);
@@ -361,9 +367,14 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
 
                 for (AppointmentSession groupSession : sessoesUnicas.values()) {
-                    confirmationStateMachineService.markConfirmed(groupSession);
-                    if (!groupSession.getId().equals(session.getId())) {
-                        appointmentSessionRepository.save(groupSession);
+                    if (isDoctorAllowed(groupSession.getDoctorProfissionalId())) {
+                        confirmationStateMachineService.markConfirmed(groupSession);
+                        if (!groupSession.getId().equals(session.getId())) {
+                            appointmentSessionRepository.save(groupSession);
+                        }
+                    } else {
+                        log.warn("[WEBHOOK-BLOQUEIO] Marcação local ignorada para agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                                groupSession.getFeegowAppointmentId(), groupSession.getDoctorProfissionalId());
                     }
                 }
                 log.info("[CONFIRM-BATCH] Sessões do grupo {} / telefone {} atualizadas para CONFIRMED no banco local. Total: {}", groupId, userPhone, sessoesUnicas.size());
@@ -371,6 +382,33 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.error("[CONFIRM-BATCH] Erro ao atualizar estados do grupo de sessões no banco local. grupo={}", groupIdStr, e);
             }
         } else {
+            if (session == null) {
+                log.warn("[CONFIRM] Ação de confirmação ignorada pois a sessão fornecida é nula. De: {}", fromIdentity);
+                return;
+            }
+
+            // --- VALIDAÇÃO DE ORIGEM DE PAYLOAD (confirm_{id} vs "Confirmar Presença") ---
+            boolean isEmbeddedAction = action != null && (action.startsWith("confirm_") || action.contains("_"));
+            boolean isGenericAction = "confirm".equalsIgnoreCase(action) || "confirmar presença".equalsIgnoreCase(action) || "confirmar presenca".equalsIgnoreCase(action);
+
+            if (isGenericAction && !isEmbeddedAction) {
+                boolean isRecentSession = session.getLastInteractionAt() != null 
+                        && session.getLastInteractionAt().isAfter(java.time.LocalDateTime.now().minusHours(48));
+
+                if (!isRecentSession) {
+                    log.warn("[WEBHOOK-BLOQUEIO-ORIGEM] Ação de confirmação genérica ('{}') ignorada para o agendamento ID {} (tel={}) pois não é proveniente de uma sessão ativa recente (48h) do motor Java.",
+                            action, session.getFeegowAppointmentId(), fromIdentity);
+                    return;
+                }
+            }
+
+            // --- TRAVA DE SEGURANÇA MÉRITO/ANESTESISTA ---
+            if (!isDoctorAllowed(session.getDoctorProfissionalId())) {
+                log.warn("[WEBHOOK-BLOQUEIO] Ação 'confirm' ignorada para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                        session.getFeegowAppointmentId(), session.getDoctorProfissionalId());
+                return;
+            }
+
             // --- RESOLUÇÃO E CONFIGURAÇÃO IMEDIATA DA FILA DE REDIRECIONAMENTO (ANTI-CORRIDA) ---
             String targetQueue = null;
             var mappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(session.getDoctorProfissionalId());
@@ -452,7 +490,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 log.info("[CONFIRM-GERACESSO] Pré-gerando credencial física GerAcesso em access_credentials para o agendamento ID: {} | CPF: {}", feegowAppId, patientCpf);
                 accessService.processAccessRequest(feegowAppId, patientCpf, java.util.List.of());
             } catch (Exception ex) {
-                log.warn("[CONFIRM-GERACESSO] Aviso ao pré-gerar credencial GerAcesso na confirmação: {}", ex.getMessage());
+                log.warn("[CONFIRM-GERACESSO] Falha ao gerar credencial GerAcesso na confirmação: {}", ex.getMessage());
             }
             
             // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID do túnel
@@ -606,6 +644,28 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
             }
             confirmationStateMachineService.markConfirmed(session);
         }
+    }
+
+    private boolean isDoctorAllowed(String doctorId) {
+        String docId = doctorId != null ? doctorId.trim() : "";
+        if (docId.isBlank() || "46".equals(docId)) {
+            return false;
+        }
+        if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {
+            return true;
+        }
+        if (appointmentMotorProperties.getActiveDoctorIds().contains(docId)) {
+            return true;
+        }
+        try {
+            Long id = Long.parseLong(docId);
+            var configOpt = doctorConfigurationRepository.findById(id);
+            if (configOpt.isPresent() && configOpt.get().isConfigActive()) {
+                return true;
+            }
+        } catch (Exception ignored) {}
+
+        return false;
     }
 
     private String formatBirthdate(String birthdate) {

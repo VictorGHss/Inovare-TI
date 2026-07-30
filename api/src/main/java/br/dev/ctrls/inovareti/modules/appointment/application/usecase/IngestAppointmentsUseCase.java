@@ -519,6 +519,37 @@ public class IngestAppointmentsUseCase {
                 confirmedStatusId = "7";
             }
             boolean isConfirmedOnFeegow = confirmedStatusId.trim().equalsIgnoreCase(appointment.statusId());
+
+            // --- REGRA DE INVALIDAÇÃO DE REAGENDAMENTO (Reset ON Reschedule) ---
+            // Se a Feegow retornar status_id == 1 (Não confirmado) E a data/horário/médico for diferente dos gravados na sessão local,
+            // significa que o agendamento foi reagendado. Reseta o status da sessão local para PENDING e limpa timestamps de envio.
+            if (existing != null && "1".equalsIgnoreCase(appointment.statusId() != null ? appointment.statusId().trim() : "")) {
+                boolean dateTimeChanged = existing.getAppointmentAt() != null 
+                        && appointment.startAt() != null 
+                        && !existing.getAppointmentAt().isEqual(appointment.startAt());
+
+                boolean doctorChanged = existing.getDoctorProfissionalId() != null 
+                        && appointment.doctorId() != null 
+                        && !existing.getDoctorProfissionalId().trim().equalsIgnoreCase(appointment.doctorId().trim());
+
+                if (dateTimeChanged || doctorChanged) {
+                    log.info("[REAGENDAMENTO-DETECTADO] Agendamento ID={} foi reagendado no Feegow de {} (Dr: {}) para {} (Dr: {}). Resetando status da sessão de {} para PENDING.",
+                            feegowAppointmentId,
+                            existing.getAppointmentAt(), existing.getDoctorProfissionalId(),
+                            appointment.startAt(), appointment.doctorId(),
+                            existing.getStatus());
+
+                    transactionTemplate.execute(status -> {
+                        existing.setStatus(AppointmentSessionStatus.PENDING);
+                        existing.setAppointmentAt(appointment.startAt());
+                        existing.setDoctorProfissionalId(appointment.doctorId());
+                        existing.setLastNotificationSentAt(null);
+                        existing.setStatusDetails(null);
+                        return appointmentSessionRepository.save(existing);
+                    });
+                }
+            }
+
             boolean isConfirmedLocally = existingSessionOpt.map(s -> s.getStatus() == AppointmentSessionStatus.CONFIRMED).orElse(false);
 
             if (isConfirmedLocally || isConfirmedOnFeegow) {
@@ -586,7 +617,24 @@ public class IngestAppointmentsUseCase {
             Optional<AppointmentSession> latestSessionOpt = appointmentSessionRepository.findByFeegowAppointmentId(feegowAppointmentId);
             if (latestSessionOpt.isPresent()) {
                 AppointmentSession existing = latestSessionOpt.get();
-                if (!forceSend) {
+
+                // Se a consulta foi reagendada no Feegow (data/horário ou médico alterados e statusId == 1), reseta a sessão local
+                boolean dateTimeChanged = existing.getAppointmentAt() != null 
+                        && appointment.startAt() != null 
+                        && !existing.getAppointmentAt().isEqual(appointment.startAt());
+                boolean doctorChanged = existing.getDoctorProfissionalId() != null 
+                        && appointment.doctorId() != null 
+                        && !existing.getDoctorProfissionalId().trim().equalsIgnoreCase(appointment.doctorId().trim());
+
+                if ((dateTimeChanged || doctorChanged) && "1".equalsIgnoreCase(appointment.statusId() != null ? appointment.statusId().trim() : "")) {
+                    log.info("[REAGENDAMENTO-SESSAO] Atualizando sessão do agendamento reagendado ID={}. Nova data: {}, Novo Dr: {}",
+                            feegowAppointmentId, appointment.startAt(), appointment.doctorId());
+                    existing.setStatus(AppointmentSessionStatus.PENDING);
+                    existing.setAppointmentAt(appointment.startAt());
+                    existing.setDoctorProfissionalId(appointment.doctorId());
+                    existing.setLastNotificationSentAt(null);
+                    existing.setStatusDetails(null);
+                } else if (!forceSend) {
                     if (existing.getLastNotificationSentAt() != null) {
                         return null;
                     }

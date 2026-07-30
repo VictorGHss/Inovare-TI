@@ -77,6 +77,24 @@ public class SendPreAppointmentNoticeUseCase {
                 // Sincroniza o contato no Blip com a fila exata do médico
                 blipContactClientPort.syncContact(session.getPhoneNumber(), templateData.patientName(), "", resolvedQueue, session.getDoctorProfissionalId());
 
+                // Força a atualização do Master-State do paciente no Blip para o bloco Preparar_Atendimento (stateId = a0776d9c-6486-42f3-8a4f-2706f0185908)
+                String prepararAtendimentoBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+                try {
+                    String cleanPhone = session.getPhoneNumber().replaceAll("\\D", "");
+                    if (!cleanPhone.startsWith("55") && !cleanPhone.isBlank()) {
+                        cleanPhone = "55" + cleanPhone;
+                    }
+                    String masterIdentity = cleanPhone + "@wa.gw.msging.net";
+                    String tunnelIdentity = cleanPhone + ".fluxov1@tunnel.msging.net";
+                    
+                    blipContextService.setBuilderMasterState(masterIdentity, prepararAtendimentoBlockId);
+                    blipContextService.setBuilderMasterState(tunnelIdentity, prepararAtendimentoBlockId);
+                    blipContextService.setBuilderMasterState(session.getPhoneNumber(), prepararAtendimentoBlockId);
+                    log.info("[LEMBRETE-1H] Master-State do Blip atualizado para Preparar_Atendimento ({}) no paciente {}", prepararAtendimentoBlockId, session.getPhoneNumber());
+                } catch (Exception ex) {
+                    log.warn("[LEMBRETE-1H] Falha ao atualizar Master-State no Blip para {}: {}", session.getPhoneNumber(), ex.getMessage());
+                }
+
                 log.info("[LEMBRETE-1H] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}', fila='{}'",
                         TEMPLATE_NAME, templateData.patientName(), templateData.doctorName(),
                         templateData.appointmentTime(), session.getPhoneNumber(), resolvedQueue);

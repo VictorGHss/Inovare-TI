@@ -18,6 +18,7 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.FeegowBulk
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdentityReconciler;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNudgeResponseHandler;
+import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipPayloadParser;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSanitizer;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
@@ -75,6 +76,7 @@ public class HandleBlipWebhookUseCase {
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
     private final br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output.GerAcessoCatracaAdapter gerAcessoCatracaAdapter;
     private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
+    private final BlipNotificationService blipNotificationService;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -253,6 +255,49 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
+        // Interceptação de respostas ao lembrete de 1h ("Já estou na clínica" / "Estou a caminho")
+        String rawContentText = "";
+        if (payload.content() instanceof String strContent) {
+            rawContentText = strContent;
+        } else if (payload.content() instanceof Map<?, ?> mapContent) {
+            Object tObj = mapContent.get("text");
+            if (tObj != null) {
+                rawContentText = tObj.toString();
+            }
+        }
+        String combinedActionText = (action + " " + rawContentText).trim().toLowerCase();
+
+        boolean isLembreteResposta = combinedActionText.contains("já estou na clínica")
+                || combinedActionText.contains("ja estou na clinica")
+                || combinedActionText.contains("estou a caminho")
+                || combinedActionText.contains("a caminho");
+
+        if (isLembreteResposta) {
+            String statusInfo = combinedActionText.contains("caminho") ? "Estou a caminho" : "Já estou na clínica";
+            log.info("[LEMBRETE-RESPOSTA] Paciente ID {} (De: {}) informou status: {}", dbPhone.isEmpty() ? fromPhone : dbPhone, fromPhone, statusInfo);
+
+            String responseMessage = "Agradecemos a confirmação! Por favor, dirija-se à recepção da Clínica Inovare. Tenha um ótimo atendimento! 😊";
+
+            // Responde ativamente via comando LIME
+            try {
+                blipNotificationService.sendPlainTextMessage(fromPhone, responseMessage);
+                log.info("[LEMBRETE-RESPOSTA] Resposta amigável enviada via LIME para {}", fromPhone);
+            } catch (Exception ex) {
+                log.error("[LEMBRETE-RESPOSTA] Erro ao enviar resposta LIME para {}: {}", fromPhone, ex.getMessage());
+            }
+
+            // Atualiza o Master-State e contexto do Blip para o bloco Preparar_Atendimento
+            try {
+                String prepararBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+                blipContextService.setBuilderMasterState(fromPhone, prepararBlockId);
+                blipContextService.setUserContextForUser(fromPhone, "lembrete_resposta", statusInfo);
+            } catch (Exception ex) {
+                log.warn("[LEMBRETE-RESPOSTA] Falha ao ajustar contexto/masterState para {}: {}", fromPhone, ex.getMessage());
+            }
+
+            return new WebhookResult("", "", "", "", "lembrete_resposta_processed", responseMessage);
+        }
+
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
         if (uuidPattern.matcher(action).matches()) {
             String msgType = payload.type();
@@ -325,6 +370,12 @@ public class HandleBlipWebhookUseCase {
                     AppointmentSession session = appointmentSessionRepository.findByFeegowAppointmentId(catracaAppId).orElse(null);
                     if (session == null) {
                         log.warn("[CATRACA-ALERTA] Sessão não encontrada para o agendamento ID: {}", catracaAppId);
+                        return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
+                    }
+
+                    if (!isDoctorAllowed(session.getDoctorProfissionalId())) {
+                        log.warn("[WEBHOOK-BLOQUEIO] Integrar_GerAcesso ignorado para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                                catracaAppId, session.getDoctorProfissionalId());
                         return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
                     }
 
@@ -1024,5 +1075,27 @@ public class HandleBlipWebhookUseCase {
             a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
             b.getBytes(java.nio.charset.StandardCharsets.UTF_8)
         );
+    }
+
+    private boolean isDoctorAllowed(String doctorId) {
+        String docId = doctorId != null ? doctorId.trim() : "";
+        if (docId.isBlank() || "46".equals(docId)) {
+            return false;
+        }
+        if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {
+            return true;
+        }
+        if (appointmentMotorProperties.getActiveDoctorIds().contains(docId)) {
+            return true;
+        }
+        try {
+            Long id = Long.parseLong(docId);
+            var configOpt = doctorConfigurationRepository.findById(id);
+            if (configOpt.isPresent() && configOpt.get().isConfigActive()) {
+                return true;
+            }
+        } catch (Exception ignored) {}
+
+        return false;
     }
 }

@@ -252,14 +252,26 @@ public class BlipNotificationService {
                 null, null, null
         );
 
-        log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", recipientE164, groupId);
+        log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo '{}' via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", templateName, recipientE164, groupId);
         try {
             var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
             validateBlipResponse(response, templateName, recipientE164);
-            log.info("[MENSAGERIA-GRUPO] Template de grupo disparado com sucesso via Active Campaign para o telefone={}", recipientE164);
+            log.info("[MENSAGERIA-GRUPO] Template de grupo '{}' disparado com sucesso via Active Campaign para o telefone={}", templateName, recipientE164);
         } catch (Exception e) {
-            log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo para o telefone={} com o groupId={}", recipientE164, groupId, e);
-            throw e;
+            log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo '{}' para o telefone={} com o groupId={}. Motivo: {}",
+                    templateName, recipientE164, groupId, e.getMessage());
+
+            // FALLBACK DEFENSIVO (Code 61 / Template Inválido): Se o template de grupo falhar no Blip, aciona fallback para 'aviso_confirmacao_pendente_v2'
+            String fallbackTemplate = "aviso_confirmacao_pendente_v2";
+            log.info("[FALLBACK-TEMPLATE-NUDGE] Acionando fallback defensivo do template de grupo '{}' -> '{}' para o destinatário {}",
+                    templateName, fallbackTemplate, recipientE164);
+            try {
+                sendSimpleTemplateMessage(destination, fallbackTemplate, null);
+                log.info("[FALLBACK-TEMPLATE-NUDGE] Fallback para '{}' disparado com sucesso no Blip para o destino {}", fallbackTemplate, recipientE164);
+            } catch (Exception fallbackEx) {
+                log.error("[FALLBACK-TEMPLATE-NUDGE] Falha ao disparar template de fallback '{}' para {}: {}", fallbackTemplate, recipientE164, fallbackEx.getMessage());
+                throw e;
+            }
         }
     }
 

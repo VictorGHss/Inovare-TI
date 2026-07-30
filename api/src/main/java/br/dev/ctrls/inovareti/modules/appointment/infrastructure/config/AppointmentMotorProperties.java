@@ -22,6 +22,40 @@ public class AppointmentMotorProperties {
     private java.util.List<String> testDoctorIds = new java.util.ArrayList<>();
     private java.util.List<String> activeDoctorIds = new java.util.ArrayList<>();
 
+    public void setTestDoctorId(String testDoctorId) {
+        this.testDoctorId = testDoctorId;
+        parseAndPopulateTestDoctorIds();
+    }
+
+    public void setTestModeDoctorIds(String testModeDoctorIds) {
+        this.testModeDoctorIds = testModeDoctorIds;
+        parseAndPopulateTestDoctorIds();
+    }
+
+    public void setTestDoctorIds(java.util.List<String> rawList) {
+        if (rawList != null) {
+            String combined = String.join(",", rawList);
+            this.testModeDoctorIds = combined;
+            parseAndPopulateTestDoctorIds();
+        }
+    }
+
+    private void parseAndPopulateTestDoctorIds() {
+        this.testDoctorIds.clear();
+        String raw = this.testModeDoctorIds != null && !this.testModeDoctorIds.isBlank() ? this.testModeDoctorIds : this.testDoctorId;
+        if (raw != null && !raw.isBlank()) {
+            String[] tokens = raw.split("[,;\\s]+");
+            for (String token : tokens) {
+                String trimmed = token.trim();
+                if (!trimmed.isEmpty() && trimmed.matches("\\d+")) {
+                    if (!this.testDoctorIds.contains(trimmed)) {
+                        this.testDoctorIds.add(trimmed);
+                    }
+                }
+            }
+        }
+    }
+
     public boolean isGlobalTestMode() {
         return this.testMode;
     }

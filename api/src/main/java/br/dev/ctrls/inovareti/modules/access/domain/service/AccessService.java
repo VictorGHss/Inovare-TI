@@ -285,19 +285,28 @@ public class AccessService {
                 .visitedCpf(doctorCpf)
                 .build();
 
-            // Dispara chamada de cadastro do paciente titular na API física da GerAcesso
-            log.info("[AccessService] Enviando cadastro do paciente titular {} para a GerAcesso local...", accessInfo.name());
-            Optional<GerAcessoResponse> responseOpt = gerAcessoClientPort.registerAccess(titularRequest);
+            // Validação prévia do algoritmo oficial de CPF (Módulo 11)
+            boolean isCpfValid = isValidCpf(finalCpf);
+            Optional<GerAcessoResponse> responseOpt = Optional.empty();
+
+            if (!isCpfValid) {
+                log.warn("[GERACESSO-CPF] CPF do paciente ID {} é matematicamente inválido (CPF: {}). Ignorando chamada à GerAcesso e ativando credencial local contingencial.",
+                        accessInfo.patientId(), finalCpf);
+            } else {
+                // Dispara chamada de cadastro do paciente titular na API física da GerAcesso
+                log.info("[AccessService] Enviando cadastro do paciente titular {} para a GerAcesso local...", accessInfo.name());
+                responseOpt = gerAcessoClientPort.registerAccess(titularRequest);
+            }
 
             if (responseOpt.isPresent() && responseOpt.get().credential() != null && !responseOpt.get().credential().isBlank()) {
                 token = responseOpt.get().credential().trim();
                 locator = responseOpt.get().locator() != null ? responseOpt.get().locator().trim() : "";
                 log.info("[AccessService] Cadastro concluído na GerAcesso. Credencial (QR Code)={}, Locator={}", token, locator);
             } else {
-                // Fallback: se falhar a conexão local, gera credencial interna para contingência e recepção manual
+                // Fallback: se falhar a conexão local ou CPF for inválido, gera credencial interna para contingência e recepção manual
                 token = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
                 locator = "LOC-" + System.currentTimeMillis();
-                log.warn("[AccessService] Falha na GerAcesso. Utilizando credencial local de contingência.");
+                log.warn("[AccessService] Utilizando credencial local contingencial.");
             }
         }
 
@@ -404,8 +413,16 @@ public class AccessService {
             .visitedCpf(doctorCpf)
             .build();
 
-        log.info("[AccessService] Cadastrando acompanhante {} na GerAcesso...", companion.name());
-        Optional<GerAcessoResponse> responseOpt = gerAcessoClientPort.registerAccess(request);
+        boolean isCompanionCpfValid = companionCpf.isEmpty() || isValidCpf(companionCpf);
+        Optional<GerAcessoResponse> responseOpt = Optional.empty();
+
+        if (!isCompanionCpfValid) {
+            log.warn("[GERACESSO-CPF] CPF do acompanhante '{}' é matematicamente inválido (CPF: {}). Ignorando chamada à GerAcesso física.",
+                    companion.name(), companionCpf);
+        } else {
+            log.info("[AccessService] Cadastrando acompanhante {} na GerAcesso...", companion.name());
+            responseOpt = gerAcessoClientPort.registerAccess(request);
+        }
 
         String companionToken;
         String companionLocator;
@@ -415,8 +432,9 @@ public class AccessService {
             companionLocator = responseOpt.get().locator() != null ? responseOpt.get().locator().trim() : "";
             log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial (QR Code): {}, Localizador: {}", companion.name(), companionToken, companionLocator);
         } else {
-            log.error("[AccessService] Falha no cadastro do acompanhante {} na GerAcesso física. Nenhuma credencial gerada.", companion.name());
-            throw new RuntimeException("Falha ao registrar acesso físico para o acompanhante: " + companion.name());
+            companionToken = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            companionLocator = "LOC-" + System.currentTimeMillis();
+            log.warn("[AccessService] Utilizando credencial local contingencial para acompanhante {}.", companion.name());
         }
 
         // Persiste a credencial individual e separada no banco local
@@ -503,6 +521,44 @@ public class AccessService {
         } catch (Exception ex) {
             log.warn("[CATRACA-MÉDICO] Falha ao buscar credenciais do visitado para o profissional ID: {} - {}", docId, ex.getMessage());
             return new DoctorAccessData("", "");
+        }
+    }
+
+    /**
+     * Valida se um CPF é matematicamente válido utilizando os dígitos verificadores do Módulo 11 (algoritmo da Receita Federal).
+     */
+    public static boolean isValidCpf(String rawCpf) {
+        if (rawCpf == null || rawCpf.isBlank()) {
+            return false;
+        }
+        String cpf = rawCpf.replaceAll("\\D", "");
+        if (cpf.length() != 11) {
+            return false;
+        }
+        if (cpf.matches("^(\\d)\\1{10}$")) {
+            return false;
+        }
+
+        try {
+            int sum = 0;
+            for (int i = 0; i < 9; i++) {
+                sum += (cpf.charAt(i) - '0') * (10 - i);
+            }
+            int remainder = sum % 11;
+            int firstCheck = remainder < 2 ? 0 : (11 - remainder);
+            if ((cpf.charAt(9) - '0') != firstCheck) {
+                return false;
+            }
+
+            sum = 0;
+            for (int i = 0; i < 10; i++) {
+                sum += (cpf.charAt(i) - '0') * (11 - i);
+            }
+            remainder = sum % 11;
+            int secondCheck = remainder < 2 ? 0 : (11 - remainder);
+            return (cpf.charAt(10) - '0') == secondCheck;
+        } catch (Exception e) {
+            return false;
         }
     }
 

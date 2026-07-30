@@ -49,9 +49,9 @@ public class FeegowStartupProbe {
             int totalReceived = appointments.size();
 
             if (appointmentMotorProperties.isTestMode()) {
-                List<String> allowedDoctorIds = java.util.Arrays.stream(testDoctorId.split(","))
+                List<String> allowedDoctorIds = java.util.Arrays.stream(testDoctorId.split("[,;\\s]+"))
                         .map(id -> id.trim())
-                        .filter(id -> !id.isEmpty())
+                        .filter(id -> !id.isEmpty() && id.matches("\\d+"))
                         .toList();
 
                 appointments = appointments.stream()

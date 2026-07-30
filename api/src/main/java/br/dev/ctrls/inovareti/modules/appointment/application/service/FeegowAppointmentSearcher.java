@@ -110,7 +110,7 @@ public class FeegowAppointmentSearcher {
         
         List<FeegowAppointment> threadSafeAppointments = Collections.synchronizedList(new ArrayList<>());
         if (testDoctorIds != null && !testDoctorIds.isBlank()) {
-            String[] doctorIds = testDoctorIds.split(",");
+            String[] doctorIds = testDoctorIds.split("[,;\\s]+");
             
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();

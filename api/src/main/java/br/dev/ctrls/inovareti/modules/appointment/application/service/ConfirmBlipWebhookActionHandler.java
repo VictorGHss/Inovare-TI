@@ -319,7 +319,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 String confirmedStatusId = resolveConfirmedStatusId();
                 for (AppointmentSession groupSession : listaSessoes) {
                     if (!isDoctorAllowed(groupSession.getDoctorProfissionalId())) {
-                        log.warn("[WEBHOOK-BLOQUEIO] Ação 'confirm' ignorada no Feegow para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                        log.warn("[WEBHOOK-BYPASS] Agendamento ID {} pertence ao médico ID {} (não listado na ENV de automação). Ignorando confirmação automática e liberando fluxo para atendimento manual/Blip.",
                                 groupSession.getFeegowAppointmentId(), groupSession.getDoctorProfissionalId());
                         continue;
                     }
@@ -373,7 +373,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                             appointmentSessionRepository.save(groupSession);
                         }
                     } else {
-                        log.warn("[WEBHOOK-BLOQUEIO] Marcação local ignorada para agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                        log.warn("[WEBHOOK-BYPASS] Agendamento ID {} pertence ao médico ID {} (não listado na ENV de automação). Ignorando confirmação automática e liberando fluxo para atendimento manual/Blip.",
                                 groupSession.getFeegowAppointmentId(), groupSession.getDoctorProfissionalId());
                     }
                 }
@@ -402,9 +402,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
             }
 
-            // --- TRAVA DE SEGURANÇA MÉRITO/ANESTESISTA ---
+            // --- TRAVA DE SEGURANÇA MÉRITO/ELEGIBILIDADE DINÂMICA VIA ENV ---
             if (!isDoctorAllowed(session.getDoctorProfissionalId())) {
-                log.warn("[WEBHOOK-BLOQUEIO] Ação 'confirm' ignorada para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                log.warn("[WEBHOOK-BYPASS] Agendamento ID {} pertence ao médico ID {} (não listado na ENV de automação). Ignorando confirmação automática e liberando fluxo para atendimento manual/Blip.",
                         session.getFeegowAppointmentId(), session.getDoctorProfissionalId());
                 return;
             }
@@ -648,7 +648,7 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
     private boolean isDoctorAllowed(String doctorId) {
         String docId = doctorId != null ? doctorId.trim() : "";
-        if (docId.isBlank() || "46".equals(docId)) {
+        if (docId.isBlank()) {
             return false;
         }
         if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {

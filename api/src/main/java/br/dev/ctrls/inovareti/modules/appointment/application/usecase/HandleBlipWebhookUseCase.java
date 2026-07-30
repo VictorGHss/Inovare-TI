@@ -374,7 +374,7 @@ public class HandleBlipWebhookUseCase {
                     }
 
                     if (!isDoctorAllowed(session.getDoctorProfissionalId())) {
-                        log.warn("[WEBHOOK-BLOQUEIO] Integrar_GerAcesso ignorado para o agendamento ID {} pois o médico ID {} (Anestesiologia/Inativo) não é elegível para automação.",
+                        log.warn("[WEBHOOK-BYPASS] Agendamento ID {} pertence ao médico ID {} (não listado na ENV de automação). Ignorando confirmação automática e liberando fluxo para atendimento manual/Blip.",
                                 catracaAppId, session.getDoctorProfissionalId());
                         return new WebhookResult("", "", catracaAppId, "", "Integrar_GerAcesso", "");
                     }
@@ -1079,7 +1079,7 @@ public class HandleBlipWebhookUseCase {
 
     private boolean isDoctorAllowed(String doctorId) {
         String docId = doctorId != null ? doctorId.trim() : "";
-        if (docId.isBlank() || "46".equals(docId)) {
+        if (docId.isBlank()) {
             return false;
         }
         if (appointmentMotorProperties.getTestDoctorIds().contains(docId)) {

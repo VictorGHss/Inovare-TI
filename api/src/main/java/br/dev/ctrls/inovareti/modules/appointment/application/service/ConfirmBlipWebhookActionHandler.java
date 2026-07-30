@@ -43,7 +43,6 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
     private final BlipUserIdentityReconciliationRepositoryPort blipUserIdentityReconciliationRepository;
     private final BlipProperties blipProperties;
     private final PatientExternalPort patientExternalPort;
-    private final br.dev.ctrls.inovareti.modules.access.domain.service.AccessService accessService;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
 
     @Override
@@ -476,21 +475,10 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                 }
             }
 
-            // Dispara setMasterState IMEDIATAMENTE antes das chamadas pesadas de REST (GerAcesso, Feegow, túneis)
+            // Dispara setMasterState IMEDIATAMENTE antes das chamadas pesadas de REST (Feegow, túneis)
             blipContextService.setMasterState(userPhone, targetBot, confirmSuccessBlockId);
             if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                 blipContextService.setMasterState(fromIdentity, targetBot, confirmSuccessBlockId);
-            }
-
-            // Gerar e persistir credencial física GerAcesso na tabela access_credentials no exato momento da confirmação
-            try {
-                String feegowAppId = session.getFeegowAppointmentId();
-                FeegowPatient patient = patientExternalPort.patientInfo(session.getPatientId());
-                String patientCpf = (patient != null && patient.cpf() != null) ? patient.cpf() : "";
-                log.info("[CONFIRM-GERACESSO] Pré-gerando credencial física GerAcesso em access_credentials para o agendamento ID: {} | CPF: {}", feegowAppId, patientCpf);
-                accessService.processAccessRequest(feegowAppId, patientCpf, java.util.List.of());
-            } catch (Exception ex) {
-                log.warn("[CONFIRM-GERACESSO] Falha ao gerar credencial GerAcesso na confirmação: {}", ex.getMessage());
             }
             
             // Reconcilia e atualiza também o Master-State com a identidade baseada no GUID do túnel

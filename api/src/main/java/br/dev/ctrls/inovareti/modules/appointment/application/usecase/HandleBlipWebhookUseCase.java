@@ -74,6 +74,7 @@ public class HandleBlipWebhookUseCase {
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.DoctorConfigurationRepository doctorConfigurationRepository;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
     private final br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output.GerAcessoCatracaAdapter gerAcessoCatracaAdapter;
+    private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -538,6 +539,11 @@ public class HandleBlipWebhookUseCase {
             String normalizedPhone = from.trim();
             if (isPrepararAtendimento) {
                 log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {} (DB Phone: {})", normalizedPhone, dbPhone);
+                try {
+                    blipContactClientPort.syncContact(normalizedPhone, "", "", "", "");
+                } catch (Exception ex) {
+                    log.warn("[WEBHOOK-BLOCK] Falha ao sincronizar contato no Preparar_Atendimento: {}", ex.getMessage());
+                }
                 boolean isGroup = false;
                 UUID groupId = null;
                 List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->

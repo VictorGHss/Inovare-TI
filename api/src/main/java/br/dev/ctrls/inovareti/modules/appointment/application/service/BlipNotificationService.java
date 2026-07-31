@@ -252,7 +252,9 @@ public class BlipNotificationService {
             return;
         }
 
-        // --- PREPARAÇÃO E INJEÇÃO AUTOMÁTICA DA VARIÁVEL lista_detalhada NO CONTEXTO DO BLIP ---
+        String stateIdPrepararAtendimento = "a0776d9c-6486-42f3-8a4f-2706f0185908";
+
+        // --- PREPARAÇÃO E INJEÇÃO AUTOMÁTICA DA VARIÁVEL lista_detalhada E DADOS DE GRUPO NO CONTEXTO DO BLIP ---
         try {
             if (groupId != null && appointmentSessionRepository != null && blipAppointmentFormatter != null && blipContextService != null) {
                 var sessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
@@ -261,25 +263,46 @@ public class BlipNotificationService {
                     if (listaDetalhada != null && !listaDetalhada.isBlank()) {
                         blipContextService.setUserContext(recipientE164, "lista_detalhada", listaDetalhada);
                         blipContextService.setUserContext(recipientE164, "listaDetalhada", listaDetalhada);
+                        blipContextService.setUserContext(recipientE164, "groupId", groupId.toString());
+                        blipContextService.setUserContext(recipientE164, "isConfirmingAgenda", "true");
+
                         if (destination != null && !destination.equalsIgnoreCase(recipientE164)) {
                             blipContextService.setUserContext(destination, "lista_detalhada", listaDetalhada);
                             blipContextService.setUserContext(destination, "listaDetalhada", listaDetalhada);
+                            blipContextService.setUserContext(destination, "groupId", groupId.toString());
+                            blipContextService.setUserContext(destination, "isConfirmingAgenda", "true");
                         }
-                        log.info("[MENSAGERIA-GRUPO] lista_detalhada injetada com sucesso no contexto Blip de {}. groupId={}", recipientE164, groupId);
+                        log.info("[MENSAGERIA-GRUPO] Contexto de grupo (lista_detalhada, listaDetalhada, groupId) injetado com sucesso no Blip para {}. groupId={}", recipientE164, groupId);
                     }
                 }
             }
         } catch (Exception ex) {
-            log.warn("[MENSAGERIA-GRUPO] Falha ao pré-injetar lista_detalhada no contexto do Blip: {}", ex.getMessage());
+            log.warn("[MENSAGERIA-GRUPO] Falha ao pré-injetar contexto de grupo no Blip: {}", ex.getMessage());
         }
 
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
                 ? patientName.trim()
                 : "Paciente";
 
+        String targetBot = "desk@msging.net";
+        String builderBotId = motorProperties.getBlipBuilderBotId();
+        if (builderBotId != null && !builderBotId.isBlank()) {
+            targetBot = builderBotId;
+        }
+
+        // Define o Master-State do paciente no bloco Preparar_Atendimento (a0776d9c-6486-42f3-8a4f-2706f0185908)
+        try {
+            blipContextService.setMasterState(recipientE164, targetBot, stateIdPrepararAtendimento);
+            if (destination != null && !destination.equalsIgnoreCase(recipientE164)) {
+                blipContextService.setMasterState(destination, targetBot, stateIdPrepararAtendimento);
+            }
+        } catch (Exception ex) {
+            log.warn("[MENSAGERIA-GRUPO] Falha ao definir master-state para Preparar_Atendimento: {}", ex.getMessage());
+        }
+
         Map<String, Object> commandPayload = blipPayloadBuilder.buildGroupTemplatePayload(
                 recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName,
-                null, null, null
+                targetBot, stateIdPrepararAtendimento, null
         );
 
         log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo '{}' via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", templateName, recipientE164, groupId);
@@ -288,6 +311,37 @@ public class BlipNotificationService {
             validateBlipResponse(response, templateName, recipientE164);
             log.info("[MENSAGERIA-GRUPO] Template de grupo '{}' disparado com sucesso via Active Campaign para o telefone={}", templateName, recipientE164);
         } catch (Exception e) {
+            String errMsg = e.getMessage() != null ? e.getMessage() : "";
+            if (errMsg.contains("131008")) {
+                log.warn("[AUTOCORRECAO-TEMPLATE] Meta recusou disparo de '{}' sem parâmetros (131008). Reenviando com parâmetro 1 (nome do paciente)...", templateName);
+                try {
+                    Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+                            "Aviso Grupo Retry 131008 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
+                            Map.of("1", safePatientName), List.of("1"), null, null, null
+                    );
+                    var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+                    validateBlipResponse(retryResponse, templateName, recipientE164);
+                    log.info("[AUTOCORRECAO-TEMPLATE] Reenvio de '{}' com parâmetro 1 concluído com sucesso!", templateName);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error("[AUTOCORRECAO-TEMPLATE] Falha no reenvio com parâmetro 1: {}", retryEx.getMessage());
+                }
+            } else if (errMsg.contains("132000")) {
+                log.warn("[AUTOCORRECAO-TEMPLATE] Meta recusou disparo de '{}' com parâmetros (132000). Reenviando estaticamente com 0 parâmetros...", templateName);
+                try {
+                    Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+                            "Aviso Grupo Retry 132000 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
+                            Map.of(), List.of(), null, null, null
+                    );
+                    var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+                    validateBlipResponse(retryResponse, templateName, recipientE164);
+                    log.info("[AUTOCORRECAO-TEMPLATE] Reenvio estático de '{}' sem parâmetros concluído com sucesso!", templateName);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error("[AUTOCORRECAO-TEMPLATE] Falha no reenvio estático: {}", retryEx.getMessage());
+                }
+            }
+
             log.error("[ERRO-CRITICO-GRUPO-TRANSMISSAO] Erro ao transmitir template de grupo '{}' para o telefone={} com o groupId={}. Motivo: {}",
                     templateName, recipientE164, groupId, e.getMessage());
 

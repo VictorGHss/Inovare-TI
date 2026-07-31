@@ -38,12 +38,7 @@ public class BlipPayloadBuilder {
     ) {
         String recipientE164 = formatE164Recipient(recipientPhone);
 
-        // Se o template for aviso_agendamento_grupo (estático sem variáveis na Meta), força messageParams zerados. Outros de grupo mantêm o parâmetro 1.
-        String tName = templateName != null ? templateName.trim().toLowerCase() : "";
-        if ("aviso_agendamento_grupo".equals(tName)) {
-            messageParamValues = Map.of();
-            messageParamKeys = List.of();
-        }
+        // Mantém messageParamValues e messageParamKeys como informados pelo chamador
 
         Map<String, Object> campaign = new java.util.LinkedHashMap<>();
         campaign.put("name", campaignName != null && !campaignName.isBlank() ? campaignName : "Notificacao - " + UUID.randomUUID());
@@ -143,17 +138,8 @@ public class BlipPayloadBuilder {
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
         String campaignName = "Aviso Grupo - " + (groupId != null ? groupId.toString() : uniqueSuffix) + " - " + uniqueSuffix;
         
-        Map<String, String> paramValues;
-        List<String> paramKeys;
-
-        String tNameGroup = templateName != null ? templateName.trim().toLowerCase() : "";
-        if ("aviso_agendamento_grupo".equals(tNameGroup)) {
-            paramValues = Map.of();
-            paramKeys = List.of();
-        } else {
-            paramValues = Map.of("1", safePatientName);
-            paramKeys = List.of("1");
-        }
+        Map<String, String> paramValues = Map.of("1", safePatientName);
+        List<String> paramKeys = List.of("1");
 
         return buildActiveCampaignCommandPayload(campaignName, toPhone, templateName, paramValues, paramKeys, masterState, stateId, flowId);
     }

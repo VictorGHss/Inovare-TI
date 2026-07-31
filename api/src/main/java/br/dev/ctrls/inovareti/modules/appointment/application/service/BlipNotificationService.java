@@ -29,16 +29,25 @@ public class BlipNotificationService {
     private final AppointmentTemplateMappingRepositoryPort templateMappingRepository;
     private final AppointmentMotorProperties motorProperties;
     private final BlipPayloadBuilder blipPayloadBuilder;
+    private final BlipContextService blipContextService;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository;
+    private final BlipAppointmentFormatter blipAppointmentFormatter;
 
     public BlipNotificationService(
             BlipLIMEClient limeClient,
             AppointmentTemplateMappingRepositoryPort templateMappingRepository,
             AppointmentMotorProperties motorProperties,
-            BlipPayloadBuilder blipPayloadBuilder) {
+            BlipPayloadBuilder blipPayloadBuilder,
+            BlipContextService blipContextService,
+            br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository,
+            BlipAppointmentFormatter blipAppointmentFormatter) {
         this.limeClient = limeClient;
         this.templateMappingRepository = templateMappingRepository;
         this.motorProperties = motorProperties;
         this.blipPayloadBuilder = blipPayloadBuilder;
+        this.blipContextService = blipContextService;
+        this.appointmentSessionRepository = appointmentSessionRepository;
+        this.blipAppointmentFormatter = blipAppointmentFormatter;
     }
 
     public List<BlipTemplateDto> fetchTemplatesFromBlip() {
@@ -241,6 +250,27 @@ public class BlipNotificationService {
             log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template de grupo '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD (E.164 resultante: {}).",
                     templateName, destination, recipientE164);
             return;
+        }
+
+        // --- PREPARAÇÃO E INJEÇÃO AUTOMÁTICA DA VARIÁVEL lista_detalhada NO CONTEXTO DO BLIP ---
+        try {
+            if (groupId != null && appointmentSessionRepository != null && blipAppointmentFormatter != null && blipContextService != null) {
+                var sessions = appointmentSessionRepository.findByCurrentGroupId(groupId);
+                if (sessions != null && !sessions.isEmpty()) {
+                    String listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(sessions);
+                    if (listaDetalhada != null && !listaDetalhada.isBlank()) {
+                        blipContextService.setUserContext(recipientE164, "lista_detalhada", listaDetalhada);
+                        blipContextService.setUserContext(recipientE164, "listaDetalhada", listaDetalhada);
+                        if (destination != null && !destination.equalsIgnoreCase(recipientE164)) {
+                            blipContextService.setUserContext(destination, "lista_detalhada", listaDetalhada);
+                            blipContextService.setUserContext(destination, "listaDetalhada", listaDetalhada);
+                        }
+                        log.info("[MENSAGERIA-GRUPO] lista_detalhada injetada com sucesso no contexto Blip de {}. groupId={}", recipientE164, groupId);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[MENSAGERIA-GRUPO] Falha ao pré-injetar lista_detalhada no contexto do Blip: {}", ex.getMessage());
         }
 
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))

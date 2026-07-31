@@ -212,7 +212,11 @@ public class MonitorAppointmentNudgesUseCase {
     }
 
     private void aplicarPacingDelay() {
-        // No-op: Blip rate limits are not an issue for notifications/nudges
+        try {
+            Thread.sleep(150);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private LocalDateTime resolvePendingThreshold(int xHours) {

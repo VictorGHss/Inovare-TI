@@ -67,7 +67,7 @@ public class BlipLIMEClient implements BlipClientPort {
             // (~250ms por request). Com pool, reutiliza conexões existentes reduzindo para ~50ms.
             org.apache.hc.client5.http.config.ConnectionConfig connectionConfig =
                 org.apache.hc.client5.http.config.ConnectionConfig.custom()
-                    .setConnectTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
+                    .setConnectTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(5000))
                     .build();
 
             org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient =
@@ -81,11 +81,11 @@ public class BlipLIMEClient implements BlipClientPort {
                             .setDefaultConnectionConfig(connectionConfig)
                             .build()
                     )
-                    // Configura timeout de conexão e leitura por request
+                    // Configura timeout de conexão (5s) e leitura (15s) por request
                     .setDefaultRequestConfig(
                         org.apache.hc.client5.http.config.RequestConfig.custom()
-                            .setConnectionRequestTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
-                            .setResponseTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(3000))
+                            .setConnectionRequestTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(5000))
+                            .setResponseTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(15000))
                             .build()
                     )
                     .build();

@@ -153,9 +153,47 @@ public class BlipNotificationService {
             null
         );
 
-        var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
-        validateBlipResponse(response, templateName, recipientE164);
-        log.info("Template enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, response != null ? response.get("status") : "success");
+        try {
+            var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+            validateBlipResponse(response, templateName, recipientE164);
+            log.info("Template enviado via Active Campaign (/campaign/full). destination={}, template={}, status={}", recipientE164, templateName, response != null ? response.get("status") : "success");
+        } catch (Exception e) {
+            String errMsg = e.getMessage() != null ? e.getMessage() : "";
+            String safePatientName = (appointmentData != null && appointmentData.patientName() != null && !appointmentData.patientName().isBlank())
+                    ? appointmentData.patientName().trim()
+                    : "Paciente";
+
+            if (errMsg.contains("131008")) {
+                log.warn("[AUTOCORRECAO-TEMPLATE] Meta recusou disparo de '{}' com a quantidade atual de parâmetros (131008). Reenviando com 1 parâmetro (nome do paciente)...", templateName);
+                try {
+                    Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+                            "Notificacao Retry 131008 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
+                            Map.of("1", safePatientName), List.of("1"), null, null, null
+                    );
+                    var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+                    validateBlipResponse(retryResponse, templateName, recipientE164);
+                    log.info("[AUTOCORRECAO-TEMPLATE] Reenvio de '{}' com 1 parâmetro concluído com sucesso!", templateName);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error("[AUTOCORRECAO-TEMPLATE] Falha no reenvio com 1 parâmetro: {}", retryEx.getMessage());
+                }
+            } else if (errMsg.contains("132000")) {
+                log.warn("[AUTOCORRECAO-TEMPLATE] Meta recusou disparo de '{}' com parâmetros (132000). Reenviando estaticamente com 0 parâmetros...", templateName);
+                try {
+                    Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
+                            "Notificacao Retry 132000 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
+                            Map.of(), List.of(), null, null, null
+                    );
+                    var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
+                    validateBlipResponse(retryResponse, templateName, recipientE164);
+                    log.info("[AUTOCORRECAO-TEMPLATE] Reenvio estático de '{}' sem parâmetros concluído com sucesso!", templateName);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error("[AUTOCORRECAO-TEMPLATE] Falha no reenvio estático: {}", retryEx.getMessage());
+                }
+            }
+            throw e;
+        }
     }
 
     private List<Map<String, String>> buildDynamicParameters(String templateName, AppointmentTemplateData appointmentData) {

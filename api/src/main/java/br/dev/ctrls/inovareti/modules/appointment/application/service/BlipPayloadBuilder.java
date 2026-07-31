@@ -38,9 +38,9 @@ public class BlipPayloadBuilder {
     ) {
         String recipientE164 = formatE164Recipient(recipientPhone);
 
-        // Se o template for estático de grupo (ex: aviso_agendamento_grupo, aviso_confirmacao_pendente_grupo), força messageParams zerados (mapa/lista vazios)
+        // Se o template for aviso_agendamento_grupo (estático sem variáveis na Meta), força messageParams zerados. Outros de grupo mantêm o parâmetro 1.
         String tName = templateName != null ? templateName.trim().toLowerCase() : "";
-        if (tName.equals("aviso_agendamento_grupo") || tName.equals("aviso_confirmacao_pendente_grupo") || tName.endsWith("_grupo")) {
+        if ("aviso_agendamento_grupo".equals(tName)) {
             messageParamValues = Map.of();
             messageParamKeys = List.of();
         }
@@ -147,7 +147,7 @@ public class BlipPayloadBuilder {
         List<String> paramKeys;
 
         String tNameGroup = templateName != null ? templateName.trim().toLowerCase() : "";
-        if (tNameGroup.equals("aviso_agendamento_grupo") || tNameGroup.equals("aviso_confirmacao_pendente_grupo") || tNameGroup.endsWith("_grupo")) {
+        if ("aviso_agendamento_grupo".equals(tNameGroup)) {
             paramValues = Map.of();
             paramKeys = List.of();
         } else {

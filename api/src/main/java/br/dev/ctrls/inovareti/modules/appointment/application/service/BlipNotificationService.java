@@ -340,7 +340,7 @@ public class BlipNotificationService {
 
         Map<String, Object> commandPayload = blipPayloadBuilder.buildGroupTemplatePayload(
                 recipientE164, templateName, resolveWabaNamespace(), groupId, safePatientName,
-                targetBot, stateIdPrepararAtendimento, null
+                targetBot, stateIdPrepararAtendimento, targetBot
         );
 
         log.info("[MENSAGERIA-GRUPO] Transmitindo template de grupo '{}' via Active Campaign (/campaign/full) para o telefone={} com o groupId={}", templateName, recipientE164, groupId);
@@ -355,7 +355,7 @@ public class BlipNotificationService {
                 try {
                     Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
                             "Aviso Grupo Retry 131008 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
-                            Map.of("1", safePatientName), List.of("1"), null, null, null
+                            Map.of("1", safePatientName), List.of("1"), targetBot, stateIdPrepararAtendimento, targetBot
                     );
                     var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
                     validateBlipResponse(retryResponse, templateName, recipientE164);
@@ -369,7 +369,7 @@ public class BlipNotificationService {
                 try {
                     Map<String, Object> retryPayload = blipPayloadBuilder.buildActiveCampaignCommandPayload(
                             "Aviso Grupo Retry 132000 - " + UUID.randomUUID().toString().substring(0, 8), recipientE164, templateName,
-                            Map.of(), List.of(), null, null, null
+                            Map.of(), List.of(), targetBot, stateIdPrepararAtendimento, targetBot
                     );
                     var retryResponse = limeClient.executeCommand(retryPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
                     validateBlipResponse(retryResponse, templateName, recipientE164);

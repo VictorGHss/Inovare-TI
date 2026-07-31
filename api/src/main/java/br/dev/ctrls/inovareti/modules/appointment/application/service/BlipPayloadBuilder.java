@@ -40,6 +40,10 @@ public class BlipPayloadBuilder {
 
         // Mantém messageParamValues e messageParamKeys como informados pelo chamador
 
+        String effectiveFlowId = (flowId != null && !flowId.isBlank())
+                ? flowId.trim()
+                : (masterState != null && !masterState.isBlank() ? masterState.trim() : null);
+
         Map<String, Object> campaign = new java.util.LinkedHashMap<>();
         campaign.put("name", campaignName != null && !campaignName.isBlank() ? campaignName : "Notificacao - " + UUID.randomUUID());
         campaign.put("campaignType", "Individual");
@@ -54,8 +58,11 @@ public class BlipPayloadBuilder {
             campaign.put("stateId", stateId.trim());
         }
 
-        if (flowId != null && !flowId.isBlank()) {
-            campaign.put("flowId", flowId.trim());
+        // Se masterState ou stateId foram informados, o flowId é OBRIGATÓRIO pela API Active Campaign (/campaign/full)
+        if (effectiveFlowId != null && !effectiveFlowId.isBlank()) {
+            campaign.put("flowId", effectiveFlowId);
+        } else if ((masterState != null && !masterState.isBlank()) || (stateId != null && !stateId.isBlank())) {
+            campaign.put("flowId", "fluxov1@msging.net");
         }
 
         String rawPhone = recipientPhone != null ? recipientPhone.replaceAll("\\D", "") : "";
@@ -122,13 +129,14 @@ public class BlipPayloadBuilder {
     ) {
         return buildActiveCampaignCommandPayload(
                 campaignName, recipientPhone, templateName, messageParamValues, messageParamKeys,
-                "fluxov1@msging.net", null, null
+                null, null, null
         );
     }
 
     /**
      * Constrói o mapa de dados para envio do template de grupo (ex: aviso_agendamento_grupo)
-     * utilizando a Active Campaign Growth API (/campaign/full) omitindo stateId/flowId se não informados.
+     * utilizando a Active Campaign Growth API (/campaign/full).
+     * Templates de grupo (_grupo) enviam por padrão messageParams zerados (mapa/lista vazios).
      */
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName, String masterState, String stateId, String flowId) {
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
@@ -138,10 +146,23 @@ public class BlipPayloadBuilder {
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
         String campaignName = "Aviso Grupo - " + (groupId != null ? groupId.toString() : uniqueSuffix) + " - " + uniqueSuffix;
         
-        Map<String, String> paramValues = Map.of("1", safePatientName);
-        List<String> paramKeys = List.of("1");
+        Map<String, String> paramValues;
+        List<String> paramKeys;
 
-        return buildActiveCampaignCommandPayload(campaignName, toPhone, templateName, paramValues, paramKeys, masterState, stateId, flowId);
+        String tNameGroup = templateName != null ? templateName.trim().toLowerCase() : "";
+        if (tNameGroup.equals("aviso_agendamento_grupo") || tNameGroup.equals("aviso_confirmacao_pendente_grupo") || tNameGroup.endsWith("_grupo")) {
+            paramValues = Map.of();
+            paramKeys = List.of();
+        } else {
+            paramValues = Map.of("1", safePatientName);
+            paramKeys = List.of("1");
+        }
+
+        String effectiveFlowId = (flowId != null && !flowId.isBlank()) 
+                ? flowId.trim() 
+                : (masterState != null && !masterState.isBlank() ? masterState.trim() : null);
+
+        return buildActiveCampaignCommandPayload(campaignName, toPhone, templateName, paramValues, paramKeys, masterState, stateId, effectiveFlowId);
     }
 
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName, String masterState, String stateId) {

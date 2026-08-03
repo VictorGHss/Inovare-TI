@@ -67,10 +67,10 @@ public class IngestAppointmentsUseCase {
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private AppointmentSendIdempotencyService appointmentSendIdempotencyService;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private NoopAppointmentSendIdempotencyService noopAppointmentSendIdempotencyService;
+    @jakarta.annotation.Nullable
+    private final AppointmentSendIdempotencyService appointmentSendIdempotencyService;
+    @jakarta.annotation.Nullable
+    private final NoopAppointmentSendIdempotencyService noopAppointmentSendIdempotencyService;
     private final TransactionTemplate transactionTemplate;
     private final NotificationGroupRepositoryPort notificationGroupRepository;
     private final BlipNotificationService blipNotificationService;

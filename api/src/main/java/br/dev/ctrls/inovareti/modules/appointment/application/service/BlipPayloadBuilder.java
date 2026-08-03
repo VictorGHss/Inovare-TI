@@ -5,9 +5,16 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.dev.ctrls.inovareti.modules.appointment.application.dto.AudienceDto;
+import br.dev.ctrls.inovareti.modules.appointment.application.dto.CampaignDto;
+import br.dev.ctrls.inovareti.modules.appointment.application.dto.MessageDto;
 
 @Component
 public class BlipPayloadBuilder {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * Formata um telefone de destinatário no formato E.164 estrito com o sinal '+' (ex: "+5542999999999").
@@ -25,6 +32,8 @@ public class BlipPayloadBuilder {
     /**
      * Constrói o comando LIME para o endpoint Active Campaign Growth API (/campaign/full).
      * Inclui masterState, e inclui stateId/flowId no nó 'campaign' APENAS se forem strings válidas e não-vazias.
+     * Quando o template não possuir variáveis (ex: mapa/lista vazios ou estático), messageParams é atribuído como null
+     * e totalmente omitido do JSON final via @JsonInclude(Include.NON_NULL) nos DTOs.
      */
     public Map<String, Object> buildActiveCampaignCommandPayload(
             String campaignName,
@@ -38,32 +47,29 @@ public class BlipPayloadBuilder {
     ) {
         String recipientE164 = formatE164Recipient(recipientPhone);
 
-        // Mantém messageParamValues e messageParamKeys como informados pelo chamador
-
         String effectiveFlowId = (flowId != null && !flowId.isBlank())
                 ? flowId.trim()
                 : (masterState != null && !masterState.isBlank() ? masterState.trim() : null);
 
-        Map<String, Object> campaign = new java.util.LinkedHashMap<>();
-        campaign.put("name", campaignName != null && !campaignName.isBlank() ? campaignName : "Notificacao - " + UUID.randomUUID());
-        campaign.put("campaignType", "Individual");
-        campaign.put("channelType", "WhatsApp");
-        campaign.put("sourceApplication", "Inovare-ITSM");
+        String finalMasterState = (masterState != null && !masterState.isBlank()) ? masterState.trim() : null;
+        String finalStateId = (stateId != null && !stateId.isBlank()) ? stateId.trim() : null;
 
-        if (masterState != null && !masterState.isBlank()) {
-            campaign.put("masterState", masterState.trim());
-        }
-
-        if (stateId != null && !stateId.isBlank()) {
-            campaign.put("stateId", stateId.trim());
-        }
-
-        // Se masterState ou stateId foram informados, o flowId é OBRIGATÓRIO pela API Active Campaign (/campaign/full)
+        String finalFlowId = null;
         if (effectiveFlowId != null && !effectiveFlowId.isBlank()) {
-            campaign.put("flowId", effectiveFlowId);
-        } else if ((masterState != null && !masterState.isBlank()) || (stateId != null && !stateId.isBlank())) {
-            campaign.put("flowId", "fluxov1@msging.net");
+            finalFlowId = effectiveFlowId;
+        } else if (finalMasterState != null || finalStateId != null) {
+            finalFlowId = "fluxov1@msging.net";
         }
+
+        CampaignDto campaignDto = CampaignDto.builder()
+                .name(campaignName != null && !campaignName.isBlank() ? campaignName : "Notificacao - " + UUID.randomUUID())
+                .campaignType("Individual")
+                .channelType("WhatsApp")
+                .sourceApplication("Inovare-ITSM")
+                .masterState(finalMasterState)
+                .stateId(finalStateId)
+                .flowId(finalFlowId)
+                .build();
 
         String rawPhone = recipientPhone != null ? recipientPhone.replaceAll("\\D", "") : "";
         String plainPhone = (rawPhone.startsWith("55") && rawPhone.length() > 11) ? rawPhone.substring(2) : rawPhone;
@@ -75,19 +81,33 @@ public class BlipPayloadBuilder {
             contextVars.put("telefone", plainPhone);
         }
 
-        Map<String, Object> audience = new java.util.LinkedHashMap<>();
-        audience.put("recipient", recipientE164);
-        audience.put("messageParams", messageParamValues != null ? messageParamValues : Map.of());
-        if (!contextVars.isEmpty()) {
-            audience.put("contextVariables", contextVars);
-        }
+        Map<String, String> finalAudienceParams = (messageParamValues != null && !messageParamValues.isEmpty())
+                ? messageParamValues
+                : null;
 
-        Map<String, Object> message = Map.of(
-            "messageTemplate", templateName,
-            "messageTemplateLanguage", "pt_BR",
-            "messageParams", messageParamKeys != null ? messageParamKeys : List.of(),
-            "channelType", "WhatsApp"
-        );
+        List<String> finalMessageParamKeys = (messageParamKeys != null && !messageParamKeys.isEmpty())
+                ? messageParamKeys
+                : null;
+
+        AudienceDto audienceDto = AudienceDto.builder()
+                .recipient(recipientE164)
+                .messageParams(finalAudienceParams)
+                .contextVariables(!contextVars.isEmpty() ? contextVars : null)
+                .build();
+
+        MessageDto messageDto = MessageDto.builder()
+                .messageTemplate(templateName)
+                .messageTemplateLanguage("pt_BR")
+                .messageParams(finalMessageParamKeys)
+                .channelType("WhatsApp")
+                .build();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> campaign = OBJECT_MAPPER.convertValue(campaignDto, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> audience = OBJECT_MAPPER.convertValue(audienceDto, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> message = OBJECT_MAPPER.convertValue(messageDto, Map.class);
 
         Map<String, Object> resource = Map.of(
             "campaign", campaign,
@@ -136,7 +156,7 @@ public class BlipPayloadBuilder {
     /**
      * Constrói o mapa de dados para envio do template de grupo (ex: aviso_agendamento_grupo)
      * utilizando a Active Campaign Growth API (/campaign/full).
-     * Templates de grupo (_grupo) enviam por padrão messageParams zerados (mapa/lista vazios).
+     * Templates de grupo (_grupo) ou estáticos enviam messageParams omitidos (null).
      */
     public Map<String, Object> buildGroupTemplatePayload(String toPhone, String templateName, String namespace, UUID groupId, String patientName, String masterState, String stateId, String flowId) {
         String safePatientName = (patientName != null && !patientName.isBlank() && !"null".equalsIgnoreCase(patientName.trim()))
@@ -151,8 +171,8 @@ public class BlipPayloadBuilder {
 
         String tNameGroup = templateName != null ? templateName.trim().toLowerCase() : "";
         if (tNameGroup.equals("aviso_agendamento_grupo") || tNameGroup.equals("aviso_confirmacao_pendente_grupo") || tNameGroup.endsWith("_grupo")) {
-            paramValues = Map.of();
-            paramKeys = List.of();
+            paramValues = null;
+            paramKeys = null;
         } else {
             paramValues = Map.of("1", safePatientName);
             paramKeys = List.of("1");

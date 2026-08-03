@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * DTO para apresentação de templates aprovados ao frontend com contagem de variáveis.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record BlipTemplateDto(
         String id,
         String name,

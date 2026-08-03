@@ -21,19 +21,34 @@ import java.util.UUID;
 public class BlipContactClientAdapter implements BlipContactClientPort {
 
     private final AppointmentMotorProperties properties;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort reconciliationRepository;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
+    private final br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort reconciliationRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
 
     private RestClient restClient;
 
-    public BlipContactClientAdapter(AppointmentMotorProperties properties) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public BlipContactClientAdapter(
+            AppointmentMotorProperties properties,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.BlipProperties blipProperties,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            br.dev.ctrls.inovareti.modules.appointment.domain.port.output.BlipUserIdentityReconciliationRepositoryPort reconciliationRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+            br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort
+    ) {
         this.properties = properties;
+        this.blipProperties = blipProperties;
+        this.reconciliationRepository = reconciliationRepository;
+        this.appointmentSessionRepository = appointmentSessionRepository;
+        this.patientExternalPort = patientExternalPort;
+    }
+
+    public BlipContactClientAdapter(AppointmentMotorProperties properties) {
+        this(properties, null, null, null, null);
     }
 
     @PostConstruct

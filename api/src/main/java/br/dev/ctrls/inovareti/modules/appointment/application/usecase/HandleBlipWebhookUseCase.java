@@ -18,7 +18,6 @@ import br.dev.ctrls.inovareti.modules.appointment.application.service.FeegowBulk
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdempotencyService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipIdentityReconciler;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNudgeResponseHandler;
-import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipPayloadParser;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipTextSanitizer;
 import br.dev.ctrls.inovareti.modules.appointment.application.service.BlipWebhookActionExecutor;
@@ -76,7 +75,6 @@ public class HandleBlipWebhookUseCase {
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
     private final br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output.GerAcessoCatracaAdapter gerAcessoCatracaAdapter;
     private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
-    private final BlipNotificationService blipNotificationService;
 
     private record SessionDbData(
         AppointmentSession session,
@@ -274,28 +272,40 @@ public class HandleBlipWebhookUseCase {
 
         if (isLembreteResposta) {
             String statusInfo = combinedActionText.contains("caminho") ? "Estou a caminho" : "Já estou na clínica";
-            log.info("[LEMBRETE-RESPOSTA] Paciente ID {} (De: {}) informou status: {}", dbPhone.isEmpty() ? fromPhone : dbPhone, fromPhone, statusInfo);
+            log.info("[LEMBRETE-RESPOSTA] Paciente ID {} (De: {}) informou status: {}. Aplicando roteamento silencioso para Desk sem disparo de texto.", dbPhone.isEmpty() ? fromPhone : dbPhone, fromPhone, statusInfo);
 
-            String responseMessage = "Agradecemos a confirmação! Por favor, dirija-se à recepção da Clínica Inovare. Tenha um ótimo atendimento! 😊";
+            // 1. NÃO enviar mensagem de texto automatizada no backend Java (removido a pedido)
 
-            // Responde ativamente via comando LIME
+            // 2. Injetar a variável de contexto hasActiveAppointment = true em escopo dual (Master + Túneis)
             try {
-                blipNotificationService.sendPlainTextMessage(fromPhone, responseMessage);
-                log.info("[LEMBRETE-RESPOSTA] Resposta amigável enviada via LIME para {}", fromPhone);
+                blipContextService.setUserContext(fromPhone, "hasActiveAppointment", "true");
+                blipContextService.setUserContext(fromPhone, "lembrete_resposta", statusInfo);
+                if (!dbPhone.isEmpty() && !dbPhone.equalsIgnoreCase(fromPhone)) {
+                    blipContextService.setUserContext(dbPhone, "hasActiveAppointment", "true");
+                    blipContextService.setUserContext(dbPhone, "lembrete_resposta", statusInfo);
+                }
             } catch (Exception ex) {
-                log.error("[LEMBRETE-RESPOSTA] Erro ao enviar resposta LIME para {}: {}", fromPhone, ex.getMessage());
+                log.warn("[LEMBRETE-RESPOSTA] Falha ao ajustar contexto hasActiveAppointment/lembrete_resposta para {}: {}", fromPhone, ex.getMessage());
             }
 
-            // Atualiza o Master-State e contexto do Blip para o bloco Preparar_Atendimento
+            // 3. Atualizar o Master-State do paciente para o nó de Desk (Atendimento Humano) ou fila da especialidade
             try {
-                String prepararBlockId = "a0776d9c-6486-42f3-8a4f-2706f0185908";
-                blipContextService.setBuilderMasterState(fromPhone, prepararBlockId);
-                blipContextService.setUserContextForUser(fromPhone, "lembrete_resposta", statusInfo);
+                String deskStateId = blipProperties.getBlocks().getDeskStateId();
+                if (deskStateId == null || deskStateId.isBlank()) {
+                    deskStateId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                }
+                String targetBot = "desk@msging.net";
+                blipContextService.setMasterState(fromPhone, targetBot, deskStateId);
+                blipContextService.setBuilderMasterState(fromPhone, deskStateId);
+                if (!dbPhone.isEmpty() && !dbPhone.equalsIgnoreCase(fromPhone)) {
+                    blipContextService.setMasterState(dbPhone, targetBot, deskStateId);
+                    blipContextService.setBuilderMasterState(dbPhone, deskStateId);
+                }
             } catch (Exception ex) {
-                log.warn("[LEMBRETE-RESPOSTA] Falha ao ajustar contexto/masterState para {}: {}", fromPhone, ex.getMessage());
+                log.warn("[LEMBRETE-RESPOSTA] Falha ao ajustar Master-State de Desk para {}: {}", fromPhone, ex.getMessage());
             }
 
-            return new WebhookResult("", "", "", "", "lembrete_resposta_processed", responseMessage);
+            return new WebhookResult("", "", "", "", "lembrete_resposta_processed", "");
         }
 
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -545,6 +555,34 @@ public class HandleBlipWebhookUseCase {
 
         if (!matcher.find()) {
             log.debug("[WEBHOOK] Ação ignorada (não é confirm_, alter_ nem cancel_). action='{}'", action);
+            
+            // Verificação de segurança: se for um paciente com agendamento ativo no dia enviando texto livre
+            try {
+                String searchPhone = !dbPhone.isEmpty() ? dbPhone : fromPhone;
+                List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(searchPhone);
+                if (activeSessions != null && !activeSessions.isEmpty()) {
+                    log.info("[FREE-TEXT-ROUTING] Paciente {} possui {} agendamento(s) ativo(s). Aplicando roteamento silencioso para Desk.", searchPhone, activeSessions.size());
+                    blipContextService.setUserContext(searchPhone, "hasActiveAppointment", "true");
+                    if (!fromPhone.equalsIgnoreCase(searchPhone)) {
+                        blipContextService.setUserContext(fromPhone, "hasActiveAppointment", "true");
+                    }
+                    String deskStateId = blipProperties.getBlocks().getDeskStateId();
+                    if (deskStateId == null || deskStateId.isBlank()) {
+                        deskStateId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                    }
+                    String targetBot = "desk@msging.net";
+                    blipContextService.setMasterState(searchPhone, targetBot, deskStateId);
+                    blipContextService.setBuilderMasterState(searchPhone, deskStateId);
+                    if (!fromPhone.equalsIgnoreCase(searchPhone)) {
+                        blipContextService.setMasterState(fromPhone, targetBot, deskStateId);
+                        blipContextService.setBuilderMasterState(fromPhone, deskStateId);
+                    }
+                    return new WebhookResult("", "", "", "", "free_text_desk_routed", "");
+                }
+            } catch (Exception ex) {
+                log.warn("[FREE-TEXT-ROUTING] Erro ao verificar agendamentos ativos para texto livre de {}: {}", fromPhone, ex.getMessage());
+            }
+
             return null;
         }
 

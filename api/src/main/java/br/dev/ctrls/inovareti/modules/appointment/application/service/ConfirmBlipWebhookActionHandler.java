@@ -124,19 +124,25 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
                         String firstFeegowId = firstSession.getFeegowAppointmentId();
                         blipContextService.setUserContextForUser(userPhone, "idAgendamentoFeegow", firstFeegowId);
                         blipContextService.setUserContextForUser(userPhone, "appointmentId", firstFeegowId);
+                        blipContextService.setUserContext(userPhone, "hasActiveAppointment", "true");
                         if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                             blipContextService.setUserContextForUser(fromIdentity, "idAgendamentoFeegow", firstFeegowId);
                             blipContextService.setUserContextForUser(fromIdentity, "appointmentId", firstFeegowId);
+                            blipContextService.setUserContext(fromIdentity, "hasActiveAppointment", "true");
                         }
-                        log.info("[CONFIRM-BATCH] IDs salvos no contexto do Blip: {}", firstFeegowId);
+                        log.info("[CONFIRM-BATCH] IDs e status de agendamento ativo salvos no contexto do Blip: {}", firstFeegowId);
 
                         String requiresCpfFallback = "false";
 
                         blipContextService.setVariable(userPhone, "requiresCpfFallback", requiresCpfFallback);
                         blipContextService.setContactExtra(userPhone, "requiresCpfFallback", requiresCpfFallback);
+                        blipContextService.setVariable(userPhone, "hasActiveAppointment", "true");
+                        blipContextService.setContactExtra(userPhone, "hasActiveAppointment", "true");
                         if (fromIdentity != null && !fromIdentity.isBlank() && !fromIdentity.equalsIgnoreCase(userPhone)) {
                             blipContextService.setVariable(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
                             blipContextService.setContactExtra(fromIdentity, "requiresCpfFallback", requiresCpfFallback);
+                            blipContextService.setVariable(fromIdentity, "hasActiveAppointment", "true");
+                            blipContextService.setContactExtra(fromIdentity, "hasActiveAppointment", "true");
                         }
 
                         // Atualiza também a variável para as identidades de túnel no lote

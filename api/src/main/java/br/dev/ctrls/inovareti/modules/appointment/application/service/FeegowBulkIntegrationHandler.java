@@ -230,7 +230,8 @@ public class FeegowBulkIntegrationHandler {
                     String firstFeegowId = sessionList.get(0).getFeegowAppointmentId();
                     blipContextService.setUserContextForUser(fromPhone.trim(), "idAgendamentoFeegow", firstFeegowId);
                     blipContextService.setUserContextForUser(fromPhone.trim(), "appointmentId", firstFeegowId);
-                    log.info("[ASYNC-BATCH] idAgendamentoFeegow={} e appointmentId={} configurados no contexto para {}", 
+                    blipContextService.setUserContext(fromPhone.trim(), "hasActiveAppointment", "true");
+                    log.info("[ASYNC-BATCH] idAgendamentoFeegow={}, appointmentId={} e hasActiveAppointment=true configurados no contexto para {}", 
                         firstFeegowId, firstFeegowId, fromPhone);
                     
                     // Também atualiza no telefone real reconciliado se for diferente
@@ -241,7 +242,8 @@ public class FeegowBulkIntegrationHandler {
                         }
                         blipContextService.setUserContextForUser(formattedDbPhone, "idAgendamentoFeegow", firstFeegowId);
                         blipContextService.setUserContextForUser(formattedDbPhone, "appointmentId", firstFeegowId);
-                        log.info("[ASYNC-BATCH] idAgendamentoFeegow configurado também no telefone reconciliado: {}", formattedDbPhone);
+                        blipContextService.setUserContext(formattedDbPhone, "hasActiveAppointment", "true");
+                        log.info("[ASYNC-BATCH] idAgendamentoFeegow e hasActiveAppointment configurados também no telefone reconciliado: {}", formattedDbPhone);
                     }
 
                     // Sincroniza também para as identidades de túnel das sessões do lote

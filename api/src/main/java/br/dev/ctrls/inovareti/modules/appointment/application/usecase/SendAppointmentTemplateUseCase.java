@@ -57,6 +57,7 @@ public class SendAppointmentTemplateUseCase {
     private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.PatientExternalPort patientExternalPort;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
+    private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
 
     /**
      * Executa o envio a partir de um contexto de despacho resolvido previamente.
@@ -111,30 +112,38 @@ public class SendAppointmentTemplateUseCase {
                 saveWithRetry(session, null);
             }
 
-            String cpf = "";
+            String finalCpf = "";
             try {
                 var patient = patientExternalPort.patientInfo(ctx.patientId());
                 if (patient != null && patient.cpf() != null) {
-                    cpf = patient.cpf();
+                    finalCpf = patient.cpf();
                 }
             } catch (Exception ex) {
                 log.warn("[SendAppointmentTemplateUseCase] Falha ao consultar CPF para o paciente ID: {}", ctx.patientId(), ex);
             }
-            boolean syncSuccess = blipContactClientPort.syncContact(ctx.phoneNumber(), ctx.patientName(), cpf, ctx.queueName(), ctx.doctorProfissionalId());
-            if (!syncSuccess) {
-                log.warn("[SendAppointmentTemplateUseCase] Sincronização de contato no Blip retornou falso para {}. Prosseguindo com envio do template por prioridade de atendimento.", ctx.phoneNumber());
-            }
 
-            // Injeção preventiva de metadados no Blip antes da transmissão do template
-            injectPreventiveMetadata(
-                    ctx.phoneNumber(),
-                    ctx.patientName(),
-                    ctx.doctorName(),
-                    ctx.feegowAppointmentId(),
-                    ctx.sessionId() != null ? ctx.sessionId().toString() : null,
-                    ctx.doctorProfissionalId(),
-                    ctx.queueName()
-            );
+            // Executa a sincronização de contato e injeção preventiva de metadados em background (Virtual Threads)
+            // para não bloquear o disparo imediato do template no lote diário.
+            final String cpfForAsync = finalCpf;
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    boolean syncSuccess = blipContactClientPort.syncContact(ctx.phoneNumber(), ctx.patientName(), cpfForAsync, ctx.queueName(), ctx.doctorProfissionalId());
+                    if (!syncSuccess) {
+                        log.warn("[SendAppointmentTemplateUseCase] Sincronização de contato no Blip retornou falso para {}.", ctx.phoneNumber());
+                    }
+                    injectPreventiveMetadata(
+                            ctx.phoneNumber(),
+                            ctx.patientName(),
+                            ctx.doctorName(),
+                            ctx.feegowAppointmentId(),
+                            ctx.sessionId() != null ? ctx.sessionId().toString() : null,
+                            ctx.doctorProfissionalId(),
+                            ctx.queueName()
+                    );
+                } catch (Exception asyncEx) {
+                    log.warn("[SendAppointmentTemplateUseCase] Falha no envio assíncrono de metadados/extras para {}: {}", ctx.phoneNumber(), asyncEx.getMessage());
+                }
+            }, applicationTaskExecutor);
 
             // Transmite a mensagem para a API do Blip (pode lançar exceção se falhar)
             blipNotificationService.sendTemplateMessage(ctx.phoneNumber(), templateId, templateData);

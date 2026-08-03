@@ -47,7 +47,9 @@ public class ConfirmBlipWebhookActionHandler implements BlipWebhookActionHandler
 
     @Override
     public boolean supports(String actionType) {
-        return "confirm".equalsIgnoreCase(actionType);
+        if (actionType == null || actionType.isBlank()) return false;
+        String lower = actionType.trim().toLowerCase();
+        return "confirm".equals(lower) || lower.startsWith("confirm_group_") || "confirm_group".equals(lower) || "confirmar tudo".equals(lower) || "confirmar_tudo".equals(lower);
     }
 
     @Override

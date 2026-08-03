@@ -101,24 +101,22 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             return true;
         }
 
-        String cleanName = resolveCleanName(phoneNumber, normalizedIdentity, name);
+        final String cleanName = resolveCleanName(phoneNumber, normalizedIdentity, name);
 
-        String cleanCpf = "";
-        if (cpf != null && !cpf.isBlank() && !cpf.equalsIgnoreCase("null")) {
-            cleanCpf = cpf.replaceAll("\\D", "");
-        }
+        final String cleanCpf = (cpf != null && !cpf.isBlank() && !cpf.equalsIgnoreCase("null"))
+            ? cpf.replaceAll("\\D", "")
+            : "";
 
-        String cleanQueue = "";
-        if (queueName != null && !queueName.isBlank() && !queueName.equalsIgnoreCase("null")) {
-            cleanQueue = queueName.trim();
-        }
+        final String cleanQueue = (queueName != null && !queueName.isBlank() && !queueName.equalsIgnoreCase("null"))
+            ? queueName.trim()
+            : "";
 
-        String rawPhone = normalizedIdentity.contains("@") 
+        final String rawPhone = normalizedIdentity.contains("@") 
             ? normalizedIdentity.substring(0, normalizedIdentity.indexOf('@')) 
             : normalizedIdentity;
-        String digitsOnly = rawPhone.replaceAll("\\D", "");
-        String formattedPhone = digitsOnly.startsWith("55") ? "+" + digitsOnly : "+55" + digitsOnly;
-        String plainPhone = (digitsOnly.startsWith("55") && digitsOnly.length() > 11) ? digitsOnly.substring(2) : digitsOnly;
+        final String digitsOnly = rawPhone.replaceAll("\\D", "");
+        final String formattedPhone = digitsOnly.startsWith("55") ? "+" + digitsOnly : "+55" + digitsOnly;
+        final String plainPhone = (digitsOnly.startsWith("55") && digitsOnly.length() > 11) ? digitsOnly.substring(2) : digitsOnly;
 
         java.util.List<String> targetIdentities = new java.util.ArrayList<>();
         targetIdentities.add(normalizedIdentity);
@@ -192,11 +190,19 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
         log.info("[BlipContact-Adapter] Sincronizando contato em escopo dual (Master + Túneis) para {}. Qtd identidades={}. Nome={}, CPF={}, Fila={}",
                 normalizedIdentity, targetIdentities.size(), cleanName, cleanCpf, cleanQueue);
 
+        java.util.List<java.util.concurrent.CompletableFuture<Boolean>> futures = targetIdentities.stream()
+                .map(targetId -> java.util.concurrent.CompletableFuture.supplyAsync(
+                        () -> sendContactCommand(targetId, cleanName, formattedPhone, plainPhone, cleanCpf, cleanQueue, digitsOnly)))
+                .toList();
+
         boolean overallSuccess = false;
-        for (String targetId : targetIdentities) {
-            boolean success = sendContactCommand(targetId, cleanName, formattedPhone, plainPhone, cleanCpf, cleanQueue, digitsOnly);
-            if (success) {
-                overallSuccess = true;
+        for (var future : futures) {
+            try {
+                if (future.join()) {
+                    overallSuccess = true;
+                }
+            } catch (Exception ex) {
+                log.warn("[BlipContact-Adapter] Falha em tarefa paralela de sincronização: {}", ex.getMessage());
             }
         }
 

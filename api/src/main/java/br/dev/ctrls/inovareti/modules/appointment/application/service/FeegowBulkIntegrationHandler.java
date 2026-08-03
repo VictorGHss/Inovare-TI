@@ -271,8 +271,11 @@ public class FeegowBulkIntegrationHandler {
                     }
                 }
 
-                String deskBlockId = blipProperties.getBlocks().getDeskStateId();
-                redirectAllIdentities(fromPhone, dbPhone, targetQueue, deskBlockId, sessionList);
+                String confirmSuccessBlockId = blipProperties.getBlocks().getConfirmSuccess();
+                if (confirmSuccessBlockId == null || confirmSuccessBlockId.isBlank()) {
+                    confirmSuccessBlockId = "b3461299-9500-46b1-b423-12ffef3e1aba";
+                }
+                redirectAllIdentities(fromPhone, dbPhone, targetQueue, confirmSuccessBlockId, sessionList);
             }
         } catch (Exception e) {
             log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de confirmação do grupo: " + groupId, e);

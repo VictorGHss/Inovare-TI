@@ -286,8 +286,18 @@ public class BlipWebhookController {
             boolean isExibirAgenda = "exibir_agenda".equalsIgnoreCase(actionValue)
                 || (exibirUuid != null && java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(exibirUuid.toLowerCase()) + "\\b").matcher(rawActionTextLower).find());
 
+            boolean isBypassExplicit = rawActionTextLower.contains("ver agendamentos")
+                || rawActionTextLower.contains("ver agenda")
+                || rawActionTextLower.contains("ver_agenda")
+                || rawActionTextLower.contains("confirmar tudo")
+                || rawActionTextLower.contains("confirm_group_")
+                || rawActionTextLower.contains("confirmar_tudo")
+                || rawActionTextLower.contains("preciso alterar")
+                || rawActionTextLower.contains("alter_group_")
+                || rawActionTextLower.contains("preciso_alterar");
+
             boolean isNullOrEmpty = action == null || action.isBlank() || "null".equalsIgnoreCase(action.trim());
-            boolean isButtonClick = isNullOrEmpty || (action != null && (
+            boolean isButtonClick = isNullOrEmpty || isBypassExplicit || (action != null && (
                 action.toLowerCase().startsWith("confirm_") ||
                 action.toLowerCase().startsWith("alter_") ||
                 action.toLowerCase().startsWith("group_") ||

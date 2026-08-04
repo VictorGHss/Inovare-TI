@@ -70,6 +70,10 @@ public class GerAcessoRestClientAdapter implements GerAcessoClientPort {
             log.warn("[GerAcesso-Adapter] Servidor GerAcesso retornou status HTTP: {}", response.getStatusCode());
             return Optional.empty();
 
+        } catch (org.springframework.web.client.RestClientResponseException rre) {
+            log.error("[GerAcesso-Adapter] Erro HTTP {} na requisição para GerAcesso. CPF={}. Body da resposta: {}", 
+                    rre.getStatusCode(), request.cpf(), rre.getResponseBodyAsString(), rre);
+            return Optional.empty();
         } catch (Exception ex) {
             log.error("[GerAcesso-Adapter] Erro na requisição HTTP para GerAcesso. CPF={}. Erro: {}", 
                     request.cpf(), ex.getMessage(), ex);

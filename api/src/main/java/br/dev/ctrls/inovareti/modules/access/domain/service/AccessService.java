@@ -341,10 +341,12 @@ public class AccessService {
                     .map(companion -> executor.submit(() -> {
                         // Isolamento e resiliência (Fail-Safe) por tarefa
                         try {
-                            boolean alreadyRegistered = existingAppCreds.stream()
-                                .anyMatch(c -> c.getName().equalsIgnoreCase(companion.name().trim()) && c.getUserType() == UserType.COMPANION);
-                            if (alreadyRegistered) {
-                                log.info("[AccessService] Acompanhante '{}' já possui credencial cadastrada para o agendamento {}. Ignorando duplicata.", companion.name(), accessInfo.appointmentId());
+                            boolean alreadyRegisteredWithRealCred = existingAppCreds.stream()
+                                .anyMatch(c -> c.getName().equalsIgnoreCase(companion.name().trim()) 
+                                            && c.getUserType() == UserType.COMPANION
+                                            && !c.getAccessCredential().startsWith("CRED-"));
+                            if (alreadyRegisteredWithRealCred) {
+                                log.info("[AccessService] Acompanhante '{}' já possui credencial GerAcesso real cadastrada para o agendamento {}. Ignorando duplicata.", companion.name(), accessInfo.appointmentId());
                             } else {
                                 registerCompanionAccess(companion, appointmentDate, openingTime, closingTime, finalToken, finalLocator, accessInfo.appointmentId(), accessInfo.doctorId());
                             }
@@ -372,9 +374,43 @@ public class AccessService {
     }
 
     /**
+     * Cadastra um acompanhante isoladamente para um determinado agendamento.
+     * Herda os mesmos dados do agendamento (médico visitado, data e janela de horários) e efetua o cadastro unificado na GerAcesso.
+     *
+     * @param appointmentId Identificador do agendamento titular.
+     * @param companion Informações do acompanhante.
+     * @return AccessCredential gerado para o acompanhante.
+     */
+    public AccessCredential registerCompanion(String appointmentId, CompanionAccessInfo companion) {
+        log.info("[AccessService] Processando cadastro individual de acompanhante '{}' para agendamento {}", companion.name(), appointmentId);
+
+        Optional<FeegowPatientAccessInfo> accessInfoOpt = feegowClientPort.fetchPatientAccessInfo(appointmentId);
+        if (accessInfoOpt.isEmpty()) {
+            log.warn("[AccessService] Agendamento {} não encontrado para cadastrar acompanhante.", appointmentId);
+            throw new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Agendamento não encontrado.");
+        }
+        FeegowPatientAccessInfo accessInfo = accessInfoOpt.get();
+
+        LocalDate resolvedDate = accessInfo.appointmentDate();
+        if (resolvedDate == null) {
+            resolvedDate = LocalDate.now(CLINIC_ZONE);
+        }
+        if (resolvedDate.isBefore(LocalDate.now(CLINIC_ZONE))) {
+            resolvedDate = LocalDate.now(CLINIC_ZONE);
+        }
+        LocalDate date = resolvedDate;
+
+        LocalTime appTime = accessInfo.appointmentTime() != null ? accessInfo.appointmentTime() : LocalTime.of(12, 0);
+        LocalTime openingTime = appTime.minusMinutes(120);
+        LocalTime closingTime = LocalTime.of(23, 0);
+
+        return registerCompanionAccess(companion, date, openingTime, closingTime, null, null, appointmentId, accessInfo.doctorId());
+    }
+
+    /**
      * Efetua o cadastro individual e isolado (fail-safe) do acompanhante na GerAcesso e no banco local.
      */
-    private void registerCompanionAccess(
+    private AccessCredential registerCompanionAccess(
             CompanionAccessInfo companion,
             LocalDate date,
             LocalTime openingTime,
@@ -385,9 +421,7 @@ public class AccessService {
             String docId) {
 
         String companionCpf = companion.cpf() != null ? companion.cpf().replaceAll("\\D", "") : "";
-        // Reutiliza a constante estática imutável GERACESSO_DATE_FORMATTER em vez de instanciar
-        // um novo DateTimeFormatter a cada chamada — evita alocação desnecessária em alto volume
-        // de webhooks concorrentes processados via Virtual Threads.
+        // Reutiliza a constante estática imutável GERACESSO_DATE_FORMATTER
         String startVisit = LocalDateTime.of(date, openingTime).format(GERACESSO_DATE_FORMATTER);
         String endVisit = LocalDateTime.of(date, closingTime).format(GERACESSO_DATE_FORMATTER);
 
@@ -413,12 +447,15 @@ public class AccessService {
             .visitedCpf(doctorCpf)
             .build();
 
-        boolean isCompanionCpfValid = companionCpf.isEmpty() || isValidCpf(companionCpf);
+        boolean isCompanionCpfValid = companionCpf.length() == 11 && isValidCpf(companionCpf);
         Optional<GerAcessoResponse> responseOpt = Optional.empty();
 
         if (!isCompanionCpfValid) {
-            log.warn("[GERACESSO-CPF] CPF do acompanhante '{}' é matematicamente inválido (CPF: {}). Ignorando chamada à GerAcesso física.",
+            log.warn("[GERACESSO-CPF] CPF do acompanhante '{}' é inválido ou com formato incompleto (CPF: {}). Tentando cadastro na GerAcesso física.",
                     companion.name(), companionCpf);
+            if (!companionCpf.isEmpty()) {
+                responseOpt = gerAcessoClientPort.registerAccess(request);
+            }
         } else {
             log.info("[AccessService] Cadastrando acompanhante {} na GerAcesso...", companion.name());
             responseOpt = gerAcessoClientPort.registerAccess(request);
@@ -430,26 +467,42 @@ public class AccessService {
         if (responseOpt.isPresent() && responseOpt.get().credential() != null && !responseOpt.get().credential().isBlank()) {
             companionToken = responseOpt.get().credential().trim();
             companionLocator = responseOpt.get().locator() != null ? responseOpt.get().locator().trim() : "";
-            log.info("[AccessService] Acompanhante {} cadastrado com sucesso. Credencial (QR Code): {}, Localizador: {}", companion.name(), companionToken, companionLocator);
+            log.info("[AccessService] Acompanhante {} cadastrado com sucesso na GerAcesso. Credencial (QR Code): {}, Localizador: {}", companion.name(), companionToken, companionLocator);
         } else {
             companionToken = "CRED-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
             companionLocator = "LOC-" + System.currentTimeMillis();
             log.warn("[AccessService] Utilizando credencial local contingencial para acompanhante {}.", companion.name());
         }
 
-        // Persiste a credencial individual e separada no banco local
-        AccessCredential credential = AccessCredential.builder()
-            .appointmentId(appointmentId)
-            .name(companion.name())
-            .cpf(companionCpf.isEmpty() ? null : companionCpf)
-            .userType(UserType.COMPANION)
-            .accessCredential(companionToken)
-            .locator(companionLocator)
-            .createdAt(LocalDateTime.now())
-            .build();
+        // Verifica se já existe um registro salvo no banco para este acompanhante no agendamento
+        Optional<AccessCredential> existingCredOpt = accessCredentialRepositoryPort
+            .findByAppointmentId(appointmentId).stream()
+            .filter(c -> c.getName().equalsIgnoreCase(companion.name().trim()) && c.getUserType() == UserType.COMPANION)
+            .findFirst();
 
-        accessCredentialRepositoryPort.save(credential);
-        log.info("[AccessService] Credencial do acompanhante {} salva no banco local com sucesso.", companion.name());
+        AccessCredential credential;
+        if (existingCredOpt.isPresent()) {
+            credential = existingCredOpt.get();
+            credential.setCpf(companionCpf.isEmpty() ? null : companionCpf);
+            credential.setAccessCredential(companionToken);
+            credential.setLocator(companionLocator);
+            credential.setCreatedAt(LocalDateTime.now());
+            log.info("[AccessService] Atualizando credencial existente do acompanhante {} no banco local com credencial GerAcesso: {}", companion.name(), companionToken);
+        } else {
+            credential = AccessCredential.builder()
+                .appointmentId(appointmentId)
+                .name(companion.name())
+                .cpf(companionCpf.isEmpty() ? null : companionCpf)
+                .userType(UserType.COMPANION)
+                .accessCredential(companionToken)
+                .locator(companionLocator)
+                .createdAt(LocalDateTime.now())
+                .build();
+        }
+
+        AccessCredential saved = accessCredentialRepositoryPort.save(credential);
+        log.info("[AccessService] Credencial do acompanhante {} salva no banco local com sucesso. (ID={})", companion.name(), saved.getId());
+        return saved;
     }
 
     /**

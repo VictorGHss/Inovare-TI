@@ -571,5 +571,10 @@
     "description": "Tempo de espera do primeiro lembrete em horas",
     "sourceType": "br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties",
     "defaultValue": 2
+  },
+  {
+    "name": "app.webhook.secret-key",
+    "type": "java.lang.String",
+    "description": "A description for 'app.webhook.secret-key'"
   }
 ]}

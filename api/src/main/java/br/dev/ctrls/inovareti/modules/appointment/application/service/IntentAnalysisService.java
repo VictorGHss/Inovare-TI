@@ -6,6 +6,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.model.DoctorCatalog;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,8 +18,8 @@ import java.util.Set;
 
 /**
  * Serviço de aplicação IntentAnalysisService.
- * Realiza normalização de texto, filtragem de stopwords, mapeamento de sinônimos/apelidos
- * e busca por relevância para extração de intenções do bot Blip.
+ * Realiza busca por tokens fatiados, remoção de stopwords/acentos, mapeamento de sinônimos
+ * e classificação de intenção ("RESULTADO_UNICO", "MULTIPLOS_RESULTADOS", "TRIGGER_ITSM", "NENHUM_RESULTADO").
  * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Slf4j
@@ -31,10 +33,6 @@ public class IntentAnalysisService {
     );
 
     private static final Map<String, List<String>> SYNONYMS = new HashMap<>();
-    private static final Set<String> HIGH_WEIGHT_SURNAMES = Set.of(
-        "koga", "solak", "saad", "tessari", "gulin", "doretto", "acuna", "ferreira",
-        "sirtoli", "phmetria", "colonoscopia", "endoscopia", "ecocardiograma", "holter", "mapa", "clinipon"
-    );
 
     static {
         SYNONYMS.put("dermato", List.of("dermatologia", "dermato"));
@@ -50,13 +48,14 @@ public class IntentAnalysisService {
         SYNONYMS.put("cardio", List.of("cardiologia", "cardio"));
         SYNONYMS.put("gastro", List.of("gastroenterologia", "gastro"));
         SYNONYMS.put("neuro", List.of("neurologia", "neuro"));
+        SYNONYMS.put("ultrassom", List.of("imagem", "ultrassom"));
     }
 
     /**
-     * Processa a mensagem de entrada do usuário e determina a intenção ou o médico/especialidade buscado.
+     * Processa a mensagem de entrada e retorna o resultado da busca por tokens fatiados.
      *
-     * @param request DTO de requisição contendo a propriedade "mensagem".
-     * @return IntentAnalysisResponse com o contrato de resposta exigido pelo Blip.
+     * @param request DTO contendo a mensagem do usuário.
+     * @return IntentAnalysisResponse com o tipo apropriado.
      */
     public IntentAnalysisResponse processIntent(IntentAnalysisRequest request) {
         if (request == null || request.getMensagem() == null || request.getMensagem().isBlank()) {
@@ -93,7 +92,7 @@ public class IntentAnalysisService {
                 .build();
         }
 
-        // 3. Filtragem de Stopwords
+        // 3. Fatiamento de Tokens e Filtragem de Stopwords
         String[] words = normalized.split(" ");
         List<String> relevantWords = new ArrayList<>();
         for (String w : words) {
@@ -118,45 +117,85 @@ public class IntentAnalysisService {
             }
         }
 
-        // 5. Cálculo de Relevância (Score) na Base de Médicos e Exames
-        DoctorCatalog bestMatch = null;
-        int maxScore = 0;
+        // 5. Busca Fatiada e Avaliação de Relevância nos Candidatos do Catálogo
+        List<DoctorCatalogScore> matchingCandidates = new ArrayList<>();
 
         for (DoctorCatalog entry : DoctorCatalog.values()) {
             int score = 0;
             for (String token : searchTokens) {
                 if (entry.getTokens().contains(token)) {
                     score += 10;
-                    if (HIGH_WEIGHT_SURNAMES.contains(token)) {
-                        score += 15;
-                    }
                 }
             }
-            if (score > maxScore) {
-                maxScore = score;
-                bestMatch = entry;
+            if (score > 0) {
+                matchingCandidates.add(new DoctorCatalogScore(entry, score));
             }
         }
 
         String termoBuscado = String.join(" ", relevantWords);
 
-        if (bestMatch != null && maxScore > 0) {
-            log.info("[IntentAnalysis] Correspondência encontrada: {} ({}) com score {}. Termo: '{}'", 
-                    bestMatch.getDoctorName(), bestMatch.getSpecialty(), maxScore, termoBuscado);
+        if (matchingCandidates.isEmpty()) {
+            log.info("[IntentAnalysis] Nenhuma correspondência para os tokens: '{}'", termoBuscado);
             return IntentAnalysisResponse.builder()
-                .tipo("RESULTADOS_BUSCA")
+                .tipo("NENHUM_RESULTADO")
+                .termoBuscado(termoBuscado)
+                .build();
+        }
+
+        // Ordena candidatos por maior pontuação
+        matchingCandidates.sort((c1, c2) -> Integer.compare(c2.score(), c1.score()));
+        int maxScore = matchingCandidates.get(0).score();
+
+        // Filtra apenas os candidatos que obtiveram a pontuação máxima relevante
+        List<DoctorCatalog> topMatches = matchingCandidates.stream()
+            .filter(c -> c.score() == maxScore)
+            .map(c -> c.catalog())
+            .toList();
+
+        if (topMatches.size() == 1) {
+            DoctorCatalog bestMatch = topMatches.get(0);
+            log.info("[IntentAnalysis] RESULTADO_UNICO: {} ({}) para termo '{}'", 
+                    bestMatch.getDoctorName(), bestMatch.getSpecialty(), termoBuscado);
+
+            return IntentAnalysisResponse.builder()
+                .tipo("RESULTADO_UNICO")
                 .termoBuscado(termoBuscado)
                 .medico(bestMatch.getDoctorName())
                 .especialidade(bestMatch.getSpecialty())
                 .fila(bestMatch.getQueue())
                 .rota(bestMatch.getRoute())
+                .linkWa(buildWaLink(bestMatch))
+                .build();
+        } else {
+            log.info("[IntentAnalysis] MULTIPLOS_RESULTADOS ({}) para termo '{}'", topMatches.size(), termoBuscado);
+
+            List<IntentAnalysisResponse.DoctorOption> options = topMatches.stream()
+                .map(match -> IntentAnalysisResponse.DoctorOption.builder()
+                    .medico(match.getDoctorName())
+                    .especialidade(match.getSpecialty())
+                    .fila(match.getQueue())
+                    .rota(match.getRoute())
+                    .linkWa(buildWaLink(match))
+                    .build())
+                .toList();
+
+            return IntentAnalysisResponse.builder()
+                .tipo("MULTIPLOS_RESULTADOS")
+                .termoBuscado(termoBuscado)
+                .opcoes(options)
                 .build();
         }
-
-        log.info("[IntentAnalysis] Nenhuma correspondência de médico/especialidade encontrada para: '{}'", termoBuscado);
-        return IntentAnalysisResponse.builder()
-            .tipo("NENHUM_RESULTADO")
-            .termoBuscado(termoBuscado)
-            .build();
     }
+
+    private String buildWaLink(DoctorCatalog catalog) {
+        try {
+            String message = "Olá! Gostaria de agendar atendimento com " + catalog.getDoctorName() + " (" + catalog.getSpecialty() + ").";
+            String encodedMsg = URLEncoder.encode(message, StandardCharsets.UTF_8);
+            return "https://wa.me/554230262600?text=" + encodedMsg;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private record DoctorCatalogScore(DoctorCatalog catalog, int score) {}
 }

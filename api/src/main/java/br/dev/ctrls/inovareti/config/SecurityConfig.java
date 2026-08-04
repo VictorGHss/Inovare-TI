@@ -66,6 +66,7 @@ public class SecurityConfig {
 
                 // Webhooks e endpoints de integração estritamente autorizados publicamente.
                 .requestMatchers(HttpMethod.POST, "/api/webhooks/intencao", "/api/webhooks/intencao/", "/v1/webhooks/intencao", "/webhooks/intencao").permitAll()
+                .requestMatchers("/api/webhooks/paciente/**", "/v1/webhooks/paciente/**", "/webhooks/paciente/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/webhooks/blip", "/api/webhooks/blip/").permitAll()
                 .requestMatchers(HttpMethod.POST, "/webhooks/blip", "/webhooks/blip/").permitAll()
                 .requestMatchers(HttpMethod.POST, "/v1/webhook/blip", "/v1/webhook/blip/").permitAll()

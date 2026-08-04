@@ -6,7 +6,7 @@ import java.util.Set;
 
 /**
  * Catálogo estático dos médicos, especialidades e exames da Clínica Inovare.
- * Utilizado para pontuação e roteamento automático de intenções no bot do Blip.
+ * Utilizado para pontuação, busca fatiada por tokens e roteamento de intenções.
  * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Getter
@@ -24,21 +24,21 @@ public enum DoctorCatalog {
         "Gastroenterologia",
         "EXTERNAL_WA",
         "Gastroenterologia - Dra. Caroline Tatim Saad",
-        Set.of("caroline", "tatim", "saad", "gastro")
+        Set.of("caroline", "tatim", "saad", "gastro", "gastroenterologia")
     ),
     DR_CLAUDIO_SOLAK(
         "Dr. Claudio Solak",
         "Gastroenterologia",
         "EXTERNAL_WA",
         "Gastroenterologia - Dr. Claudio Solak",
-        Set.of("claudio", "solak", "gastro")
+        Set.of("claudio", "solak", "gastro", "gastroenterologia")
     ),
     DR_DANILO_SAAD(
         "Dr. Danilo Saad",
         "Gastroenterologia",
         "EXTERNAL_WA",
         "Gastroenterologia - Dr. Danilo Saad",
-        Set.of("danilo", "saad", "gastro")
+        Set.of("danilo", "saad", "gastro", "gastroenterologia")
     ),
     DR_ALEXANDRE_ACUNA(
         "Dr. Alexandre Barão Acuña",
@@ -59,14 +59,14 @@ public enum DoctorCatalog {
         "Alergia e Imunologia",
         "DESK",
         "Alergia e Imunologia - Dra. Vânia Gulin",
-        Set.of("vania", "gulin", "alergia", "imunologia")
+        Set.of("vania", "gulin", "alergia", "imunologia", "imuno")
     ),
     DR_JOELSON_GULIN(
         "Dr. Joelson José Gulin",
         "Cirurgia Ap. Digestivo",
         "DESK",
         "Cirurgia Ap. Digestivo - Dr. Joelson José Gulin",
-        Set.of("joelson", "gulin", "digestivo")
+        Set.of("joelson", "gulin", "digestivo", "cirurgia")
     ),
     DR_MARCELO_FERREIRA(
         "Dr. Marcelo Valladao Ferreira",
@@ -101,7 +101,7 @@ public enum DoctorCatalog {
         "Exames de Imagem",
         "EXTERNAL_WA",
         "Exames de Imagem - Clínica da Imagem / Clinipon",
-        Set.of("imagem", "clinipon", "ecocardiograma", "holter", "mapa")
+        Set.of("imagem", "clinipon", "ecocardiograma", "holter", "mapa", "ultrassom")
     );
 
     private final String doctorName;

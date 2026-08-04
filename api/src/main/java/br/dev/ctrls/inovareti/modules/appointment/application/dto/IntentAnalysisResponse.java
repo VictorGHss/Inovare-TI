@@ -47,6 +47,9 @@ public class IntentAnalysisResponse {
     @JsonProperty("opcoes")
     private List<DoctorOption> opcoes;
 
+    @JsonProperty("opcoesFormatadas")
+    private String opcoesFormatadas;
+
     /**
      * Opção individual de candidato utilizada para desambiguação em "MULTIPLOS_RESULTADOS".
      */

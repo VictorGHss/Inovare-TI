@@ -179,10 +179,22 @@ public class IntentAnalysisService {
                     .build())
                 .toList();
 
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < options.size(); i++) {
+                IntentAnalysisResponse.DoctorOption opt = options.get(i);
+                sb.append(i + 1)
+                  .append(". ")
+                  .append(opt.getMedico())
+                  .append(" (")
+                  .append(opt.getEspecialidade())
+                  .append(")\n");
+            }
+
             return IntentAnalysisResponse.builder()
                 .tipo("MULTIPLOS_RESULTADOS")
                 .termoBuscado(termoBuscado)
                 .opcoes(options)
+                .opcoesFormatadas(sb.toString().trim())
                 .build();
         }
     }

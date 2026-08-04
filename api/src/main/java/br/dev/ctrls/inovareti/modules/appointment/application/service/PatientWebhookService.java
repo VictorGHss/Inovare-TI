@@ -56,6 +56,14 @@ public class PatientWebhookService {
         log.info("[PatientWebhookService] Cadastrando paciente no Feegow. Nome: {}, CPF: {}", request.getNome(), request.getCpf());
 
         String cleanCpf = request.getCpf() != null ? request.getCpf().replaceAll("\\D", "") : "";
+        if (cleanCpf.length() != 11) {
+            log.warn("[PatientWebhookService] CPF com formato ou tamanho inválido ({}) dígitos. Rejeitando requisição.", cleanCpf.length());
+            return PatientWebhookRegistrationResponse.builder()
+                    .status("error")
+                    .mensagem("CPF inválido ou rejeitado pelo Feegow.")
+                    .build();
+        }
+
         String isoBirthdate = formatBirthdateToIso(request.getNascimento());
 
         URI uri = UriComponentsBuilder.fromUriString(motorProperties.getFeegowBaseUrl())
@@ -79,8 +87,26 @@ public class PatientWebhookService {
             ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());
             log.info("[PatientWebhookService] Resposta Feegow (status {}): {}", response.getStatusCode(), response.getBody());
             pacienteId = extractPatientId(response.getBody());
+        } catch (org.springframework.web.client.HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            log.warn("[PatientWebhookService] Erro HTTP {} ao chamar Feegow patient/edit. Body: {}", statusCode, ex.getResponseBodyAsString());
+            if (statusCode == 422 || statusCode == 400) {
+                return PatientWebhookRegistrationResponse.builder()
+                        .status("error")
+                        .mensagem("CPF inválido ou rejeitado pelo Feegow.")
+                        .build();
+            }
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            int statusCode = ex.getStatusCode().value();
+            log.warn("[PatientWebhookService] Erro RestClient {} ao chamar Feegow patient/edit. Body: {}", statusCode, ex.getResponseBodyAsString());
+            if (statusCode == 422 || statusCode == 400) {
+                return PatientWebhookRegistrationResponse.builder()
+                        .status("error")
+                        .mensagem("CPF inválido ou rejeitado pelo Feegow.")
+                        .build();
+            }
         } catch (Exception ex) {
-            log.warn("[PatientWebhookService] Exceção ao chamar Feegow patient/edit: {}", ex.getMessage());
+            log.warn("[PatientWebhookService] Exceção genérica ao chamar Feegow patient/edit: {}", ex.getMessage());
         }
 
         // Faz obrigatoriamente a consulta por paciente_cpf para retornar o paciente_id real gerado no Feegow

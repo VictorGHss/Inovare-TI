@@ -19,6 +19,20 @@ public enum DoctorCatalog {
         "Urologia - Dr. Carlos Heidi Koga",
         Set.of("carlos", "koga", "heidi", "uro", "urologia")
     ),
+    DR_CARLOS_BATISTA(
+        "Dr. Carlos Batista",
+        "Especialidade Médica",
+        "DESK",
+        "Especialidade Médica - Dr. Carlos Batista",
+        Set.of("carlos", "batista")
+    ),
+    DR_CARLOS_CAMARGO(
+        "Dr. Carlos Henrique Camargo",
+        "Especialidade Médica",
+        "DESK",
+        "Especialidade Médica - Dr. Carlos Henrique Camargo",
+        Set.of("carlos", "henrique", "camargo")
+    ),
     DRA_CAROLINE_SAAD(
         "Dra. Caroline Tatim Saad",
         "Gastroenterologia",

@@ -64,9 +64,12 @@ public class PatientWebhookService {
                 .toUri();
 
         Map<String, Object> payload = new HashMap<>();
+        payload.put("paciente_id", 0);
         payload.put("cpf", cleanCpf);
+        payload.put("nome", request.getNome() != null ? request.getNome().trim() : "");
         payload.put("nome_completo", request.getNome() != null ? request.getNome().trim() : "");
         if (isoBirthdate != null) {
+            payload.put("nascimento", isoBirthdate);
             payload.put("data_nascimento", isoBirthdate);
         }
 
@@ -80,17 +83,15 @@ public class PatientWebhookService {
             log.warn("[PatientWebhookService] Exceção ao chamar Feegow patient/edit: {}", ex.getMessage());
         }
 
-        // Se o pacienteId não veio na resposta do cadastro, tenta localizar pelo CPF
-        if (pacienteId == null || pacienteId.isBlank()) {
-            try {
-                FeegowPatient patient = patientExternalPort.patientInfo(cleanCpf);
-                if (patient != null && patient.id() != null && !patient.id().isBlank()) {
-                    pacienteId = patient.id();
-                    log.info("[PatientWebhookService] Paciente ID localizado via consulta por CPF: {}", pacienteId);
-                }
-            } catch (Exception ex) {
-                log.warn("[PatientWebhookService] Não foi possível consultar o paciente por CPF: {}", ex.getMessage());
+        // Faz obrigatoriamente a consulta por paciente_cpf para retornar o paciente_id real gerado no Feegow
+        try {
+            FeegowPatient patient = patientExternalPort.patientInfo(cleanCpf);
+            if (patient != null && patient.id() != null && !patient.id().isBlank()) {
+                pacienteId = patient.id();
+                log.info("[PatientWebhookService] Paciente ID real localizado no Feegow via consulta por CPF: {}", pacienteId);
             }
+        } catch (Exception ex) {
+            log.warn("[PatientWebhookService] Não foi possível consultar o paciente real por CPF: {}", ex.getMessage());
         }
 
         if (pacienteId == null || pacienteId.isBlank()) {

@@ -76,13 +76,18 @@ public class FeegowPatientAdapter implements PatientExternalPort {
     )
     public FeegowPatientDetailsDto.PatientItem getPatientDetails(String patientId) {
         String path = resolvePatientDetailsPath();
+        String cleanInput = patientId != null ? patientId.replaceAll("\\D", "") : "";
+        boolean isCpfSearch = cleanInput.length() == 11;
+        String paramName = isCpfSearch ? "paciente_cpf" : "paciente_id";
+        String paramValue = isCpfSearch ? cleanInput : patientId;
+
         URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
                 .path(path)
-                .queryParam("paciente_id", patientId)
+                .queryParam(paramName, paramValue)
                 .build()
                 .toUri();
 
-        log.info("[FEEGOW] [PATIENT-ADAPTER] Buscando detalhes do paciente ID: {} na URL: {}", patientId, uri);
+        log.info("[FEEGOW] [PATIENT-ADAPTER] Buscando detalhes do paciente ({}: {}) na URL: {}", paramName, paramValue, uri);
 
         try {
             log.debug("[FEEGOW] [SEMÁFORO] Aguardando permissão para buscar detalhes do paciente {}. Permissões disponíveis: {}", patientId, feegowConcurrencySemaphore.availablePermits());
@@ -96,6 +101,22 @@ public class FeegowPatientAdapter implements PatientExternalPort {
         try {
             ResponseEntity<String> response = patientClient.getPatientDetails(uri, getAccessToken());
             return extractPatientDetails(response.getBody());
+        } catch (org.springframework.web.client.HttpStatusCodeException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404 || statusCode == 409) {
+                log.warn("[FEEGOW] Paciente não encontrado ou conflito (HTTP {}): {}. Retornando null.", statusCode, ex.getMessage());
+                return null;
+            }
+            log.warn("Erro HTTP ao buscar detalhes do paciente id={} na Feegow: {}", patientId, ex.getMessage());
+            throw ex;
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            int statusCode = ex.getStatusCode().value();
+            if (statusCode == 404 || statusCode == 409) {
+                log.warn("[FEEGOW] Paciente não encontrado ou conflito (HTTP {}): {}. Retornando null.", statusCode, ex.getMessage());
+                return null;
+            }
+            log.warn("Erro ao buscar detalhes do paciente id={} na Feegow: {}", patientId, ex.getMessage());
+            throw ex;
         } catch (Exception ex) {
             log.warn("Erro ao buscar detalhes do paciente id={} na Feegow: {}", patientId, ex.getMessage());
             throw ex;

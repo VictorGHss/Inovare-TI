@@ -18,12 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Controller REST para o endpoint de extração de intenções e busca de médicos/especialidades.
+ * Mapeia as rotas /webhooks/intencao, /api/webhooks/intencao e /v1/webhooks/intencao para suportar
+ * a execução sob o context-path /api do Spring Boot.
  * Valida o cabeçalho X-API-KEY contra a chave secreta injetada via variável de ambiente.
  * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/webhooks/intencao")
+@RequestMapping({"/webhooks/intencao", "/api/webhooks/intencao", "/v1/webhooks/intencao"})
 @Tag(name = "Webhooks - Intenção Blip", description = "Endpoint de extração de intenção e busca por relevância de médicos/especialidades")
 public class IntentAnalysisController {
 
@@ -55,10 +57,13 @@ public class IntentAnalysisController {
 
         log.info("[IntentAnalysisController] Requisição recebida para extração de intenção.");
 
-        // Validação da chave secreta consumida da variável de ambiente WEBHOOK_SECRET_KEY
         if (secretKey == null || secretKey.trim().isEmpty() || apiKey == null || !secretKey.equals(apiKey)) {
             log.warn("[IntentAnalysisController] Acesso não autorizado ao webhook de intenção. X-API-KEY ausente ou inválida.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (request == null) {
+            request = new IntentAnalysisRequest();
         }
 
         try {
@@ -66,7 +71,7 @@ public class IntentAnalysisController {
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             log.error("[IntentAnalysisController] Falha ao processar intenção. Retornando fallback NENHUM_RESULTADO. Erro: {}", ex.getMessage(), ex);
-            String termoFallback = (request != null && request.getMensagem() != null) ? request.getMensagem().trim() : "";
+            String termoFallback = request.getMensagem() != null ? request.getMensagem().trim() : "";
             IntentAnalysisResponse fallback = IntentAnalysisResponse.builder()
                 .tipo("NENHUM_RESULTADO")
                 .termoBuscado(termoFallback)

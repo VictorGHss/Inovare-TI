@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO de requisição para a análise de intenção do bot Blip.
+ * Suporta mensagem bruta e campos contextuais para seleções por índice numérico.
  * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Data
@@ -18,4 +19,10 @@ public class IntentAnalysisRequest {
 
     @JsonProperty("mensagem")
     private String mensagem;
+
+    @JsonProperty("termoAnterior")
+    private String termoAnterior;
+
+    @JsonProperty("especialidade")
+    private String especialidade;
 }

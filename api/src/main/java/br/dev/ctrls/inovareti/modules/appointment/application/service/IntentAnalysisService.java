@@ -18,8 +18,9 @@ import java.util.Set;
 
 /**
  * Serviço de aplicação IntentAnalysisService.
- * Realiza busca por tokens fatiados, remoção de stopwords/acentos, mapeamento de sinônimos
- * e classificação de intenção ("RESULTADO_UNICO", "MULTIPLOS_RESULTADOS", "TRIGGER_ITSM", "NENHUM_RESULTADO").
+ * Realiza busca por tokens fatiados, remoção de stopwords/acentos, mapeamento de sinônimos,
+ * seleção por índice numérico ("1", "2", "opcao 1") e classificação de intenção
+ * ("RESULTADO_UNICO", "MULTIPLOS_RESULTADOS", "TRIGGER_ITSM", "NENHUM_RESULTADO").
  * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Slf4j
@@ -76,9 +77,9 @@ public class IntentAnalysisService {
     }
 
     /**
-     * Processa a mensagem de entrada e retorna o resultado da busca por tokens fatiados.
+     * Processa a mensagem de entrada e retorna o resultado da busca por tokens fatiados ou por seleção numérica.
      *
-     * @param request DTO contendo a mensagem do usuário.
+     * @param request DTO contendo a mensagem do usuário e contexto opcional.
      * @return IntentAnalysisResponse com o tipo apropriado.
      */
     public IntentAnalysisResponse processIntent(IntentAnalysisRequest request) {
@@ -102,63 +103,38 @@ public class IntentAnalysisService {
                 .build();
         }
 
-        // 2. Normalização do Texto: NFD (remoção de acentos), minúsculas e remoção de pontuação
-        String normalized = Normalizer.normalize(rawInput.toLowerCase(), Normalizer.Form.NFD)
-            .replaceAll("\\p{M}", "")
-            .replaceAll("[^a-z0-9\\s]", " ")
-            .replaceAll("\\s+", " ")
-            .trim();
+        // 2. Tratamento de Seleção por Índice Numérico (ex: "1", "2", "opcao 1")
+        Integer numericIndex = parseNumericIndex(rawInput);
+        if (numericIndex != null) {
+            String contextTerm = (request.getTermoAnterior() != null && !request.getTermoAnterior().isBlank())
+                ? request.getTermoAnterior()
+                : request.getEspecialidade();
 
-        if (normalized.isEmpty()) {
-            return IntentAnalysisResponse.builder()
-                .tipo("NENHUM_RESULTADO")
-                .termoBuscado(rawInput)
-                .build();
-        }
+            if (contextTerm != null && !contextTerm.isBlank()) {
+                List<DoctorCatalog> topMatches = findTopMatchesForTerm(contextTerm);
+                if (numericIndex >= 1 && numericIndex <= topMatches.size()) {
+                    DoctorCatalog selected = topMatches.get(numericIndex - 1);
+                    log.info("[IntentAnalysis] Seleção por índice numérico {} para contexto '{}': {} ({})",
+                            numericIndex, contextTerm, selected.getDoctorName(), selected.getSpecialty());
 
-        // 3. Fatiamento de Tokens e Filtragem de Stopwords
-        String[] words = normalized.split(" ");
-        List<String> relevantWords = new ArrayList<>();
-        for (String w : words) {
-            if (!w.isBlank() && !STOPWORDS.contains(w)) {
-                relevantWords.add(w);
-            }
-        }
-
-        if (relevantWords.isEmpty()) {
-            log.info("[IntentAnalysis] Apenas stopwords encontradas no texto: '{}'", normalized);
-            return IntentAnalysisResponse.builder()
-                .tipo("NENHUM_RESULTADO")
-                .termoBuscado(normalized)
-                .build();
-        }
-
-        // 4. Mapeamento de Sinônimos / Apelidos
-        Set<String> searchTokens = new HashSet<>(relevantWords);
-        for (String w : relevantWords) {
-            if (SYNONYMS.containsKey(w)) {
-                searchTokens.addAll(SYNONYMS.get(w));
-            }
-        }
-
-        // 5. Busca Fatiada e Avaliação de Relevância nos Candidatos do Catálogo
-        List<DoctorCatalogScore> matchingCandidates = new ArrayList<>();
-
-        for (DoctorCatalog entry : DoctorCatalog.values()) {
-            int score = 0;
-            for (String token : searchTokens) {
-                if (entry.getTokens().contains(token)) {
-                    score += 10;
+                    return IntentAnalysisResponse.builder()
+                        .tipo("RESULTADO_UNICO")
+                        .termoBuscado(contextTerm)
+                        .medico(selected.getDoctorName())
+                        .especialidade(selected.getSpecialty())
+                        .fila(selected.getQueue())
+                        .rota(selected.getRoute())
+                        .linkWa(buildWaLink(selected))
+                        .build();
                 }
             }
-            if (score > 0) {
-                matchingCandidates.add(new DoctorCatalogScore(entry, score));
-            }
         }
 
-        String termoBuscado = String.join(" ", relevantWords);
+        // 3. Busca Padrão por Tokens
+        List<DoctorCatalog> topMatches = findTopMatchesForTerm(rawInput);
+        String termoBuscado = extractTermoBuscado(rawInput);
 
-        if (matchingCandidates.isEmpty()) {
+        if (topMatches.isEmpty()) {
             log.info("[IntentAnalysis] Nenhuma correspondência para os tokens: '{}'", termoBuscado);
             return IntentAnalysisResponse.builder()
                 .tipo("NENHUM_RESULTADO")
@@ -166,19 +142,9 @@ public class IntentAnalysisService {
                 .build();
         }
 
-        // Ordena candidatos por maior pontuação
-        matchingCandidates.sort((c1, c2) -> Integer.compare(c2.score(), c1.score()));
-        int maxScore = matchingCandidates.get(0).score();
-
-        // Filtra apenas os candidatos que obtiveram a pontuação máxima relevante
-        List<DoctorCatalog> topMatches = matchingCandidates.stream()
-            .filter(c -> c.score() == maxScore)
-            .map(c -> c.catalog())
-            .toList();
-
         if (topMatches.size() == 1) {
             DoctorCatalog bestMatch = topMatches.get(0);
-            log.info("[IntentAnalysis] RESULTADO_UNICO: {} ({}) para termo '{}'", 
+            log.info("[IntentAnalysis] RESULTADO_UNICO: {} ({}) para termo '{}'",
                     bestMatch.getDoctorName(), bestMatch.getSpecialty(), termoBuscado);
 
             return IntentAnalysisResponse.builder()
@@ -221,6 +187,97 @@ public class IntentAnalysisService {
                 .opcoesFormatadas(sb.toString().trim())
                 .build();
         }
+    }
+
+    private List<DoctorCatalog> findTopMatchesForTerm(String termInput) {
+        if (termInput == null || termInput.isBlank()) {
+            return List.of();
+        }
+
+        String normalized = Normalizer.normalize(termInput.toLowerCase(), Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "")
+            .replaceAll("[^a-z0-9\\s]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
+
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+
+        String[] words = normalized.split(" ");
+        List<String> relevantWords = new ArrayList<>();
+        for (String w : words) {
+            if (!w.isBlank() && !STOPWORDS.contains(w)) {
+                relevantWords.add(w);
+            }
+        }
+
+        if (relevantWords.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> searchTokens = new HashSet<>(relevantWords);
+        for (String w : relevantWords) {
+            if (SYNONYMS.containsKey(w)) {
+                searchTokens.addAll(SYNONYMS.get(w));
+            }
+        }
+
+        List<DoctorCatalogScore> matchingCandidates = new ArrayList<>();
+        for (DoctorCatalog entry : DoctorCatalog.values()) {
+            int score = 0;
+            for (String token : searchTokens) {
+                if (entry.getTokens().contains(token)) {
+                    score += 10;
+                }
+            }
+            if (score > 0) {
+                matchingCandidates.add(new DoctorCatalogScore(entry, score));
+            }
+        }
+
+        if (matchingCandidates.isEmpty()) {
+            return List.of();
+        }
+
+        matchingCandidates.sort((c1, c2) -> Integer.compare(c2.score(), c1.score()));
+        int maxScore = matchingCandidates.get(0).score();
+
+        return matchingCandidates.stream()
+            .filter(c -> c.score() == maxScore)
+            .map(c -> c.catalog())
+            .toList();
+    }
+
+    private String extractTermoBuscado(String termInput) {
+        String normalized = Normalizer.normalize(termInput.toLowerCase(), Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "")
+            .replaceAll("[^a-z0-9\\s]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
+
+        String[] words = normalized.split(" ");
+        List<String> relevantWords = new ArrayList<>();
+        for (String w : words) {
+            if (!w.isBlank() && !STOPWORDS.contains(w)) {
+                relevantWords.add(w);
+            }
+        }
+        return relevantWords.isEmpty() ? normalized : String.join(" ", relevantWords);
+    }
+
+    private Integer parseNumericIndex(String text) {
+        if (text == null) return null;
+        String clean = text.replaceAll("[^0-9]", "").trim();
+        if (!clean.isEmpty() && clean.length() <= 2) {
+            try {
+                int val = Integer.parseInt(clean);
+                if (val >= 1 && val <= 20) {
+                    return val;
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        return null;
     }
 
     private String buildWaLink(DoctorCatalog catalog) {

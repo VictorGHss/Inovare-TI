@@ -245,6 +245,16 @@ public class BlipWebhookActionExecutor {
                     .build();
             // Chamada externa Blip (fora de transação) que executa de forma assíncrona o CompletableFuture de transbordo
             blipContextService.processAppointmentPush(dispatchIdentity, finalResult.action(), appointmentPayload);
+
+            if ("alter".equalsIgnoreCase(actionType) || "alteracao".equalsIgnoreCase(actionType)) {
+                try {
+                    blipContextService.setUserContextForUser(dispatchIdentity, "isConfirmingAgenda", "false");
+                    blipContextService.setUserContextForUser(dispatchIdentity, "hasActiveAppointment", "true");
+                    log.info("[WEBHOOK-EXEC] Injetado isConfirmingAgenda=false e hasActiveAppointment=true no contexto Blip para {}", dispatchIdentity);
+                } catch (Exception ex) {
+                    log.warn("[WEBHOOK-EXEC] Falha ao atualizar variáveis de contexto no Blip: {}", ex.getMessage());
+                }
+            }
         }
 
         return finalResult;

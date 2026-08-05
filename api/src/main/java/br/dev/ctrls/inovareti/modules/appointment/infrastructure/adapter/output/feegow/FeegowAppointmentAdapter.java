@@ -207,6 +207,45 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
     }
 
     @Override
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackFindById")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public FeegowAppointment findById(String appointmentId) {
+        if (appointmentId == null || appointmentId.isBlank()) {
+            return null;
+        }
+
+        URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path(properties.getFeegowSearchPath())
+                .queryParam("agendamento_id", appointmentId.trim())
+                .build().toUri();
+
+        log.info("[FEEGOW] [APPOINTMENT-ADAPTER] Buscando agendamento específico por ID {} na URL: {}", appointmentId, uri);
+
+        try {
+            feegowConcurrencySemaphore.acquire();
+            ResponseEntity<String> response = appointmentClient.searchAppointments(uri, getAccessToken());
+            List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> searchItems = extractSearchItems(response.getBody());
+            if (!searchItems.isEmpty()) {
+                return parseAppointment(searchItems.get(0));
+            }
+        } catch (Exception ex) {
+            log.warn("[FEEGOW] Falha ao consultar agendamento ID {}: {}", appointmentId, ex.getMessage());
+        } finally {
+            feegowConcurrencySemaphore.release();
+        }
+        return null;
+    }
+
+    public FeegowAppointment fallbackFindById(String appointmentId, Throwable t) {
+        log.warn("[FEEGOW] Fallback ativado ao consultar agendamento ID {}: {}", appointmentId, t.getMessage());
+        return null;
+    }
+
+    @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackUpdateAppointmentStatus")
     @Retryable(
         retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },

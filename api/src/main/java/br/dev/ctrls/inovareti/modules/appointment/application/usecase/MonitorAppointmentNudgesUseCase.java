@@ -22,6 +22,8 @@ import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.Appointment
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort;
 import br.dev.ctrls.inovareti.modules.appointment.infrastructure.config.AppointmentMotorProperties;
 import lombok.RequiredArgsConstructor;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
+import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.FeegowAppointment;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -37,6 +39,7 @@ public class MonitorAppointmentNudgesUseCase {
     private final SendAppointmentTemplateUseCase sendAppointmentTemplateUseCase;
     private final BlipContextService blipContextService;
     private final BlipNotificationService blipNotificationService;
+    private final AppointmentExternalPort appointmentExternalPort;
     private final TransactionTemplate transactionTemplate;
 
     @Transactional
@@ -120,6 +123,43 @@ public class MonitorAppointmentNudgesUseCase {
                     return false;
                 }
 
+                // --- RE-VALIDAÇÃO PREVENTIVA NO FEEGOW ERP ANTES DO ENVIO ---
+                if (lockedSession.getFeegowAppointmentId() != null && !lockedSession.getFeegowAppointmentId().isBlank()) {
+                    try {
+                        FeegowAppointment feegowAppt = appointmentExternalPort.findById(lockedSession.getFeegowAppointmentId());
+                        if (feegowAppt != null) {
+                            String statusId = feegowAppt.statusId();
+                            // Se no Feegow o agendamento não estiver mais com status_id == 1 (Marcado)
+                            if (statusId != null && !"1".equals(statusId.trim())) {
+                                AppointmentSessionStatus newStatus = "7".equals(statusId.trim())
+                                        ? AppointmentSessionStatus.CONFIRMED
+                                        : AppointmentSessionStatus.CANCELED;
+                                log.info("[NUDGE-GUARD] Agendamento Feegow ID {} possui status '{}' no ERP (diferente de 1 Marcado). Atualizando sessão local para {} e cancelando envio de lembrete.",
+                                        lockedSession.getFeegowAppointmentId(), statusId, newStatus);
+                                lockedSession.setStatus(newStatus);
+                                lockedSession.setClosedAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                                appointmentSessionRepository.save(lockedSession);
+                                return false;
+                            }
+
+                            // Se a data/hora da consulta tiver mudado no Feegow (reagendamento efetuado pela clínica)
+                            if (lockedSession.getAppointmentAt() != null && feegowAppt.startAt() != null) {
+                                if (!lockedSession.getAppointmentAt().isEqual(feegowAppt.startAt())) {
+                                    log.info("[NUDGE-GUARD] Agendamento Feegow ID {} foi reagendado no ERP (antigo: {}, novo: {}). Atualizando sessão local para ALTERATION_REQUESTED e cancelando envio de lembrete.",
+                                            lockedSession.getFeegowAppointmentId(), lockedSession.getAppointmentAt(), feegowAppt.startAt());
+                                    lockedSession.setStatus(AppointmentSessionStatus.ALTERATION_REQUESTED);
+                                    lockedSession.setClosedAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                                    appointmentSessionRepository.save(lockedSession);
+                                    return false;
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.warn("[NUDGE-GUARD] Falha na re-validação do agendamento Feegow ID {}: {}. Prosseguindo com o envio.",
+                                lockedSession.getFeegowAppointmentId(), ex.getMessage());
+                    }
+                }
+
                 // Mantém o status como PENDING e apenas atualiza a data/hora do envio
                 lockedSession.setStatus(AppointmentSessionStatus.PENDING);
                 lockedSession.setLastNotificationSentAt(LocalDateTime.now(SAO_PAULO_ZONE));
@@ -169,6 +209,43 @@ public class MonitorAppointmentNudgesUseCase {
                     appointmentSessionRepository.save(locked);
                 }
                 return false;
+            }
+
+            for (AppointmentSession s : groupSessions) {
+                if (s.getFeegowAppointmentId() != null && !s.getFeegowAppointmentId().isBlank()) {
+                    try {
+                        FeegowAppointment feegowAppt = appointmentExternalPort.findById(s.getFeegowAppointmentId());
+                        if (feegowAppt != null) {
+                            String statusId = feegowAppt.statusId();
+                            if (statusId != null && !"1".equals(statusId.trim())) {
+                                AppointmentSessionStatus newStatus = "7".equals(statusId.trim())
+                                        ? AppointmentSessionStatus.CONFIRMED
+                                        : AppointmentSessionStatus.CANCELED;
+                                log.info("[GRUPO-NUDGE-GUARD] Agendamento Feegow ID {} do grupo {} possui status '{}'. Atualizando sessão para {} e abortando envio.",
+                                        s.getFeegowAppointmentId(), groupId, statusId, newStatus);
+                                AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                                locked.setStatus(newStatus);
+                                locked.setClosedAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                                appointmentSessionRepository.save(locked);
+                                return false;
+                            }
+
+                            if (s.getAppointmentAt() != null && feegowAppt.startAt() != null) {
+                                if (!s.getAppointmentAt().isEqual(feegowAppt.startAt())) {
+                                    log.info("[GRUPO-NUDGE-GUARD] Agendamento Feegow ID {} do grupo {} foi reagendado (antigo: {}, novo: {}). Atualizando sessão para ALTERATION_REQUESTED e abortando envio.",
+                                            s.getFeegowAppointmentId(), groupId, s.getAppointmentAt(), feegowAppt.startAt());
+                                    AppointmentSession locked = appointmentSessionRepository.findByIdLocked(s.getId()).orElse(s);
+                                    locked.setStatus(AppointmentSessionStatus.ALTERATION_REQUESTED);
+                                    locked.setClosedAt(LocalDateTime.now(SAO_PAULO_ZONE));
+                                    appointmentSessionRepository.save(locked);
+                                    return false;
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.warn("[GRUPO-NUDGE-GUARD] Falha na re-validação do agendamento Feegow ID {}: {}", s.getFeegowAppointmentId(), ex.getMessage());
+                    }
+                }
             }
 
             for (AppointmentSession s : groupSessions) {

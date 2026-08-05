@@ -27,9 +27,9 @@ public class AlterBlipWebhookActionHandler implements BlipWebhookActionHandler {
 
     @Override
     public void applySessionState(AppointmentSession session, String action, String fromIdentity) {
-        session.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED);
+        session.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.ALTERATION_REQUESTED);
         session.setClosedAt(java.time.LocalDateTime.now());
-        log.info("[MENSAGERIA] Ação de {} processada com sucesso no banco e na Feegow. Navegação entregue ao Builder nativo.", "alteração");
+        log.info("[ALTERAR] Sessão ID {} atualizada para ALTERATION_REQUESTED. Lembretes automáticos suspensos.", session.getId());
     }
 }
 

@@ -37,6 +37,14 @@ public interface AppointmentExternalPort {
     List<FeegowAppointment> searchPatientAppointments(String patientId);
 
     /**
+     * Consulta os detalhes de um agendamento específico no Feegow ERP pelo seu ID.
+     *
+     * @param appointmentId ID do agendamento
+     * @return FeegowAppointment correspondente ou null se não localizado
+     */
+    FeegowAppointment findById(String appointmentId);
+
+    /**
      * Atualiza o status de um agendamento na Feegow por meio do identificador (String).
      *
      * @param appointmentId ID do agendamento

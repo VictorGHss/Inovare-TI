@@ -7,5 +7,6 @@ public enum AppointmentSessionStatus {
     CONFIRMED,
     CANCELED_NO_RESPONSE,
     CANCELED,
-    ERROR_DELIVERY
+    ERROR_DELIVERY,
+    ALTERATION_REQUESTED
 }

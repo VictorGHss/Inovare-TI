@@ -134,4 +134,48 @@ class BlipActiveCampaignMigrationTest {
         String jsonOutput = objectMapper.writeValueAsString(payload);
         assertTrue(jsonOutput.contains("messageParams"), "O JSON final gerado deve conter a chave 'messageParams' se houver variáveis");
     }
+
+    @Test
+    @DisplayName("Deveria validar conformidade estrita com o padrão Active Campaign Growth (/campaign/full)")
+    void shouldValidateFullActiveCampaignGrowthSpecification() {
+        Map<String, Object> payload = payloadBuilder.buildActiveCampaignCommandPayload(
+                "Campanha Teste",
+                "+5542999998888",
+                "template_teste_v1",
+                Map.of("1", "Carlos", "2", "15/08 às 14:00"),
+                List.of("1", "2")
+        );
+
+        assertEquals("postmaster@activecampaign.msging.net", payload.get("to"));
+        assertEquals("set", payload.get("method"));
+        assertEquals("/campaign/full", payload.get("uri"));
+        assertEquals("application/vnd.iris.activecampaign.full-campaign+json", payload.get("type"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resource = (Map<String, Object>) payload.get("resource");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> campaign = (Map<String, Object>) resource.get("campaign");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> audience = (Map<String, Object>) resource.get("audience");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> message = (Map<String, Object>) resource.get("message");
+
+        assertEquals("Campanha Teste", campaign.get("name"));
+        assertEquals("Individual", campaign.get("campaignType"));
+        assertEquals("WhatsApp", campaign.get("channelType"));
+        assertEquals("Inovare-ITSM", campaign.get("sourceApplication"));
+
+        assertEquals("+5542999998888", audience.get("recipient"));
+        @SuppressWarnings("unchecked")
+        Map<String, String> audienceParams = (Map<String, String>) audience.get("messageParams");
+        assertEquals("Carlos", audienceParams.get("1"));
+        assertEquals("15/08 às 14:00", audienceParams.get("2"));
+
+        assertEquals("template_teste_v1", message.get("messageTemplate"));
+        assertEquals("pt_BR", message.get("messageTemplateLanguage"));
+        assertEquals("WhatsApp", message.get("channelType"));
+        @SuppressWarnings("unchecked")
+        List<String> messageParams = (List<String>) message.get("messageParams");
+        assertEquals(List.of("1", "2"), messageParams);
+    }
 }

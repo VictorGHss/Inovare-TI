@@ -24,6 +24,7 @@ public class IntentAnalyzerController {
 
     @Data
     public static class AnalyzeRequest {
+        @com.fasterxml.jackson.annotation.JsonAlias({"message", "text", "mensagem", "input", "query"})
         private String text;
         private Integer page;
     }

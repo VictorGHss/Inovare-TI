@@ -1,5 +1,6 @@
 package br.dev.ctrls.inovareti.modules.appointment.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,6 +18,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class IntentAnalysisRequest {
 
+    @JsonAlias({"message", "text", "query", "input"})
     @JsonProperty("mensagem")
     private String mensagem;
 

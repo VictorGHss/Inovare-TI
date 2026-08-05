@@ -41,6 +41,7 @@ public class SecurityConfig {
 
     private final SecurityFilter securityFilter;
     private final RawBodyLoggingFilter rawBodyLoggingFilter;
+    private final br.dev.ctrls.inovareti.infrastructure.shared.web.filter.BlipTokenSecurityFilter blipTokenSecurityFilter;
     private final AppCorsProperties corsProperties;
 
     /**
@@ -64,7 +65,11 @@ public class SecurityConfig {
                 // Preflight OPTIONS liberado para CORS antes de qualquer outra regra
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Webhooks e endpoints de integração estritamente autorizados publicamente.
+                // Webhooks e endpoints de integração do Blip estritamente autorizados com validação de token X-Inovare-Token no BlipTokenSecurityFilter
+                .requestMatchers("/v1/nlp/**", "/api/v1/nlp/**").permitAll()
+                .requestMatchers("/v1/feegow/**", "/api/v1/feegow/**").permitAll()
+                .requestMatchers("/v1/atendimento/**", "/api/v1/atendimento/**").permitAll()
+
                 .requestMatchers(HttpMethod.POST, "/api/webhooks/intencao", "/api/webhooks/intencao/", "/v1/webhooks/intencao", "/webhooks/intencao").permitAll()
                 .requestMatchers("/api/webhooks/paciente/**", "/v1/webhooks/paciente/**", "/webhooks/paciente/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/webhooks/blip", "/api/webhooks/blip/").permitAll()
@@ -91,6 +96,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(rawBodyLoggingFilter, SecurityContextHolderFilter.class)
+            .addFilterBefore(blipTokenSecurityFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(new ManualTriggerKeyFilter(), UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(securityFilter, ManualTriggerKeyFilter.class);
 

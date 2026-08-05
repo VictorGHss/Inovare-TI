@@ -34,6 +34,9 @@ public class IntentAnalyzerService {
     );
 
     private static final Map<String, String> NICKNAME_SPECIALTY_MAP = Map.ofEntries(
+            Map.entry("anestesia", "Anestesiologia"),
+            Map.entry("anestesiologia", "Anestesiologia"),
+            Map.entry("anestesista", "Anestesiologia"),
             Map.entry("gineco", "Ginecologia"),
             Map.entry("ginecologista", "Ginecologia"),
             Map.entry("oftalmo", "Oftalmologia"),
@@ -42,20 +45,44 @@ public class IntentAnalyzerService {
             Map.entry("cardiologista", "Cardiologia"),
             Map.entry("uro", "Urologia"),
             Map.entry("urologista", "Urologia"),
-            Map.entry("pneumo", "Cirurgia Torácica e Pneumologia"),
-            Map.entry("pneumologista", "Cirurgia Torácica e Pneumologia"),
+            Map.entry("pneumo", "Cirurgia Torácica"),
+            Map.entry("pneumologista", "Cirurgia Torácica"),
             Map.entry("reumato", "Reumatologia"),
             Map.entry("reumatologista", "Reumatologia"),
             Map.entry("imuno", "Alergia e Imunologia"),
             Map.entry("alergista", "Alergia e Imunologia"),
+            Map.entry("alergia", "Alergia e Imunologia"),
             Map.entry("digestivo", "Cirurgia do Aparelho Digestivo"),
             Map.entry("plastica", "Cirurgia Plástica"),
             Map.entry("vascular", "Cirurgia Vascular"),
-            Map.entry("toracica", "Cirurgia Torácica e Pneumologia"),
+            Map.entry("toracica", "Cirurgia Torácica"),
             Map.entry("dermato", "Dermatologia"),
             Map.entry("dermatologista", "Dermatologia"),
             Map.entry("orto", "Ortopedia"),
-            Map.entry("ortopedista", "Ortopedia")
+            Map.entry("ortopedista", "Ortopedia"),
+            Map.entry("endocrino", "Endocrinologia"),
+            Map.entry("endocrinologista", "Endocrinologia"),
+            Map.entry("gastro", "Gastroenterologia"),
+            Map.entry("gastroenterologista", "Gastroenterologia"),
+            Map.entry("hepato", "Hepatologia"),
+            Map.entry("hepatologista", "Hepatologia"),
+            Map.entry("nefro", "Nefrologia"),
+            Map.entry("nefrologista", "Nefrologia"),
+            Map.entry("neuro", "Neurologia"),
+            Map.entry("neurologista", "Neurologia"),
+            Map.entry("nutri", "Nutrição"),
+            Map.entry("nutricionista", "Nutrição"),
+            Map.entry("odonto", "Odontologia"),
+            Map.entry("dentista", "Odontologia"),
+            Map.entry("fisio", "Fisioterapia"),
+            Map.entry("fisioterapeuta", "Fisioterapia"),
+            Map.entry("fono", "Fonoaudiologia"),
+            Map.entry("fonoaudiologa", "Fonoaudiologia"),
+            Map.entry("psico", "Psicologia"),
+            Map.entry("psicologa", "Psicologia"),
+            Map.entry("psiquiatra", "Psiquiatria"),
+            Map.entry("pediatra", "Pediatria"),
+            Map.entry("pediatria", "Pediatria")
     );
 
     /**
@@ -201,8 +228,8 @@ public class IntentAnalyzerService {
                 .route(catalog.getRoute())
                 .queue(catalog.getQueue())
                 .isInternal(isInternal)
-                .externalLink(!isInternal ? "https://wa.me/" : null)
-                .externalPhone(!isInternal ? "5542999999999" : null)
+                .externalLink(!isInternal ? "https://wa.me/554230262633" : null)
+                .externalPhone(!isInternal ? "(42) 3026-2633" : null)
                 .isSynthetic(false)
                 .build();
     }

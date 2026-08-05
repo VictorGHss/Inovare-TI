@@ -7,7 +7,6 @@ import java.util.Set;
 /**
  * Catálogo estático abrangente dos médicos, especialidades e exames da Clínica Inovare.
  * Utilizado para pontuação, busca fatiada por tokens e roteamento de intenções.
- * Comentários mantidos em PT-BR pelas Regras de Ouro.
  */
 @Getter
 public enum DoctorCatalog {
@@ -21,7 +20,16 @@ public enum DoctorCatalog {
         Set.of("vania", "gulin", "alergia", "imunologia", "alergologista", "imuno")
     ),
 
-    // 2. Cardiologia
+    // 2. Anestesiologia
+    ANESTESIOLOGIA(
+        "Anestesiologia (Secretaria do Setor)",
+        "Anestesiologia",
+        "DESK",
+        "Anestesiologia - Secretaria",
+        Set.of("anestesia", "anestesiologia", "anestesista")
+    ),
+
+    // 3. Cardiologia
     DRA_LILIANA_PILATTI(
         "Dra. Liliana Elias Pena Pilatti",
         "Cardiologia",
@@ -44,7 +52,7 @@ public enum DoctorCatalog {
         Set.of("rubens", "sirtoli", "cardiologia", "cardio")
     ),
 
-    // 3. Cirurgia do Aparelho Digestivo
+    // 4. Cirurgia do Aparelho Digestivo
     DR_CESAR_ODA(
         "Dr. Cesar Toshio Oda",
         "Cirurgia do Aparelho Digestivo",
@@ -60,7 +68,7 @@ public enum DoctorCatalog {
         Set.of("joelson", "jose", "gulin", "digestivo", "cirurgia")
     ),
 
-    // 4. Cirurgia Geral
+    // 5. Cirurgia Geral
     DR_DANIEL_ODA(
         "Dr. Daniel Oda",
         "Cirurgia Geral",
@@ -69,7 +77,7 @@ public enum DoctorCatalog {
         Set.of("daniel", "oda", "cirurgia", "geral")
     ),
 
-    // 5. Cirurgia Plástica
+    // 6. Cirurgia Plástica
     DR_VICTOR_MAURO(
         "Dr. Victor Mauro",
         "Cirurgia Plástica",
@@ -78,16 +86,16 @@ public enum DoctorCatalog {
         Set.of("victor", "mauro", "plastica", "cirurgia")
     ),
 
-    // 6. Cirurgia Torácica & Pneumologia
+    // 7. Cirurgia Torácica
     DR_MAGNO_ZANELLATO(
         "Dr. Magno Zanellato",
-        "Cirurgia Torácica e Pneumologia",
+        "Cirurgia Torácica",
         "DESK",
-        "Cirurgia Torácica e Pneumologia - Dr. Magno Zanellato",
+        "Cirurgia Torácica - Dr. Magno Zanellato",
         Set.of("magno", "zanellato", "toracica", "pneumologia", "pneumo")
     ),
 
-    // 7. Cirurgia Vascular
+    // 8. Cirurgia Vascular
     DR_BRUNO_PANCAN(
         "Dr. Bruno Figueiredo Pançan",
         "Cirurgia Vascular",
@@ -110,7 +118,7 @@ public enum DoctorCatalog {
         Set.of("ricardo", "zanetti", "gomes", "vascular")
     ),
 
-    // 8. Clínica Geral
+    // 9. Clínica Geral
     DRA_ANA_PAULA_CARVALHO(
         "Dra. Ana Paula Costa Pádua de Carvalho",
         "Clínica Geral",
@@ -126,7 +134,7 @@ public enum DoctorCatalog {
         Set.of("luiz", "henrique", "strack", "clinica", "geral", "clinico")
     ),
 
-    // 9. Dermatologia
+    // 10. Dermatologia
     DR_GIULIANO_DORETTO(
         "Dr. Giuliano Schultz Doretto Campanari",
         "Dermatologia",
@@ -135,7 +143,7 @@ public enum DoctorCatalog {
         Set.of("giuliano", "schultz", "doretto", "campanari", "dermatologia", "dermato")
     ),
 
-    // 10. Endocrinologia
+    // 11. Endocrinologia
     DR_ALEXANDRE_ACUNA(
         "Dr. Alexandre Barão Acuña",
         "Endocrinologia",
@@ -144,7 +152,7 @@ public enum DoctorCatalog {
         Set.of("alexandre", "barao", "acuna", "endocrinologia", "endocrino")
     ),
 
-    // 11. Fisioterapia
+    // 12. Fisioterapia
     DRA_JULIANA_BORATO(
         "Dra. Juliana Borato",
         "Fisioterapia",
@@ -153,7 +161,7 @@ public enum DoctorCatalog {
         Set.of("juliana", "borato", "fisioterapia", "fisio")
     ),
 
-    // 12. Fonoaudiologia
+    // 13. Fonoaudiologia
     DRA_CINTIA_CENOVICZ(
         "Dra. Cíntia Simão Cenovicz",
         "Fonoaudiologia",
@@ -162,7 +170,7 @@ public enum DoctorCatalog {
         Set.of("cintia", "simao", "cenovicz", "fonoaudiologia", "fono")
     ),
 
-    // 13. Gastroenterologia
+    // 14. Gastroenterologia
     DRA_CAROLINE_SAAD(
         "Dra. Caroline Tatim Saad",
         "Gastroenterologia",
@@ -185,58 +193,67 @@ public enum DoctorCatalog {
         Set.of("danilo", "saad", "gastroenterologia", "gastro")
     ),
 
-    // 14. Ginecologia
+    // 15. Ginecologia (WhatsApp Próprio)
     DRA_BRENDA_AGUIAR(
         "Dra. Brenda de Almeida Aguiar",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dra. Brenda de Almeida Aguiar",
         Set.of("brenda", "almeida", "aguiar", "ginecologia", "gineco")
     ),
     DR_CARLOS_BATISTA(
         "Dr. Carlos Alberto Batista da Silva",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dr. Carlos Alberto Batista da Silva",
         Set.of("carlos", "alberto", "batista", "ginecologia", "gineco")
     ),
     DR_EDSON_DELFRATE(
         "Dr. Edson Delfrate",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dr. Edson Delfrate",
         Set.of("edson", "delfrate", "ginecologia", "gineco")
     ),
     DR_EDUARDO_SERMAN(
         "Dr. Eduardo Serman",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dr. Eduardo Serman",
         Set.of("eduardo", "serman", "ginecologia", "gineco")
     ),
     DRA_ISABELA_MONGRUEL(
         "Dra. Isabela Baumel Mongruel",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dra. Isabela Baumel Mongruel",
         Set.of("isabela", "baumel", "mongruel", "ginecologia", "gineco")
     ),
     DRA_LISA_TEIXEIRA(
         "Dra. Lisa Paula Fernandes Teixeira",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dra. Lisa Paula Fernandes Teixeira",
         Set.of("lisa", "paula", "fernandes", "teixeira", "ginecologia", "gineco")
     ),
     DRA_TATYELLEN_DALZOTTO(
         "Dra. Tatyellen Dalzotto",
         "Ginecologia",
-        "DESK",
+        "EXTERNAL_WA",
         "Ginecologia - Dra. Tatyellen Dalzotto",
         Set.of("tatyellen", "dalzotto", "ginecologia", "gineco")
     ),
 
-    // 15. Nefrologia
+    // 16. Hepatologia
+    DR_FILIPE_JUSTUS(
+        "Dr. Filipe Fernandes Justus",
+        "Hepatologia",
+        "EXTERNAL_WA",
+        "Hepatologia - Dr. Filipe Fernandes Justus",
+        Set.of("filipe", "fernandes", "justus", "hepatologia", "hepato")
+    ),
+
+    // 17. Nefrologia
     DR_JOAO_FELIPE_BUENO(
         "Dr. João Felipe Lara Bueno",
         "Nefrologia",
@@ -245,7 +262,7 @@ public enum DoctorCatalog {
         Set.of("joao", "felipe", "lara", "bueno", "nefrologia", "nefro")
     ),
 
-    // 16. Neurologia
+    // 18. Neurologia
     DR_CARLOS_CAMARGO(
         "Dr. Carlos Henrique Ferreira Camargo",
         "Neurologia",
@@ -261,7 +278,7 @@ public enum DoctorCatalog {
         Set.of("marcelo", "tessari", "neurologia", "neuro")
     ),
 
-    // 17. Nutrição
+    // 19. Nutrição
     PAOLA_PAVLAK(
         "Paola Francielle Pavlak",
         "Nutrição",
@@ -270,7 +287,7 @@ public enum DoctorCatalog {
         Set.of("paola", "francielle", "pavlak", "nutricao", "nutricionista", "nutri")
     ),
 
-    // 18. Odontologia
+    // 20. Odontologia
     DR_ROBERTO_KRAVCHYCHYN(
         "Dr. Roberto Kravchychyn",
         "Odontologia",
@@ -279,7 +296,7 @@ public enum DoctorCatalog {
         Set.of("roberto", "kravchychyn", "odontologia", "odonto", "dentista")
     ),
 
-    // 19. Oftalmologia
+    // 21. Oftalmologia (WhatsApp Próprio Cenovicz)
     DRA_FERNANDA_CENOVICZ(
         "Dra. Fernanda Cenovicz",
         "Oftalmologia",
@@ -302,7 +319,7 @@ public enum DoctorCatalog {
         Set.of("murilo", "cenovicz", "oftalmologia", "oftalmo")
     ),
 
-    // 20. Ortopedia
+    // 22. Ortopedia
     DR_CARLOS_MIERS(
         "Dr. Carlos Miers",
         "Ortopedia",
@@ -360,7 +377,7 @@ public enum DoctorCatalog {
         Set.of("rodrigo", "caldonazzo", "favaro", "ortopedia", "ortopedista", "orto")
     ),
 
-    // 21. Ortopedia Pediátrica
+    // 23. Ortopedia Pediátrica
     DR_EDUARDO_MATTOS(
         "Dr. Eduardo Mattos",
         "Ortopedia Pediátrica",
@@ -369,7 +386,7 @@ public enum DoctorCatalog {
         Set.of("eduardo", "mattos", "ortopedia", "pediatrica")
     ),
 
-    // 22. Pediatria
+    // 24. Pediatria
     DRA_FABIOLA_BAIGORRIA(
         "Dra. Fabíola Moreira Baigorria",
         "Pediatria",
@@ -378,7 +395,7 @@ public enum DoctorCatalog {
         Set.of("fabiola", "moreira", "baigorria", "pediatria", "pediatra")
     ),
 
-    // 23. Psicologia
+    // 25. Psicologia
     DRA_THAIS_SILVESTRE(
         "Dra. Thais Fernanda Silvestre",
         "Psicologia",
@@ -387,7 +404,7 @@ public enum DoctorCatalog {
         Set.of("thais", "fernanda", "silvestre", "psicologia", "psicologa")
     ),
 
-    // 24. Psiquiatria
+    // 26. Psiquiatria
     DRA_KELLY_COSTA(
         "Dra. Kelly Melina Brito Costa",
         "Psiquiatria",
@@ -396,7 +413,7 @@ public enum DoctorCatalog {
         Set.of("kelly", "melina", "brito", "costa", "psiquiatria", "psiquiatra")
     ),
 
-    // 25. Reumatologia
+    // 27. Reumatologia
     DR_MARCELO_SCHAFRANSKI(
         "Dr. Marcelo Schafranski",
         "Reumatologia",
@@ -405,7 +422,7 @@ public enum DoctorCatalog {
         Set.of("marcelo", "schafranski", "reumatologia", "reumato")
     ),
 
-    // 26. Urologia
+    // 28. Urologia
     DR_ALISSON_FUCIO(
         "Dr. Alisson Vinicius Emerique Fucio",
         "Urologia",
@@ -435,20 +452,48 @@ public enum DoctorCatalog {
         Set.of("ricardo", "angelo", "jeczmionski", "urologia", "uro")
     ),
 
-    // Exames
+    // Exames Suportados
+    EXAME_TESTE_ERGOMETRICO(
+        "Teste Ergométrico",
+        "Exames de Cardiologia",
+        "DESK",
+        "Exames - Teste Ergométrico",
+        Set.of("ergometrico", "esteira", "teste")
+    ),
     EXAMES_DIGESTIVOS(
         "Endoscopia / Colonoscopia",
         "Exames Digestivos",
         "DESK",
         "Exames Digestivos - Endoscopia / Colonoscopia",
-        Set.of("endoscopia", "colonoscopia", "phmetria")
+        Set.of("endoscopia", "colonoscopia", "phmetria", "manometria")
+    ),
+    EXAME_ESPIROMETRIA(
+        "Espirometria",
+        "Exames Pulmonares",
+        "DESK",
+        "Exames - Espirometria",
+        Set.of("espirometria", "sopro", "pulmao")
+    ),
+    EXAME_MAPA_HOLTER(
+        "MAPA e Holter",
+        "Exames de Cardiologia",
+        "DESK",
+        "Exames - MAPA e Holter",
+        Set.of("mapa", "holter", "pressao")
+    ),
+    EXAME_PHMETRIA_MANOMETRIA(
+        "PHmetria e Manometria Esofágica",
+        "Exames Digestivos",
+        "DESK",
+        "Exames Digestivos - PHmetria e Manometria",
+        Set.of("phmetria", "manometria", "esofagica")
     ),
     EXAMES_IMAGEM(
         "Clínica da Imagem / Clinipon",
         "Exames de Imagem",
         "EXTERNAL_WA",
         "Exames de Imagem - Clínica da Imagem / Clinipon",
-        Set.of("imagem", "clinipon", "ecocardiograma", "holter", "mapa", "ultrassom")
+        Set.of("imagem", "clinipon", "ecocardiograma", "eletrocardiograma", "ultrassom", "tomografia")
     );
 
     private final String doctorName;

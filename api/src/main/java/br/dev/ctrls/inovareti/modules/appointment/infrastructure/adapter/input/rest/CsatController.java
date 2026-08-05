@@ -67,7 +67,7 @@ public class CsatController {
         }
 
         String cleanCpf = request.getCpf() != null ? request.getCpf().replaceAll("\\D", "") : "";
-        log.info("[CSAT-AUDIT] [AVALIAÇÃO-RECEBIDA] Paciente ID: '{}', CPF: '{}', Nota: {}/5, Feedback: '{}'",
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint POST /v1/atendimento/csat para Paciente ID: '{}', CPF: '{}', Nota: {}/5, Feedback: '{}'",
                 request.getPatientId(), cleanCpf, request.getRating(), request.getFeedback());
 
         return ResponseEntity.ok(

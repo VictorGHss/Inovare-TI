@@ -48,7 +48,7 @@ public class IntentAnalyzerController {
             page = request.getPage();
         }
 
-        log.info("[REST] Recebida requisição POST /v1/nlp/analyze com texto: '{}', página: {}", textToAnalyze, page);
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint POST /v1/nlp/analyze com texto: '{}', página: {}", textToAnalyze, page);
 
         IntentAnalysisResultDto result = intentAnalyzerService.analyzeIntent(textToAnalyze, page);
         return ResponseEntity.ok(result);
@@ -62,7 +62,7 @@ public class IntentAnalyzerController {
             @RequestParam(name = "text", required = false, defaultValue = "") String text,
             @RequestParam(name = "page", required = false, defaultValue = "1") int page) {
 
-        log.info("[REST] Recebida requisição GET /v1/nlp/analyze com texto: '{}', página: {}", text, page);
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint GET /v1/nlp/analyze com texto: '{}', página: {}", text, page);
         IntentAnalysisResultDto result = intentAnalyzerService.analyzeIntent(text, page);
         return ResponseEntity.ok(result);
     }

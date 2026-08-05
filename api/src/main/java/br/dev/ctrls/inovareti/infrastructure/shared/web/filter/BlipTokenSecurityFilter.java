@@ -76,7 +76,7 @@ public class BlipTokenSecurityFilter extends OncePerRequestFilter {
         authentication.setDetails(Map.of("blipIntegration", true));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        log.debug("[BLIP-SECURITY] Acesso autorizado com sucesso para: {} {}", method, path);
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint {} com método: {} (Token X-Inovare-Token validado)", path, method);
         filterChain.doFilter(request, response);
     }
 

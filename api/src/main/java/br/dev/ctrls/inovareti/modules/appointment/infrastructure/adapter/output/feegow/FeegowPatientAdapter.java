@@ -338,8 +338,12 @@ public class FeegowPatientAdapter implements PatientExternalPort {
             }
 
             return new FeegowPatient(null, name, cleanPhone, cleanCpf, isoBirthdate);
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            log.error("[FEEGOW-ERROR] Falha HTTP ao cadastrar paciente (nome: '{}', cpf: '{}'). Status Code: {}, Status Text: {}, Response Body: {}",
+                    name, cleanCpf, ex.getStatusCode(), ex.getStatusText(), ex.getResponseBodyAsString());
+            throw new RuntimeException("Falha na API Feegow ERP (HTTP " + ex.getStatusCode() + "): " + ex.getResponseBodyAsString(), ex);
         } catch (Exception ex) {
-            log.error("[FEEGOW] Erro ao cadastrar paciente (nome: {}, cpf: {}): {}", name, cleanCpf, ex.getMessage(), ex);
+            log.error("[FEEGOW-ERROR] Erro inesperado ao cadastrar paciente (nome: '{}', cpf: '{}'): {}", name, cleanCpf, ex.getMessage(), ex);
             throw new RuntimeException("Falha ao cadastrar paciente no Feegow: " + ex.getMessage(), ex);
         }
     }

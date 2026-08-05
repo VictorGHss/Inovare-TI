@@ -94,7 +94,7 @@ public class PatientIntegrationController {
         }
 
         String cleanCpf = rawCpf.replaceAll("\\D", "");
-        log.info("[REST] [PATIENT-SEARCH] Solicitada busca de paciente por CPF (higienizado): {}", cleanCpf);
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint /v1/feegow/patients/search para o CPF: {}", cleanCpf);
 
         FeegowPatient patient = patientExternalPort.patientInfo(cleanCpf);
 
@@ -132,7 +132,7 @@ public class PatientIntegrationController {
         }
 
         String cleanCpf = request.getCpf().replaceAll("\\D", "");
-        log.info("[REST] [PATIENT-CREATE] Solicitado cadastro de paciente: '{}', CPF: '{}', Data informada: '{}'",
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint /v1/feegow/patients/create para Nome: '{}', CPF: '{}', Data: '{}'",
                 request.getNome(), cleanCpf, request.getDataNascimento());
 
         String formattedIsoDate;
@@ -190,7 +190,7 @@ public class PatientIntegrationController {
             );
         }
 
-        log.info("[REST] [PATIENT-APPOINTMENTS] Solicitada consulta de agendamentos futuros para paciente ID: {}", patientId);
+        log.info("[BLIP-INBOUND] Recebida chamada no endpoint GET /v1/feegow/patients/{}/appointments", patientId);
 
         List<FeegowAppointment> appointments = appointmentExternalPort.searchPatientAppointments(patientId);
         boolean hasAppointments = appointments != null && !appointments.isEmpty();

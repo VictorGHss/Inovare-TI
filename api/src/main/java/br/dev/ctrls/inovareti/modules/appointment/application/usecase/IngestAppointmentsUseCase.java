@@ -256,11 +256,15 @@ public class IngestAppointmentsUseCase {
                 .filter(id -> !id.isBlank())
                 .collect(Collectors.toSet());
 
-        Map<String, AppointmentSession> sessionCache = appointmentSessionRepository.findByFeegowAppointmentIdIn(feegowIds).stream()
-                .collect(Collectors.toMap(s -> s.getFeegowAppointmentId(), s -> s, (s1, s2) -> s1));
+        Map<String, AppointmentSession> sessionCache = transactionTemplate.execute(status ->
+            appointmentSessionRepository.findByFeegowAppointmentIdIn(feegowIds).stream()
+                    .collect(Collectors.toMap(s -> s.getFeegowAppointmentId(), s -> s, (s1, s2) -> s1))
+        );
 
-        Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = appointmentDoctorMappingRepository.findAll().stream()
-                .collect(Collectors.toMap(m -> m.getProfissionalId(), m -> m, (m1, m2) -> m1));
+        Map<String, br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentDoctorMapping> doctorMappingCache = transactionTemplate.execute(status ->
+            appointmentDoctorMappingRepository.findAll().stream()
+                    .collect(Collectors.toMap(m -> m.getProfissionalId(), m -> m, (m1, m2) -> m1))
+        );
 
         // FILTRO ESTRUTURAL DE AUDITORIA: Remove agendamentos de médicos não-assinantes ou inativos antes de buscar detalhes dos pacientes
         int totalBeforeDoctorFilter = appointments.size();

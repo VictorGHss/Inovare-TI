@@ -146,7 +146,28 @@ public class BlipContextService {
         }
     }
 
+    private final Map<String, Long> deduplicationCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private boolean isRedundantContextCall(String deduplicationKey) {
+        long now = System.currentTimeMillis();
+        Long lastTime = deduplicationCache.get(deduplicationKey);
+        if (lastTime != null && (now - lastTime) < 3000L) {
+            log.debug("[DEDUPLICAÇÃO-BLIP] Ignorando envio redundante no contexto Blip (chave: '{}') acionado há <3s.", deduplicationKey);
+            return true;
+        }
+        deduplicationCache.put(deduplicationKey, now);
+
+        if (deduplicationCache.size() > 2000) {
+            deduplicationCache.entrySet().removeIf(entry -> (now - entry.getValue()) > 10000L);
+        }
+        return false;
+    }
+
     private void sendSingleUserContext(String normalizedIdentity, String key, String value) {
+        if (isRedundantContextCall("ctx:" + normalizedIdentity + ":" + key + ":" + value)) {
+            return;
+        }
+
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
             "to", "postmaster@msging.net",
@@ -243,6 +264,10 @@ public class BlipContextService {
     }
 
     private void sendSingleMasterState(String normalizedIdentity, String targetBot, String operation) {
+        if (isRedundantContextCall("mstate:" + normalizedIdentity + ":" + targetBot + ":" + operation)) {
+            return;
+        }
+
         String stateId = operation != null && !operation.isBlank() ? operation : "stateid";
         String flowId = targetBot.contains("@") ? targetBot.substring(0, targetBot.indexOf('@')) : targetBot;
         String combined = stateId + "@" + flowId;
@@ -281,6 +306,10 @@ public class BlipContextService {
     }
 
     private void sendSingleBuilderMasterState(String normalizedIdentity, String stateId) {
+        if (isRedundantContextCall("bstate:" + normalizedIdentity + ":" + stateId)) {
+            return;
+        }
+
         Map<String, Object> command = Map.of(
             "id", UUID.randomUUID().toString(),
             "to", BlipLIMEClient.MASTER_STATE_COMMAND_TO,

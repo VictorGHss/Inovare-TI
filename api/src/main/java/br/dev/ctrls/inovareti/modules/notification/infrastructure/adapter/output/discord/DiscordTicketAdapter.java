@@ -64,7 +64,12 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
             log.warn("[DISCORD-TICKET] Categoria de chamados ativos ({}) não encontrada.", ACTIVE_CATEGORY_ID);
             return;
         }
-         // Resolve membros a serem permitidos no canal
+        // Pre-resolve o nome do setor na thread síncrona com transação ativa para evitar LazyInitializationException no worker do Discord
+        final String preResolvedSectorName = (ticket.getRequester() != null && ticket.getRequester().getSector() != null)
+                ? ticket.getRequester().getSector().getName()
+                : "Geral";
+
+        // Resolve membros a serem permitidos no canal
         Member requesterMember = null;
         br.dev.ctrls.inovareti.modules.user.domain.model.User requester = ticket.getRequester();
         if (requester != null) {
@@ -129,14 +134,14 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
                 channel -> {
                     log.info("[DISCORD-TICKET] Canal privado criado com sucesso: #{} (ID: {}) para chamado #{}",
                             channel.getName(), channel.getId(), ticket.getNumber());
-                    sendAndPinInitialTicketMessage(channel, ticket);
+                    sendAndPinInitialTicketMessage(channel, ticket, preResolvedSectorName);
                 },
                 error -> log.error("[DISCORD-TICKET] Falha ao criar canal privado para chamado #{}", ticket.getNumber(), error)
         );
     }
 
     @SuppressWarnings("null")
-    private void sendAndPinInitialTicketMessage(TextChannel channel, Ticket ticket) {
+    private void sendAndPinInitialTicketMessage(TextChannel channel, Ticket ticket, String requesterSectorName) {
         try {
             net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
             String ticketNum = ticket.getNumber() != null ? ticket.getNumber() : "-";
@@ -153,8 +158,7 @@ public class DiscordTicketAdapter implements DiscordTicketPort {
 
             String requesterName = java.util.Objects.requireNonNullElse(
                     ticket.getRequester() != null ? DiscordLgpdSanitizer.sanitize(ticket.getRequester().getName()) : "-", "-");
-            String requesterSector = java.util.Objects.requireNonNullElse(
-                    ticket.getRequester() != null && ticket.getRequester().getSector() != null ? ticket.getRequester().getSector().getName() : "-", "-");
+            String requesterSector = java.util.Objects.requireNonNullElse(requesterSectorName, "Geral");
             String categoryName = java.util.Objects.requireNonNullElse(
                     ticket.getCategory() != null ? ticket.getCategory().getName() : "-", "-");
             String priority = java.util.Objects.requireNonNullElse(

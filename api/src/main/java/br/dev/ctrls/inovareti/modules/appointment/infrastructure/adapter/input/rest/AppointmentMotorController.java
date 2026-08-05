@@ -59,6 +59,7 @@ public class AppointmentMotorController {
     private final WebhookSignatureValidator webhookSignatureValidator;
     private final Environment env;
     private final ObjectMapper objectMapper;
+    private final org.springframework.core.task.AsyncTaskExecutor applicationTaskExecutor;
 
     @Value("${blip.webhook.secret}")
     private String blipWebhookSecret;
@@ -87,41 +88,60 @@ public class AppointmentMotorController {
             @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend,
             @RequestParam(value = "testPhone", required = false) String testPhone) {
         
-        IngestAppointmentsUseCase.IngestionSummary summary;
-        if (Boolean.TRUE.equals(production)) {
-            java.util.List<String> activeDoctorIds = new java.util.ArrayList<>(appointmentMotorProperties.getActiveDoctorIds());
-            
-            if (excludeRaw != null && !excludeRaw.isBlank()) {
-                java.util.List<String> excludeList = java.util.Arrays.stream(excludeRaw.split(","))
-                        .map(id -> id != null ? id.trim() : "")
-                        .filter(id -> !id.isEmpty())
-                        .toList();
-                
-                log.info("[MANUAL-PROD] Executando motor para médicos ativos (forceSend={}, testPhone={}). Excluindo por demanda os IDs: {}", forceSend, testPhone, excludeList);
-                activeDoctorIds.removeAll(excludeList);
-            }
-            
-            log.info("[TRIGGER-MANUAL] Execução forçada de produção para os médicos: {} (forceSend={}, testPhone={})", activeDoctorIds, forceSend, testPhone);
-            summary = ingestAppointmentsUseCase.execute(activeDoctorIds, forceSend, testPhone);
-        } else {
-            log.info("[TRIGGER-MANUAL] Execução manual padrão (respeitando configurações globais, forceSend={}, testPhone={}).", forceSend, testPhone);
-            summary = ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
-        }
+        log.info("[TRIGGER-MANUAL] Recebida solicitação de disparo manual em segundo plano (production={}, forceSend={}, testPhone={}). Respondendo HTTP 202 Accepted...",
+                production, forceSend, testPhone);
 
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "messages_sent", summary.messagesSent(),
-                "mode", summary.mode()));
+        applicationTaskExecutor.execute(() -> {
+            try {
+                if (Boolean.TRUE.equals(production)) {
+                    java.util.List<String> activeDoctorIds = new java.util.ArrayList<>(appointmentMotorProperties.getActiveDoctorIds());
+                    
+                    if (excludeRaw != null && !excludeRaw.isBlank()) {
+                        java.util.List<String> excludeList = java.util.Arrays.stream(excludeRaw.split(","))
+                                .map(id -> id != null ? id.trim() : "")
+                                .filter(id -> !id.isEmpty())
+                                .toList();
+                        
+                        log.info("[MANUAL-PROD] Executando motor em segundo plano para médicos ativos (forceSend={}, testPhone={}). Excluindo por demanda os IDs: {}", forceSend, testPhone, excludeList);
+                        activeDoctorIds.removeAll(excludeList);
+                    }
+                    
+                    log.info("[TRIGGER-MANUAL] Iniciando execução de produção em segundo plano para os médicos: {} (forceSend={}, testPhone={})", activeDoctorIds, forceSend, testPhone);
+                    ingestAppointmentsUseCase.execute(activeDoctorIds, forceSend, testPhone);
+                } else {
+                    log.info("[TRIGGER-MANUAL] Iniciando execução manual em segundo plano (respeitando configurações globais, forceSend={}, testPhone={}).", forceSend, testPhone);
+                    ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
+                }
+                log.info("[TRIGGER-MANUAL] Ingestão e disparo manual concluídos com sucesso em segundo plano.");
+            } catch (Exception ex) {
+                log.error("[TRIGGER-MANUAL] Erro na execução assíncrona do disparo manual: {}", ex.getMessage(), ex);
+            }
+        });
+
+        return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED).body(Map.of(
+                "status", "accepted",
+                "message", "Ingestão e disparo manual iniciados em segundo plano."));
     }
 
     @PostMapping("/motor/trigger")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<IngestAppointmentsUseCase.IngestionSummary> triggerMotor(
+    public ResponseEntity<Map<String, Object>> triggerMotor(
             @RequestParam(value = "forceSend", required = false, defaultValue = "false") boolean forceSend,
             @RequestParam(value = "testPhone", required = false) String testPhone) {
-        log.info("[MOTOR-TRIGGER] Disparo manual acionado via /motor/trigger (forceSend={}, testPhone={})", forceSend, testPhone);
-        IngestAppointmentsUseCase.IngestionSummary summary = ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
-        return ResponseEntity.ok(summary);
+        log.info("[MOTOR-TRIGGER] Disparo manual acionado via /motor/trigger em segundo plano (forceSend={}, testPhone={}). Respondendo HTTP 202 Accepted...", forceSend, testPhone);
+
+        applicationTaskExecutor.execute(() -> {
+            try {
+                ingestAppointmentsUseCase.execute(null, forceSend, testPhone);
+                log.info("[MOTOR-TRIGGER] Execução do motor concluída com sucesso em segundo plano.");
+            } catch (Exception ex) {
+                log.error("[MOTOR-TRIGGER] Erro na execução assíncrona do motor: {}", ex.getMessage(), ex);
+            }
+        });
+
+        return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED).body(Map.of(
+                "status", "accepted",
+                "message", "Ingestão e disparo do motor iniciados em segundo plano."));
     }
 
     @GetMapping("/admin/mappings")

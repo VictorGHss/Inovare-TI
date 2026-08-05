@@ -81,10 +81,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/reset-initial-password").permitAll()
                 .requestMatchers("/auth/2fa/**").authenticated()
                 
-                // Restringe o acesso aos endpoints do Actuator apenas para administradores (ADMIN),
-                // exceto o endpoint do Prometheus (/actuator/prometheus), que é liberado publicamente 
-                // para coleta externa de métricas em tempo real de forma segura.
-                .requestMatchers("/actuator/prometheus").permitAll()
+                // Libera endpoints do Actuator Prometheus e Health para monitoramento em tempo real (com e sem prefixo /api)
+                .requestMatchers("/actuator/prometheus", "/api/actuator/prometheus", "/actuator/health", "/api/actuator/health", "/api/actuator/**").permitAll()
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
                 
                 // Libera endpoints de documentação Swagger UI e especificações da API

@@ -7,7 +7,6 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import DefaultLayout from './layouts/DefaultLayout';
-import FinancialTwoFactorChallenge from '@/pages/Financeiro/components/FinancialTwoFactorChallenge';
 
 // Login e PrimeiroAcesso carregados de forma imediata — são rotas de entrada leves
 import Login from './pages/Login';
@@ -85,6 +84,7 @@ const Vault = lazyWithRetry(() => import('./pages/Vault'));
 const SystemLogs = lazyWithRetry(() => import('./pages/SystemLogs'));
 const Financeiro = lazyWithRetry(() => import('./pages/Financeiro'));
 const PatientAccess = lazyWithRetry(() => import('./pages/PatientAccess'));
+const FinancialTwoFactorChallenge = lazyWithRetry(() => import('@/pages/Financeiro/components/FinancialTwoFactorChallenge'));
 
 function PageLoader() {
   return (

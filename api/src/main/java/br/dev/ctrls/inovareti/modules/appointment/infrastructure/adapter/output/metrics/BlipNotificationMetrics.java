@@ -44,6 +44,19 @@ public class BlipNotificationMetrics {
     }
 
     /**
+     * Registra o resultado das requisições de saída enviadas para a API do Blip.
+     *
+     * @param status Status do envio ("SUCCESS", "RATE_LIMITED", "ERROR").
+     */
+    public void recordOutcome(String status) {
+        Counter.builder("blip_http_requests_total")
+                .description("Total de requisições enviadas à API do Blip por status")
+                .tag("status", status != null ? status : "UNKNOWN")
+                .register(registry)
+                .increment();
+    }
+
+    /**
      * Categoriza os códigos comuns de erro de entrega do WhatsApp e LIME.
      *
      * @param errorCode Código numérico do erro.

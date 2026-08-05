@@ -71,7 +71,16 @@ public class NotificationAccumulatorService {
             } else {
                 processIndividualNotification(sessions.get(0));
             }
+
+            // Cadenciamento (staggered delay de 50ms) entre envios do lote para não sobrecarregar a API da Blip
+            applyStaggeredBatchDelay();
         }
+    }
+
+    private void applyStaggeredBatchDelay() {
+        try {
+            java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(50));
+        } catch (Exception ignored) {}
     }
 
     private void processIndividualNotification(AppointmentSession session) {

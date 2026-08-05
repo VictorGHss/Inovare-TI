@@ -66,4 +66,26 @@ public class ArchitectureTest {
             .because("O módulo finance não deve depender diretamente de classes do módulo appointment.")
             .check(classes);
     }
+
+    /**
+     * Valida que a camada de domínio/aplicação não importa diretamente adaptadores concretos
+     * de infraestrutura de outros módulos.
+     */
+    @ArchTest
+    public static void domain_e_application_nao_devem_importar_infrastructure_de_outros_modulos(JavaClasses classes) {
+        noClasses()
+            .that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat(
+                DescribedPredicate.and(
+                    JavaClass.Predicates.resideInAPackage("..infrastructure.adapter.output.jpa.."),
+                    new DescribedPredicate<JavaClass>("não seja CryptoConverter") {
+                        @Override
+                        public boolean test(JavaClass input) {
+                            return !input.getSimpleName().equals("CryptoConverter");
+                        }
+                    }
+                )
+            ).because("A camada de domínio não pode depender de adaptadores JPA de infraestrutura.")
+            .check(classes);
+    }
 }

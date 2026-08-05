@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Observed
+@Transactional(readOnly = true)
 public class FinanceiroQueryService {
 
     private final FinanceiroOperationsService financeiroOperationsService;

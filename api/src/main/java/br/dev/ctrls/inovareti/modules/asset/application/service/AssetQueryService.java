@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import br.dev.ctrls.inovareti.core.shared.domain.model.exception.BadRequestException;
 import br.dev.ctrls.inovareti.modules.asset.application.dto.AssetResponseDTO;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Observed
+@Transactional(readOnly = true)
 public class AssetQueryService {
 
     /**

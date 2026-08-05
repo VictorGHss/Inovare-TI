@@ -147,6 +147,37 @@ export default function PatientAccess() {
   const fullscreenData = getFullscreenData();
 
   // Monitora saída da tela cheia nativa do browser para sincronizar o estado do React
+  // Tenta restaurar credenciais salvas em cache local (localStorage) para suporte offline na recepção da clínica
+  useEffect(() => {
+    if (appointmentId) {
+      try {
+        const cached = localStorage.getItem(`patient_access_credentials_${appointmentId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCredentials(parsed);
+            setIsVerified(true);
+            console.log('[PatientAccess] Credenciais e QR Code carregados do armazenamento offline (localStorage).');
+          }
+        }
+      } catch {
+        // Ignora erros no parsing do localStorage
+      }
+    }
+  }, [appointmentId]);
+
+  const saveCredentialsWithOfflineCache = (data: AccessCredential[]) => {
+    setCredentials(data || []);
+    setIsVerified(true);
+    if (appointmentId && data && data.length > 0) {
+      try {
+        localStorage.setItem(`patient_access_credentials_${appointmentId}`, JSON.stringify(data));
+      } catch {
+        // Ignora falhas de gravação do localStorage
+      }
+    }
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
@@ -214,9 +245,8 @@ export default function PatientAccess() {
           }
         }
       );
-      // Desafio validado com sucesso: libera o carrossel
-      setCredentials(response.data || []);
-      setIsVerified(true);
+      // Desafio validado com sucesso: libera o carrossel e salva no cache offline
+      saveCredentialsWithOfflineCache(response.data || []);
       setVerifiedPhoneDigits(phoneDigits);
     } catch (err: unknown) {
       console.error('[PatientAccess] Falha no desafio de segurança:', err);

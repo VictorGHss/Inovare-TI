@@ -195,6 +195,24 @@ public class BlipLIMEClient implements BlipClientPort {
         }
     }
 
+    private final java.util.concurrent.ScheduledExecutorService asyncRetryScheduler =
+        java.util.concurrent.Executors.newScheduledThreadPool(2);
+
+    private void scheduleAsyncRetry(Map<String, Object> payload, AuthorizationScope scope, boolean isCommand) {
+        log.info("[BLIP-ASYNC-RETRY] Agendando reenvio assíncrono não-bloqueante para o Blip em 12s devido a Rate-Limit 429...");
+        asyncRetryScheduler.schedule(() -> {
+            try {
+                if (isCommand) {
+                    executeCommand(payload, scope);
+                } else {
+                    executeMessage(payload, scope);
+                }
+            } catch (Exception ex) {
+                log.warn("[BLIP-ASYNC-RETRY] Falha na retentativa assíncrona agendada: {}", ex.getMessage());
+            }
+        }, 12, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     @Override
     @Retryable(
         retryFor = { org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
@@ -203,9 +221,13 @@ public class BlipLIMEClient implements BlipClientPort {
         backoff = @Backoff(delay = 1000, multiplier = 2.0)
     )
     public Map<String, Object> executeCommand(Map<String, Object> payload, AuthorizationScope scope) {
+        AuthorizationScope actualScope = scope;
+        Map<String, Object> finalPayload = payload;
+
         try {
             if (!blipConcurrencySemaphore.tryAcquire(2, java.util.concurrent.TimeUnit.SECONDS)) {
-                log.warn("[BLIP-RATE-LIMIT] Limite de concorrência para a API do Blip atingido (15 requisições ativas). Rejeitando chamada rápido.");
+                log.warn("[BLIP-RATE-LIMIT] Limite de concorrência para a API do Blip atingido (15 requisições ativas). Rejeitando chamada rápido e agendando retry.");
+                scheduleAsyncRetry(finalPayload, actualScope, true);
                 return Map.of("status", "rate-limited", "message", "Concurrency limit reached");
             }
         } catch (InterruptedException ex) {
@@ -215,9 +237,6 @@ public class BlipLIMEClient implements BlipClientPort {
 
         try {
             rateLimit();
-            
-            AuthorizationScope actualScope = scope;
-            Map<String, Object> finalPayload = payload;
             
             if (payload != null && payload.containsKey("uri")) {
                 String uri = String.valueOf(payload.get("uri"));
@@ -290,7 +309,8 @@ public class BlipLIMEClient implements BlipClientPort {
         } catch (org.springframework.web.client.HttpClientErrorException ex) {
             int code = ex.getStatusCode().value();
             if (code == 429) {
-                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido e agendando retry em 12s.");
+                scheduleAsyncRetry(finalPayload, actualScope, true);
                 return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
             }
             log.warn("[BLIP-CLIENT-ERROR] API Blip respondeu HTTP {} em executeCommand: {}", code, ex.getMessage());
@@ -298,7 +318,8 @@ public class BlipLIMEClient implements BlipClientPort {
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             int code = ex.getStatusCode().value();
             if (code == 429) {
-                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido e agendando retry em 12s.");
+                scheduleAsyncRetry(finalPayload, actualScope, true);
                 return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
             }
             log.warn("[BLIP-RESPONSE-ERROR] API Blip respondeu HTTP {} em executeCommand: {}", code, ex.getMessage());
@@ -329,6 +350,7 @@ public class BlipLIMEClient implements BlipClientPort {
         try {
             if (!blipConcurrencySemaphore.tryAcquire(2, java.util.concurrent.TimeUnit.SECONDS)) {
                 log.warn("[BLIP-RATE-LIMIT] Limite de concorrência para a API do Blip atingido (15 requisições ativas). Rejeitando chamada de forma rápida.");
+                scheduleAsyncRetry(payload, scope, false);
                 return Map.of("status", "rate-limited", "message", "Concurrency limit reached");
             }
         } catch (InterruptedException ex) {
@@ -362,7 +384,8 @@ public class BlipLIMEClient implements BlipClientPort {
         } catch (org.springframework.web.client.HttpClientErrorException ex) {
             int code = ex.getStatusCode().value();
             if (code == 429) {
-                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido e agendando retry em 12s.");
+                scheduleAsyncRetry(payload, scope, false);
                 return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
             }
             log.warn("[BLIP-CLIENT-ERROR] API Blip respondeu HTTP {} em executeMessage: {}", code, ex.getMessage());
@@ -370,7 +393,8 @@ public class BlipLIMEClient implements BlipClientPort {
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             int code = ex.getStatusCode().value();
             if (code == 429) {
-                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido e agendando retry em 12s.");
+                scheduleAsyncRetry(payload, scope, false);
                 return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
             }
             log.warn("[BLIP-RESPONSE-ERROR] API Blip respondeu HTTP {} em executeMessage: {}", code, ex.getMessage());

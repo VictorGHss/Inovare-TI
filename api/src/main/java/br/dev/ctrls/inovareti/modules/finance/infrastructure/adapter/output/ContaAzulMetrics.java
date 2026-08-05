@@ -92,5 +92,23 @@ public class ContaAzulMetrics {
     public void incrementForceRefreshThrottled() {
         this.forceRefreshThrottledCounter.increment();
     }
+
+    /**
+     * Registra o resultado das operações enviadas para a Conta Azul.
+     *
+     * @param operation Nome da operação (ex: "sync_sales", "fetch_customer").
+     * @param status    Status da execução ("SUCCESS", "RATE_LIMITED", "ERROR").
+     */
+    public void recordOutcome(String operation, String status) {
+        String opTag = operation != null ? operation : "general";
+        String statusTag = status != null ? status : "UNKNOWN";
+
+        Counter.builder("conta_azul_requests_total")
+                .description("Total de requisições de integração enviadas para a Conta Azul")
+                .tag("operation", opTag)
+                .tag("status", statusTag)
+                .register(registry)
+                .increment();
+    }
 }
 

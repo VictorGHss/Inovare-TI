@@ -49,6 +49,7 @@ public class BlipLIMEClient implements BlipClientPort {
     private final AppointmentMotorProperties properties;
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
     private final AtomicLong lastQueuesFetchAt = new AtomicLong(0L);
+    private final java.util.concurrent.Semaphore blipConcurrencySemaphore = new java.util.concurrent.Semaphore(15);
     private volatile List<BlipQueue> cachedQueuesList = null;
     private static final long QUEUES_CACHE_TTL_MS = 30 * 60 * 1000L; // 30 minutos
 
@@ -88,6 +89,8 @@ public class BlipLIMEClient implements BlipClientPort {
                             .setResponseTimeout(org.apache.hc.core5.util.Timeout.ofMilliseconds(15000))
                             .build()
                     )
+                    // Desativa retries automáticos de HTTP em caso de status 429 ou 4xx para evitar travamentos
+                    .setRetryStrategy(new org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy(0, org.apache.hc.core5.util.TimeValue.ZERO_MILLISECONDS))
                     .build();
 
             HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
@@ -95,7 +98,7 @@ public class BlipLIMEClient implements BlipClientPort {
             blipRestTemplate.setMessageConverters(new ArrayList<>(injectedRestTemplate.getMessageConverters()));
             blipRestTemplate.setInterceptors(new ArrayList<>(injectedRestTemplate.getInterceptors()));
             blipRestTemplate.setErrorHandler(injectedRestTemplate.getErrorHandler());
-            log.info("Blip RestTemplate configurado com pool de conexões HTTP (max=100, timeout=5s)");
+            log.info("Blip RestTemplate configurado com pool de conexões HTTP (max=100, timeout=5s, retryStrategy=0)");
         } catch (Exception ex) {
             log.warn("Falha ao configurar Blip RestTemplate com pool; usando RestTemplate injetado", ex);
             blipRestTemplate = injectedRestTemplate;
@@ -150,19 +153,15 @@ public class BlipLIMEClient implements BlipClientPort {
                             if (identityObj == null) {
                                 identityObj = itemMap.get("name");
                             }
-                            String id = identityObj != null ? String.valueOf(identityObj) : "";
-                            String name = itemMap.get("name") != null ? String.valueOf(itemMap.get("name")) : "";
-                            if (!id.isBlank()) {
-                                queues.add(new BlipQueue(id, name));
+                            Object nameObj = itemMap.get("name");
+                            if (identityObj != null && nameObj != null) {
+                                queues.add(new BlipQueue(String.valueOf(identityObj), String.valueOf(nameObj)));
                             }
                         }
                     }
-                    if (!queues.isEmpty()) {
-                        this.cachedQueuesList = Collections.unmodifiableList(queues);
-                        this.lastQueuesFetchAt.set(now);
-                        log.info("[BLIP-CACHE] Lista oficial de filas atualizada no cache ({} filas).", queues.size());
-                    }
-                    return queues;
+                    cachedQueuesList = Collections.unmodifiableList(queues);
+                    lastQueuesFetchAt.set(now);
+                    return cachedQueuesList;
                 }
             }
             return cachedQueuesList != null ? cachedQueuesList : List.of();
@@ -170,17 +169,16 @@ public class BlipLIMEClient implements BlipClientPort {
     }
 
     @Override
-    public void mergeContactExtras(String phoneNumber, Map<String, String> extras) {
-        mergeContactExtras(phoneNumber, extras, AuthorizationScope.ROUTER);
+    public void mergeContactExtras(String targetIdentity, Map<String, String> extras) {
+        mergeContactExtras(targetIdentity, extras, AuthorizationScope.ROUTER);
     }
 
-    public void mergeContactExtras(String identity, Map<String, String> extras, AuthorizationScope scope) {
-        if (identity == null || identity.isBlank() || extras == null || extras.isEmpty()) return;
-        String targetIdentity = identity.contains("@") ? identity.trim() : normalizeUserIdentity(identity);
-        String toDestination = scope == AuthorizationScope.DESK ? "postmaster@desk.msging.net" : "postmaster@msging.net";
+    public void mergeContactExtras(String targetIdentity, Map<String, String> extras, AuthorizationScope scope) {
+        if (targetIdentity == null || targetIdentity.isBlank() || extras == null || extras.isEmpty()) {
+            return;
+        }
         Map<String, Object> command = Map.of(
-            "id", "merge-extras-" + UUID.randomUUID().toString(),
-            "to", toDestination,
+            "id", UUID.randomUUID().toString(),
             "method", "set",
             "uri", "/contacts",
             "type", "application/vnd.lime.contact+json",
@@ -192,108 +190,122 @@ public class BlipLIMEClient implements BlipClientPort {
         try {
             Map<String, Object> response = executeCommand(command, scope);
             log.info("[LIME-CONTACT] Extras do contato atualizados no Blip ({}) para {}. Resposta: {}", scope, targetIdentity, response);
-        } catch (RestClientException ex) {
-            log.warn("[LIME-CONTACT] Falha de comunicação ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
         } catch (Exception ex) {
-            log.warn("[LIME-CONTACT] Erro inesperado ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
+            log.warn("[LIME-CONTACT] Erro ao atualizar extras do contato no Blip ({}) para {}: {}", scope, targetIdentity, ex.getMessage());
         }
     }
 
     @Override
     @Retryable(
-        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        retryFor = { org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        noRetryFor = { org.springframework.web.client.HttpClientErrorException.class, org.springframework.web.client.RestClientResponseException.class },
         maxAttempts = 3,
         backoff = @Backoff(delay = 1000, multiplier = 2.0)
     )
     public Map<String, Object> executeCommand(Map<String, Object> payload, AuthorizationScope scope) {
-        rateLimit();
-        
-        AuthorizationScope actualScope = scope;
-        Map<String, Object> finalPayload = payload;
-        
-        if (payload != null && payload.containsKey("uri")) {
-            String uri = String.valueOf(payload.get("uri"));
-            finalPayload = new java.util.HashMap<>(payload);
-            
-            if (uri.contains("/teams") || uri.contains("/threads") || uri.contains("/attendance-queues") || uri.contains("/buckets") || uri.contains("/tickets")) {
-                finalPayload.put("to", "postmaster@desk.msging.net");
-                actualScope = AuthorizationScope.DESK;
-                if (uri.contains("/teams")) {
-                    finalPayload.put("uri", "/teams");
-                } else if (uri.contains("/threads")) {
-                    finalPayload.put("uri", "/threads");
-                } else if (uri.contains("/tickets")) {
-                    finalPayload.put("uri", "/tickets");
-                } else if (uri.contains("/attendance-queues")) {
-                    finalPayload.put("uri", "/attendance-queues");
-                }
-            } else if (uri.contains("/campaign")) {
-                finalPayload.put("to", "postmaster@activecampaign.msging.net");
-                actualScope = AuthorizationScope.ROUTER;
-            } else if (uri.contains("/message-templates")) {
-                finalPayload.put("to", "postmaster@wa.gw.msging.net");
-                finalPayload.put("uri", "/message-templates");
-                actualScope = AuthorizationScope.ROUTER;
-            } else {
-                finalPayload.put("to", "postmaster@msging.net");
-                actualScope = AuthorizationScope.ROUTER;
-            }
-        }
-
-        URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
-                .path(properties.getBlipSetContextPath())
-                .build().toUri();
-
-        log.debug("Enviando comando LIME (Scope: {}) para a URL: {}", actualScope, url);
         try {
-            log.debug("Payload completo: {}", new ObjectMapper().writeValueAsString(finalPayload));
-        } catch (JsonProcessingException ignored) {
-            log.debug("Payload completo: {}", finalPayload);
+            if (!blipConcurrencySemaphore.tryAcquire(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("[BLIP-RATE-LIMIT] Limite de concorrência para a API do Blip atingido (15 requisições ativas). Rejeitando chamada rápido.");
+                return Map.of("status", "rate-limited", "message", "Concurrency limit reached");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return Map.of("status", "interrupted", "message", "Thread interrupted");
         }
 
-        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
-                url, HttpMethod.POST,
-                new HttpEntity<>(finalPayload, buildHeaders(actualScope)),
-                new ParameterizedTypeReference<Map<String, Object>>() {}
-        );
+        try {
+            rateLimit();
+            
+            AuthorizationScope actualScope = scope;
+            Map<String, Object> finalPayload = payload;
+            
+            if (payload != null && payload.containsKey("uri")) {
+                String uri = String.valueOf(payload.get("uri"));
+                finalPayload = new java.util.HashMap<>(payload);
+                
+                if (uri.contains("/teams") || uri.contains("/threads") || uri.contains("/attendance-queues") || uri.contains("/buckets") || uri.contains("/tickets")) {
+                    finalPayload.put("to", "postmaster@desk.msging.net");
+                    actualScope = AuthorizationScope.DESK;
+                    if (uri.contains("/teams")) {
+                        finalPayload.put("uri", "/teams");
+                    } else if (uri.contains("/threads")) {
+                        finalPayload.put("uri", "/threads");
+                    } else if (uri.contains("/tickets")) {
+                        finalPayload.put("uri", "/tickets");
+                    } else if (uri.contains("/attendance-queues")) {
+                        finalPayload.put("uri", "/attendance-queues");
+                    }
+                } else if (uri.contains("/campaign")) {
+                    finalPayload.put("to", "postmaster@activecampaign.msging.net");
+                    actualScope = AuthorizationScope.ROUTER;
+                } else if (uri.contains("/message-templates")) {
+                    finalPayload.put("to", "postmaster@wa.gw.msging.net");
+                    finalPayload.put("uri", "/message-templates");
+                    actualScope = AuthorizationScope.ROUTER;
+                } else {
+                    finalPayload.put("to", "postmaster@msging.net");
+                    actualScope = AuthorizationScope.ROUTER;
+                }
+            }
 
-        Map<String, Object> body = response.getBody();
-        if (body == null) {
-            log.debug("Blip retornou body null no executeCommand. Payload enviado: {}", finalPayload);
-        } else {
-            if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
-                boolean isResourceNotFound = false;
-                Object reasonObj = body.get("reason");
-                if (reasonObj instanceof Map<?, ?> reasonMap) {
-                    Object codeObj = reasonMap.get("code");
-                    if (codeObj != null && "67".equals(String.valueOf(codeObj))) {
-                        isResourceNotFound = true;
+            URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+                    .path(properties.getBlipSetContextPath())
+                    .build().toUri();
+
+            log.debug("Enviando comando LIME (Scope: {}) para a URL: {}", actualScope, url);
+            try {
+                log.debug("Payload completo: {}", new ObjectMapper().writeValueAsString(finalPayload));
+            } catch (JsonProcessingException ignored) {
+                log.debug("Payload completo: {}", finalPayload);
+            }
+
+            ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                    url, HttpMethod.POST,
+                    new HttpEntity<>(finalPayload, buildHeaders(actualScope)),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            Map<String, Object> body = response.getBody();
+            if (body == null) {
+                log.debug("Blip retornou body null no executeCommand. Payload enviado: {}", finalPayload);
+            } else {
+                if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
+                    boolean isResourceNotFound = false;
+                    Object reasonObj = body.get("reason");
+                    if (reasonObj instanceof Map<?, ?> reasonMap) {
+                        Object codeObj = reasonMap.get("code");
+                        if (codeObj != null && "67".equals(String.valueOf(codeObj))) {
+                            isResourceNotFound = true;
+                        }
+                    }
+                    if (isResourceNotFound) {
+                        log.debug("[LIME] Recurso não encontrado no Blip (Code 67). Payload enviado: {}", finalPayload);
+                    } else {
+                        log.warn("[LIME-FAILURE] Comando LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, finalPayload);
                     }
                 }
-                if (isResourceNotFound) {
-                    log.debug("[LIME] Recurso não encontrado no Blip (Code 67). Payload enviado: {}", finalPayload);
-                } else {
-                    log.warn("[LIME-FAILURE] Comando LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, finalPayload);
-                }
             }
-            Object resource = body.get("resource");
-            boolean isEmpty = resource == null;
-            
-            if (resource instanceof List<?> list && list.isEmpty()) {
-                isEmpty = true;
-            } else if (resource instanceof Map<?, ?> map) {
-                Object items = map.get("items");
-                if (items instanceof List<?> list && list.isEmpty()) {
-                    isEmpty = true;
-                }
-            }
-            
-            if (isEmpty) {
-                log.debug("Blip retornou recurso vazio ou nulo no executeCommand. Body completo: {}", body);
-            }
-        }
 
-        return body != null ? body : Map.of();
+            return body != null ? body : Map.of();
+        } catch (org.springframework.web.client.HttpClientErrorException ex) {
+            int code = ex.getStatusCode().value();
+            if (code == 429) {
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
+            }
+            log.warn("[BLIP-CLIENT-ERROR] API Blip respondeu HTTP {} em executeCommand: {}", code, ex.getMessage());
+            return Map.of("status", "client-error", "code", code, "message", ex.getMessage());
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            int code = ex.getStatusCode().value();
+            if (code == 429) {
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
+            }
+            log.warn("[BLIP-RESPONSE-ERROR] API Blip respondeu HTTP {} em executeCommand: {}", code, ex.getMessage());
+            return Map.of("status", "error", "code", code, "message", ex.getMessage());
+        } finally {
+            blipConcurrencySemaphore.release();
+        }
     }
 
     /**
@@ -308,33 +320,64 @@ public class BlipLIMEClient implements BlipClientPort {
 
     @Override
     @Retryable(
-        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        retryFor = { org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        noRetryFor = { org.springframework.web.client.HttpClientErrorException.class, org.springframework.web.client.RestClientResponseException.class },
         maxAttempts = 3,
         backoff = @Backoff(delay = 1000, multiplier = 2.0)
     )
     public Map<String, Object> executeMessage(Map<String, Object> payload, AuthorizationScope scope) {
-        rateLimit();
-        URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
-                .path(properties.getBlipSendMessagePath())
-                .build().toUri();
+        try {
+            if (!blipConcurrencySemaphore.tryAcquire(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("[BLIP-RATE-LIMIT] Limite de concorrência para a API do Blip atingido (15 requisições ativas). Rejeitando chamada de forma rápida.");
+                return Map.of("status", "rate-limited", "message", "Concurrency limit reached");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return Map.of("status", "interrupted", "message", "Thread interrupted");
+        }
 
-        ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
-                url, HttpMethod.POST,
-                new HttpEntity<>(payload, buildHeaders(scope)),
-                new ParameterizedTypeReference<Map<String, Object>>() {}
-        );
-        if (response != null) {
-            var body = response.getBody();
-            if (body == null || body.isEmpty()) {
-                log.debug("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
-            } else {
-                log.debug("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
-                if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
-                    log.warn("[LIME-FAILURE] Mensagem LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, payload);
+        try {
+            rateLimit();
+            URI url = UriComponentsBuilder.fromUriString(resolveBlipBaseUrl())
+                    .path(properties.getBlipSendMessagePath())
+                    .build().toUri();
+
+            ResponseEntity<Map<String, Object>> response = blipRestTemplate.exchange(
+                    url, HttpMethod.POST,
+                    new HttpEntity<>(payload, buildHeaders(scope)),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            if (response != null) {
+                var body = response.getBody();
+                if (body == null || body.isEmpty()) {
+                    log.debug("[API-BLIP-RESPONSE] status={}", response.getStatusCode());
+                } else {
+                    log.debug("[API-BLIP-RESPONSE] status={}, body={}", response.getStatusCode(), body);
+                    if (body.containsKey("status") && !"success".equalsIgnoreCase(String.valueOf(body.get("status")))) {
+                        log.warn("[LIME-FAILURE] Mensagem LIME retornou status de falha ou timeout da API Blip: {}. Payload enviado: {}", body, payload);
+                    }
                 }
             }
+            return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
+        } catch (org.springframework.web.client.HttpClientErrorException ex) {
+            int code = ex.getStatusCode().value();
+            if (code == 429) {
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
+            }
+            log.warn("[BLIP-CLIENT-ERROR] API Blip respondeu HTTP {} em executeMessage: {}", code, ex.getMessage());
+            return Map.of("status", "client-error", "code", code, "message", ex.getMessage());
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            int code = ex.getStatusCode().value();
+            if (code == 429) {
+                log.warn("[BLIP-RATE-LIMIT] API Blip respondeu HTTP 429 (Too Many Requests). Falhando rápido sem retries.");
+                return Map.of("status", "rate-limited", "code", 429, "message", "Rate limit 429 da API Blip");
+            }
+            log.warn("[BLIP-RESPONSE-ERROR] API Blip respondeu HTTP {} em executeMessage: {}", code, ex.getMessage());
+            return Map.of("status", "error", "code", code, "message", ex.getMessage());
+        } finally {
+            blipConcurrencySemaphore.release();
         }
-        return (response != null && response.getBody() != null) ? response.getBody() : Map.of();
     }
 
     /**

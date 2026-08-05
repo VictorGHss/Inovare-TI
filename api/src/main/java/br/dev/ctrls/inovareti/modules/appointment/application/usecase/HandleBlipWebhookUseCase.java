@@ -633,22 +633,24 @@ public class HandleBlipWebhookUseCase {
                 } catch (Exception ex) {
                     log.warn("[WEBHOOK-BLOCK] Falha ao sincronizar contato no Preparar_Atendimento: {}", ex.getMessage());
                 }
-                boolean isGroup = false;
-                UUID groupId = null;
-                List<AppointmentSession> activeSessions = transactionTemplate.execute(status ->
-                    appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
-                );
-                if (activeSessions != null) {
-                    for (AppointmentSession activeSession : activeSessions) {
-                        List<NotificationGroup> groups =
-                            notificationGroupRepository.findBySessionId(activeSession.getId());
-                        if (groups != null && !groups.isEmpty()) {
-                            isGroup = true;
-                            groupId = groups.get(0).getGroupId();
-                            break;
+
+                record GroupInfo(boolean isGroup, UUID groupId) {}
+                GroupInfo groupInfo = transactionTemplate.execute(status -> {
+                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                    if (activeSessions != null) {
+                        for (AppointmentSession activeSession : activeSessions) {
+                            List<NotificationGroup> groups = notificationGroupRepository.findBySessionId(activeSession.getId());
+                            if (groups != null && !groups.isEmpty()) {
+                                return new GroupInfo(true, groups.get(0).getGroupId());
+                            }
                         }
                     }
-                }
+                    return new GroupInfo(false, null);
+                });
+
+                boolean isGroup = groupInfo != null && groupInfo.isGroup();
+                UUID groupId = groupInfo != null ? groupInfo.groupId() : null;
+
                 blipContextService.setUserContextForUser(normalizedPhone, "isGroupFlow", String.valueOf(isGroup));
                 if (isGroup && groupId != null) {
                     blipContextService.setUserContextForUser(normalizedPhone, "groupId", groupId.toString());
@@ -672,75 +674,83 @@ public class HandleBlipWebhookUseCase {
                     } catch (IllegalArgumentException ignored) {}
                 }
 
-                String listaDetalhada = null;
-                try {
-                    List<AppointmentSession> activeSessionsResult = transactionTemplate.execute(status ->
-                        appointmentSessionRepository.findActiveByPhoneNumber(dbPhone)
-                    );
-                    if (activeSessionsResult != null && !activeSessionsResult.isEmpty()) {
-                        List<AppointmentSession> activeSessions = new java.util.ArrayList<>(activeSessionsResult);
-                        activeSessions.sort((s1, s2) -> {
-                            if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
-                            if (s1.getAppointmentAt() == null) return 1;
-                            if (s2.getAppointmentAt() == null) return -1;
-                            return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
-                        });
+                final UUID initialResolvedGroupId = resolvedGroupId;
+                record ExibirAgendaDbResult(String listaDetalhada, UUID finalGroupId) {}
 
-                        // ─── Estratégia 2: currentGroupId persistido no banco pelo clique do botão ──
-                        if (resolvedGroupId == null) {
-                            for (AppointmentSession s : activeSessions) {
-                                if (s.getCurrentGroupId() != null) {
-                                    resolvedGroupId = s.getCurrentGroupId();
-                                    log.info("[WEBHOOK-BLOCK] groupId resolvido via currentGroupId do banco: {}", resolvedGroupId);
-                                    break;
-                                }
-                            }
-                        }
+                ExibirAgendaDbResult dbResult = transactionTemplate.execute(status -> {
+                    UUID groupToUse = initialResolvedGroupId;
+                    String textResult = null;
+                    try {
+                        List<AppointmentSession> activeSessionsResult = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                        if (activeSessionsResult != null && !activeSessionsResult.isEmpty()) {
+                            List<AppointmentSession> activeSessions = new java.util.ArrayList<>(activeSessionsResult);
+                            activeSessions.sort((s1, s2) -> {
+                                if (s1.getAppointmentAt() == null && s2.getAppointmentAt() == null) return 0;
+                                if (s1.getAppointmentAt() == null) return 1;
+                                if (s2.getAppointmentAt() == null) return -1;
+                                return s1.getAppointmentAt().compareTo(s2.getAppointmentAt());
+                            });
 
-                        // ─── Busca lista_detalhada pelo groupId resolvido ────────────────────────
-                        if (resolvedGroupId != null) {
-                            List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(resolvedGroupId);
-                            if (groups != null && !groups.isEmpty()) {
-                                for (NotificationGroup g : groups) {
-                                    if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
-                                        listaDetalhada = g.getPreCompiledScheduleText();
-                                        log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para groupId={}", resolvedGroupId);
+                            // Estratégia 2: currentGroupId persistido no banco pelo clique do botão
+                            if (groupToUse == null) {
+                                for (AppointmentSession s : activeSessions) {
+                                    if (s.getCurrentGroupId() != null) {
+                                        groupToUse = s.getCurrentGroupId();
+                                        log.info("[WEBHOOK-BLOCK] groupId resolvido via currentGroupId do banco: {}", groupToUse);
                                         break;
                                     }
                                 }
                             }
-                        }
 
-                        // ─── Estratégia 3: último grupo do paciente como fallback ────────────────
-                        if (listaDetalhada == null) {
-                            Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
-                            if (latestGroupOpt.isPresent()) {
-                                NotificationGroup latestGroup = latestGroupOpt.get();
-                                if (resolvedGroupId == null) {
-                                    resolvedGroupId = latestGroup.getGroupId();
-                                }
-                                List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(latestGroup.getGroupId());
+                            // Busca lista_detalhada pelo groupId resolvido
+                            if (groupToUse != null) {
+                                List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(groupToUse);
                                 if (groups != null && !groups.isEmpty()) {
                                     for (NotificationGroup g : groups) {
                                         if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
-                                            listaDetalhada = g.getPreCompiledScheduleText();
-                                            log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para o último groupId={}", latestGroup.getGroupId());
+                                            textResult = g.getPreCompiledScheduleText();
+                                            log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para groupId={}", groupToUse);
                                             break;
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        // ─── Estratégia 4: compila em tempo de execução ──────────────────────────
-                        if (listaDetalhada == null) {
-                            log.info("[WEBHOOK-BLOCK] Nenhuma lista pré-compilada encontrada. Gerando lista detalhada via Feegow...");
-                            listaDetalhada = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                            // Estratégia 3: último grupo do paciente como fallback
+                            if (textResult == null) {
+                                Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
+                                if (latestGroupOpt.isPresent()) {
+                                    NotificationGroup latestGroup = latestGroupOpt.get();
+                                    if (groupToUse == null) {
+                                        groupToUse = latestGroup.getGroupId();
+                                    }
+                                    List<NotificationGroup> groups = notificationGroupRepository.findByGroupId(latestGroup.getGroupId());
+                                    if (groups != null && !groups.isEmpty()) {
+                                        for (NotificationGroup g : groups) {
+                                            if (g.getPreCompiledScheduleText() != null && !g.getPreCompiledScheduleText().isBlank()) {
+                                                textResult = g.getPreCompiledScheduleText();
+                                                log.info("[WEBHOOK-BLOCK] Recuperado preCompiledScheduleText do banco para o último groupId={}", latestGroup.getGroupId());
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Estratégia 4: compila em tempo de execução
+                            if (textResult == null) {
+                                log.info("[WEBHOOK-BLOCK] Nenhuma lista pré-compilada encontrada. Gerando lista detalhada via Feegow...");
+                                textResult = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+                            }
                         }
+                    } catch (RuntimeException ex) {
+                        log.error("[WEBHOOK-BLOCK] Erro ao buscar/gerar lista formatada do banco.", ex);
                     }
-                } catch (RuntimeException ex) {
-                    log.error("[WEBHOOK-BLOCK] Erro ao buscar/gerar lista formatada do banco.", ex);
-                }
+                    return new ExibirAgendaDbResult(textResult, groupToUse);
+                });
+
+                String listaDetalhada = dbResult != null ? dbResult.listaDetalhada() : null;
+                resolvedGroupId = dbResult != null ? dbResult.finalGroupId() : resolvedGroupId;
 
                 if (listaDetalhada != null && !listaDetalhada.isBlank()) {
                     blipContextService.setUserContextForUser(normalizedPhone, "lista_detalhada", listaDetalhada);

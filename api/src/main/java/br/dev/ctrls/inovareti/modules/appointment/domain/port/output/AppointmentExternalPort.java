@@ -29,6 +29,14 @@ public interface AppointmentExternalPort {
     List<FeegowAppointment> searchAppointments(LocalDate date, int statusId, String profissionalId);
 
     /**
+     * Busca as consultas/agendamentos futuros de um paciente específico pelo seu ID na Feegow.
+     *
+     * @param patientId ID do paciente
+     * @return lista de agendamentos futuros
+     */
+    List<FeegowAppointment> searchPatientAppointments(String patientId);
+
+    /**
      * Atualiza o status de um agendamento na Feegow por meio do identificador (String).
      *
      * @param appointmentId ID do agendamento

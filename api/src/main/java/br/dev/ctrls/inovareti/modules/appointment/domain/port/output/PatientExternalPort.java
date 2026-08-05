@@ -15,6 +15,17 @@ public interface PatientExternalPort {
     FeegowPatient patientInfo(String patientId);
 
     /**
+     * Cadastra um novo paciente na Feegow a partir de seu nome, CPF, data de nascimento e telefone.
+     *
+     * @param name Nome completo do paciente
+     * @param cpf CPF (apenas números)
+     * @param birthdate Data de nascimento no padrão ISO (YYYY-MM-DD)
+     * @param phone Telefone/Celular do paciente
+     * @return paciente cadastrado com o ID gerado pelo Feegow
+     */
+    FeegowPatient createPatient(String name, String cpf, String birthdate, String phone);
+
+    /**
      * Atualiza o CPF de um paciente na Feegow a partir do seu identificador, nome e data de nascimento.
      *
      * @param patientId ID do paciente

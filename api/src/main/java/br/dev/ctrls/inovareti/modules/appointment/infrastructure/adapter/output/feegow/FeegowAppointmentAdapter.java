@@ -150,6 +150,63 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
     }
 
     @Override
+    @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackSearchPatientAppointments")
+    @Retryable(
+        retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public List<FeegowAppointment> searchPatientAppointments(String patientId) {
+        if (patientId == null || patientId.isBlank()) {
+            return List.of();
+        }
+
+        URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path(properties.getFeegowSearchPath())
+                .queryParam("paciente_id", patientId.trim())
+                .queryParam("data_start", LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")))
+                .build().toUri();
+
+        log.info("[FEEGOW] [APPOINTMENT-ADAPTER] Buscando agendamentos futuros do paciente ID {} na URL: {}", patientId, uri);
+
+        try {
+            feegowConcurrencySemaphore.acquire();
+            ResponseEntity<String> response = appointmentClient.searchAppointments(uri, getAccessToken());
+            List<FeegowSearchResponseDto.FeegowSearchAppointmentDto> searchItems = extractSearchItems(response.getBody());
+            if (searchItems.isEmpty()) {
+                return List.of();
+            }
+
+            List<FeegowAppointment> appointments = new ArrayList<>();
+            for (FeegowSearchResponseDto.FeegowSearchAppointmentDto item : searchItems) {
+                FeegowAppointment parsedAppointment = parseAppointment(item);
+                if (parsedAppointment == null) {
+                    continue;
+                }
+                String status = parsedAppointment.statusId();
+                if ("11".equals(status) || "12".equals(status)) {
+                    continue;
+                }
+                if (parsedAppointment.startAt() != null && parsedAppointment.startAt().toLocalDate().isBefore(LocalDate.now())) {
+                    continue;
+                }
+                appointments.add(parsedAppointment);
+            }
+            return appointments;
+        } catch (Exception ex) {
+            log.warn("Falha ao buscar agendamentos do paciente {} na Feegow: {}", patientId, ex.getMessage());
+            return List.of();
+        } finally {
+            feegowConcurrencySemaphore.release();
+        }
+    }
+
+    public List<FeegowAppointment> fallbackSearchPatientAppointments(String patientId, Throwable t) {
+        log.warn("[FEEGOW] Fallback ativado ao buscar agendamentos do paciente {}: {}", patientId, t.getMessage());
+        return List.of();
+    }
+
+    @Override
     @CircuitBreaker(name = "feegowApiCircuit", fallbackMethod = "fallbackUpdateAppointmentStatus")
     @Retryable(
         retryFor = { RestClientException.class, org.springframework.web.client.ResourceAccessException.class, org.springframework.dao.DataAccessException.class },

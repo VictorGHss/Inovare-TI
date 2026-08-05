@@ -300,6 +300,51 @@ public class FeegowPatientAdapter implements PatientExternalPort {
     }
 
     @Override
+    public FeegowPatient createPatient(String name, String cpf, String birthdate, String phone) {
+        String cleanCpf = sanitizeCpf(cpf);
+        String cleanPhone = phone != null ? phone.replaceAll("\\D", "") : "";
+        String isoBirthdate = formatBirthdateToIso(birthdate);
+        if (isoBirthdate == null) {
+            isoBirthdate = birthdate;
+        }
+
+        URI uri = UriComponentsBuilder.fromUriString(properties.getFeegowBaseUrl())
+                .path("/v1/api/patient/create")
+                .build()
+                .toUri();
+
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("nome_completo", name);
+        payload.put("cpf", cleanCpf);
+        payload.put("data_nascimento", isoBirthdate);
+        if (!cleanPhone.isBlank()) {
+            payload.put("celular", cleanPhone);
+        }
+
+        log.info("[FEEGOW] [PATIENT-ADAPTER] Cadastrando novo paciente (nome: {}, cpf: {}) na URL: {}", name, cleanCpf, uri);
+
+        try {
+            ResponseEntity<String> response = patientClient.savePatient(uri, payload, getAccessToken());
+            log.info("[FEEGOW] Resposta do patient/create: status={}, body={}", response.getStatusCode(), response.getBody());
+
+            FeegowPatientDetailsDto.PatientItem details = extractPatientDetails(response.getBody());
+            if (details != null && details.getId() != null) {
+                return new FeegowPatient(details.getId(), details.getNome(), resolvePreferredPhone(details), cleanCpf, isoBirthdate);
+            }
+
+            FeegowPatientDetailsDto.PatientItem searched = getPatientDetails(cleanCpf);
+            if (searched != null) {
+                return new FeegowPatient(searched.getId(), searched.getNome(), resolvePreferredPhone(searched), cleanCpf, isoBirthdate);
+            }
+
+            return new FeegowPatient(null, name, cleanPhone, cleanCpf, isoBirthdate);
+        } catch (Exception ex) {
+            log.error("[FEEGOW] Erro ao cadastrar paciente (nome: {}, cpf: {}): {}", name, cleanCpf, ex.getMessage(), ex);
+            throw new RuntimeException("Falha ao cadastrar paciente no Feegow: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
     public void updatePatientCpf(String patientId, String cpf, String name, String birthdate) {
         if (patientId == null || patientId.isBlank() || cpf == null || cpf.isBlank()) {
             return;

@@ -814,13 +814,21 @@ public class HandleBlipWebhookUseCase {
         String normalized = text.trim().toLowerCase();
         
         return switch (normalized) {
-            case "sim", "confirmar", "confirm" -> WebhookIntent.CONFIRM;
+            case "sim", "confirmar", "confirm", "confirmo", "confirmar tudo", "confirmar_tudo", "1", "1️⃣", "opcao 1", "opção 1" -> WebhookIntent.CONFIRM;
             case "cancelar", "cancel" -> WebhookIntent.CANCEL;
-            case "solicitar alteração", "solicitar alteracao", "alterar" -> WebhookIntent.ALTER;
-            case String s when s.contains("confirmar presença") || s.contains("confirmar consulta") -> WebhookIntent.CONFIRM;
+            case "solicitar alteração", "solicitar alteracao", "alterar", "preciso alterar", "preciso_alterar", "2", "2️⃣", "opcao 2", "opção 2" -> WebhookIntent.ALTER;
+            case String s when s.contains("confirmar tudo") || s.contains("confirmar presença") || s.contains("confirmar consulta") || s.contains("confirmo") -> WebhookIntent.CONFIRM;
             case String s when s.contains("cancelar presença") || s.contains("cancelar consulta") -> WebhookIntent.CANCEL;
-            case String s when s.contains("solicitar alter") -> WebhookIntent.ALTER;
-            default -> WebhookIntent.UNKNOWN;
+            case String s when s.contains("preciso alterar") || s.contains("solicitar alter") -> WebhookIntent.ALTER;
+            default -> {
+                if (normalized.startsWith("1 ") || normalized.startsWith("1-") || normalized.startsWith("1.")) {
+                    yield WebhookIntent.CONFIRM;
+                }
+                if (normalized.startsWith("2 ") || normalized.startsWith("2-") || normalized.startsWith("2.")) {
+                    yield WebhookIntent.ALTER;
+                }
+                yield WebhookIntent.UNKNOWN;
+            }
         };
     }
 

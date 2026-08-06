@@ -37,6 +37,8 @@ public class BlipGroupActionHandler {
     private final AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final BlipContactClientPort blipContactClientPort;
     private final BlipContextService blipContextService;
+    private final BlipAppointmentFormatter blipAppointmentFormatter;
+    private final BlipNotificationService blipNotificationService;
 
     /**
      * Intercepta e processa as ações voltadas a agendamento de grupo.
@@ -73,10 +75,9 @@ public class BlipGroupActionHandler {
                                 lowerAction.startsWith("ver_agenda_") ||
                                 lowerAction.startsWith("group_view_") ||
                                 "group_view_fallback".equalsIgnoreCase(action) ||
-                                "confirmar tudo".equalsIgnoreCase(lowerAction.trim()) ||
-                                "confirmar_tudo".equalsIgnoreCase(lowerAction.trim()) ||
-                                "preciso alterar".equalsIgnoreCase(lowerAction.trim()) ||
-                                "preciso_alterar".equalsIgnoreCase(lowerAction.trim());
+                                isConfirmGroupText(lowerAction) ||
+                                isAlterGroupText(lowerAction) ||
+                                isGroupHelpOrNoButton(lowerAction);
 
         if (!isGroupAction && parseUuid(action.trim()) == null) {
             return null;
@@ -85,25 +86,28 @@ public class BlipGroupActionHandler {
         UUID groupId;
         String actionType = null;
         
-        if (lowerAction.startsWith("ver_agenda_")) {
+        if (isGroupHelpOrNoButton(lowerAction)) {
+            actionType = "group_help";
+            groupId = resolveFallbackGroupId(fromPhone, bsuid, metadata);
+        } else if (lowerAction.startsWith("ver_agenda_")) {
             actionType = "ver_agenda";
             groupId = parseUuid(action.substring("ver_agenda_".length()).trim());
         } else if (lowerAction.startsWith("confirm_group_")) {
             actionType = "confirm_group";
             groupId = parseUuid(action.substring("confirm_group_".length()).trim());
-        } else if ("confirmar tudo".equalsIgnoreCase(lowerAction.trim()) || "confirmar_tudo".equalsIgnoreCase(lowerAction.trim())) {
+        } else if (isConfirmGroupText(lowerAction)) {
             actionType = "confirm_group";
             groupId = resolveFallbackGroupId(fromPhone, bsuid, metadata);
         } else if (lowerAction.startsWith("alter_group_")) {
             actionType = "alter_group";
             groupId = parseUuid(action.substring("alter_group_".length()).trim());
-        } else if ("preciso alterar".equalsIgnoreCase(lowerAction.trim()) || "preciso_alterar".equalsIgnoreCase(lowerAction.trim())) {
+        } else if (isAlterGroupText(lowerAction)) {
             actionType = "alter_group";
             groupId = resolveFallbackGroupId(fromPhone, bsuid, metadata);
         } else if (lowerAction.startsWith("group_view_")) {
             actionType = "group_view";
             groupId = parseUuid(action.substring("group_view_".length()).trim());
-        } else if ("group_view_fallback".equalsIgnoreCase(action)) {
+        } else if ("group_view_fallback".equalsIgnoreCase(action) || "group_view".equalsIgnoreCase(action.trim()) || "ver_agenda".equalsIgnoreCase(action.trim())) {
             actionType = "group_view_fallback";
             groupId = resolveFallbackGroupId(fromPhone, bsuid, metadata);
         } else {
@@ -126,26 +130,33 @@ public class BlipGroupActionHandler {
         }
 
         if (groups == null || groups.isEmpty()) {
-            log.info("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação defensiva por busca de sessão...", groupId);
+            log.info("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação defensiva por busca de grupo/sessão por telefone...", groupId);
             if (fromPhone != null && !fromPhone.isBlank()) {
                 try {
-                    // 1. Tentar buscar pelo agendamento mais recente vinculado ao phone_number que esteja com status PENDING
+                    // 1. Tentar buscar pelo grupo mais recente via findLatestByPhone
                     Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
                     if (latestGroupOpt.isPresent()) {
                         NotificationGroup latestGroup = latestGroupOpt.get();
-                        Optional<AppointmentSession> sessionOpt = appointmentSessionRepository.findById(latestGroup.getSessionId());
-                        if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.PENDING) {
-                            groupId = latestGroup.getGroupId();
-                            groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
-                            log.info("[WEBHOOK] Recuperado grupo com sucesso via agendamento PENDING recente para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                        groupId = latestGroup.getGroupId();
+                        groups = notificationGroupRepository.findByGroupId(groupId);
+                        if (groups != null && !groups.isEmpty()) {
+                            log.info("[WEBHOOK] Recuperado grupo com sucesso via findLatestByPhone para o telefone={}. Novo groupId={}", dbPhone, groupId);
                         }
                     }
 
-                    // 2. Fallback secundário: buscar por qualquer sessão ativa se o mais recente não estiver PENDING
+                    // 2. Fallback secundário: buscar por sessões ativas
                     if (groups == null || groups.isEmpty()) {
                         List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
                         if (activeSessions != null && !activeSessions.isEmpty()) {
                             for (AppointmentSession session : activeSessions) {
+                                if (session.getCurrentGroupId() != null) {
+                                    groupId = session.getCurrentGroupId();
+                                    groups = notificationGroupRepository.findByGroupId(groupId);
+                                    if (groups != null && !groups.isEmpty()) {
+                                        log.info("[WEBHOOK] Recuperado grupo com sucesso via currentGroupId da sessão ativa para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                                        break;
+                                    }
+                                }
                                 List<NotificationGroup> recoveredGroups = notificationGroupRepository.findBySessionId(session.getId());
                                 if (recoveredGroups != null && !recoveredGroups.isEmpty()) {
                                     groups = recoveredGroups;
@@ -262,10 +273,77 @@ public class BlipGroupActionHandler {
             case "alter_group" -> handleAlterGroup(groupId, fromPhone);
             case "group_view" -> handleGroupView(groupId, fromPhone, rawFrom);
             case "group_view_fallback" -> handleGroupViewFallback(groupId, fromPhone, rawFrom);
+            case "group_help" -> handleGroupHelp(fromPhone, dbPhone);
             default -> {}
         }
         
         return new HandleBlipWebhookUseCase.WebhookResult("", "", "", "", "group_action_processed", "");
+    }
+
+    private boolean isGroupHelpOrNoButton(String lower) {
+        if (lower == null) return false;
+        String t = lower.trim();
+        return t.contains("não tem botão") || t.contains("nao tem botao") ||
+               t.contains("não tem botões") || t.contains("nao tem botoes") ||
+               t.contains("sem botão") || t.contains("sem botao") ||
+               t.contains("como faço") || t.contains("como faco") ||
+               t.contains("como confirmar");
+    }
+
+    private boolean isConfirmGroupText(String lower) {
+        if (lower == null) return false;
+        String t = lower.trim();
+        return t.contains("confirmar tudo") || t.contains("confirmar_tudo") ||
+               t.equalsIgnoreCase("1") || t.equalsIgnoreCase("1️⃣") ||
+               t.equalsIgnoreCase("opcao 1") || t.equalsIgnoreCase("opção 1") ||
+               t.equalsIgnoreCase("confirmar") || t.equalsIgnoreCase("confirmo") ||
+               t.startsWith("1 ") || t.startsWith("1-") || t.startsWith("1.");
+    }
+
+    private boolean isAlterGroupText(String lower) {
+        if (lower == null) return false;
+        String t = lower.trim();
+        return t.contains("preciso alterar") || t.contains("preciso_alterar") ||
+               t.equalsIgnoreCase("2") || t.equalsIgnoreCase("2️⃣") ||
+               t.equalsIgnoreCase("opcao 2") || t.equalsIgnoreCase("opção 2") ||
+               t.equalsIgnoreCase("alterar") ||
+               t.startsWith("2 ") || t.startsWith("2-") || t.startsWith("2.");
+    }
+
+    private void handleGroupHelp(String fromPhone, String dbPhone) {
+        log.info("[WEBHOOK-HELP] Interceptando solicitação de ajuda/sem botões do paciente para {}.", fromPhone);
+        String searchPhone = (dbPhone != null && !dbPhone.isBlank()) ? dbPhone : fromPhone;
+        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(searchPhone);
+        if (activeSessions == null || activeSessions.isEmpty()) {
+            activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifyPhoneNumberForSearch(fromPhone));
+        }
+
+        if (activeSessions != null && !activeSessions.isEmpty()) {
+            UUID groupId = null;
+            for (AppointmentSession s : activeSessions) {
+                if (s.getCurrentGroupId() != null) {
+                    groupId = s.getCurrentGroupId();
+                    break;
+                }
+            }
+            if (groupId == null) {
+                Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(searchPhone);
+                if (latestGroupOpt.isPresent()) {
+                    groupId = latestGroupOpt.get().getGroupId();
+                }
+            }
+            if (groupId != null) {
+                saveGroupIdToSessions(fromPhone, groupId);
+            }
+
+            String textMessage = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
+            if (textMessage != null && !textMessage.isBlank()) {
+                blipNotificationService.sendPlainTextMessage(fromPhone, textMessage);
+                log.info("[WEBHOOK-HELP] Enviada mensagem com lista detalhada e opções numéricas em texto plano para {}", fromPhone);
+            }
+        } else {
+            log.warn("[WEBHOOK-HELP] Nenhuma sessão ativa encontrada para enviar mensagem de ajuda para {}", fromPhone);
+        }
     }
 
     /**
@@ -320,6 +398,19 @@ public class BlipGroupActionHandler {
 
         if (realPhone != null && !realPhone.isBlank()) {
             final String targetPhone = realPhone;
+
+            // 1. Tentar buscar pelas sessões ativas do banco
+            List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(targetPhone);
+            if (activeSessions != null) {
+                for (AppointmentSession s : activeSessions) {
+                    if (s.getCurrentGroupId() != null) {
+                        log.info("[WEBHOOK] Fallback groupId encontrado em sessão ativa: {} para telefone: {}", s.getCurrentGroupId(), targetPhone);
+                        return s.getCurrentGroupId();
+                    }
+                }
+            }
+
+            // 2. Tentar buscar o grupo ativo mais recente pelo número de telefone
             NotificationGroup latestGroup = transactionTemplate.execute(status ->
                 notificationGroupRepository.findLatestByPhone(targetPhone).orElse(null)
             );

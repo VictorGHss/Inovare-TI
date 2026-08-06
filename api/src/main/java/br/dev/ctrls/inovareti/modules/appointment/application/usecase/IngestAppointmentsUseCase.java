@@ -756,6 +756,21 @@ public class IngestAppointmentsUseCase {
             return 0;
         }
 
+        // Prevenção de disparo duplicado de templates de grupo nas últimas 6 horas
+        boolean recentGroupSent = false;
+        try {
+            Optional<NotificationGroup> latestOpt = notificationGroupRepository.findLatestByPhone(normalizedPhone);
+            if (latestOpt.isPresent() && latestOpt.get().getCreatedAt() != null) {
+                LocalDateTime lastCreatedAt = latestOpt.get().getCreatedAt();
+                if (lastCreatedAt.isAfter(LocalDateTime.now().minusHours(6))) {
+                    recentGroupSent = true;
+                    log.info("[ANTI-DUPLICADO-GRUPO] Telefone {} possui notificação de grupo enviada recentemente nas últimas 6 horas em {}.", normalizedPhone, lastCreatedAt);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[ANTI-DUPLICADO-GRUPO] Falha ao verificar grupo anterior para {}: {}", normalizedPhone, ex.getMessage());
+        }
+
         // Gera o groupId antes da transação para já associar nas sessões durante o primeiro save
         UUID groupId = UUID.randomUUID();
         String phoneNumber = normalizedPhone;
@@ -905,20 +920,24 @@ public class IngestAppointmentsUseCase {
             }
         }, applicationTaskExecutor);
 
-        // Envia o template imediatamente, sem esperar o contexto subir
-        try {
-            blipSemaphore.acquire();
+        if (!recentGroupSent) {
+            // Envia o template imediatamente, sem esperar o contexto subir
             try {
-                log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
-                blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
-            } finally {
-                blipSemaphore.release();
+                blipSemaphore.acquire();
+                try {
+                    log.info("[GRUPO] Enviando template '{}' para {}. groupId={}", groupTemplateName, phoneNumber, groupId);
+                    blipNotificationService.sendGroupTemplateMessage(phoneNumber, groupTemplateName, groupId, finalPatientName);
+                } finally {
+                    blipSemaphore.release();
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("[GRUPO] Interrompido aguardando semáforo para envio de template. groupId={}", groupId);
+            } catch (Exception e) {
+                log.error("[ERRO-CRITICO-GRUPO] Falha ao enviar template para {}. groupId={}", phoneNumber, groupId, e);
             }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            log.warn("[GRUPO] Interrompido aguardando semáforo para envio de template. groupId={}", groupId);
-        } catch (Exception e) {
-            log.error("[ERRO-CRITICO-GRUPO] Falha ao enviar template para {}. groupId={}", phoneNumber, groupId, e);
+        } else {
+            log.info("[ANTI-DUPLICADO-GRUPO] Disparo do template de grupo '{}' ignorado para {} por ter sido enviado há menos de 6 horas.", groupTemplateName, phoneNumber);
         }
 
         return result.savedSessions().size();

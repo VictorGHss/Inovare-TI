@@ -65,7 +65,15 @@ public class NotificationGroupRepositoryAdapter implements NotificationGroupRepo
         if (phone == null || phone.isBlank()) {
             return Optional.empty();
         }
-        return springDataRepository.findByPhoneOrderByCreatedAtDesc(phone, PageRequest.of(0, 1)).stream()
+        String clean = phone.trim();
+        List<NotificationGroupEntity> list = springDataRepository.findByPhoneOrderByCreatedAtDesc(clean, PageRequest.of(0, 1));
+        if (list.isEmpty() && !clean.startsWith("55")) {
+            list = springDataRepository.findByPhoneOrderByCreatedAtDesc("55" + clean, PageRequest.of(0, 1));
+        }
+        if (list.isEmpty() && clean.startsWith("55")) {
+            list = springDataRepository.findByPhoneOrderByCreatedAtDesc(clean.substring(2), PageRequest.of(0, 1));
+        }
+        return list.stream()
                 .findFirst()
                 .map(entity -> entity.toDomain());
     }

@@ -211,6 +211,13 @@ public class BlipWebhookController {
         String from = parsed.from();
         String action = parsed.action();
         String messageId = parsed.messageId();
+        if (messageId == null || messageId.isBlank()) {
+            if (payload.get("id") != null) {
+                messageId = payload.get("id").toString();
+            } else if (payload.get("wamid") != null) {
+                messageId = payload.get("wamid").toString();
+            }
+        }
         String appointmentId = parsed.appointmentId();
         Object content = parsed.content();
 
@@ -225,12 +232,12 @@ public class BlipWebhookController {
             return ResponseEntity.ok().build();
         }
 
-        // 2. Idempotência estrita local de 5 segundos (Operação atômica thread-safe)
+        // 2. Idempotência estrita local de 10 segundos (Operação atômica thread-safe)
         if (messageId != null && !messageId.isBlank()) {
             long now = System.currentTimeMillis();
             java.util.concurrent.atomic.AtomicBoolean isDuplicate = new java.util.concurrent.atomic.AtomicBoolean(false);
             strictIdempotencyCache.compute(messageId, (key, lastProcessed) -> {
-                if (lastProcessed != null && (now - lastProcessed) < 5000L) {
+                if (lastProcessed != null && (now - lastProcessed) < 10000L) {
                     isDuplicate.set(true);
                     return lastProcessed;
                 }
@@ -238,7 +245,7 @@ public class BlipWebhookController {
             });
 
             if (isDuplicate.get()) {
-                log.debug("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 5s). Ignorando messageId='{}'", messageId);
+                log.debug("[ANTI-LOOP] [IDEMPOTÊNCIA ESTRITA] Evento processado muito recentemente (menos de 10s). Ignorando messageId='{}'", messageId);
                 return ResponseEntity.ok(Map.of(
                     "status", "processed",
                     "reason", "strict-duplicate-ignored"
@@ -248,7 +255,7 @@ public class BlipWebhookController {
             if (strictIdempotencyCache.size() > 5000) {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
                     long currentTime = System.currentTimeMillis();
-                    strictIdempotencyCache.entrySet().removeIf(entry -> entry.getValue() < currentTime - 5000L);
+                    strictIdempotencyCache.entrySet().removeIf(entry -> entry.getValue() < currentTime - 10000L);
                 });
             }
         }

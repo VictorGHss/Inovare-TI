@@ -107,6 +107,7 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public List<AppointmentSession> findActiveByPhoneNumber(String phone) {
         if (phone == null) {
             return List.of();
@@ -174,6 +175,7 @@ public class AppointmentSessionRepositoryAdapter implements AppointmentSessionRe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public boolean existsByPhoneNumber(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.isBlank()) {
             return false;

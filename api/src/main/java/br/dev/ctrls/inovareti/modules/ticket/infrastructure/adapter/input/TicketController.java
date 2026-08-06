@@ -38,6 +38,7 @@ import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ChangeCategoryU
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ClaimTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.CreateTicketUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FetchTicketsByItemUseCase;
+import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FindSimilarTicketsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.FindTicketByIdUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.GetTicketCommentsUseCase;
 import br.dev.ctrls.inovareti.modules.ticket.application.usecase.ListAllTicketsUseCase;
@@ -85,6 +86,7 @@ public class TicketController {
     private final FetchTicketsByItemUseCase fetchTicketsByItemUseCase;
     private final UpdateTicketItemsUseCase updateTicketItemsUseCase;
     private final LinkTicketUseCase linkTicketUseCase;
+    private final FindSimilarTicketsUseCase findSimilarTicketsUseCase;
 
     private void checkTicketOwnershipOrStaff(UUID ticketId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -181,19 +183,7 @@ public class TicketController {
     @GetMapping("/{id}/similar")
     public ResponseEntity<List<TicketResponseDTO>> findSimilar(@PathVariable UUID id) {
         checkTicketOwnershipOrStaff(id);
-        Ticket ticket = ticketRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Chamado não encontrado com id: " + id));
-
-        if (ticket.getTags() == null || ticket.getTags().isEmpty()) {
-            return ResponseEntity.ok(List.of());
-        }
-
-        List<TicketResponseDTO> response = ticketRepository.findSimilarResolvedTickets(id, ticket.getTags())
-                .stream()
-                .map(TicketResponseDTO::from)
-                .toList();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(findSimilarTicketsUseCase.execute(id));
     }
 
     /**

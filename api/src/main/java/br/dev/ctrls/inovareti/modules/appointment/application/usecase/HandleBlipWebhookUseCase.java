@@ -681,16 +681,18 @@ public class HandleBlipWebhookUseCase {
 
         // 3. Atualiza Master-State e Builder Master-State para o bloco de Desk
         try {
-            String deskStateId = blipProperties.getBlocks().getDeskStateId();
-            if (deskStateId == null || deskStateId.isBlank()) {
-                deskStateId = "644d54dd-aefd-478b-93eb-10081acdd387";
-            }
-            String targetBot = "desk@msging.net";
-            blipContextService.setMasterState(fromPhone, targetBot, deskStateId);
-            blipContextService.setBuilderMasterState(fromPhone, deskStateId);
-            if (searchPhone != null && !fromPhone.equalsIgnoreCase(searchPhone)) {
-                blipContextService.setMasterState(searchPhone, targetBot, deskStateId);
-                blipContextService.setBuilderMasterState(searchPhone, deskStateId);
+            if (fromPhone != null && !fromPhone.isBlank()) {
+                String deskStateId = blipProperties.getBlocks().getDeskStateId();
+                if (deskStateId == null || deskStateId.isBlank()) {
+                    deskStateId = "644d54dd-aefd-478b-93eb-10081acdd387";
+                }
+                String targetBot = "desk@msging.net";
+                blipContextService.setMasterState(fromPhone, targetBot, deskStateId);
+                blipContextService.setBuilderMasterState(fromPhone, deskStateId);
+                if (searchPhone != null && !fromPhone.equalsIgnoreCase(searchPhone)) {
+                    blipContextService.setMasterState(searchPhone, targetBot, deskStateId);
+                    blipContextService.setBuilderMasterState(searchPhone, deskStateId);
+                }
             }
         } catch (Exception ex) {
             log.warn("[SILENT-ROUTING] Falha ao ajustar Master-State de Desk para {}: {}", fromPhone, ex.getMessage());

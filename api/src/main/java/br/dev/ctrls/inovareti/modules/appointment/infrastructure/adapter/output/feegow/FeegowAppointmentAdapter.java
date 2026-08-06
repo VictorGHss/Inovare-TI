@@ -271,6 +271,25 @@ public class FeegowAppointmentAdapter implements AppointmentExternalPort {
             statusIdInt = Integer.parseInt(normalizedStatusId);
         } catch (NumberFormatException ignored) {}
 
+        // FEEGOW-STATUS-GUARD: Impede regressão de status para 7 (CONFIRMED) se o agendamento já estiver em estado avançado no Feegow ou na clínica
+        if (statusIdInt == 7) {
+            try {
+                FeegowAppointment currentAppt = findById(normalizedAppointmentId);
+                if (currentAppt != null && currentAppt.statusId() != null) {
+                    String currentStatus = currentAppt.statusId().trim();
+                    // Feegow Status IDs avançados: 3 (Aguardando), 4 (Atendido), 5 (Em Atendimento), 6 (Finalizado), 8 (Em Espera), 11 (Cancelado), 12 (Falta)
+                    if ("3".equals(currentStatus) || "4".equals(currentStatus) || "5".equals(currentStatus) 
+                            || "6".equals(currentStatus) || "8".equals(currentStatus) || "11".equals(currentStatus) || "12".equals(currentStatus)) {
+                        log.warn("[FEEGOW-STATUS-GUARD] Ignorando alteração de status para 7 (CONFIRMED) no agendamento {} pois o status atual é {} (não regredir).",
+                                normalizedAppointmentId, currentStatus);
+                        return;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[FEEGOW-STATUS-GUARD] Não foi possível verificar o status atual do agendamento {}: {}", normalizedAppointmentId, ex.getMessage());
+            }
+        }
+
         FeegowStatusUpdatePayload payload = new FeegowStatusUpdatePayload(
                 normalizeAppointmentIdForPayload(normalizedAppointmentId),
                 statusIdInt,

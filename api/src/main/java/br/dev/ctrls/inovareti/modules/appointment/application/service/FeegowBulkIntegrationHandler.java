@@ -93,7 +93,18 @@ public class FeegowBulkIntegrationHandler {
             }
         }
 
-        List<AppointmentSession> sessionList = new ArrayList<>(uniqueSessions.values());
+        List<AppointmentSession> sessionList = new ArrayList<>();
+        for (AppointmentSession s : uniqueSessions.values()) {
+            if (s.getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CONFIRMED ||
+                s.getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED ||
+                s.getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.CANCELED_NO_RESPONSE ||
+                s.getStatus() == br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.ALTERATION_REQUESTED) {
+                log.warn("[BULK-STATUS-GUARD] Descartando sessão {} (feegowId={}) da confirmação em lote pois o status local é {} (não regredir).",
+                    s.getId(), s.getFeegowAppointmentId(), s.getStatus());
+                continue;
+            }
+            sessionList.add(s);
+        }
         log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
 
         // Guarda de segurança: sem sessões, não há o que confirmar

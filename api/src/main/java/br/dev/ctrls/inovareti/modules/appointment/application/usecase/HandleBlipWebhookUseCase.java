@@ -664,6 +664,7 @@ public class HandleBlipWebhookUseCase {
             for (String target : targets) {
                 if (target == null || target.isBlank()) continue;
                 blipContextService.setUserContext(target, "attendanceQueueToRedirect", targetQueueToRedirect);
+                blipContextService.setUserContext(target, "attendanceQueueNameToRedirect", queueName);
                 blipContextService.setUserContext(target, "fila", queueName);
                 blipContextService.setUserContext(target, "deskFila", queueName);
                 blipContextService.setUserContext(target, "Medico", doctorName);

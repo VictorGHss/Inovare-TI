@@ -630,19 +630,25 @@ public class BlipContextService {
         String masterIdentity = resolveMasterIdentity(userIdentity);
         String tunnelIdentity = resolveTunnelIdentity(userIdentity);
 
+        String queueValueForRedirect = (rawQueueId != null && !rawQueueId.isBlank()) ? rawQueueId : safeQueueName;
+
         if (masterIdentity != null && !masterIdentity.isBlank()) {
-            setUserContext(masterIdentity, "attendanceQueueToRedirect", safeQueueName);
+            setUserContext(masterIdentity, "attendanceQueueToRedirect", queueValueForRedirect);
+            setUserContext(masterIdentity, "attendanceQueueNameToRedirect", safeQueueName);
             setUserContext(masterIdentity, "fila", safeQueueName);
+            setUserContext(masterIdentity, "deskFila", safeQueueName);
         }
         if (tunnelIdentity != null && !tunnelIdentity.isBlank() && !tunnelIdentity.equalsIgnoreCase(masterIdentity)) {
-            setUserContext(tunnelIdentity, "attendanceQueueToRedirect", safeQueueName);
+            setUserContext(tunnelIdentity, "attendanceQueueToRedirect", queueValueForRedirect);
+            setUserContext(tunnelIdentity, "attendanceQueueNameToRedirect", safeQueueName);
             setUserContext(tunnelIdentity, "fila", safeQueueName);
+            setUserContext(tunnelIdentity, "deskFila", safeQueueName);
         }
 
         // Sincronização explícita dos extras do contato no Roteador e no Desk/Subbot
         updateContactExtras(userIdentity, safeQueueName, rawQueueId);
 
-        log.info("Fila de redirecionamento e extras configurados no contexto (escopo dual). master={}, tunnel={}, fila={}", masterIdentity, tunnelIdentity, safeQueueName);
+        log.info("Fila de redirecionamento e extras configurados no contexto (escopo dual). master={}, tunnel={}, queueToRedirect={}, queueNameToRedirect={}", masterIdentity, tunnelIdentity, queueValueForRedirect, safeQueueName);
         return true;
     }
 
@@ -689,21 +695,20 @@ public class BlipContextService {
     public void updateContactExtras(String userIdentity, Map<String, String> extras) {
         if (userIdentity == null || userIdentity.isBlank() || extras == null || extras.isEmpty()) return;
 
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                String masterIdentity = resolveMasterIdentity(userIdentity);
-                String tunnelIdentity = resolveTunnelIdentity(userIdentity);
+        try {
+            String masterIdentity = resolveMasterIdentity(userIdentity);
+            String tunnelIdentity = resolveTunnelIdentity(userIdentity);
 
-                if (masterIdentity != null && !masterIdentity.isBlank()) {
-                    limeClient.mergeContactExtras(masterIdentity, extras, BlipLIMEClient.AuthorizationScope.ROUTER);
-                }
-                if (tunnelIdentity != null && !tunnelIdentity.isBlank()) {
-                    limeClient.mergeContactExtras(tunnelIdentity, extras, BlipLIMEClient.AuthorizationScope.DESK);
-                }
-            } catch (Exception ex) {
-                log.warn("[BLIP-CONTEXT] Falha ao atualizar extras do contato em escopo duplo para {}: {}", userIdentity, ex.getMessage());
+            if (masterIdentity != null && !masterIdentity.isBlank()) {
+                limeClient.mergeContactExtras(masterIdentity, extras, BlipLIMEClient.AuthorizationScope.ROUTER);
             }
-        }, applicationTaskExecutor);
+            if (tunnelIdentity != null && !tunnelIdentity.isBlank() && !tunnelIdentity.equalsIgnoreCase(masterIdentity)) {
+                limeClient.mergeContactExtras(tunnelIdentity, extras, BlipLIMEClient.AuthorizationScope.DESK);
+            }
+            log.info("[BLIP-CONTEXT] Extras do contato atualizados sincronamente em escopo duplo para {}: {}", userIdentity, extras.keySet());
+        } catch (Exception ex) {
+            log.warn("[BLIP-CONTEXT] Falha ao atualizar extras do contato em escopo duplo para {}: {}", userIdentity, ex.getMessage());
+        }
     }
 }
 

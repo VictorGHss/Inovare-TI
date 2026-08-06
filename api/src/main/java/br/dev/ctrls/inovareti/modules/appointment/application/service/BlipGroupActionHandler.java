@@ -120,7 +120,7 @@ public class BlipGroupActionHandler {
         String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(fromPhone, bsuid);
         List<NotificationGroup> groups = null;
         if (groupId != null) {
-            groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, dbPhone);
+            groups = findByGroupIdAndPhoneNumberNormalized(groupId, dbPhone);
             if (groups == null || groups.isEmpty()) {
                 groups = notificationGroupRepository.findByGroupId(groupId);
                 if (groups != null && !groups.isEmpty()) {
@@ -133,20 +133,20 @@ public class BlipGroupActionHandler {
             log.info("[WEBHOOK] Grupo {} não encontrado no banco. Tentando recuperação defensiva por busca de grupo/sessão por telefone...", groupId);
             if (fromPhone != null && !fromPhone.isBlank()) {
                 try {
-                    // 1. Tentar buscar pelo grupo mais recente via findLatestByPhone
-                    Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(dbPhone);
+                    // 1. Tentar buscar pelo grupo mais recente via findLatestGroupNormalized
+                    Optional<NotificationGroup> latestGroupOpt = findLatestGroupNormalized(dbPhone);
                     if (latestGroupOpt.isPresent()) {
                         NotificationGroup latestGroup = latestGroupOpt.get();
                         groupId = latestGroup.getGroupId();
                         groups = notificationGroupRepository.findByGroupId(groupId);
                         if (groups != null && !groups.isEmpty()) {
-                            log.info("[WEBHOOK] Recuperado grupo com sucesso via findLatestByPhone para o telefone={}. Novo groupId={}", dbPhone, groupId);
+                            log.info("[WEBHOOK] Recuperado grupo com sucesso via findLatestGroupNormalized para o telefone={}. Novo groupId={}", dbPhone, groupId);
                         }
                     }
 
                     // 2. Fallback secundário: buscar por sessões ativas
                     if (groups == null || groups.isEmpty()) {
-                        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                        List<AppointmentSession> activeSessions = findActiveSessionsNormalized(dbPhone);
                         if (activeSessions != null && !activeSessions.isEmpty()) {
                             for (AppointmentSession session : activeSessions) {
                                 if (session.getCurrentGroupId() != null) {
@@ -201,7 +201,7 @@ public class BlipGroupActionHandler {
                         if (purifiedPhone.isEmpty()) {
                             purifiedPhone = purifyPhoneNumberForSearch(fromPhone);
                         }
-                        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
+                        List<AppointmentSession> activeSessions = findActiveSessionsNormalized(purifiedPhone);
                         if (activeSessions != null && !activeSessions.isEmpty()) {
                             AppointmentSession session = activeSessions.get(0);
                             String doctorId = session.getDoctorProfissionalId();
@@ -313,9 +313,9 @@ public class BlipGroupActionHandler {
     private void handleGroupHelp(String fromPhone, String dbPhone) {
         log.info("[WEBHOOK-HELP] Interceptando solicitação de ajuda/sem botões do paciente para {}.", fromPhone);
         String searchPhone = (dbPhone != null && !dbPhone.isBlank()) ? dbPhone : fromPhone;
-        List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(searchPhone);
+        List<AppointmentSession> activeSessions = findActiveSessionsNormalized(searchPhone);
         if (activeSessions == null || activeSessions.isEmpty()) {
-            activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifyPhoneNumberForSearch(fromPhone));
+            activeSessions = findActiveSessionsNormalized(purifyPhoneNumberForSearch(fromPhone));
         }
 
         if (activeSessions != null && !activeSessions.isEmpty()) {
@@ -327,7 +327,7 @@ public class BlipGroupActionHandler {
                 }
             }
             if (groupId == null) {
-                Optional<NotificationGroup> latestGroupOpt = notificationGroupRepository.findLatestByPhone(searchPhone);
+                Optional<NotificationGroup> latestGroupOpt = findLatestGroupNormalized(searchPhone);
                 if (latestGroupOpt.isPresent()) {
                     groupId = latestGroupOpt.get().getGroupId();
                 }
@@ -401,7 +401,7 @@ public class BlipGroupActionHandler {
             final String targetPhone = realPhone;
 
             // 1. Tentar buscar pelas sessões ativas do banco
-            List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(targetPhone);
+            List<AppointmentSession> activeSessions = findActiveSessionsNormalized(targetPhone);
             if (activeSessions != null) {
                 for (AppointmentSession s : activeSessions) {
                     if (s.getCurrentGroupId() != null) {
@@ -413,7 +413,7 @@ public class BlipGroupActionHandler {
 
             // 2. Tentar buscar o grupo ativo mais recente pelo número de telefone
             NotificationGroup latestGroup = transactionTemplate.execute(status ->
-                notificationGroupRepository.findLatestByPhone(targetPhone).orElse(null)
+                findLatestGroupNormalized(targetPhone).orElse(null)
             );
 
             if (latestGroup != null) {
@@ -452,7 +452,7 @@ public class BlipGroupActionHandler {
         String dbPhone = blipIdentityReconciler.resolveAndReconcileIdentity(normalizedPhone, null);
         transactionTemplate.executeWithoutResult(status -> {
             List<AppointmentSession> activeSessions =
-                appointmentSessionRepository.findActiveByPhoneNumber(dbPhone);
+                findActiveSessionsNormalized(dbPhone);
             if (activeSessions == null || activeSessions.isEmpty()) {
                 log.warn("[WEBHOOK] Nenhuma sessao ativa encontrada para {} ao salvar groupId={}",
                     normalizedPhone, groupId);
@@ -502,5 +502,55 @@ public class BlipGroupActionHandler {
             clean = clean.substring(2);
         }
         return clean;
+    }
+
+    private List<AppointmentSession> findActiveSessionsNormalized(String phone) {
+        if (phone == null || phone.isBlank()) return List.of();
+        String digitsOnly = phone.replaceAll("\\D", "");
+        if (digitsOnly.isBlank()) return List.of();
+
+        String withDdi = digitsOnly.startsWith("55") ? digitsOnly : "55" + digitsOnly;
+        String withoutDdi = withDdi.length() > 2 ? withDdi.substring(2) : withDdi;
+
+        List<AppointmentSession> sessions = appointmentSessionRepository.findActiveByPhoneNumber(withDdi);
+        if (sessions != null && !sessions.isEmpty()) {
+            return sessions;
+        }
+        sessions = appointmentSessionRepository.findActiveByPhoneNumber(withoutDdi);
+        if (sessions != null && !sessions.isEmpty()) {
+            return sessions;
+        }
+        return List.of();
+    }
+
+    private Optional<NotificationGroup> findLatestGroupNormalized(String phone) {
+        if (phone == null || phone.isBlank()) return Optional.empty();
+        String digitsOnly = phone.replaceAll("\\D", "");
+        if (digitsOnly.isBlank()) return Optional.empty();
+
+        String withDdi = digitsOnly.startsWith("55") ? digitsOnly : "55" + digitsOnly;
+        String withoutDdi = withDdi.length() > 2 ? withDdi.substring(2) : withDdi;
+
+        Optional<NotificationGroup> opt = notificationGroupRepository.findLatestByPhone(withDdi);
+        if (opt.isPresent()) return opt;
+
+        return notificationGroupRepository.findLatestByPhone(withoutDdi);
+    }
+
+    private List<NotificationGroup> findByGroupIdAndPhoneNumberNormalized(UUID groupId, String phone) {
+        if (groupId == null || phone == null || phone.isBlank()) return List.of();
+        String digitsOnly = phone.replaceAll("\\D", "");
+        if (digitsOnly.isBlank()) return List.of();
+
+        String withDdi = digitsOnly.startsWith("55") ? digitsOnly : "55" + digitsOnly;
+        String withoutDdi = withDdi.length() > 2 ? withDdi.substring(2) : withDdi;
+
+        List<NotificationGroup> groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, withDdi);
+        if (groups != null && !groups.isEmpty()) return groups;
+
+        groups = notificationGroupRepository.findByGroupIdAndPhoneNumber(groupId, withoutDdi);
+        if (groups != null && !groups.isEmpty()) return groups;
+
+        return List.of();
     }
 }

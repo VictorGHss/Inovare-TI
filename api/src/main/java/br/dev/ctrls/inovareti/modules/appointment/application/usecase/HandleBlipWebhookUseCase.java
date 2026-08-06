@@ -706,8 +706,62 @@ public class HandleBlipWebhookUseCase {
             String normalizedPhone = from.trim();
             if (isPrepararAtendimento) {
                 log.info("[WEBHOOK-BLOCK] Interceptando Preparar_Atendimento para {} (DB Phone: {})", normalizedPhone, dbPhone);
+
+                String resolvedQueueName = null;
+                String resolvedDoctorId = null;
+                String resolvedPatientName = null;
+                String resolvedCpf = null;
+
                 try {
-                    blipContactClientPort.syncContact(normalizedPhone, "", "", "", "");
+                    String searchPhone = (dbPhone != null && !dbPhone.isEmpty()) ? dbPhone : from;
+                    String purifiedPhone = purifyPhoneNumberForSearch(searchPhone);
+                    if (purifiedPhone.isEmpty()) {
+                        purifiedPhone = purifyPhoneNumberForSearch(from);
+                    }
+
+                    List<AppointmentSession> activeSessions = appointmentSessionRepository.findActiveByPhoneNumber(purifiedPhone);
+                    if ((activeSessions == null || activeSessions.isEmpty()) && !purifiedPhone.startsWith("55")) {
+                        activeSessions = appointmentSessionRepository.findActiveByPhoneNumber("55" + purifiedPhone);
+                    }
+                    if (activeSessions != null && !activeSessions.isEmpty()) {
+                        AppointmentSession session = activeSessions.get(0);
+                        resolvedDoctorId = session.getDoctorProfissionalId();
+                        if (session.getPatientId() != null && !session.getPatientId().isBlank()) {
+                            try {
+                                var patient = patientExternalPort.patientInfo(session.getPatientId());
+                                if (patient != null) {
+                                    if (patient.name() != null && !patient.name().isBlank() && !br.dev.ctrls.inovareti.modules.access.infrastructure.adapter.output.BlipContactClientAdapter.isInvalidName(patient.name())) {
+                                        resolvedPatientName = patient.name().trim();
+                                    }
+                                    if (patient.cpf() != null) {
+                                        resolvedCpf = patient.cpf().replaceAll("\\D", "");
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        if (resolvedDoctorId != null && !resolvedDoctorId.isBlank()) {
+                            Optional<AppointmentDoctorMapping> doctorMappingOpt = appointmentDoctorMappingRepository.findByProfissionalId(resolvedDoctorId);
+                            if (doctorMappingOpt.isPresent()) {
+                                String blipQueueId = doctorMappingOpt.get().getBlipQueueId();
+                                if (blipQueueId != null && !blipQueueId.isBlank()) {
+                                    String resolved = blipContextService.resolveQueueName(blipQueueId);
+                                    resolvedQueueName = (resolved != null && !resolved.isBlank()) ? resolved : blipQueueId;
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("[WEBHOOK-BLOCK] Falha defensiva ao resolver agendamento ativo em Preparar_Atendimento: {}", ex.getMessage());
+                }
+
+                try {
+                    blipContactClientPort.syncContact(
+                        normalizedPhone,
+                        resolvedPatientName != null ? resolvedPatientName : "",
+                        resolvedCpf != null ? resolvedCpf : "",
+                        resolvedQueueName,
+                        resolvedDoctorId != null ? resolvedDoctorId : ""
+                    );
                 } catch (Exception ex) {
                     log.warn("[WEBHOOK-BLOCK] Falha ao sincronizar contato no Preparar_Atendimento: {}", ex.getMessage());
                 }

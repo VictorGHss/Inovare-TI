@@ -28,7 +28,19 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
 
     private RestClient restClient;
 
-    private final java.util.concurrent.ConcurrentHashMap<String, Long> contactSyncCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static class SyncCacheEntry {
+        final long timestamp;
+        final boolean hasQueue;
+        final boolean hasRealName;
+
+        SyncCacheEntry(long timestamp, boolean hasQueue, boolean hasRealName) {
+            this.timestamp = timestamp;
+            this.hasQueue = hasQueue;
+            this.hasRealName = hasRealName;
+        }
+    }
+
+    private final java.util.concurrent.ConcurrentHashMap<String, SyncCacheEntry> contactSyncCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     @org.springframework.beans.factory.annotation.Autowired
     public BlipContactClientAdapter(
@@ -61,12 +73,8 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
         }
         log.info("[BlipContact-Adapter] Inicializando RestClient para Blip. BaseURL: {}", baseUrl);
 
-        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-                .connectTimeout(java.time.Duration.ofSeconds(10))
-                .build();
-
-        org.springframework.http.client.JdkClientHttpRequestFactory factory =
-                new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(5));
         factory.setReadTimeout(java.time.Duration.ofSeconds(10));
 
         this.restClient = RestClient.builder()
@@ -87,6 +95,16 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             return true;
         }
         return false;
+    }
+
+    public static boolean isGenericName(String name) {
+        if (name == null || name.isBlank()) {
+            return true;
+        }
+        String trimmed = name.trim().toLowerCase();
+        return trimmed.equals("paciente") 
+            || trimmed.equals("paciente não identificado") 
+            || trimmed.equals("paciente nao identificado");
     }
 
     @Override
@@ -113,11 +131,27 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             ? queueName.trim()
             : "";
 
-        // Cache de Idempotência de Sync de Contato (120s / 2 min)
-        String cacheKey = normalizedIdentity + ":" + cleanName + ":" + cleanQueue;
+        // Cache de Idempotência de Sync de Contato (120s / 2 min) com bypass para enriquecimento de dados
+        String cacheKey = normalizedIdentity;
+        boolean currentHasQueue = org.springframework.util.StringUtils.hasText(cleanQueue);
+        boolean currentHasRealName = !isInvalidName(cleanName) && !isGenericName(cleanName);
+
         long now = System.currentTimeMillis();
-        Long lastSync = contactSyncCache.get(cacheKey);
-        if (lastSync != null && (now - lastSync) < 120000L) {
+        SyncCacheEntry lastSync = contactSyncCache.get(cacheKey);
+
+        boolean bypassCache = false;
+        if (lastSync != null) {
+            // Se a requisição atual traz fila preenchida e a anterior não tinha, FORÇA o bypass do cache!
+            if (currentHasQueue && !lastSync.hasQueue) {
+                bypassCache = true;
+                log.info("[SYNC-CACHE-BYPASS] Enriquecimento de fila detectado para {} (fila='{}'). Forçando envio REST ao Blip.", normalizedIdentity, cleanQueue);
+            } else if (currentHasRealName && !lastSync.hasRealName) {
+                bypassCache = true;
+                log.info("[SYNC-CACHE-BYPASS] Enriquecimento de nome detectado para {} (nome='{}'). Forçando envio REST ao Blip.", normalizedIdentity, cleanName);
+            }
+        }
+
+        if (!bypassCache && lastSync != null && (now - lastSync.timestamp) < 120000L) {
             log.info("[SYNC-CACHE-HIT] Contato {} já sincronizado recentemente. Pulando chamadas REST redundantes.", normalizedIdentity);
             return true;
         }
@@ -218,13 +252,13 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
         }
 
         if (overallSuccess) {
-            contactSyncCache.put(cacheKey, now);
+            contactSyncCache.put(cacheKey, new SyncCacheEntry(now, currentHasQueue, currentHasRealName));
         }
 
         if (contactSyncCache.size() > 5000) {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 long currentTime = System.currentTimeMillis();
-                contactSyncCache.entrySet().removeIf(entry -> (currentTime - entry.getValue()) > 120000L);
+                contactSyncCache.entrySet().removeIf(entry -> (currentTime - entry.getValue().timestamp) > 120000L);
             });
         }
 
@@ -272,18 +306,27 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
 
         Map<String, Object> contactResource = new java.util.LinkedHashMap<>();
         contactResource.put("identity", identity);
-        contactResource.put("name", name);
+        if (!isInvalidName(name) && !isGenericName(name)) {
+            contactResource.put("name", name);
+        }
         if (!digitsOnly.isBlank()) {
             contactResource.put("phoneNumber", formattedPhone);
             contactResource.put("cellPhoneNumber", formattedPhone);
         }
-        contactResource.put("extras", Map.of(
-            "cpf", cleanCpf,
-            "fila", cleanQueue,
-            "deskFila", cleanQueue,
-            "phoneNumber", plainPhone,
-            "telefone", plainPhone
-        ));
+
+        Map<String, Object> extras = new java.util.LinkedHashMap<>();
+        if (cleanCpf != null && !cleanCpf.isBlank()) {
+            extras.put("cpf", cleanCpf);
+        }
+        if (org.springframework.util.StringUtils.hasText(cleanQueue)) {
+            extras.put("fila", cleanQueue);
+            extras.put("deskFila", cleanQueue);
+        }
+        if (plainPhone != null && !plainPhone.isBlank()) {
+            extras.put("phoneNumber", plainPhone);
+            extras.put("telefone", plainPhone);
+        }
+        contactResource.put("extras", extras);
 
         Map<String, Object> command = Map.of(
             "id", "sync-contact-" + UUID.randomUUID().toString(),

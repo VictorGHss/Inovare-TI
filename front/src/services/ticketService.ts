@@ -10,11 +10,12 @@ export async function getTickets(
   priority?: string,
   categoryId?: string
 ): Promise<Page<Ticket>> {
+  const safePage = isNaN(Number(page)) || page === undefined || page === null ? 0 : Math.max(0, Math.floor(Number(page)));
   const params = new URLSearchParams();
   if (tagIds && tagIds.length > 0) {
     tagIds.forEach(id => params.append('tagIds', id));
   }
-  params.append('page', String(page));
+  params.append('page', String(safePage));
   if (search && search.trim() !== '') {
     params.append('search', search.trim());
   }
@@ -27,8 +28,23 @@ export async function getTickets(
   if (categoryId && categoryId !== 'all') {
     params.append('categoryId', categoryId);
   }
-  const { data } = await api.get<Page<Ticket>>('/tickets', { params });
-  return data;
+  const { data } = await api.get<any>('/tickets', { params });
+
+  const resData = data?.data && typeof data.data === 'object' && 'content' in data.data ? data.data : data;
+  const content = Array.isArray(resData?.content) ? resData.content : (Array.isArray(resData) ? resData : []);
+  const totalPages = Number(resData?.totalPages ?? 1);
+  const totalElements = Number(resData?.totalElements ?? content.length);
+  const pageNumber = Number(resData?.number ?? resData?.pageable?.pageNumber ?? safePage);
+
+  return {
+    content,
+    totalPages: isNaN(totalPages) || totalPages < 1 ? 1 : totalPages,
+    totalElements: isNaN(totalElements) ? content.length : totalElements,
+    number: isNaN(pageNumber) ? 0 : pageNumber,
+    size: Number(resData?.size ?? 15),
+    first: Boolean(resData?.first ?? (safePage === 0)),
+    last: Boolean(resData?.last ?? (safePage >= totalPages - 1)),
+  };
 }
 
 // Busca todas as categorias de chamado disponíveis
@@ -173,10 +189,23 @@ export async function getSimilarTickets(id: string): Promise<Ticket[]> {
  * @returns Promessa com o retorno paginado de chamados contendo a tipagem unificada
  */
 export async function getItemTickets(itemId: string, page: number = 0): Promise<PaginatedResponse<Ticket>> {
-  const { data } = await api.get<PaginatedResponse<Ticket>>(`/tickets/item/${itemId}`, {
-    params: { page, size: 15 }
+  const safePage = isNaN(Number(page)) || page === undefined || page === null ? 0 : Math.max(0, Math.floor(Number(page)));
+  const { data } = await api.get<any>(`/tickets/item/${itemId}`, {
+    params: { page: safePage, size: 15 }
   });
-  return data;
+  const resData = data?.data && typeof data.data === 'object' && 'content' in data.data ? data.data : data;
+  const content = Array.isArray(resData?.content) ? resData.content : (Array.isArray(resData) ? resData : []);
+  const totalPages = Number(resData?.totalPages ?? 1);
+  const totalElements = Number(resData?.totalElements ?? content.length);
+  return {
+    content,
+    totalPages: isNaN(totalPages) || totalPages < 1 ? 1 : totalPages,
+    totalElements: isNaN(totalElements) ? content.length : totalElements,
+    number: safePage,
+    size: 15,
+    first: safePage === 0,
+    last: safePage >= totalPages - 1
+  };
 }
 
 

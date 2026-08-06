@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException;
 import br.dev.ctrls.inovareti.infrastructure.shared.storage.LocalFileStorageService;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.ResolveTicketDTO;
 import br.dev.ctrls.inovareti.modules.ticket.application.dto.TicketAttachmentResponseDTO;

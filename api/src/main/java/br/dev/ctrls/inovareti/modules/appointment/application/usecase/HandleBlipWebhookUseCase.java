@@ -253,7 +253,7 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
-        // Interceptação de respostas ao lembrete de 1h ("Já estou na clínica" / "Estou a caminho")
+        // Interceptação de respostas ao lembrete ("Já estou na clínica" / "Estou a caminho")
         String rawContentText = "";
         if (payload.content() instanceof String strContent) {
             rawContentText = strContent;
@@ -272,9 +272,43 @@ public class HandleBlipWebhookUseCase {
 
         if (isLembreteResposta) {
             String statusInfo = combinedActionText.contains("caminho") ? "Estou a caminho" : "Já estou na clínica";
-            log.info("[LEMBRETE-RESPOSTA] Paciente ID {} (De: {}) informou status: {}. Aplicando roteamento silencioso para Desk sem disparo de texto.", dbPhone.isEmpty() ? fromPhone : dbPhone, fromPhone, statusInfo);
-            applySilentDeskRouting(fromPhone, dbPhone, statusInfo);
-            return new WebhookResult("", "", "", "", "lembrete_resposta_processed", "");
+            log.info("[LEMBRETE-RESPOSTA] Paciente ID {} (De: {}) informou status: {}. Mapeando para ação de confirmação de agendamento.",
+                    dbPhone.isEmpty() ? fromPhone : dbPhone, fromPhone, statusInfo);
+
+            String groupContextId = resolveGroupContextId(payload);
+            if (groupContextId != null && !groupContextId.isBlank()) {
+                action = "confirm_group_" + groupContextId;
+            } else {
+                String activeAppId = resolveActiveAppointmentId(payload);
+                if (activeAppId != null && !activeAppId.isBlank()) {
+                    action = "confirm_" + activeAppId;
+                }
+            }
+
+            if (action.startsWith("confirm_")) {
+                try {
+                    blipContextService.setUserContextForUser(fromPhone, "payloadclique", action);
+                    if (dbPhone != null && !dbPhone.isBlank() && !dbPhone.equalsIgnoreCase(fromPhone)) {
+                        blipContextService.setUserContextForUser(dbPhone, "payloadclique", action);
+                    }
+                    String subbotId = blipProperties.getSubbotId();
+                    if (subbotId != null && !subbotId.isBlank()) {
+                        String subbotLocalPart = subbotId.trim();
+                        if (subbotLocalPart.contains("@")) {
+                            subbotLocalPart = subbotLocalPart.substring(0, subbotLocalPart.indexOf('@'));
+                        }
+                        String phoneDigits = fromPhone.contains("@") ? fromPhone.substring(0, fromPhone.indexOf('@')).replaceAll("\\D", "") : fromPhone.replaceAll("\\D", "");
+                        if (!phoneDigits.startsWith("55") && !phoneDigits.isEmpty()) {
+                            phoneDigits = "55" + phoneDigits;
+                        }
+                        String deterministicTunnel = phoneDigits + "." + subbotLocalPart + "@tunnel.msging.net";
+                        blipContextService.setUserContextForUser(deterministicTunnel, "payloadclique", action);
+                    }
+                    log.info("[LEMBRETE-RESPOSTA] Injetado payloadclique={} no contexto dual para {}.", action, fromPhone);
+                } catch (Exception ex) {
+                    log.warn("[LEMBRETE-RESPOSTA] Falha ao injetar payloadclique no contexto: {}", ex.getMessage());
+                }
+            }
         }
 
         java.util.regex.Pattern uuidPattern = java.util.regex.Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");

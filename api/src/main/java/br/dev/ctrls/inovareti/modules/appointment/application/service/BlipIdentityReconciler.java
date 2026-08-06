@@ -75,7 +75,7 @@ public class BlipIdentityReconciler {
         Optional<BlipUserIdentityReconciliation> existing = 
                 blipUserIdentityReconciliationRepository.findByBlipGuid(blipGuid);
         if (existing.isPresent()) {
-            log.info("[RECONCILIATION] Correspondência de identidade em cache local: GUID={} -> Telefone={}", 
+            log.debug("[RECONCILIATION] Correspondência de identidade em cache local: GUID={} -> Telefone={}", 
                 blipGuid, existing.get().getPhoneNumber());
             return existing.get().getPhoneNumber();
         }

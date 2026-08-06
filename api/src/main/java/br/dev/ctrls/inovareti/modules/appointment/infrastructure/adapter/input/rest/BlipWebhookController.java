@@ -109,7 +109,11 @@ public class BlipWebhookController {
 
         if (!isSignatureValid && !isBypassEnabled) {
             log.warn("[ACESSO NEGADO] Assinatura do webhook inválida ou ausente. Bypass por token inativo no perfil de produção.");
-            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(Map.of(
+                "status", "error",
+                "reason", "unauthorized",
+                "message", "Assinatura HMAC ou Token de seguranca invalido."
+            ));
         }
 
         if (!isSignatureValid && isBypassEnabled) {
@@ -144,7 +148,10 @@ public class BlipWebhookController {
                 || rawLower.contains("failed");
 
         if (!hasActionKeyword) {
-            return ResponseEntity.ok().build(); // Ignora spams irrelevantes de forma segura e veloz
+            return ResponseEntity.ok(Map.of(
+                "status", "ignored",
+                "reason", "no-action-keyword"
+            )); // Ignora spams irrelevantes de forma segura e veloz
         }
 
         Map<String, Object> payload;
@@ -199,11 +206,17 @@ public class BlipWebhookController {
                     log.error("[WEBHOOK-ERROR] Erro ao processar webhook de falha de entrega do Blip", e);
                 }
                 // Retorna 200 OK imediatamente para blindar contra retentativas do Blip
-                return ResponseEntity.ok().build();
+                return ResponseEntity.ok(Map.of(
+                    "status", "processed",
+                    "reason", "delivery-failure-processed"
+                ));
             }
 
             log.debug("[NOTIFICATION] Ignorando notificação de status/sistema do Blip. type='{}', event='{}'", messageType, event);
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(Map.of(
+                "status", "ignored",
+                "reason", "notification-ignored"
+            ));
         }
 
         BlipWebhookInboundService.ParsedInbound parsed = blipWebhookInboundService.parse(payload);
@@ -397,7 +410,17 @@ public class BlipWebhookController {
                     parsed.type()));
         } catch (NotFoundException ex) {
             log.warn("[WEBHOOK-AVISO] Recurso não localizado ao processar o webhook do Blip. Detalhes: {}", ex.getMessage());
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(Map.of(
+                "status", "ignored",
+                "reason", "not-found"
+            ));
+        } catch (Throwable ex) {
+            log.error("[WEBHOOK-CRITICAL] Erro inesperado ao processar webhook do Blip para messageId='{}', action='{}'", messageId, action, ex);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "status", "error",
+                "reason", "internal-server-error",
+                "message", ex.getMessage() != null ? ex.getMessage() : "Erro interno de servidor"
+            ));
         }
 
         if (result == null) {
@@ -405,7 +428,10 @@ public class BlipWebhookController {
         }
 
         if ("Não".equalsIgnoreCase(result.action())) {
-            return ResponseEntity.ok(Map.of());
+            return ResponseEntity.ok(Map.of(
+                "status", "ignored",
+                "reason", "declined"
+            ));
         }
 
         if ("Integrar_GerAcesso".equalsIgnoreCase(result.action()) || "Finalizar_Agendamento".equalsIgnoreCase(result.action())) {
@@ -413,7 +439,11 @@ public class BlipWebhookController {
             if (resolvedId.isEmpty()) {
                 resolvedId = appointmentId != null ? appointmentId : "";
             }
-            return ResponseEntity.ok(Map.of("appointmentId", resolvedId));
+            return ResponseEntity.ok(Map.of(
+                "status", "ok",
+                "action", result.action(),
+                "appointmentId", resolvedId
+            ));
         }
 
         return ResponseEntity.ok(new WebhookResponse(
@@ -563,12 +593,16 @@ public class BlipWebhookController {
     }
 
     public record WebhookResponse(
+            @JsonProperty("status") String status,
             @JsonProperty("queue") String queue,
             @JsonProperty("patientName") String patientName,
             @JsonProperty("patientCPF") String patientCPF,
             @JsonProperty("patientBirthdate") String patientBirthdate,
             @JsonProperty("action") String action,
             @JsonProperty("doctorName") String doctorName) {
+        public WebhookResponse(String queue, String patientName, String patientCPF, String patientBirthdate, String action, String doctorName) {
+            this("ok", queue, patientName, patientCPF, patientBirthdate, action, doctorName);
+        }
     }
 
     private boolean secureCompare(String a, String b) {

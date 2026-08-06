@@ -576,5 +576,10 @@
     "name": "app.webhook.secret-key",
     "type": "java.lang.String",
     "description": "A description for 'app.webhook.secret-key'"
+  },
+  {
+    "name": "notification.blocked-doctor-ids",
+    "type": "java.lang.String",
+    "description": "A description for 'notification.blocked-doctor-ids'"
   }
 ]}

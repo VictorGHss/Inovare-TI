@@ -33,6 +33,41 @@ public class BlipNotificationService {
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentSessionRepositoryPort appointmentSessionRepository;
     private final BlipAppointmentFormatter blipAppointmentFormatter;
 
+    @org.springframework.beans.factory.annotation.Value("${notification.blocked-doctor-ids:46}")
+    private String rawBlockedDoctorIds = "46";
+
+    private java.util.Set<String> parsedBlockedDoctorIds = new java.util.HashSet<>();
+
+    @jakarta.annotation.PostConstruct
+    public void initBlockedDoctorIds() {
+        parseBlockedDoctorIds(this.rawBlockedDoctorIds);
+    }
+
+    public void setRawBlockedDoctorIds(String rawBlockedDoctorIds) {
+        this.rawBlockedDoctorIds = rawBlockedDoctorIds;
+        parseBlockedDoctorIds(rawBlockedDoctorIds);
+    }
+
+    public java.util.Set<String> getBlockedDoctorIds() {
+        if (parsedBlockedDoctorIds.isEmpty() && rawBlockedDoctorIds != null && !rawBlockedDoctorIds.isBlank()) {
+            parseBlockedDoctorIds(rawBlockedDoctorIds);
+        }
+        return parsedBlockedDoctorIds;
+    }
+
+    private synchronized void parseBlockedDoctorIds(String raw) {
+        this.parsedBlockedDoctorIds = new java.util.HashSet<>();
+        if (raw != null && !raw.isBlank()) {
+            String[] tokens = raw.split("[,;\\s]+");
+            for (String token : tokens) {
+                String trimmed = token.trim();
+                if (!trimmed.isEmpty()) {
+                    this.parsedBlockedDoctorIds.add(trimmed);
+                }
+            }
+        }
+    }
+
     public BlipNotificationService(
             BlipLIMEClient limeClient,
             AppointmentTemplateMappingRepositoryPort templateMappingRepository,
@@ -626,20 +661,39 @@ public class BlipNotificationService {
         return digits + "@wa.gw.msging.net";
     }
 
-    private boolean isDoctorAllowed(String doctorId) {
+    /**
+     * Verifica se um médico tem permissão para receber disparos de lembretes/notificações.
+     * 
+     * CONCEITOS SEPARADOS:
+     * 1. Lista de Bloqueio por Médico (Blocklist): Defina por `notification.blocked-doctor-ids`
+     *    (default: "46"). Médicos nesta lista têm disparos sumariamente bloqueados (retorna false).
+     * 2. Modo Sandbox / Allowlist (`testDoctorIds` / `activeDoctorIds`): Define quais médicos estão
+     *    liberados para teste em ambiente de sandbox ou em produção.
+     */
+    public boolean isDoctorAllowed(String doctorId) {
         if (doctorId == null || doctorId.isBlank()) {
             return true;
         }
         String docId = doctorId.trim();
-        if ("46".equals(docId)) {
-            return true;
+
+        // 1. Bloqueio explícito por lista de bloqueio (Blocklist)
+        if (getBlockedDoctorIds().contains(docId)) {
+            return false;
         }
+
+        // 2. Verificação de Sandbox / Allowlist (testDoctorIds e activeDoctorIds)
         if (motorProperties.getTestDoctorIds().contains(docId)) {
             return true;
         }
-        if (motorProperties.getActiveDoctorIds().isEmpty() || motorProperties.getActiveDoctorIds().contains(docId)) {
+        if (motorProperties.getActiveDoctorIds().contains(docId)) {
             return true;
         }
+
+        // 3. Comportamento Padrão: Se nenhuma allowlist específica estiver ativa, permite por padrão (fail-open)
+        if (motorProperties.getTestDoctorIds().isEmpty() && motorProperties.getActiveDoctorIds().isEmpty()) {
+            return true;
+        }
+
         return false;
     }
 }

@@ -16,4 +16,8 @@ public interface BlipContactClientPort {
      * @return true se o Blip retornou sucesso no recebimento do contato atualizado.
      */
     boolean syncContact(String phoneNumber, String name, String cpf, String queueName, String doctorId);
+
+    default boolean syncContactDualScope(String phoneNumber, String name, String cpf, String queueName, String doctorId) {
+        return syncContact(phoneNumber, name, cpf, queueName, doctorId);
+    }
 }

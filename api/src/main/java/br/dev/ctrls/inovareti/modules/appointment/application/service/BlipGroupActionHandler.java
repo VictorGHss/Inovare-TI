@@ -338,7 +338,8 @@ public class BlipGroupActionHandler {
 
             String textMessage = blipAppointmentFormatter.buildListaDetalhada(activeSessions);
             if (textMessage != null && !textMessage.isBlank()) {
-                blipNotificationService.sendPlainTextMessage(fromPhone, textMessage);
+                String helpMessage = textMessage + "\n\nPor favor, confirme sua presença:\n1️⃣ Digite *1* ou clique em *CONFIRMAR TUDO*\n2️⃣ Digite *2* ou clique em *PRECISO ALTERAR*";
+                blipNotificationService.sendPlainTextMessage(fromPhone, helpMessage);
                 log.info("[WEBHOOK-HELP] Enviada mensagem com lista detalhada e opções numéricas em texto plano para {}", fromPhone);
             }
         } else {

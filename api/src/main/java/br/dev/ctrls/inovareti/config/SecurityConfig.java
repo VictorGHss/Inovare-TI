@@ -86,9 +86,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/reset-initial-password").permitAll()
                 .requestMatchers("/auth/2fa/**").authenticated()
                 
-                // Libera endpoints do Actuator Prometheus e Health para monitoramento em tempo real (com e sem prefixo /api)
-                .requestMatchers("/actuator/prometheus", "/api/actuator/prometheus", "/actuator/health", "/api/actuator/health", "/api/actuator/**").permitAll()
-                .requestMatchers("/actuator/**").hasRole("ADMIN")
+                // Libera endpoints do Actuator (Prometheus, Health, Metrics) para monitoramento em tempo real
+                .requestMatchers("/actuator/**", "/api/actuator/**").permitAll()
                 
                 // Libera endpoints de documentação Swagger UI e especificações da API
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

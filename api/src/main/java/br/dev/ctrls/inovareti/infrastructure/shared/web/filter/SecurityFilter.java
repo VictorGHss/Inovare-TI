@@ -57,9 +57,8 @@ public class SecurityFilter extends OncePerRequestFilter {
         // Outros caminhos do Actuator (como /actuator/env, /actuator/beans) exigem a validação do token JWT do Admin.
         
         // CORREÇÃO DE SEGURANÇA: Substituição de checagens fracas por checagens de caminho estritas.
-        boolean isPrometheusPath = requestUri.equals("/actuator/prometheus")
-            || requestUri.equals("/actuator/prometheus/")
-            || requestUri.startsWith("/api/actuator/prometheus");
+        boolean isPrometheusPath = requestUri.startsWith("/actuator")
+            || requestUri.startsWith("/api/actuator");
 
         // Ignora a validação para o webhook comum do Blip, mas exige validação de autenticação
         // caso seja o endpoint de trigger manual administrativo (/webhooks/blip/manual-trigger).

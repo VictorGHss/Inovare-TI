@@ -80,7 +80,7 @@ public class User implements UserDetails {
      * O campo sector_id é a FK na tabela users.
      */
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "sector_id", nullable = false)
     private Sector sector;
 

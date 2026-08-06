@@ -38,6 +38,7 @@ public class LoginUseCase {
      * @param ipAddress endereço IP de origem da requisição
      * @return {@link AuthResponseDTO} com o token JWT e os dados do usuário
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public AuthResponseDTO execute(AuthRequestDTO request, String ipAddress) {
         try {
             User user = authenticator.authenticate(request.email(), request.password());

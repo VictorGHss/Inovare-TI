@@ -95,18 +95,12 @@ public class AssetController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'USER')")
     @GetMapping("/{id}")
     public ResponseEntity<AssetResponseDTO> findById(@PathVariable UUID id) {
-        Asset asset = assetRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Asset not found with id: " + id));
-        return ResponseEntity.ok(assetQueryService.toResponseDTO(asset));
+        return ResponseEntity.ok(assetQueryService.getAssetById(id, assetRepository));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<AssetResponseDTO>> findByUser(@PathVariable UUID userId) {
-        List<AssetResponseDTO> response = assetRepository.findByUsersId(userId)
-                .stream()
-                .map(assetQueryService::toResponseDTO)
-                .toList();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(assetQueryService.findAssetsByUser(userId, assetRepository));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN')")

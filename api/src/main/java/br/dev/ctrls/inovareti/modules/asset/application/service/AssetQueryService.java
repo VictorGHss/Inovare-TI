@@ -65,6 +65,31 @@ public class AssetQueryService {
     }
 
     /**
+     * Retorna a lista de ativos pertencentes a um usuário específico dentro de escopo transacional.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<AssetResponseDTO> findAssetsByUser(
+            UUID userId,
+            br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository) {
+        return assetRepository.findByUsersId(userId)
+                .stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
+    /**
+     * Retorna um ativo específico por ID dentro de escopo transacional.
+     */
+    @Transactional(readOnly = true)
+    public AssetResponseDTO getAssetById(
+            UUID id,
+            br.dev.ctrls.inovareti.modules.asset.domain.port.output.AssetRepositoryPort assetRepository) {
+        Asset asset = assetRepository.findById(id)
+                .orElseThrow(() -> new br.dev.ctrls.inovareti.core.shared.domain.model.exception.NotFoundException("Asset not found with id: " + id));
+        return toResponseDTO(asset);
+    }
+
+    /**
      * Retorna uma página de ativos do ecrã de listagem com base nos filtros de categoria, status e ordenação.
      * 
      * @param categoryId ID da categoria de ativos

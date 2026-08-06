@@ -14,9 +14,10 @@ public interface AssetJpaRepository extends JpaRepository<Asset, UUID> {
 
     /**
      * Busca todos os ativos vinculados a um usuário específico.
-     * Spring Data deriva a query a partir da coleção {@code users}.
+     * Utiliza FETCH JOIN para inicializar a coleção de usuários e evitar LazyInitializationException.
      */
-    List<Asset> findByUsersId(UUID userId);
+    @Query("select distinct a from Asset a left join fetch a.users u where u.id = :userId")
+    List<Asset> findByUsersId(@Param("userId") UUID userId);
 
     /**
      * Conta ativos vinculados a um usuário específico.

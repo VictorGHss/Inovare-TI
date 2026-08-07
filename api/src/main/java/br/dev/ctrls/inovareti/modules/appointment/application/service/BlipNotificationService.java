@@ -715,7 +715,7 @@ public class BlipNotificationService {
 
         Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
         messageParamValues.put("1", safeDoctorIdParam);
-        List<String> messageParamKeys = null;
+        List<String> messageParamKeys = List.of(safeDoctorIdParam);
 
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
         String campaignName = "Avaliacao Google - " + uniqueSuffix;

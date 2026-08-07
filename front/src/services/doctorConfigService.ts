@@ -17,6 +17,7 @@ export interface DoctorConfiguration {
   blipQueueName: string;
   displayTimeOffsetMinutes?: number;
   advanceNoticeDays?: number;
+  googleReviewUrl?: string;
 }
 
 /**

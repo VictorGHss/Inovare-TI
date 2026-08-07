@@ -453,5 +453,3 @@ public class TicketController {
         UUID parentTicketId
     ) {}
 }
-
-

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Trash2 } from 'lucide-react';
+import { Loader2, Save, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import SearchableDropdown from '@/components/common/SearchableDropdown';
 
@@ -35,6 +35,9 @@ interface MergedDoctorMapping extends DoctorMapping {
   // Custom scheduling rules
   displayTimeOffsetMinutes?: number;
   advanceNoticeDays?: number;
+
+  // Google Review URL
+  googleReviewUrl?: string;
 }
 
 function formatCPF(value: string) {
@@ -131,6 +134,7 @@ export default function ProfessionalMappingPanel() {
           gerAcessoCpf: c?.gerAcessoCpf || '',
           displayTimeOffsetMinutes: c?.displayTimeOffsetMinutes ?? 0,
           advanceNoticeDays: c?.advanceNoticeDays ?? 1,
+          googleReviewUrl: c?.googleReviewUrl || '',
         } as MergedDoctorMapping;
       });
 
@@ -182,7 +186,7 @@ export default function ProfessionalMappingPanel() {
         ignoreAutoSchedule: Boolean(m.ignoreAutoSchedule),
       }));
 
-      // 2. Save doctor configs (GerAcesso credentials + Custom Scheduling Rules)
+      // 2. Save doctor configs (GerAcesso credentials + Custom Scheduling Rules + Google Review URL)
       const configPayloads = mappings
         .filter((m) => m.profissionalId && !isNaN(Number(m.profissionalId)))
         .map((m) => ({
@@ -194,6 +198,7 @@ export default function ProfessionalMappingPanel() {
           blipQueueName: blipQueues.find((q) => q.id === m.blipQueueId)?.name || '',
           displayTimeOffsetMinutes: Number(m.displayTimeOffsetMinutes ?? 0),
           advanceNoticeDays: Number(m.advanceNoticeDays ?? 1),
+          googleReviewUrl: String(m.googleReviewUrl ?? '').trim(),
         }));
 
       // Fire both save calls
@@ -224,7 +229,7 @@ export default function ProfessionalMappingPanel() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900">Mapeamento de Profissionais (Feegow / Blip / Regras Especiais)</h2>
-            <p className="mt-0.5 text-xs text-slate-500">Edite fila, credenciais de catraca (GerAcesso), ajuste de horários exibidos e antecedência de confirmação do profissional.</p>
+            <p className="mt-0.5 text-xs text-slate-500">Edite fila, credenciais de catraca (GerAcesso), ajuste de horários exibidos, antecedência de confirmação e link do Google Review.</p>
           </div>
 
           <div className="flex gap-2">
@@ -255,6 +260,20 @@ export default function ProfessionalMappingPanel() {
         </div>
       </header>
 
+      {/* Banner / Card do Link Padrão da Clínica para Avaliações no Google */}
+      <div className="mx-6 my-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 shadow-sm flex items-start gap-3">
+        <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <h4 className="font-bold text-amber-900">Link Padrão da Clínica para Avaliações no Google</h4>
+          <p className="mt-1 text-amber-800">
+            Médicos que não possuírem um link personalizado preenchido na tabela utilizarão automaticamente o link geral da clínica:
+            <code className="ml-1.5 font-mono font-bold text-amber-950 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200 select-all">
+              https://share.google/jrskH337hFK5Mn3WP
+            </code>
+          </p>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-xs text-slate-600 gap-4">
         <div className="space-y-1">
           {missingIdCount > 0 ? (
@@ -279,7 +298,7 @@ export default function ProfessionalMappingPanel() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              {['ID', 'Nome Feegow', 'Fila Blip', 'CPF Catraca', 'Matrícula Catraca', 'Ajuste Horário (min)', 'Antecedência (dias)', 'Ignorar auto', 'Ações'].map((col) => (
+              {['ID', 'Nome Feegow', 'Fila Blip', 'CPF Catraca', 'Matrícula Catraca', 'Ajuste Horário (min)', 'Antecedência (dias)', 'Link Google Review'].map((col) => (
                 <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">{col}</th>
               ))}
             </tr>
@@ -288,11 +307,11 @@ export default function ProfessionalMappingPanel() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Carregando profissionais...</td>
               </tr>
             ) : filteredMappings.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Nenhum profissional encontrado.</td>
               </tr>
             ) : (
               filteredMappings.map((row, idx) => {
@@ -379,40 +398,15 @@ export default function ProfessionalMappingPanel() {
                       </select>
                     </td>
 
-                    <td className="px-4 py-3 align-middle text-center">
+                    <td className="px-4 py-3 align-middle min-w-[220px]">
                       <input
-                        type="checkbox"
-                        className="rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-                        checked={Boolean(row.ignoreAutoSchedule)}
-                        onChange={(e) => updateField(row.profissionalId, 'ignoreAutoSchedule', e.target.checked)}
+                        type="text"
+                        placeholder="https://share.google/..."
+                        title="URL completa do Google Review ou código hash da avaliação"
+                        value={row.googleReviewUrl || ''}
+                        onChange={(e) => updateField(row.profissionalId, 'googleReviewUrl', e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#feb56c]"
                       />
-                    </td>
-
-                    <td className="px-4 py-3 align-middle">
-                      {isInactiveRow ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateField(row.profissionalId, 'blipQueueId', '');
-                            toast.info('Restaurado. Clique em "Salvar Mapeamentos" para gravar.');
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
-                        >
-                          Restaurar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            updateField(row.profissionalId, 'blipQueueId', 'inactive');
-                            toast.info('Marcado como Inativo. Clique em "Salvar Mapeamentos" para gravar.');
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-sm"
-                        >
-                          <Trash2 size={13} />
-                          Inativar
-                        </button>
-                      )}
                     </td>
                   </tr>
                 );

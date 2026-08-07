@@ -31,3 +31,18 @@ export interface PaginatedResponse<T> {
   last: boolean;
 }
 
+/**
+ * Interface que representa a configuração do médico (credenciais, fila e Google Review).
+ */
+export interface DoctorConfiguration {
+  feegowProfissionalId: number;
+  doctorName: string;
+  gerAcessoMatricula: string;
+  gerAcessoCpf: string;
+  blipQueueId: string;
+  blipQueueName: string;
+  displayTimeOffsetMinutes?: number;
+  advanceNoticeDays?: number;
+  googleReviewUrl?: string;
+}
+

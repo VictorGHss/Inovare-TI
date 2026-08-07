@@ -651,6 +651,9 @@ public class IngestAppointmentsUseCase {
                 }
             }
             AppointmentSession session = latestSessionOpt.orElseGet(AppointmentSession::new);
+            if (session.getCurrentGroupId() == null) {
+                session.setCurrentGroupId(UUID.randomUUID());
+            }
             session.setFeegowAppointmentId(feegowAppointmentId);
             session.setPatientId(appointment.patientId());
             session.setPhoneNumber(phoneNumber);
@@ -669,6 +672,38 @@ public class IngestAppointmentsUseCase {
     private boolean dispatchSingleTemplate(AppointmentSession saved, FeegowAppointment appointment, String mappingQueue,
             String mappingProfessionalName, String phoneNumber, FeegowPatient patientDetails) {
         
+        // Garante a vinculação de groupId e NotificationGroup para a sessão individual
+        if (saved.getCurrentGroupId() == null) {
+            UUID newGroupId = UUID.randomUUID();
+            transactionTemplate.executeWithoutResult(status -> {
+                saved.setCurrentGroupId(newGroupId);
+                appointmentSessionRepository.save(saved);
+            });
+        }
+
+        UUID singleGroupId = saved.getCurrentGroupId();
+        if (singleGroupId != null) {
+            transactionTemplate.executeWithoutResult(status -> {
+                try {
+                    List<NotificationGroup> existingGroups = notificationGroupRepository.findByGroupId(singleGroupId);
+                    if (existingGroups == null || existingGroups.isEmpty()) {
+                        String preCompiledText = blipAppointmentFormatter.buildListaDetalhada(List.of(saved));
+                        NotificationGroup groupEntity = NotificationGroup.builder()
+                                .groupId(singleGroupId)
+                                .sessionId(saved.getId())
+                                .phoneNumber(phoneNumber)
+                                .createdAt(LocalDateTime.now())
+                                .preCompiledScheduleText(preCompiledText)
+                                .build();
+                        notificationGroupRepository.save(groupEntity);
+                        log.info("[SINGLE-SESSION-GROUP] NotificationGroup vinculado com sucesso para sessão individual. feegowId={}, groupId={}", saved.getFeegowAppointmentId(), singleGroupId);
+                    }
+                } catch (Exception ex) {
+                    log.warn("[SINGLE-SESSION-GROUP] Falha ao criar registro NotificationGroup para sessão individual feegowId={}: {}", saved.getFeegowAppointmentId(), ex.getMessage());
+                }
+            });
+        }
+
         String resolvedProfessionalName = resolveDoctorName(appointment.doctorId(), mappingProfessionalName, appointment.doctorName());
         String safeFilaDestino = (mappingQueue != null && !mappingQueue.isBlank() && !"null".equalsIgnoreCase(mappingQueue.trim())) ? mappingQueue.trim() : "\u200E";
 

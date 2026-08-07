@@ -212,12 +212,27 @@ public class FeegowBulkIntegrationHandler {
         return targetQueue;
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<UUID, Long> processingGroupLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * Processa de forma assíncrona a confirmação em lote de todos os agendamentos pertencentes ao grupo
      * e os sincroniza com a API do Feegow ERP, redirecionando o fluxo do paciente no Blip.
      */
     @org.springframework.scheduling.annotation.Async
     public void confirmGroupAsync(UUID groupId, String fromPhone) {
+        if (groupId != null) {
+            long now = System.currentTimeMillis();
+            Long previous = processingGroupLocks.putIfAbsent(groupId, now);
+            if (previous != null) {
+                if ((now - previous) < 30000L) {
+                    log.info("[ASYNC-BATCH-SKIP] Processamento de confirmação para groupId {} já em andamento. Ignorando chamada duplicada.", groupId);
+                    return;
+                } else {
+                    processingGroupLocks.put(groupId, now);
+                }
+            }
+        }
+
         log.info("[ASYNC-BATCH] Iniciando processamento assíncrono de confirm_group para groupId: {}", groupId);
         try {
             // Resolve o telefone real do paciente usando o reconciliador de identidade do Blip.
@@ -292,6 +307,10 @@ public class FeegowBulkIntegrationHandler {
             }
         } catch (Exception e) {
             log.error("[ASYNC-BATCH] Erro crítico no processamento assíncrono de confirmação do grupo: " + groupId, e);
+        } finally {
+            if (groupId != null) {
+                processingGroupLocks.remove(groupId);
+            }
         }
     }
 

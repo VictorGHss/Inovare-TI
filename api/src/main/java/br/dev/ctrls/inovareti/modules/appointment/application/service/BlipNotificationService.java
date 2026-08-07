@@ -613,7 +613,7 @@ public class BlipNotificationService {
             "index", 1
         );
 
-        String fullMessageText = "PRÓXIMOS ATENDIMENTOS:\n" + text + "\n\nPor favor, confirme se você comparecerá aos horários listados acima.";
+        String fullMessageText = text + "\n\nPor favor, confirme se você comparecerá aos horários listados acima.";
 
         Map<String, Object> content = Map.of(
             "text", fullMessageText,

@@ -128,8 +128,7 @@ public class BlipAppointmentFormatter {
         }
 
         String consultas = String.join("\n", details);
-        String fullMessage = "PRÓXIMOS ATENDIMENTOS:\n" + consultas;
-        return java.text.Normalizer.normalize(fullMessage, java.text.Normalizer.Form.NFC);
+        return java.text.Normalizer.normalize(consultas, java.text.Normalizer.Form.NFC);
     }
 }
 

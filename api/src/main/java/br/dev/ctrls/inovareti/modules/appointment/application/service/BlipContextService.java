@@ -476,7 +476,6 @@ public class BlipContextService {
                 Object itemsNode = resourceMap.get("items");
                 if (itemsNode instanceof java.util.Collection<?> itemsList) {
                     boolean hasActive = false;
-                    LocalDateTime twoHoursAgo = LocalDateTime.now(java.time.ZoneId.of("America/Sao_Paulo")).minusHours(2);
 
                     for (Object itemObj : itemsList) {
                         if (itemObj instanceof Map<?, ?> itemMap) {
@@ -503,35 +502,9 @@ public class BlipContextService {
                             if (statusVal != null) {
                                 String status = statusVal.toString().trim();
                                 if ("Open".equalsIgnoreCase(status) || "Waiting".equalsIgnoreCase(status)) {
-                                    Object agentVal = itemMap.get("agentIdentity");
-                                    if (agentVal == null) agentVal = itemMap.get("agentEmail");
-                                    boolean hasAssignedAgent = agentVal != null && !agentVal.toString().isBlank();
-
-                                    // Se não há atendente humano atribuído e o ticket está em fila (Waiting), permite o envio do nudge automático
-                                    if (!hasAssignedAgent && "Waiting".equalsIgnoreCase(status)) {
-                                        log.info("[ATTENDANCE-GUARD] Ticket do contato {} em status '{}' sem atendente humano atribuído. Nudge permitido.", normalizedIdentity, status);
-                                        continue;
-                                    }
-
-                                    LocalDateTime ticketTime = parseTicketTimestamp(itemMap);
-                                    if (ticketTime == null) {
-                                        if (hasAssignedAgent) {
-                                            hasActive = true;
-                                            log.info("[ATTENDANCE-GUARD] Contato {} possui ticket com atendente humano ativo. Considerando ativo por segurança.", normalizedIdentity);
-                                            break;
-                                        }
-                                        continue;
-                                    }
-                                    boolean isWithin2Hours = ticketTime.isAfter(twoHoursAgo);
-                                    boolean isAfterLastNotification = lastNotificationSentAt != null && ticketTime.isAfter(lastNotificationSentAt);
-
-                                    if (hasAssignedAgent && (isWithin2Hours || isAfterLastNotification)) {
-                                        hasActive = true;
-                                        log.info("[ATTENDANCE-GUARD] Ticket com atendente humano ({}) ativo recente encontrado para {}. Data do ticket: {}", agentVal, normalizedIdentity, ticketTime);
-                                        break;
-                                    } else {
-                                        log.info("[ATTENDANCE-GUARD] Ticket sem atendente humano ou antigo ignorado para {}. Data do ticket: {}", normalizedIdentity, ticketTime);
-                                    }
+                                    hasActive = true;
+                                    log.info("[ATTENDANCE-GUARD] Contato {} possui ticket ativo no Desk (status='{}'). Pausando nudges automáticos.", normalizedIdentity, status);
+                                    break;
                                 }
                             }
                         }
@@ -546,35 +519,6 @@ public class BlipContextService {
         } catch (Exception ex) {
             log.warn("[ATTENDANCE-GUARD] Falha ao verificar ticket ativo no Desk para {}: {}", normalizedIdentity, ex.getMessage());
             return false; // Fail-open para não travar os nudges normais em caso de falha de rede/autorização
-        }
-    }
-
-    private LocalDateTime parseTicketTimestamp(Map<?, ?> itemMap) {
-        Object val = itemMap.get("statusDate");
-        if (val == null) val = itemMap.get("storageDate");
-        if (val == null) val = itemMap.get("openDate");
-        if (val == null) val = itemMap.get("updatedAt");
-        if (val == null) val = itemMap.get("createdAt");
-
-        if (val == null) return null;
-        String str = val.toString().trim();
-        if (str.isEmpty()) return null;
-
-        try {
-            return java.time.OffsetDateTime.parse(str)
-                    .atZoneSameInstant(java.time.ZoneId.of("America/Sao_Paulo"))
-                    .toLocalDateTime();
-        } catch (Exception e1) {
-            try {
-                return java.time.LocalDateTime.parse(str);
-            } catch (Exception e2) {
-                try {
-                    return java.time.LocalDateTime.parse(str.replace(" ", "T"));
-                } catch (Exception e3) {
-                    log.debug("Não foi possível converter data do ticket Blip: {}", str);
-                    return null;
-                }
-            }
         }
     }
 
@@ -630,7 +574,8 @@ public class BlipContextService {
         String masterIdentity = resolveMasterIdentity(userIdentity);
         String tunnelIdentity = resolveTunnelIdentity(userIdentity);
 
-        String queueValueForRedirect = (rawQueueId != null && !rawQueueId.isBlank()) ? rawQueueId : safeQueueName;
+        // Sempre utiliza o nome amigável/descritivo para o redirecionamento do Blip Desk (evita fila com nome de UUID)
+        String queueValueForRedirect = safeQueueName;
 
         if (masterIdentity != null && !masterIdentity.isBlank()) {
             setUserContext(masterIdentity, "attendanceQueueToRedirect", queueValueForRedirect);

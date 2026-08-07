@@ -677,7 +677,7 @@ public class HandleBlipWebhookUseCase {
             }
         }
 
-        String targetQueueToRedirect = (blipQueueId != null && !blipQueueId.isBlank()) ? blipQueueId.trim() : queueName;
+        String targetQueueToRedirect = queueName;
 
         log.info("[SILENT-ROUTING] Paciente: '{}' (CPF: {}) | Medico: '{}' | Fila: '{}' (ToRedirect: '{}') | Feegow ID: '{}'",
                 patientName, patientCpf, doctorName, queueName, targetQueueToRedirect, feegowAppointmentId);

@@ -340,6 +340,21 @@ public class FeegowBulkIntegrationHandler {
                     log.warn("[ASYNC-BATCH] Falha ao recuperar sessões do grupo para o redirecionamento de alteração: {}", ex.getMessage());
                 }
 
+                // Atualiza o status local de todas as sessões do grupo para ALTERATION_REQUESTED para suspender cobradores automáticos (nudges)
+                if (!sessionList.isEmpty()) {
+                    transactionTemplate.executeWithoutResult(status -> {
+                        for (AppointmentSession s : sessionList) {
+                            AppointmentSession fresh = appointmentSessionRepository.findById(s.getId()).orElse(null);
+                            if (fresh != null) {
+                                fresh.setStatus(br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSessionStatus.ALTERATION_REQUESTED);
+                                fresh.setClosedAt(java.time.LocalDateTime.now());
+                                appointmentSessionRepository.save(fresh);
+                                log.info("[ASYNC-BATCH] Sessão {} do grupo {} atualizada para ALTERATION_REQUESTED (suspendendo nudges).", fresh.getId(), groupId);
+                            }
+                        }
+                    });
+                }
+
                 String deskBlockId = blipProperties.getBlocks().getDeskStateId();
                 redirectAllIdentities(fromPhone, dbPhone, targetQueue, deskBlockId, sessionList);
             }

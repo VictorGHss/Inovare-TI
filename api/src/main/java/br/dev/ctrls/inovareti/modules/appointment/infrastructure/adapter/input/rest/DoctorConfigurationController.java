@@ -26,6 +26,32 @@ import lombok.extern.slf4j.Slf4j;
 public class DoctorConfigurationController {
 
     private final DoctorConfigurationRepository doctorConfigurationRepository;
+    private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipNotificationService blipNotificationService;
+
+    /**
+     * Endpoint de teste para disparo manual da avaliação Google Review.
+     */
+    @PostMapping("/test-review")
+    public ResponseEntity<java.util.Map<String, Object>> testGoogleReview(
+            @org.springframework.web.bind.annotation.RequestParam String phone,
+            @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "Paciente Teste") String patientName,
+            @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "Dr. Eduardo Bisinella") String doctorName,
+            @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "jrskH337hFK5Mn3WP") String googleReviewHash) {
+        
+        log.info("[REST] Teste manual de disparo de avaliação Google para o telefone={}, paciente={}, medico={}, hash={}",
+                phone, patientName, doctorName, googleReviewHash);
+        
+        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_v1_copia", patientName, doctorName, googleReviewHash);
+        
+        return ResponseEntity.ok(java.util.Map.of(
+            "status", "success",
+            "message", "Template pesquisa_avaliacao_google_v1_copia disparado com sucesso!",
+            "phone", phone,
+            "patientName", patientName,
+            "doctorName", doctorName,
+            "googleReviewHash", googleReviewHash
+        ));
+    }
 
     /**
      * Salva ou atualiza a configuração de um médico.

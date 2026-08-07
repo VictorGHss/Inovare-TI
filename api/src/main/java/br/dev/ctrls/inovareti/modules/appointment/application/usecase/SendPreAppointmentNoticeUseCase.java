@@ -34,6 +34,7 @@ public class SendPreAppointmentNoticeUseCase {
     private final br.dev.ctrls.inovareti.modules.access.domain.port.output.BlipContactClientPort blipContactClientPort;
     private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentDoctorMappingRepositoryPort appointmentDoctorMappingRepository;
     private final br.dev.ctrls.inovareti.modules.appointment.application.service.BlipContextService blipContextService;
+    private final br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort appointmentExternalPort;
 
     public void execute() {
         if (!appointmentMotorProperties.isEnabled()) {
@@ -54,10 +55,35 @@ public class SendPreAppointmentNoticeUseCase {
         log.info("[LEMBRETE-ANTECEDENCIA] Encontradas {} consulta(s) confirmada(s) elegíveis para o template '{}' (2h a 1h antes).",
                 candidateSessions.size(), TEMPLATE_NAME);
 
+        String eligibleIdsProp = appointmentMotorProperties.getEligibleProcedureIds();
+        List<String> eligibleProcedureIds = (eligibleIdsProp != null && !eligibleIdsProp.isBlank())
+                ? java.util.Arrays.stream(eligibleIdsProp.split(",")).map(id -> id.trim()).filter(s -> !s.isEmpty()).toList()
+                : java.util.Collections.emptyList();
+
         for (AppointmentSession session : candidateSessions) {
             try {
                 if (session.getPhoneNumber() == null || session.getPhoneNumber().isBlank()) {
                     continue;
+                }
+
+                // Filtros de segurança: verifica se o agendamento no Feegow é encaixe ou procedimento inelegível (ex: tarefa, cirurgia)
+                if (session.getFeegowAppointmentId() != null && !session.getFeegowAppointmentId().isBlank()) {
+                    try {
+                        var feegowAppt = appointmentExternalPort.findById(session.getFeegowAppointmentId().trim());
+                        if (feegowAppt != null) {
+                            if (feegowAppt.encaixe() != null && feegowAppt.encaixe()) {
+                                log.info("[LEMBRETE-ANTECEDENCIA] Abortando envio para sessão ID={} (Feegow ID={}) pois é um ENCAIXE.", session.getId(), session.getFeegowAppointmentId());
+                                continue;
+                            }
+                            if (feegowAppt.procedureId() != null && !eligibleProcedureIds.isEmpty() && !eligibleProcedureIds.contains(feegowAppt.procedureId().trim())) {
+                                log.info("[LEMBRETE-ANTECEDENCIA] Abortando envio para sessão ID={} (Feegow ID={}) pois o procedimento '{}' ({}) não é elegível para lembrete.",
+                                        session.getId(), session.getFeegowAppointmentId(), feegowAppt.procedureId(), feegowAppt.procedureName());
+                                continue;
+                            }
+                        }
+                    } catch (Exception fEx) {
+                        log.warn("[LEMBRETE-ANTECEDENCIA] Falha ao consultar Feegow para verificar elegibilidade do agendamento ID={}: {}", session.getFeegowAppointmentId(), fEx.getMessage());
+                    }
                 }
 
                 // Reconstrói dados do template aplicando regras de nome, médico e offset de horário (-10 min)

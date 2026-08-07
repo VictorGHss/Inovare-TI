@@ -51,6 +51,9 @@ public class DoctorConfigurationEntity {
     @Column(name = "is_active")
     private Boolean isActive;
 
+    @Column(name = "google_review_url", length = 500)
+    private String googleReviewUrl;
+
     public DoctorConfiguration toDomain() {
         return DoctorConfiguration.builder()
                 .feegowProfissionalId(this.feegowProfissionalId)
@@ -62,6 +65,7 @@ public class DoctorConfigurationEntity {
                 .displayTimeOffsetMinutes(this.displayTimeOffsetMinutes != null ? this.displayTimeOffsetMinutes : 0)
                 .advanceNoticeDays(this.advanceNoticeDays != null ? this.advanceNoticeDays : 1)
                 .isActive(this.isActive != null ? this.isActive : true)
+                .googleReviewUrl(this.googleReviewUrl)
                 .build();
     }
 
@@ -77,6 +81,7 @@ public class DoctorConfigurationEntity {
                 .displayTimeOffsetMinutes(domain.getDisplayTimeOffsetMinutes())
                 .advanceNoticeDays(domain.getAdvanceNoticeDays())
                 .isActive(domain.getIsActive() != null ? domain.getIsActive() : true)
+                .googleReviewUrl(domain.getGoogleReviewUrl())
                 .build();
     }
 }

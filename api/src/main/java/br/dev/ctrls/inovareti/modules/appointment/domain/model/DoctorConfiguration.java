@@ -28,6 +28,7 @@ public class DoctorConfiguration {
     private Integer advanceNoticeDays = 1;
     @Builder.Default
     private Boolean isActive = true;
+    private String googleReviewUrl;
 
     public boolean isConfigActive() {
         return isActive == null || isActive;

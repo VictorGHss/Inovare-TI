@@ -68,10 +68,80 @@ public class DoctorConfigurationController {
     }
 
     /**
+     * Salva ou atualiza a configuração de um médico em lote.
+     *
+     * @param configs Lista de configurações a serem persistidas.
+     * @return Lista das configurações salvas com status 200 OK.
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<List<DoctorConfiguration>> saveBatch(@RequestBody List<DoctorConfiguration> configs) {
+        log.info("[REST] Salvando em lote {} configurações de médicos.", configs != null ? configs.size() : 0);
+        if (configs == null || configs.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<DoctorConfiguration> savedList = configs.stream()
+                .map(doctorConfigurationRepository::save)
+                .toList();
+        return ResponseEntity.ok(savedList);
+    }
+
+    /**
+     * Atualiza a URL do Google Review de um médico específico pelo ID.
+     *
+     * @param id ID do profissional Feegow.
+     * @param payload Mapa contendo a nova googleReviewUrl.
+     * @return Configuração atualizada do médico ou 404 Not Found.
+     */
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}/google-review-url")
+    public ResponseEntity<DoctorConfiguration> updateGoogleReviewUrl(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> payload) {
+        String googleReviewUrl = payload.get("googleReviewUrl");
+        log.info("[REST] Atualizando googleReviewUrl para o profissional ID: {} (url='{}')", id, googleReviewUrl);
+        return doctorConfigurationRepository.findById(id)
+                .map(config -> {
+                    config.setGoogleReviewUrl(googleReviewUrl);
+                    DoctorConfiguration updated = doctorConfigurationRepository.save(config);
+                    return ResponseEntity.ok(updated);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Atualiza em lote a URL do Google Review para múltiplos médicos.
+     *
+     * @param googleReviewUrlsMap Mapa com a chave = ID do profissional e valor = nova googleReviewUrl.
+     * @return Resposta 200 OK com a quantidade de médicos atualizados.
+     */
+    @org.springframework.web.bind.annotation.PatchMapping("/google-review-url/batch")
+    public ResponseEntity<java.util.Map<String, Object>> updateGoogleReviewUrlBatch(
+            @RequestBody java.util.Map<Long, String> googleReviewUrlsMap) {
+        log.info("[REST] Atualizando googleReviewUrl em lote para {} médicos.", googleReviewUrlsMap != null ? googleReviewUrlsMap.size() : 0);
+        if (googleReviewUrlsMap == null || googleReviewUrlsMap.isEmpty()) {
+            return ResponseEntity.ok(java.util.Map.of("updatedCount", 0));
+        }
+
+        int updatedCount = 0;
+        for (var entry : googleReviewUrlsMap.entrySet()) {
+            Long doctorId = entry.getKey();
+            String url = entry.getValue();
+            var configOpt = doctorConfigurationRepository.findById(doctorId);
+            if (configOpt.isPresent()) {
+                var config = configOpt.get();
+                config.setGoogleReviewUrl(url);
+                doctorConfigurationRepository.save(config);
+                updatedCount++;
+            }
+        }
+
+        return ResponseEntity.ok(java.util.Map.of("updatedCount", updatedCount));
+    }
+
+    /**
      * Remove a configuração de um médico pelo ID.
      *
      * @param id ID do profissional Feegow.
-     * @return Resposta 244 No Content.
+     * @return Resposta 204 No Content.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {

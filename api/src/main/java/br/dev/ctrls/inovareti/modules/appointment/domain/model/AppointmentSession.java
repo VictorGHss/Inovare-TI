@@ -29,6 +29,7 @@ public class AppointmentSession {
     private LocalDateTime lastInteractionAt;
     private LocalDateTime lastNotificationSentAt;
     private LocalDateTime closedAt;
+    private LocalDateTime reviewRequestedAt;
     private String statusDetails;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -79,6 +79,9 @@ public class AppointmentSessionEntity {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    @Column(name = "review_requested_at")
+    private LocalDateTime reviewRequestedAt;
+
     @Column(name = "status_details", length = 500)
     private String statusDetails;
 
@@ -105,6 +108,7 @@ public class AppointmentSessionEntity {
                 .lastInteractionAt(this.lastInteractionAt)
                 .lastNotificationSentAt(this.lastNotificationSentAt)
                 .closedAt(this.closedAt)
+                .reviewRequestedAt(this.reviewRequestedAt)
                 .statusDetails(this.statusDetails)
                 .createdAt(this.createdAt)
                 .updatedAt(this.updatedAt)
@@ -127,6 +131,7 @@ public class AppointmentSessionEntity {
                 .lastInteractionAt(domain.getLastInteractionAt())
                 .lastNotificationSentAt(domain.getLastNotificationSentAt())
                 .closedAt(domain.getClosedAt())
+                .reviewRequestedAt(domain.getReviewRequestedAt())
                 .statusDetails(domain.getStatusDetails())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())

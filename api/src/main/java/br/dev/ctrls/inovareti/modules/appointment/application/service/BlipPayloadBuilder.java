@@ -85,9 +85,7 @@ public class BlipPayloadBuilder {
                 ? messageParamValues
                 : null;
 
-        List<String> finalMessageParamKeys = (messageParamKeys != null && !messageParamKeys.isEmpty())
-                ? messageParamKeys
-                : null;
+        List<String> finalMessageParamKeys = messageParamKeys;
 
         AudienceDto audienceDto = AudienceDto.builder()
                 .recipient(recipientE164)

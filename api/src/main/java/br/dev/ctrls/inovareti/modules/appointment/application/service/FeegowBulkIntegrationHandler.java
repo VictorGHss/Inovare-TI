@@ -107,11 +107,14 @@ public class FeegowBulkIntegrationHandler {
         }
         log.info("[BULK-INTEGRATION] Total de sessões elegíveis unificadas para confirmação em lote: {}", sessionList.size());
 
-        // Guarda de segurança: sem sessões, não há o que confirmar
+        // Guarda de segurança: sem sessões elegíveis, não há o que confirmar
         if (sessionList.isEmpty()) {
-            log.error("[BULK-INTEGRATION] ERRO CRÍTICO: Nenhuma sessão encontrada para groupId={}. " +
-                "O Feegow NÃO será chamado. Verifique se currentGroupId foi populado na ingestão " +
-                "e se o groupId recebido no webhook é o mesmo gerado na ingestão.", groupId);
+            if (!uniqueSessions.isEmpty()) {
+                log.info("[BULK-INTEGRATION] Todas as {} sessões do groupId={} já estão em estado final (CONFIRMED/CANCELED/ALTERATION_REQUESTED). Nenhuma ação necessária.",
+                    uniqueSessions.size(), groupId);
+            } else {
+                log.error("[BULK-INTEGRATION] ERRO CRÍTICO: Nenhuma sessão encontrada para groupId={}. O Feegow NÃO será chamado.", groupId);
+            }
             return sessionList;
         }
 

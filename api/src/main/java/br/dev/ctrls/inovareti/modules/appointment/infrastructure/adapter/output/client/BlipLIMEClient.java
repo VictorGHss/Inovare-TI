@@ -50,6 +50,7 @@ public class BlipLIMEClient implements BlipClientPort {
     private final AtomicLong lastRequestAt = new AtomicLong(0L);
     private final AtomicLong lastQueuesFetchAt = new AtomicLong(0L);
     private final java.util.concurrent.Semaphore blipConcurrencySemaphore = new java.util.concurrent.Semaphore(15);
+    private final java.util.concurrent.locks.ReentrantLock queuesLock = new java.util.concurrent.locks.ReentrantLock();
     private volatile List<BlipQueue> cachedQueuesList = null;
     private static final long QUEUES_CACHE_TTL_MS = 30 * 60 * 1000L; // 30 minutos
 
@@ -128,44 +129,56 @@ public class BlipLIMEClient implements BlipClientPort {
             return cachedQueuesList;
         }
 
-        synchronized (this) {
+        queuesLock.lock();
+        try {
             now = System.currentTimeMillis();
             if (cachedQueuesList != null && (now - lastQueuesFetchAt.get() < QUEUES_CACHE_TTL_MS)) {
                 return cachedQueuesList;
             }
+        } finally {
+            queuesLock.unlock();
+        }
 
-            Map<String, Object> response = getBlipQueues();
-            if (response == null || !response.containsKey("resource")) {
-                return cachedQueuesList != null ? cachedQueuesList : List.of();
-            }
-            
-            Object resourceObj = response.get("resource");
-            if (resourceObj instanceof Map<?, ?> resourceMap) {
-                Object itemsObj = resourceMap.get("items");
-                if (itemsObj instanceof List<?> items) {
-                    List<BlipQueue> queues = new ArrayList<>();
-                    for (Object item : items) {
-                        if (item instanceof Map<?, ?> itemMap) {
-                            Object identityObj = itemMap.get("identity");
-                            if (identityObj == null) {
-                                identityObj = itemMap.get("id");
-                            }
-                            if (identityObj == null) {
-                                identityObj = itemMap.get("name");
-                            }
-                            Object nameObj = itemMap.get("name");
-                            if (identityObj != null && nameObj != null) {
-                                queues.add(new BlipQueue(String.valueOf(identityObj), String.valueOf(nameObj)));
-                            }
-                        }
-                    }
-                    cachedQueuesList = Collections.unmodifiableList(queues);
-                    lastQueuesFetchAt.set(now);
-                    return cachedQueuesList;
-                }
-            }
+        // A chamada de rede HTTP ao Blip OCORRE FORA DE QUALQUER LOCK para não pinar Virtual Threads
+        Map<String, Object> response = getBlipQueues();
+        if (response == null || !response.containsKey("resource")) {
             return cachedQueuesList != null ? cachedQueuesList : List.of();
         }
+
+        Object resourceObj = response.get("resource");
+        if (resourceObj instanceof Map<?, ?> resourceMap) {
+            Object itemsObj = resourceMap.get("items");
+            if (itemsObj instanceof List<?> items) {
+                List<BlipQueue> queues = new ArrayList<>();
+                for (Object item : items) {
+                    if (item instanceof Map<?, ?> itemMap) {
+                        Object identityObj = itemMap.get("identity");
+                        if (identityObj == null) {
+                            identityObj = itemMap.get("id");
+                        }
+                        if (identityObj == null) {
+                            identityObj = itemMap.get("name");
+                        }
+                        Object nameObj = itemMap.get("name");
+                        if (identityObj != null && nameObj != null) {
+                            queues.add(new BlipQueue(String.valueOf(identityObj), String.valueOf(nameObj)));
+                        }
+                    }
+                }
+                List<BlipQueue> unmodifiableList = Collections.unmodifiableList(queues);
+
+                queuesLock.lock();
+                try {
+                    cachedQueuesList = unmodifiableList;
+                    lastQueuesFetchAt.set(now);
+                } finally {
+                    queuesLock.unlock();
+                }
+
+                return unmodifiableList;
+            }
+        }
+        return cachedQueuesList != null ? cachedQueuesList : List.of();
     }
 
     @Override

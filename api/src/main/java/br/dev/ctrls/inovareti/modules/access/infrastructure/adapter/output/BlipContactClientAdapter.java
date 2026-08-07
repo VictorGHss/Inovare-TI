@@ -159,7 +159,12 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
         final String rawPhone = normalizedIdentity.contains("@") 
             ? normalizedIdentity.substring(0, normalizedIdentity.indexOf('@')) 
             : normalizedIdentity;
-        final String digitsOnly = rawPhone.replaceAll("\\D", "");
+        String parsedDigits = rawPhone.replaceAll("\\D", "");
+        if (parsedDigits.startsWith("55") && parsedDigits.length() > 13) {
+            log.warn("[BlipContact-Adapter] Dígitos excedentes em telefone detectados ({}). Truncando para 13 dígitos.", parsedDigits);
+            parsedDigits = parsedDigits.substring(0, 13);
+        }
+        final String digitsOnly = parsedDigits;
         final String formattedPhone = digitsOnly.startsWith("55") ? "+" + digitsOnly : "+55" + digitsOnly;
         final String plainPhone = (digitsOnly.startsWith("55") && digitsOnly.length() > 11) ? digitsOnly.substring(2) : digitsOnly;
 
@@ -397,6 +402,9 @@ public class BlipContactClientAdapter implements BlipContactClientPort {
             return sanitized;
         }
         String digits = sanitized.replaceAll("\\D", "");
+        if (digits.startsWith("55") && digits.length() > 13) {
+            digits = digits.substring(0, 13);
+        }
         return digits + "@wa.gw.msging.net";
     }
 

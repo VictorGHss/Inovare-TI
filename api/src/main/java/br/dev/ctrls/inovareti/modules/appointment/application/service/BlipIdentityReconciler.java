@@ -180,11 +180,17 @@ public class BlipIdentityReconciler {
             return "";
         }
         
-        if (digitsOnly.startsWith("55")) {
-            return digitsOnly;
+        if (!digitsOnly.startsWith("55")) {
+            digitsOnly = "55" + digitsOnly;
+        }
+
+        // Sanitização estrita de tamanho (E.164 BR com DDI 55 possui no máximo 13 dígitos):
+        if (digitsOnly.length() > 13) {
+            log.warn("[RECONCILIATION] Telefone com dígitos excedentes truncado: {} -> {}", digitsOnly, digitsOnly.substring(0, 13));
+            digitsOnly = digitsOnly.substring(0, 13);
         }
         
-        return "55" + digitsOnly;
+        return digitsOnly;
     }
 }
 

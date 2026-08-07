@@ -80,6 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/financeiro/contaazul/authorize", "/financeiro/contaazul/callback").permitAll()
                 .requestMatchers(HttpMethod.GET, "/v1/admin/faqs", "/v1/admin/faqs/**", "/api/v1/admin/faqs", "/api/v1/admin/faqs/**").permitAll()
                 .requestMatchers("/v1/access/**", "/api/v1/access/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/doctors/configurations/test-review", "/api/v1/doctors/configurations/test-review").permitAll()
 
                 // Demais rotas administrativas/autenticação
                 .requestMatchers(APPOINTMENT_ADMIN_PATH).hasRole("ADMIN")

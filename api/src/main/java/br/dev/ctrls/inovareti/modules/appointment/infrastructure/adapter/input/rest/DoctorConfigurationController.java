@@ -45,15 +45,15 @@ public class DoctorConfigurationController {
         log.info("[REST] Teste manual de disparo de avaliação Google para o telefone={}, paciente={}, medico={}, hash={}",
                 phone, patientName, doctorName, cleanHash);
         
-        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_v1_copia", patientName, doctorName, cleanHash);
+        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_itsm_v2", cleanHash);
         
         return ResponseEntity.ok(java.util.Map.of(
             "status", "success",
-            "message", "Template pesquisa_avaliacao_google_v1_copia disparado com sucesso!",
+            "message", "Template pesquisa_avaliacao_google_itsm_v2 disparado com sucesso!",
             "phone", phone,
             "patientName", patientName,
             "doctorName", doctorName,
-            "googleReviewHash", googleReviewHash
+            "googleReviewHash", cleanHash
         ));
     }
 

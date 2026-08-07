@@ -38,6 +38,14 @@ public class BlipIdentityReconciler {
             } catch (Exception ignored) {}
         }
 
+        // Filtra imediatamente roteadores, postmasters e instâncias de servidor LIME
+        if (identity.contains("/") || identity.contains("msging-application") || 
+            identity.startsWith("postmaster@") || identity.startsWith("roteador") || 
+            identity.startsWith("desk@") || identity.startsWith("router@")) {
+            log.debug("[RECONCILIATION] Ignorando identidade de sistema/roteador LIME: {}", identity);
+            return "";
+        }
+
         // Resolução direta para identidades de túnel determinísticas
         if (identity.contains("@tunnel.msging.net")) {
             String local = identity.substring(0, identity.indexOf('@'));

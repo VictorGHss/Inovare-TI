@@ -290,24 +290,36 @@ public class BlipGroupActionHandler {
                t.contains("como confirmar");
     }
 
-    private boolean isConfirmGroupText(String lower) {
+    private boolean isMenuOrNavigationText(String lower) {
         if (lower == null) return false;
+        return lower.contains("início") || lower.contains("inicio") ||
+               lower.contains("voltar") || lower.contains("menu") ||
+               lower.contains("pesquisa") || lower.contains("setor") ||
+               lower.contains("especialidade") || lower.contains("médico") ||
+               lower.contains("medico") || lower.contains("atendimento") ||
+               lower.contains("dúvida") || lower.contains("duvida");
+    }
+
+    private boolean isConfirmGroupText(String lower) {
+        if (lower == null || isMenuOrNavigationText(lower)) return false;
         String t = lower.trim();
         return t.contains("confirmar tudo") || t.contains("confirmar_tudo") ||
                t.equalsIgnoreCase("1") || t.equalsIgnoreCase("1️⃣") ||
                t.equalsIgnoreCase("opcao 1") || t.equalsIgnoreCase("opção 1") ||
                t.equalsIgnoreCase("confirmar") || t.equalsIgnoreCase("confirmo") ||
-               t.startsWith("1 ") || t.startsWith("1-") || t.startsWith("1.");
+               t.startsWith("1 - confirmar") || t.startsWith("1. confirmar") ||
+               t.startsWith("1 - tudo") || t.startsWith("1. tudo");
     }
 
     private boolean isAlterGroupText(String lower) {
-        if (lower == null) return false;
+        if (lower == null || isMenuOrNavigationText(lower)) return false;
         String t = lower.trim();
         return t.contains("preciso alterar") || t.contains("preciso_alterar") ||
                t.equalsIgnoreCase("2") || t.equalsIgnoreCase("2️⃣") ||
                t.equalsIgnoreCase("opcao 2") || t.equalsIgnoreCase("opção 2") ||
                t.equalsIgnoreCase("alterar") ||
-               t.startsWith("2 ") || t.startsWith("2-") || t.startsWith("2.");
+               t.startsWith("2 - alterar") || t.startsWith("2. alterar") ||
+               t.startsWith("2 - preciso") || t.startsWith("2. preciso");
     }
 
     private void handleGroupHelp(String fromPhone, String dbPhone) {
@@ -382,8 +394,11 @@ public class BlipGroupActionHandler {
         if (metadata instanceof Map<?, ?> metadataMap) {
             Object origFrom = metadataMap.get("#tunnel.originalFrom");
             if (origFrom != null) {
-                realPhone = origFrom.toString().trim();
-                log.info("[WEBHOOK] Telefone real recuperado via #tunnel.originalFrom: {}", realPhone);
+                String cand = origFrom.toString().trim();
+                if (!cand.contains("/") && !cand.contains("msging-application") && !cand.startsWith("roteador") && !cand.startsWith("postmaster")) {
+                    realPhone = cand;
+                    log.info("[WEBHOOK] Telefone real recuperado via #tunnel.originalFrom: {}", realPhone);
+                }
             }
         }
         

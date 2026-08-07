@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SendPostAppointmentReviewUseCase {
 
-    private static final String TEMPLATE_REVIEW_GOOGLE = "pesquisa_avaliacao_google_v1";
+    private static final String TEMPLATE_REVIEW_GOOGLE = "pesquisa_avaliacao_google_v1_copia";
     private static final int FEEGOW_STATUS_ATENDIDO = 3;
 
     private final AppointmentExternalPort appointmentExternalPort;

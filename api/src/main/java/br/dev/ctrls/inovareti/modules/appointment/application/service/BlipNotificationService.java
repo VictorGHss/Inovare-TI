@@ -723,9 +723,9 @@ public class BlipNotificationService {
                 : "jrskH337hFK5Mn3WP";
 
         Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
-        messageParamValues.put("1", safeHash);
-        messageParamValues.put("2", safePatientName);
-        messageParamValues.put("3", safeDoctorName);
+        messageParamValues.put("1", safePatientName);
+        messageParamValues.put("2", safeDoctorName);
+        messageParamValues.put("3", safeHash);
         List<String> messageParamKeys = List.of("1", "2", "3");
 
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);

@@ -704,6 +704,8 @@ public class HandleBlipWebhookUseCase {
                 blipContextService.setUserContext(target, "Medico", doctorName);
                 blipContextService.setUserContext(target, "idAgendamentoFeegow", feegowAppointmentId);
                 blipContextService.setUserContext(target, "hasActiveAppointment", "true");
+                blipContextService.setUserContext(target, "isConfirmingAgenda", "false");
+                blipContextService.setUserContext(target, "payloadclique", "");
                 blipContextService.setUserContext(target, "name", patientName);
                 blipContextService.setUserContext(target, "paciente", patientName);
                 if (statusInfo != null && !statusInfo.isBlank()) {

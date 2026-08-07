@@ -41,9 +41,9 @@ public class SendPreAppointmentNoticeUseCase {
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneId.of("America/Sao_Paulo"));
-        // Janela de 1h antes (de 45 a 75 minutos no futuro)
-        LocalDateTime windowStart = now.plusMinutes(45);
-        LocalDateTime windowEnd = now.plusMinutes(75);
+        // Janela de 2h a 1h antes da consulta (de 60 a 120 minutos no futuro)
+        LocalDateTime windowStart = now.plusMinutes(60);
+        LocalDateTime windowEnd = now.plusMinutes(120);
 
         List<AppointmentSession> candidateSessions = appointmentSessionRepository.findConfirmedSessionsInWindow(windowStart, windowEnd);
 
@@ -51,7 +51,7 @@ public class SendPreAppointmentNoticeUseCase {
             return;
         }
 
-        log.info("[LEMBRETE-1H] Encontradas {} consulta(s) confirmada(s) elegíveis para o template '{}' 1h antes.",
+        log.info("[LEMBRETE-ANTECEDENCIA] Encontradas {} consulta(s) confirmada(s) elegíveis para o template '{}' (2h a 1h antes).",
                 candidateSessions.size(), TEMPLATE_NAME);
 
         for (AppointmentSession session : candidateSessions) {
@@ -90,12 +90,12 @@ public class SendPreAppointmentNoticeUseCase {
                     blipContextService.setBuilderMasterState(masterIdentity, prepararAtendimentoBlockId);
                     blipContextService.setBuilderMasterState(tunnelIdentity, prepararAtendimentoBlockId);
                     blipContextService.setBuilderMasterState(session.getPhoneNumber(), prepararAtendimentoBlockId);
-                    log.info("[LEMBRETE-1H] Master-State do Blip atualizado para Preparar_Atendimento ({}) no paciente {}", prepararAtendimentoBlockId, session.getPhoneNumber());
+                    log.info("[LEMBRETE-ANTECEDENCIA] Master-State do Blip atualizado para Preparar_Atendimento ({}) no paciente {}", prepararAtendimentoBlockId, session.getPhoneNumber());
                 } catch (Exception ex) {
-                    log.warn("[LEMBRETE-1H] Falha ao atualizar Master-State no Blip para {}: {}", session.getPhoneNumber(), ex.getMessage());
+                    log.warn("[LEMBRETE-ANTECEDENCIA] Falha ao atualizar Master-State no Blip para {}: {}", session.getPhoneNumber(), ex.getMessage());
                 }
 
-                log.info("[LEMBRETE-1H] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}', fila='{}'",
+                log.info("[LEMBRETE-ANTECEDENCIA] Disparando template '{}' para paciente='{}', médico='{}', hora='{}', tel='{}', fila='{}'",
                         TEMPLATE_NAME, templateData.patientName(), templateData.doctorName(),
                         templateData.appointmentTime(), session.getPhoneNumber(), resolvedQueue);
 
@@ -107,7 +107,7 @@ public class SendPreAppointmentNoticeUseCase {
                 appointmentSessionRepository.save(session);
 
             } catch (Exception ex) {
-                log.error("[LEMBRETE-1H] Falha ao disparar template '{}' para sessão ID={}: {}",
+                log.error("[LEMBRETE-ANTECEDENCIA] Falha ao disparar template '{}' para sessão ID={}: {}",
                         TEMPLATE_NAME, session.getId(), ex.getMessage(), ex);
             }
         }

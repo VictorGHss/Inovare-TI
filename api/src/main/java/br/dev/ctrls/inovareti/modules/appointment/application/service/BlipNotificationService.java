@@ -698,10 +698,10 @@ public class BlipNotificationService {
     }
 
     /**
-     * Envia o template de pesquisa de avaliação do Google Review (pesquisa_avaliacao_google_itsm_v2)
-     * via Active Campaign para o destino fornecido com exatamente 1 parâmetro (Hash da URL do Botão).
+     * Envia o template de pesquisa de avaliação do Google Review (pesquisa_avaliacao_google_itsm_v4)
+     * via Active Campaign para o destino fornecido com exatamente 1 parâmetro (ID do Médico no Botão /api/review/{doctorId}).
      */
-    public void sendReviewTemplateMessage(String destination, String templateName, String googleReviewHash) {
+    public void sendReviewTemplateMessage(String destination, String templateName, String doctorIdOrParam) {
         String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
         if (recipientE164 == null || recipientE164.length() < 14) {
             log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template de avaliação '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD.",
@@ -709,12 +709,12 @@ public class BlipNotificationService {
             return;
         }
 
-        String safeHash = (googleReviewHash != null && !googleReviewHash.isBlank())
-                ? googleReviewHash.trim().replaceAll("\\s+", "")
-                : "jrskH337hFK5Mn3WP";
+        String safeDoctorIdParam = (doctorIdOrParam != null && !doctorIdOrParam.isBlank())
+                ? doctorIdOrParam.trim().replaceAll("\\s+", "")
+                : "default";
 
         Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
-        messageParamValues.put("1", safeHash);
+        messageParamValues.put("1", safeDoctorIdParam);
         List<String> messageParamKeys = List.of("1");
 
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
@@ -734,16 +734,16 @@ public class BlipNotificationService {
         try {
             var response = limeClient.executeCommand(commandPayload, BlipLIMEClient.AuthorizationScope.ROUTER);
             validateBlipResponse(response, templateName, recipientE164);
-            log.info("[GOOGLE-REVIEW] Template de avaliação '{}' enviado via Active Campaign. destination={}, hash={}, status={}",
-                    templateName, recipientE164, safeHash, response != null ? response.get("status") : "success");
+            log.info("[GOOGLE-REVIEW] Template de avaliação '{}' enviado via Active Campaign. destination={}, doctorId={}, status={}",
+                    templateName, recipientE164, safeDoctorIdParam, response != null ? response.get("status") : "success");
         } catch (Exception e) {
             log.error("[GOOGLE-REVIEW] Falha ao enviar template de avaliação '{}' para {}: {}", templateName, recipientE164, e.getMessage(), e);
             throw new RuntimeException("Falha ao enviar avaliação no Blip para " + recipientE164 + ": " + e.getMessage(), e);
         }
     }
 
-    public void sendReviewTemplateMessage(String destination, String templateName, String patientName, String doctorName, String googleReviewHash) {
-        sendReviewTemplateMessage(destination, templateName, googleReviewHash);
+    public void sendReviewTemplateMessage(String destination, String templateName, String patientName, String doctorName, String doctorIdOrParam) {
+        sendReviewTemplateMessage(destination, templateName, doctorIdOrParam);
     }
 }
 

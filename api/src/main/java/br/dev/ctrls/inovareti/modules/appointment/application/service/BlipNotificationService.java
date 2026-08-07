@@ -699,9 +699,10 @@ public class BlipNotificationService {
 
     /**
      * Envia o template de pesquisa de avaliação do Google Review (pesquisa_avaliacao_google_v1)
-     * via Active Campaign para o destino fornecido com os parâmetros de nome e código hash.
+     * via Active Campaign para o destino fornecido com os parâmetros:
+     * 1 = Nome do Paciente, 2 = Nome do Médico, 3 = Hash da URL do Google Review.
      */
-    public void sendReviewTemplateMessage(String destination, String templateName, String patientName, String googleReviewHash) {
+    public void sendReviewTemplateMessage(String destination, String templateName, String patientName, String doctorName, String googleReviewHash) {
         String recipientE164 = BlipPayloadBuilder.formatE164Recipient(destination);
         if (recipientE164 == null || recipientE164.length() < 14) {
             log.warn("[TELEFONE-INVÁLIDO] Abortando envio do template de avaliação '{}'. O destino '{}' é inválido ou possui menos de 11 dígitos com DDD.",
@@ -713,14 +714,19 @@ public class BlipNotificationService {
                 ? br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(patientName.trim())
                 : "Paciente";
 
+        String safeDoctorName = (doctorName != null && !doctorName.isBlank() && !"null".equalsIgnoreCase(doctorName.trim()))
+                ? br.dev.ctrls.inovareti.modules.appointment.infrastructure.utils.StringSanitizer.sanitize(doctorName.trim())
+                : "Clínica Inovare";
+
         String safeHash = (googleReviewHash != null && !googleReviewHash.isBlank())
                 ? googleReviewHash.trim()
                 : "jrskH337hFK5Mn3WP";
 
         Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();
         messageParamValues.put("1", safePatientName);
-        messageParamValues.put("2", safeHash);
-        List<String> messageParamKeys = List.of("1", "2");
+        messageParamValues.put("2", safeDoctorName);
+        messageParamValues.put("3", safeHash);
+        List<String> messageParamKeys = List.of("1", "2", "3");
 
         String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
         String campaignName = "Avaliacao Google - " + uniqueSuffix;

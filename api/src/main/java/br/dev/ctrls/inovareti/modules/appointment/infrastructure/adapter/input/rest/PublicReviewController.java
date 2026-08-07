@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PublicReviewController {
 
-    public static final String CLINIC_FALLBACK_URL = "https://share.google/OBtREC0KLjzx1YNOP";
+    public static final String CLINIC_FALLBACK_URL = "https://search.google.com/local/writereview?placeid=ChIJN3Bz2lwa6JQRzi0rQrcYanw";
     private final DoctorConfigurationRepository doctorConfigurationRepository;
 
     /**

@@ -5,8 +5,8 @@ package br.dev.ctrls.inovareti.modules.appointment.application.util;
  */
 public class GoogleReviewUrlUtils {
 
-    public static final String DEFAULT_FALLBACK_URL = "https://share.google/OBtREC0KLjzx1YNOP";
-    public static final String DEFAULT_REVIEW_HASH = "OBtREC0KLjzx1YNOP";
+    public static final String DEFAULT_FALLBACK_URL = "https://search.google.com/local/writereview?placeid=ChIJN3Bz2lwa6JQRzi0rQrcYanw";
+    public static final String DEFAULT_REVIEW_HASH = "ChIJN3Bz2lwa6JQRzi0rQrcYanw";
 
     private GoogleReviewUrlUtils() {}
 

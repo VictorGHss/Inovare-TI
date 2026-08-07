@@ -719,7 +719,7 @@ public class BlipNotificationService {
                 : "Clínica Inovare";
 
         String safeHash = (googleReviewHash != null && !googleReviewHash.isBlank())
-                ? googleReviewHash.trim()
+                ? googleReviewHash.trim().replaceAll("\\s+", "")
                 : "jrskH337hFK5Mn3WP";
 
         Map<String, String> messageParamValues = new java.util.LinkedHashMap<>();

@@ -141,7 +141,8 @@ public class SendPostAppointmentReviewUseCase {
                     doctorName = appt.doctorName().trim();
                 }
 
-                String reviewHash = GoogleReviewUrlUtils.extractHash(googleReviewUrl);
+                String rawHash = GoogleReviewUrlUtils.extractHash(googleReviewUrl);
+                String reviewHash = (rawHash != null && !rawHash.isBlank()) ? rawHash.trim().replaceAll("\\s+", "") : "jrskH337hFK5Mn3WP";
 
                 log.info("[GOOGLE-REVIEW] Enviando template '{}' para agendamento ID {} (Paciente: {}, Médico: {}, Telefone: {}, Hash: {})",
                         TEMPLATE_REVIEW_GOOGLE, feegowAppointmentId, patientName, doctorName, phone, reviewHash);

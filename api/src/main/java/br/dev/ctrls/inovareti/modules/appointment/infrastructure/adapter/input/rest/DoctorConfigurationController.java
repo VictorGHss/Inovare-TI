@@ -38,10 +38,14 @@ public class DoctorConfigurationController {
             @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "Dr. Eduardo Bisinella") String doctorName,
             @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "jrskH337hFK5Mn3WP") String googleReviewHash) {
         
+        String cleanHash = (googleReviewHash != null && !googleReviewHash.isBlank())
+                ? googleReviewHash.trim().replaceAll("\\s+", "")
+                : "jrskH337hFK5Mn3WP";
+
         log.info("[REST] Teste manual de disparo de avaliação Google para o telefone={}, paciente={}, medico={}, hash={}",
-                phone, patientName, doctorName, googleReviewHash);
+                phone, patientName, doctorName, cleanHash);
         
-        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_v1_copia", patientName, doctorName, googleReviewHash);
+        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_v1_copia", patientName, doctorName, cleanHash);
         
         return ResponseEntity.ok(java.util.Map.of(
             "status", "success",

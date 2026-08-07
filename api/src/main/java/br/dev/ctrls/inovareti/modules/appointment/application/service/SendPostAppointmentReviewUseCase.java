@@ -8,7 +8,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.dev.ctrls.inovareti.modules.appointment.application.util.GoogleReviewUrlUtils;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.AppointmentSession;
 import br.dev.ctrls.inovareti.modules.appointment.domain.model.DoctorConfiguration;
 import br.dev.ctrls.inovareti.modules.appointment.domain.port.output.AppointmentExternalPort;
@@ -116,7 +115,6 @@ public class SendPostAppointmentReviewUseCase {
                     continue;
                 }
 
-                String googleReviewUrl = null;
                 String doctorName = "Clínica Inovare";
 
                 if (appt.doctorId() != null && !appt.doctorId().isBlank()) {
@@ -128,9 +126,6 @@ public class SendPostAppointmentReviewUseCase {
                             if (docCfg.getDoctorName() != null && !docCfg.getDoctorName().isBlank()) {
                                 doctorName = docCfg.getDoctorName().trim();
                             }
-                            if (docCfg.getGoogleReviewUrl() != null && !docCfg.getGoogleReviewUrl().isBlank()) {
-                                googleReviewUrl = docCfg.getGoogleReviewUrl();
-                            }
                         }
                     } catch (Exception dEx) {
                         log.warn("[GOOGLE-REVIEW] Falha ao buscar configuração do médico ID {}: {}", appt.doctorId(), dEx.getMessage());
@@ -141,13 +136,12 @@ public class SendPostAppointmentReviewUseCase {
                     doctorName = appt.doctorName().trim();
                 }
 
-                String rawHash = GoogleReviewUrlUtils.extractHash(googleReviewUrl);
-                String reviewHash = (rawHash != null && !rawHash.isBlank()) ? rawHash.trim().replaceAll("\\s+", "") : "jrskH337hFK5Mn3WP";
+                String doctorIdParam = (appt.doctorId() != null && !appt.doctorId().isBlank()) ? appt.doctorId().trim() : "default";
 
-                log.info("[GOOGLE-REVIEW] Enviando template '{}' para agendamento ID {} (Paciente: {}, Médico: {}, Telefone: {}, Hash: {})",
-                        TEMPLATE_REVIEW_GOOGLE, feegowAppointmentId, patientName, doctorName, phone, reviewHash);
+                log.info("[GOOGLE-REVIEW] Enviando template '{}' para agendamento ID {} (Paciente: {}, Médico: {}, Telefone: {}, DoctorID Param: {})",
+                        TEMPLATE_REVIEW_GOOGLE, feegowAppointmentId, patientName, doctorName, phone, doctorIdParam);
 
-                blipNotificationService.sendReviewTemplateMessage(phone, TEMPLATE_REVIEW_GOOGLE, patientName, doctorName, reviewHash);
+                blipNotificationService.sendReviewTemplateMessage(phone, TEMPLATE_REVIEW_GOOGLE, doctorIdParam);
 
                 session.setReviewRequestedAt(LocalDateTime.now());
                 if (session.getPhoneNumber() == null || session.getPhoneNumber().isBlank()) {

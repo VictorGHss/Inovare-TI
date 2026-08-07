@@ -34,18 +34,19 @@ public class DoctorConfigurationController {
     @PostMapping("/test-review")
     public ResponseEntity<java.util.Map<String, Object>> testGoogleReview(
             @org.springframework.web.bind.annotation.RequestParam String phone,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String doctorId,
             @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "Paciente Teste") String patientName,
             @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "Dr. Eduardo Bisinella") String doctorName,
-            @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "jrskH337hFK5Mn3WP") String googleReviewHash) {
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String googleReviewHash) {
         
-        String cleanHash = (googleReviewHash != null && !googleReviewHash.isBlank())
-                ? googleReviewHash.trim().replaceAll("\\s+", "")
-                : "jrskH337hFK5Mn3WP";
+        String reviewParam = (doctorId != null && !doctorId.isBlank())
+                ? doctorId.trim()
+                : ((googleReviewHash != null && !googleReviewHash.isBlank()) ? googleReviewHash.trim().replaceAll("\\s+", "") : "default");
 
-        log.info("[REST] Teste manual de disparo de avaliação Google para o telefone={}, paciente={}, medico={}, hash={}",
-                phone, patientName, doctorName, cleanHash);
+        log.info("[REST] Teste manual de disparo de avaliação Google para o telefone={}, paciente={}, medico={}, reviewParam={}",
+                phone, patientName, doctorName, reviewParam);
         
-        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_itsm_v2", cleanHash);
+        blipNotificationService.sendReviewTemplateMessage(phone, "pesquisa_avaliacao_google_itsm_v2", reviewParam);
         
         return ResponseEntity.ok(java.util.Map.of(
             "status", "success",
@@ -53,7 +54,7 @@ public class DoctorConfigurationController {
             "phone", phone,
             "patientName", patientName,
             "doctorName", doctorName,
-            "googleReviewHash", cleanHash
+            "reviewParam", reviewParam
         ));
     }
 
